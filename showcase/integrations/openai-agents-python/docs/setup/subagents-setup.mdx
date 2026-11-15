@@ -1,0 +1,40 @@
+<Steps>
+  <Step>
+    ### Install the OpenAI Agents AG-UI adapter
+
+    ```bash
+    pip install ag-ui-openai-agents openai-agents
+    ```
+
+  </Step>
+  <Step>
+    ### Give the supervisor one tool per sub-agent
+
+    Each sub-agent is its own SDK `Agent` with a role prompt. The supervisor
+    reaches it through an `async` function tool that runs the sub-agent with
+    `Runner.run` and returns its final output. The supervisor's instructions
+    decide the order. Every delegation is an ordinary tool call, so the
+    adapter streams the `TOOL_CALL_*` events the UI renders its
+    per-delegation cards from.
+
+    <DemoCode file="src/demo_agents/subagents.py" region="subagent-setup" />
+
+    Each delegation also appends an entry to the `delegations` slot of shared
+    state with `shared_state().update(...)`, which streams a `STATE_SNAPSHOT`
+    as the tool finishes, so the UI's delegation log fills in while the
+    supervisor is still running.
+
+  </Step>
+</Steps>
+
+<Callout type="info" title="Handoffs and agents as tools">
+  The SDK's other multi-agent tools work through the adapter too, with two
+  limits. An agent reached by `handoffs` keeps its own tools and
+  instructions, so it does not get the page's frontend tools or the
+  `useAgentContext` entries. Give it what it needs through its own dynamic
+  instructions, for example by reading `shared_state()`. A tool marked
+  `needs_approval=True` inside an agent used through `Agent.as_tool()` cannot
+  be resumed, because it pauses inside the sub-agent's own run. Gate the
+  agent tool itself (`as_tool(..., needs_approval=True)`) or reach the
+  sub-agent by handoff.
+</Callout>

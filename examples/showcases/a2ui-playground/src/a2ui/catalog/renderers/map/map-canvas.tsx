@@ -15,8 +15,8 @@ import {
   Marker,
   NavigationControl,
   Source,
-  type MapRef,
 } from "react-map-gl/maplibre";
+import type { MapRef } from "react-map-gl/maplibre";
 import { useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import {
@@ -25,9 +25,8 @@ import {
   STREETS_STYLE,
   boundsOf,
   isDegenerate,
-  type LngLat,
-  type MapPoint,
 } from "./geo";
+import type { LngLat, MapPoint } from "./geo";
 
 export type MapCanvasProps = {
   points?: MapPoint[];

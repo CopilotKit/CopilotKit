@@ -1,0 +1,8 @@
+{
+  "title": "Troubleshooting",
+  "pages": [
+    "common-issues",
+    "debug-mode",
+    "event-inspector"
+  ]
+}

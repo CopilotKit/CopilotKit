@@ -100,8 +100,8 @@ const chartParameters = z.object({
       min-height: 0;
       grid-template-columns: minmax(0, 1fr) 0;
       overflow: hidden;
-      color: #14213d;
-      background: #fff;
+      color: light-dark(#14213d, #fafafa);
+      background: light-dark(#fff, #0a0a0a);
       transition: grid-template-columns 180ms ease;
     }
     .beautiful-page.app-mode {
@@ -115,15 +115,15 @@ const chartParameters = z.object({
       display: flex;
       gap: 0.15rem;
       padding: 0.2rem;
-      border: 1px solid #d8e0ea;
+      border: 1px solid light-dark(#d8e0ea, #303136);
       border-radius: 999px;
-      background: #eef2f7;
+      background: light-dark(#eef2f7, #242529);
     }
     .mode-toggle button {
       padding: 0.4rem 0.85rem;
       border: 0;
       border-radius: 999px;
-      color: #52637a;
+      color: light-dark(#52637a, #adadb2);
       background: transparent;
       font: inherit;
       font-size: 0.8rem;
@@ -131,8 +131,8 @@ const chartParameters = z.object({
       cursor: pointer;
     }
     .mode-toggle button[aria-pressed="true"] {
-      color: #14213d;
-      background: #fff;
+      color: light-dark(#14213d, #fafafa);
+      background: light-dark(#fff, #303136);
       box-shadow: 0 1px 4px #94a3b855;
     }
     .mode-toggle button:focus-visible {
@@ -163,15 +163,7 @@ const chartParameters = z.object({
       min-width: 0;
       min-height: 0;
       overflow: auto;
-      border-left: 1px solid #d8e0ea;
-    }
-    :host-context(.dark) .beautiful-page,
-    :host-context(.dark) .chat-pane {
-      color: #f8fafc;
-      background: #111827;
-    }
-    :host-context(.dark) .brand {
-      color: #f8fafc;
+      border-left: 1px solid light-dark(#d8e0ea, #303136);
     }
     @media (prefers-reduced-motion: reduce) {
       .beautiful-page {

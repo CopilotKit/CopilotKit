@@ -74,15 +74,15 @@ export const DEFAULT_AGENT_CONFIG: AgentConfig = {
     .sign-in-card {
       width: min(100%, 28rem);
       padding: 1.5rem;
-      border: 1px solid #d8e0ea;
+      border: 1px solid light-dark(#d8e0ea, #303136);
       border-radius: 1rem;
-      color: #17233a;
-      background: #fff;
+      color: light-dark(#17233a, #fafafa);
+      background: light-dark(#fff, #191a1e);
       box-shadow: 0 18px 48px rgb(30 49 73 / 12%);
     }
     .eyebrow {
       margin: 0;
-      color: #4f46e5;
+      color: light-dark(#4f46e5, #818cf8);
       font-size: 0.7rem;
       font-weight: 750;
       letter-spacing: 0.14em;
@@ -93,13 +93,13 @@ export const DEFAULT_AGENT_CONFIG: AgentConfig = {
       font-size: 1.45rem;
     }
     p {
-      color: #52637a;
+      color: light-dark(#52637a, #adadb2);
       line-height: 1.55;
     }
     code {
       padding: 0.15rem 0.35rem;
       border-radius: 0.3rem;
-      background: #eef2ff;
+      background: light-dark(#eef2ff, rgb(30 27 75 / 40%));
       font-family: ui-monospace, monospace;
     }
     .token-row {
@@ -107,12 +107,12 @@ export const DEFAULT_AGENT_CONFIG: AgentConfig = {
       gap: 0.4rem;
       margin: 1rem 0;
       padding: 0.85rem;
-      border: 1px solid #d8e0ea;
+      border: 1px solid light-dark(#d8e0ea, #303136);
       border-radius: 0.65rem;
-      background: #f8fafc;
+      background: light-dark(#f8fafc, #242529);
     }
     .token-row span {
-      color: #64748b;
+      color: light-dark(#64748b, #adadb2);
       font-size: 0.7rem;
       font-weight: 700;
       text-transform: uppercase;
@@ -145,19 +145,19 @@ export const DEFAULT_AGENT_CONFIG: AgentConfig = {
       justify-content: space-between;
       gap: 1rem;
       padding: 0.75rem 1rem;
-      border: 1px solid #86efac;
+      border: 1px solid light-dark(#86efac, #166534);
       border-radius: 0.75rem;
-      color: #14532d;
-      background: #f0fdf4;
+      color: light-dark(#14532d, #86efac);
+      background: light-dark(#f0fdf4, rgb(5 46 22 / 40%));
       font-size: 0.85rem;
       font-weight: 650;
     }
     .auth-banner button {
       min-height: 2.25rem;
       padding: 0.35rem 0.7rem;
-      border-color: #86efac;
-      color: #14532d;
-      background: #fff;
+      border-color: light-dark(#86efac, #166534);
+      color: light-dark(#14532d, #86efac);
+      background: light-dark(#fff, #191a1e);
     }
   `,
 })
@@ -225,10 +225,10 @@ export class AuthCardComponent {
       display: grid;
       gap: 1.25rem;
       padding: 1.25rem;
-      border: 1px solid #d8e0ea;
+      border: 1px solid light-dark(#d8e0ea, #303136);
       border-radius: 1rem;
-      color: #17233a;
-      background: #fff;
+      color: light-dark(#17233a, #fafafa);
+      background: light-dark(#fff, #191a1e);
       box-shadow: 0 12px 34px rgb(30 49 73 / 8%);
     }
     .eyebrow,
@@ -237,7 +237,7 @@ export class AuthCardComponent {
       margin: 0;
     }
     .eyebrow {
-      color: #4f46e5;
+      color: light-dark(#4f46e5, #818cf8);
       font-size: 0.7rem;
       font-weight: 750;
       letter-spacing: 0.14em;
@@ -249,7 +249,7 @@ export class AuthCardComponent {
     }
     p {
       margin-top: 0.4rem;
-      color: #64748b;
+      color: light-dark(#64748b, #adadb2);
       font-size: 0.82rem;
     }
     .controls {
@@ -260,17 +260,17 @@ export class AuthCardComponent {
     label {
       display: grid;
       gap: 0.35rem;
-      color: #475569;
+      color: light-dark(#475569, #adadb2);
       font-size: 0.75rem;
       font-weight: 650;
     }
     select {
       min-height: 2.5rem;
       padding: 0.45rem 2rem 0.45rem 0.65rem;
-      border: 1px solid #cbd5e1;
+      border: 1px solid light-dark(#cbd5e1, #303136);
       border-radius: 0.55rem;
-      color: #17233a;
-      background: #f8fafc;
+      color: light-dark(#17233a, #fafafa);
+      background: light-dark(#f8fafc, #242529);
       font: inherit;
       text-transform: capitalize;
     }

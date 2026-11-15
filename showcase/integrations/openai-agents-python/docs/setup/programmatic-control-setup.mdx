@@ -1,0 +1,36 @@
+<Steps>
+  <Step>
+    ### Install the OpenAI Agents AG-UI adapter
+
+    ```bash
+    pip install ag-ui-openai-agents openai-agents
+    ```
+
+  </Step>
+  <Step>
+    ### Wire the agent once, and chat and code share it
+
+    `copilotkit.runAgent`, `agent.subscribe` and `agent.addMessage` drive runs
+    against the same AG-UI endpoint your chat UI posts to, so there is no
+    second backend to set up. Mount the `OpenAIAgentsAgent` the way any chat
+    demo does, and every entry point sees the same model, tools and
+    instructions.
+
+    <DemoCode file="src/agent_server.py" region="agent-server" />
+
+    The server keeps no sessions. Every run carries the thread's messages
+    from the client, so a headless run on the same agent continues its
+    thread, and a fresh `threadId` starts a new one.
+
+  </Step>
+</Steps>
+
+<Callout type="info" title="Headless interrupts come from approval-gated tools">
+  The headless interrupt-resolver pattern (read the interrupt off the agent,
+  answer it with a `resume`) works with a server tool marked
+  `needs_approval=True`. The run ends with an interrupt for the call, and a
+  `resume` of `{"approved": true}` runs it (see the human-in-the-loop setup).
+  To ask the user from code without a backend tool, use the frontend-tool
+  Promise pattern: register the tool with `useFrontendTool` and an `async`
+  handler, and resolve its promise when your own UI has the answer.
+</Callout>

@@ -683,7 +683,7 @@ const FOLDER_INDEX: RedirectEntry[] = [
   {
     id: "FI-migrate",
     // Mirrors the existing /migrate → /migrate/v2 entry in
-    // showcase/shell-docs/next.config.ts, kept here so the SHELL host's
+    // showcase/shell-docs/src/lib/redirects/seo-redirects.ts, kept here so the SHELL host's
     // middleware also covers it during the cutover.
     source: "/migrate",
     destination: "/migrate/v2",

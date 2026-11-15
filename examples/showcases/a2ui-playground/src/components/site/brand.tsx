@@ -1,7 +1,7 @@
 /**
- * Brand marks, inlined from public/brand/a2ui.svg and public/brand/copilotkit.svg.
- * Paths are untouched; only the dark ink fills are swapped to currentColor so
- * the marks take the text colour of either theme.
+ * Brand marks as inline SVG: A2UI and CopilotKit (from public/brand/a2ui.svg and copilotkit.svg), shadcn/ui
+ * and Material 3. Paths are untouched; only the dark ink fills are swapped to currentColor so the marks
+ * take the text colour of either theme.
  */
 import type { SVGProps } from "react";
 
@@ -178,31 +178,31 @@ export function CopilotKitKite(props: SVGProps<SVGSVGElement>) {
       <path
         d="M8.162 7.758c2.093-2.738 3.831-5.445 4.498-7.63a.093.093 0 01.14-.051c2.324 1.539 6.558 2.552 10.301 2.576a.09.09 0 01.085.124c-1.243 3.158-2.765 8.817-2.823 15.28-.001.095-.135.13-.183.046-2.131-3.729-8.955-8.968-11.982-10.205a.09.09 0 01-.036-.14z"
         fill="url(#cpk-kite-0)"
-      ></path>
+      />
       <path
         d="M15.223 6.083A61.492 61.492 0 018.25 7.827c-.045.008-.055.071-.012.089 3.05 1.267 9.84 6.492 11.952 10.206a.017.017 0 00.022.007.018.018 0 00.01-.024l-4.999-12.02z"
         fill="url(#cpk-kite-1)"
-      ></path>
+      />
       <path
         d="M12.81.07c2.8 1.528 6.037 2.214 10.33 2.575.028.002.036.039.012.051-.55.282-3.695 1.883-6.03 2.74-.626.23-1.256.443-1.876.64a.028.028 0 01-.033-.016L12.746.128c-.017-.04.027-.078.065-.058z"
         fill="url(#cpk-kite-2)"
-      ></path>
+      />
       <path
         d="M12.725.075c.046-.019.1.003.119.05l7.514 17.923a.091.091 0 01-.148.1l-.02-.03L12.675.195a.091.091 0 01.049-.12z"
         fill="#513C9F"
-      ></path>
+      />
       <path
         d="M23.06 2.66c.044-.025.1-.01.125.034.025.044.009.1-.035.124v.001l-.008.004-.025.015-.1.054a41.384 41.384 0 01-1.811.92A47.05 47.05 0 0116.33 5.82c-1.954.674-3.97 1.197-5.497 1.552a66.27 66.27 0 01-2.38.507l-.138.026-.036.007h-.01l-.002.002a.091.091 0 11-.033-.18l.016.09-.015-.09h.002l.01-.002.035-.007.137-.025a66.16 66.16 0 002.373-.506c1.524-.354 3.533-.876 5.479-1.547a46.857 46.857 0 006.276-2.709c.166-.087.295-.156.381-.204l.099-.054.024-.014.008-.004z"
         fill="#513C9F"
-      ></path>
+      />
       <path
         d="M13.838 2.272a.16.16 0 01.107.2l-2.72 9.055h6.4l.061.013a.16.16 0 010 .295l-.061.013h-6.541L.679 24.099l-.05.04a.16.16 0 01-.194-.245l10.43-12.285 2.773-9.23a.16.16 0 01.2-.107z"
         fill="#ABABAB"
-      ></path>
+      />
       <path
         d="M7.809 21.461l-1.232.173c.638 1.69 1.949 2.427 3.514 2.427 3.831 0 2.661-4.334 4.883-4.334 1.61 0 .956 3.513 4.423 3.513 2.116 0 2.326-2.131 1.966-3.048l-.008-.016-.567-.868c-.037-.058-.127-.036-.133.032l-.106 1.053a1.01 1.01 0 00.003.219c.088.727.144 2.491-1.155 2.491-1.37 0-1.7-3.467-4.423-3.467-3.196 0-2.785 4.289-4.747 4.289-1.294 0-2.28-1.46-2.418-2.464z"
         fill="url(#cpk-kite-3)"
-      ></path>
+      />
       <defs>
         <linearGradient
           gradientUnits="userSpaceOnUse"
@@ -212,8 +212,8 @@ export function CopilotKitKite(props: SVGProps<SVGSVGElement>) {
           y1="1.467"
           y2="11.504"
         >
-          <stop stopColor="#6430AB"></stop>
-          <stop offset="1" stopColor="#AA89D8"></stop>
+          <stop stopColor="#6430AB" />
+          <stop offset="1" stopColor="#AA89D8" />
         </linearGradient>
         <linearGradient
           gradientUnits="userSpaceOnUse"
@@ -223,8 +223,8 @@ export function CopilotKitKite(props: SVGProps<SVGSVGElement>) {
           y1="7.125"
           y2="16.204"
         >
-          <stop stopColor="#005DBB"></stop>
-          <stop offset="1" stopColor="#3D92E8"></stop>
+          <stop stopColor="#005DBB" />
+          <stop offset="1" stopColor="#3D92E8" />
         </linearGradient>
         <linearGradient
           gradientUnits="userSpaceOnUse"
@@ -234,8 +234,8 @@ export function CopilotKitKite(props: SVGProps<SVGSVGElement>) {
           y1="1.467"
           y2="5.892"
         >
-          <stop stopColor="#1B70C4"></stop>
-          <stop offset="1" stopColor="#54A4F2"></stop>
+          <stop stopColor="#1B70C4" />
+          <stop offset="1" stopColor="#54A4F2" />
         </linearGradient>
         <linearGradient
           gradientUnits="userSpaceOnUse"
@@ -245,11 +245,11 @@ export function CopilotKitKite(props: SVGProps<SVGSVGElement>) {
           y1="21.758"
           y2="21.758"
         >
-          <stop stopColor="#4497EA"></stop>
-          <stop offset=".255" stopColor="#1463B2"></stop>
-          <stop offset=".499" stopColor="#0A437D"></stop>
-          <stop offset=".667" stopColor="#2476C8"></stop>
-          <stop offset=".973" stopColor="#0C549A"></stop>
+          <stop stopColor="#4497EA" />
+          <stop offset=".255" stopColor="#1463B2" />
+          <stop offset=".499" stopColor="#0A437D" />
+          <stop offset=".667" stopColor="#2476C8" />
+          <stop offset=".973" stopColor="#0C549A" />
         </linearGradient>
       </defs>
     </svg>
@@ -259,4 +259,26 @@ export function CopilotKitKite(props: SVGProps<SVGSVGElement>) {
 /** The CopilotKit wordmark without its trailing kite: same artwork, viewBox cropped to the letters. */
 export function CopilotKitWordmark(props: SVGProps<SVGSVGElement>) {
   return <CopilotKitLogo viewBox="0.85 3.6 102.2 22.95" {...props} />;
+}
+
+/** The shadcn/ui mark (from Simple Icons), in currentColor. */
+export function ShadcnMark(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...props}>
+      <path d="M22.219 11.784 11.784 22.219c-.407.407-.407 1.068 0 1.476.407.407 1.068.407 1.476 0L23.695 13.26c.407-.408.407-1.069 0-1.476-.408-.407-1.069-.407-1.476 0ZM20.132.305.305 20.132c-.407.407-.407 1.068 0 1.476.408.407 1.069.407 1.476 0L21.608 1.781c.407-.407.407-1.068 0-1.476-.408-.407-1.069-.407-1.476 0Z" />
+    </svg>
+  );
+}
+
+/** The Material 3 logo, as m3.material.io shows it: the Material mark on Material's blue tile. */
+export function MaterialMark(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 70 70" fill="none" aria-hidden="true" {...props}>
+      <rect width="70" height="70" rx="21" fill="#00639B" />
+      <path
+        d="M35 59c-3.309 0-6.436-.618-9.382-1.854-2.909-1.273-5.454-2.982-7.636-5.128-2.146-2.181-3.855-4.727-5.127-7.636C11.617 41.436 11 38.309 11 35c0-3.345.618-6.473 1.854-9.382 1.273-2.909 2.982-5.436 5.128-7.582 2.182-2.181 4.727-3.89 7.636-5.127C28.564 11.636 31.691 11 35 11c3.346 0 6.473.636 9.382 1.91 2.909 1.236 5.436 2.945 7.582 5.126 2.182 2.146 3.89 4.673 5.127 7.582 1.273 2.91 1.91 6.037 1.91 9.382 0 3.31-.637 6.436-1.91 9.382-1.236 2.909-2.945 5.455-5.127 7.636-2.146 2.146-4.673 3.855-7.582 5.128C41.472 58.382 38.346 59 35 59ZM19.727 47.273V22.727A18.969 18.969 0 0 0 16.51 28.4c-.764 2.073-1.145 4.273-1.145 6.6s.381 4.545 1.145 6.655a19.143 19.143 0 0 0 3.218 5.618Zm3-27.546h24.6a18.97 18.97 0 0 0-5.672-3.218c-2.11-.764-4.328-1.145-6.655-1.145s-4.545.381-6.654 1.145a19.143 19.143 0 0 0-5.619 3.218ZM35 40.455l8.236-16.364H26.818L35 40.455Zm2.182 5.454h8.727V28.455l-8.727 17.454Zm-13.091 0h8.727l-8.727-17.454v17.454ZM35 54.636c2.326 0 4.544-.381 6.654-1.145 2.109-.764 4-1.836 5.672-3.218h-24.6a19.143 19.143 0 0 0 5.619 3.218c2.109.764 4.327 1.145 6.654 1.145Zm15.272-7.363a19.143 19.143 0 0 0 3.218-5.618c.764-2.11 1.145-4.328 1.145-6.655s-.381-4.527-1.145-6.6c-.764-2.11-1.836-4-3.218-5.673v24.546Z"
+        fill="#FBF7FF"
+      />
+    </svg>
+  );
 }

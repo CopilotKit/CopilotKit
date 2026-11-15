@@ -20,5 +20,6 @@ import { myRenderers } from "./renderers";
 export const myCatalog = createCatalog(myDefinitions, myRenderers, {
   catalogId: "declarative-gen-ui-catalog",
   includeBasicCatalog: true,
+  protocolVersion: "1.0",
 });
 // @endregion[create-catalog]

@@ -18,10 +18,10 @@
  * line stays under a surface that keeps growing (the wireframe itself is what was measured at the start).
  */
 import { useEffect, useRef, useState } from "react";
-import {
-  generate,
-  type GenerateOptions,
-  type GenerateRun,
+import { generate } from "@/vendor/transitions/ui-generation.js";
+import type {
+  GenerateOptions,
+  GenerateRun,
 } from "@/vendor/transitions/ui-generation.js";
 
 const SETTLE = 250;
@@ -36,7 +36,7 @@ const reduced = () =>
   typeof matchMedia === "function" &&
   matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-function scrollParent(el: HTMLElement): HTMLElement | null {
+export function scrollParent(el: HTMLElement): HTMLElement | null {
   for (
     let p = el.parentElement;
     p && p !== document.body;

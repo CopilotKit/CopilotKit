@@ -1,0 +1,91 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for openai-agents-python / hitl-in-chat",
+    "created": "2026-11-03",
+    "copiedFrom": "ms-agent-python"
+  },
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "Book a 30-minute onboarding call for Alice",
+        "hasToolResult": false,
+        "context": "openai-agents-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_book_call_001",
+            "name": "book_call",
+            "arguments": "{\"topic\":\"Onboarding call\",\"attendee\":\"Alice\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Book a 30-minute onboarding call for Alice",
+        "hasToolResult": true,
+        "context": "openai-agents-python"
+      },
+      "response": {
+        "content": "Booked Alice's onboarding call for the time you selected — calendar invite is on its way."
+      }
+    },
+    {
+      "_comment": "hitl-in-chat e2e pill: the page's book_call tool (from google-antigravity).",
+      "match": {
+        "userMessage": "intro call with the sales team",
+        "hasToolResult": false,
+        "context": "openai-agents-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_book_call_sales_001",
+            "name": "book_call",
+            "arguments": "{\"topic\":\"Sales intro call\",\"attendee\":\"Sales team\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "hitl-in-chat e2e pill: confirmation after the pick.",
+      "match": {
+        "userMessage": "intro call with the sales team",
+        "hasToolResult": true,
+        "context": "openai-agents-python"
+      },
+      "response": {
+        "content": "Booked: the intro call with the sales team is confirmed for the slot you picked."
+      }
+    },
+    {
+      "_comment": "hitl-in-chat e2e pill: the page's book_call tool (from google-antigravity).",
+      "match": {
+        "userMessage": "1:1 with Alice",
+        "hasToolResult": false,
+        "context": "openai-agents-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_book_call_alice_001",
+            "name": "book_call",
+            "arguments": "{\"topic\":\"1:1 with Alice \\u2014 Q2 goals\",\"attendee\":\"Alice\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "hitl-in-chat e2e pill: confirmation after the pick.",
+      "match": {
+        "userMessage": "1:1 with Alice",
+        "hasToolResult": true,
+        "context": "openai-agents-python"
+      },
+      "response": {
+        "content": "Booked: your 1:1 with Alice is locked in for the slot you picked."
+      }
+    }
+  ]
+}

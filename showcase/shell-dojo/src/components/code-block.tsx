@@ -44,7 +44,7 @@ const SCROLL_CONTAINER_STYLE = {
   display: "flex",
   flex: 1,
   overflow: "auto",
-  background: "#ffffff",
+  background: "var(--surface-container)",
   fontFamily: "'Spline Sans Mono', 'SF Mono', Menlo, Consolas, monospace",
   fontSize: 13,
   lineHeight: 1.5,
@@ -64,7 +64,7 @@ const LINE_NUMBER_STYLE = {
   flexShrink: 0,
   textAlign: "right",
   userSelect: "none",
-  color: "#838389",
+  color: "var(--text-disabled)",
   padding: "0 12px 0 16px",
   whiteSpace: "pre",
 } as const;
@@ -75,7 +75,8 @@ const LINE_CODE_STYLE = {
   paddingRight: 16,
 } as const;
 
-const HIGHLIGHTED_BG = "rgba(250, 204, 21, 0.22)";
+const HIGHLIGHTED_BG =
+  "light-dark(rgba(250, 204, 21, 0.22), rgba(250, 204, 21, 0.14))";
 
 export function CodeBlock({
   code,

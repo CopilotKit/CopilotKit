@@ -5,7 +5,8 @@
  * no DOM, CSS or map libraries.
  */
 import type { z } from "zod";
-import { definitions, type ComponentName } from "./definitions";
+import { definitions } from "./definitions";
+import type { ComponentName } from "./definitions";
 
 export type OwnEntry<C> = {
   component: C;

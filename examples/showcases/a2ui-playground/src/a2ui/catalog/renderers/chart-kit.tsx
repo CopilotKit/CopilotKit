@@ -1,11 +1,13 @@
 "use client";
 
 import "./renderers.css";
-import { Component, type CSSProperties, type ReactNode } from "react";
+import { Component } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import type { ChartCurve, ChartTheme } from "@tanstack/charts";
 import type { RadialAreaOptions } from "@tanstack/charts/polar";
 import { cn } from "@/lib/utils";
-import { formatNumber, type NumberFormat } from "./format";
+import { formatNumber } from "./format";
+import type { NumberFormat } from "./format";
 
 /* ------------------------------------------------------------------ data */
 
@@ -160,7 +162,7 @@ export const smoothCurve: ChartCurve = {
   line: (points) => monotonePath(points),
   area: (top, bottom) => {
     if (top.length === 0) return "";
-    const back = [...bottom].reverse();
+    const back = [...bottom].toReversed();
     return `${monotonePath(top)}${monotonePath(back, false)}Z`;
   },
 };

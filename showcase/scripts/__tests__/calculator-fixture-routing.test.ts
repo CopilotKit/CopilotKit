@@ -164,12 +164,12 @@ function send(
 }
 
 describe("beautiful-chat calculator fixture routing", () => {
-  it("discovers all 21 integration _from-feature-parity.json files", () => {
+  it("discovers all 22 integration _from-feature-parity.json files", () => {
     expect(
       integrations.map((i) => i.slug),
       "integration count changed — new integration added? mirror its " +
         "calculator fixtures from langgraph-python and update this pin",
-    ).toHaveLength(21);
+    ).toHaveLength(22);
   });
 
   for (const { slug, file } of integrations) {

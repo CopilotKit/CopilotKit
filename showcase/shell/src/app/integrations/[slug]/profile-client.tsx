@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
-import { oneLight } from "react-syntax-highlighter/dist/esm/styles/prism";
+import { oneLightDark } from "@/lib/code-theme";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
@@ -260,7 +260,7 @@ export function ProfileClient({
                       </div>
                       <SyntaxHighlighter
                         language={keyFile.language}
-                        style={oneLight}
+                        style={oneLightDark}
                         customStyle={{
                           margin: 0,
                           borderRadius: 0,
@@ -312,7 +312,7 @@ export function ProfileClient({
                                   </div>
                                   <SyntaxHighlighter
                                     language={file.language}
-                                    style={oneLight}
+                                    style={oneLightDark}
                                     customStyle={{
                                       margin: 0,
                                       borderRadius: 0,
@@ -371,7 +371,7 @@ export function ProfileClient({
                     href={integration.starter.github_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 rounded-lg bg-[var(--accent)] px-4 py-2 text-xs font-medium text-white hover:opacity-90 transition-opacity"
+                    className="inline-flex items-center gap-2 rounded-lg bg-[var(--accent-fill)] px-4 py-2 text-xs font-medium text-white hover:opacity-90 transition-opacity"
                   >
                     <svg
                       className="w-4 h-4"

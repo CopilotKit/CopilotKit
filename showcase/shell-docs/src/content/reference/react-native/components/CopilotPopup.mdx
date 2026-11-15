@@ -57,7 +57,10 @@ import { CopilotPopup, type CopilotPopupHandle } from "@copilotkit/react-native"
 </PropertyReference>
 
 <PropertyReference name="children" type="ReactNode">
-  Content rendered below the chat content inside the popup card.
+  Your chat UI, rendered inside the popup card below the header. The popup
+  draws no messages or input of its own. Build the UI from
+  `useCopilotChatContext`, or render the prebuilt `CopilotChat` from
+  `@copilotkit/react-native/components`.
 </PropertyReference>
 
 <PropertyReference name="onOpen" type="() => void">
@@ -113,8 +116,3 @@ export function ChatScreen() {
 - **Backdrop dismiss**: tapping the backdrop closes the popup when `dismissOnBackdropPress` is `true`.
 - **FAB**: when `showToggleButton` is `true`, a floating action button opens the popup and hides while it is open.
 - **Height**: a percentage `height` (e.g. `"60%"`) resolves against the screen height; a number is used as points.
-
-## Related
-
-- [`CopilotSidebar`](/reference/react-native/components/CopilotSidebar): slide-in drawer variant
-- [`CopilotChat`](/reference/react-native/components/CopilotChat): the chat primitive wrapped inside the popup

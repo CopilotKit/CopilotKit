@@ -58,12 +58,14 @@ builder that calls the network every time adds one call per request.
 If the builder throws or rejects, that request is not sent and `onError`
 gets `header_resolution_failed`.
 
-Re-passing the same builder function is a no-op, and so is passing a new
-function through the `headers` prop: the provider keeps one stable wrapper for
-any builder. On a user switch, remount the provider (for example with a `key`),
-or call `copilotkit.value.setHeaders(...)` with a new function or a record, so
-Inspector metadata and thread lists reload for the new user. This does not
-refetch the runtime's `/info`.
+Passing the same builder again does nothing. Passing a new builder function
+through the `headers` prop also does nothing, because the provider keeps one
+stable wrapper for any builder. When the user changes, do one of these:
+
+- Remount the provider, for example with a `key`.
+- Call `copilotkit.value.setHeaders(...)` with a new function or a record. The
+  Inspector metadata and thread lists reload for the new user. The runtime's
+  `/info` is not fetched again.
 
 `copilotkit.value.headers` is the last resolved value. Use
 `await copilotkit.value.resolveHeaders()` for your own requests.
@@ -88,8 +90,8 @@ bearer token in core headers if those agents point at a third party.
   Rewrites the message list sent to the agent on every run.
 
 CopilotKit sends the whole thread with each request. When your agent already
-stores the conversation — a LangGraph checkpointer, a Mastra memory store, a
-Strands `SessionManager` — most of that payload is waste, and an agent that
+stores the conversation (a LangGraph checkpointer, a Mastra memory store, a
+Strands `SessionManager`), most of that payload is waste, and an agent that
 merges the inbound list with its own store can show the model every turn twice.
 
 Return the messages to send:
@@ -161,7 +163,7 @@ Don't have it yet? Go to https://dashboard.operations.copilotkit.ai and get one 
 </PropertyReference>
 
 <PropertyReference name="selfManagedAgents" type="Record<string, AbstractAgent>" default="{}">
-  Self-managed agents keyed by agent ID. Merged with `agents__unsafe_dev_only` (these take precedence on key collisions).
+  Self-managed agents keyed by agent ID. Merged with `agents__unsafe_dev_only`. On a key collision, the agent in `selfManagedAgents` wins.
 </PropertyReference>
 
 <PropertyReference name="renderToolCalls" type="VueToolCallRenderer<any>[]">
@@ -173,7 +175,7 @@ Don't have it yet? Go to https://dashboard.operations.copilotkit.ai and get one 
 </PropertyReference>
 
 <PropertyReference name="renderCustomMessages" type="VueCustomMessageRenderer[]" default="[]">
-  Renderers for custom message types.
+  Renderers that draw extra content before or after each message. Each renderer receives the `message`, its `position` (`"before"` or `"after"`), and run metadata. Set `agentId` to limit a renderer to one agent.
 </PropertyReference>
 
 <PropertyReference name="frontendTools" type="VueFrontendTool[]" default="[]">
@@ -195,7 +197,7 @@ Don't have it yet? Go to https://dashboard.operations.copilotkit.ai and get one 
 </PropertyReference>
 
 <PropertyReference name="showDevConsole" type="boolean | &quot;auto&quot;">
-  **Deprecated:** use `enableInspector`. This prop no longer controls the
+  **Deprecated:** use `enableInspector`. This prop does not control the
   Inspector.
 </PropertyReference>
 
@@ -321,10 +323,3 @@ For a full walkthrough, see [Surfaces](/generative-ui/components/surfaces) and [
 ```
 
 </PropertyReference>
-
-## Related
-
-- [`useCopilotKit`](/reference/vue/hooks/useCopilotKit) -- Low-level composable for accessing the provider context
-- [`useAgent`](/reference/vue/hooks/useAgent) -- High-level composable for accessing agent instances
-- [`useFrontendTool`](/reference/vue/hooks/useFrontendTool) -- Register frontend tools dynamically
-- [`useHumanInTheLoop`](/reference/vue/hooks/useHumanInTheLoop) -- Register human-in-the-loop tools dynamically

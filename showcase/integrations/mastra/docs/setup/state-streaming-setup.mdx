@@ -1,0 +1,51 @@
+<Steps>
+  <Step>
+    ### Stream working memory through `updateWorkingMemory`
+
+    Mastra has no streaming middleware to configure. When working memory is
+    enabled, Mastra gives the agent a built-in `updateWorkingMemory` tool.
+    During a run:
+
+    1. The agent calls `updateWorkingMemory`.
+    2. The AG-UI Mastra adapter reads the tool call's arguments while they
+       stream.
+    3. It sends one `STATE_SNAPSHOT`, then a `STATE_DELTA` for each new part,
+       against the working-memory schema.
+    4. `useAgent` renders again on each delta.
+
+    The field you stream is a key in the working-memory schema:
+
+    <DemoCode file="src/mastra/agents/index.ts" region="shared-state-streaming-state-schema" title="src/mastra/agents/index.ts — streamed state" />
+
+  </Step>
+  <Step>
+    ### Tell the model to write into working memory
+
+    Only `updateWorkingMemory` streams. A custom tool that writes working
+    memory sends a single `STATE_SNAPSHOT` when the run ends. So the prompt
+    must make the model put the whole value in one `updateWorkingMemory`
+    call, and keep it out of the chat message:
+
+    <DemoCode file="src/mastra/agents/index.ts" region="shared-state-streaming-agent" title="src/mastra/agents/index.ts — streaming agent" />
+
+    Register the agent in your `Mastra` instance. Its key in the `agents`
+    map is the `agentId` the frontend uses.
+
+  </Step>
+  <Step>
+    ### Embed the agent in the runtime
+
+    State streaming works only when the agent runs inside Copilot Runtime
+    through `getLocalAgents`:
+
+    ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
+    const runtime = new CopilotRuntime({
+      agents: MastraAgent.getLocalAgents({ mastra, resourceId: "user-1" }),
+    });
+    ```
+
+    The working-memory snapshot at the end of the run replaces the streamed
+    value, so any drift is corrected.
+
+  </Step>
+</Steps>

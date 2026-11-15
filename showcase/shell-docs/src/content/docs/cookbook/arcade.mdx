@@ -42,9 +42,9 @@ npm install @arcadeai/arcadejs
 
 ## Add an authorize-then-execute helper
 
-This is the heart of the integration. `runArcadeTool` authorizes the user for a tool and, **only
-if** the user hasn't connected yet, hands the auth URL back to the chat instead of blocking.
-Otherwise it executes the tool and returns its structured output.
+This is the heart of the integration. `runArcadeTool` checks if the user has connected the tool's
+provider. If not, it returns the auth URL to the chat and does not wait. If the user has connected,
+it runs the tool and returns its structured output.
 
 <Callout type="info" title="Failures come back as data, not exceptions">
   Arcade reports a tool's *runtime* failures as data (`success === false` / `output.error`), not as
@@ -129,10 +129,13 @@ export async function runArcadeTool({
 ## Define the Arcade tools and mount the agent
 
 Each CopilotKit tool is a thin `defineTool` wrapper that calls `runArcadeTool` with an
-[Arcade tool name](https://www.arcade.dev/tools). `searchNews` needs no auth; Gmail does. Keep tool
-descriptions about *what the tool does*. The agent learns the Connect-then-retry protocol from the
-system prompt and the tool's result, not from prose in the description it can misread. Match each
-tool's parameter names to the Arcade tool's own schema, or unknown params are silently dropped.
+[Arcade tool name](https://www.arcade.dev/tools). `searchNews` needs no auth. Gmail does. Follow two
+rules for each tool definition:
+
+- Describe only what the tool does. The system prompt and the tool result teach the agent the
+  Connect-then-retry flow.
+- Use the parameter names from the Arcade tool's own schema. Arcade silently drops parameters that it
+  does not know.
 
 ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
 import {
@@ -240,11 +243,9 @@ export const OPTIONS = handler;
 ```
 
 <Callout type="info" title="Single-route transport">
-  This recipe pins `useSingleEndpoint` on the provider, so the client POSTs every
-  call as a `{ method, params, body }` envelope to the base path. Mount a single-route handler to
-  match (`createCopilotRuntimeHandler({ mode: "single-route" })`), and `createCopilotRuntimeHandler`
-  is the preferred primitive, so avoid the deprecated `createCopilotEndpointSingleRoute` / hono
-  adapters. Omitting the prop would let the client detect the mode instead.
+  This recipe sets `useSingleEndpoint` on the provider (shown below), so the client POSTs every
+  call as a `{ method, params, body }` envelope to the base path. The handler above uses
+  `mode: "single-route"` to match. If you omit the prop, the client detects the transport itself.
 </Callout>
 
 ## Render the authorization step as generative UI
@@ -257,6 +258,7 @@ This is the generative-UI moment: the OAuth handshake becomes a card in the chat
 "use client";
 import { CopilotChat, useRenderTool } from "@copilotkit/react-core/v2";
 import { z } from "zod";
+import { AuthorizationCard } from "@/components/authorization-card";
 
 // useRenderTool usually hands `result` back as a JSON string, but tolerate an
 // already-parsed object or an empty/missing value so a partial result never throws.
@@ -276,12 +278,12 @@ export default function Page() {
     name: "sendEmail",
     parameters: z.object({ recipient: z.string(), subject: z.string(), body: z.string() }),
     render: ({ status, parameters, result }) => {
-      if (status !== "complete") return <LoadingCard label="Sending email…" />;
+      if (status !== "complete") return <p>Sending email…</p>;
       const r = parse<any>(result);
-      if (r?.error) return <ErrorCard message={r.error} />;
+      if (r?.error) return <p role="alert">{r.error}</p>;
       if (r?.authorizationRequired)
         return <AuthorizationCard provider={r.provider} authUrl={r.authUrl} />;
-      return <EmailSentCard recipient={parameters.recipient} subject={parameters.subject} />;
+      return <p>Sent to {parameters.recipient}: {parameters.subject}</p>;
     },
   });
 
@@ -303,7 +305,7 @@ function safeHttpUrl(url: string): string | undefined {
   }
 }
 
-function AuthorizationCard({ provider, authUrl }: { provider: string; authUrl: string }) {
+export function AuthorizationCard({ provider, authUrl }: { provider: string; authUrl: string }) {
   const href = safeHttpUrl(authUrl);
   return (
     <div className="rounded-2xl border border-violet-200 bg-violet-50 p-4">
@@ -327,20 +329,41 @@ function AuthorizationCard({ provider, authUrl }: { provider: string; authUrl: s
 }
 ```
 
-Wrap your app in the v2 `<CopilotKit>` provider (`runtimeUrl="/api/copilotkit"` plus
-`useSingleEndpoint` to match the single-route handler) and import
-`@copilotkit/react-core/v2/styles.css`, exactly as in the Built-in Agent quickstart.
+Set `useSingleEndpoint` on the `CopilotKitProvider` from the Built-in Agent quickstart, so the client
+matches the single-route handler:
+
+```tsx title="app/providers.tsx"
+"use client";
+
+import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+
+export function Providers({ children }: { children: React.ReactNode }) {
+  return (
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" useSingleEndpoint>
+      {children}
+    </CopilotKitProvider>
+  );
+}
+```
+
+Keep the `@copilotkit/react-core/v2/styles.css` import in `app/layout.tsx`, as in the quickstart.
 
 ## Try it
 
 Start your app and ask the agent to do something that needs a connection:
 
 ```text
-Send an email to me@example.com with the subject "Hello from my agent" and a friendly one-liner.
+Send an email to me@example.com with the subject "Hello from my agent" and a
+friendly one-liner.
 ```
 
 The first time, the agent calls `sendEmail`, Arcade reports authorization is required, and the chat
-shows a **Connect Gmail** card. Click it, approve in the new tab, come back, and say:
+shows a **Connect Gmail** card.
+
+1. Click **Connect Gmail**.
+2. Approve access in the new tab.
+3. Go back to the chat.
+4. Send this message:
 
 ```text
 Done, go ahead.
@@ -383,8 +406,7 @@ Find the latest news on open-source AI agents and email me a 3-bullet summary.
 
 ## Going further
 
-Arcade is a *runtime*, not a single connector. The three tools here are the on-ramp. Scale up
-roughly in this order:
+To add more Arcade tools to this agent:
 
 - **From 3 tools to thousands.** Instead of hand-writing a `defineTool` per tool, pull formatted
   tool definitions from Arcade and generate the wrappers, the bridge from a demo to a real toolset

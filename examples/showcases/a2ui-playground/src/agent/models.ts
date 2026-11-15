@@ -15,7 +15,8 @@
  */
 import OpenAI from "openai";
 import { liveRunsOff } from "@/lib/limits";
-import { MODEL_OPTIONS, modelLabel, type ModelId } from "@/lib/model-options";
+import { MODEL_OPTIONS, modelLabel } from "@/lib/model-options";
+import type { ModelId } from "@/lib/model-options";
 
 export type { ModelId };
 

@@ -57,8 +57,8 @@ Before editing anything that looks like product docs, read [Documentation](.clau
   - Framework overview pages: `showcase/shell-docs/src/content/framework-overviews/`
 - When adding or moving a guide page under `showcase/shell-docs/src/content/docs/`, update that section's `meta.json` so the page appears in navigation.
 - The v2 API reference under `showcase/shell-docs/src/content/reference/{components,hooks,sdk}/` does **not** use `meta.json`; navigation is generated from page frontmatter. Only `reference/v1/` uses `meta.json`.
-- For framework docs, check the framework's `docs_mode` in `showcase/integrations/<slug>/manifest.yaml` and confirm the docs folder with `getDocsFolder()` in `showcase/shell-docs/src/lib/registry.ts`.
-- For showcase-driven frameworks (`docs_mode: generated`), update the showcase source of truth: manifests, demos, feature coverage, source regions, registry inputs, shared/root MDX, and sparse framework overrides. Do not hand-edit generated files under `showcase/shell-docs/src/data/frameworks/`.
+- For framework docs, check the framework's `docs_mode` in `showcase/integrations/<slug>/manifest.yaml` and confirm the docs folder with `getDocsFolder()` in `showcase/shell-docs/src/components/docs-mdx/data.ts`.
+- For showcase-driven frameworks (`docs_mode: generated`), update the showcase source of truth: manifests, demos, feature coverage, source regions, registry inputs, shared/root MDX, and sparse framework overrides. Do not hand-edit the generated data under `showcase/shell-docs/src/data/`.
 - For authored frameworks (`docs_mode: authored`), edit `showcase/shell-docs/src/content/docs/integrations/<docsFolder>/` and its `meta.json`.
 - For snippets, edit `showcase/shell-docs/src/content/snippets/`; snippets can feed root docs, authored framework pages, and showcase-driven framework pages.
 - When the task changes Inspector UI, chrome, panes, or overlay behavior, follow `skills/inspector-workbench/SKILL.md`. Start the standalone workbench and take screenshots after each visual change.

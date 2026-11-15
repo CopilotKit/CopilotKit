@@ -1,0 +1,81 @@
+<Callout type="warn" title="Shared state in Strands is prompt-driven">
+  A Strands agent knows only the state that your code copies into its request
+  context. A state key you don't copy never reaches the model, and nothing
+  reports it: the agent answers as if the UI had written nothing. Say in your
+  system prompt what each copied value means.
+</Callout>
+
+<Steps>
+  <Step>
+    ### Copy UI state into the request context
+
+    The UI writes state with `agent.setState`, and it arrives on the AG-UI run
+    input as `inputData.state`. Copy the parts the model needs into a copy of
+    the run's `context`. The adapter shows that context to the model during
+    the run without saving it as user text:
+
+    <DemoCode
+      file="src/agent/state.ts"
+      region="agent-config-context-builder"
+      title="src/agent/state.ts"
+    />
+
+  </Step>
+  <Step>
+    ### Apply it before every run
+
+    Subclass the agent so every request, including tool continuations, passes
+    through `withStateContext`:
+
+    <DemoCode
+      file="src/agent/agent.ts"
+      region="agent-config-context-registration"
+      title="src/agent/agent.ts"
+    />
+
+    Do not use `stateContextBuilder` to prepend the state to the user's
+    message. Its output is saved as native message history, so every past
+    message keeps the old state. Existing conversations created that way keep
+    that text; start a new conversation for a clean history.
+
+  </Step>
+  <Step>
+    ### Send agent writes back to the UI
+
+    The agent writes state through a tool. Give the tool a `stateFromArgs`
+    behavior, and the adapter emits a state snapshot the moment the tool
+    fires, so the UI re-renders without waiting for the text response:
+
+    ```ts title="src/agent/agent.ts"
+    import type { StrandsAgentConfig } from "@ag-ui/aws-strands";
+    import { notesStateFromArgs } from "./state";
+
+    const config: StrandsAgentConfig = {
+      toolBehaviors: {
+        // Shared State (Read + Write) — notes panel.
+        set_notes: { stateFromArgs: notesStateFromArgs },
+      },
+    };
+    ```
+
+    ```ts title="src/agent/state.ts"
+    export async function notesStateFromArgs(
+      ctx: ToolCallContext,
+    ): Promise<StatePayload | null> {
+      const input = parseToolInput(ctx.toolInput);
+      let notes: unknown;
+      if (input && typeof input === "object" && !Array.isArray(input)) {
+        notes = (input as Record<string, unknown>).notes;
+      } else if (Array.isArray(input)) {
+        notes = input;
+      }
+      if (!Array.isArray(notes)) return null;
+      return { notes: notes.map((n) => String(n)) };
+    }
+    ```
+
+    `parseToolInput` parses the call's input when it arrives as a JSON string.
+    Pass `config` to `ShowcaseStrandsAgent` with your Strands `Agent`.
+
+  </Step>
+</Steps>

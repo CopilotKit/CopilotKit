@@ -5,7 +5,7 @@ description: "Definition of a frontend tool the agent can call in the browser."
 
 ## Overview
 
-`FrontendTool` describes a tool that runs in the browser and can be invoked by an agent. You register frontend tools via [`CopilotKitCoreConfig.tools`](/reference/core/types/CopilotKitCoreConfig) (or at runtime on [`CopilotKitCore`](/reference/core/classes/CopilotKitCore)). A tool has a name, an optional parameter schema, and a handler that receives the parsed arguments and an execution context.
+`FrontendTool` describes a tool that runs in the browser. An agent can call it. You register frontend tools via [`CopilotKitCoreConfig.tools`](/reference/core/types/CopilotKitCoreConfig) (or at runtime on [`CopilotKitCore`](/reference/core/classes/CopilotKitCore)). A tool has a name, an optional parameter schema, and a handler that receives the parsed arguments and an execution context.
 
 ## Import
 
@@ -25,11 +25,12 @@ type FrontendTool<T extends Record<string, unknown> = Record<string, unknown>> =
   reconnectBehavior?: "passive" | "resume-pending";
   agentId?: string;
   available?: boolean;
+  webmcp?: boolean | WebMCPToolConfig;
 };
 
 type FrontendToolHandlerContext = {
   toolCall: ToolCall;
-  agent: AbstractAgent;
+  agent?: AbstractAgent;
   signal?: AbortSignal;
   isReplay?: boolean;
 };
@@ -52,14 +53,14 @@ type FrontendToolHandlerContext = {
 </PropertyReference>
 
 <PropertyReference name="handler" type="(args: T, context: FrontendToolHandlerContext) => Promise<unknown>">
-  Function executed when the agent calls the tool. Receives the parsed `args` and an execution context.
+  Function that runs when the agent calls the tool. Receives the parsed `args` and an execution context.
 
   <PropertyReference name="context.toolCall" type="ToolCall">
     The AG-UI tool call that triggered this handler.
   </PropertyReference>
 
   <PropertyReference name="context.agent" type="AbstractAgent">
-    The agent instance that issued the tool call.
+    The agent that called the tool. Absent when the tool is called through WebMCP.
   </PropertyReference>
 
   <PropertyReference name="context.signal" type="AbortSignal">
@@ -76,7 +77,7 @@ type FrontendToolHandlerContext = {
 </PropertyReference>
 
 <PropertyReference name="reconnectBehavior" type='"passive" | "resume-pending"' default='"passive"'>
-  What happens to a call of this tool that is still unanswered when the thread's history is restored, for example after a page reload. With `"passive"`, the call is shown but the handler does not run. With `"resume-pending"`, the handler runs for that call with `isReplay: true` in its context, and the run then continues as usual. Opt in only for a handler that is safe to run more than once. A call does not start twice at the same time on one page, but it can run again after a stop or a thread switch if its result never reached the agent, and two tabs that restore the same thread can each run it. If the agent calls this tool together with a tool that stays passive, the follow-up run sends the passive call without a result, which some model providers reject.
+  What happens to a call of this tool that is still unanswered when the thread's history is restored, for example after a page reload. With `"passive"`, the call is shown but the handler does not run. With `"resume-pending"`, the handler runs for that call with `isReplay: true` in its context, and the run then continues as usual. Opt in only for a handler that is safe to run more than once. A call does not start twice at the same time on one page. A call can run again after a stop or a thread switch, if its result never reached the agent. Two tabs that restore the same thread can each run the call. If the agent calls this tool together with a tool that stays passive, the follow-up run sends the passive call without a result, which some model providers reject. Opt in every tool that the agent calls together, or set `followUp: false`.
 </PropertyReference>
 
 <PropertyReference name="agentId" type="string">
@@ -85,6 +86,10 @@ type FrontendToolHandlerContext = {
 
 <PropertyReference name="available" type="boolean" default="true">
   Whether this tool is available to the agent. Set to `false` to hide the tool without unregistering it.
+</PropertyReference>
+
+<PropertyReference name="webmcp" type="boolean | WebMCPToolConfig">
+  Also exposes the tool to browser agents through WebMCP (`document.modelContext`). `true` registers it with default annotations. `{ annotations }` sets the annotations, for example `readOnlyHint`. When a browser agent calls the tool, the handler context has no `agent`.
 </PropertyReference>
 
 ## Usage
@@ -104,9 +109,3 @@ const setThemeTool: FrontendTool<{ theme: "light" | "dark" }> = {
   },
 };
 ```
-
-## Related
-
-- [CopilotKitCore](/reference/core/classes/CopilotKitCore)
-- [CopilotKitCoreConfig](/reference/core/types/CopilotKitCoreConfig)
-- [ToolCallStatus](/reference/core/enums/ToolCallStatus)

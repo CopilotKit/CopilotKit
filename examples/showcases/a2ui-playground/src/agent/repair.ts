@@ -19,8 +19,8 @@ import {
   A2UI_COMPONENT_ENVELOPE_KEYS,
   A2UI_VERSION,
   validateOperation,
-  type GenerativeUIManifest,
 } from "@copilotkit/shared";
+import type { GenerativeUIManifest } from "@copilotkit/shared";
 import type { z } from "zod";
 import { definitions } from "@/a2ui/catalog/definitions";
 import { upgradeBindings } from "@/a2ui/upgrade-v09";

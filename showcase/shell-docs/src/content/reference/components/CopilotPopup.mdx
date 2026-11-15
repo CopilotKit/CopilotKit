@@ -9,6 +9,8 @@ description: "Popup variant of CopilotChat that renders in a floating panel with
 
 See [`CopilotSidebar`](/reference/components/CopilotSidebar) for a sidebar variant of this component.
 
+For a walkthrough, see [Popup](/prebuilt-components/popup).
+
 ## Import
 
 ```tsx
@@ -77,15 +79,13 @@ import "@copilotkit/react-core/v2/styles.css";
   Partial label overrides for all text strings rendered inside the chat.
 </PropertyReference>
 
-<PropertyReference name="autoScroll" type="boolean" default="true">
-  Whether the chat scrolls to the bottom automatically when new messages arrive.
-</PropertyReference>
+<PropertyReference name="autoScroll" type='"pin-to-bottom" | "pin-to-send" | "none" | boolean' default="true">
+  How the chat scrolls when messages arrive:
 
-<PropertyReference
-  name="inputProps"
-  type="Partial<Omit<CopilotChatInputProps, 'children'>>"
->
-  Additional props forwarded to the inner `CopilotChatInput` component.
+- `"pin-to-bottom"` or `true`: keep the latest message in view while the user is at the bottom.
+- `"pin-to-send"`: when the user sends a message, scroll that message to the top of the view and keep it there while the reply streams.
+- `"none"` or `false`: do not scroll automatically.
+
 </PropertyReference>
 
 <PropertyReference
@@ -95,7 +95,7 @@ import "@copilotkit/react-core/v2/styles.css";
   Controls the welcome screen shown when no messages exist.
 </PropertyReference>
 
-All `CopilotChatView` slot props (`messageView`, `input`, `scrollView`, `inputContainer`, `feather`, `disclaimer`, `suggestionView`) are also accepted and forwarded through.
+The `CopilotChatView` slots `messageView`, `input`, `scrollView`, and `suggestionView` are also accepted and forwarded. To pass props to the input, use the `input` slot, for example `input={{ autoFocus: true }}`. The `disclaimer` prop is deprecated. Use `input={{ disclaimer: MyDisclaimer }}` instead.
 
 ## Slot System
 
@@ -151,11 +151,5 @@ function App() {
 - **Toggle button**: Renders a floating toggle button (typically in the bottom-right corner) that opens and closes the popup. The button uses `CopilotChatToggleButton` internally.
 - **Modal state**: Open/close state is managed via the chat configuration context. The `defaultOpen` prop sets the initial state; after that, state changes come from user interaction (toggle button, close button, clicking outside). Pass `open` and `onOpenChange` to own the state yourself, and to open or close the popup from your own UI.
 - **Click outside**: When `clickOutsideToClose` is `true` (the default), clicking anywhere outside the popup panel closes it.
-- **Layout**: The popup uses `CopilotPopupView` internally, which provides a popup-specific welcome screen layout with the welcome message centered vertically and suggestions just above the input.
+- **Layout**: The popup uses `CopilotPopupView` internally. `CopilotPopupView` builds on [`CopilotChatView`](/reference/components/CopilotChatView) and provides a popup-specific welcome screen layout with the welcome message centered vertically and suggestions just above the input.
 - **Agent connection**: All agent wiring (messages, running state, suggestions) is handled by the parent `CopilotChat` logic.
-
-## Related
-
-- [`CopilotChat`](/reference/components/CopilotChat) -- the base chat component used internally
-- [`CopilotSidebar`](/reference/components/CopilotSidebar) -- sidebar variant
-- [`CopilotChatView`](/reference/components/CopilotChatView) -- the layout component used internally
