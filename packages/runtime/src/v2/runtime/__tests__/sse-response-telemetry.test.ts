@@ -3,18 +3,19 @@
  *
  * sse-response.ts fires three events across the SSE stream lifecycle:
  *   - oss.runtime.agent_execution_stream_started  (line 73, right after observableFactory resolves)
- *   - oss.runtime.agent_execution_stream_errored  (inside subscribe's error handler)
+ *   - oss.runtime.agent_execution_stream_errored  (subscribe's error handler, or an in-stream RUN_ERROR)
  *   - oss.runtime.agent_execution_stream_ended    (inside subscribe's complete handler)
  *
  * Paired with intelligence-run-telemetry.test.ts which covers the
  * intelligence/run path of the same event names — kept separate so a
  * regression in one source file fails only its own test.
  */
-import type { BaseEvent } from "@ag-ui/client";
+import type { AbstractAgent, BaseEvent, RunAgentInput } from "@ag-ui/client";
 import { Observable } from "rxjs";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 import { createSseEventResponse } from "../handlers/shared/sse-response";
+import { InMemoryAgentRunner } from "../runner";
 import { telemetry } from "../telemetry";
 import { createRuntimeErrorReporter } from "../core/runtime-error-reporter";
 
@@ -304,6 +305,164 @@ describe("sse-response.ts — telemetry lifecycle", () => {
     expect(onError.mock.calls[0][0]).toMatchObject({
       error: new Error("run event failed"),
       context: { metadata: { phase: "sse.subscription" } },
+    });
+  });
+
+  describe("an in-stream RUN_ERROR", () => {
+    const runStarted = (runId: string) =>
+      ({ type: "RUN_STARTED", threadId: "t-1", runId }) as BaseEvent;
+    const runError = (message: string) =>
+      ({ type: "RUN_ERROR", message }) as BaseEvent;
+    const capturedNames = () => captureSpy.mock.calls.map(([name]) => name);
+
+    it("is captured as stream_errored, between started and ended, without its message", async () => {
+      const failing = new Observable<BaseEvent>((subscriber) => {
+        subscriber.next(runStarted("r-1"));
+        subscriber.next(runError("private diag"));
+        subscriber.complete();
+      });
+      createSseEventResponse({
+        request: makeRequest(),
+        observableFactory: () => failing,
+      });
+
+      await vi.waitFor(() => {
+        expect(capturedNames()).toContain(
+          "oss.runtime.agent_execution_stream_ended",
+        );
+      });
+      expect(capturedNames()).toEqual([
+        "oss.runtime.agent_execution_stream_started",
+        "oss.runtime.agent_execution_stream_errored",
+        "oss.runtime.agent_execution_stream_ended",
+      ]);
+      expect(captureSpy).toHaveBeenCalledWith(
+        "oss.runtime.agent_execution_stream_errored",
+        expect.objectContaining({ error: "AGENT_EXECUTION_FAILED" }),
+      );
+      expect(JSON.stringify(captureSpy.mock.calls)).not.toContain(
+        "private diag",
+      );
+    });
+
+    it("is captured when the default InMemoryAgentRunner's agent throws", async () => {
+      const runner = new InMemoryAgentRunner();
+      const threadId = `thread-${Math.random()}`;
+      const agent = {
+        agentId: "failing",
+        messages: [],
+        runAgent: async () => {
+          throw new Error("private agent failure");
+        },
+        abortRun: () => {},
+      } as unknown as AbstractAgent;
+      const response = createSseEventResponse({
+        request: makeRequest(),
+        observableFactory: () =>
+          runner.run({
+            threadId,
+            agent,
+            input: {
+              threadId,
+              runId: "r-1",
+              messages: [],
+              state: {},
+              tools: [],
+              context: [],
+            } as unknown as RunAgentInput,
+          }),
+      });
+      await response.text();
+
+      await vi.waitFor(() => {
+        expect(capturedNames()).toContain(
+          "oss.runtime.agent_execution_stream_ended",
+        );
+      });
+      expect(capturedNames()).toEqual([
+        "oss.runtime.agent_execution_stream_started",
+        "oss.runtime.agent_execution_stream_errored",
+        "oss.runtime.agent_execution_stream_ended",
+      ]);
+      expect(JSON.stringify(captureSpy.mock.calls)).not.toContain(
+        "private agent failure",
+      );
+    });
+
+    it("is counted once when the observable then errors too", async () => {
+      const failing = new Observable<BaseEvent>((subscriber) => {
+        subscriber.next(runStarted("r-1"));
+        subscriber.next(runError("run failed"));
+        subscriber.error(new Error("and the stream failed"));
+      });
+      createSseEventResponse({
+        request: makeRequest(),
+        observableFactory: () => failing,
+      });
+
+      await vi.waitFor(() => {
+        expect(capturedNames()).toContain(
+          "oss.runtime.agent_execution_stream_errored",
+        );
+      });
+      // Let any duplicate capture land before counting.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(
+        capturedNames().filter(
+          (name) => name === "oss.runtime.agent_execution_stream_errored",
+        ),
+      ).toHaveLength(1);
+    });
+
+    it("is counted once per run when one stream carries two failed runs", async () => {
+      const twoRuns = new Observable<BaseEvent>((subscriber) => {
+        subscriber.next(runStarted("r-1"));
+        subscriber.next(runError("first failure"));
+        subscriber.next(runStarted("r-2"));
+        subscriber.next(runError("second failure"));
+        subscriber.complete();
+      });
+      createSseEventResponse({
+        request: makeRequest(),
+        observableFactory: () => twoRuns,
+      });
+
+      await vi.waitFor(() => {
+        expect(capturedNames()).toContain(
+          "oss.runtime.agent_execution_stream_ended",
+        );
+      });
+      expect(
+        capturedNames().filter(
+          (name) => name === "oss.runtime.agent_execution_stream_errored",
+        ),
+      ).toHaveLength(2);
+    });
+
+    it("control: a successful run captures started and ended only", async () => {
+      const succeeding = new Observable<BaseEvent>((subscriber) => {
+        subscriber.next(runStarted("r-1"));
+        subscriber.next({
+          type: "RUN_FINISHED",
+          threadId: "t-1",
+          runId: "r-1",
+        } as BaseEvent);
+        subscriber.complete();
+      });
+      createSseEventResponse({
+        request: makeRequest(),
+        observableFactory: () => succeeding,
+      });
+
+      await vi.waitFor(() => {
+        expect(capturedNames()).toContain(
+          "oss.runtime.agent_execution_stream_ended",
+        );
+      });
+      expect(capturedNames()).toEqual([
+        "oss.runtime.agent_execution_stream_started",
+        "oss.runtime.agent_execution_stream_ended",
+      ]);
     });
   });
 
