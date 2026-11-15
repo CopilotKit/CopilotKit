@@ -3,7 +3,8 @@
   "targets": {
     "test": {
       "inputs": [
-        "test",
+        "default",
+        "^production",
         "{projectRoot}/a11y/**/*",
         "{projectRoot}/vitest.config.mjs",
         "{workspaceRoot}/packages/a11y-test-kit/**/*"
@@ -17,7 +18,8 @@
       },
       "dependsOn": ["^build"],
       "inputs": [
-        "test",
+        "default",
+        "^production",
         "{projectRoot}/a11y/**/*",
         "{projectRoot}/vitest.config.mjs",
         "{workspaceRoot}/packages/a11y-test-kit/**/*"
@@ -32,7 +34,8 @@
       },
       "dependsOn": ["^build"],
       "inputs": [
-        "test",
+        "default",
+        "^production",
         "{projectRoot}/a11y/**/*",
         "{workspaceRoot}/packages/a11y-test-kit/**/*"
       ],

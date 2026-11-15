@@ -15,15 +15,15 @@ describe("chat accessibility baseline", () => {
   it.each([
     ["chat-popup", CopilotPopupView],
     ["chat-sidebar", CopilotSidebarView],
-  ] as const)("%s", async (name, View) => {
+  ] as const)("%s", async (name, ChatView) => {
     const stop = observeClicks();
     let clicks: ReadonlySet<Element>;
     let host: Element;
     try {
       const Host = defineComponent({
-        components: { CopilotKitProvider, View },
+        components: { CopilotKitProvider, ChatView },
         template:
-          '<CopilotKitProvider runtime-url="/api/copilotkit"><View :default-open="true" /></CopilotKitProvider>',
+          '<CopilotKitProvider runtime-url="/api/copilotkit"><ChatView :default-open="true" /></CopilotKitProvider>',
       });
       const view = render(Host);
       await nextTick();

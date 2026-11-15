@@ -1,4 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
   checkDOM,
   observeClicks,
@@ -82,5 +85,49 @@ describe("framework-neutral accessibility helper", () => {
       new: ["new", "known"],
     });
     expect(classifyKnown([], ["fixed"])).toEqual({ known: [], new: [] });
+  });
+  it("retains every classified signature and prints every new finding", async () => {
+    vi.stubEnv("A11Y_UPDATE_BASELINE", "");
+    vi.stubEnv("A11Y_REPORT_DIR", "");
+    const warn = vi.spyOn(process.stderr, "write").mockReturnValue(true);
+    document.body.innerHTML = "<button></button><button></button>";
+
+    const result = await audit("react", "complete-report-test", new Set());
+    expect(result.warnings.new).toBeGreaterThan(3);
+    expect(result).toMatchObject({
+      classification: {
+        known: [],
+        new: expect.any(Array),
+      },
+    });
+    const newLines = warn.mock.calls
+      .map(([line]) => String(line))
+      .filter((line) => line.startsWith("  new: "));
+    expect(newLines).toHaveLength(result.warnings.new);
+    expect(newLines.map((line) => line.slice(7).trimEnd())).toEqual(
+      result.classification.new,
+    );
+  });
+  it("saves the complete structured classification in the fixture report", async () => {
+    const directory = mkdtempSync(join(tmpdir(), "a11y-report-"));
+    vi.stubEnv("A11Y_UPDATE_BASELINE", "");
+    vi.stubEnv("A11Y_REPORT_DIR", directory);
+    vi.spyOn(process.stderr, "write").mockReturnValue(true);
+    document.body.innerHTML = "<button></button><button></button>";
+
+    try {
+      const result = await audit("react", "saved-report-test", new Set());
+      const saved = JSON.parse(
+        readFileSync(join(directory, "react--saved-report-test.json"), "utf8"),
+      );
+      expect(saved.classification).toEqual({
+        known: [],
+        new: expect.any(Array),
+      });
+      expect(saved.classification.new).toHaveLength(result.warnings.new);
+      expect(saved).toEqual(result);
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
   });
 });

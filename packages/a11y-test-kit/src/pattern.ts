@@ -32,9 +32,21 @@ export async function collectPatternFindings(
   try {
     await checkPattern(root, pattern);
   } catch (error) {
+    if (!(error instanceof Error)) throw error;
+    const [header = "", ...details] = error.message.split("\n");
+    const count = Number(
+      /^checkPattern found ([1-9]\d*) problems? with the (?:tabs|dialog) pattern:$/.exec(
+        header,
+      )?.[1],
+    );
     if (
-      !(error instanceof Error) ||
-      !/^checkPattern found \d+ problems? with the /.test(error.message)
+      !count ||
+      header !==
+        `checkPattern found ${count} problem${count === 1 ? "" : "s"} with the ${pattern} pattern:` ||
+      details.length !== count ||
+      details.some(
+        (detail) => !detail.startsWith("- ") || !detail.slice(2).trim(),
+      )
     )
       throw error;
     collect();
