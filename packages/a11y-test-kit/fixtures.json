@@ -1,0 +1,268 @@
+[
+  {
+    "name": "modal-closed",
+    "components": [
+      {
+        "id": "root",
+        "component": "Modal",
+        "open": false,
+        "trigger": "trigger",
+        "content": "content"
+      },
+      {
+        "id": "trigger",
+        "component": "Text",
+        "text": "Open details"
+      },
+      {
+        "id": "content",
+        "component": "Button",
+        "label": "Confirm"
+      }
+    ],
+    "pattern": null
+  },
+  {
+    "name": "modal-open",
+    "components": [
+      {
+        "id": "root",
+        "component": "Modal",
+        "open": false,
+        "trigger": "trigger",
+        "content": "content"
+      },
+      {
+        "id": "trigger",
+        "component": "Text",
+        "text": "Open details"
+      },
+      {
+        "id": "content",
+        "component": "Button",
+        "label": "Confirm"
+      }
+    ],
+    "pattern": "dialog",
+    "activate": "[data-a2ui-modal-trigger]"
+  },
+  {
+    "name": "tabs",
+    "components": [
+      {
+        "id": "root",
+        "component": "Tabs",
+        "tabs": [
+          {
+            "title": "First",
+            "child": "first"
+          },
+          {
+            "title": "Second",
+            "child": "second"
+          },
+          {
+            "title": "Third",
+            "child": "third"
+          }
+        ]
+      },
+      {
+        "id": "first",
+        "component": "Text",
+        "text": "First panel"
+      },
+      {
+        "id": "second",
+        "component": "Text",
+        "text": "Second panel"
+      },
+      {
+        "id": "third",
+        "component": "Text",
+        "text": "Third panel"
+      }
+    ],
+    "pattern": "tabs"
+  },
+  {
+    "name": "image-closed",
+    "components": [
+      {
+        "id": "root",
+        "component": "Image",
+        "url": "https://example.test/photo.png",
+        "description": "A mountain"
+      }
+    ],
+    "activate": null,
+    "pattern": null
+  },
+  {
+    "name": "image-open",
+    "components": [
+      {
+        "id": "root",
+        "component": "Image",
+        "url": "https://example.test/photo.png",
+        "description": "A mountain"
+      }
+    ],
+    "activate": "img",
+    "pattern": "dialog"
+  },
+  {
+    "name": "entity-card",
+    "components": [
+      {
+        "id": "root",
+        "component": "EntityCard",
+        "title": "Mountain trip",
+        "href": "https://example.test/trip",
+        "actions": [
+          {
+            "label": "Book"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "icon-button",
+    "components": [
+      {
+        "id": "root",
+        "component": "Button",
+        "icon": "Plus"
+      }
+    ]
+  },
+  {
+    "name": "failed-field",
+    "components": [
+      {
+        "id": "root",
+        "component": "TextField",
+        "label": "Email",
+        "value": {
+          "@path": "/email"
+        },
+        "checks": [
+          {
+            "condition": {
+              "@call": "email",
+              "args": {
+                "value": {
+                  "@path": "/email"
+                }
+              }
+            },
+            "message": "Enter an email address"
+          }
+        ]
+      }
+    ],
+    "data": {
+      "email": "invalid"
+    }
+  },
+  {
+    "name": "hidden-button",
+    "components": [
+      {
+        "id": "root",
+        "component": "Column",
+        "children": ["button"],
+        "accessibility": {
+          "hidden": true
+        }
+      },
+      {
+        "id": "button",
+        "component": "Button",
+        "label": "Hidden action"
+      }
+    ]
+  },
+  {
+    "name": "hidden-image-open",
+    "components": [
+      {
+        "id": "root",
+        "component": "Image",
+        "url": "https://example.test/photo.png",
+        "description": "A mountain",
+        "accessibility": {
+          "hidden": true
+        }
+      }
+    ],
+    "activate": "img",
+    "pattern": "dialog"
+  },
+  {
+    "name": "named-modal-open",
+    "components": [
+      {
+        "id": "root",
+        "component": "Modal",
+        "open": false,
+        "trigger": "trigger",
+        "content": "content",
+        "title": "Details"
+      },
+      {
+        "id": "trigger",
+        "component": "Text",
+        "text": "Open details"
+      },
+      {
+        "id": "content",
+        "component": "Button",
+        "label": "Confirm"
+      }
+    ],
+    "pattern": "dialog",
+    "activate": "[data-a2ui-modal-trigger]"
+  },
+  {
+    "name": "tabs-rtl",
+    "components": [
+      {
+        "id": "root",
+        "component": "Tabs",
+        "tabs": [
+          {
+            "title": "First",
+            "child": "first"
+          },
+          {
+            "title": "Second",
+            "child": "second"
+          },
+          {
+            "title": "Third",
+            "child": "third"
+          }
+        ]
+      },
+      {
+        "id": "first",
+        "component": "Text",
+        "text": "First panel"
+      },
+      {
+        "id": "second",
+        "component": "Text",
+        "text": "Second panel"
+      },
+      {
+        "id": "third",
+        "component": "Text",
+        "text": "Third panel"
+      }
+    ],
+    "pattern": "tabs",
+    "dir": "rtl"
+  }
+]
