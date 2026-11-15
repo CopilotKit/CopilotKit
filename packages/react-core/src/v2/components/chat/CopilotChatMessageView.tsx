@@ -1091,15 +1091,17 @@ export function CopilotChatMessageView({
     total: 0,
     sizes: new Map<string, number>(),
   });
-  // The estimate each unmeasured row was first laid out with. The mean moves
+  // The estimate each unmeasured row was laid out with. The mean moves
   // every time a row is measured, and the virtualizer re-estimates every
   // unmeasured row whenever it rebuilds its layout from the top (a row is
   // added, the row keys change). Handing those rows the new mean resizes all
   // of them at once, and nothing compensates the scroll position for it: in a
   // long thread, sending a message grew the content above the viewport by
   // thousands of pixels and threw the view up the history. Keeping each row's
-  // first estimate until it is measured means a rebuild leaves the rows above
-  // where they were; only rows laid out for the first time see the new mean.
+  // estimate until it is measured means a rebuild leaves the rows above where
+  // they were; only rows laid out for the first time see the new mean. The
+  // whole thread is laid out again from the mean once its first rows are
+  // measured (see the scroll-to-bottom effect) and after a width change.
   const rowEstimatesRef = React.useRef(new Map<string, number>());
   const rowKeysRef = React.useRef(rowKeys);
   rowKeysRef.current = rowKeys;
@@ -1144,8 +1146,9 @@ export function CopilotChatMessageView({
   // Kept estimates are pruned only once a list is committed. Unlike a
   // measurement, which only nudges the mean, a dropped estimate resizes its
   // own row; dropping it from a render React then discards would bring the
-  // row back at the current mean and move every row below it. A new thread
-  // brings new row keys, so this also clears the previous thread's estimates.
+  // row back at the current mean and move every row below it. A new thread's
+  // estimates are reset by the scroll-to-bottom effect, since row keys can
+  // repeat between threads.
   useLayoutEffect(() => {
     const live = new Set(rowKeys);
     for (const key of rowEstimatesRef.current.keys()) {
@@ -1310,9 +1313,9 @@ export function CopilotChatMessageView({
                 // Flush pending row updates before invalidating the cached prefix.
                 instance.getTotalSize();
                 measuredRef.current = { total: 0, sizes: new Map() };
-                // Every row's height changed with the width, so its first
-                // estimate no longer holds either. The reading anchor above
-                // restores the position across this rebuild.
+                // Every row's height changed with the width, so its kept
+                // estimate no longer holds either; the rows are laid out again
+                // from the mean of the rows measured at the new width.
                 rowEstimatesRef.current = new Map();
                 // Seed the new estimate before rebuilding offscreen offsets.
                 instance.elementsCache.forEach((element) => {
@@ -1415,6 +1418,27 @@ export function CopilotChatMessageView({
     // align again when the same message list becomes measurable once more.
     if (lastEndAlignedFirstMessageRef.current === firstMessageId) return;
     lastEndAlignedFirstMessageRef.current = firstMessageId;
+    // The first layout of a thread runs before any of its rows is measured,
+    // so every row was kept at the flat fallback. The rows mounted since have
+    // been measured, so lay the thread out again from their mean, once, while
+    // the view is being moved to the bottom anyway. This also drops whatever
+    // a previous thread left under row keys this one repeats. Done here
+    // rather than when the thread changes during render, so a render React
+    // discards cannot clear the estimates of the thread still on screen.
+    // Same order as the width change in observeScrollRect: take the mounted
+    // rows into the mean, rebuild every offset from it, then hand the mounted
+    // rows' sizes back — measure() forgets them, and a row that does not
+    // resize does not report again. Handing them back first would rebuild
+    // only from the lowest mounted row down.
+    rowEstimatesRef.current = new Map();
+    virtualizer.elementsCache.forEach((element) => {
+      measureRowElement(element, undefined, virtualizer);
+    });
+    virtualizer.measure();
+    virtualizer.getTotalSize();
+    virtualizer.elementsCache.forEach((element) => {
+      virtualizer.measureElement(element);
+    });
     virtualizer.scrollToIndex(rows.length - 1, {
       align: "end",
     });
