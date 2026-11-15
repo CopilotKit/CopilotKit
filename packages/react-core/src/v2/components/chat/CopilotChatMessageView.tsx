@@ -1430,6 +1430,14 @@ export function CopilotChatMessageView({
     // rows' sizes back — measure() forgets them, and a row that does not
     // resize does not report again. Handing them back first would rebuild
     // only from the lowest mounted row down.
+    //
+    // A row unmounted in this commit can still be cached: React detaches
+    // its ref before removing it from the document, and the virtualizer only
+    // drops rows that are already disconnected. Measured again, such a row
+    // would be read by its old index against the new list and replace the
+    // live row at that index, which would then stop being observed. Passing
+    // null drops the disconnected rows first.
+    virtualizer.measureElement(null);
     rowEstimatesRef.current = new Map();
     virtualizer.elementsCache.forEach((element) => {
       measureRowElement(element, undefined, virtualizer);

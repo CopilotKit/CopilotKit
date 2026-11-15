@@ -821,6 +821,41 @@ describe("CopilotChatMessageView virtual-scroll tuning", () => {
         }
       });
 
+      it("keeps tracking the new thread's rows after switching between long threads", () => {
+        renderWithCopilotKit({
+          children: (
+            <ScrollElementContext.Provider value={container}>
+              <Harness isPinnedToBottom initialMessages={thread} />
+            </ScrollElementContext.Provider>
+          ),
+        });
+        settleAtBottom();
+
+        // Another long thread, shown while the view sits at the bottom. The
+        // old thread's rows unmount as the new thread's mount at the same
+        // indexes.
+        const otherThread = Array.from({ length: 80 }, (_, i) =>
+          message(`other-${i}`),
+        );
+        act(() => {
+          setMessages!(otherThread);
+        });
+
+        // Each row on screen is the element the virtualizer tracks for its
+        // key. A row of the old thread left behind, if measured again, is read
+        // by its old index against the new thread and takes the place of the
+        // new row at that index — which then stops being observed, so its
+        // growth (a streaming reply) would go unmeasured.
+        const rows = [...document.querySelectorAll("[data-index]")];
+        expect(rows.length).toBeGreaterThan(0);
+        for (const row of rows) {
+          const key = virtualizer().options.getItemKey(
+            Number(row.getAttribute("data-index")),
+          );
+          expect(virtualizer().elementsCache.get(key)).toBe(row);
+        }
+      });
+
       it("keeps them in place after React discards a switch to a thread that repeats a row key", () => {
         // Folds every "old-" message into one row keyed "history", in
         // whichever thread is showing.
