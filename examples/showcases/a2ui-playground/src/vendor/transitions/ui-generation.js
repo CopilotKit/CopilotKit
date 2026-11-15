@@ -1067,7 +1067,7 @@ function texts(G, p, t, D) {
         c = i === a.length - 1 ? caret : "";
       return m
         ? `<div>${esc(m[1])}<b>${esc(m[2])}</b>:<em>${esc(m[4])}</em>${c}</div>`
-        : `<div class="${/^\/\*/.test(ln) ? "is-comment" : /^[.:]/.test(ln) ? "is-selector" : ""}">${esc(ln)}${c}</div>`;
+        : `<div class="${ln.startsWith("/*") ? "is-comment" : /^[.:]/.test(ln) ? "is-selector" : ""}">${esc(ln)}${c}</div>`;
     })
     .join("");
   const foot =

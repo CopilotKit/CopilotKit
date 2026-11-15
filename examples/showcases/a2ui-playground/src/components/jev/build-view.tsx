@@ -23,7 +23,8 @@ import {
   SourceTag,
 } from "./parts";
 import { JevStage } from "./stage";
-import { ms, useJevRun, type JevRunState } from "./use-jev-run";
+import { ms, useJevRun } from "./use-jev-run";
+import type { JevRunState } from "./use-jev-run";
 
 type Tab = "build" | "json" | "stream";
 const TABS: Array<[Tab, string]> = [
@@ -207,7 +208,7 @@ function BuildTab({
           <div className="mt-4 border-t border-[var(--jev-line)] pt-3">
             <BreakdownGrid
               b={{
-                ...(breakdown ?? {}),
+                ...breakdown,
                 placesMs:
                   usecase === "cafes"
                     ? ((breakdown?.placesMs ?? null) as number)

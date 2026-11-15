@@ -20,14 +20,16 @@
  * id has arrived but whose props are still streaming (and for every leaf of a
  * fixed template before its data lands). The composer prompt never lists it.
  */
-import { createElement, type ComponentType } from "react";
+import { createElement } from "react";
+import type { ComponentType } from "react";
 import {
   createGenerativeUI,
   standardUI,
-  type GenerativeUITheme,
 } from "@copilotkit/react-core/v2/generative-ui";
+import type { GenerativeUITheme } from "@copilotkit/react-core/v2/generative-ui";
 import { z } from "zod";
-import { definitions, type ComponentName } from "./definitions";
+import { definitions } from "./definitions";
+import type { ComponentName } from "./definitions";
 import { CATALOG_ID } from "./ids";
 import { BlueprintFrame } from "./renderers/blueprint";
 import { renderers } from "./renderers"; // { [K in ComponentName]: Renderer<K> }, see renderer-types.ts

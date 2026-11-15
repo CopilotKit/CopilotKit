@@ -732,6 +732,8 @@ export interface RenewThreadLockRequest {
 export interface CleanupThreadLockRequest {
   threadId: string;
   runId: string;
+  /** Aborts the request, e.g. when the caller stops waiting for it. */
+  signal?: AbortSignal;
 }
 
 export interface RenewThreadLockResponse {
@@ -2336,11 +2338,43 @@ export class CopilotKitIntelligence {
     /** The end user the read is for, as `identifyUser` returned it (not project-prefixed). */
     userId: string;
   }): Promise<ThreadStateResponse> {
+    return this.#getThreadState(params);
+  }
+
+  /**
+   * @internal Reads the state a run on the thread starts from, or undefined
+   * when the platform does not serve stored state. That platform answers
+   * 404, which is logged at debug rather than as a failed request.
+   *
+   * @throws {@link PlatformRequestError} on any other non-2xx response.
+   */
+  async ɵgetStoredThreadState(params: {
+    threadId: string;
+    userId: string;
+  }): Promise<ThreadStateResponse | undefined> {
+    try {
+      return await this.#getThreadState(params, NOT_FOUND);
+    } catch (error) {
+      if (error instanceof PlatformRequestError && error.status === 404) {
+        return undefined;
+      }
+      throw error;
+    }
+  }
+
+  async #getThreadState(
+    params: { threadId: string; userId: string },
+    expectedStatuses?: ReadonlySet<number>,
+  ): Promise<ThreadStateResponse> {
     requireThreadReadUserId("getThreadState", params.userId);
     const qs = new URLSearchParams({ userId: params.userId }).toString();
     return this.#request<ThreadStateResponse>(
       "GET",
       `/api/_inspect/threads/${encodeURIComponent(params.threadId)}/state?${qs}`,
+      undefined,
+      undefined,
+      undefined,
+      expectedStatuses,
     );
   }
 
@@ -2490,6 +2524,8 @@ export class CopilotKitIntelligence {
       {
         runId: params.runId,
       },
+      undefined,
+      params.signal,
     );
   }
 

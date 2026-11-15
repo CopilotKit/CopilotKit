@@ -9,7 +9,8 @@ import {
   CopilotKitWordmark,
 } from "@/components/site/brand";
 import { cn } from "@/lib/utils";
-import { ms, type JevRunState } from "./use-jev-run";
+import { ms } from "./use-jev-run";
+import type { JevRunState } from "./use-jev-run";
 
 /** Top bar: CopilotKit × A2UI × TypeSafe, at a size that reads in a video. Nothing else unless a page asks. */
 export function JevBar({

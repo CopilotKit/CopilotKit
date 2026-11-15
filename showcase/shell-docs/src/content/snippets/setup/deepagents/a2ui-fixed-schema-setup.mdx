@@ -1,0 +1,87 @@
+Deep Agents has no live demo on this page yet, so the demo code above does
+not show for it. On a Deep Agent, the fixed schema is a JSON file that a
+LangChain tool loads with the `copilotkit.a2ui` helpers. This example renders
+a list of flights instead of the single card above. The pattern is the same.
+
+<Steps>
+  <Step>
+    ### Save the schema as JSON
+
+    Design your schema in the [A2UI Composer](https://a2ui-composer.ag-ui.com/)
+    or write it by hand. Save it next to your agent:
+
+    ```
+    apps/agent/src/a2ui/schemas/flight_schema.json
+    ```
+
+  </Step>
+  <Step>
+    ### Return render operations from the tool
+
+    ```python title="apps/agent/src/a2ui_fixed_schema.py"
+    from copilotkit import a2ui
+    from langchain.tools import tool
+    from pathlib import Path
+    from typing import TypedDict
+
+    class Flight(TypedDict):
+        id: str
+        airline: str
+        airlineLogo: str
+        flightNumber: str
+        origin: str
+        destination: str
+        date: str
+        departureTime: str
+        arrivalTime: str
+        duration: str
+        status: str
+        statusIcon: str
+        price: str
+
+    SURFACE_ID = "flight-search-results"
+    FLIGHT_SCHEMA = a2ui.load_schema(
+        Path(__file__).parent / "a2ui" / "schemas" / "flight_schema.json"
+    )
+
+
+    @tool
+    def search_flights(flights: list[Flight]) -> str:
+        """Search for flights and display results as rich cards."""
+        return a2ui.render(
+            operations=[
+                a2ui.create_surface(SURFACE_ID),
+                a2ui.update_components(SURFACE_ID, FLIGHT_SCHEMA),
+                a2ui.update_data_model(SURFACE_ID, {"flights": flights}),
+            ],
+        )
+    ```
+
+    - The `Flight` TypedDict is essential. LangChain turns it into the tool's
+      JSON schema, which is what the model sees when it decides what data to
+      generate. Without it, the model does not know which fields the schema
+      binds to.
+    - Button clicks go to the agent as a user action. This example has no
+      server-side handler for them. To handle `book_flight` in the browser,
+      see [Action Handlers](/generative-ui/a2ui/advanced#action-handlers).
+
+  </Step>
+  <Step>
+    ### Register the tool with your Deep Agent
+
+    ```python title="apps/agent/main.py"
+    from deepagents import create_deep_agent
+    from src.a2ui_fixed_schema import search_flights
+
+    agent = create_deep_agent(
+        tools=[search_flights, ...],
+        ...
+    )
+    ```
+
+    Keep `injectA2UITool: false` on the runtime, as shown above. The
+    `search_flights` tool owns this surface, and the A2UI middleware still
+    renders its `a2ui.render()` result.
+
+  </Step>
+</Steps>

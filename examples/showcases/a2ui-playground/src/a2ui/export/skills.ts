@@ -15,7 +15,8 @@
  * Drop the folder into any agent that reads skills (Claude Code, ADK, Gemini
  * CLI), point it at a renderer of this catalog, and it composes the same UI.
  */
-import { CatalogConfig, DirectJsonFormat, ExpressFormat, InMemoryCatalogProvider, Skill, SkillGenerator, SkillSet } from "@a2ui/agent";
+import type { Skill} from "@a2ui/agent";
+import { CatalogConfig, DirectJsonFormat, ExpressFormat, InMemoryCatalogProvider, SkillGenerator, SkillSet } from "@a2ui/agent";
 import { definitions } from "@/a2ui/catalog/definitions";
 import type { Category } from "@/a2ui/catalog/definitions/shared";
 import { CATALOG_EXAMPLES } from "@/a2ui/catalog/examples";

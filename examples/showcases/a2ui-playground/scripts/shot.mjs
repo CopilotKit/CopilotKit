@@ -1,6 +1,6 @@
 /**
  * Screenshot any page in headless Chrome and report console errors.
- *   node scripts/shot.mjs "/components/BarChart" /tmp/a2ui-playground-shots/x.png [width] [waitMs]
+ *   node scripts/shot.mjs "/playground" /tmp/a2ui-playground-shots/x.png [width] [waitMs]
  */
 import puppeteer from "puppeteer-core";
 const [

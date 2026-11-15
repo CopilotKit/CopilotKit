@@ -42,7 +42,7 @@ export function latestData(ops: A2UIOp[]): Record<string, unknown> {
     const create = op.createSurface as
       | { dataModel?: Record<string, unknown> }
       | undefined;
-    if (create) data = { ...(create.dataModel ?? {}) };
+    if (create) data = { ...create.dataModel };
     const update = op.updateDataModel as
       | { value?: unknown; path?: string }
       | undefined;

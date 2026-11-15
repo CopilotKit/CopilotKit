@@ -89,6 +89,8 @@ describe("createCollector", () => {
               url: `${location.origin}/learning`,
               title: document.title,
               referrer: document.referrer,
+              // The build-time version, never the unbuilt fallback.
+              sdkVersion: expect.stringMatching(/^\d+\.\d+\.\d+/),
               seq: 1,
             },
           },

@@ -106,6 +106,7 @@ export function ChartCard({
                     fontSize: "12px",
                     color: "var(--foreground)",
                   }}
+                  itemStyle={{ color: "light-dark(#000, var(--foreground))" }}
                 />
                 <Bar dataKey="value" radius={[4, 4, 0, 0]} maxBarSize={36}>
                   {points.map((_, i) => (

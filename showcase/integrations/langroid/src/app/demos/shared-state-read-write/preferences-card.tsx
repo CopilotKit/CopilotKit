@@ -146,12 +146,12 @@ export function PreferencesCard({ value, onChange }: PreferencesCardProps) {
       </CardContent>
 
       <CardFooter className="flex-col items-stretch gap-2">
-        <div className="text-[10px] uppercase tracking-[0.14em] text-[#838389]">
+        <div className="text-[10px] uppercase tracking-[0.14em] text-[#838389] dark:text-muted-foreground">
           Shared state
         </div>
         <pre
           data-testid="pref-state-json"
-          className="bg-[#FAFAFC] border border-[#E9E9EF] rounded-lg p-3 text-xs text-[#010507] overflow-x-auto font-mono min-h-[140px] whitespace-pre"
+          className="bg-[#FAFAFC] border border-[#E9E9EF] rounded-lg p-3 text-xs text-[#010507] overflow-x-auto font-mono min-h-[140px] whitespace-pre dark:bg-muted dark:border-border dark:text-foreground"
         >
           {JSON.stringify(value, null, 2)}
         </pre>

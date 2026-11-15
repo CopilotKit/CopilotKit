@@ -14,10 +14,11 @@ without leaving the page.
 
 Reach for Inspector after a [quickstart](/quickstart) to verify that the pieces
 are connected, while adding tools or shared state, or when you need to reproduce
-an issue from a real conversation. Inspector shows what the browser received;
-[Runtime Debug Mode](/troubleshooting/debug-mode) adds the server-side view, and
-[Error Debugging & Observability](/troubleshooting/error-debugging) covers
-production error reporting.
+an issue from a real conversation. Each tool shows one layer:
+
+- Inspector: what the browser received.
+- [Runtime Debug Mode](/troubleshooting/debug-mode): the server-side view.
+- [Error Debugging & Observability](/troubleshooting/error-debugging): production error reporting.
 
 ## Choose what you need to do
 
@@ -46,7 +47,7 @@ When Intelligence is connected, Home shows an **Intelligence connected** chip.
 Otherwise, choose **Copy setup prompt** for your coding agent.
 
 If the agent is missing or no events arrive, first confirm the
-[Copilot Runtime](/backend/copilot-runtime) connection. If Threads is the only
+[Copilot Runtime](/backend/copilot-runtime) connection. If **Rich Threads** is the only
 missing piece, follow the [Intelligence quickstart](/intelligence/quickstart).
 
 ## Find the cause of a failed run
@@ -86,13 +87,13 @@ To reproduce a problem without changing the saved conversation, open a real
 messages and state into **Playground**, where you can vary the prompt, state, or
 next message and run, stop, retry, and continue independently.
 
-When Threads has no real rows, or when it is locked, Inspector keeps a local
+When **Rich Threads** has no real rows, or when it is locked, Inspector keeps a local
 example flow and guided tour available. The examples do not send real Thread
 requests.
 
 ## Inspect or continue a saved Thread
 
-Open **Rich Threads** and select a row to inspect its **Messages**, **AG-UI Events**,
+Open **Rich Threads** and select a row to inspect its **Conversation**, **AG-UI Events**,
 and **State**.
 
 Selecting a row does not change your live application chat. Choose **View in
@@ -107,10 +108,9 @@ If you are building the Thread picker and conversation surface yourself, see
 
 If Intelligence is not connected, open **Home** and choose **Copy setup prompt**.
 The [Intelligence quickstart](/intelligence/quickstart) explains the project,
-credentials, and Runtime routes that prompt configures. If Threads remains
+credentials, and Runtime routes that prompt configures. If **Rich Threads** remains
 locked after setup, Inspector shows one Rich Threads setup view with **Copy
-setup prompt** and **Talk to an Engineer**. The view is based on Runtime Threads
-capability rather than license metadata.
+setup prompt** and **Talk to an Engineer**.
 
 For cloud-hosted Intelligence, `copilotkit project select` writes
 `CPK_INTELLIGENCE_API_KEY` to your server-side `.env`. The Runtime uses that key
@@ -132,9 +132,10 @@ choose **Copy setup prompt**. See [Automatic Learning](/learning) for the comple
 
 ## Control when Inspector appears
 
-Inspector appears by default in React, Vue, and Angular development builds. It
-is never loaded or rendered in a production build or during server-side
-rendering.
+Inspector appears by default in React, Vue, and Angular development builds. In
+React, it appears only when the page runs on `localhost`, `127.0.0.1`, or
+`[::1]`. It is never loaded or rendered in a production build or during
+server-side rendering.
 
 | Goal                                       | Action                                                                                                    |
 | ------------------------------------------ | --------------------------------------------------------------------------------------------------------- |
@@ -180,16 +181,13 @@ An Intelligence-backed Runtime can supply trusted organization, project, plan,
 Thread usage, retention, and action metadata. Home shows valid project context;
 the Threads footer shows valid usage and relevant actions.
 
-Inspector opens only action URLs supplied by the Runtime. It never constructs a
-project URL or uses a fixed signup fallback. If metadata and Runtime license
-states conflict, Runtime status wins and Inspector hides the incompatible
-action.
+Inspector opens only action URLs supplied by the Runtime. If metadata and
+Runtime license states conflict, Runtime status wins and Inspector hides the
+incompatible action.
 
-Finite plans show `used / limit Threads` and a progress bar. Unlimited plans
-show the used count without a bar. **Limit unavailable** means the Runtime sent
-a used count without a numeric limit. **Expiring Soon** is a retention threshold
-within the next 24 hours; it does not mean Inspector locked or deleted a Thread.
+Thread usage shows one of these states:
 
-Older Runtime, Core, and Inspector versions remain compatible without a
-synchronized deployment. Explicit `threadEndpoints` remain authoritative, and
-metadata never enables Thread work.
+- Finite plan: `used / limit Threads` and a progress bar.
+- Unlimited plan: the used count, with no bar.
+- **Limit unavailable**: the Runtime sent a used count without a numeric limit.
+- **Expiring Soon**: Threads that reach the retention limit in the next 24 hours. Inspector did not lock or delete them.

@@ -19,6 +19,38 @@
 
   </Step>
   <Step>
+    ### Pass the mapping to `ADKAgent`
+
+    The mapping does nothing until it reaches the `ADKAgent` middleware. Pass
+    it as `predict_state`, and turn on `streaming_function_call_arguments` so
+    the middleware receives the tool arguments while the model writes them.
+    The showcase server builds each endpoint this way:
+
+    ```python title="src/agent_server.py"
+    from ag_ui_adk import ADKAgent, add_adk_fastapi_endpoint
+
+    middleware = ADKAgent(
+        adk_agent=shared_state_streaming_agent,
+        user_id="demo_user",
+        session_timeout_seconds=3600,
+        use_in_memory_services=True,
+        predict_state=SHARED_STATE_STREAMING_PREDICT_STATE,
+        streaming_function_call_arguments=True,
+    )
+    add_adk_fastapi_endpoint(app, middleware, path="/shared-state-streaming")
+    ```
+
+    With `predict_state`, the frontend gets `document` while the model writes
+    the `document` argument of `write_document`. When the tool runs,
+    `tool_context.state` stores the final value.
+
+    Per-token streaming needs `google-adk` 1.24.0 or later through Vertex AI.
+    On older versions, or through Gemini in Google AI Studio, the middleware
+    logs a `UserWarning` at startup and streams in larger chunks. The state
+    still updates, only less often.
+
+  </Step>
+  <Step>
     ### Stop after the final model response
 
     The agent above imports `stop_on_terminal_text` and registers it as its

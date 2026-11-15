@@ -414,8 +414,10 @@ const CategorySection = React.memo(
                     />
                   ) : (
                     <td
-                      className="sticky left-[160px] z-10 px-1 py-1 border-r-2 border-r-[#c4b5fd] border-l border-[var(--border)] align-top"
-                      style={{ backgroundColor: "#f5f0ff" }}
+                      className="sticky left-[160px] z-10 px-1 py-1 border-r-2 border-r-[#c4b5fd] dark:border-r-violet-800 border-l border-[var(--border)] align-top"
+                      style={{
+                        backgroundColor: "light-dark(#f5f0ff, #211c35)",
+                      }}
                     >
                       {/* Spacer, NOT a status — it has no reference datum.
                           It used to render `--`, the same glyph the unshipped
@@ -625,8 +627,8 @@ function StarterSection({
             </td>
             {showRefDepth && (
               <td
-                className="sticky left-[160px] z-10 px-1 py-1 border-r-2 border-r-[#c4b5fd] border-l border-[var(--border)] align-middle"
-                style={{ backgroundColor: "#f5f0ff" }}
+                className="sticky left-[160px] z-10 px-1 py-1 border-r-2 border-r-[#c4b5fd] dark:border-r-violet-800 border-l border-[var(--border)] align-middle"
+                style={{ backgroundColor: "light-dark(#f5f0ff, #211c35)" }}
               >
                 {/* Spacer, not a status — see the feature-row comment. */}
               </td>
@@ -681,8 +683,8 @@ function StarterSection({
             </td>
             {showRefDepth && (
               <td
-                className="sticky left-[160px] z-10 px-1 py-1 border-r-2 border-r-[#c4b5fd] border-l border-[var(--border)] align-middle"
-                style={{ backgroundColor: "#f5f0ff" }}
+                className="sticky left-[160px] z-10 px-1 py-1 border-r-2 border-r-[#c4b5fd] dark:border-r-violet-800 border-l border-[var(--border)] align-middle"
+                style={{ backgroundColor: "light-dark(#f5f0ff, #211c35)" }}
               >
                 {/* Spacer, not a status — see the feature-row comment. */}
               </td>

@@ -8,7 +8,7 @@ partner_docs: null
 repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/ms-agent-python
 copilotkit_version: 2.0.0
 deployed: true
-docs_mode: authored
+docs_mode: generated
 sort_order: 150
 generative_ui:
   - constrained-explicit
@@ -18,16 +18,7 @@ interaction_modalities:
   - sidebar
   - embedded
   - chat
-not_supported_features:
-  # QUARANTINED pending a @copilotkit/react-core release. gen-ui-interrupt /
-  # interrupt-headless fail turn-2 on a useInterrupt/useHeadlessInterrupt
-  # RESUME-PATH hook bug in @copilotkit/react-core/v2: backend resumes + streams
-  # (HTTP 200) but the frontend never appends the confirmation assistant bubble,
-  # so the harness DOM settle-check times out. Fix is a published-package change
-  # (out of scope here); honestly marked not-supported (skipped-incapable, not
-  # green, not red) rather than a regression. Demos remain wired below.
-  - gen-ui-interrupt
-  - interrupt-headless
+not_supported_features: []
 features:
   - multimodal
   - beautiful-chat
@@ -68,6 +59,8 @@ features:
   - voice
   - agent-config
   - shared-state-read
+  - gen-ui-interrupt
+  - interrupt-headless
 a2ui_pattern: schema-loading
 interrupt_pattern: promise-based
 agent_config_pattern: shared-state
@@ -245,6 +238,11 @@ demos:
       - agent-state
     route: /demos/shared-state-streaming
     animated_preview_url:
+    highlight:
+      - src/agents/shared_state_streaming.py
+      - src/app/demos/shared-state-streaming/page.tsx
+      - src/app/demos/shared-state-streaming/document-view.tsx
+      - src/app/api/copilotkit/route.ts
   - id: prebuilt-sidebar
     name: "Pre-Built: Sidebar"
     description: Docked sidebar chat via <CopilotSidebar />

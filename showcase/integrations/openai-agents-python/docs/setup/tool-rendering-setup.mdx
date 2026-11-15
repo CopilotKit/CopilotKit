@@ -1,0 +1,22 @@
+<Steps>
+  <Step>
+    ### Pass the backend tools to the agent
+
+    Backend tools are ordinary `@function_tool` functions. Pass them as
+    `tools=[...]`: the SDK derives each schema from the signature and
+    docstring and runs the call in this process when the model asks for it.
+    The adapter streams every call to the browser as `TOOL_CALL_START`,
+    `TOOL_CALL_ARGS` and `TOOL_CALL_END`, then `TOOL_CALL_RESULT` with the
+    returned value, so a frontend renderer registered under the same name
+    paints the card.
+
+    <DemoCode file="src/demo_agents/tool_rendering.py" region="tool-rendering-agent" />
+
+  </Step>
+</Steps>
+
+<Callout type="info" title="Arguments stream as the model writes them">
+  `TOOL_CALL_ARGS` arrives in pieces while the model generates the call, so
+  a renderer can show partial arguments during `inProgress`, before the call
+  executes and completes.
+</Callout>

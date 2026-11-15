@@ -1,3 +1,7 @@
+import {
+  prepareA2uiEvidence,
+  checkA2uiEvidence,
+} from "../helpers/a2ui-format.js";
 /**
  * D5 — gen-ui-a2ui-fixed script.
  *
@@ -36,11 +40,20 @@ export function buildA2uiFixedAssertion(opts?: {
   };
 }
 
-export function buildTurns(_ctx: D5BuildContext): ConversationTurn[] {
+export function buildTurns(ctx: D5BuildContext): ConversationTurn[] {
+  let format = ctx.a2uiFormat;
+  const prepare = async (page: Page) => {
+    format = await prepareA2uiEvidence(page, ctx.a2uiFormat);
+  };
   return [
     {
       input: A2UI_FIXED_PILL_PROMPT,
-      assertions: buildA2uiFixedAssertion(),
+      preFill: prepare,
+      afterReload: prepare,
+      assertions: async (page) => {
+        await buildA2uiFixedAssertion()(page);
+        if (format) await checkA2uiEvidence(page, format, "fixed");
+      },
       responseTimeoutMs: 60_000,
       completeOnMount: {
         testIds: ["a2ui-fixed-card"],

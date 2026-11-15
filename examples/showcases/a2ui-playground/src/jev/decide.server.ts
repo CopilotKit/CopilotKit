@@ -12,7 +12,8 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { TypeSafeClient } from "@typesafe-ai/sdk";
-import { searchPlaces, type Poi } from "@/agent/apis";
+import { searchPlaces } from "@/agent/apis";
+import type { Poi } from "@/agent/apis";
 import {
   cafesFor,
   JEV_MODEL,
@@ -20,11 +21,13 @@ import {
   readAnswers,
   toOps,
   USE_CASES,
-  type A2UIOp,
-  type Answers,
-  type CafePlace,
-  type UseCase,
-  type UseCaseId,
+} from "./usecases";
+import type {
+  A2UIOp,
+  Answers,
+  CafePlace,
+  UseCase,
+  UseCaseId,
 } from "./usecases";
 
 type PlacesRecord = {

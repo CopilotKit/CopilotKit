@@ -1,0 +1,80 @@
+<Callout type="warn" title="Use useHumanInTheLoop with Agent Spec">
+  Agent Spec agents have no interrupts, so `useInterrupt` does not apply. A
+  human-in-the-loop step in Agent Spec is a frontend tool: the agent declares
+  it as a `ClientTool`, and the browser renders it with `useHumanInTheLoop`.
+</Callout>
+
+Open Agent Spec has no live demo on these pages yet, so the steps below carry
+the code.
+
+<Steps>
+  <Step>
+    ### Create a frontend human-in-the-loop tool
+
+    Register the tool with `useHumanInTheLoop`. Its `render` shows two
+    buttons, and the user's click becomes the tool result. In this example,
+    the agent offers two options and waits for the user to pick one.
+
+    ```tsx title="page.tsx"
+    import { useHumanInTheLoop } from "@copilotkit/react-core/v2"
+    import { z } from "zod"
+
+    export function Page() {
+      // ...
+
+      useHumanInTheLoop({
+        name: "offerOptions",
+        description: "Give the user a choice between two options and have them select one.",
+        parameters: z.object({
+          option_1: z.string().describe("The first option"),
+          option_2: z.string().describe("The second option"),
+        }),
+        render: ({ args, respond }) => {
+          if (!respond) return <></>;
+          return (
+            <div>
+              <button onClick={() => respond(`${args.option_1} was selected`)}>{args.option_1}</button>
+              <button onClick={() => respond(`${args.option_2} was selected`)}>{args.option_2}</button>
+            </div>
+          );
+        },
+      });
+
+      // ...
+    }
+    ```
+
+  </Step>
+  <Step>
+    ### Declare the tool in your agent
+
+    Declare the same tool as a `ClientTool` in your Agent Spec config. The
+    name must match the `name` in `useHumanInTheLoop`:
+
+    ```python title="agent.py"
+    from pyagentspec.property import Property
+    from pyagentspec.tools import ClientTool
+
+    offer_options_tool = ClientTool(
+        name="offerOptions",
+        description="Give the user a choice between two options and have them select one.",
+        inputs=[
+            Property(title="option_1", json_schema={"title": "option_1", "type": "string"}),
+            Property(title="option_2", json_schema={"title": "option_2", "type": "string"}),
+        ],
+    )
+    ```
+
+    Add `offer_options_tool` to the `tools` list of your `Agent`. The agent
+    declares the tool, and the browser runs it.
+
+  </Step>
+  <Step>
+    ### Try it out
+
+    Ask: `Can you show me two good options for a restaurant name?` The two
+    options appear as buttons in the chat. After you pick one, the agent
+    continues with your choice.
+
+  </Step>
+</Steps>

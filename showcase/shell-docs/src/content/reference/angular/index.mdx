@@ -98,11 +98,11 @@ responsibility to cancel.
 
 CopilotKit's main chat components use signals and support zoneless change
 detection. Browser-only behavior is inert during server rendering and
-activates after hydration. Keep configuration and
-initial model/input values identical for the server and the first client
-render, avoid running agents or tools on the server, and place
-application-owned DOM work behind an Angular platform guard or
-`afterNextRender`.
+activates after hydration. For SSR:
+
+- Keep configuration and initial model and input values identical for the server and the first client render.
+- Do not run agents or tools on the server.
+- Put application-owned DOM work behind an Angular platform guard or `afterNextRender`.
 
 A2UI, Open Generative UI, audio capture, and MCP Apps can be present in an SSR
 tree, but their custom elements, media APIs, sandboxes, and iframes become
@@ -126,30 +126,25 @@ for the full setup, cleanup, error, SSR, hydration, and zoneless contract.
     title="UI Components"
     description="Prebuilt chat, popup, sidebar, and supported component-slot primitives."
     href="/reference/angular/components/CopilotChat"
-    icon={<LinkIcon />}
   />
   <Card
     title="Functions"
     description="Setup providers and injectable functions for agents, tools, context, and chat labels."
     href="/reference/angular/functions/provideCopilotKit"
-    icon={<LinkIcon />}
   />
   <Card
     title="Services"
     description="The CopilotKit service: the central handle on agents, tools, runtime connection, and suggestions."
     href="/reference/angular/services/CopilotKit"
-    icon={<LinkIcon />}
   />
   <Card
     title="Directives"
     description="The CopilotKitAgentContext directive for sharing application state with the agent from a template."
     href="/reference/angular/directives/CopilotKitAgentContext"
-    icon={<LinkIcon />}
   />
   <Card
     title="Public API Inventory"
     description="The complete root and MCP Apps export contract, including the explicitly internal extension token."
     href="/reference/angular/public-api"
-    icon={<LinkIcon />}
   />
 </Cards>

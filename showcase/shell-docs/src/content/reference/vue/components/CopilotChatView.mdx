@@ -54,12 +54,12 @@ function handleSubmit(value: string) {
 <PropertyReference name="messages" type="Message[]" default="[]">
   Array of conversation messages to display. When wired into an agent these are
   managed for you. When using `CopilotChatView` standalone, supply the messages
-  yourself.
+  yourself, for example from [`useAgent`](/reference/vue/hooks/useAgent).
 </PropertyReference>
 
 <PropertyReference name="autoScroll" type='AutoScrollMode | boolean' default="true">
-  Controls how the view scrolls as new messages stream in. Accepts the modern
-  `AutoScrollMode` strings or the legacy boolean shorthand:
+  Controls how the view scrolls as new messages stream in. Accepts an
+  `AutoScrollMode` string or a boolean:
 
   - `"pin-to-bottom"` / `true` -- stick to the bottom while the user is at the bottom.
   - `"pin-to-send"` -- anchor the latest user message near the top of the viewport while the assistant streams a response.
@@ -69,14 +69,16 @@ function handleSubmit(value: string) {
 </PropertyReference>
 
 <PropertyReference name="isRunning" type="boolean" default="false">
-  Whether the agent is currently processing. When `true`, the input shows a stop
-  button and the message view displays a typing cursor on the latest assistant
-  message.
+  Whether the agent is currently processing. When `true`, the message view shows
+  a typing cursor after the last message, unless that message is a reasoning
+  message. The send button becomes a stop button only when you listen for
+  `@stop`.
 </PropertyReference>
 
 <PropertyReference name="suggestions" type="Suggestion[]" default="[]">
   Array of suggestion objects to display as clickable pills near the input area.
   Suggestions are only shown when the view is not connecting and not running.
+  To read the configured suggestions, use [`useSuggestions`](/reference/vue/hooks/useSuggestions).
 </PropertyReference>
 
 <PropertyReference name="suggestionLoadingIndexes" type="ReadonlyArray<number>" default="[]">
@@ -262,7 +264,7 @@ that the default implementation also consumes, so a replacement can reuse them.
 
 <PropertyReference name="welcome-message" type="() => unknown">
   The heading shown inside the default welcome screen. The default renders the
-  configured welcome message text. Override it to provide custom welcome content.
+  `welcomeMessageText` label from [`useCopilotChatConfiguration`](/reference/vue/hooks/useCopilotChatConfiguration). Override it to provide custom welcome content.
 </PropertyReference>
 
 ## Usage
@@ -357,12 +359,6 @@ import { CopilotChatView } from "@copilotkit/vue/v2";
 ## Behavior
 
 - **Auto-scroll**: `pin-to-bottom` keeps the latest message visible while the user is at the bottom; `pin-to-send` anchors the latest user message near the top while the assistant streams. A scroll-to-bottom button appears when the user scrolls up.
-- **Welcome screen**: Rendered when `messages` is empty and the welcome screen is not suppressed by `welcomeScreen="false"`, `isConnecting`, or `hasExplicitThreadId`. The welcome screen embeds the input and suggestion slots.
+- **Welcome screen**: Rendered when `messages` is empty and the welcome screen is not suppressed by `:welcome-screen="false"`, `isConnecting`, or `hasExplicitThreadId`. The welcome screen embeds the input and suggestion slots.
 - **Input overlay positioning**: The input is rendered in an absolutely positioned overlay at the bottom of the chat, and the scroll content is padded to avoid overlap. The component measures the overlay height with a `ResizeObserver` and keeps the padding in sync.
 - **Mobile keyboard**: The view tracks the on-screen keyboard height so the input can translate above the keyboard on mobile devices.
-
-## Related
-
-- [`useAgent`](/reference/vue/hooks/useAgent) -- access and subscribe to an AG-UI agent to drive the chat view
-- [`useSuggestions`](/reference/vue/hooks/useSuggestions) -- generate the suggestion pills shown by this view
-- [`useCopilotChatConfiguration`](/reference/vue/hooks/useCopilotChatConfiguration) -- read the labels (including the welcome message text) consumed by the default slots

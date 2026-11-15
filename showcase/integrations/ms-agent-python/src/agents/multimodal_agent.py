@@ -15,12 +15,10 @@ Attachments arrive here after travelling through:
                                                        (AG-UI -> AF adapter)
                 ->  this agent
 
-The deployed AG-UI adapter recognizes the legacy
-``{ type: "binary", mimeType, data | url }`` AG-UI part shape. The page at
-``src/app/demos/multimodal/page.tsx`` installs an ``onRunInitialized`` shim
-that rewrites the modern ``{ type: "image" | "document", source: {...} }``
-shape CopilotChat emits to the legacy ``binary`` shape before it hits the
-runtime. We therefore route on ``mimeType``, not the part ``type``:
+The page sends modern ``{ type: "image" | "document", source: {...} }``
+parts; the AG-UI adapter also still accepts the legacy
+``{ type: "binary", mimeType, data | url }`` shape from older clients. We
+therefore route on ``mimeType``, not the part ``type``:
 
 - ``image/*`` parts are forwarded to GPT-4o-mini unchanged (vision-native).
 - ``application/pdf`` parts are flattened to inline text via ``pypdf`` so
@@ -206,11 +204,10 @@ class _PdfFlattenChatMiddleware(ChatMiddleware):
                     continue
                 payload, _ = pdf
                 block = _flattened_pdf_block(payload)
-                # The page's ``LegacyConverterShim`` APPENDS a legacy
-                # ``binary`` mirror alongside every modern attachment part
-                # (see src/app/demos/multimodal/legacy-converter-shim.tsx), so
-                # the same PDF reaches this middleware twice. Emit its body
-                # once -- sending it twice doubles prompt tokens for nothing.
+                # An older client may send a legacy ``binary`` mirror
+                # alongside each modern attachment part, so the same PDF can
+                # reach this middleware twice. Emit its body once -- sending
+                # it twice doubles prompt tokens for nothing.
                 if block not in blocks:
                     blocks.append(block)
             if not blocks:

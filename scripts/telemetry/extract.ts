@@ -7,11 +7,11 @@
 //     the v2 runtime). `readRuntimeCatalog` reads that type; call sites come
 //     from a name-based scan (the emit sites pass non-literal props, so their
 //     inline keys are NOT authoritative — the catalog is).
-//   - docs (showcase/shell-docs) → inline `posthog.capture("name", { ... })`.
-//     `extractCallees` collects the event name + inline object keys, same
-//     best-effort static rules as the shared registry extractor. The name may
-//     be a string literal or a `const` in the same file set (see
-//     `collectEventConstants`).
+//   - docs (showcase/shell-docs) → its emit calls: `posthog.capture(...)` and
+//     the app's `trackEvent(...)` wrapper (see `DOCS_CALLEE_NAMES`).
+//     `extractCallees` collects the event name + the payload's object keys,
+//     same best-effort static rules as the shared registry extractor, plus
+//     the few indirections the docs app uses (see `findEmitCalls`).
 //
 // Both outputs are deterministic (sorted, deduped) so the fragment is byte
 // stable and the CI content-gate can compare event sets reliably.
@@ -25,9 +25,17 @@ export interface FragmentEvent {
 
 // ---------------------------------------------------------------------------
 // Callee-mode extraction (docs) — ported from the registry's extract.ts.
-// Deliberate limits: string-literal names only; inline object-literal keys of
-// arg[1] only (no spreads/computed/variables); matches `foo` and `obj.method`.
+// Matches `foo` and `obj.method`. arg[0] is the event name, arg[1] the
+// payload. Deliberately static and shallow; see `findEmitCalls` for exactly
+// what is followed.
 // ---------------------------------------------------------------------------
+
+/**
+ * The docs site's emit calls: posthog-js / posthog-node `capture`, and
+ * `trackEvent`, the wrapper every client control in showcase/shell-docs calls
+ * (`src/lib/telemetry/analytics.ts`).
+ */
+export const DOCS_CALLEE_NAMES = ["posthog.capture", "capture", "trackEvent"];
 
 function calleeNames(expr: ts.CallExpression): string[] {
   const c = expr.expression;
@@ -41,20 +49,9 @@ function calleeNames(expr: ts.CallExpression): string[] {
   return [];
 }
 
-function objectKeys(node: ts.Node | undefined): string[] {
-  if (!node || !ts.isObjectLiteralExpression(node)) return [];
-  const keys: string[] = [];
-  for (const prop of node.properties) {
-    if (
-      (ts.isPropertyAssignment(prop) ||
-        ts.isShorthandPropertyAssignment(prop)) &&
-      prop.name
-    ) {
-      if (ts.isIdentifier(prop.name)) keys.push(prop.name.text);
-      else if (ts.isStringLiteralLike(prop.name)) keys.push(prop.name.text);
-    }
-  }
-  return keys;
+interface ParsedFile {
+  path: string;
+  sf: ts.SourceFile;
 }
 
 function parse(path: string, content: string): ts.SourceFile {
@@ -103,7 +100,7 @@ function withoutAssertion(node: ts.Expression): ts.Expression {
  * @returns Every unambiguous constant, by reference text.
  */
 function collectEventConstants(
-  files: Array<{ path: string; content: string }>,
+  files: ParsedFile[],
 ): ReadonlyMap<string, string> {
   const found = new Map<string, string>();
   const ambiguous = new Set<string>();
@@ -117,8 +114,7 @@ function collectEventConstants(
     found.set(key, value);
   };
 
-  for (const file of files) {
-    const sf = parse(file.path, file.content);
+  for (const { sf } of files) {
     const visit = (node: ts.Node): void => {
       if (
         ts.isVariableDeclaration(node) &&
@@ -153,54 +149,351 @@ function collectEventConstants(
   return found;
 }
 
-/** Reads the event name from `arg[0]`, resolving a constant reference. */
-function eventNameOf(
-  node: ts.Expression | undefined,
-  constants: ReadonlyMap<string, string>,
-): string | undefined {
-  if (!node) return undefined;
-  if (ts.isStringLiteralLike(node)) return node.text;
-  if (ts.isIdentifier(node)) return constants.get(node.text);
-  if (ts.isPropertyAccessExpression(node) && ts.isIdentifier(node.expression)) {
-    return constants.get(`${node.expression.text}.${node.name.text}`);
+// ---------------------------------------------------------------------------
+// Following a name or a payload back to where it is written.
+//
+// The docs app rarely writes an event at its emit call. `trackEvent` takes a
+// constant (`INTELLIGENCE_ONBOARDING_EVENTS.promptCopied`), a local
+// (`{ ...properties, action }`), or a prop of the component around it
+// (`<TrackedLink event="docs.journey_continued" properties={{ ... }}>`,
+// `copiedEvent = INTELLIGENCE_ONBOARDING_EVENTS.promptCopied`). These rules
+// follow exactly those, and nothing else:
+//
+//   - a string literal, or a `const` from `collectEventConstants`;
+//   - an identifier, to the nearest enclosing `const`/`let`/`var` statement or
+//     function parameter that declares it (no imports, no type checker);
+//   - a destructured prop of a named function component, to its default and
+//     to the value every `<Component prop=...>` in the file set passes;
+//   - in a payload, object-literal keys, `...spreads` of anything above, and
+//     both branches of a `cond ? { ... } : { ... }`.
+//
+// A template-literal name (`docs.homepage_${action}`), a function's return
+// value and a plain (non-destructured) parameter are not followed. Properties
+// that reach a component through a prop are the union over its usages.
+// ---------------------------------------------------------------------------
+
+type Binding =
+  | ts.VariableDeclaration
+  | ts.ParameterDeclaration
+  | ts.BindingElement;
+
+/** JSX attributes by element name, across the files being extracted. */
+type JsxUsages = ReadonlyMap<
+  string,
+  Array<{ file: ParsedFile; attributes: ts.JsxAttributes }>
+>;
+
+interface Resolver {
+  constants: ReadonlyMap<string, string>;
+  jsx: JsxUsages;
+}
+
+/** A resolved event name and the node that spells it. */
+interface NamedEvent {
+  event: string;
+  file: ParsedFile;
+  node: ts.Node;
+}
+
+function indexJsxUsages(files: ParsedFile[]): JsxUsages {
+  const usages = new Map<
+    string,
+    Array<{ file: ParsedFile; attributes: ts.JsxAttributes }>
+  >();
+  for (const file of files) {
+    const visit = (node: ts.Node): void => {
+      if (
+        (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) &&
+        ts.isIdentifier(node.tagName)
+      ) {
+        const list = usages.get(node.tagName.text) ?? [];
+        list.push({ file, attributes: node.attributes });
+        usages.set(node.tagName.text, list);
+      }
+      ts.forEachChild(node, visit);
+    };
+    visit(file.sf);
+  }
+  return usages;
+}
+
+function unwrap(node: ts.Expression): ts.Expression {
+  if (
+    ts.isParenthesizedExpression(node) ||
+    ts.isAsExpression(node) ||
+    ts.isSatisfiesExpression(node) ||
+    ts.isNonNullExpression(node)
+  ) {
+    return unwrap(node.expression);
+  }
+  return node;
+}
+
+function bindingIn(
+  owner: ts.VariableDeclaration | ts.ParameterDeclaration,
+  name: ts.BindingName,
+  text: string,
+): Binding | undefined {
+  if (ts.isIdentifier(name)) return name.text === text ? owner : undefined;
+  for (const element of name.elements) {
+    if (ts.isOmittedExpression(element)) continue;
+    if (ts.isIdentifier(element.name)) {
+      if (element.name.text === text) return element;
+    } else {
+      const nested = bindingIn(owner, element.name, text);
+      if (nested) return nested;
+    }
   }
   return undefined;
+}
+
+/** The innermost declaration of `id` in an enclosing block or function. */
+function lookup(id: ts.Identifier): Binding | undefined {
+  for (let scope = id.parent; scope; scope = scope.parent) {
+    if (ts.isFunctionLike(scope)) {
+      for (const param of scope.parameters) {
+        const found = bindingIn(param, param.name, id.text);
+        if (found) return found;
+      }
+    }
+    if (ts.isBlock(scope) || ts.isSourceFile(scope)) {
+      for (const statement of scope.statements) {
+        if (!ts.isVariableStatement(statement)) continue;
+        for (const declaration of statement.declarationList.declarations) {
+          const found = bindingIn(declaration, declaration.name, id.text);
+          if (found) return found;
+        }
+      }
+    }
+  }
+  return undefined;
+}
+
+function functionName(fn: ts.SignatureDeclaration): string | undefined {
+  if ((ts.isFunctionDeclaration(fn) || ts.isFunctionExpression(fn)) && fn.name)
+    return fn.name.text;
+  if (
+    (ts.isArrowFunction(fn) || ts.isFunctionExpression(fn)) &&
+    ts.isVariableDeclaration(fn.parent) &&
+    ts.isIdentifier(fn.parent.name)
+  ) {
+    return fn.parent.name.text;
+  }
+  return undefined;
+}
+
+/** `{ prop }` in a named function's first parameter: `<Component prop=...>`. */
+function componentProp(
+  binding: ts.BindingElement,
+): { component: string; prop: string } | undefined {
+  const pattern = binding.parent;
+  const param = pattern.parent;
+  if (!ts.isObjectBindingPattern(pattern) || !ts.isParameter(param)) return;
+  const fn = param.parent;
+  if (!ts.isFunctionLike(fn) || fn.parameters[0] !== param) return;
+  const component = functionName(fn);
+  const key = binding.propertyName ?? binding.name;
+  const prop =
+    ts.isIdentifier(key) || ts.isStringLiteralLike(key) ? key.text : undefined;
+  return component && prop ? { component, prop } : undefined;
+}
+
+/** What every `<component prop=...>` in the file set passes. */
+function propValues(
+  r: Resolver,
+  component: string,
+  prop: string,
+): Array<{ file: ParsedFile; value: ts.Expression }> {
+  const values: Array<{ file: ParsedFile; value: ts.Expression }> = [];
+  for (const { file, attributes } of r.jsx.get(component) ?? []) {
+    for (const attr of attributes.properties) {
+      if (
+        !ts.isJsxAttribute(attr) ||
+        !ts.isIdentifier(attr.name) ||
+        attr.name.text !== prop ||
+        !attr.initializer
+      ) {
+        continue;
+      }
+      if (ts.isStringLiteral(attr.initializer)) {
+        values.push({ file, value: attr.initializer });
+      } else if (
+        ts.isJsxExpression(attr.initializer) &&
+        attr.initializer.expression
+      ) {
+        values.push({ file, value: attr.initializer.expression });
+      }
+    }
+  }
+  return values;
+}
+
+type Reader<T> = (
+  node: ts.Expression,
+  file: ParsedFile,
+  r: Resolver,
+  seen: Set<ts.Node>,
+) => T[];
+
+/** Reads every value a declaration can hold: its initializer or default, and a component prop's passed values. */
+function bindingValues<T>(
+  binding: Binding,
+  file: ParsedFile,
+  r: Resolver,
+  seen: Set<ts.Node>,
+  read: Reader<T>,
+): T[] {
+  if (seen.has(binding)) return [];
+  seen.add(binding);
+  // A plain parameter's value is its caller's argument, which isn't followed.
+  if (ts.isParameter(binding)) return [];
+  const values = binding.initializer
+    ? read(binding.initializer, file, r, seen)
+    : [];
+  const target = ts.isBindingElement(binding)
+    ? componentProp(binding)
+    : undefined;
+  if (target) {
+    for (const passed of propValues(r, target.component, target.prop)) {
+      values.push(...read(passed.value, passed.file, r, seen));
+    }
+  }
+  return values;
+}
+
+/** The event names `node` can evaluate to. */
+const eventNames: Reader<NamedEvent> = (node, file, r, seen) => {
+  const expr = unwrap(node);
+  const named = (event: string | undefined): NamedEvent[] =>
+    event === undefined ? [] : [{ event, file, node: expr }];
+  if (ts.isStringLiteralLike(expr)) return named(expr.text);
+  if (ts.isIdentifier(expr)) {
+    const binding = lookup(expr);
+    return binding
+      ? bindingValues(binding, file, r, seen, eventNames)
+      : named(r.constants.get(expr.text));
+  }
+  if (ts.isPropertyAccessExpression(expr) && ts.isIdentifier(expr.expression)) {
+    return named(r.constants.get(`${expr.expression.text}.${expr.name.text}`));
+  }
+  return [];
+};
+
+/** The property keys a payload expression can carry. */
+const propertyKeys: Reader<string> = (node, file, r, seen) => {
+  const expr = unwrap(node);
+  if (ts.isObjectLiteralExpression(expr)) {
+    const keys: string[] = [];
+    for (const prop of expr.properties) {
+      if (ts.isSpreadAssignment(prop)) {
+        keys.push(...propertyKeys(prop.expression, file, r, seen));
+      } else if (
+        (ts.isPropertyAssignment(prop) ||
+          ts.isShorthandPropertyAssignment(prop)) &&
+        (ts.isIdentifier(prop.name) || ts.isStringLiteralLike(prop.name))
+      ) {
+        keys.push(prop.name.text);
+      }
+    }
+    return keys;
+  }
+  if (ts.isConditionalExpression(expr)) {
+    return [
+      ...propertyKeys(expr.whenTrue, file, r, seen),
+      ...propertyKeys(expr.whenFalse, file, r, seen),
+    ];
+  }
+  if (ts.isIdentifier(expr)) {
+    const binding = lookup(expr);
+    return binding ? bindingValues(binding, file, r, seen, propertyKeys) : [];
+  }
+  return [];
+};
+
+/** One emit call: every event name it can send, and the keys it passes. */
+export interface EmitCall {
+  path: string;
+  line: number;
+  /** Each name, with where it is spelled (often another file). */
+  events: Array<{ event: string; path: string; line: number }>;
+  properties: string[];
+}
+
+function lineOf(file: ParsedFile, node: ts.Node): number {
+  return file.sf.getLineAndCharacterOfPosition(node.getStart(file.sf)).line + 1;
+}
+
+/**
+ * Finds every call to one of `calleeNames` whose event name resolves, with
+ * its payload's keys. See the rules above `Binding` for what is followed.
+ */
+export function findEmitCalls(
+  files: Array<{ path: string; content: string }>,
+  names: string[],
+): EmitCall[] {
+  const wanted = new Set(names);
+  const parsed = files.map((f) => ({
+    path: f.path,
+    sf: parse(f.path, f.content),
+  }));
+  const r: Resolver = {
+    constants: collectEventConstants(parsed),
+    jsx: indexJsxUsages(parsed),
+  };
+  const calls: EmitCall[] = [];
+  for (const file of parsed) {
+    const visit = (node: ts.Node): void => {
+      if (
+        ts.isCallExpression(node) &&
+        node.arguments[0] &&
+        calleeNames(node).some((n) => wanted.has(n))
+      ) {
+        const events = eventNames(node.arguments[0], file, r, new Set());
+        if (events.length > 0) {
+          const payload = node.arguments[1];
+          calls.push({
+            path: file.path,
+            line: lineOf(file, node),
+            events: events.map((e) => ({
+              event: e.event,
+              path: e.file.path,
+              line: lineOf(e.file, e.node),
+            })),
+            properties: payload
+              ? [...new Set(propertyKeys(payload, file, r, new Set()))].sort()
+              : [],
+          });
+        }
+      }
+      ts.forEachChild(node, visit);
+    };
+    visit(file.sf);
+  }
+  return calls;
 }
 
 export function extractCallees(
   files: Array<{ path: string; content: string }>,
   config: { calleeNames: string[]; callSites?: "file" | "line" },
 ): FragmentEvent[] {
-  const callSites = config.callSites ?? "file";
-  const wanted = new Set(config.calleeNames);
-  const constants = collectEventConstants(files);
+  const site = (path: string, line: number) =>
+    config.callSites === "line" ? `${path}:${line}` : path;
   const byEvent = new Map<string, { props: Set<string>; sites: string[] }>();
 
-  for (const file of files) {
-    const sf = parse(file.path, file.content);
-    const visit = (node: ts.Node): void => {
-      if (ts.isCallExpression(node)) {
-        const names = calleeNames(node);
-        const event = names.some((n) => wanted.has(n))
-          ? eventNameOf(node.arguments[0], constants)
-          : undefined;
-        if (event !== undefined) {
-          const entry = byEvent.get(event) ?? {
-            props: new Set<string>(),
-            sites: [],
-          };
-          for (const k of objectKeys(node.arguments[1])) entry.props.add(k);
-          if (callSites === "file") entry.sites.push(file.path);
-          else
-            entry.sites.push(
-              `${file.path}:${sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1}`,
-            );
-          byEvent.set(event, entry);
-        }
-      }
-      ts.forEachChild(node, visit);
-    };
-    visit(sf);
+  for (const call of findEmitCalls(files, config.calleeNames)) {
+    for (const named of call.events) {
+      const entry = byEvent.get(named.event) ?? {
+        props: new Set<string>(),
+        sites: [],
+      };
+      for (const k of call.properties) entry.props.add(k);
+      entry.sites.push(site(call.path, call.line));
+      // A name passed in from another file (a prop, a default) is emitted
+      // from there too, as far as a reader looking for it is concerned.
+      if (named.path !== call.path)
+        entry.sites.push(site(named.path, named.line));
+      byEvent.set(named.event, entry);
+    }
   }
 
   return finalize(byEvent);

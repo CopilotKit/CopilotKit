@@ -15,4 +15,70 @@
     <DemoCode file="src/agents/shared_state_streaming.py" region="state-streaming-middleware" />
 
   </Step>
+  <Step>
+    ### Using a custom graph instead of `create_agent`
+
+    `StateStreamingMiddleware` is a `create_agent` middleware. In a graph
+    where you define the nodes and edges yourself, map the tool argument
+    with `copilotkit_customize_config` and pass the returned config to the
+    model call:
+
+    ```python title="agent.py"
+    from copilotkit import CopilotKitState
+    from copilotkit.langgraph import copilotkit_customize_config
+    from langchain_core.messages import SystemMessage
+    from langchain_core.runnables import RunnableConfig
+
+    class AgentState(CopilotKitState):
+        observed_steps: list[str]
+
+    async def chat_node(state: AgentState, config: RunnableConfig):
+        streaming_config = copilotkit_customize_config(
+            config,
+            emit_intermediate_state=[
+                {
+                    "state_key": "observed_steps",
+                    "tool": "step_progress_tool",
+                    "tool_argument": "steps",
+                },
+            ]
+        )
+
+        model_with_tools = model.bind_tools(
+            [
+                *state["copilotkit"]["actions"],
+                *tools,
+            ],
+            parallel_tool_calls=False,
+        )
+
+        response = await model_with_tools.ainvoke(
+            [
+                SystemMessage(
+                    content="You are a task performer. Report your steps "
+                    "using step_progress_tool."
+                ),
+                *state["messages"],
+            ],
+            streaming_config,
+        )
+        return {"messages": [response]}
+    ```
+
+    To push progress from your own code instead of a tool call, call
+    `copilotkit_emit_state` with the state you want the UI to show:
+
+    ```python title="agent.py"
+    from copilotkit.langgraph import copilotkit_emit_state
+
+    for step in steps:
+        state["observed_steps"] = state.get("observed_steps", []) + [step]
+        await copilotkit_emit_state(config, state)
+    ```
+
+    Streamed values are previews. When the node finishes, the state it
+    returns replaces them, so return every key you want to keep, or the UI
+    loses the streamed value.
+
+  </Step>
 </Steps>

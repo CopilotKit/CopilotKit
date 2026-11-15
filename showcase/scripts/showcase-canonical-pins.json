@@ -15,6 +15,20 @@
       "@copilotkit/runtime": "1.76.0",
       "@copilotkit/shared": "1.76.0",
       "@copilotkit/voice": "1.76.0"
+    },
+    "google-adk": {
+      "@copilotkit/a2ui-renderer": "1.87.1",
+      "@copilotkit/react-core": "1.87.1",
+      "@copilotkit/runtime": "1.87.1",
+      "@copilotkit/shared": "1.87.1",
+      "@copilotkit/voice": "1.87.1"
+    },
+    "openai-agents-python": {
+      "@copilotkit/a2ui-renderer": "1.76.0",
+      "@copilotkit/react-core": "1.76.0",
+      "@copilotkit/runtime": "1.76.0",
+      "@copilotkit/shared": "1.76.0",
+      "@copilotkit/voice": "1.76.0"
     }
   }
 }

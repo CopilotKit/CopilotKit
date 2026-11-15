@@ -73,6 +73,15 @@ primary deploy path.
 4. **Git-based services**: auto-updates only apply to image-sourced
    services. Skip step 1 for git-deploy services.
 
+5. **Register it in `SERVICES`** (`showcase/scripts/railway-envs.ts`) with
+   the exact Railway name and service ID. Either order is safe. While a
+   service has a staging or prod instance but no `SERVICES` entry, the image
+   gate (`verify-railway-image-refs.ts`) prints
+   `WARN unregistered Railway service` and passes; it does not check that
+   service's image, and CI does not deploy or promote it. An unregistered
+   service with no staging or prod instance, a registered name with a
+   different ID, or a registered ID under a new name still fails the gate.
+
 ## Promoting a Staging-Only Integration to Production
 
 ### When this applies

@@ -79,7 +79,7 @@ async function startDriver(
     clearTimeout(kill);
   };
   try {
-    const port = await new Promise((resolvePort, reject) => {
+    const readiness = await new Promise((resolvePort, reject) => {
       const timer = setTimeout(
         () =>
           reject(
@@ -104,14 +104,18 @@ async function startDriver(
             info.port < 65536
           ) {
             clearTimeout(timer);
-            resolvePort(info.port);
+            resolvePort(info);
           }
         } catch {
           logs = (logs + line + "\n").slice(-8000);
         }
       });
     });
-    return { url: `http://127.0.0.1:${port}/copilotkit`, stop };
+    return {
+      url: `http://127.0.0.1:${readiness.port}/copilotkit`,
+      expectedA2uiActionHistory: readiness.expectedA2uiActionHistory,
+      stop,
+    };
   } catch (error) {
     await stop();
     throw error;
@@ -159,7 +163,12 @@ export async function runSuite(
       let timer;
       try {
         await Promise.race([
-          spec.run({ request, platform, runtimeUrl: driver.url }),
+          spec.run({
+            request,
+            platform,
+            runtimeUrl: driver.url,
+            expectedA2uiActionHistory: driver.expectedA2uiActionHistory,
+          }),
           new Promise((_, reject) => {
             timer = setTimeout(
               () =>

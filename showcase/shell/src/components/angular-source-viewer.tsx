@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
-import { oneLight } from "react-syntax-highlighter/dist/esm/styles/prism";
+import { oneLightDark } from "@/lib/code-theme";
 
 import sourceContentData from "@/data/angular-source-content.json";
 
@@ -55,7 +55,7 @@ export function AngularSourceViewer({ feature }: { feature: string }) {
       <main className="min-w-0 flex-1 overflow-auto" aria-label={filename}>
         <SyntaxHighlighter
           language={source.language}
-          style={oneLight}
+          style={oneLightDark}
           customStyle={{
             margin: 0,
             borderRadius: 0,

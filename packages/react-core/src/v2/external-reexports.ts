@@ -202,6 +202,7 @@ export type {
   ɵPendingInterrupt,
   ɵPhoenixChannelLike,
   ɵPhoenixChannelOptions,
+  ɵPhoenixChannelParams,
   ɵPhoenixChannelSession,
   ɵPhoenixJoinOutcome,
   ɵPhoenixPushLike,

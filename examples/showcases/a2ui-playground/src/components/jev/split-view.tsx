@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { USE_CASES, type UseCaseId } from "@/jev/usecases";
+import { USE_CASES } from "@/jev/usecases";
+import type { UseCaseId } from "@/jev/usecases";
 import { Decision, Json, SlidingTabs, Stream } from "./inspector";
 import { JevBar, PromptBar, Timing } from "./parts";
 import { JevStage } from "./stage";

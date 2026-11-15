@@ -22,8 +22,8 @@ export function AuthBanner({
   onSignIn,
 }: AuthBannerProps) {
   const classes = authenticated
-    ? "border-emerald-300 bg-emerald-50 text-emerald-900"
-    : "border-amber-300 bg-amber-50 text-amber-900";
+    ? "border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
+    : "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300";
 
   return (
     <div
@@ -41,7 +41,7 @@ export function AuthBanner({
           type="button"
           data-testid="auth-sign-out-button"
           onClick={onSignOut}
-          className="inline-flex h-8 items-center justify-center rounded-md border border-emerald-400 bg-white px-3 text-xs font-medium text-emerald-800 shadow-sm hover:bg-emerald-100"
+          className="inline-flex h-8 items-center justify-center rounded-md border border-emerald-400 bg-white px-3 text-xs font-medium text-emerald-800 shadow-sm hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-900/50"
         >
           Sign out
         </button>
@@ -50,7 +50,7 @@ export function AuthBanner({
           type="button"
           data-testid="auth-authenticate-button"
           onClick={onSignIn}
-          className="inline-flex h-8 items-center justify-center rounded-md border border-amber-400 bg-white px-3 text-xs font-medium text-amber-800 shadow-sm hover:bg-amber-100"
+          className="inline-flex h-8 items-center justify-center rounded-md border border-amber-400 bg-white px-3 text-xs font-medium text-amber-800 shadow-sm hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-300 dark:hover:bg-amber-900/50"
         >
           Sign in
         </button>

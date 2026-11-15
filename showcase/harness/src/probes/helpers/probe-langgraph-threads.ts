@@ -108,8 +108,8 @@ export async function cleanupProbeThreads(
       body: JSON.stringify({ testId, threadIds: [...threadIds] }),
       signal: AbortSignal.timeout(5_000),
     });
-    // Only LangGraph Python services expose this endpoint. Other integrations
-    // run the same shared probe and return 404.
+    // Only the LangGraph services (python, fastapi, typescript) expose this
+    // endpoint. Other integrations run the same shared probe and return 404.
     if (!response.ok && response.status !== 404) {
       logger.warn("probe.e2e.langgraph-cleanup-failed", {
         status: response.status,

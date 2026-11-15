@@ -5,7 +5,15 @@ description: "Angular standalone component that wires an agent to a complete cha
 
 ## Overview
 
-`CopilotChat` is the all-in-one chat component. It wires an agent into [`CopilotChatView`](/reference/angular/components/CopilotChatView) so you get a working chat interface with one selector. It resolves the agent through [`injectAgentStore`](/reference/angular/functions/injectAgentStore), subscribes to that agent's messages and running state, manages suggestions, tracks the input value, handles audio transcription, wires file attachments, and clears the input after each message is sent.
+`CopilotChat` is the all-in-one chat component. It wires an agent into [`CopilotChatView`](/reference/angular/components/CopilotChatView) so you get a working chat interface with one selector. It does this work for you:
+
+- Resolves the agent through [`injectAgentStore`](/reference/angular/functions/injectAgentStore).
+- Subscribes to the agent's messages and running state.
+- Manages suggestions.
+- Tracks the input value.
+- Handles audio transcription.
+- Wires file attachments.
+- Clears the input after each message is sent.
 
 `CopilotChat` extends `ChatState` and provides itself to the view and input beneath it. You usually only need to point it at an agent.
 
@@ -37,7 +45,7 @@ Remember to import the stylesheet once in your global styles:
 ## Inputs
 
 <PropertyReference name="agentId" type="string">
-  ID of the agent to connect. Must match an agent configured in [`provideCopilotKit`](/reference/angular/functions/provideCopilotKit). When omitted, the default agent is used.
+  ID of the agent to connect. Must match an agent configured in [`provideCopilotKit`](/reference/angular/functions/provideCopilotKit). When omitted, the chat uses the agent from a surrounding `provideCopilotChatConfiguration`, then `"default"`.
 </PropertyReference>
 
 <PropertyReference name="threadId" type="string">
@@ -61,7 +69,7 @@ Remember to import the stylesheet once in your global styles:
 </PropertyReference>
 
 <PropertyReference name="assistantMessageClass" type="string">
-  CSS classes forwarded to the assistant-message slot.
+  CSS classes for each assistant message. The default `CopilotChatAssistantMessage` adds them to its container. A custom assistant-message component or template receives them as `inputClass`.
 </PropertyReference>
 
 <PropertyReference name="reasoningMessageComponent" type="Type<any>">
@@ -94,26 +102,6 @@ Remember to import the stylesheet once in your global styles:
 
 ## Customization
 
-`CopilotChat` keeps the layout simple and delegates slot customization to the view it renders. Swap the input area with the `inputComponent` input, or compose the layout yourself with [`CopilotChatView`](/reference/angular/components/CopilotChatView), which exposes the full set of slot inputs and content-projection templates (message view, scroll view, feather, disclaimer, input container, and the input toolbar buttons).
+`CopilotChat` keeps the layout simple and delegates slot customization to the view it renders. Swap the input area with the `inputComponent` input, or compose the layout yourself with [`CopilotChatView`](/reference/angular/components/CopilotChatView), which exposes slot inputs for the message view, feather, disclaimer, and input container, plus a `customLayout` template. To change the input buttons, use `inputComponent`.
 
 To customize the text strings (input placeholder, welcome message, toolbar labels, disclaimer), provide labels through [`provideCopilotChatLabels`](/reference/angular/functions/provideCopilotChatLabels). The chat reads them through `injectChatLabels` internally.
-
-## Related
-
-<Cards>
-  <Card
-    title="CopilotChatView"
-    description="The layout-only chat view used internally. Use it when you manage messages and handlers yourself."
-    href="/reference/angular/components/CopilotChatView"
-  />
-  <Card
-    title="CopilotChatInput"
-    description="The input area: textarea, send button, tools menu, file upload, and transcription."
-    href="/reference/angular/components/CopilotChatInput"
-  />
-  <Card
-    title="provideCopilotKit"
-    description="Configures the runtime connection and agents that CopilotChat reads from."
-    href="/reference/angular/functions/provideCopilotKit"
-  />
-</Cards>

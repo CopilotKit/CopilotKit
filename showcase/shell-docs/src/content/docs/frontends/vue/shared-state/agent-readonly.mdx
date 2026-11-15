@@ -27,7 +27,7 @@ Call `useAgentContext({ description, value })` once per value you want to publis
 
 - Refreshed whenever the supplied ref or getter changes.
 - Automatically removed when the component unmounts.
-- Surfaced to the agent through the backend's CopilotKit middleware on every turn.
+- Sent to the agent with every run. The Built-in Agent adds each entry to its system prompt. A Python LangGraph agent adds the entries through `CopilotKitMiddleware`.
 
 ```vue title="src/components/WorkspaceContext.vue"
 <script setup lang="ts">
@@ -67,13 +67,8 @@ import WorkspaceContext from "./components/WorkspaceContext.vue";
 </template>
 ```
 
+Ask the agent which workspace is active. It answers `northstar`.
+
 ## Read-only, by design
 
-Because the agent never sees a setter or mutation tool for these values, the context registration itself cannot update them. That makes `useAgentContext` the right tool whenever the value is an input rather than a shared workspace both sides edit.
-
-When you need both reads *and* writes, use full **[Shared State](/vue/shared-state)**: `useAgent()` exposes `agent.state` and the same agent's `setState(...)` mutation path when the runtime supports shared state.
-
-## Related
-
-- **[Shared State (overview)](/vue/shared-state)** — bidirectional reads and writes.
-- **[State streaming](/vue/shared-state/streaming)** — stream agent-written state back to the UI during a run.
+When you need both reads *and* writes, use full **[Shared State](/vue/shared-state)**: `useAgent()` exposes `agent.state` and the same agent's `setState(...)` mutation path when the runtime supports shared state. To stream agent-written state back to the UI during a run, see [State streaming](/vue/shared-state/streaming).

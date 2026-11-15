@@ -3,7 +3,8 @@
 import { useCallback } from "react";
 import { useAgent, useCopilotKit } from "@copilotkit/react-core/v2";
 import { runStore } from "@/lib/run-store";
-import { useMode, type Mode } from "./providers";
+import { useMode } from "./providers";
+import type { Mode } from "./providers";
 
 /**
  * Send a prompt through the same agent the chat uses. Surface clicks need no

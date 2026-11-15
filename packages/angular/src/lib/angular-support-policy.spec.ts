@@ -78,7 +78,7 @@ test("keeps package and public documentation aligned with the support policy", (
 
   const packageReadme = readPackageFile("README.md");
   const frontendGuide = readRepositoryFile(
-    "showcase/shell-docs/src/content/docs/frontends/angular.mdx",
+    "showcase/shell-docs/src/content/docs/frontends/angular/index.mdx",
   );
   const referenceIndex = readRepositoryFile(
     "showcase/shell-docs/src/content/reference/angular/index.mdx",

@@ -32,6 +32,7 @@ const CLI_STARTERS = [
   "ms-agent-framework-dotnet",
   "ms-agent-framework-python",
   "mcp-apps",
+  "openai-agents-python",
 ] as const;
 
 const DOC_NAMES = new Set(["README.md", "CLAUDE.md", "AGENTS.md"]);
