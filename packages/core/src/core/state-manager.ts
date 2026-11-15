@@ -460,6 +460,19 @@ export class StateManager {
   }
 
   /**
+   * An opaque token for the state stored for a run, or `undefined` when the
+   * run has none. `saveState` stores a new object on every change, so a
+   * different token means the run's state changed. Copies nothing.
+   */
+  getStateTokenByRun(
+    agentId: string,
+    threadId: string,
+    runId: string,
+  ): unknown {
+    return this.stateByRun.get(agentId)?.get(threadId)?.get(runId) || undefined;
+  }
+
+  /**
    * Get runId associated with a message
    */
   getRunIdForMessage(
