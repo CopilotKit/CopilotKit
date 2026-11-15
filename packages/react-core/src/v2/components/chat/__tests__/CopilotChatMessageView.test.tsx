@@ -320,6 +320,23 @@ describe("deduplicateMessages duplicate tool-call ids", () => {
     expect(toolCalls[0]!.function.arguments).toBe('{"transactionId":"t-2"}');
   });
 
+  it("keeps the first populated copy when both copies in one message carry arguments", () => {
+    // TOOL_CALL_ARGS deltas go to the first copy with that id, so a later copy
+    // in the same message can be left holding stale partial arguments.
+    const messages: Message[] = [
+      assistantMsg("a-1", "", [
+        toolCall("call_1", "captureData", '{"symptom":"headache"}'),
+        toolCall("call_1", "captureData", '{"symptom":'),
+      ]),
+    ];
+
+    const toolCalls = (deduplicateMessages(messages)[0] as AssistantMessage)
+      .toolCalls!;
+
+    expect(toolCalls).toHaveLength(1);
+    expect(toolCalls[0]!.function.arguments).toBe('{"symptom":"headache"}');
+  });
+
   it("keeps distinct tool calls and their order", () => {
     const messages: Message[] = [
       assistantMsg("a-1", "", [

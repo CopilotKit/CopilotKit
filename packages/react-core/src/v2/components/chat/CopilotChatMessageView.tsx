@@ -354,16 +354,41 @@ const MemoizedCustomMessage = React.memo(
  * action already taken), and React warns "Encountered two children with the
  * same key" because the call id is the render key.
  *
- * The empty copy is the redundant one, so an empty entry never replaces a
- * populated one. Between two populated entries the later one wins: when two
- * copies of a message are merged, the later copy carries the arguments
- * streamed so far, so it is the freshest.
+ * The empty copy is the redundant one, so prefer whichever entry actually
+ * carries arguments rather than blindly taking the first.
  */
 function dedupeToolCalls(
   toolCalls: NonNullable<AssistantMessage["toolCalls"]>,
 ): NonNullable<AssistantMessage["toolCalls"]> {
   const byId = new Map<string, (typeof toolCalls)[number]>();
   for (const toolCall of toolCalls) {
+    const existing = byId.get(toolCall.id);
+    if (!existing) {
+      byId.set(toolCall.id, toolCall);
+      continue;
+    }
+    if (!existing.function?.arguments && toolCall.function?.arguments) {
+      byId.set(toolCall.id, toolCall);
+    }
+  }
+  return byId.size === toolCalls.length ? toolCalls : [...byId.values()];
+}
+
+/**
+ * Unite the tool calls of two occurrences of the same assistant message,
+ * keeping first-seen order. Each occurrence can hold only some of the calls,
+ * so neither list may replace the other.
+ *
+ * For an id present in both, the later occurrence wins when it carries
+ * arguments: it is the newer streaming update. A blank later copy never
+ * replaces a populated one.
+ */
+function mergeToolCalls(
+  earlier: NonNullable<AssistantMessage["toolCalls"]>,
+  later: NonNullable<AssistantMessage["toolCalls"]>,
+): NonNullable<AssistantMessage["toolCalls"]> {
+  const byId = new Map(earlier.map((toolCall) => [toolCall.id, toolCall]));
+  for (const toolCall of later) {
     const existing = byId.get(toolCall.id);
     if (
       !existing ||
@@ -373,7 +398,7 @@ function dedupeToolCalls(
       byId.set(toolCall.id, toolCall);
     }
   }
-  return byId.size === toolCalls.length ? toolCalls : [...byId.values()];
+  return [...byId.values()];
 }
 
 /**
@@ -402,12 +427,16 @@ export function deduplicateMessages(messages: Message[]): Message[] {
       // fields present only in an earlier occurrence are not silently dropped.
       const content = message.content || existing.content;
       // Each occurrence may hold only some of the calls, so when both
-      // carry tool calls, unite them; dedupeToolCalls collapses shared ids.
+      // carry tool calls, unite them. Each list is collapsed on its own first,
+      // so duplicates within one occurrence keep the first populated copy.
       // undefined toolCalls means this chunk had no tool call activity — recover
       // from earlier occurrences. An explicit [] means all tool calls completed.
       const toolCalls =
         message.toolCalls?.length && existing.toolCalls?.length
-          ? [...existing.toolCalls, ...message.toolCalls]
+          ? mergeToolCalls(
+              dedupeToolCalls(existing.toolCalls),
+              dedupeToolCalls(message.toolCalls),
+            )
           : (message.toolCalls ?? existing.toolCalls);
       acc.set(message.id, {
         ...existing,
