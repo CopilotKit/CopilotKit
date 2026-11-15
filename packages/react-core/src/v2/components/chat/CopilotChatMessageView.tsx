@@ -340,33 +340,24 @@ const MemoizedCustomMessage = React.memo(
 );
 
 /**
- * Deduplicates messages by ID. For assistant messages, merges occurrences:
- * recovers non-empty content from any earlier occurrence if the latest wiped it
- * (empty string means the streaming update cleared the field, not blank text),
- * and similarly recovers toolCalls from earlier occurrences if the latest is
- * undefined (an empty array [] is treated as intentional and kept as-is).
- * For all other roles, keeps the last entry.
- *
- * @internal Exported for unit testing only — not part of the public API.
- */
-/**
  * Collapse tool calls that share an id, keeping first-seen order.
  *
- * AG-UI's TOOL_CALL_START handler appends to the parent message's `toolCalls`
- * without checking whether that id is already present. So whenever a start
- * event is applied twice — which the human-in-the-loop flow triggers when the
- * run syncs after `respond()` — the message ends up carrying the same call
- * twice. The second copy has EMPTY `arguments`, because a start event carries
- * none; the args arrive later as TOOL_CALL_ARGS deltas addressed to the first
- * copy.
+ * Older AG-UI clients appended to the parent message's `toolCalls` without
+ * checking whether that id was already present. So whenever a start event was
+ * applied twice — which the human-in-the-loop flow triggers when the run syncs
+ * after `respond()` — the message ended up carrying the same call twice. The
+ * second copy has EMPTY `arguments`, because a start event carries none; the
+ * args arrive later as TOOL_CALL_ARGS deltas addressed to the first copy.
  *
  * Left alone that renders the same tool call twice: once populated and once
  * blank (an approval card with no transaction id, offering live buttons for an
  * action already taken), and React warns "Encountered two children with the
  * same key" because the call id is the render key.
  *
- * The empty copy is the redundant one, so prefer whichever entry actually
- * carries arguments rather than blindly taking the first.
+ * The empty copy is the redundant one, so an empty entry never replaces a
+ * populated one. Between two populated entries the later one wins: when two
+ * copies of a message are merged, the later copy carries the arguments
+ * streamed so far, so it is the freshest.
  */
 function dedupeToolCalls(
   toolCalls: NonNullable<AssistantMessage["toolCalls"]>,
@@ -374,17 +365,29 @@ function dedupeToolCalls(
   const byId = new Map<string, (typeof toolCalls)[number]>();
   for (const toolCall of toolCalls) {
     const existing = byId.get(toolCall.id);
-    if (!existing) {
-      byId.set(toolCall.id, toolCall);
-      continue;
-    }
-    if (!existing.function?.arguments && toolCall.function?.arguments) {
+    if (
+      !existing ||
+      toolCall.function?.arguments ||
+      !existing.function?.arguments
+    ) {
       byId.set(toolCall.id, toolCall);
     }
   }
   return byId.size === toolCalls.length ? toolCalls : [...byId.values()];
 }
 
+/**
+ * Deduplicates messages by ID. For assistant messages, merges occurrences:
+ * recovers non-empty content from any earlier occurrence if the latest wiped it
+ * (empty string means the streaming update cleared the field, not blank text).
+ * Tool calls from every occurrence are kept: a copy can hold only some of the
+ * calls, so when two occurrences both carry tool calls they are united by id.
+ * If the latest has undefined toolCalls they are recovered from earlier
+ * occurrences; an explicit empty array [] is treated as intentional and kept.
+ * For all other roles, keeps the last entry.
+ *
+ * @internal Exported for unit testing only — not part of the public API.
+ */
 export function deduplicateMessages(messages: Message[]): Message[] {
   const acc = new Map<string, Message>();
   for (const message of messages) {
@@ -398,9 +401,14 @@ export function deduplicateMessages(messages: Message[]): Message[] {
       // any non-empty content seen earlier. Use { ...existing, ...message } so
       // fields present only in an earlier occurrence are not silently dropped.
       const content = message.content || existing.content;
+      // Each occurrence may hold only some of the calls, so when both
+      // carry tool calls, unite them; dedupeToolCalls collapses shared ids.
       // undefined toolCalls means this chunk had no tool call activity — recover
       // from earlier occurrences. An explicit [] means all tool calls completed.
-      const toolCalls = message.toolCalls ?? existing.toolCalls;
+      const toolCalls =
+        message.toolCalls?.length && existing.toolCalls?.length
+          ? [...existing.toolCalls, ...message.toolCalls]
+          : (message.toolCalls ?? existing.toolCalls);
       acc.set(message.id, {
         ...existing,
         ...message,

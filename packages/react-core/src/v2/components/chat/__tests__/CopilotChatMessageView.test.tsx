@@ -362,3 +362,72 @@ describe("deduplicateMessages duplicate tool-call ids", () => {
     ).toBe(original);
   });
 });
+
+describe("deduplicateMessages interleaved tool calls", () => {
+  // A TOOL_CALL_RESULT between two TOOL_CALL_STARTs for the same parent used to
+  // leave the parent no longer last, so older @ag-ui/client versions created a
+  // second assistant message with the same id. Each copy then holds only some
+  // of the tool calls, so merging the copies must keep the calls from both.
+  it("keeps the tool calls from every copy of a duplicated assistant message", () => {
+    const messages: Message[] = [
+      assistantMsg("assistant-1", "Let me record that...", [
+        toolCall("tc-1", "captureData"),
+        toolCall("tc-2", "updateMemory"),
+      ]),
+      {
+        id: "tool-result-1",
+        role: "tool",
+        toolCallId: "tc-1",
+        content: "Recorded.",
+      },
+      assistantMsg("assistant-1", "", [toolCall("tc-3", "searchDocs")]),
+    ];
+
+    const result = deduplicateMessages(messages);
+
+    expect(result.map((m) => m.id)).toEqual(["assistant-1", "tool-result-1"]);
+    const merged = result[0] as AssistantMessage;
+    expect(merged.content).toBe("Let me record that...");
+    expect(merged.toolCalls?.map((tc) => tc.id)).toEqual([
+      "tc-1",
+      "tc-2",
+      "tc-3",
+    ]);
+  });
+
+  it("does not let a blank later copy of a tool call replace a populated one", () => {
+    const messages: Message[] = [
+      assistantMsg("assistant-1", "", [
+        toolCall("tc-1", "captureData", '{"symptom":"headache"}'),
+      ]),
+      assistantMsg("assistant-1", "", [
+        toolCall("tc-1", "captureData", ""),
+        toolCall("tc-2", "updateMemory"),
+      ]),
+    ];
+
+    const toolCalls = (deduplicateMessages(messages)[0] as AssistantMessage)
+      .toolCalls!;
+
+    expect(toolCalls.map((tc) => tc.id)).toEqual(["tc-1", "tc-2"]);
+    expect(toolCalls[0]!.function.arguments).toBe('{"symptom":"headache"}');
+  });
+
+  it("uses the later copy's arguments when both copies are populated", () => {
+    // Streaming updates grow the arguments, so the later copy is the freshest.
+    const messages: Message[] = [
+      assistantMsg("assistant-1", "", [
+        toolCall("tc-1", "captureData", '{"symptom":'),
+      ]),
+      assistantMsg("assistant-1", "", [
+        toolCall("tc-1", "captureData", '{"symptom":"headache"}'),
+      ]),
+    ];
+
+    const toolCalls = (deduplicateMessages(messages)[0] as AssistantMessage)
+      .toolCalls!;
+
+    expect(toolCalls).toHaveLength(1);
+    expect(toolCalls[0]!.function.arguments).toBe('{"symptom":"headache"}');
+  });
+});
