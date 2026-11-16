@@ -78,7 +78,11 @@ def test_drop_in_blocks_keeps_the_active_tool_exchange():
     # The history ends with more tool results than a block holds.
     history = [
         {"role": "user", "content": "q"},
-        {"role": "assistant", "content": "", "tool_calls": [{"id": f"t{i}"} for i in range(6)]},
+        {
+            "role": "assistant",
+            "content": "",
+            "tool_calls": [{"id": f"t{i}"} for i in range(6)],
+        },
         *({"role": "tool", "tool_call_id": f"t{i}", "content": "r"} for i in range(6)),
     ]
 
