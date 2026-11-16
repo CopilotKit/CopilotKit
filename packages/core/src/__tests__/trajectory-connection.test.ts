@@ -1200,6 +1200,23 @@ describe("Core trajectory connection", () => {
     }
   });
 
+  it("does not read the clock when a Core is built", () => {
+    // React and Next.js build the Core while rendering, and Next.js with
+    // cacheComponents rejects Date.now() there.
+    const now = vi.spyOn(Date, "now");
+    makeCore();
+    expect(now).not.toHaveBeenCalled();
+  });
+
+  it("starts seqs at the time of the first start, not when the Core was built", async () => {
+    const core = makeCore();
+    vi.advanceTimersByTime(5_000);
+    const { channel } = await start(core);
+    expect(channel.pushes[0]!.payload.events[0]!.value.seq).toBe(
+      (NOW + 5_000) * 1000,
+    );
+  });
+
   it("drops events instead of sending a seq past the Gateway maximum", async () => {
     // Date.now() * 1000 passes 2^53 - 1 shortly before the year 2256.
     vi.setSystemTime(Date.UTC(2256, 0, 1));
