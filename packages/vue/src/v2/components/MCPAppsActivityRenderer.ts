@@ -84,6 +84,16 @@ export const MCPAppsActivityRenderer = defineComponent({
       required: false,
       default: undefined,
     },
+    /**
+     * Accept `ui/update-model-context`. Usually set via `mcpApps.modelContext`
+     * on `CopilotKitProvider`; this prop, when given, takes precedence.
+     * `default: undefined` keeps an absent prop from being cast to `false`.
+     */
+    modelContext: {
+      type: Boolean,
+      required: false,
+      default: undefined,
+    },
   },
   setup(props) {
     const { copilotkit, mcpApps } = useCopilotKit();
@@ -92,14 +102,20 @@ export const MCPAppsActivityRenderer = defineComponent({
     // written inline in a template are a new object on every parent render;
     // re-binding on identity would reload the widget, so the watcher follows
     // their content.
-    // One option shape: the provider's `mcpApps`, with the component prop for
-    // `allowSameOriginFallback` taking precedence when given.
+    // One option shape: the provider's `mcpApps`, with the component props
+    // taking precedence when given.
     const mcpAppsOptions = () =>
-      props.allowSameOriginFallback === undefined
+      props.allowSameOriginFallback === undefined &&
+      props.modelContext === undefined
         ? mcpApps?.value
         : {
             ...mcpApps?.value,
-            allowSameOriginFallback: props.allowSameOriginFallback,
+            ...(props.allowSameOriginFallback !== undefined
+              ? { allowSameOriginFallback: props.allowSameOriginFallback }
+              : {}),
+            ...(props.modelContext !== undefined
+              ? { modelContext: props.modelContext }
+              : {}),
           };
     const mcpAppsKey = () => JSON.stringify(mcpAppsOptions() ?? null);
     const containerRef = ref<HTMLDialogElement | null>(null);

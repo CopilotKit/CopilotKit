@@ -82,6 +82,16 @@ export interface MCPAppsOptions {
    * `IndexedDB` or cookies. By default widgets get an opaque origin.
    */
   allowSameOriginFallback?: boolean;
+  /**
+   * Let MCP Apps report their state to the model through
+   * `ui/update-model-context`. Default `false`.
+   *
+   * **Security.** The reported state goes with every later run of the
+   * conversation, and the built-in agent puts it in the system prompt. The
+   * user does not see it. With this on, the widget of any MCP server your
+   * agent uses can write there. Only enable it for MCP servers you trust.
+   */
+  modelContext?: boolean;
 }
 
 /**
@@ -98,6 +108,11 @@ interface MCPAppsActivityRendererProps {
    * on `CopilotKitProvider`; this prop, when given, takes precedence.
    */
   allowSameOriginFallback?: boolean;
+  /**
+   * Accept `ui/update-model-context`. Usually set via `mcpApps.modelContext`
+   * on `CopilotKitProvider`; this prop, when given, takes precedence.
+   */
+  modelContext?: boolean;
 }
 
 /**
@@ -113,14 +128,21 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
     message,
     agent,
     allowSameOriginFallback,
+    modelContext,
   }) {
     const { copilotkit, mcpApps } = useCopilotKit();
-    // One option shape: the provider's `mcpApps`, with the component prop for
-    // `allowSameOriginFallback` taking precedence when given.
+    // One option shape: the provider's `mcpApps`, with the component props
+    // taking precedence when given.
     const sessionOptions: MCPAppsOptions | undefined =
-      allowSameOriginFallback === undefined
+      allowSameOriginFallback === undefined && modelContext === undefined
         ? mcpApps
-        : { ...mcpApps, allowSameOriginFallback };
+        : {
+            ...mcpApps,
+            ...(allowSameOriginFallback !== undefined
+              ? { allowSameOriginFallback }
+              : {}),
+            ...(modelContext !== undefined ? { modelContext } : {}),
+          };
     // Options written inline in JSX are a new object on every parent render;
     // re-binding on identity would reload the widget. Bind on their content.
     const mcpAppsKey = JSON.stringify(sessionOptions ?? null);

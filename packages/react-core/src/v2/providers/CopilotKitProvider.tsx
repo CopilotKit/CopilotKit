@@ -133,7 +133,6 @@ const DEFAULT_DESIGN_SKILL = `When generating UI with generateSandboxedUi, follo
 - Keep the UI focused and dense — avoid excessive padding. Use compact spacing (8–12px gaps, 10–14px padding in controls).`;
 
 // Provider props interface
-
 export interface CopilotKitProviderProps {
   children: ReactNode;
   runtimeUrl?: string;
@@ -325,9 +324,10 @@ export interface CopilotKitProviderProps {
   generativeUI?: GenerativeUIConfig;
   /**
    * Host-side options for MCP Apps widgets: the host identity, capabilities
-   * and UI context announced to widgets, the two timeouts, and the sandbox
-   * origin. Optional; use it to narrow what widgets may obtain, for example
-   * to keep them inline.
+   * and UI context announced to widgets, the two timeouts, the sandbox
+   * origin, and whether widgets may report state to the model
+   * (`modelContext`). Optional; use it to narrow what widgets may obtain, for
+   * example to keep them inline.
    *
    * @example
    * ```tsx

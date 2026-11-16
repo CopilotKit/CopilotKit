@@ -12,6 +12,7 @@ export * from "./display-mode";
 export * from "./sandbox";
 export * from "./request-queue";
 export * from "./follow-up";
+export * from "./model-context";
 export * from "./session";
 // Test hook for the adapters: the fullscreen gate keeps page-wide state.
 export { ɵresetFullscreenGate } from "./fullscreen-gate";
