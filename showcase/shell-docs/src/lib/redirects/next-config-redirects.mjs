@@ -504,6 +504,21 @@ const BOTS_REDIRECTS = [
   ),
   ...permanentRedirectsWithSuffixes("/bots", "/slack"),
   ...permanentRedirectsWithSuffixes("/bots/:path*", "/slack"),
+  // Framework-scoped forms (`/a2a/bots`), which answer engines still cite.
+  ...CHANNEL_REDIRECT_GUIDE_SLUGS.flatMap((slug) =>
+    permanentRedirectsWithSuffixes(
+      `/${FRAMEWORK_NOT_REFERENCE_OR_INTELLIGENCE}/bots/${slug}`,
+      slug === "overview" ? "/slack" : `/slack/${slug}`,
+    ),
+  ),
+  ...permanentRedirectsWithSuffixes(
+    `/${FRAMEWORK_NOT_REFERENCE_OR_INTELLIGENCE}/bots`,
+    "/slack",
+  ),
+  ...permanentRedirectsWithSuffixes(
+    `/${FRAMEWORK_NOT_REFERENCE_OR_INTELLIGENCE}/bots/:path*`,
+    "/slack",
+  ),
 ];
 
 /** @type {Redirect[]} */

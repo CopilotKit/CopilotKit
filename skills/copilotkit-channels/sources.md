@@ -7,8 +7,7 @@ Generated: 2026-08-01
 
 - `examples/templates/slack/app/managed.ts`: the canonical managed-Channel wiring: `createChannel`,
   `new CopilotKitRuntime({ intelligence, identifyUser, channels })`, `createCopilotKitNodeListener`,
-  `await listener.channels.ready()`, and `listener.channels.stop()` on shutdown. Also the
-  source of the "Channel history does not include the in-flight turn" note.
+  `await listener.channels.ready()`, and `listener.channels.stop()` on shutdown.
 - `examples/templates/slack/app/index.ts` and `examples/templates/teams/app/index.tsx`: the self-hosted adapter
   variants, read to state the managed-versus-OSS boundary accurately.
 - `packages/runtime/src/runtime/core/runtime.ts`: `CopilotIntelligenceRuntimeOptions`

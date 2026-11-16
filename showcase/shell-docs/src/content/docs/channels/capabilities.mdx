@@ -29,6 +29,7 @@ Discord and WhatsApp are available as direct adapters only. A direct adapter sti
 | Update and delete a posted message | Yes | Yes |
 | [Render and Carousel](/channels/render-and-carousel) | Yes | Yes, up to a 64 KiB packet |
 | [JSX posted as an image](/channels/posting-jsx-as-images) | Yes | Yes |
+| [Charts](/channels/rich-messages) | The portable `Chart` component is skipped. Post the chart as an image. | `Chart` renders as a Teams chart extension where the client supports it. |
 
 ### Interaction
 
@@ -49,7 +50,7 @@ A managed delivery cannot wait inside `thread.awaitChoice()`. Post the choice, a
 | [Files from users](/channels/files-and-multimodality) | Yes, with the `files:read` scope | Depends on the surface. Managed group chats are not supported. |
 | Files from the agent | Yes, with `thread.postFile()` | SharePoint in team channels. A consent card in personal chats. |
 | File size | Up to 25 MiB on the managed connection | Up to 25 MiB on the managed connection |
-| [History](/channels/history-and-transcripts) | Managed history, 20 messages by default | Managed history, 20 messages by default |
+| [History](/channels/history-and-transcripts) | Managed history, 20 messages by default. It includes the current message. | Managed history, 20 messages by default. It includes the current message. |
 | [User identity and memory](/channels/identity-and-memory) | `identifyUser`, plus Intelligence Memory for each run | `identifyUser`, plus Intelligence Memory for each run |
 
 ## Direct adapters
