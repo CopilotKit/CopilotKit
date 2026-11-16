@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import type { SyntheticEvent } from "react";
 import { Dialog as DialogPrimitive } from "radix-ui";
 import {
@@ -13,7 +13,6 @@ import {
   MessagesSquare,
   Menu,
   Moon,
-  Search,
   Sun,
   X,
 } from "lucide-react";
@@ -24,8 +23,8 @@ import { setTheme, useTheme } from "@/lib/theme";
 import { cn, focusRing } from "@/lib/utils";
 import { SOURCE_URL } from "@/components/start/links";
 import { A2UIMark, CopilotKitKite } from "./brand";
-import { CommandMenu, openSearch, useStandardNames } from "./command-menu";
 import { GROUPS } from "@/components/docs/catalog-index";
+import { useStandardNames } from "@/components/docs/use-standard-names";
 
 type Active = "playground" | "build" | "components" | "evals" | "start";
 /** `icon`: shown beside the label in the menu sheet only. */
@@ -49,10 +48,9 @@ const SQUARE =
   "flex size-9 flex-none items-center justify-center rounded-md border border-border bg-secondary/50 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground";
 
 /**
- * Global site navbar: 64px, sticky, hairline bottom border. Below 960px (the width the links and the compact
- * search need) the links move into a menu sheet. The playground shrinks it to 48px in a short window
- * (compact.css). `embed` (the playground in an iframe): no nav, search or menu, which would navigate inside
- * the frame; see EmbedHeader.
+ * Global site navbar: 64px, sticky, hairline bottom border. Below 960px (the width the links need) the links
+ * move into a menu sheet. The playground shrinks it to 48px in a short window (compact.css). `embed` (the
+ * playground in an iframe): no nav or menu, which would navigate inside the frame; see EmbedHeader.
  */
 export function SiteHeader({
   active,
@@ -104,13 +102,9 @@ export function SiteHeader({
             />
           ))}
         </nav>
-        {/* min-w-0: the search trigger shrinks before anything here can push the header past the viewport.
-            Under 960px all of it is in the menu sheet, so the header is the mark and the menu button. */}
+        {/* Under 960px all of it is in the menu sheet, so the header is the mark and the menu button. */}
         <div className="ml-auto flex min-w-0 items-center gap-2">
           <div className="flex min-w-0 items-center gap-2 max-[959px]:hidden">
-            <div className="min-w-0">
-              <CommandMenu />
-            </div>
             <SourceLink />
             <ThemeToggle />
           </div>
@@ -241,16 +235,12 @@ function SourceLink() {
 }
 
 /**
- * The menu as a sheet from the right, for screens under 960px: search first, the pages with the current one
- * marked, then the theme and the source pinned at the foot. Radix handles focus, Escape and the backdrop.
+ * The menu as a sheet from the right, for screens under 960px: the pages with the current one marked, then
+ * the theme and the source pinned at the foot. Radix handles focus, Escape and the backdrop.
  */
 function MenuSheet({ active }: { active?: Active }) {
   const [open, setOpen] = useState(false);
   const close = () => setOpen(false);
-  // Search opens once the sheet has closed, so the sheet's return of focus to its button does not take it back,
-  // and hands the focus back to the menu button when it closes.
-  const toSearch = useRef(false);
-  const trigger = useRef<HTMLButtonElement>(null);
   const row =
     "group flex h-11 items-center gap-3 rounded-[10px] px-3 text-[15px] font-medium transition-colors";
   const rowOn = "bg-black/[0.05] text-foreground dark:bg-white/[0.07]";
@@ -272,7 +262,6 @@ function MenuSheet({ active }: { active?: Active }) {
   return (
     <DialogPrimitive.Root open={open} onOpenChange={setOpen}>
       <DialogPrimitive.Trigger
-        ref={trigger}
         aria-label="Open menu"
         className={cn(SQUARE, focusRing, "min-[960px]:hidden")}
       >
@@ -280,15 +269,7 @@ function MenuSheet({ active }: { active?: Active }) {
       </DialogPrimitive.Trigger>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/40 backdrop-blur-[2px] data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0 motion-reduce:animate-none" />
-        <DialogPrimitive.Content
-          onCloseAutoFocus={(e) => {
-            if (!toSearch.current) return;
-            toSearch.current = false;
-            e.preventDefault();
-            openSearch(trigger.current);
-          }}
-          className="fixed inset-y-0 right-0 z-50 flex w-[min(340px,100%)] flex-col border-l border-border bg-background shadow-[-24px_0_60px_-30px_oklch(0_0_0/35%)] outline-none dark:bg-[oklch(0.145_0.004_285)] data-open:animate-in data-open:slide-in-from-right data-open:duration-300 data-closed:animate-out data-closed:slide-out-to-right data-closed:duration-200 motion-reduce:animate-none"
-        >
+        <DialogPrimitive.Content className="fixed inset-y-0 right-0 z-50 flex w-[min(340px,100%)] flex-col border-l border-border bg-background shadow-[-24px_0_60px_-30px_oklch(0_0_0/35%)] outline-none dark:bg-[oklch(0.145_0.004_285)] data-open:animate-in data-open:slide-in-from-right data-open:duration-300 data-closed:animate-out data-closed:slide-out-to-right data-closed:duration-200 motion-reduce:animate-none">
           <div className="flex h-16 flex-none items-center justify-between border-b border-border pl-5 pr-4">
             <DialogPrimitive.Title className="flex items-center gap-2.5 text-[15px] font-semibold tracking-tight">
               <A2UIMark className="size-[22px] flex-none" />
@@ -302,29 +283,11 @@ function MenuSheet({ active }: { active?: Active }) {
             </DialogPrimitive.Close>
           </div>
           <DialogPrimitive.Description className="sr-only">
-            Search, the pages on this site, the theme and the source
+            The pages on this site, the theme and the source
           </DialogPrimitive.Description>
 
           <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pb-4 pt-4">
-            <button
-              type="button"
-              onClick={() => {
-                toSearch.current = true;
-                close();
-              }}
-              className={cn(
-                "flex h-11 w-full flex-none items-center gap-2.5 rounded-[10px] border border-border bg-secondary/50 px-3.5 text-left text-[15px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground",
-                focusRing,
-              )}
-            >
-              <Search className="size-4 flex-none" aria-hidden />
-              Search components
-            </button>
-
-            <nav
-              aria-label="Main"
-              className="mt-5 flex flex-none flex-col gap-0.5"
-            >
+            <nav aria-label="Main" className="flex flex-none flex-col gap-0.5">
               {NAV.filter((n) => n.id !== "components").map((n) => {
                 const on = active === n.id;
                 return (
