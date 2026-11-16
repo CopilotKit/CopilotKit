@@ -1526,22 +1526,22 @@ importers:
         specifier: 1.0.4
         version: 1.0.4(zod@4.6.7)
       '@copilotkit/core':
-        specifier: workspace:^
+        specifier: workspace:*
         version: link:../core
       '@copilotkit/markdown':
-        specifier: workspace:^
+        specifier: workspace:*
         version: link:../markdown
       '@copilotkit/mcp-apps-renderer':
-        specifier: workspace:^
+        specifier: workspace:*
         version: link:../mcp-apps-renderer
       '@copilotkit/shared':
-        specifier: workspace:^
+        specifier: workspace:*
         version: link:../shared
       '@copilotkit/web-components':
-        specifier: workspace:^
+        specifier: workspace:*
         version: link:../web-components
       '@copilotkit/web-inspector':
-        specifier: workspace:^
+        specifier: workspace:*
         version: link:../web-inspector
       katex:
         specifier: ^0.16.22
