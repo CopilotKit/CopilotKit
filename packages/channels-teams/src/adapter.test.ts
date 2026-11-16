@@ -390,29 +390,40 @@ describe("TeamsAdapter typing heartbeat", () => {
 });
 
 describe("TeamsAdapter.postEphemeral", () => {
-  it("replies in a personal chat, where only the clicker can see it", async () => {
-    const adapter = new TeamsAdapter({});
-    const ref = { id: "m1", conversationKey: "k" };
-    vi.spyOn(adapter, "post").mockResolvedValue(ref as never);
-    const target = {
-      conversationKey: "k",
-      reference: {
-        conversation: { conversationType: "personal" },
-        user: { id: "u" },
-      },
-    };
-    await expect(
-      adapter.postEphemeral(target as never, "u", []),
-    ).resolves.toEqual({ ok: true, usedFallback: false, ref });
-  });
+  it.each([
+    ["a known participant", "u", { id: "u" }],
+    ["an unknown participant", "u", undefined],
+    ["a participant without an id", "u", {}],
+    ["an unknown participant's actor", { id: "u", kind: "human" }, undefined],
+  ])(
+    "replies privately to %s in a personal chat",
+    async (_label, user, who) => {
+      const adapter = new TeamsAdapter({});
+      const ref = { id: "m1", conversationKey: "k" };
+      vi.spyOn(adapter, "post").mockResolvedValue(ref as never);
+      const target = {
+        conversationKey: "k",
+        reference: {
+          conversation: { conversationType: "personal" },
+          user: who,
+        },
+      };
+      await expect(
+        adapter.postEphemeral(target as never, user as never, []),
+      ).resolves.toEqual({ ok: true, usedFallback: false, ref });
+    },
+  );
 
   it.each([
     ["someone else", "other", { id: "u" }],
     ["someone else's actor", { id: "other", kind: "human" }, { id: "u" }],
-    ["an unknown participant", "u", undefined],
+    ["a missing participant and actor id", { kind: "human" }, undefined],
+    ["an empty participant and recipient id", "", { id: "" }],
   ])("declines to reach %s in a personal chat", async (_label, user, who) => {
     const adapter = new TeamsAdapter({});
-    const post = vi.spyOn(adapter, "post");
+    const post = vi
+      .spyOn(adapter, "post")
+      .mockResolvedValue({ id: "m1", conversationKey: "k" });
     const target = {
       conversationKey: "k",
       reference: {

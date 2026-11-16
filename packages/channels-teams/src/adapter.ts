@@ -512,7 +512,8 @@ export class TeamsAdapter implements PlatformAdapter {
     const t = target as TeamsReplyTarget;
     if (t.reference.conversation?.conversationType !== "personal") return null;
     const userId = typeof user === "string" ? user : user.id;
-    if (t.reference.user?.id !== userId) return null;
+    const participantId = t.reference.user?.id;
+    if (!userId || (participantId && participantId !== userId)) return null;
     return { ok: true, usedFallback: false, ref: await this.post(t, ir) };
   }
 
