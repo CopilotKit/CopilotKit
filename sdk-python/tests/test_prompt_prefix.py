@@ -56,3 +56,19 @@ def test_prepend_returns_none_without_a_user_message():
         prepend_to_newest_user_message([{"role": "assistant", "content": "x"}], "Note")
         is None
     )
+
+
+def test_drop_in_blocks_does_not_start_with_an_orphaned_tool_result():
+    # The block cut lands between a tool call and its result.
+    history = [
+        {"role": "user", "content": "m0"},
+        {"role": "assistant", "content": "", "tool_calls": [{"id": "t1"}]},
+        {"role": "tool", "tool_call_id": "t1", "content": "r1"},
+        {"role": "tool", "tool_call_id": "t1", "content": "r2"},
+        *_history(4),
+    ]
+
+    kept = drop_in_blocks(history, 6)
+
+    assert kept[0]["role"] != "tool"
+    assert kept == history[4:]

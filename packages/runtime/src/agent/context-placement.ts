@@ -10,16 +10,18 @@ import type { Context, Message, Tool } from "@ag-ui/client";
  * Providers cache an unchanged request prefix (tools, then system prompt,
  * then messages). With `"system"`, a context or state change between turns
  * changes the system prompt, so the whole conversation history misses the
- * cache. With `"message"`, only the newest turn changes.
+ * cache. With `"message"`, the system prompt and the history stay the same
+ * up to the previous user message. That message misses the cache once,
+ * because it goes to the model again without its old context.
  */
 export type ContextPlacement = "system" | "message";
 
+// The same test as the system prompt path in BuiltInAgent: an object or an
+// array with no keys is empty.
 const isEmptyState = (state: unknown): boolean =>
   state === undefined ||
   state === null ||
-  (typeof state === "object" &&
-    !Array.isArray(state) &&
-    Object.keys(state).length === 0);
+  (typeof state === "object" && Object.keys(state).length === 0);
 
 /** The "Context from the application" section, or undefined when empty. */
 export function applicationContextSection(
@@ -44,8 +46,7 @@ export function applicationStateSection(state: unknown): string | undefined {
 
 /**
  * Returns a copy of `messages` with `note` at the start of the newest user
- * message. Earlier messages are not changed, so the request prefix up to the
- * newest user message stays cacheable. Returns undefined when there is no
+ * message. Earlier messages are not changed. Returns undefined when there is no
  * user message, so that the caller can fall back to the system prompt.
  */
 export function prependToNewestUserMessage(

@@ -301,7 +301,7 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
             - ``"message"`` — at the start of the newest human message, in the
               model request only. The system message then stays the same for
               the whole thread, so the provider's prompt cache covers the
-              conversation history. Providers cache an unchanged request
+              history before the last turn. Providers cache an unchanged request
               prefix (tools, system message, messages), and a context change
               in the system message misses all of it. With no human message
               in the request, the note stays in the system message.

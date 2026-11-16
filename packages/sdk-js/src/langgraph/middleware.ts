@@ -291,7 +291,7 @@ const appendSystemNote = (request: any, note: string): any => {
  * - `"system"` (default): at the end of the system message.
  * - `"message"`: at the start of the newest human message. The system message
  *   then stays the same for the whole thread, so the provider's prompt cache
- *   covers the conversation history. Providers cache an unchanged request
+ *   covers the history before the last turn. Providers cache an unchanged request
  *   prefix (tools, system message, messages), and a context change in the
  *   system message misses all of it.
  */
@@ -805,7 +805,7 @@ export const createCopilotkitMiddleware = (
      * Where the app context and the exposed state go. `"system"` (default)
      * appends them to the system message. `"message"` puts them at the start
      * of the newest human message, so the system message stays the same and
-     * the provider's prompt cache covers the conversation history.
+     * the provider's prompt cache covers the history before the last turn.
      */
     contextPlacement?: ContextPlacement;
   } = {},

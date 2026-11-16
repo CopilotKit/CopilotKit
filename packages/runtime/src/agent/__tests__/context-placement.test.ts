@@ -200,3 +200,20 @@ describe("sortToolsByName", () => {
     expect(tools.map((t) => t.name)).toEqual(["b", "a"]);
   });
 });
+
+describe("contextPlacement with an empty array state", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    process.env = { ...process.env, OPENAI_API_KEY: "test-key" };
+  });
+
+  it("leaves out the state section, as the system prompt does", async () => {
+    const call = await request({ ...turn(2), state: [] }, "message");
+    const newest = JSON.stringify(
+      (call.messages as { content: unknown }[]).at(-1),
+    );
+
+    expect(newest).toContain("/pipeline");
+    expect(newest).not.toContain("Application State");
+  });
+});

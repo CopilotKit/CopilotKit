@@ -159,7 +159,7 @@ class CrewAIAgent(Agent):
         inputs. ``"system"`` (default) appends them to the system message.
         ``"message"`` puts them at the start of the newest user message, so
         the system message stays the same between turns and the provider's
-        prompt cache covers the conversation history.
+        prompt cache covers the history before the last turn.
         """
         super().__init__(
             name=name,

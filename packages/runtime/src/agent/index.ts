@@ -1216,7 +1216,7 @@ export interface BuiltInAgentClassicConfig {
    * Where the application context and state go: `"system"` (default) puts
    * them in the system prompt. `"message"` puts them at the start of the
    * newest user message, so the system prompt stays the same for the whole
-   * thread and the provider's prompt cache covers the conversation history.
+   * thread and the provider's prompt cache covers the history before the last turn.
    */
   contextPlacement?: ContextPlacement;
   /**
