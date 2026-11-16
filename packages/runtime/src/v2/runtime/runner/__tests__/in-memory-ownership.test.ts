@@ -2,12 +2,17 @@
  * Thread ownership inside InMemoryAgentRunner, tested on the runner itself.
  * The HTTP routes are covered by `__tests__/thread-access.test.ts`.
  */
+import { AbstractAgent, EventType } from "@ag-ui/client";
+import type { BaseEvent, Message, RunAgentInput } from "@ag-ui/client";
+import type { Observable } from "rxjs";
+import { from } from "rxjs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ThreadAccessDeniedError } from "../agent-runner";
 import {
   InMemoryAgentRunner,
   ɵGLOBAL_STORE,
   ɵINMEMORY_DEFAULTS,
+  ɵestimateBytes,
 } from "../in-memory";
 import {
   OwnershipTestAgent,
@@ -52,6 +57,404 @@ function runToEnd(
   agent.setMessages(input.messages);
   return collect(runner.run({ threadId, agent, input, ownerId }));
 }
+
+describe("stored message history across runs", () => {
+  type Sent = { id: string; content: unknown; role?: string };
+
+  /** An agent run through the real event reducer of AbstractAgent. */
+  class ScriptedAgent extends AbstractAgent {
+    constructor(
+      private readonly script: (input: RunAgentInput) => BaseEvent[] = () => [],
+    ) {
+      super();
+    }
+    clone(): ScriptedAgent {
+      return new ScriptedAgent(this.script);
+    }
+    run(input: RunAgentInput): Observable<BaseEvent> {
+      const { threadId, runId } = input;
+      return from([
+        { type: EventType.RUN_STARTED, threadId, runId } as BaseEvent,
+        ...this.script(input),
+        { type: EventType.RUN_FINISHED, threadId, runId } as BaseEvent,
+      ]);
+    }
+  }
+
+  const messagesSnapshot = (messages: unknown[]) =>
+    ({ type: EventType.MESSAGES_SNAPSHOT, messages }) as unknown as BaseEvent;
+
+  /** Echoes its input through MESSAGES_SNAPSHOT, normalized by `normalize`. */
+  const normalizingAgent = (normalize: (m: Message) => unknown) =>
+    new ScriptedAgent((input) => [
+      messagesSnapshot(input.messages.map(normalize)),
+    ]);
+
+  async function send(
+    threadId: string,
+    sent: Sent[],
+    agent = new ScriptedAgent(),
+  ) {
+    const runner = new InMemoryAgentRunner();
+    const input = {
+      ...ownershipInput(threadId, "state"),
+      messages: sent.map((m) => ({ role: "user", ...m })) as Message[],
+    };
+    agent.setMessages(input.messages);
+    await collect(runner.run({ threadId, agent, input, ownerId: "" }));
+    return runner
+      .getThreadMessages(threadId, { ownerId: "" })
+      .map((m) => `${m.id}:${String(m.content)}`);
+  }
+
+  const replay = async (threadId: string) =>
+    JSON.stringify(
+      await collect(
+        new InMemoryAgentRunner().connect({ threadId, ownerId: "" }),
+      ),
+    );
+
+  it("keeps stored messages when a run sends a list without them", async () => {
+    const threadId = ownershipThreadId("history-partial");
+    await send(threadId, [{ id: "a", content: "first" }]);
+    expect(await send(threadId, [{ id: "b", content: "second" }])).toEqual([
+      "a:first",
+      "b:second",
+    ]);
+  });
+
+  it("appends without duplicates when a client resends its whole list", async () => {
+    const threadId = ownershipThreadId("history-full");
+    await send(threadId, [{ id: "a", content: "first" }]);
+    expect(
+      await send(threadId, [
+        { id: "a", content: "first" },
+        { id: "b", content: "second" },
+      ]),
+    ).toEqual(["a:first", "b:second"]);
+  });
+
+  it("keeps a same-id edit out of the history, like connect replay", async () => {
+    const threadId = ownershipThreadId("history-edit");
+    await send(threadId, [{ id: "a", content: "first" }]);
+    expect(await send(threadId, [{ id: "a", content: "edited" }])).toEqual([
+      "a:first",
+    ]);
+    expect(await replay(threadId)).not.toContain("edited");
+  });
+
+  it("keeps a regenerated reply beside the new one, like connect replay", async () => {
+    const threadId = ownershipThreadId("history-regenerate");
+    const reply = (id: string, delta: string) =>
+      new ScriptedAgent(
+        () =>
+          [
+            {
+              type: EventType.TEXT_MESSAGE_START,
+              messageId: id,
+              role: "assistant",
+            },
+            { type: EventType.TEXT_MESSAGE_CONTENT, messageId: id, delta },
+            { type: EventType.TEXT_MESSAGE_END, messageId: id },
+          ] as BaseEvent[],
+      );
+    const question = [{ id: "q", content: "question" }];
+    await send(threadId, question, reply("r1", "one"));
+    expect(await send(threadId, question, reply("r2", "two"))).toEqual([
+      "q:question",
+      "r1:one",
+      "r2:two",
+    ]);
+    const replayed = await replay(threadId);
+    expect(replayed).toContain("one");
+    expect(replayed).toContain("two");
+  });
+
+  it.each([
+    [
+      "a later copy matches",
+      [
+        { id: "a", content: "CHANGED" },
+        { id: "a", content: "first" },
+      ],
+    ],
+    [
+      "an earlier copy matches",
+      [
+        { id: "a", content: "first" },
+        { id: "a", content: "CHANGED" },
+      ],
+    ],
+    [
+      "a copy changes the role",
+      [
+        { id: "a", role: "system", content: "" },
+        { id: "a", content: "first" },
+      ],
+    ],
+  ])("keeps the stored message when an id repeats and %s", async (_, sent) => {
+    const threadId = ownershipThreadId("history-repeat");
+    await send(threadId, [{ id: "a", content: "first" }]);
+    await send(threadId, sent);
+    const runner = new InMemoryAgentRunner();
+    expect(runner.getThreadMessages(threadId, { ownerId: "" })).toEqual([
+      { id: "a", role: "user", content: "first" },
+    ]);
+  });
+
+  it.each([
+    ["adds a field", (m: Message) => ({ ...m, name: "normalized" })],
+    [
+      "flattens content",
+      (m: Message) => ({
+        ...m,
+        content: (m.content as { text: string }[])[0]?.text ?? m.content,
+      }),
+    ],
+  ])(
+    "refuses a differing copy that an agent which %s echoes in a snapshot",
+    async (_, normalize) => {
+      const threadId = ownershipThreadId("history-normalize");
+      await send(threadId, [{ id: "a", content: "first" }]);
+      expect(
+        await send(
+          threadId,
+          [{ id: "a", content: [{ type: "text", text: "CHANGED" }] }],
+          normalizingAgent(normalize),
+        ),
+      ).toEqual(["a:first"]);
+    },
+  );
+
+  it("takes a change the agent makes through a snapshot", async () => {
+    const threadId = ownershipThreadId("history-agent");
+    await send(threadId, [{ id: "a", content: "first" }]);
+    expect(
+      await send(
+        threadId,
+        [{ id: "a", content: "first" }],
+        normalizingAgent((m) => ({ ...m, content: "rewritten by agent" })),
+      ),
+    ).toEqual(["a:rewritten by agent"]);
+  });
+
+  it("takes a differing copy when the agent emitted events for that id", async () => {
+    const threadId = ownershipThreadId("history-emitted");
+    await send(threadId, [{ id: "a", content: "first" }]);
+    const agent = new ScriptedAgent(
+      () =>
+        [
+          {
+            type: EventType.TEXT_MESSAGE_START,
+            messageId: "a",
+            role: "assistant",
+          },
+          {
+            type: EventType.TEXT_MESSAGE_CONTENT,
+            messageId: "a",
+            delta: "streamed",
+          },
+          { type: EventType.TEXT_MESSAGE_END, messageId: "a" },
+        ] as BaseEvent[],
+    );
+    const [stored] = await send(
+      threadId,
+      [{ id: "a", content: "other" }],
+      agent,
+    );
+    expect(stored).toContain("streamed");
+  });
+
+  it("follows an agent that compacts the history through a snapshot", async () => {
+    const threadId = ownershipThreadId("history-compact");
+    const all = [
+      { id: "a", content: "first" },
+      { id: "b", content: "second" },
+      { id: "c", content: "third" },
+    ];
+    await send(threadId, all);
+    const compact = new ScriptedAgent(() => [
+      messagesSnapshot(
+        [{ id: "s", role: "system", content: "summary" }, all[2]!].map((m) => ({
+          role: "user",
+          ...m,
+        })),
+      ),
+    ]);
+    expect(await send(threadId, all, compact)).toEqual([
+      "c:third",
+      "s:summary",
+    ]);
+  });
+
+  it("keeps a stored message an agent dropped after the client sent another copy", async () => {
+    const threadId = ownershipThreadId("history-drop");
+    await send(threadId, [{ id: "a", content: "first" }]);
+    const dropping = new ScriptedAgent(() => [messagesSnapshot([])]);
+    await send(threadId, [{ id: "a", role: "system", content: "" }], dropping);
+    expect(
+      new InMemoryAgentRunner().getThreadMessages(threadId, { ownerId: "" }),
+    ).toEqual([{ id: "a", role: "user", content: "first" }]);
+  });
+
+  it("keeps a message the client left out when the agent compacts the rest", async () => {
+    const threadId = ownershipThreadId("history-omitted");
+    await send(threadId, [
+      { id: "a", content: "first" },
+      { id: "b", content: "second" },
+    ]);
+    const compact = new ScriptedAgent(() => [
+      messagesSnapshot([{ id: "s", role: "system", content: "summary" }]),
+    ]);
+    expect(
+      await send(threadId, [{ id: "b", content: "second" }], compact),
+    ).toEqual(["a:first", "s:summary"]);
+  });
+
+  describe("under maxRunsPerThread", () => {
+    afterEach(() => {
+      ɵGLOBAL_STORE.setLimits(ɵINMEMORY_DEFAULTS);
+    });
+
+    it("drops messages no run touched within the cap", async () => {
+      ɵGLOBAL_STORE.setLimits({ ...ɵINMEMORY_DEFAULTS, maxRunsPerThread: 3 });
+      const threadId = ownershipThreadId("history-cap");
+      let stored: string[] = [];
+      for (let i = 0; i < 10; i++) {
+        stored = await send(threadId, [{ id: `m${i}`, content: "x" }]);
+      }
+      expect(stored).toEqual(["m7:x", "m8:x", "m9:x"]);
+    });
+
+    it("keeps the whole history of a client that resends it", async () => {
+      ɵGLOBAL_STORE.setLimits({ ...ɵINMEMORY_DEFAULTS, maxRunsPerThread: 3 });
+      const threadId = ownershipThreadId("history-cap-full");
+      const all: Sent[] = [];
+      let stored: string[] = [];
+      for (let i = 0; i < 10; i++) {
+        all.push({ id: `m${i}`, content: "x" });
+        stored = await send(threadId, all);
+      }
+      expect(stored).toHaveLength(10);
+    });
+
+    it("keeps growth inside the thread's own cap when bytes are tight", async () => {
+      ɵGLOBAL_STORE.setLimits({
+        ...ɵINMEMORY_DEFAULTS,
+        maxRunsPerThread: 2,
+        maxBytes: 12_000,
+      });
+      const quiet = ownershipThreadId("history-quiet");
+      await send(quiet, [{ id: "q", content: "keep" }]);
+      const busy = ownershipThreadId("history-busy");
+      for (let i = 0; i < 40; i++) {
+        await send(busy, [{ id: `m${i}`, content: "x".repeat(1000) }]);
+      }
+      expect(
+        new InMemoryAgentRunner().getThreadMessages(quiet, { ownerId: "" }),
+      ).toHaveLength(1);
+    });
+
+    it("clears the history when every stored message ages out", async () => {
+      ɵGLOBAL_STORE.setLimits({ ...ɵINMEMORY_DEFAULTS, maxRunsPerThread: 2 });
+      const threadId = ownershipThreadId("history-aged-out");
+      await send(threadId, [{ id: "a", content: "x" }]);
+      await send(threadId, []);
+      expect(await send(threadId, [])).toEqual([]);
+      expect(ɵGLOBAL_STORE.peek(threadId)!.approxMessagesSnapshotBytes).toBe(
+        ɵestimateBytes([]),
+      );
+    });
+
+    it("keeps resent messages when the agent ends with an empty list", async () => {
+      ɵGLOBAL_STORE.setLimits({ ...ɵINMEMORY_DEFAULTS, maxRunsPerThread: 2 });
+      const threadId = ownershipThreadId("history-empty-result");
+      const sent = [{ id: "a", content: "x" }];
+      await send(threadId, sent);
+      for (let i = 0; i < 3; i++) {
+        const stored = await send(
+          threadId,
+          sent,
+          new ScriptedAgent(() => [messagesSnapshot([])]),
+        );
+        expect(stored).toEqual(["a:x"]);
+      }
+    });
+
+    it("counts a run with non-array messages toward the age window", async () => {
+      ɵGLOBAL_STORE.setLimits({ ...ɵINMEMORY_DEFAULTS, maxRunsPerThread: 2 });
+      const threadId = ownershipThreadId("history-non-array");
+      class NonArrayMessagesAgent extends ScriptedAgent {
+        override async runAgent() {
+          Object.assign(this, { messages: null });
+          return { result: undefined, newMessages: [] };
+        }
+      }
+      await send(threadId, [{ id: "a", content: "x" }]);
+      await send(threadId, [], new NonArrayMessagesAgent());
+      expect(await send(threadId, [{ id: "b", content: "y" }])).toEqual([
+        "b:y",
+      ]);
+    });
+  });
+
+  describe("input without messages", () => {
+    const withoutMessages = (threadId: string) =>
+      ({
+        ...ownershipInput(threadId, "state"),
+        messages: undefined,
+      }) as unknown as RunAgentInput;
+
+    it("stores the agent's messages", async () => {
+      const threadId = ownershipThreadId("no-input-messages");
+      const agent = new ScriptedAgent();
+      agent.setMessages([{ id: "a", role: "user", content: "x" }]);
+      const runner = new InMemoryAgentRunner();
+      await collect(
+        runner.run({
+          threadId,
+          agent,
+          input: withoutMessages(threadId),
+          ownerId: "",
+        }),
+      );
+      expect(
+        runner.getThreadMessages(threadId, { ownerId: "" }).map((m) => m.id),
+      ).toEqual(["a"]);
+    });
+
+    it("finishes a run stopped before its first event", async () => {
+      class WaitsForAbortAgent extends ScriptedAgent {
+        private finish = () => {};
+        override runAgent() {
+          return new Promise<{ result: undefined; newMessages: [] }>(
+            (resolve) => {
+              this.finish = () =>
+                resolve({ result: undefined, newMessages: [] });
+            },
+          );
+        }
+        override abortRun() {
+          this.finish();
+        }
+      }
+      const threadId = ownershipThreadId("no-input-messages-stop");
+      const runner = new InMemoryAgentRunner();
+      const done = collect(
+        runner.run({
+          threadId,
+          agent: new WaitsForAbortAgent(),
+          input: withoutMessages(threadId),
+          ownerId: "",
+        }),
+      );
+      await runner.stop({ threadId, ownerId: "" });
+      expect((await done).map((event) => event.type)).toContain(
+        EventType.RUN_STARTED,
+      );
+    });
+  });
+});
 
 describe("a clear while a run is active (T1)", () => {
   it("a scoped clear keeps a running thread, so nobody else can claim its id", async () => {
