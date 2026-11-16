@@ -20,6 +20,7 @@ from agents import Agent, RunContextWrapper, function_tool
 from demo_agents._common import MODEL, chat_settings
 
 
+# @region[shared-state-instructions]
 def with_state(prompt: str) -> Callable[[RunContextWrapper[Any], Agent[Any]], str]:
     """Dynamic instructions: ``prompt`` plus the run's shared state as JSON."""
 
@@ -33,6 +34,9 @@ def with_state(prompt: str) -> Callable[[RunContextWrapper[Any], Agent[Any]], st
         )
 
     return instructions
+
+
+# @endregion[shared-state-instructions]
 
 
 # @region[shared-state-read-agent]

@@ -50,6 +50,7 @@ const STARTERS: Starter[] = [
   { ...DEFAULT_STARTER, slug: "adk" },
   { ...DEFAULT_STARTER, slug: "agno" },
   { ...DEFAULT_STARTER, slug: "antigravity" },
+  { ...DEFAULT_STARTER, slug: "openai-agents-python" },
   { ...DEFAULT_STARTER, slug: "llamaindex" },
   { ...DEFAULT_STARTER, slug: "langgraph-fastapi", hasAppMode: true },
   { ...DEFAULT_STARTER, slug: "strands-python", hasAppMode: true },

@@ -15,10 +15,8 @@ import type { CopilotKitCoreSubscriber } from "@copilotkit/core";
 
 ## Definition
 
-Every callback is optional, receives an event object that always includes the
-`copilotkit` instance, and returns `void` or `Promise<void>`. The shape below
-shows the representative `onRuntimeConnectionStatusChanged` callback; the
-[Properties](#properties) section documents each callback's exact event shape.
+The shape below shows one callback, `onRuntimeConnectionStatusChanged`.
+[Properties](#properties) lists the event shape of each callback.
 
 ```ts
 interface CopilotKitCoreSubscriber {
@@ -51,8 +49,19 @@ interface CopilotKitCoreSubscriber {
   Fired when the registered agents change. Event: `{ copilotkit, agents }`.
 </PropertyReference>
 
+<PropertyReference name="onAgentRunStarted" type="(event) => void | Promise<void>">
+  Fired when an agent run or connect begins. Event: `{ copilotkit, agent }`. The
+  `agent` can be a per-thread clone that is not in `copilotkit.agents`, so
+  `onAgentsChanged` does not fire for it.
+</PropertyReference>
+
 <PropertyReference name="onContextChanged" type="(event) => void | Promise<void>">
   Fired when the shared context changes. Event: `{ copilotkit, context }`.
+</PropertyReference>
+
+<PropertyReference name="onCatalogComponentsChanged" type="(event) => void | Promise<void>">
+  Fired when the A2UI catalog component list changes, or when a component is
+  enabled or disabled. Event: `{ copilotkit, catalogComponents }`.
 </PropertyReference>
 
 <PropertyReference name="onSuggestionsConfigChanged" type="(event) => void | Promise<void>">
@@ -76,10 +85,13 @@ interface CopilotKitCoreSubscriber {
 </PropertyReference>
 
 <PropertyReference name="onHeadersChanged" type="(event) => void | Promise<void>">
-  Fired when `setHeaders` accepts a real change — a record whose normalized
-  values differ, a new builder function, or a record↔builder switch. Not
-  fired when a builder merely resolves a fresh token for a request (a token
-  rotation on its own never triggers this callback). Event:
+  Fired when `setHeaders` gets one of these changes:
+
+  - a record whose normalized values differ
+  - a new builder function
+  - a builder in place of a record, or a record in place of a builder
+
+  A builder that returns a new token for a request does not fire it. Event:
   `{ copilotkit, headers }`.
 </PropertyReference>
 
@@ -102,6 +114,12 @@ interface CopilotKitCoreSubscriber {
   Fired when a thread store is removed (by explicit unregister or by a replacing register). The previous store is delivered via `prevStore`. Event: `{ copilotkit, agentId, prevStore }`.
 </PropertyReference>
 
+<PropertyReference name="onTrajectoryChanged" type="(event) => void | Promise<void>">
+  Fired when the active trajectory ID changes, for example after
+  `startTrajectory()` or `stopTrajectory()`. Event: `{ copilotkit, trajectoryId }`.
+  `trajectoryId` is `null` while capture is stopped.
+</PropertyReference>
+
 ## Usage
 
 ```ts
@@ -120,9 +138,3 @@ const subscription = copilotkit.subscribe({
 // later
 subscription.unsubscribe();
 ```
-
-## Related
-
-- [CopilotKitCore](/reference/core/classes/CopilotKitCore)
-- [CopilotKitCoreErrorCode](/reference/core/enums/CopilotKitCoreErrorCode)
-- [CopilotKitCoreRuntimeConnectionStatus](/reference/core/enums/CopilotKitCoreRuntimeConnectionStatus)

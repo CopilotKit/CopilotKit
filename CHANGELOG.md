@@ -16,6 +16,100 @@ releases have no changelog: the per-package files from the changesets era stoppe
 at `1.55.2` while the lane shipped `1.69.3`, and they are recoverable from git
 history (for example `git show v1.69.3:packages/core/CHANGELOG.md`).
 
+## 1.88.0 - 2026-11-13
+
+This release adds server-side agent runs through Intelligence, richer Learning capture, and several fixes to chat rendering and tool-call handling. It also includes one breaking change to thread naming.
+
+## Breaking Changes
+
+### Thread naming no longer runs your agent (#8377)
+
+Thread naming (`generateThreadNames`, on by default) previously ran a clone of your app's agent to write a title. Because `runAgent({ tools: [] })` only removes frontend tools, agents that bind their own server-side tools (such as LangGraph) would often repeat the user's task during the title run, call write tools, and loop to the recursion limit — retried up to three times per new thread.
+
+The runtime now never runs your agent to name a thread:
+
+| `generateThreadNames` | Before                          | After                                                                                                                                                    |
+| --------------------- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `true` (default)      | Agent clone runs, up to 3 times | Title is the first user message, cut to 8 words. No model runs.                                                                                          |
+| `{ model, apiKey? }`  | (did not exist)                 | One direct `generateText` call with no tools, no retries, and a 15s timeout. Falls back to the first user message if it fails or returns no valid title. |
+| `false`               | No naming                       | No naming                                                                                                                                                |
+
+**Migration:** Apps that set nothing now get the first user message as the title instead of a model-generated summary. To restore summary titles, set `generateThreadNames: { model: "openai/gpt-5-mini" }`. The `model` option accepts a `"provider/model"` string or an AI SDK `LanguageModel`, and a new public type `ThreadNameGenerationConfig` is exported.
+
+Messages with attachments are now named from their text parts only, so file URLs and base64 data no longer leak into titles or title prompts. A thread whose first message has no text is not named.
+
+## Features
+
+### Server-side agent runs with `runAgentInThread` (#8392)
+
+`@copilotkit/runtime/v2` now exports `runAgentInThread`, which runs an agent in an Intelligence Thread from the server with no client attached — for scheduled runs, agent hand-offs, and runs that resume once a person answers. The run is stored in the Thread exactly as a browser's run is, so the person sees it when they open the Thread.
+
+```ts
+const { newMessages, stopped } = await runAgentInThread({
+  runtime, // a CopilotRuntime configured with intelligence, or { intelligence }
+  agent: assistant.clone(),
+  agentId: "assistant",
+  threadId,
+  userId,
+  messages: [{ id: randomUUID(), role: "user", content: "Summarize today" }],
+  signal: AbortSignal.timeout(5 * 60_000),
+});
+```
+
+It creates the Thread if needed, takes and renews its lock, reads the Thread's history and stored state once the lock is held, runs the agent, stores only messages the Thread does not already hold, and releases the lock on every path. A busy Thread rejects with `PlatformRequestError` 409; a failed run, a lost lock, or a stop that never ends rejects with a `ThreadRunError`. Options carry tools, context, forwardedProps, resume, a Learning Container, analytics context, a request id, an `AgentSubscriber` for live events, and `onLockLost`. With only `{ intelligence }`, it needs no runtime or runner wiring, so a job worker can run without them.
+
+Managed Channel runs now share the same lock lifecycle, which also fixes a lock leak: attaching Channel Memory now happens inside the locked section, so a Memory setup error releases the lock instead of leaving it to expire.
+
+### Richer Learning capture (#8378)
+
+The Learning collector gains three additions:
+
+- **Field labels on edits.** `input` events now carry `target.label`, the field's caption from `aria-labelledby`, `aria-label`, or its `<label>` elements, cleaned the same way click labels are. It never comes from the value, placeholder, `title`, or the field's own text. A select adds its chosen options (`Deal stage: Negotiation`), so Learning can tell which fields a person corrects repeatedly without capturing typed text.
+- **SDK and app version.** The start `page` event now carries `sdkVersion` (set at build time) and `appVersion`, a new option passed through Core on both capture paths.
+- **Page errors.** A new `page.error` event captures `uncaught` errors, promise `rejection`s, failed `resource` loads, `invalid` native form validation (with the field label, never the value), and `alert` text. Messages and alert text are cleaned like labels and capped. Each distinct error is sent at its 1st, 10th, 100th, … occurrence, with at most 50 per session. Error capture is on by default (`capture.errors: false` disables it); alert text is opt-in with `capture.alerts: true`, since it can contain page content such as names. The gzip size budget rises from 10 KiB to 11 KiB.
+
+Note: `page.error` is now a reserved built-in name, so `emit("page.error")` from app code is refused.
+
+## Fixes
+
+- **core:** Intelligence channel rejoins now resume from the confirmed cursor instead of replaying the run from the start (#8394). Previously, a `phx_error` or socket reconnect re-sent static join params, causing the gateway to replay from `RUN_STARTED`, failing verification with `Cannot send 'RUN_STARTED' while a run is still active` and moving the saved cursor backward. Join params are now evaluated per rejoin and use connect mode with the latest cursor once a durable cursor exists, the cursor never moves backward within a run, and already-delivered events are dropped before reaching verification or subscribers.
+- **core:** Calls to a frontend tool that was advertised at the start of a run but unregistered before the result is processed (for example, when its component unmounts mid-run) are now answered when the run finishes cleanly (#8010). Such a call receives a `Tool not found: <name>` error result and a `TOOL_NOT_FOUND` event, so the thread can continue instead of every later message failing with a missing tool result. This applies only to names the client advertised for that run, on a cleanly finished run, when nothing else handles the call and it has no real result; interrupted, cancelled, and failed runs leave their calls open, and a `*` wildcard tool still takes precedence.
+- **react-core:** The chat virtualizer now keys rows by row key instead of by index (#8188). With `groupMessages` or `transformMessages`, indexes shift as tool calls fold together or stand-ins drop out, which meant cached row heights belonged to the wrong rows and the view jumped. Row heights now stay with their rows, and rows that leave the list are dropped from the estimate.
+- **react-core:** A reply's trailing thinking now folds into its work summary (#8381). Reasoning messages that came after a reply's last tool call were left outside the work phase, so a stack of `Thought for 2 seconds` lines stayed on screen permanently. Work now reaches past the last call over trailing thinking, while a single live reasoning line shimmers during the turn and the full trace returns when the folded work summary is expanded. Replies with no tool calls keep their thinking visible, unchanged.
+
+## 1.87.1 - 2026-11-12
+
+This patch release fixes A2UI rendering for catalogs that declare protocol version 1.0 when streaming Direct JSON.
+
+## Fixes
+
+- **Fix A2UI 1.0 Direct JSON rendering** (#8370): Bumped `@ag-ui/a2ui-middleware` to `0.0.16` in `@copilotkit/runtime` and `@copilotkit/shared`. Previously, Direct JSON snapshots were always stamped as `v0.9`, causing surfaces whose catalog declared `protocolVersion: "1.0"` to fail with a version mismatch error (e.g. _"specification version (1.0) does not match message protocol version (v0.9)"_). Snapshots are now stamped with the version declared by the catalog. The Express transport was already correct, and `v0.9` catalogs continue to behave as before.
+
+## 1.87.0 - 2026-11-11
+
+This release adds support for rendering A2UI 1.0 operations alongside the existing v0.9 protocol, so agents emitting native 1.0 surfaces (such as those from ADK) now render correctly without breaking existing integrations.
+
+## Features
+
+- **A2UI 1.0 rendering support** (#8353) — `A2UIMessageRenderer` now renders native 1.0 `a2ui_operations` alongside v0.9 surfaces, with v0.9 remaining the default. The SDK's multi-version processor includes a native React basic catalog, and both protocol versions can coexist in chat history with their metadata preserved.
+- **Explicit 1.0 custom catalogs** (#8353) — You can now configure explicit 1.0 custom catalogs while keeping the v0.9 default. Native 1.0 schemas and generation guidelines are now advertised and exported, and user actions can include catalog IDs, messages, and extension metadata.
+- **Markdown formatting for native 1.0 text** (#8353) — Native Text now supports safe Markdown headings, paragraphs, emphasis, and strong emphasis, rendered as safe React elements.
+- **Accessibility attributes** (#8353) — Common accessibility fields are now applied to basic DOM elements across built-in components.
+
+## Fixes
+
+- **Preserve edits across snapshot replay** (#8353) — Inline A2UI snapshots now replay component and data changes without remounting, preserving local edits across later streaming snapshots.
+- **Native 1.0 snapshot safety** (#8353) — Native 1.0 A2UI snapshots are now replayed safely in `react-core`.
+- **Primitive data bindings** (#8353) — Surfaces bound to primitive data are now revealed correctly, and bound text is coerced to strings (including numeric zero) to match SDK behavior.
+- **Preserve bindings and legacy payloads** (#8353) — SDK bindings and legacy payloads are retained when filtering surfaces.
+- **Merged catalog themes** (#8353) — Merged native catalogs now retain the basic theme schema.
+- **Component rendering corrections** (#8353) — Improved slider step handling, text-field placeholders, video poster safety, and rendering with custom catalogs.
+
+## Notes
+
+- Automatic generation-catalog switching for updates to older cards is not yet included (tracked in PNI-801).
+- The AG-UI Direct JSON streaming middleware fix is still required before 1.0 works end to end in that mode.
+
 ## 1.86.0 - 2026-11-11
 
 This release extends native generative UI to Vue and React Native, bumps the A2UI middleware, and hardens the runtime's MCP Apps and A2UI integration.

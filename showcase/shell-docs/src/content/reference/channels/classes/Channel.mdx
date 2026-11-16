@@ -17,14 +17,14 @@ const channel = createChannel({
 });
 ```
 
-Use the project-unique Intelligence Channel Code. The managed runtime declares
+Set `name` to the project-unique Intelligence Channel Code. The managed runtime declares
 both Slack and Teams for this Channel and keeps each delivery provider-scoped.
 
 ## createChannel options
 
 | Option           | Type                                                   | Description                                                                                                                 |
 | ---------------- | ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
-| `name`           | `string`                                               | Project-unique Intelligence Code. Required for managed Channels; lowercase kebab-case, 3–64 characters, and not `channels`. |
+| `name`           | `string`                                               | Project-unique Intelligence Channel Code. Required for managed Channels; lowercase kebab-case, 3 to 64 characters, and not `channels`. |
 | `identifyUser`   | `"platform" \| ChannelIdentifyUser`                    | Required identity policy. Returns one application user or `null` for each provider event.                                   |
 | `showToolStatus` | `boolean`                                              | Controls managed Slack tool-call progress. It is hidden by default; set `true` to show it.                                  |
 | `replyContinuation` | `ReplyContinuationOptions`                         | Managed Slack long-reply limits: `messageByteLimit`, `maxMessages`, and `truncationMarker`.                                 |
@@ -32,10 +32,11 @@ both Slack and Teams for this Channel and keeps each delivery provider-scoped.
 | `sanitizeAgentEvents` | `boolean`                                         | Defaults to `true`; repairs a known malformed AG-UI parent-message field in HTTP event streams.                             |
 | `tools`          | `ChannelTool[]`                                        | Typed tools forwarded to the agent.                                                                                         |
 | `context`        | `ContextEntry[]`                                       | Stable `{ description, value }` context sent on each run.                                                                   |
-| `components`     | `ChannelComponent[]`                                   | Named JSX components whose callbacks can be reconstructed from stored snapshots.                                            |
+| `components`     | `ChannelComponentRegistration[] \| Record<string, ChannelComponent>` | Component definitions from `defineChannelComponent`, which become agent tools, or named JSX components. Both let the Channel rebuild callbacks from stored snapshots after a restart. |
 | `commands`       | `ChannelCommand[]`                                     | Declared commands for providers that support them.                                                                          |
 | `store`          | `StoreConfig`                                          | State schema, persistence, turn concurrency (`parallel` default), dedup, and optional transcript bridge.                    |
 | `adapters`       | `PlatformAdapter[]`                                    | Low-level direct transports. They may coexist with the cloud-hosted Intelligence adapter on this Channel.                        |
+| `render`         | `RenderConfig`                                         | Image-render configuration: `renderer`, `fonts`, `stylesheets`, `width`, `height`, and `allowImageUrl`. To post JSX as an image, set `renderer`. |
 
 One Channel may receive managed Slack and Teams deliveries. Names must be
 unique inside one `CopilotRuntime`.
@@ -48,7 +49,7 @@ the detailed [`createChannel` options](/reference/channels/functions/createChann
 | Option              | Type                               | Description                                                                                                                                    |
 | ------------------- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | `state`             | `StandardSchema`                   | Types `thread.state()` and validates every `setState(value)`.                                                                                  |
-| `adapter`           | `StateStore`                       | Persistence implementation for SDK state. Without it, the current managed realtime path falls back to process memory.                          |
+| `adapter`           | `StateStore`                       | Persistence implementation for SDK state. Without it, a managed Channel keeps `thread.state()` and component snapshots in Intelligence, and keeps lists, locks, deduplication, and queues in process memory. |
 | `transcripts`       | `TranscriptsConfig`                | SDK-owned cross-platform transcript configuration keyed by the application user from top-level `identifyUser`.                                 |
 | `actionRetentionMs` | `number`                           | Durable callback and one-use HITL continuation retention. Default: seven days.                                                                 |
 | `concurrency`       | `"parallel" \| "serial" \| "drop"` | How overlapping turns on the same conversation are handled. Default: `"parallel"`. See [`StoreConfig`](/reference/channels/types/StoreConfig). |
@@ -116,7 +117,7 @@ release a lock only when the supplied token still owns it.
 
 | Property         | Type                         | Description                                                                                                   |
 | ---------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `name`           | `string \| undefined`        | Declared Intelligence Code.                                                                                   |
+| `name`           | `string \| undefined`        | Declared Intelligence Channel Code.                                                                           |
 | `showToolStatus` | `boolean \| undefined`       | Managed Slack tool-call visibility preference from `createChannel()`.                                         |
 | `replyContinuation` | `ReplyContinuationOptions \| undefined` | Managed Slack continuation preference from `createChannel()`.                                      |
 | `adapters`       | `readonly PlatformAdapter[]` | Attached transport snapshot. Managed Channels start empty and receive the Intelligence adapter at activation. |

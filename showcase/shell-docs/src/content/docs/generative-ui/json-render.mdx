@@ -23,9 +23,46 @@ If you'd rather have a streaming progressive render than a one-shot JSON render,
 
 ## Frontend
 
-The integration point is `<CopilotChat>`'s `messageView.assistantMessage` slot. The demo's **Code** tab has the complete framework-specific files, and the Markdown version of this page includes the key frontend source files. These demos use `@json-render/react` and `@json-render/core` version `0.18.0` with Zod 4 for the catalog. Check the selected demo's `package.json` in the repository for later version changes. Demos that also use Zod 3 import Zod 4 through the `zod4` package alias. `page.tsx` provides `<CopilotKit>`, `chat.tsx` installs `JsonRenderAssistantMessage` in the chat slot, and `json-render-renderer.tsx` parses the assistant content. The Code tab also shows the runtime route for the selected framework.
+The demos use `@json-render/react` and `@json-render/core` 0.18.0, with Zod 4 for the catalog. Demos that also use Zod 3 import Zod 4 through the `zod4` package alias.
 
-The renderer imports `registry` from `registry.tsx`, wraps `<Renderer spec={spec} registry={registry} />` in `<JSONUIProvider registry={registry}>`, and falls back to the normal assistant message until it can parse a spec. `catalog.ts` defines component names and Zod prop schemas with `defineCatalog`; `registry.tsx` uses `defineRegistry(catalog, …)` to bind those names to React components. Copy both files with the renderer. The demo's `parseSpec` allowlists component types and checks the basic object shape, but does **not** validate emitted props against the Zod schemas at runtime. Validate props before rendering if you rely on that guarantee.
+1. Copy `catalog.ts` and `registry.tsx`. `catalog.ts` defines component names and Zod prop schemas with `defineCatalog`. `registry.tsx` uses `defineRegistry(catalog, ...)` to bind those names to React components.
+2. Copy `json-render-renderer.tsx`. It parses the assistant content and falls back to the normal assistant message until it can parse a spec:
+
+   ```tsx title="json-render-renderer.tsx (excerpt)"
+   export function JsonRenderAssistantMessage(
+     props: CopilotChatAssistantMessageProps,
+   ) {
+     const content =
+       typeof props.message.content === "string" ? props.message.content : "";
+     const spec = useMemo(() => parseSpec(content), [content]);
+
+     if (!spec) return <CopilotChatAssistantMessage {...props} />;
+
+     return (
+       <JSONUIProvider registry={registry}>
+         <Renderer
+           spec={spec as unknown as Parameters<typeof Renderer>[0]["spec"]}
+           registry={registry}
+         />
+       </JSONUIProvider>
+     );
+   }
+   ```
+
+3. Install the renderer in the `assistantMessage` slot of `CopilotChat`:
+
+   ```tsx title="chat.tsx"
+   <CopilotChat
+     messageView={{
+       assistantMessage:
+         JsonRenderAssistantMessage as unknown as typeof CopilotChatAssistantMessage,
+     }}
+   />
+   ```
+
+4. Tell the agent to answer with one `{ root, elements }` object, as shown in [Backend](#backend).
+
+The demo's `parseSpec` allowlists component types and checks the basic object shape, but does **not** validate emitted props against the Zod schemas at runtime. Validate props before rendering if you rely on that guarantee.
 
 ## Backend
 
@@ -59,6 +96,6 @@ The example uses a `MetricCard` root and its registered `BarChart` child. The re
 
 ## Comparing the two patterns
 
-Both `byoc-json-render` and [`byoc-hashbrown`](/generative-ui/hashbrown) solve the same problem with two different rendering libraries. The agent contract is similar; the React glue, validation strategy, and rendering behaviour differ.
+JSON Render and [Hashbrown](/generative-ui/hashbrown) solve the same problem with two different rendering libraries. The agent contract is similar. The React glue, validation strategy, and rendering behavior differ.
 
-<IntegrationGrid path="declarative-json-render" />
+<IntegrationGrid path="generative-ui/json-render" />

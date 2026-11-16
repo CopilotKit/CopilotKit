@@ -1,0 +1,24 @@
+<Steps>
+  <Step>
+    ### Put the rulebook in the instructions, not the values
+
+    The page publishes its typed config with `useAgentContext`, so it reaches
+    the agent as a context entry on every run. `OpenAIAgentsAgent` appends
+    that entry to the instructions on every model call, so the model always
+    sees the values the user picked just before sending. The instructions
+    only need the rules for each value:
+
+    <DemoCode file="src/demo_agents/agent_config.py" region="agent-config-setup" />
+
+  </Step>
+  <Step>
+    ### Serve the agent from its own runtime route
+
+    The demo keeps agent config on a dedicated runtime,
+    `/api/copilotkit-agent-config`, which points an `HttpAgent` at the agent's
+    endpoint and registers it under both the page's agent name and `default`.
+    Nothing on the route touches the config: `useAgentContext` entries travel
+    in the run input on their own.
+
+  </Step>
+</Steps>

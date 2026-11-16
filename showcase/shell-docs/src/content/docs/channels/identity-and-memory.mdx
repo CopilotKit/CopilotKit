@@ -141,7 +141,7 @@ event.
     In a shared channel or group chat, project Memory is the safer default.
     Grant user Memory only when the current turn clearly acts for the resolved
     individual. Never reuse the installer, thread creator, or first participant
-    as the personal Memory subject for everyone else.
+    as the user Memory subject for everyone else.
 
   </Step>
 
@@ -188,8 +188,8 @@ event.
     - Callers cannot provide an arbitrary raw user ID.
 
     Use `"initiator"` when an approval belongs to the person who started the
-    workflow. Use `"actor"` when the current approver should supply the personal
-    context. See [Interactive messages and approvals](/channels/interactive)
+    workflow. Use `"actor"` when the current approver should supply the user
+    Memory. See [Interactive messages and approvals](/channels/interactive)
     for the complete registered component and post-and-resume flow.
 
   </Step>
@@ -213,7 +213,7 @@ event.
        your application user ID when needed, but do not log provider tokens,
        message contents, or Memory contents.
 
-    The boundary is ready when every event resolves its current actor, personal
+    The boundary is ready when every event resolves its current actor, user
     Memory follows only that resolved user, and project Memory follows the
     explicit grant for the run.
 

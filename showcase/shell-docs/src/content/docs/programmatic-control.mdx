@@ -1,7 +1,7 @@
 ---
 title: Programmatic Control
 icon: "lucide/Terminal"
-description: Drive agent runs directly from code — no chat UI required.
+description: Drive agent runs directly from code, with no chat UI required.
 hideTOC: true
 snippet_cell: headless-complete
 ---
@@ -13,13 +13,9 @@ agent run from code rather than from a chat composer: a button, a
 form, a cron job, a keyboard shortcut, a graph callback. CopilotKit
 exposes three primitives that cover every triggering pattern:
 
-- `agent.addMessage(...)` — append a message to the conversation without running the agent. Pair with `copilotkit.runAgent({ agent })` when you want the appended message to kick off a turn.
-- `copilotkit.runAgent({ agent })` — the same entry point `<CopilotChat />` calls under the hood. Orchestrates frontend tools, follow-up runs, and the subscriber lifecycle.
-- `agent.subscribe(subscriber)` — low-level AG-UI event subscription (`onCustomEvent`, `onRunStartedEvent`, `onRunFinalized`, `onRunFailed`, …). Pairs with `copilotkit.runAgent({ agent, resume })` for standard AG-UI interrupts, or `copilotkit.runAgent({ agent, forwardedProps: { command: { resume, interruptEvent } } })` for legacy `on_interrupt` custom events, to drive interrupt resolution from arbitrary UI.
-
-The send-and-stop example below is intentionally self-contained. The
-later subscription and interrupt examples are pulled from the live
-`interrupt-headless` cell.
+- `agent.addMessage(...)`: append a message to the conversation without running the agent. Pair with `copilotkit.runAgent({ agent })` when you want the appended message to kick off a turn.
+- `copilotkit.runAgent({ agent })`: the same entry point `<CopilotChat />` calls internally. Orchestrates frontend tools, follow-up runs, and the subscriber lifecycle.
+- `agent.subscribe(subscriber)`: low-level AG-UI event subscription (`onCustomEvent`, `onRunStartedEvent`, `onRunFinalized`, `onRunFailed`, …). Pairs with `copilotkit.runAgent({ agent, resume })` for standard AG-UI interrupts, or `copilotkit.runAgent({ agent, forwardedProps: { command: { resume, interruptEvent } } })` for the `on_interrupt` custom events that the LangGraph adapter emits, to drive interrupt resolution from arbitrary UI.
 
 ## When should I use this?
 
@@ -27,7 +23,7 @@ Use programmatic control when you want to:
 
 - Trigger agent runs from buttons, forms, or other UI elements
 - Execute specific tools directly from UI interactions (without an LLM turn)
-- Build agent features without a chat window
+- Build agent features without a chat window (to build your own chat UI, see [Headless UI](./headless))
 - Access agent state and results programmatically
 - Create fully custom agent-driven workflows
 
@@ -80,12 +76,14 @@ export function AgentTrigger({ agentId }: { agentId: string }) {
 }
 ```
 
+Click **Run agent**. The agent's reply arrives in `agent.messages`. To see it, render the last message, for example `agent.messages.at(-1)?.content`.
+
 ### `copilotkit.runAgent()` vs `agent.runAgent()`
 
 Both methods trigger the agent, but they operate at different levels:
 
-- **`copilotkit.runAgent({ agent })`** — the recommended default. Orchestrates the full lifecycle: executes frontend tools, handles follow-up runs, and routes errors through the subscriber system.
-- **`agent.runAgent(options)`** — low-level method on the agent instance. Sends the request to the runtime but does **not** execute frontend tools or chain follow-ups. Reach for this only when you need direct control. (For the interrupt-resume case, use `copilotkit.runAgent({ agent, resume })` for standard AG-UI interrupts, or `copilotkit.runAgent({ agent, forwardedProps: { command: { resume, interruptEvent } } })` for legacy `on_interrupt` custom events — the snippet below shows the legacy form — so the subscriber lifecycle still wraps the resumed run.)
+- **`copilotkit.runAgent({ agent })`**: the recommended default. Orchestrates the full lifecycle: executes frontend tools, handles follow-up runs, and routes errors through the subscriber system.
+- **`agent.runAgent(options)`**: low-level method on the agent instance. Sends the request to the runtime but does **not** execute frontend tools or chain follow-ups. Reach for this only when you need direct control.
 
 ## Subscribing to agent events
 
@@ -100,8 +98,8 @@ a payload (the pattern below).
 
 ## Resolving a LangGraph interrupt from a button
 
-The `interrupt-headless` cell demonstrates the full pattern without
-`useInterrupt` or a chat surface. A plain hook subscribes to
+The `interrupt-headless` demo resolves the interrupt outside the chat,
+without `useInterrupt`. A plain hook subscribes to
 `on_interrupt` custom events, buffers the payload until the run
 finalizes (so the UI doesn't flash mid-stream), and exposes a
 `resolve(response)` callback that calls `copilotkit.runAgent({ agent,
@@ -110,9 +108,14 @@ the graph:
 
 <Snippet region="headless-useinterrupt-primitives" cell="interrupt-headless" title="frontend/src/app/page.tsx — subscribe + resume" />
 
+The excerpt imports `generateFallbackSlots` and `TimeSlot` from a demo
+helper that makes sample time slots when the interrupt payload has none.
+Use your own data in their place.
+
 The resulting `{ pending, resolve }` tuple is pure data; any UI can
-drive it. The cell itself renders a simple button grid, but the same
+drive it. The demo itself renders a simple button grid, but the same
 hook would power a modal, a toast, a sidebar form, or a voice UI.
+To pause inside the chat instead, see [Human-in-the-Loop](./human-in-the-loop).
 
 </WhenFrameworkHas>
 
@@ -120,20 +123,20 @@ hook would power a modal, a toast, a sidebar form, or a voice UI.
 
 ## Resolving a frontend tool call from a button
 
-For promise-based integrations there is no native interrupt primitive —
-the demo uses `useFrontendTool` with a Promise-based handler instead.
+For promise-based integrations there is no native interrupt primitive.
+The demo uses `useFrontendTool` with a Promise-based handler instead.
 The handler stages its `resolve` callback and pending payload via React
 state, the app surface renders the picker outside the chat, and the
 user's pick resolves the Promise that the agent's tool call is awaiting.
-Same UX, different mechanism — the agent never knows it's talking to a
-button grid instead of a chat picker:
+The user sees the same flow. Only the mechanism is different. The agent
+does not know that a button grid answers in place of a chat picker:
 
 <Snippet region="headless-promise-primitives" cell="interrupt-headless" title="frontend/src/app/page.tsx — useFrontendTool + Promise resolver" />
 
-The resulting `{ pending, resolveActive }` pair is pure data; any UI
-can drive it. The cell itself renders a simple button grid, but the
+The handler stores `pending` in state and a resolver in a ref. Any UI
+can call the resolver. The demo itself renders a simple button grid, but the
 same pattern would power a modal, a toast, a sidebar form, or a voice
-UI.
+UI. To pause inside the chat instead, see [Human-in-the-Loop](./human-in-the-loop).
 
 </WhenFrameworkHas>
 
@@ -142,24 +145,16 @@ UI.
 ## Resolving a pause from a button
 
 > **Interrupt-style pause/resume isn't available on this framework.**
-> The headless interrupt pattern shown above requires the underlying
+> The headless interrupt pattern requires the underlying
 > runtime to expose either a native `interrupt(...)` primitive
 > (LangGraph) or a Promise-resolving frontend-tool path. For all other
 > integrations, drive pauses through
-> [`useHumanInTheLoop`](./human-in-the-loop) instead — it's the
+> [`useHumanInTheLoop`](./human-in-the-loop) instead. It's the
 > standard hook for tool-call-based pause/resume flows and works on
 > every framework that supports tool calls. The `agent.addMessage`,
 > `copilotkit.runAgent`, and `agent.subscribe` primitives above still
-> apply — only the interrupt-resolution path is framework-specific.
+> apply. Only the interrupt-resolution path is framework-specific.
 
 </WhenFrameworkHas>
-
-## See also
-
-- [Headless UI](./headless) — the full `useRenderedMessages` composition
-  that mirrors `<CopilotChatMessageView>` line-for-line.
-- [Human-in-the-Loop](./human-in-the-loop) — the `useHumanInTheLoop` and
-  `useInterrupt` hooks with their render-prop contracts, for the
-  "paused mid-chat" pattern this page's headless variant replaces.
 
 <IntegrationGrid path="programmatic-control" />

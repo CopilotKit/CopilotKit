@@ -11,8 +11,8 @@ description: >-
 partner_docs: https://openai.github.io/openai-agents-python/
 repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/openai-agents-python
 copilotkit_version: 2.0.0
-deployed: false
-docs_mode: hidden
+deployed: true
+docs_mode: generated
 sort_order: 62
 generative_ui:
   - constrained-explicit
@@ -570,6 +570,4 @@ demos:
       - src/app/api/copilotkit-ogui/route.ts
 
 starter_validation:
-  supported: false
-  reason: >-
-    The OpenAI Agents SDK has no starter template in examples/integrations and is not in the starter-smoke matrix.
+  path: examples/integrations/openai-agents-python

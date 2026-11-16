@@ -1,63 +1,38 @@
-// `/llms-full.txt` — every documentation page concatenated into a
-// single Markdown blob, with each page rendered through
-// `renderPageToLlmText()` so `<Snippet />` tags are inlined as fenced
-// code blocks (otherwise the body would be useless to an LLM that
-// can't execute MDX).
-//
-// Pages are separated by an H2-rule header so a crawler can split the
-// file back into per-page chunks; this matches the convention used by
-// Fumadocs's reference site and `llmstxt.org` examples.
-//
-// This endpoint is intentionally slow (renders every MDX page through
-// `renderPageToLlmText` on each cold request). `revalidate = false`
-// caches the rendered response on the Next.js server side until the
-// next deploy — without that the dev server would be fine but every
-// origin hit in production (health check, monitoring probe, cold CDN
-// miss) would re-walk the entire docs tree. The `Cache-Control` header
-// below is the SEPARATE per-response CDN/browser hint with a shorter
-// max-age so external caches refresh more frequently than server-cached
-// responses.
-//
-// TELEMETRY LIVES IN `src/middleware.ts`, NOT HERE. Every fetch of this
-// route is reported as `docs.llm_text_fetched`, with the caller
-// classified from its user agent. Do not add a capture to this handler:
-// `revalidate = false` means Next serves a cached response and this
-// body does not re-run, so a capture here would fire roughly once per
-// deploy. Middleware sees every request.
+import { llmsFullEntries } from "@/lib/llms/live-inventory";
+import { mapLimit } from "@/lib/llms/map-limit";
+import { renderLivePageMarkdown } from "@/lib/llms/page-markdown";
+import { getBaseUrl } from "@/lib/seo/base-url";
 
-import { NextResponse } from "next/server";
-import { getAllLlmPages, renderPageToLlmText } from "@/lib/llm-text";
-import { getBaseUrl } from "@/lib/sitemap-helpers";
+// `/llms-full.txt`: every live docs page in one Markdown file, shaped like
+// shell-docs': a short preamble, then each page under a `## Source: <url>`
+// header so a crawler can split it back into pages. Rendering every page is
+// slow, so the response is cached until the next deploy.
+//
+// Telemetry (`docs.llm_text_fetched`) lives in `src/proxy.ts`: a capture here
+// would fire once per deploy.
 
 export const revalidate = false;
 
-export function GET(): NextResponse {
+export async function GET() {
   const baseUrl = getBaseUrl();
-  const pages = getAllLlmPages({ channelGuideVariants: "content-unique" });
-  const chunks: string[] = [];
+  const pages = await mapLimit(llmsFullEntries(), 8, async ({ url, live }) => {
+    try {
+      return `---\n\n## Source: ${baseUrl}${url}\n\n${await renderLivePageMarkdown(live, url)}`;
+    } catch (error) {
+      // One broken page shouldn't take the whole file down.
+      console.error(`[llms-full.txt] failed to render ${url}`, error);
+      return null;
+    }
+  });
 
-  // Top matter — short site description so the LLM has context before
-  // it dives into individual pages.
-  chunks.push("# CopilotKit Docs (Full)\n");
-  chunks.push(
+  const body = [
+    "# CopilotKit Docs (Full)\n",
     "> Concatenated documentation for CopilotKit — the frontend framework for AI agents.",
-  );
-  chunks.push(
     "> Each section below is one page; the source URL is in the H2 header.\n",
-  );
+    ...pages.filter((page): page is string => page !== null),
+  ].join("\n");
 
-  for (const page of pages) {
-    const body = renderPageToLlmText(page, {
-      ...(page.frontend ? { frontend: page.frontend } : {}),
-      ...(page.framework ? { framework: page.framework } : {}),
-    });
-    if (!body) continue;
-    const url = `${baseUrl}/${page.url}`;
-    chunks.push(`---\n\n## Source: ${url}\n`);
-    chunks.push(body);
-  }
-
-  return new NextResponse(chunks.join("\n"), {
+  return new Response(body, {
     headers: {
       "Content-Type": "text/plain; charset=utf-8",
       "Cache-Control": "public, max-age=300, stale-while-revalidate=3600",

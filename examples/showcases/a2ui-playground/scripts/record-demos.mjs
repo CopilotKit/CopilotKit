@@ -261,22 +261,11 @@ const scenes = [
       );
       await d.ask("Flights from SFO to JFK on Friday");
       await sleep(2600);
-      await d.page.goto(`${BASE}/components/macros`, {
-        waitUntil: "networkidle2",
-      });
-      d.caption(
-        "Every macro is documented: the one line of Express in, the standard components out.",
-      );
-      await sleep(1500);
-      await d.scroll(330, 1500);
-      await sleep(1200);
-      await d.click('[data-macro="FlightCard"] [data-macro-view="json"]');
+      await d.click('[data-tab="json"]');
       d.caption(
         "Wire JSON: what actually reaches the renderer, plain A2UI 1.0.",
       );
       await sleep(3200);
-      await d.scroll(1500, 2600);
-      await sleep(2000);
     },
   },
   {
@@ -371,7 +360,7 @@ const scenes = [
         "Get started: one prompt for a coding agent, written for the design system you pick.",
       );
       await sleep(2200);
-      await d.click('[data-start-design-system="chatcn"]');
+      await d.click('[data-start-design-system="shadcn"]');
       await sleep(1200);
       await d.click("[data-copy-prompt]");
       d.caption(

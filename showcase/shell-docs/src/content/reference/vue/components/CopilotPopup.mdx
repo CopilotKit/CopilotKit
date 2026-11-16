@@ -75,7 +75,7 @@ import { CopilotPopup } from "@copilotkit/vue/v2";
 </PropertyReference>
 
 <PropertyReference name="inputMode" type="CopilotChatInputMode" default='"input"'>
-  The chat input mode.
+  Accepted but not used. `CopilotPopup` sets the input mode itself during voice transcription.
 </PropertyReference>
 
 <PropertyReference name="inputToolsMenu" type='(ToolsMenuItem | "-")[]' default="[]">
@@ -218,9 +218,3 @@ function onSubmit(value: string) {
 - **Click outside**: When `clickOutsideToClose` is `true`, clicking outside the popup panel closes it. The default is `false`.
 - **Layout**: Internally uses `CopilotPopupView`, which provides a popup-specific welcome screen layout.
 - **Agent connection**: All agent wiring (messages, running state, suggestions) is handled by the inner `CopilotChat`.
-
-## Related
-
-- [`CopilotChat`](/reference/vue/components/CopilotChat) -- the base chat component used internally
-- [`CopilotKitProvider`](/reference/vue/components/CopilotKitProvider) -- supplies the copilot context
-- [`useAgent`](/reference/vue/hooks/useAgent) -- composable for accessing the agent instance

@@ -1,0 +1,130 @@
+---
+title: "Render agent state in your app"
+icon: "lucide/LayoutDashboard"
+description: "Read agent.state with useAgent and render it on any React Native screen."
+---
+
+[Shared state](/shared-state) is most useful when the agent's state shows up on your main screen, such as a task list, a map, or a form. Because `agent.state` is plain React data, you can subscribe to it from any component and render it however you like.
+
+## The pattern
+
+[`useAgent`](/reference/react-native/hooks/useAgent) works in any component under `CopilotKitProvider`. It doesn't have to be near the chat. Call it in your screen, read `agent.state`, and render:
+
+```tsx title="src/TaskBoard.tsx"
+import { useEffect } from "react";
+import { FlatList, Pressable, Text, View } from "react-native";
+import { useAgent } from "@copilotkit/react-native/headless";
+
+type Task = { id: string; label: string; done: boolean };
+type BoardState = { title: string; items: Task[] };
+
+const INITIAL_BOARD_STATE: BoardState = {
+  title: "Project launch",
+  items: [
+    { id: "research", label: "Research user needs", done: true },
+    { id: "prototype", label: "Build a prototype", done: false },
+  ],
+};
+
+export function TaskBoard() {
+  // No agentId means the "default" agent. Pass { agentId } to target another.
+  const { agent, isReady } = useAgent();
+  const state = (agent.state ?? {}) as Partial<BoardState>;
+
+  useEffect(() => {
+    if (!isReady) return;
+
+    const current = (agent.state ?? {}) as Partial<BoardState>;
+    const updates: Partial<BoardState> = {};
+    if (current.title === undefined) updates.title = INITIAL_BOARD_STATE.title;
+    if (current.items === undefined) updates.items = INITIAL_BOARD_STATE.items;
+
+    if (Object.keys(updates).length > 0) {
+      agent.setState({ ...(agent.state ?? {}), ...updates });
+    }
+  }, [agent, isReady, state.title, state.items]);
+
+  const toggleItem = (id: string) => {
+    agent.setState({
+      ...agent.state,
+      items: (state.items ?? []).map((item) =>
+        item.id === id ? { ...item, done: !item.done } : item,
+      ),
+    });
+  };
+
+  return (
+    <View style={{ padding: 16 }}>
+      <Text style={{ fontSize: 20, fontWeight: "600" }}>{state.title ?? "Untitled"}</Text>
+      <FlatList
+        data={state.items ?? []}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => (
+          <Pressable onPress={() => toggleItem(item.id)} style={{ paddingVertical: 8 }}>
+            <Text style={{ textDecorationLine: item.done ? "line-through" : "none" }}>
+              {item.label}
+            </Text>
+          </Pressable>
+        )}
+      />
+    </View>
+  );
+}
+```
+
+`INITIAL_BOARD_STATE` is initial state that the UI owns in this example. It makes the board visible before the agent writes state. The effect sets only `undefined` fields and keeps all other state. If the backend owns the initial state, define it in the shared-state setup for your framework.
+
+`isReady` is `false` while the runtime connects. Until then, `agent` is a placeholder that is swapped for the real agent, so the effect waits for it.
+
+Each time the agent changes its state, whether from a tool call, a step in your agent, or a [streamed update](/shared-state/streaming), `useAgent` re-renders this component with the new values. The chat can be in a bottom sheet, a drawer, or absent entirely. Your board updates the same way.
+
+## Put it anywhere in your layout
+
+The agent lives on `CopilotKitProvider`, so the chat and your screens are two consumers of the same agent. A typical layout shows the board as the main screen and the chat in a bottom sheet:
+
+```tsx title="App.tsx"
+import { useRef } from "react";
+import { Button } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { CopilotKitProvider } from "@copilotkit/react-native/headless";
+import { CopilotModal, type CopilotModalRef } from "@copilotkit/react-native/components";
+import { TaskBoard } from "./src/TaskBoard";
+
+const runtimeUrl = "http://localhost:8200/api/copilotkit";
+
+export default function App() {
+  const chatRef = useRef<CopilotModalRef>(null);
+
+  return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <CopilotKitProvider runtimeUrl={runtimeUrl}>
+        {/* Your app UI, driven by agent.state */}
+        <TaskBoard />
+        <Button title="Ask the assistant" onPress={() => chatRef.current?.open()} />
+        {/* The chat is another consumer of the same agent */}
+        <CopilotModal ref={chatRef} agentName="default" />
+      </CopilotKitProvider>
+    </GestureHandlerRootView>
+  );
+}
+```
+
+<Callout type="info">
+`TaskBoard` and the chat both use the agent named `"default"`, so they share one agent instance and one state object. Nothing about reading `agent.state` is chat-specific.
+</Callout>
+
+## Writing back from your screen
+
+`toggleItem` above shows the write path: the screen pushes a new value with `setState`, and the agent reads it on its next turn. This is the same two-way channel described in [Shared State](/shared-state). The only difference is that the reads and writes happen on your main screen.
+
+If the agent must only read a UI value, and never write it, use [agent read-only context](/shared-state/agent-readonly).
+
+## Tips
+
+- **Target a specific agent** with `useAgent({ agentId: "research-agent" })` when you have more than one. The default is the agent named `"default"`.
+- **Throttle high-frequency updates** with `useAgent({ throttleMs })` if a streaming run re-renders a heavy screen too often. `defaultThrottleMs` on `CopilotKitProvider` sets it for every `useAgent`.
+- **Treat `agent.state` as possibly partial** while a run is in progress. Guard with defaults (as above), so half-streamed state doesn't crash your render.
+
+## Try it
+
+Ask the agent to add a task called "Write the launch post". A new item appears on the board. Then tap an item to mark it done, and ask the agent which tasks are done. The agent names the item that you marked.

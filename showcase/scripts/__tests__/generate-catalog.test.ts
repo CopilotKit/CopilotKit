@@ -235,7 +235,7 @@ describe("Catalog Generator", () => {
   //
   // MUTATION THAT REDS THIS CASE: drop `c.manifestation !== "starter"` from
   // `countableCells` in `catalog-flatten.ts` Step 6 — `total_cells` becomes
-  // 1200 and `wired` moves by the 17 non-`supported:false` columns.
+  // 1200 and `wired` moves by the 18 non-`supported:false` columns.
   it("with SHOWCASE_STARTER_CELLS=1: 24 starter cells appear and the rollups do NOT move", () => {
     runGenerator();
     const flagOff = readCatalog();
@@ -246,16 +246,16 @@ describe("Catalog Generator", () => {
     const starters = flagOn.cells.filter(
       (c: any) => c.manifestation === "starter",
     );
-    // One cell per column, all 24 — including the 7 `supported: false` ones,
+    // One cell per column, all 24 — including the 6 `supported: false` ones,
     // each of which mints exactly one "not supported" cell rather than nothing.
     expect(starters.length).toBe(24);
     expect(flagOn.cells.length).toBe(1224);
 
     // Status is DERIVED from the block, not hardcoded "wired".
     expect(starters.filter((c: any) => c.status === "unsupported").length).toBe(
-      7,
+      6,
     );
-    expect(starters.filter((c: any) => c.status === "wired").length).toBe(17);
+    expect(starters.filter((c: any) => c.status === "wired").length).toBe(18);
     // The axis's uniform ceiling, on every starter cell.
     expect(new Set(starters.map((c: any) => c.max_depth))).toEqual(
       new Set([3]),
@@ -277,7 +277,7 @@ describe("Catalog Generator", () => {
     expect(flagOn.metadata.docs_only).toBe(24);
   });
 
-  it("LGP has 50 cells: 37 wired + 1 stub + 10 unshipped + 2 unsupported (deprecated features included; dashboard hides them by default)", () => {
+  it("LGP has 50 cells: 39 wired + 1 stub + 10 unshipped (deprecated features included; dashboard hides them by default)", () => {
     runGenerator();
     const catalog = readCatalog();
 
@@ -286,9 +286,8 @@ describe("Catalog Generator", () => {
         c.integration === "langgraph-python" &&
         c.manifestation === "integrated",
     );
-    // 46 = 37 LGP-declared features + 2 quarantined interrupt features
-    // (gen-ui-interrupt / interrupt-headless, now in
-    // `not_supported_features`) + 4 deprecated features + 2 legacy
+    // 46 = 39 LGP-declared features (gen-ui-interrupt / interrupt-headless
+    // among them since their quarantine lifted) + 4 deprecated features + 2 legacy
     // `byoc-*` aliases (LGP declares `declarative-{hashbrown,json-render}`
     // for the visible URL slugs while every other integration still
     // declares the legacy `byoc-*` IDs; the catalog emits cells for both
@@ -309,16 +308,15 @@ describe("Catalog Generator", () => {
     const unshipped = lgpCells.filter((c: any) => c.status === "unshipped");
     const unsupported = lgpCells.filter((c: any) => c.status === "unsupported");
 
-    // The interrupt-pill quarantine moved gen-ui-interrupt / interrupt-headless
-    // (both previously `wired`) into `not_supported_features`, so they now
-    // surface as `unsupported`: wired drops 38 -> 36, unsupported rises 0 -> 2.
-    // unshipped rises 6 -> 7 with threadid-frontend-tool-roundtrip. Then the
-    // a2ui-recovery demo shipped for LGP (wired), so wired rises 36 -> 37 and
-    // unshipped drops 8 -> 7.
-    expect(wired.length).toBe(37);
+    // unshipped rose 6 -> 7 with threadid-frontend-tool-roundtrip, then the
+    // a2ui-recovery demo shipped for LGP (wired) and unshipped dropped 8 -> 7.
+    // The react-core resume-path quarantine on gen-ui-interrupt /
+    // interrupt-headless is lifted (fixed in 1.62.1), so both are `wired`
+    // again: wired 37 -> 39, unsupported 2 -> 0.
+    expect(wired.length).toBe(39);
     expect(stub.length).toBe(1);
     expect(unshipped.length).toBe(10);
-    expect(unsupported.length).toBe(2);
+    expect(unsupported.length).toBe(0);
   });
 
   it("stub detection: LGP/cli-start has stub status (demo exists, no route)", () => {

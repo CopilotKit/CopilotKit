@@ -42,14 +42,15 @@ and follow-up messages travel through the selected AG-UI agent.
 Widgets run in a sandbox with an opaque origin, so they can't reach your
 page's cookies, storage or DOM. `allowSameOriginFallback: true` restores
 `allow-same-origin` for trusted widgets that need `localStorage`, `IndexedDB`
-or cookies. It is unsafe: every widget then runs with your page's origin. See
-[Sandbox and widget storage](/generative-ui/mcp-apps#sandbox-and-widget-storage).
+or cookies. It is unsafe: every widget then runs with your page's origin.
+See [Sandbox and widget storage](/generative-ui/mcp-apps#sandbox-and-widget-storage).
 
-Each widget owns an abortable FIFO queue and iframe listener. Destroying one
-widget cancels only its work; changing threads drops queued stale work. Busy
-agents and initialization handshakes use the configured timeouts. Snapshot
-content, JSON-RPC messages, and exact iframe event sources are validated before
-use. Host context is browser-visible and must not contain secrets.
+- Host context is browser-visible and must not contain secrets.
+- Each widget owns its iframe listener. All widgets share one request queue.
+- Destroying a widget cancels only the requests that widget queued.
+- When the thread changes, queued requests from the old thread are dropped.
+- Busy agents and initialization handshakes use the configured timeouts.
+- Snapshot content, JSON-RPC messages, and exact iframe event sources are validated before use.
 
 During SSR the widget is inert. Its sandbox and message listener initialize in
 the browser after hydration. `CopilotMCPAppsWidget`, schemas, tokens, and the

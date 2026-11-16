@@ -64,6 +64,7 @@ def candidate_slots() -> list[dict[str, str]]:
     ]
 
 
+# @region[backend-interrupt-tool]
 class InterruptState(CopilotKitState):
     pending_tool_call_id: str | None = None
     meeting: dict[str, Any] = Field(default_factory=dict)
@@ -184,6 +185,7 @@ class InterruptFlow(Flow[InterruptState]):
             )
         )
         self.state.messages.append(response.choices[0].message)
+        # @endregion[backend-interrupt-tool]
 
 
 interrupt_flow = InterruptFlow()

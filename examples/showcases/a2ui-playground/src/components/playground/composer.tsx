@@ -13,22 +13,25 @@ import { useAgent, useCopilotKit } from "@copilotkit/react-core/v2";
 import { DropdownMenu } from "radix-ui";
 import {
   ArrowUp,
-  Braces,
   Check,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   CodeXml,
-  Cpu,
   Lightbulb,
-  Plus,
   Square,
-  SquarePen,
   SwatchBook,
+  ChartColumn,
+  Globe,
+  LifeBuoy,
+  Users,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { forgetChat } from "@/components/app/agent-tap";
 import { useMode } from "@/components/app/providers";
 import type { Mode } from "@/components/app/providers";
 import { useSend } from "@/components/app/use-send";
+import { DesignSystemLogo } from "@/components/site/design-system-logo";
 import { useDesignSystem } from "@/design-systems/context";
 import { DESIGN_SYSTEMS, designSystemLabel } from "@/design-systems/registry";
 import type { DesignSystemId } from "@/design-systems/registry";
@@ -36,9 +39,16 @@ import { FORMAT_OPTIONS, modelLabel } from "@/lib/model-options";
 import type { Format, ModelId } from "@/lib/model-options";
 import { runStore } from "@/lib/run-store";
 import { cn } from "@/lib/utils";
-import type { Replay } from "./replay";
 
 type Tag = "macro" | "template";
+
+/** The landing's starters: variations on one prompt that draws well (a dashboard of numbers, a chart and a table). */
+const STARTERS: Array<{ text: string; Icon: LucideIcon }> = [
+  { text: "Q3 sales by region as a dashboard", Icon: ChartColumn },
+  { text: "Monthly signups by plan as a dashboard", Icon: Users },
+  { text: "Website traffic by channel as a dashboard", Icon: Globe },
+  { text: "Support tickets by priority as a dashboard", Icon: LifeBuoy },
+];
 
 /** Macros always compose (they expand on the server), whatever the router would pick. Flights is a ready-made template. */
 const SUGGESTIONS: Array<{ text: string; tag?: Tag }> = [
@@ -49,6 +59,35 @@ const SUGGESTIONS: Array<{ text: string; tag?: Tag }> = [
   { text: "Flights from SFO to JFK on Friday", tag: "template" },
 ];
 
+/** Each model's maker, as its logo (public/brand/models, LobeHub icons). One-colour marks follow the text colour. */
+const MODEL_LOGO: Record<ModelId, { file: string; color: boolean }> = {
+  gemini: { file: "gemini-color", color: true },
+  gemma: { file: "gemma-color", color: true },
+  gpt: { file: "openai", color: false },
+};
+
+function ModelLogo({ id, small }: { id: ModelId; small?: boolean }) {
+  const logo = MODEL_LOGO[id];
+  if (!logo) return null;
+  if (logo.color)
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={`/brand/models/${logo.file}.svg`}
+        alt=""
+        aria-hidden
+        className={small ? "size-[13px] flex-none" : "size-4 flex-none"}
+      />
+    );
+  return (
+    <span
+      aria-hidden
+      className={`${small ? "size-[13px]" : "size-4"} flex-none bg-current [mask-position:center] [mask-repeat:no-repeat] [mask-size:contain]`}
+      style={{ maskImage: `url(/brand/models/${logo.file}.svg)` }}
+    />
+  );
+}
+
 export const focusRing =
   "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--wb-violet-ring)]";
 
@@ -56,7 +95,7 @@ export const focusRing =
  * A short window or a small square (an iframe on CopilotKit's site, a landscape phone): the chrome around the
  * answer shrinks. The same query is in compact.css, which does the shrinking; this is for what CSS cannot change.
  */
-export const COMPACT =
+const COMPACT =
   "(max-height: 700px), (max-width: 899px) and (max-height: 860px) and (min-aspect-ratio: 3/4)";
 function mediaStore(query: string) {
   return {
@@ -69,7 +108,7 @@ function mediaStore(query: string) {
   };
 }
 const compactStore = mediaStore(COMPACT);
-export const useCompact = () =>
+const useCompact = () =>
   useSyncExternalStore(
     compactStore.subscribe,
     compactStore.matches,
@@ -121,24 +160,17 @@ function useTwoRows(ref: React.RefObject<HTMLElement | null>, on: boolean) {
   }, [ref, on]);
 }
 
-/** A swatch per design system, so the picker shows at a glance which one draws the surfaces. */
-const SWATCH: Record<DesignSystemId, string> = {
-  copilotkit: "bg-[oklch(0.6_0.19_292)] dark:bg-[oklch(0.72_0.17_292)]",
-  // shadcn's primary: near-black on light, near-white on dark.
-  chatcn: "bg-[oklch(0.205_0_0)] dark:bg-[oklch(0.922_0_0)]",
-  // Material's primary, in Material's own shape: the only round swatch.
-  material: "rounded-full bg-[#0b57d0] dark:bg-[#a8c7fa]",
-  byoc: "bg-[#0b5cff]",
-};
-
 const menu =
   "z-50 min-w-[16rem] max-w-[calc(100vw-2rem)] rounded-xl border outline-none border-[var(--pg-line)] bg-popover p-1 text-popover-foreground shadow-[0_12px_32px_-12px_var(--pg-shadow)] data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[side=top]:slide-in-from-bottom-1 data-[side=right]:slide-in-from-left-1";
 const menuItem =
   "flex cursor-default items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13.5px] leading-snug outline-none select-none data-[highlighted]:bg-[oklch(var(--ink)/5%)] data-[state=open]:bg-[oklch(var(--ink)/5%)] data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&>svg]:size-4 [&>svg]:flex-none [&>svg]:text-[var(--pg-dim)]";
 
 const rule = "mx-1 my-1 h-px bg-[var(--pg-line)]";
+/** A ghost button on the prompt box's second row that opens a menu (Design, the model): its logo brightens when hovered or open. */
+const pickerTrigger =
+  "group/pick inline-flex h-8 flex-none items-center gap-1.5 rounded-[8px] px-2 text-[13px] font-medium text-[var(--pg-dim)] transition-[background-color,color] hover:bg-[oklch(var(--ink)/5%)] hover:text-foreground data-[state=open]:bg-[oklch(var(--ink)/6%)] data-[state=open]:text-foreground dark:hover:bg-white/[0.06] dark:data-[state=open]:bg-white/[0.08] [&_.pick-logo]:opacity-80 [&_.pick-logo]:saturate-[.7] [&_.pick-logo]:transition-[filter,opacity] hover:[&_.pick-logo]:opacity-100 hover:[&_.pick-logo]:saturate-100 data-[state=open]:[&_.pick-logo]:opacity-100 data-[state=open]:[&_.pick-logo]:saturate-100";
 
-/** The lists the "+" menu opens. */
+/** The lists the menus open. */
 type List = "design-system" | "model" | "format" | "prompts";
 const LIST_TITLE: Record<List, string> = {
   "design-system": "Design system",
@@ -148,7 +180,7 @@ const LIST_TITLE: Record<List, string> = {
 };
 
 /**
- * An entry in the "+" menu that opens a list: what it sets, the current choice on the right, and the list in a
+ * An entry in the Design menu that opens a list: what it sets, the current choice on the right, and the list in a
  * submenu beside the menu. On a phone, where a submenu would run off the screen, the list takes the menu's place.
  */
 function Opens({
@@ -261,17 +293,22 @@ function SuggestionTag({ tag }: { tag: Tag }) {
 }
 
 /**
- * The composer, pinned under the conversation: a few prompts to start from (in an empty chat), the prompt
- * box (a "+" menu, the prompt, Build or Stop), and until the visitor has asked something, under it, the way
- * in without a model. The design system, model and format pickers are in the "+" menu.
+ * The composer, pinned under the conversation (or centered on the landing, with starter cards above it): the
+ * prompt box in two rows, the prompt above and under it the Design menu (design system, format, starter
+ * prompts), the model picker and Build or Stop. Under the box, New chat once there is a conversation, and
+ * until the visitor has asked something, the way in without a model.
  */
 export function Composer({
-  replay,
+  landing = false,
+  noAILine = true,
   empty,
   onSent,
   onStartWithoutAI,
 }: {
-  replay: Replay;
+  /** The empty chat's landing: starter cards above the box, centered, instead of the chips. */
+  landing?: boolean;
+  /** "Or start without AI" under the box; off while the editor is already open. */
+  noAILine?: boolean;
   empty: boolean;
   onSent: () => void;
   onStartWithoutAI: () => void;
@@ -290,24 +327,29 @@ export function Composer({
   const noteId = useId();
   const compact = useCompact();
   const narrow = useNarrow();
-  // The prompts to start from belong to an empty chat. After the replay or a conversation, the box is for a
-  // follow-up and stands alone ("Try a prompt" in the "+" menu still lists them).
-  const suggest = empty && replay.status === "off";
+  // The prompts to start from belong to an empty chat. After a conversation, the box is for a
+  // follow-up and stands alone ("Try a prompt" in the Design menu still lists them).
+  const suggest = empty && !landing;
   useTwoRows(chips, suggest);
-  // The "+" menu portals into the playground's root rather than <body>: its colours are scoped to `.pg-root`.
+  // The menus portal into the playground's root rather than <body>: their colours are scoped to `.pg-root`.
   const wrap = useRef<HTMLDivElement>(null);
   const [portal, setPortal] = useState<HTMLElement | null>(null);
-  // A choice, a new chat or a starter prompt hands the focus back to the prompt, not to the "+" that opened the menu.
+  // A choice or a starter prompt hands the focus back to the prompt, not to the button that opened the menu.
   // Not on a touch screen, where the keyboard would come up over the answer.
   const toPrompt = useRef(false);
   const touched = useRef(false);
-  // "Start without AI" hands the focus to the editor it opens (the editor takes it itself).
-  const toEditor = useRef(false);
+  const onMenuClose = (e: Event) => {
+    const handBack = toPrompt.current && !touched.current;
+    toPrompt.current = false;
+    if (!handBack) return;
+    e.preventDefault();
+    box.current?.focus();
+  };
   useEffect(() => {
     setPortal(wrap.current?.closest<HTMLElement>(".pg-root") ?? null);
   }, []);
   const [menuOpen, setMenuOpen] = useState(false);
-  // On a phone, the list the menu shows in its own place; elsewhere lists open beside it.
+  // On a phone, the Design menu shows a list in place of its entries; elsewhere lists open beside it.
   const [list, setList] = useState<List | null>(null);
   const shown = narrow ? list : null;
   const menuRef = useRef<HTMLDivElement>(null);
@@ -346,7 +388,6 @@ export function Composer({
   const go = (prompt: string, mode?: Mode) => {
     const clean = prompt.trim();
     if (!clean) return;
-    replay.dismiss();
     if (running) {
       setQueued({ text: clean, mode });
       return;
@@ -372,13 +413,12 @@ export function Composer({
     if (live?.isRunning) copilotkit.stopAgent({ agent: live });
   };
 
-  // Starts over: stops a run, empties the chat and its runs, forgets the saved session and skips the replay.
+  // Starts over: stops a run, empties the chat and its runs and forgets the saved session.
   // A fresh thread id keeps the runtime from bringing the old thread's events back.
   const newChat = () => {
     stop();
     setQueued(null);
     setText("");
-    replay.dismiss();
     const live = copilotkit.getAgent("default") ?? agent;
     if (live) {
       live.setMessages([]);
@@ -388,8 +428,6 @@ export function Composer({
     forgetChat();
     box.current?.focus();
   };
-  const started =
-    !empty || replay.status === "playing" || replay.status === "ended";
 
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
@@ -398,7 +436,8 @@ export function Composer({
     }
   };
 
-  // What the "+" menu's entries open: the three pickers and the starter prompts.
+  // What the menus open: the design system, format and model pickers, and the starter prompts. The model
+  // picker is a menu of its own; the rest are entries of the Design menu.
   const lists: Record<List, ReactNode> = {
     "design-system": (
       <DropdownMenu.RadioGroup
@@ -415,13 +454,7 @@ export function Composer({
             data-design-system={d.id}
             className={choice}
           >
-            <span
-              aria-hidden
-              className={cn(
-                "mt-[7px] size-2 flex-none rounded-[3px]",
-                SWATCH[d.id],
-              )}
-            />
+            <DesignSystemLogo id={d.id} className="mt-[2px] size-4" />
             <Choice label={d.label} note={d.note} hint={d.hint} />
           </DropdownMenu.RadioItem>
         ))}
@@ -443,6 +476,7 @@ export function Composer({
             disabled={!m.available}
             className={choice}
           >
+            <ModelLogo id={m.id} />
             <Choice
               label={m.label}
               note={m.note}
@@ -491,16 +525,53 @@ export function Composer({
     )),
   };
 
-  // While the replay types its prompt, the box shows it; the visitor's own typing takes over at once.
-  const ghost =
-    replay.status === "playing" && !replay.sent ? replay.typed : null;
-
   return (
     <div
       ref={wrap}
-      className="wb-composer relative flex-none pb-4 pt-2 max-[899px]:pb-3"
+      data-landing={landing || undefined}
+      className={cn(
+        "wb-composer relative flex-none",
+        landing ? "pt-8" : "pb-4 pt-2 max-[899px]:pb-3",
+      )}
     >
-      <div className="mx-auto w-full max-w-[844px] px-8 max-[1279px]:px-6 max-[899px]:px-4">
+      <div
+        className={cn(
+          "mx-auto w-full px-8 max-[1279px]:px-6 max-[899px]:px-4",
+          landing ? "max-w-[728px]" : "max-w-[844px]",
+        )}
+      >
+        {landing ? (
+          <div className="mb-4" data-wb-starters>
+            <h2 className="sr-only">Try one</h2>
+            <ul className="grid grid-cols-2 gap-2 max-[599px]:grid-cols-1">
+              {STARTERS.map(({ text: t, Icon }, i) => (
+                <li
+                  key={t}
+                  className="wb-rise"
+                  style={{ "--rise": i + 2 } as React.CSSProperties}
+                >
+                  <button
+                    type="button"
+                    data-suggestion={t}
+                    onClick={() => go(t)}
+                    className={cn(
+                      "group flex h-full w-full items-center gap-3 rounded-[16px] border border-[var(--pg-line-strong)] bg-[var(--pg-panel)] px-3 py-2.5 text-left text-[13.5px] leading-snug text-foreground/80 shadow-[0_10px_30px_-16px_var(--pg-shadow)] transition-[border-color,color,box-shadow] hover:border-[oklch(var(--ink)/22%)] hover:text-foreground dark:hover:border-[oklch(1_0_0/20%)]",
+                      focusRing,
+                    )}
+                  >
+                    <span
+                      aria-hidden
+                      className="grid size-8 flex-none place-items-center rounded-[8px] bg-[oklch(var(--ink)/5%)] text-foreground/70 transition-colors group-hover:bg-foreground group-hover:text-background dark:bg-white/[0.06] dark:group-hover:bg-white/[0.12] dark:group-hover:text-foreground"
+                    >
+                      <Icon className="size-4" strokeWidth={1.75} />
+                    </span>
+                    <span className="min-w-0">{t}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
         {suggest ? (
           <div className="mb-2.5" data-wb-chips-wrap>
             <h2 className="sr-only">Try one</h2>
@@ -557,187 +628,24 @@ export function Composer({
         <form
           onSubmit={submit}
           aria-label="Ask for a UI"
-          className="wb-prompt flex items-end gap-1 rounded-[14px] border border-[var(--pg-line-strong)] bg-[var(--pg-surface)] p-2 shadow-[0_10px_30px_-12px_var(--pg-shadow)] transition-[border-color,box-shadow] hover:border-[oklch(var(--ink)/22%)] dark:hover:border-[oklch(1_0_0/20%)] has-[textarea:focus-visible]:border-[var(--wb-violet)] has-[textarea:focus-visible]:shadow-[0_0_0_3px_var(--wb-violet-glow),0_10px_30px_-12px_var(--pg-shadow)]"
+          style={landing ? ({ "--rise": 6 } as React.CSSProperties) : undefined}
+          onClick={(e) => {
+            // A click on the box's padding goes to the prompt, as in any two-row composer.
+            if (e.target === e.currentTarget) box.current?.focus();
+          }}
+          className={cn(
+            "wb-prompt flex flex-col gap-1 rounded-[16px] border border-[var(--pg-line-strong)] bg-[var(--pg-panel)] p-2 shadow-[0_10px_30px_-12px_var(--pg-shadow)] transition-[border-color,box-shadow] hover:border-[oklch(var(--ink)/22%)] dark:hover:border-[oklch(1_0_0/20%)] has-[textarea:focus-visible]:border-[oklch(var(--ink)/28%)] has-[textarea:focus-visible]:shadow-[0_0_0_4px_oklch(var(--ink)/5%),0_10px_30px_-12px_var(--pg-shadow)] dark:has-[textarea:focus-visible]:border-white/25 dark:has-[textarea:focus-visible]:shadow-[0_0_0_4px_oklch(1_0_0/5%),0_10px_30px_-12px_var(--pg-shadow)]",
+            landing && "wb-rise",
+          )}
         >
-          {/* Everything but the prompt: what draws, writes and formats the answer, writing JSON by hand, a starter
-              prompt, a new chat. */}
-          <DropdownMenu.Root
-            open={menuOpen}
-            onOpenChange={(open) => {
-              setMenuOpen(open);
-              // Each time it opens, the menu starts at its top level.
-              if (open) setList(null);
-            }}
-          >
-            <DropdownMenu.Trigger
-              aria-label="Settings and more"
-              title="Settings and more"
-              data-wb-plus
-              className={cn(
-                "mb-0.5 inline-flex size-8 flex-none items-center justify-center rounded-lg text-[var(--pg-dim)] transition-colors hover:bg-[oklch(var(--ink)/5%)] hover:text-foreground data-[state=open]:bg-[oklch(var(--ink)/6%)] data-[state=open]:text-foreground",
-                focusRing,
-              )}
-            >
-              <Plus className="size-[18px]" aria-hidden />
-            </DropdownMenu.Trigger>
-            <DropdownMenu.Portal container={portal}>
-              <DropdownMenu.Content
-                ref={menuRef}
-                side="top"
-                align="start"
-                sideOffset={8}
-                onPointerDown={(e) => {
-                  keyed.current = false;
-                  touched.current = e.pointerType === "touch";
-                }}
-                onKeyDown={(e) => {
-                  keyed.current = true;
-                  if (shown && e.key === "ArrowLeft") {
-                    e.preventDefault();
-                    setList(null);
-                  }
-                }}
-                onCloseAutoFocus={(e) => {
-                  if (toEditor.current) {
-                    toEditor.current = false;
-                    e.preventDefault();
-                    return;
-                  }
-                  const handBack = toPrompt.current && !touched.current;
-                  toPrompt.current = false;
-                  if (!handBack) return;
-                  e.preventDefault();
-                  box.current?.focus();
-                }}
-                className={cn(menu, "max-[639px]:w-[19rem]")}
-              >
-                {shown ? (
-                  <>
-                    <DropdownMenu.Item
-                      data-menu-back
-                      onSelect={(e) => {
-                        e.preventDefault();
-                        setList(null);
-                      }}
-                      className={cn(menuItem, "font-medium")}
-                    >
-                      <ChevronLeft aria-hidden />
-                      {LIST_TITLE[shown]}
-                    </DropdownMenu.Item>
-                    <DropdownMenu.Separator className={rule} />
-                    {lists[shown]}
-                  </>
-                ) : (
-                  <>
-                    {/* The design system draws the answer; the model writes it. Switching it repaints every surface. */}
-                    <Opens
-                      list="design-system"
-                      icon={<SwatchBook aria-hidden />}
-                      value={
-                        <>
-                          <span
-                            aria-hidden
-                            className={cn(
-                              "size-2 flex-none rounded-[3px]",
-                              SWATCH[designSystem.id],
-                            )}
-                          />
-                          {designSystemLabel(designSystem.id)}
-                        </>
-                      }
-                      inPlace={narrow}
-                      onOpen={setList}
-                      portal={portal}
-                    >
-                      {lists["design-system"]}
-                    </Opens>
-                    <Opens
-                      list="model"
-                      icon={<Cpu aria-hidden />}
-                      value={modelLabel(model)}
-                      inPlace={narrow}
-                      onOpen={setList}
-                      portal={portal}
-                    >
-                      {lists.model}
-                    </Opens>
-                    <Opens
-                      list="format"
-                      icon={<CodeXml aria-hidden />}
-                      value={FORMAT_OPTIONS.find((f) => f.id === format)?.label}
-                      inPlace={narrow}
-                      onOpen={setList}
-                      portal={portal}
-                    >
-                      {lists.format}
-                    </Opens>
-                    <DropdownMenu.Separator className={rule} />
-                    <DropdownMenu.Item
-                      onSelect={() => {
-                        toEditor.current = true;
-                        onStartWithoutAI();
-                      }}
-                      data-menu-no-ai
-                      className={menuItem}
-                    >
-                      <Braces aria-hidden />
-                      <span className="flex flex-col">
-                        Start without AI
-                        <span className="text-[11.5px] text-[var(--pg-dim)]">
-                          Write A2UI JSON by hand
-                        </span>
-                      </span>
-                    </DropdownMenu.Item>
-                    <Opens
-                      list="prompts"
-                      icon={<Lightbulb aria-hidden />}
-                      inPlace={narrow}
-                      onOpen={setList}
-                      portal={portal}
-                    >
-                      {lists.prompts}
-                    </Opens>
-                    {started ? (
-                      <>
-                        <DropdownMenu.Separator className={rule} />
-                        <DropdownMenu.Item
-                          onSelect={() => {
-                            toPrompt.current = true;
-                            newChat();
-                          }}
-                          data-new-chat
-                          className={menuItem}
-                        >
-                          <SquarePen aria-hidden />
-                          New chat
-                        </DropdownMenu.Item>
-                      </>
-                    ) : null}
-                  </>
-                )}
-              </DropdownMenu.Content>
-            </DropdownMenu.Portal>
-          </DropdownMenu.Root>
           <label htmlFor="wb-prompt" className="sr-only">
             What should the agent build?
           </label>
           <textarea
             id="wb-prompt"
             ref={box}
-            value={ghost ?? text}
-            onChange={(e) => {
-              if (ghost !== null) {
-                replay.stop();
-                // The visitor's keystroke, without the replay's text in front of it.
-                setText(e.target.value.slice(ghost.length));
-                return;
-              }
-              if (replay.status === "playing") replay.stop();
-              setText(e.target.value);
-            }}
-            onFocus={() => {
-              if (ghost !== null) replay.stop();
-            }}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
             onKeyDown={onKeyDown}
             rows={1}
             aria-describedby={noteId}
@@ -746,47 +654,222 @@ export function Composer({
                 ? "Ask for a UI, like a ramen map"
                 : "Ask for a UI, like a map of ramen spots in Osaka"
             }
-            className="block max-h-[168px] min-h-9 min-w-0 flex-1 resize-none bg-transparent px-1.5 py-[7px] text-[15.5px] leading-[1.45] text-foreground outline-none [field-sizing:content] placeholder:text-[var(--pg-dim)] max-[899px]:text-[16px] max-[899px]:leading-[1.4]"
+            className="block max-h-[220px] min-h-[52px] w-full min-w-0 resize-none bg-transparent px-2.5 pb-1 pt-1.5 text-[15.5px] leading-[1.5] text-foreground outline-none [field-sizing:content] placeholder:text-[13px] placeholder:text-foreground/35 max-[899px]:text-[16px] max-[899px]:leading-[1.4]"
           />
           <p id={noteId} className="sr-only">
             Enter builds it. Shift and Enter adds a line. While a run is going,
             Enter queues the prompt.
           </p>
-          {running ? (
-            <button
-              type="button"
-              onClick={stop}
-              data-stop
-              aria-label="Stop"
-              title="Stop"
-              className={cn(
-                "mb-0.5 inline-flex size-8 flex-none items-center justify-center rounded-[9px] border border-[var(--pg-line-strong)] bg-[var(--pg-raised)] text-foreground transition-colors hover:bg-[oklch(0.925_0.005_285)] dark:hover:bg-[oklch(0.25_0.006_285)]",
-                focusRing,
-              )}
+          {/* The second row: the A2UI design settings on the left, the model and Build on the right. */}
+          <div className="flex items-center gap-0.5">
+            <DropdownMenu.Root
+              open={menuOpen}
+              onOpenChange={(open) => {
+                setMenuOpen(open);
+                // Each time it opens, the menu starts at its top level.
+                if (open) setList(null);
+              }}
             >
-              <Square className="size-3 fill-current" aria-hidden />
-            </button>
-          ) : (
-            <button
-              type="submit"
-              data-build
-              aria-label="Build it"
-              title="Build it"
-              className={cn(
-                "mb-0.5 inline-flex size-8 flex-none items-center justify-center rounded-[9px] bg-foreground text-background transition-opacity hover:opacity-90",
-                !(ghost ?? text).trim() && "opacity-35 hover:opacity-50",
-                focusRing,
+              <DropdownMenu.Trigger
+                aria-label="Design: components, format, starters and more"
+                title="Design"
+                data-wb-plus
+                className={cn(pickerTrigger, focusRing)}
+              >
+                <span className="pick-logo inline-flex">
+                  <DesignSystemLogo id={designSystem.id} className="size-3.5" />
+                </span>
+                <span>Design</span>
+                <span className="text-[var(--pg-dim)]/70 max-[479px]:hidden">
+                  · {designSystemLabel(designSystem.id)}
+                </span>
+                <ChevronDown className="size-3.5 opacity-60" aria-hidden />
+              </DropdownMenu.Trigger>
+              <DropdownMenu.Portal container={portal}>
+                <DropdownMenu.Content
+                  ref={menuRef}
+                  side="top"
+                  align="start"
+                  sideOffset={8}
+                  onPointerDown={(e) => {
+                    keyed.current = false;
+                    touched.current = e.pointerType === "touch";
+                  }}
+                  onKeyDown={(e) => {
+                    keyed.current = true;
+                    if (shown && e.key === "ArrowLeft") {
+                      e.preventDefault();
+                      setList(null);
+                    }
+                  }}
+                  onCloseAutoFocus={onMenuClose}
+                  className={cn(menu, "max-[639px]:w-[19rem]")}
+                >
+                  {shown ? (
+                    <>
+                      <DropdownMenu.Item
+                        data-menu-back
+                        onSelect={(e) => {
+                          e.preventDefault();
+                          setList(null);
+                        }}
+                        className={cn(menuItem, "font-medium")}
+                      >
+                        <ChevronLeft aria-hidden />
+                        {LIST_TITLE[shown]}
+                      </DropdownMenu.Item>
+                      <DropdownMenu.Separator className={rule} />
+                      {lists[shown]}
+                    </>
+                  ) : (
+                    <>
+                      {/* The design system draws the answer; the model writes it. Switching it repaints every surface. */}
+                      <Opens
+                        list="design-system"
+                        icon={<SwatchBook aria-hidden />}
+                        value={
+                          <>
+                            <DesignSystemLogo
+                              id={designSystem.id}
+                              className="size-3.5"
+                            />
+                            {designSystemLabel(designSystem.id)}
+                          </>
+                        }
+                        inPlace={narrow}
+                        onOpen={setList}
+                        portal={portal}
+                      >
+                        {lists["design-system"]}
+                      </Opens>
+                      <Opens
+                        list="format"
+                        icon={<CodeXml aria-hidden />}
+                        value={
+                          FORMAT_OPTIONS.find((f) => f.id === format)?.label
+                        }
+                        inPlace={narrow}
+                        onOpen={setList}
+                        portal={portal}
+                      >
+                        {lists.format}
+                      </Opens>
+                      <DropdownMenu.Separator className={rule} />
+                      <Opens
+                        list="prompts"
+                        icon={<Lightbulb aria-hidden />}
+                        inPlace={narrow}
+                        onOpen={setList}
+                        portal={portal}
+                      >
+                        {lists.prompts}
+                      </Opens>
+                    </>
+                  )}
+                </DropdownMenu.Content>
+              </DropdownMenu.Portal>
+            </DropdownMenu.Root>
+            <div className="ml-auto flex items-center gap-1">
+              <DropdownMenu.Root>
+                <DropdownMenu.Trigger
+                  aria-label={`Model: ${modelLabel(model)}`}
+                  data-wb-model
+                  className={cn(pickerTrigger, focusRing)}
+                >
+                  <span className="pick-logo inline-flex">
+                    <ModelLogo id={model} small />
+                  </span>
+                  <span className="max-[379px]:hidden">
+                    {modelLabel(model)}
+                  </span>
+                  <ChevronDown className="size-3.5 opacity-60" aria-hidden />
+                </DropdownMenu.Trigger>
+                <DropdownMenu.Portal container={portal}>
+                  <DropdownMenu.Content
+                    side="top"
+                    align="end"
+                    sideOffset={8}
+                    onPointerDown={(e) => {
+                      touched.current = e.pointerType === "touch";
+                    }}
+                    onKeyDown={() => {
+                      touched.current = false;
+                    }}
+                    onCloseAutoFocus={onMenuClose}
+                    className={cn(menu, "max-[639px]:w-[17rem]")}
+                  >
+                    <DropdownMenu.Label className="px-2 pb-1 pt-1.5 text-[12px] font-medium text-[var(--pg-dim)]">
+                      Model
+                    </DropdownMenu.Label>
+                    {lists.model}
+                  </DropdownMenu.Content>
+                </DropdownMenu.Portal>
+              </DropdownMenu.Root>
+              {running ? (
+                <button
+                  type="button"
+                  onClick={stop}
+                  data-stop
+                  aria-label="Stop"
+                  title="Stop"
+                  className={cn(
+                    "ml-0.5 inline-flex size-8 flex-none items-center justify-center rounded-[8px] bg-[oklch(var(--ink)/7%)] text-foreground dark:bg-white/[0.1] transition-colors hover:bg-[oklch(0.925_0.005_285)] dark:hover:bg-[oklch(0.25_0.006_285)]",
+                    focusRing,
+                  )}
+                >
+                  <Square className="size-3 fill-current" aria-hidden />
+                </button>
+              ) : (
+                <button
+                  type="submit"
+                  data-build
+                  aria-label="Build it"
+                  title="Build it"
+                  className={cn(
+                    "ml-0.5 inline-flex size-8 flex-none items-center justify-center rounded-[8px] transition-[background-color,color,transform] active:scale-95",
+                    text.trim()
+                      ? "bg-foreground text-background hover:opacity-90"
+                      : "text-foreground/30",
+                    focusRing,
+                  )}
+                >
+                  <ArrowUp className="size-4" strokeWidth={2.25} aria-hidden />
+                </button>
               )}
-            >
-              <ArrowUp className="size-[18px]" aria-hidden />
-            </button>
-          )}
+            </div>
+          </div>
         </form>
 
-        {/* Under the prompt, until the visitor has asked something: the way in without a model (also in the "+"). */}
-        {empty ? (
+        {/* Under the prompt, once there is a conversation: a quiet way to start over. */}
+        {!empty ? (
           <p
-            className="mt-1.5 pl-1 text-[13px] leading-snug text-[var(--pg-dim)] max-[899px]:text-[12.5px]"
+            className="mt-2 text-center text-[13px] leading-snug max-[899px]:text-[12.5px]"
+            data-wb-new-chat-line
+          >
+            <button
+              type="button"
+              onClick={newChat}
+              data-new-chat
+              className={cn(
+                "rounded-sm text-[var(--pg-dim)] underline decoration-[var(--pg-line-strong)] underline-offset-4 transition-colors hover:text-foreground hover:decoration-foreground",
+                focusRing,
+              )}
+            >
+              New chat
+            </button>
+          </p>
+        ) : null}
+
+        {/* Under the prompt, until the visitor has asked something: the way in without a model. */}
+        {empty && noAILine ? (
+          <p
+            className={cn(
+              "mt-1.5 text-[13px] leading-snug text-[var(--pg-dim)] max-[899px]:text-[12.5px]",
+              landing ? "wb-rise mt-3 text-center" : "pl-1",
+            )}
+            style={
+              landing ? ({ "--rise": 7 } as React.CSSProperties) : undefined
+            }
             data-wb-no-ai-line
           >
             Or{" "}

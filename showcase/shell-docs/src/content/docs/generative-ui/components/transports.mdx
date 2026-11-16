@@ -31,6 +31,8 @@ This is the default, so the provider needs only the catalog:
 <Tabs groupId="frontend_framework" items={["React", "Angular", "React Native", "Vue"]} persist>
   <Tab value="React">
     ```tsx
+    import { standardUI } from "@copilotkit/react-core/v2/generative-ui";
+
     <CopilotKitProvider runtimeUrl="/api/copilotkit" generativeUI={{ ui: standardUI }}>
     ```
   </Tab>

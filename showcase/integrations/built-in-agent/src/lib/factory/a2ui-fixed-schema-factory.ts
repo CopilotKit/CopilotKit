@@ -1,7 +1,9 @@
+// @region[backend-render-operations]
 import { BuiltInAgent, convertInputToTanStackAI } from "@copilotkit/runtime/v2";
 import { chat, toolDefinition } from "@tanstack/ai";
 import { openaiText } from "../openai-text";
 import { z } from "zod";
+// @endregion[backend-render-operations]
 // Custom fetch that injects ALS-bound inbound x-* headers (e.g.
 // x-aimock-context) onto every outbound OpenAI call. Required so aimock
 // can match fixtures by integration context. See ../header-forwarding.ts
@@ -9,6 +11,7 @@ import { z } from "zod";
 import { forwardingFetch } from "../header-forwarding";
 import { DEMO_AGENT_LOOP_STRATEGY } from "./demo-stream";
 
+// @region[backend-render-operations]
 const CATALOG_ID = "copilotkit://flight-fixed-catalog";
 const SURFACE_ID = "flight-fixed-schema";
 const A2UI_OPERATIONS_KEY = "a2ui_operations";
@@ -16,6 +19,7 @@ const A2UI_OPERATIONS_KEY = "a2ui_operations";
 // Fixed flight-card schema. Inlined as a TS const so it ships into the
 // Next.js route bundle without runtime fs access. Mirrors
 // `showcase/integrations/langgraph-python/src/agents/a2ui_schemas/flight_schema.json`.
+// @region[backend-schema-json-load]
 // @region[backend-schema]
 const FLIGHT_SCHEMA: unknown[] = [
   { id: "root", component: "Card", child: "content" },
@@ -68,6 +72,7 @@ const FLIGHT_SCHEMA: unknown[] = [
   { id: "bookButtonLabel", component: "Text", text: "Book flight" },
 ];
 // @endregion[backend-schema]
+// @endregion[backend-schema-json-load]
 
 function createSurfaceOp(surfaceId: string, catalogId: string) {
   return {
@@ -121,6 +126,7 @@ const displayFlightTool = toolDefinition({
   ]),
 );
 // @endregion[display-flight-tool]
+// @endregion[backend-render-operations]
 
 const A2UI_FIXED_SCHEMA_SYSTEM_PROMPT = `\
 You help users find flights. When asked about a flight, call display_flight \

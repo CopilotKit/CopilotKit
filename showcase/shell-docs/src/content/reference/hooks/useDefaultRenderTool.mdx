@@ -23,8 +23,9 @@ function useDefaultRenderTool(
   config?: {
     render?: (props: {
       name: string;
-      parameters: any;
-      status: string;
+      toolCallId: string;
+      parameters: unknown;
+      status: "inProgress" | "executing" | "complete";
       result: string | undefined;
     }) => React.ReactElement | null;
     group?: boolean;
@@ -39,7 +40,7 @@ function useDefaultRenderTool(
 - If `config.render` is omitted, uses an expandable default card UI that shows status, parameters, and result.
 - If `config.render` is provided, your renderer is used instead.
 - Your renderer can return `null` to draw nothing. Use this to render only the tool calls you care about and suppress the rest.
-- `config.group` lets the chat group the calls your renderer draws, the way it groups the built-in card's (see [`toolCallDisplay`](/reference/components/CopilotChatMessageView#toolcalldisplay)). It's on for the built-in card and off by default for a custom `render`, since a renderer that draws nothing would leave an empty group.
+- `config.group` lets the chat group the calls that your renderer draws. The chat groups the calls of the built-in card in the same way (see [`toolCallDisplay`](/reference/components/CopilotChatMessageView#toolcalldisplay)). It's on for the built-in card and off by default for a custom `render`, since a renderer that draws nothing would leave an empty group.
 - Inherits `useRenderTool` registration behavior and dependency semantics.
 - Tool calls the agent makes in a row are grouped by default (see [`toolCallDisplay`](/reference/components/CopilotChatMessageView#toolcalldisplay)). Inside a group, the built-in card draws itself as a compact row: status, tool name and main argument, opening to the arguments and result. A custom `render` is drawn as-is inside the group.
 
@@ -73,8 +74,3 @@ function App() {
   return null;
 }
 ```
-
-## Related
-
-- [`useRenderTool`](/reference/hooks/useRenderTool)
-- [`useRenderToolCall`](/reference/hooks/useRenderToolCall)

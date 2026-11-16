@@ -55,7 +55,7 @@ export function DemoLayout({
   };
 
   return (
-    <main className="min-h-screen w-full bg-neutral-50 px-6 py-10 md:px-10 md:py-14 dark:bg-background">
+    <main className="h-full w-full overflow-y-auto bg-neutral-50 px-6 py-10 md:px-10 md:py-14 dark:bg-background">
       <div className="mx-auto max-w-6xl">
         <header className="mb-10">
           <div className="flex items-center gap-3 mb-3">

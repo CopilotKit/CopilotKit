@@ -39,6 +39,17 @@ const say = (id: string, content: string): Message => ({
   content,
 });
 
+const think = (id: string, content: string): Message => ({
+  id,
+  role: "reasoning",
+  content,
+});
+
+/** Whether a message sits inside a closed `Collapsible` (which is inert). */
+const folded = (id: string) =>
+  document.querySelector(`[data-message-id="${id}"]`)!.closest("[inert]") !==
+  null;
+
 const weather = defineToolCallRenderer({
   name: "weather",
   args: z.object({}),
@@ -127,6 +138,38 @@ describe("getTurnWork", () => {
     expect([...turn.workMessageIds]).toEqual(["t1", "m-a"]);
     expect(turn.firstMessageId).toBe("t1");
     expect(turn.calls).toHaveLength(1);
+  });
+
+  it("keeps thinking that trails the last call inside the work", () => {
+    const messages = [
+      question,
+      think("r1", "Where do I look?"),
+      callMessage("a"),
+      result("a"),
+      think("r2", "That settles the endpoint."),
+      think("r3", "Three steps reads right."),
+      say("t2", "The answer."),
+    ];
+    const layouts = getToolCallLayouts(messages, messages, names);
+    const turn = getTurnWork(messages, layouts).get("u1")!;
+    // Without the trailing reach, r2 and r3 would fall outside the work and
+    // nothing would ever fold them away.
+    expect([...turn.workMessageIds]).toEqual(["r1", "m-a", "r2", "r3"]);
+    expect(turn.reasoningIds).toEqual(["r1", "r2", "r3"]);
+  });
+
+  it("stops the work at the text that answers", () => {
+    const messages = [
+      question,
+      callMessage("a"),
+      result("a"),
+      say("t2", "The answer."),
+      think("r9", "An afterthought."),
+    ];
+    const layouts = getToolCallLayouts(messages, messages, names);
+    const turn = getTurnWork(messages, layouts).get("u1")!;
+    expect([...turn.workMessageIds]).toEqual(["m-a"]);
+    expect(turn.reasoningIds).toEqual([]);
   });
 });
 
@@ -306,6 +349,54 @@ describe("CopilotChatMessageView toolCallDisplay", () => {
       }),
     );
     expect(screen.getByText("Thinking about it.")).toBe(node);
+  });
+
+  it("shows only the latest thought while the reply runs with turn", () => {
+    renderView(
+      [
+        question,
+        think("r1", "Where do I look?"),
+        callMessage("a"),
+        result("a"),
+        think("r2", "That settles the endpoint."),
+        think("r3", "Three steps reads right."),
+      ],
+      { toolCallDisplay: "turn", isRunning: true },
+    );
+    // Thinking is one live line that replaces itself, not a row per thought.
+    expect(folded("r1")).toBe(true);
+    expect(folded("r2")).toBe(true);
+    expect(folded("r3")).toBe(false);
+  });
+
+  it("folds trailing thinking away with the rest of a finished reply's work", () => {
+    renderView(
+      [
+        question,
+        callMessage("a"),
+        result("a"),
+        think("r2", "That settles the endpoint."),
+        think("r3", "Three steps reads right."),
+        say("t2", "The answer."),
+      ],
+      { toolCallDisplay: "turn" },
+    );
+    expect(folded("r2")).toBe(true);
+    expect(folded("r3")).toBe(true);
+
+    // Opening the summary brings the whole trace back, thought by thought.
+    fireEvent.click(screen.getByTestId("copilot-work-summary"));
+    expect(folded("r2")).toBe(false);
+    expect(folded("r3")).toBe(false);
+  });
+
+  it("keeps thinking visible when the reply called no tools", () => {
+    // Nothing folded it, so nothing can unfold it: a reply with no calls has
+    // no work summary to toggle (it would read "Used 0 tools").
+    renderView([question, think("r1", "No lookup needed."), say("t2", "42.")], {
+      toolCallDisplay: "turn",
+    });
+    expect(folded("r1")).toBe(false);
   });
 
   it("leaves calls drawn by a custom catch-all on their own unless it opts in", () => {

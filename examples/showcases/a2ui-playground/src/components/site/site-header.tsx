@@ -2,48 +2,45 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import type { SyntheticEvent } from "react";
 import { Dialog as DialogPrimitive } from "radix-ui";
 import {
-  ArrowUpRight,
+  BookOpen,
   Maximize2,
+  MessagesSquare,
   Menu,
   Moon,
-  Search,
   Sun,
   X,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import "@/app/site.css";
 import { readStoredDesignSystem } from "@/design-systems/context";
 import { setTheme, useTheme } from "@/lib/theme";
-import { cn } from "@/lib/utils";
-import { DOCS_URL, REPO_URL } from "@/components/start/links";
+import { cn, focusRing } from "@/lib/utils";
+import { SOURCE_URL } from "@/components/start/links";
 import { A2UIMark, CopilotKitKite } from "./brand";
-import { CommandMenu, openSearch } from "./command-menu";
 
-type Active =
-  | "home"
-  | "playground"
-  | "build"
-  | "components"
-  | "evals"
-  | "start";
-type Item = { id: Active; label: string; href: string };
+type Active = "playground" | "build" | "evals" | "start";
+/** `icon`: shown beside the label in the menu sheet only. */
+type Item = { id: Active; label: string; href: string; icon: LucideIcon };
 
-/** The workbench is the home page; the way into your own app follows it. The catalog is left out for now, still at /components. */
+/** The workbench is the home page, then the way into your own app. */
 const NAV: Item[] = [
-  { id: "playground", label: "Playground", href: "/" },
-  { id: "start", label: "Get started", href: "/start" },
+  { id: "playground", label: "Playground", href: "/", icon: MessagesSquare },
+  { id: "start", label: "Get started", href: "/start", icon: BookOpen },
 ];
 
 const BAR = "site-header sticky top-0 z-40 w-full border-b border-border";
+/** A 36px icon button or link in the header and the menu sheet. */
+const SQUARE =
+  "flex size-9 flex-none items-center justify-center rounded-md border border-border bg-secondary/50 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground";
 
 /**
- * Global site navbar: 64px, sticky, hairline bottom border. Below 960px (the width the links and the compact
- * search need) the links move into a menu sheet. The playground shrinks it to 48px in a short window
- * (compact.css). `embed` (the playground in an iframe): no nav, search or menu, which would navigate inside
- * the frame; see EmbedHeader.
+ * Global site navbar: 64px, sticky, hairline bottom border. Below 960px (the width the links need) the links
+ * move into a menu sheet. The playground shrinks it to 48px in a short window (compact.css). `embed` (the
+ * playground in an iframe): no nav or menu, which would navigate inside the frame; see EmbedHeader.
  */
 export function SiteHeader({
   active,
@@ -66,14 +63,14 @@ export function SiteHeader({
           className="flex min-w-0 flex-none items-center gap-2.5 text-foreground"
         >
           <A2UIMark className="size-[26px] flex-none" data-site-mark />
-          {/* "by CopilotKit" credits the work without branding the page; on a phone it drops under the name. */}
-          <span className="flex min-w-0 flex-col whitespace-nowrap min-[420px]:flex-row min-[420px]:items-baseline min-[420px]:gap-2">
-            <span className="text-[17px] font-semibold leading-tight tracking-tight">
+          {/* "by CopilotKit" credits the work without branding the page, set small under the name. */}
+          <span className="flex min-w-0 flex-col gap-0.5 whitespace-nowrap">
+            <span className="text-[16px] font-semibold leading-none tracking-tight">
               A2UI Playground
             </span>
-            <span className="inline-flex items-center gap-1 text-[11.5px] leading-tight text-muted-foreground min-[420px]:text-[13px]">
+            <span className="inline-flex items-center gap-1 text-[11.5px] leading-none text-muted-foreground">
               by
-              <CopilotKitKite className="size-[12px] translate-y-[1px] min-[420px]:size-[13px]" />
+              <CopilotKitKite className="size-[11px]" />
               CopilotKit
             </span>
           </span>
@@ -95,25 +92,11 @@ export function SiteHeader({
             />
           ))}
         </nav>
-        {/* min-w-0: the search trigger shrinks before anything here can push the header past the viewport.
-            Under 960px all of it is in the menu sheet, so the header is the mark and the menu button. */}
+        {/* Under 960px all of it is in the menu sheet, so the header is the mark and the menu button. */}
         <div className="ml-auto flex min-w-0 items-center gap-2">
           <div className="flex min-w-0 items-center gap-2 max-[959px]:hidden">
-            {REPO_URL ? (
-              <a
-                href={REPO_URL}
-                target="_blank"
-                rel="noreferrer"
-                aria-label="GitHub"
-                className="flex size-8 flex-none items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-              >
-                <GitHubIcon className="size-[17px]" />
-              </a>
-            ) : null}
+            <SourceLink />
             <ThemeToggle />
-            <div className="min-w-0">
-              <CommandMenu />
-            </div>
           </div>
           <MenuSheet active={active} />
         </div>
@@ -126,18 +109,15 @@ function NavLink({
   item,
   active,
   className,
-  onClick,
 }: {
   item: Item;
   active?: Active;
   className?: string;
-  onClick?: () => void;
 }) {
   const on = active === item.id;
   return (
     <Link
       href={item.href}
-      onClick={onClick}
       aria-current={on ? "page" : undefined}
       className={cn(
         "transition-colors",
@@ -221,115 +201,98 @@ function ThemeToggle() {
       onClick={() => setTheme(dark ? "light" : "dark")}
       aria-label={dark ? "Switch to light theme" : "Switch to dark theme"}
       title={dark ? "Light theme" : "Dark theme"}
-      className="flex size-8 flex-none items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+      className={cn(SQUARE, focusRing)}
     >
-      {dark ? (
-        <Sun className="size-[17px]" />
-      ) : (
-        <Moon className="size-[17px]" />
-      )}
+      {dark ? <Sun className="size-4" /> : <Moon className="size-4" />}
     </button>
   );
 }
 
+/** The site's source on GitHub, in a new tab. */
+function SourceLink() {
+  return (
+    <a
+      href={SOURCE_URL}
+      target="_blank"
+      rel="noreferrer"
+      aria-label="Source on GitHub"
+      title="Source on GitHub"
+      className={cn(SQUARE, focusRing)}
+    >
+      <GitHubIcon className="size-4" />
+    </a>
+  );
+}
+
 /**
- * Everything but the mark as a sheet from the right, for screens under 960px: the nav, search, the theme and
- * GitHub. Radix handles focus, Escape and the backdrop.
+ * The menu as a sheet from the right, for screens under 960px: the pages with the current one marked, then
+ * the theme and the source pinned at the foot. Radix handles focus, Escape and the backdrop.
  */
 function MenuSheet({ active }: { active?: Active }) {
   const [open, setOpen] = useState(false);
   const close = () => setOpen(false);
-  const dark = useTheme() === "dark";
-  // Search opens once the sheet has closed, so the sheet's return of focus to its button does not take it back,
-  // and hands the focus back to the menu button when it closes.
-  const toSearch = useRef(false);
-  const trigger = useRef<HTMLButtonElement>(null);
   const row =
-    "flex h-11 items-center rounded-md px-3 text-[16px] font-medium hover:bg-accent dark:hover:bg-white/[0.05]";
-  const quiet = cn(row, "gap-2.5 text-muted-foreground hover:text-foreground");
+    "group flex h-11 items-center gap-3 rounded-[10px] px-3 text-[15px] font-medium transition-colors";
+  const rowOn = "bg-black/[0.05] text-foreground dark:bg-white/[0.07]";
+  const rowOff =
+    "text-muted-foreground hover:bg-black/[0.03] hover:text-foreground dark:hover:bg-white/[0.04]";
+  const iconCls = "size-[18px] flex-none transition-colors";
+  const iconOff = "text-muted-foreground/70 group-hover:text-foreground";
   return (
     <DialogPrimitive.Root open={open} onOpenChange={setOpen}>
       <DialogPrimitive.Trigger
-        ref={trigger}
         aria-label="Open menu"
-        className="flex size-9 flex-none items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:bg-accent hover:text-foreground min-[960px]:hidden"
+        className={cn(SQUARE, focusRing, "min-[960px]:hidden")}
       >
         <Menu className="size-[18px]" />
       </DialogPrimitive.Trigger>
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/60 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0 motion-reduce:animate-none" />
-        <DialogPrimitive.Content
-          onCloseAutoFocus={(e) => {
-            if (!toSearch.current) return;
-            toSearch.current = false;
-            e.preventDefault();
-            openSearch(trigger.current);
-          }}
-          className="fixed inset-y-0 right-0 z-50 flex w-[min(320px,100%)] flex-col border-l border-border bg-background dark:bg-[oklch(0.145_0.004_285)] p-4 shadow-2xl outline-none data-open:animate-in data-open:slide-in-from-right data-closed:animate-out data-closed:slide-out-to-right motion-reduce:animate-none"
-        >
-          <div className="flex h-10 items-center justify-between pl-3">
-            <DialogPrimitive.Title className="text-[15px] font-semibold">
-              Menu
+        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/40 backdrop-blur-[2px] data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0 motion-reduce:animate-none" />
+        <DialogPrimitive.Content className="fixed inset-y-0 right-0 z-50 flex w-[min(340px,100%)] flex-col border-l border-border bg-background shadow-[-24px_0_60px_-30px_oklch(0_0_0/35%)] outline-none dark:bg-[oklch(0.145_0.004_285)] data-open:animate-in data-open:slide-in-from-right data-open:duration-300 data-closed:animate-out data-closed:slide-out-to-right data-closed:duration-200 motion-reduce:animate-none">
+          <div className="flex h-16 flex-none items-center justify-between border-b border-border pl-5 pr-4">
+            <DialogPrimitive.Title className="flex items-center gap-2.5 text-[15px] font-semibold tracking-tight">
+              <A2UIMark className="size-[22px] flex-none" />
+              A2UI Playground
             </DialogPrimitive.Title>
             <DialogPrimitive.Close
               aria-label="Close menu"
-              className="flex size-9 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+              className={cn(SQUARE, focusRing)}
             >
               <X className="size-[18px]" />
             </DialogPrimitive.Close>
           </div>
           <DialogPrimitive.Description className="sr-only">
-            Pages on this site, search and the theme
+            The pages on this site, the theme and the source
           </DialogPrimitive.Description>
-          <nav aria-label="Main" className="mt-3 flex flex-col">
-            {NAV.map((n) => (
-              <NavLink
-                key={n.id}
-                item={n}
-                active={active}
-                onClick={close}
-                className={row}
-              />
-            ))}
-          </nav>
-          <div className="mt-3 flex flex-col border-t border-border pt-3">
-            <button
-              type="button"
-              onClick={() => {
-                toSearch.current = true;
-                close();
-              }}
-              className={quiet}
-            >
-              <Search className="size-4" aria-hidden />
-              Search components
-            </button>
-            <button
-              type="button"
-              onClick={() => setTheme(dark ? "light" : "dark")}
-              className={quiet}
-            >
-              {dark ? (
-                <Sun className="size-4" aria-hidden />
-              ) : (
-                <Moon className="size-4" aria-hidden />
-              )}
-              {dark ? "Light theme" : "Dark theme"}
-            </button>
+
+          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pb-4 pt-4">
+            <nav aria-label="Main" className="flex flex-none flex-col gap-0.5">
+              {NAV.map((n) => {
+                const on = active === n.id;
+                return (
+                  <Link
+                    key={n.id}
+                    href={n.href}
+                    onClick={close}
+                    aria-current={on ? "page" : undefined}
+                    className={cn(row, on ? rowOn : rowOff, focusRing)}
+                  >
+                    <n.icon
+                      className={cn(iconCls, on ? "text-foreground" : iconOff)}
+                      strokeWidth={1.75}
+                      aria-hidden
+                    />
+                    {n.label}
+                  </Link>
+                );
+              })}
+            </nav>
           </div>
-          <div className="mt-3 flex flex-col border-t border-border pt-3">
-            <a
-              href={REPO_URL ?? DOCS_URL}
-              target="_blank"
-              rel="noreferrer"
-              className={cn(
-                row,
-                "gap-2 text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {REPO_URL ? "GitHub" : "CopilotKit docs"}{" "}
-              <ArrowUpRight className="size-4" />
-            </a>
+
+          {/* The foot: the theme and the source, as the header's two square buttons, at the right. */}
+          <div className="flex flex-none items-center justify-end gap-2 border-t border-border px-4 py-4">
+            <ThemeToggle />
+            <SourceLink />
           </div>
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>
@@ -362,7 +325,7 @@ export function SkipLink() {
   );
 }
 
-export function GitHubIcon({ className }: { className?: string }) {
+function GitHubIcon({ className }: { className?: string }) {
   return (
     <svg
       viewBox="0 0 24 24"

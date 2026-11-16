@@ -3,7 +3,8 @@
 # Regenerates the `CopilotKit.docs` telemetry-registry fragment (the
 # showcase/shell-docs site) and opens a path-limited PR against
 # CopilotKit/oss-path-to-production whenever the docs site's telemetry could
-# have changed. Callee-mode extraction (inline posthog.capture), content-gated:
+# have changed. Callee-mode extraction (posthog.capture and the app's trackEvent
+# wrapper; see scripts/telemetry/extract.ts), content-gated:
 # if the extracted event set is unchanged the fragment is left untouched and no
 # PR is opened, so routine docs code changes don't churn the registry.
 name: telemetry / docs fragment
@@ -14,7 +15,7 @@ on:
     paths:
       # Only the code under `src/**`: the emitter walks showcase/shell-docs/src
       # for .ts/.tsx, and src/content is pure MDX/JSON prose (1000+ files, the
-      # bulk of docs traffic) that cannot contain a posthog.capture call site.
+      # bulk of docs traffic) that cannot contain an emit call site.
       - "showcase/shell-docs/src/**"
       - "!showcase/shell-docs/src/content/**"
       - "scripts/telemetry/**"
@@ -123,7 +124,7 @@ jobs:
           title: "chore(telemetry): update CopilotKit.docs fragment"
           body: |
             Automated update of the `CopilotKit.docs` telemetry-registry fragment
-            (showcase/shell-docs), extracted from inline posthog.capture call sites.
+            (showcase/shell-docs), extracted from its posthog.capture and trackEvent call sites.
 
             `telemetry-events.json` is regenerated alongside it (`pnpm reconcile`) so the
             registry's reconcile check sees a fresh canonical; curated fields are preserved.

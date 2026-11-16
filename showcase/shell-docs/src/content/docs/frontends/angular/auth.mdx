@@ -85,9 +85,12 @@ Use the runtime adapter's request hook to reject missing, expired, or
 unauthorized sessions before CopilotKit discovers or runs an agent:
 
 ```ts title="server.ts"
-const handler = createCopilotExpressHandler({
+import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
+
+const listener = createCopilotNodeListener({
   runtime,
   basePath: "/api/copilotkit",
+  cors: true,
   hooks: {
     onRequest: async ({ request }) => {
       const token = request.headers
@@ -105,6 +108,16 @@ const handler = createCopilotExpressHandler({
 
 Apply authorization as well as authentication. A valid user token does not
 automatically grant access to every agent, tenant, or thread.
+
+To test the hook, start the runtime and send a request with no token:
+
+```bash
+curl -i http://localhost:8200/api/copilotkit/info
+```
+
+The runtime returns `401 Unauthorized`. Send the same request with
+`-H "Authorization: Bearer <token>"` and a valid token, and it returns the
+agent list.
 
 ## Forward identity deliberately
 
@@ -127,11 +140,16 @@ to override a backend token.
 
 ## Production checklist
 
-- Validate `/info`, run, connect, stop, thread, and memory requests—not just
+Before launch:
+
+- Validate `/info`, run, connect, stop, thread, and memory requests, not just
   chat sends.
 - Derive user and tenant identifiers from the verified session instead of
   trusting arbitrary browser values.
 - Scope thread operations to the authenticated user and project.
+
+Also:
+
 - Clear frontend headers on sign-out with `updateRuntime({ headers: {} })`.
 - Configure CORS for the deployed Angular origin.
 - Log authorization failures without logging bearer tokens.

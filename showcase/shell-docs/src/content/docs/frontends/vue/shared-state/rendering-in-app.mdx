@@ -4,7 +4,7 @@ icon: "lucide/LayoutDashboard"
 description: "Read agent.state with useAgent and render it in your main view or canvas."
 ---
 
-[Shared state](/vue/shared-state) is most powerful when the agent's state shows up in your application UI, such as a dashboard, document canvas, map, or table. Because `agent.state` is plain data exposed through a Vue ref, you can subscribe from any descendant component and render it however you like.
+[Shared state](/vue/shared-state) is most useful when the agent's state shows up in your main view, such as a dashboard, document canvas, map, or table. Because `agent.state` is plain data exposed through a Vue ref, you can subscribe from any descendant component and render it however you like.
 
 ## The pattern
 
@@ -72,7 +72,7 @@ Every time the agent mutates its state, whether from a tool call, node transitio
 
 ## Put it anywhere in your layout
 
-The agent lives on `CopilotKitProvider`, so the chat surface and your main-view components are two consumers of the same agent. A typical layout renders the canvas as the primary content and the chat alongside it:
+The agent lives on `CopilotKitProvider`, so the chat surface and your main-view components are two consumers of the same agent. A typical layout renders the canvas as the main view and the chat beside it:
 
 ```vue title="src/App.vue"
 <script setup lang="ts">
@@ -113,17 +113,12 @@ function toggleItem(id: string) {
 }
 ```
 
-This is the same two-way channel described in [Shared State](/vue/shared-state). The only difference is that the reads and writes happen in your application's main surface rather than in the chat.
+This is the same two-way channel described in [Shared State](/vue/shared-state). The only difference is that the reads and writes happen in your main view rather than in the chat. To push UI values to the agent without letting it write back, see [Agent read-only context](/vue/shared-state/agent-readonly).
+
+Ask the agent to mark the prototype item as done. The item's `data-done` changes to `true` on the canvas without a page reload.
 
 ## Tips
 
-- **Target a specific agent** with `useAgent({ agentId: "research-agent" })` when you have more than one. The default is the agent named `"default"`.
+- **Target a specific agent** with `useAgent({ agentId: "research-agent" })` when you have more than one. The default is the agent named `"default"`. See the [`useAgent` reference](/reference/vue/hooks/useAgent) for every option.
 - **Throttle high-frequency updates** with `useAgent({ throttleMs })` if a streaming run re-renders a heavy canvas too often.
 - **Treat `agent.state` as possibly partial** while a run is in progress. Guard with defaults so half-streamed state does not crash your render.
-
-## Related
-
-- [Shared State](/vue/shared-state): the full read/write model and the underlying `useAgent` subscription.
-- [State streaming](/vue/shared-state/streaming): stream a tool argument into a state key so the canvas fills in token-by-token.
-- [Agent read-only context](/vue/shared-state/agent-readonly): push UI values *to* the agent without letting it write back.
-- [`useAgent` reference](/reference/vue/hooks/useAgent): full composable signature and options.

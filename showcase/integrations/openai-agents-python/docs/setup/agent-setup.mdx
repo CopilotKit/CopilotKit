@@ -1,0 +1,38 @@
+An OpenAI Agents SDK agent is a plain `Agent` from `agents`: a name,
+instructions, a model and its tools. The AG-UI adapter, `ag_ui_openai_agents`,
+wraps it in an `OpenAIAgentsAgent`. The wrapper turns each AG-UI request into
+a streamed SDK run and streams the SDK's events back as AG-UI events.
+
+The model calls go through the SDK's default OpenAI client, so the usual
+`OPENAI_API_KEY` and `OPENAI_BASE_URL` apply. The showcase registers one
+`AsyncOpenAI` client for the whole process. It points that client at aimock
+and copies the test headers of the current request onto every model call:
+
+<DemoCode file="src/demo_agents/_common.py" region="agent-setup" />
+
+Nothing about CopilotKit is configured on the agent itself. On every run the
+wrapper:
+
+- adds the tools the page registered to a per-request copy of the agent, as
+  tools the browser answers;
+- appends the page's `useAgentContext` entries to the instructions;
+- makes the run's AG-UI state readable and writable through `shared_state()`.
+
+The shared `Agent` is never changed, so one agent can serve many requests at
+once.
+
+`add_openai_agents_fastapi_endpoint` mounts one wrapped agent as an AG-UI
+endpoint on a FastAPI app. The showcase keeps its `OpenAIAgentsAgent`s in a
+`{name: agent}` mapping and mounts each one at `/<name>`:
+
+<DemoCode file="src/agent_server.py" region="agent-server" />
+
+Then point Copilot Runtime at `http://localhost:8000/<agent name>`.
+
+<Accordions>
+  <Accordion title="Install the SDK">
+    ```bash
+    pip install ag-ui-openai-agents openai-agents
+    ```
+  </Accordion>
+</Accordions>
