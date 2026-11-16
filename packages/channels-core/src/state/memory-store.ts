@@ -25,6 +25,7 @@ function sweepExpired<V>(map: Map<string, Expiring<V>>): void {
  */
 export class MemoryStore implements StateStore {
   private kvMap = new Map<string, Expiring<unknown>>();
+  private dedupMap = new Map<string, Expiring<number>>();
   private writesSinceSweep = 0;
   private lists = new Map<string, Expiring<unknown[]>>();
   private locks = new Map<string, { token: string; expiresAt?: number }>();
@@ -43,6 +44,7 @@ export class MemoryStore implements StateStore {
       if (++this.writesSinceSweep >= SWEEP_EVERY_WRITES) {
         this.writesSinceSweep = 0;
         sweepExpired(this.kvMap);
+        sweepExpired(this.dedupMap);
       }
       this.kvMap.set(key, {
         value,
@@ -123,14 +125,13 @@ export class MemoryStore implements StateStore {
 
   dedup = {
     seen: async (key: string, ttlMs: number): Promise<boolean> => {
-      const k = `dedup:${key}`;
-      const e = this.kvMap.get(k);
+      const e = this.dedupMap.get(key);
       if (live(e)) return true;
-      this.kvMap.set(k, { value: 1, expiresAt: Date.now() + ttlMs });
+      this.dedupMap.set(key, { value: 1, expiresAt: Date.now() + ttlMs });
       return false;
     },
     forget: async (key: string): Promise<void> => {
-      this.kvMap.delete(`dedup:${key}`);
+      this.dedupMap.delete(key);
     },
   };
 
