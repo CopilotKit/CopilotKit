@@ -81,6 +81,26 @@ export function docPageJsonLd({
 }
 
 /**
+ * The trail from the docs home to a page, as `{ name, path }` items from the
+ * top level down. The home item is added here.
+ */
+export function breadcrumbJsonLd(
+  trail: { name: string; path: string }[],
+): JsonLd {
+  const items = [{ name: SITE_NAME, path: "/" }, ...trail];
+  return {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: items.map((item, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      name: item.name,
+      item: absoluteUrl(item.path),
+    })),
+  };
+}
+
+/**
  * The `<script>` body for a JSON-LD object. `<` is escaped so text from page
  * frontmatter cannot close the script element.
  */

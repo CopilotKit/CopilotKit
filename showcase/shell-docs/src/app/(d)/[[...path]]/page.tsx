@@ -19,7 +19,32 @@ import {
   HOME_TITLE,
   liveDocMetadata,
 } from "@/lib/seo/metadata";
-import { docPageJsonLd, homeJsonLd } from "@/lib/seo/structured-data";
+import {
+  breadcrumbJsonLd,
+  docPageJsonLd,
+  homeJsonLd,
+} from "@/lib/seo/structured-data";
+
+/**
+ * The breadcrumb trail for a canonical path (`/concepts/when-to-use`): each
+ * parent path that is a page of its own, then the page itself. A parent with
+ * no page (`/concepts`) is left out.
+ */
+function breadcrumbTrail(canonical: string, title: string) {
+  const segments = canonical.split("/").filter(Boolean);
+  const trail: { name: string; path: string }[] = [];
+  for (let i = 1; i < segments.length; i++) {
+    const parent = resolveLivePage(segments.slice(0, i));
+    const path = `/${segments.slice(0, i).join("/")}`;
+    if (!parent || parent.canonical !== path) continue;
+    trail.push({
+      name: parent.overview?.frameworkName ?? parent.page.data.title,
+      path,
+    });
+  }
+  trail.push({ name: title, path: canonical });
+  return trail;
+}
 
 export default async function Page({ params }: PageProps<"/[[...path]]">) {
   const { path = [] } = await params;
@@ -51,6 +76,11 @@ export default async function Page({ params }: PageProps<"/[[...path]]">) {
             path: live.canonical,
           })}
         />
+        <JsonLd
+          data={breadcrumbJsonLd(
+            breadcrumbTrail(live.canonical, live.overview.frameworkName),
+          )}
+        />
         <FrameworkLanding {...live} overview={live.overview} />
       </>
     );
@@ -64,6 +94,11 @@ export default async function Page({ params }: PageProps<"/[[...path]]">) {
             description: live.page.data.description,
             path: live.canonical,
           })}
+        />
+        <JsonLd
+          data={breadcrumbJsonLd(
+            breadcrumbTrail(live.canonical, live.page.data.title),
+          )}
         />
         <LiveArticle {...live} url={`/${path.join("/")}`} />
       </>
