@@ -8,14 +8,23 @@
 // `showcase/integrations/` saw partial state → ENOENT) AND with every suite that
 // healed workflow YAMLs via `git checkout HEAD --` (`.git/index.lock`).
 //
-// The generator now honors `CREATE_INTEGRATION_PACKAGES_DIR` and
-// `CREATE_INTEGRATION_WORKFLOWS_DIR` env overrides. This file creates a
-// per-suite tmpdir, seeds it with copies of the real workflow YAMLs (so the
-// generator's regex-based edits still match), and points both env vars
+// The generator now honors `CREATE_INTEGRATION_PACKAGES_DIR`,
+// `CREATE_INTEGRATION_WORKFLOWS_DIR` and
+// `CREATE_INTEGRATION_APP_INTEGRATIONS_DIR` env overrides. This file creates
+// a per-suite tmpdir, seeds it with copies of the real workflow YAMLs (so the
+// generator's regex-based edits still match), and points the env vars
 // there. No real tracked file is ever mutated — no restorer, no git
 // invocation, no cross-suite shared state.
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
+import {
+  describe,
+  it,
+  expect,
+  beforeAll,
+  afterAll,
+  beforeEach,
+  vi,
+} from "vitest";
 import fs from "fs";
 import os from "os";
 import path from "path";
@@ -23,6 +32,11 @@ import { execFileSync } from "child_process";
 import yaml from "yaml";
 import Ajv from "ajv";
 import addFormats from "ajv-formats";
+import {
+  loadFeatureRegistry,
+  parseArgs,
+  updateWorkflows,
+} from "../create-integration/index.js";
 import { execOptsFor } from "./test-cleanup";
 import { SCRIPTS_DIR } from "./paths";
 
@@ -148,6 +162,8 @@ let TMP_ROOT!: string;
 let TMP_SMOKE_SPEC!: string;
 let TMP_PACKAGES_DIR!: string;
 let TMP_WORKFLOWS_DIR!: string;
+// Stands in for showcase/frontends/nextjs/src/integrations/.
+let TMP_APP_INTEGRATIONS_DIR!: string;
 let TEST_DIR!: string;
 let REGRESSION_DIR!: string;
 // Per-suite baseline of each workflow's content, captured once after seeding
@@ -155,10 +171,13 @@ let REGRESSION_DIR!: string;
 const WORKFLOW_BASELINES = new Map<string, Buffer>();
 
 function cleanup() {
-  // Remove any scaffolded package dirs the generator produced.
+  // Remove any scaffolded package dirs and app integration folders the
+  // generator produced.
   for (const slug of TEST_SLUGS) {
-    const dir = path.join(TMP_PACKAGES_DIR, slug);
-    if (fs.existsSync(dir)) {
+    for (const dir of [
+      path.join(TMP_PACKAGES_DIR, slug),
+      path.join(TMP_APP_INTEGRATIONS_DIR, slug),
+    ]) {
       fs.rmSync(dir, { recursive: true, force: true });
     }
   }
@@ -174,6 +193,7 @@ beforeAll(() => {
   TMP_PACKAGES_DIR = path.join(TMP_ROOT, "integrations");
   TMP_WORKFLOWS_DIR = path.join(TMP_ROOT, "workflows");
   TMP_SMOKE_SPEC = path.join(TMP_ROOT, "starter-smoke.spec.ts");
+  TMP_APP_INTEGRATIONS_DIR = path.join(TMP_ROOT, "app-integrations");
   TEST_DIR = path.join(TMP_PACKAGES_DIR, TEST_SLUG);
   REGRESSION_DIR = path.join(TMP_PACKAGES_DIR, REGRESSION_SLUG);
 
@@ -206,13 +226,6 @@ afterAll(() => {
   fs.rmSync(TMP_ROOT, { recursive: true, force: true });
 });
 
-/** Invoke `npx tsx create-integration/index.ts` with argv-style args so none
- *  of the slug / feature strings ever hit a shell parser. Previous revisions
- *  used `execSync(string)` with interpolated slugs — safe today because the
- *  slugs are constants, but a poor hygiene pattern worth stamping out.
- *
- *  Sets `CREATE_INTEGRATION_{PACKAGES,WORKFLOWS}_DIR` so the generator
- *  writes entirely inside our per-suite tmpdir. */
 /** The hermetic smoke-spec's current content. */
 function readFileSyncSpec(): string {
   return fs.readFileSync(TMP_SMOKE_SPEC, "utf-8");
@@ -238,6 +251,42 @@ function expectGeneratorError(args: readonly string[]): string {
   throw new Error("expected the generator to exit non-zero, but it succeeded");
 }
 
+/**
+ * Generator arguments for a column with no starter. The display name never
+ * matters to these tests, so every run uses the same one.
+ */
+function scaffoldArgs(
+  features: string,
+  options: {
+    language?: "python" | "typescript";
+    category?: string;
+    slug?: string;
+  } = {},
+) {
+  return [
+    "--name",
+    "Test Integration",
+    "--slug",
+    options.slug ?? TEST_SLUG,
+    "--category",
+    options.category ?? "agent-framework",
+    "--language",
+    options.language ?? "python",
+    "--features",
+    features,
+    "--starter-reason",
+    "No starter template exists for this test fixture integration.",
+  ];
+}
+
+/** Invoke `npx tsx create-integration/index.ts` with argv-style args so none
+ *  of the slug / feature strings ever hit a shell parser. Previous revisions
+ *  used `execSync(string)` with interpolated slugs. That was safe because the
+ *  slugs are constants, but it is a poor hygiene pattern worth stamping out.
+ *
+ *  Sets the `CREATE_INTEGRATION_*` overrides (packages, workflows, smoke
+ *  spec, app integrations) so the generator writes entirely inside our
+ *  per-suite tmpdir. */
 function runGenerator(args: readonly string[]): { stdout: string } {
   const baseOpts = execOptsFor(SCRIPTS_DIR);
   const stdout = execFileSync(
@@ -250,6 +299,7 @@ function runGenerator(args: readonly string[]): { stdout: string } {
         CREATE_INTEGRATION_PACKAGES_DIR: TMP_PACKAGES_DIR,
         CREATE_INTEGRATION_WORKFLOWS_DIR: TMP_WORKFLOWS_DIR,
         CREATE_INTEGRATION_SMOKE_SPEC: TMP_SMOKE_SPEC,
+        CREATE_INTEGRATION_APP_INTEGRATIONS_DIR: TMP_APP_INTEGRATIONS_DIR,
       },
     },
   );
@@ -260,20 +310,7 @@ describe("Template Generator", () => {
   it("generates a valid package structure", () => {
     cleanup();
 
-    runGenerator([
-      "--name",
-      "Test Integration",
-      "--slug",
-      TEST_SLUG,
-      "--category",
-      "agent-framework",
-      "--language",
-      "python",
-      "--features",
-      "agentic-chat,hitl-in-chat",
-      "--starter-reason",
-      "No starter template exists for this test fixture integration.",
-    ]);
+    runGenerator(scaffoldArgs("agentic-chat,hitl-in-chat"));
 
     // Check directory exists
     expect(fs.existsSync(TEST_DIR)).toBe(true);
@@ -288,7 +325,6 @@ describe("Template Generator", () => {
       ".gitignore",
       "next.config.ts",
       "tsconfig.json",
-      "playwright.config.ts",
       "requirements.txt",
       "src/agent_server.py",
       "src/app/layout.tsx",
@@ -309,23 +345,72 @@ describe("Template Generator", () => {
     expect(gitignore.split(/\r?\n/)).toContain(".copilotkit/");
   });
 
+  it("writes no per-integration e2e setup, because the shared suite covers the demos", () => {
+    cleanup();
+
+    runGenerator(scaffoldArgs("agentic-chat,hitl-in-chat"));
+
+    for (const entry of [
+      "tests",
+      "playwright.config.ts",
+      "docker-compose.test.yml",
+      "fixtures",
+    ]) {
+      expect(fs.existsSync(path.join(TEST_DIR, entry)), entry).toBe(false);
+    }
+    const packageJson = JSON.parse(
+      fs.readFileSync(path.join(TEST_DIR, "package.json"), "utf-8"),
+    );
+    expect(Object.keys(packageJson.scripts)).not.toContain("test:e2e");
+    expect(Object.keys(packageJson.devDependencies)).not.toContain(
+      "@playwright/test",
+    );
+    const gitignore = fs.readFileSync(
+      path.join(TEST_DIR, ".gitignore"),
+      "utf-8",
+    );
+    expect(gitignore.split(/\r?\n/)).not.toContain("playwright-report/");
+  });
+
+  it("writes env.ts and agents.ts for the integration in the unified app", () => {
+    cleanup();
+
+    // cli-start is a feature but not a demo of the app, so agents.ts has
+    // no entry for it.
+    runGenerator(scaffoldArgs("agentic-chat,subagents,cli-start"));
+
+    const appDir = path.join(TMP_APP_INTEGRATIONS_DIR, TEST_SLUG);
+    const env = fs.readFileSync(path.join(appDir, "env.ts"), "utf-8");
+    expect(env).toContain(
+      'import type { IntegrationEnv } from "@/lib/agents";',
+    );
+    expect(env).toContain("AGENT_URL_TEST_INTEGRATION_TMP: { port: 8000 },");
+    expect(env).toContain("} satisfies IntegrationEnv;");
+
+    const agents = fs.readFileSync(path.join(appDir, "agents.ts"), "utf-8");
+    // The page's agent ids come from DEMO_AGENT_IDS when the app runs.
+    expect(agents).toContain('import { DEMO_AGENT_IDS } from "@/demo-agents";');
+    expect(agents).toContain(
+      [
+        "const AGENT_PATHS: Partial<Record<string, string>> = {",
+        '  "agentic-chat": "/",',
+        '  subagents: "/",',
+        "};",
+      ].join("\n"),
+    );
+    expect(agents).toContain('httpAgent("test-integration-tmp", path)');
+    expect(agents).toContain("} satisfies IntegrationRuntime;");
+  });
+
   it("generates a manifest that passes schema validation", () => {
     cleanup();
 
-    runGenerator([
-      "--name",
-      "Test Integration",
-      "--slug",
-      TEST_SLUG,
-      "--category",
-      "provider-sdk",
-      "--language",
-      "typescript",
-      "--features",
-      "agentic-chat,tool-rendering,mcp-apps",
-      "--starter-reason",
-      "No starter template exists for this test fixture integration.",
-    ]);
+    runGenerator(
+      scaffoldArgs("agentic-chat,tool-rendering,mcp-apps", {
+        language: "typescript",
+        category: "provider-sdk",
+      }),
+    );
 
     const manifest = yaml.parse(
       fs.readFileSync(path.join(TEST_DIR, "manifest.yaml"), "utf-8"),
@@ -350,20 +435,7 @@ describe("Template Generator", () => {
   it("generates correct demo stubs for each feature", () => {
     cleanup();
 
-    runGenerator([
-      "--name",
-      "Test Integration",
-      "--slug",
-      TEST_SLUG,
-      "--category",
-      "agent-framework",
-      "--language",
-      "python",
-      "--features",
-      "agentic-chat,hitl-in-chat,subagents",
-      "--starter-reason",
-      "No starter template exists for this test fixture integration.",
-    ]);
+    runGenerator(scaffoldArgs("agentic-chat,hitl-in-chat,subagents"));
 
     const demoIds = ["agentic-chat", "hitl-in-chat", "subagents"];
 
@@ -383,11 +455,6 @@ describe("Template Generator", () => {
       // README
       expect(fs.existsSync(path.join(demoDir, "README.md"))).toBe(true);
 
-      // E2E test
-      expect(
-        fs.existsSync(path.join(TEST_DIR, "tests", "e2e", `${demoId}.spec.ts`)),
-      ).toBe(true);
-
       // QA template
       expect(fs.existsSync(path.join(TEST_DIR, "qa", `${demoId}.md`))).toBe(
         true,
@@ -398,20 +465,7 @@ describe("Template Generator", () => {
   it("generates TypeScript agent files for TS integrations", () => {
     cleanup();
 
-    runGenerator([
-      "--name",
-      "Test TS",
-      "--slug",
-      TEST_SLUG,
-      "--category",
-      "agent-framework",
-      "--language",
-      "typescript",
-      "--features",
-      "agentic-chat",
-      "--starter-reason",
-      "No starter template exists for this test fixture integration.",
-    ]);
+    runGenerator(scaffoldArgs("agentic-chat", { language: "typescript" }));
 
     const demoDir = path.join(TEST_DIR, "src", "app", "demos", "agentic-chat");
     expect(fs.existsSync(path.join(demoDir, "agent.ts"))).toBe(true);
@@ -431,20 +485,7 @@ describe("Template Generator", () => {
       "mcp-apps",
     ];
 
-    runGenerator([
-      "--name",
-      "Test",
-      "--slug",
-      TEST_SLUG,
-      "--category",
-      "agent-framework",
-      "--language",
-      "python",
-      "--features",
-      features.join(","),
-      "--starter-reason",
-      "No starter template exists for this test fixture integration.",
-    ]);
+    runGenerator(scaffoldArgs(features.join(",")));
 
     const manifest = yaml.parse(
       fs.readFileSync(path.join(TEST_DIR, "manifest.yaml"), "utf-8"),
@@ -466,43 +507,12 @@ describe("Template Generator", () => {
     cleanup();
 
     // Create first
-    runGenerator([
-      "--name",
-      "Test",
-      "--slug",
-      TEST_SLUG,
-      "--category",
-      "agent-framework",
-      "--language",
-      "python",
-      "--features",
-      "agentic-chat",
-      "--starter-reason",
-      "No starter template exists for this test fixture integration.",
-    ]);
+    runGenerator(scaffoldArgs("agentic-chat"));
 
     // Try to create again — the generator should refuse.
-    try {
-      runGenerator([
-        "--name",
-        "Test",
-        "--slug",
-        TEST_SLUG,
-        "--category",
-        "agent-framework",
-        "--language",
-        "python",
-        "--features",
-        "agentic-chat",
-        "--starter-reason",
-        "No starter template exists for this test fixture integration.",
-      ]);
-      expect.fail("Should have thrown");
-    } catch (e: any) {
-      const stream =
-        (e.stderr?.toString?.() ?? "") + (e.stdout?.toString?.() ?? "");
-      expect(stream).toContain("already exists");
-    }
+    expect(expectGeneratorError(scaffoldArgs("agentic-chat"))).toContain(
+      "already exists",
+    );
   });
 
   it("validates feature IDs against the registry", () => {
@@ -556,20 +566,7 @@ describe("Template Generator", () => {
     // Run the generator with a dedicated slug so it always has fresh work to
     // do (the generator short-circuits once its slug is registered in any
     // workflow file).
-    runGenerator([
-      "--name",
-      "Leak Guard",
-      "--slug",
-      REGRESSION_SLUG,
-      "--category",
-      "agent-framework",
-      "--language",
-      "python",
-      "--features",
-      "agentic-chat",
-      "--starter-reason",
-      "No starter template exists for this test fixture integration.",
-    ]);
+    runGenerator(scaffoldArgs("agentic-chat", { slug: REGRESSION_SLUG }));
 
     // Capture pre-sentinel content so we can prove the append was observed
     // by the filesystem via a content check (stronger than byte-length:
@@ -745,37 +742,21 @@ describe("Template Generator", () => {
 });
 
 describe("Template Generator — hardening regressions", () => {
-  it("fails fast with a listed-ids error on unknown --features", async () => {
+  it("fails fast with a listed-ids error on unknown --features", () => {
     cleanup();
-    try {
-      runGenerator([
-        "--name",
-        "Bad",
-        "--slug",
-        TEST_SLUG,
-        "--category",
-        "agent-framework",
-        "--language",
-        "python",
-        "--features",
-        "agentic-chat,not-a-real-feature",
-        "--starter-reason",
-        "No starter template exists for this test fixture integration.",
-      ]);
-      expect.fail("Should have rejected unknown feature id");
-    } catch (e: any) {
-      const combined = (e.stderr || "") + (e.stdout || "");
-      expect(combined).toMatch(/Unknown feature id/);
-      expect(combined).toContain("not-a-real-feature");
-      // Error message must enumerate known ids so the user can self-correct.
-      expect(combined).toContain("Known ids:");
-      expect(combined).toContain("agentic-chat");
-    }
+    const combined = expectGeneratorError(
+      scaffoldArgs("agentic-chat,not-a-real-feature"),
+    );
+    expect(combined).toMatch(/Unknown feature id/);
+    expect(combined).toContain("not-a-real-feature");
+    // Error message must enumerate known ids so the user can self-correct.
+    expect(combined).toContain("Known ids:");
+    expect(combined).toContain("agentic-chat");
     // Partial directory must NOT be left behind on a validation failure.
     expect(fs.existsSync(TEST_DIR)).toBe(false);
   });
 
-  it("loadFeatureRegistry surfaces structured errors for read/parse/shape failures", async () => {
+  it("loadFeatureRegistry surfaces structured errors for read/parse/shape failures", () => {
     // Replace the vacuous SHOWCASE_FEATURE_REGISTRY env-var test with
     // direct-import coverage. We spy on fs.readFileSync so we can inject
     // each failure mode deterministically — ENOENT, invalid JSON, and
@@ -785,9 +766,6 @@ describe("Template Generator — hardening regressions", () => {
     // was a no-op: create-integration/index.ts never reads that env var,
     // and the test's own short-circuit (if /SHOWCASE_FEATURE_REGISTRY/
     // matched) meant the asserts never ran.
-    const { loadFeatureRegistry } =
-      await import("../create-integration/index.ts");
-    const { vi } = await import("vitest");
 
     // Capture the real readFileSync once so each case can delegate
     // for paths that are NOT the feature registry. An unfiltered
@@ -910,20 +888,7 @@ describe("Template Generator — hardening regressions", () => {
 
   it("generated health route has an in-process branch for TypeScript integrations", async () => {
     cleanup();
-    runGenerator([
-      "--name",
-      "TS InProcess",
-      "--slug",
-      TEST_SLUG,
-      "--category",
-      "agent-framework",
-      "--language",
-      "typescript",
-      "--features",
-      "agentic-chat",
-      "--starter-reason",
-      "No starter template exists for this test fixture integration.",
-    ]);
+    runGenerator(scaffoldArgs("agentic-chat", { language: "typescript" }));
 
     const healthRoute = fs.readFileSync(
       path.join(TEST_DIR, "src/app/api/health/route.ts"),
@@ -942,20 +907,7 @@ describe("Template Generator — hardening regressions", () => {
 
   it("generated health route has an out-of-process probe for Python integrations", async () => {
     cleanup();
-    runGenerator([
-      "--name",
-      "Py OutOfProcess",
-      "--slug",
-      TEST_SLUG,
-      "--category",
-      "agent-framework",
-      "--language",
-      "python",
-      "--features",
-      "agentic-chat",
-      "--starter-reason",
-      "No starter template exists for this test fixture integration.",
-    ]);
+    runGenerator(scaffoldArgs("agentic-chat"));
 
     const healthRoute = fs.readFileSync(
       path.join(TEST_DIR, "src/app/api/health/route.ts"),
@@ -965,50 +917,9 @@ describe("Template Generator — hardening regressions", () => {
     expect(healthRoute).toContain("AbortSignal.timeout(3000)");
   });
 
-  it("generated E2E test uses the real assistant-message class, not the phantom data-role selector", async () => {
-    cleanup();
-    runGenerator([
-      "--name",
-      "Locator",
-      "--slug",
-      TEST_SLUG,
-      "--category",
-      "agent-framework",
-      "--language",
-      "python",
-      "--features",
-      "agentic-chat",
-      "--starter-reason",
-      "No starter template exists for this test fixture integration.",
-    ]);
-
-    const testFile = fs.readFileSync(
-      path.join(TEST_DIR, "tests/e2e/agentic-chat.spec.ts"),
-      "utf-8",
-    );
-    // The old 'data-role="assistant"' attribute does not exist in the
-    // CopilotKit DOM. The real assistant message carries the
-    // copilotKitAssistantMessage class.
-    expect(testFile).not.toContain('data-role="assistant"');
-    expect(testFile).toContain(".copilotKitAssistantMessage");
-  });
-
   it("generated layout.tsx contains bare backticks in the inline script, not literal \\`", async () => {
     cleanup();
-    runGenerator([
-      "--name",
-      "Layout",
-      "--slug",
-      TEST_SLUG,
-      "--category",
-      "agent-framework",
-      "--language",
-      "python",
-      "--features",
-      "agentic-chat",
-      "--starter-reason",
-      "No starter template exists for this test fixture integration.",
-    ]);
+    runGenerator(scaffoldArgs("agentic-chat"));
 
     const layout = fs.readFileSync(
       path.join(TEST_DIR, "src/app/layout.tsx"),
@@ -1028,10 +939,7 @@ describe("Template Generator — hardening regressions", () => {
     // "process.exit called" sentinel and the matching error text on stderr.
     // Each branch below exercises one guard the hardening added so the
     // argv-walking logic doesn't silently drop flags or accept bad values.
-    it("rejects a positional argument that doesn't start with --", async () => {
-      const { parseArgs } = await import("../create-integration/index.ts");
-      const { vi } = await import("vitest");
-
+    it("rejects a positional argument that doesn't start with --", () => {
       const argv = process.argv;
       process.argv = ["node", "index.ts", "stray", "--name", "x"];
       const exitSpy = vi.spyOn(process, "exit").mockImplementation(((
@@ -1052,10 +960,7 @@ describe("Template Generator — hardening regressions", () => {
       }
     });
 
-    it("rejects a --flag missing its value (end-of-args)", async () => {
-      const { parseArgs } = await import("../create-integration/index.ts");
-      const { vi } = await import("vitest");
-
+    it("rejects a --flag missing its value (end-of-args)", () => {
       const argv = process.argv;
       process.argv = ["node", "index.ts", "--name"];
       const exitSpy = vi.spyOn(process, "exit").mockImplementation(((
@@ -1077,10 +982,7 @@ describe("Template Generator — hardening regressions", () => {
       }
     });
 
-    it("rejects a --flag followed by another --flag instead of a value", async () => {
-      const { parseArgs } = await import("../create-integration/index.ts");
-      const { vi } = await import("vitest");
-
+    it("rejects a --flag followed by another --flag instead of a value", () => {
       const argv = process.argv;
       process.argv = ["node", "index.ts", "--name", "--slug", "x"];
       const exitSpy = vi.spyOn(process, "exit").mockImplementation(((
@@ -1102,10 +1004,7 @@ describe("Template Generator — hardening regressions", () => {
       }
     });
 
-    it("rejects an unknown --category value with the listed allowed set", async () => {
-      const { parseArgs } = await import("../create-integration/index.ts");
-      const { vi } = await import("vitest");
-
+    it("rejects an unknown --category value with the listed allowed set", () => {
       const argv = process.argv;
       process.argv = [
         "node",
@@ -1144,6 +1043,23 @@ describe("Template Generator — hardening regressions", () => {
   });
 
   describe("updateWorkflows — regex-failure assertions", () => {
+    // updateWorkflows arguments for a column with no starter, so the smoke
+    // files stay out of the run.
+    function workflowArgs(slug: string) {
+      return {
+        name: "X",
+        slug,
+        category: "agent-framework",
+        language: "python",
+        features: ["agentic-chat"],
+        extraDeps: [],
+        starter: {
+          kind: "reason",
+          reason: "No starter template exists for this test fixture.",
+        },
+      } satisfies Parameters<typeof updateWorkflows>[0];
+    }
+
     // updateWorkflows walks two workflow YAML files (showcase_deploy.yml
     // and test_smoke-starter.yml). Inside showcase_deploy.yml it performs
     // three regex-anchored block insertions (options:, outputs:, filters:),
@@ -1154,11 +1070,7 @@ describe("Template Generator — hardening regressions", () => {
     // We drive the failure via a tiny shim that re-exports fs with the
     // read/write calls intercepted, letting us substitute an empty YAML
     // body that doesn't contain the expected 'options:' block.
-    it("throws when showcase_deploy.yml lacks the options: block", async () => {
-      const { updateWorkflows } =
-        await import("../create-integration/index.ts");
-      const { vi } = await import("vitest");
-
+    it("throws when showcase_deploy.yml lacks the options: block", () => {
       // Production uses probePath (statSync) rather than existsSync, so the
       // spy must intercept statSync. Make only showcase_deploy.yml "exist"
       // (return a fake Stats-like object); any other path delegates to the
@@ -1213,16 +1125,9 @@ describe("Template Generator — hardening regressions", () => {
         .mockImplementation(() => {});
 
       try {
-        expect(() =>
-          updateWorkflows({
-            name: "X",
-            slug: "x",
-            category: "agent-framework",
-            language: "python",
-            features: ["agentic-chat"],
-            extraDeps: [],
-          }),
-        ).toThrow(/failed to locate the 'options:' block/);
+        expect(() => updateWorkflows(workflowArgs("x"))).toThrow(
+          /failed to locate the 'options:' block/,
+        );
       } finally {
         statSpy.mockRestore();
         readSpy.mockRestore();
@@ -1230,11 +1135,7 @@ describe("Template Generator — hardening regressions", () => {
       }
     });
 
-    it("throws when showcase_deploy.yml lacks the outputs: block", async () => {
-      const { updateWorkflows } =
-        await import("../create-integration/index.ts");
-      const { vi } = await import("vitest");
-
+    it("throws when showcase_deploy.yml lacks the outputs: block", () => {
       // YAML that has a well-formed `options:` block (so the first regex
       // matches and the function proceeds) but no `outputs:` block at
       // all. The second regex must throw with a message that names the
@@ -1300,16 +1201,9 @@ describe("Template Generator — hardening regressions", () => {
         .mockImplementation(() => {});
 
       try {
-        expect(() =>
-          updateWorkflows({
-            name: "X",
-            slug: "new-slug",
-            category: "agent-framework",
-            language: "python",
-            features: ["agentic-chat"],
-            extraDeps: [],
-          }),
-        ).toThrow(/failed to locate the 'outputs:' block/);
+        expect(() => updateWorkflows(workflowArgs("new-slug"))).toThrow(
+          /failed to locate the 'outputs:' block/,
+        );
       } finally {
         statSpy.mockRestore();
         readSpy.mockRestore();
@@ -1317,11 +1211,7 @@ describe("Template Generator — hardening regressions", () => {
       }
     });
 
-    it("throws when showcase_deploy.yml lacks the filters: block", async () => {
-      const { updateWorkflows } =
-        await import("../create-integration/index.ts");
-      const { vi } = await import("vitest");
-
+    it("throws when showcase_deploy.yml lacks the filters: block", () => {
       // YAML that has both `options:` and `outputs:` blocks so the first
       // two regexes match, but no `filters: |` block. The third regex
       // must throw with a message that names the filters block.
@@ -1391,16 +1281,9 @@ describe("Template Generator — hardening regressions", () => {
         .mockImplementation(() => {});
 
       try {
-        expect(() =>
-          updateWorkflows({
-            name: "X",
-            slug: "new-slug",
-            category: "agent-framework",
-            language: "python",
-            features: ["agentic-chat"],
-            extraDeps: [],
-          }),
-        ).toThrow(/failed to locate the 'filters:' block/);
+        expect(() => updateWorkflows(workflowArgs("new-slug"))).toThrow(
+          /failed to locate the 'filters:' block/,
+        );
       } finally {
         statSpy.mockRestore();
         readSpy.mockRestore();
@@ -1411,20 +1294,7 @@ describe("Template Generator — hardening regressions", () => {
 
   it("demo README contains bare backticks for inline code, not literal \\` pairs", async () => {
     cleanup();
-    runGenerator([
-      "--name",
-      "Readme",
-      "--slug",
-      TEST_SLUG,
-      "--category",
-      "agent-framework",
-      "--language",
-      "python",
-      "--features",
-      "tool-rendering",
-      "--starter-reason",
-      "No starter template exists for this test fixture integration.",
-    ]);
+    runGenerator(scaffoldArgs("tool-rendering"));
 
     const readme = fs.readFileSync(
       path.join(TEST_DIR, "src/app/demos/tool-rendering/README.md"),

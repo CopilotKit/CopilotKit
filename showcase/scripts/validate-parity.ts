@@ -1,30 +1,31 @@
 /**
  * Parity Validator
  *
- * Enforces demo <-> spec <-> QA-markdown parity across all packages under
- * showcase/integrations/. For each package:
- *   1. Reads manifest.yaml to extract declared demo IDs.
- *   2. Lists tests/e2e/*.spec.ts files.
- *   3. Lists qa/*.md files.
- *   4. Lists src/app/demos/<id>/ directories.
+ * Enforces demo <-> spec <-> QA-markdown parity for the packages under
+ * showcase/integrations/ and the shared e2e suite of the unified app at
+ * showcase/frontends/nextjs/tests/e2e/. For each package it:
+ *   1. Reads manifest.yaml to extract the declared demo IDs and routes.
+ *   2. Lists qa/*.md files.
+ *   3. Lists src/app/demos/<id>/ directories.
+ * Then it lists the *.spec.ts files of the shared suite once.
  *
  * MUST checks (fail -> exit 1):
  *   - manifest.yaml exists and is parseable.
  *   - Every declared demo has a matching src/app/demos/<id>/ directory.
+ *   - Every demo id that a manifest routes (`route: /demos/<id>`) has
+ *     frontends/nextjs/tests/e2e/<id>.spec.ts in the shared suite.
  *
  * SHOULD checks (warn on stderr, do not fail):
- *   - Every declared demo has a matching tests/e2e/<id>.spec.ts.
  *   - Every declared demo has a matching qa/<id>.md.
  *   - Package demo count matches the baseline (default: BASELINE_DEMO_COUNT).
- *   - spec count >= demo count (spec count exceeding demo count is
- *     legitimate — e.g. when a cross-demo spec covers renderer selection
- *     for multiple demos — so only UNDER-coverage is flagged).
  *   - qa count >= demo count.
  *
  * Usage (from showcase/ or showcase/scripts/):
  *   npx tsx scripts/validate-parity.ts
  *   npx tsx scripts/validate-parity.ts --baseline=9
  *   VALIDATE_PARITY_REPO_ROOT=/tmp/fixture npx tsx scripts/validate-parity.ts
+ *     (reads /tmp/fixture/integrations/ and
+ *     /tmp/fixture/frontends/nextjs/tests/e2e/)
  *
  * Exit codes (aligned with audit.ts on codes 0/1/3/4; intentionally
  * diverges from validate-pins.ts on code 2 — validate-pins.ts uses
@@ -57,16 +58,18 @@ const DEFAULT_PACKAGES_DIR = path.join(ROOT, "integrations");
  * Baseline expected demo count per package. Packages that deviate from
  * this are flagged as warnings (e.g. ones being built out).
  *
- * RECIPROCAL: the CI workflow .github/workflows/showcase_validate.yml
- * reads `baselineDemoCount` from showcase/scripts/fail-baseline.json
- * when enforcing the per-package e2e-spec-count floor — there is no
- * hardcoded MIN in the workflow anymore. Keep this default in sync
- * with `baselineDemoCount` in fail-baseline.json; if one moves,
- * move both. The sync is enforced by
- * __tests__/baseline-sync.test.ts so drift is caught in CI rather than
- * relying on the comment above.
+ * RECIPROCAL: showcase/scripts/fail-baseline.json holds the same number as
+ * `baselineDemoCount`. If one moves, move both:
+ * __tests__/baseline-sync.test.ts fails CI when they differ.
  */
 export const BASELINE_DEMO_COUNT = 9;
+
+// The shared e2e suite of the unified Next.js app, relative to the showcase
+// folder. It holds one `<demo-id>.spec.ts` per demo id.
+const SHARED_SPECS_SUBPATH = "frontends/nextjs/tests/e2e";
+const SPEC_SUFFIX = ".spec.ts";
+// The name that the [FAIL] lines of the shared suite check start with.
+const SHARED_SUITE_LABEL = "shared e2e suite";
 
 // Exit code taxonomy aligned with audit.ts on codes 0/1/3/4 so CI callers
 // can disambiguate "no anomalies" / "anomalies" / "unreadable" / "internal".
@@ -98,6 +101,42 @@ export function routeToDirName(route: string | undefined): string | undefined {
   if (route === undefined) return undefined;
   const stripped = route.replace(/^\/demos\//, "");
   return stripped.length > 0 ? stripped : undefined;
+}
+
+/**
+ * The demo ids that a manifest routes: the `<id>` of each
+ * `route: /demos/<id>`, once each, in manifest order.
+ *
+ * Two entries can share a route (for example `hitl-in-chat-booking` uses
+ * `/demos/hitl-in-chat`). An entry without a route, such as a CLI command,
+ * has no page. The unified app serves one page per id at
+ * /demos/<integration>/<id>, and the shared e2e suite has one spec per id.
+ *
+ * @example
+ * routedDemoIds([
+ *   { route: "/demos/hitl-in-chat" },
+ *   { route: "/demos/hitl-in-chat" },
+ *   {},
+ * ]); // ["hitl-in-chat"]
+ */
+export function routedDemoIds(demos: readonly Pick<ManifestDemo, "route">[]) {
+  const ids = demos.flatMap((demo) => {
+    const id = routeToDirName(demo.route);
+    return id === undefined ? [] : [id];
+  });
+  return [...new Set(ids)];
+}
+
+/**
+ * The folder of the shared e2e suite in the showcase folder `showcaseRoot`.
+ * It holds one `<demo-id>.spec.ts` per demo id.
+ *
+ * @example
+ * sharedSpecsDir("/repo/showcase");
+ * // "/repo/showcase/frontends/nextjs/tests/e2e"
+ */
+export function sharedSpecsDir(showcaseRoot: string) {
+  return path.join(showcaseRoot, SHARED_SPECS_SUBPATH);
 }
 
 /**
@@ -224,6 +263,10 @@ export class ManifestUnreadableError extends Error {
  * Categories that want a user-facing string render via `deriveMessage`
  * at display time so the struct has a single source of truth — no
  * pre-formatted `message` field duplicating the structured data.
+ *
+ * `unreadable-specs-dir` and `missing-spec` come from the shared suite
+ * check (`auditSharedSuite`). The other categories come from
+ * `auditPackage`.
  */
 export type PackageIssue =
   | { category: "missing-manifest" }
@@ -233,14 +276,14 @@ export type PackageIssue =
   | { category: "unreadable-demos-dir"; path: string; error: string }
   | { category: "unreadable-specs-dir"; path: string; error: string }
   | { category: "unreadable-qa-dir"; path: string; error: string }
-  | { category: "missing-spec"; demoId: string }
+  | {
+      category: "missing-spec";
+      demoId: string;
+      /** The slugs of the packages whose manifest routes the demo. */
+      routedBy: readonly string[];
+    }
   | { category: "missing-qa"; demoId: string }
   | { category: "baseline-deviation"; demoCount: number; baseline: number }
-  | {
-      category: "spec-under-coverage";
-      specCount: number;
-      demoCount: number;
-    }
   | { category: "qa-under-coverage"; qaCount: number; demoCount: number }
   | { category: "listing-failed"; path: string; error: string }
   | { category: "crashed"; error: string };
@@ -282,13 +325,11 @@ export function deriveMessage(issue: PackageIssue): string {
     case "unreadable-qa-dir":
       return `unreadable qa directory: failed to read directory ${issue.path}: ${issue.error}`;
     case "missing-spec":
-      return `demo '${issue.demoId}' has no tests/e2e/${issue.demoId}.spec.ts`;
+      return `demo '${issue.demoId}' (routed by ${issue.routedBy.join(", ")}) has no ${SHARED_SPECS_SUBPATH}/${issue.demoId}${SPEC_SUFFIX}`;
     case "missing-qa":
       return `demo '${issue.demoId}' has no qa/${issue.demoId}.md`;
     case "baseline-deviation":
       return `demo count ${issue.demoCount} deviates from baseline ${issue.baseline}`;
-    case "spec-under-coverage":
-      return `spec count ${issue.specCount} < demo count ${issue.demoCount}`;
     case "qa-under-coverage":
       return `qa count ${issue.qaCount} < demo count ${issue.demoCount}`;
     case "listing-failed":
@@ -303,10 +344,14 @@ export interface PackageReport {
   // All arrays are `readonly` uniformly: surface any accidental post-
   // return push/splice as a compile error. Callers that need a mutable
   // copy should clone. Marking mustErrors/warnings readonly while
-  // leaving demoIds/specFiles/qaFiles/demoDirs mutable would be an
+  // leaving demoIds/routedDemoIds/qaFiles/demoDirs mutable would be an
   // asymmetric contract and invites drift.
   readonly demoIds: readonly string[];
-  readonly specFiles: readonly string[];
+  /**
+   * The demo ids that the manifest routes (see `routedDemoIds`). The shared
+   * suite check needs one spec for each.
+   */
+  readonly routedDemoIds: readonly string[];
   readonly qaFiles: readonly string[];
   readonly demoDirs: readonly string[];
   readonly mustErrors: readonly PackageIssue[];
@@ -331,13 +376,13 @@ export interface ListResult {
  *
  * `fs.existsSync` CONFLATES these: it returns false for ENOENT AND for
  * EACCES (and every other statSync failure), so a package whose
- * tests/e2e/ is chmod 0 silently registers as "no tests/e2e/" and the
+ * qa/ is chmod 0 silently registers as "no qa/" and the
  * whole per-slug cascade gets suppressed. That's the bug this probe
  * exists to close — do NOT replace with existsSync.
  *
  * ENOTDIR handling: ENOTDIR from statSync means "a component of the
  * path is a regular file, not a directory" (e.g. stray file committed
- * at integrations/foo/tests so walking to integrations/foo/tests/e2e fails).
+ * at frontends/nextjs/tests so walking to frontends/nextjs/tests/e2e fails).
  * That is a misconfiguration signal, NOT a legitimately-absent
  * directory. Classifying it as `missing` silently drops the whole
  * subtree from parity checks with zero diagnostic. Instead, surface
@@ -469,6 +514,20 @@ export function listFiles(p: string, suffix: string): ListResult {
   }
 }
 
+type ListingFailed = Extract<PackageIssue, { category: "listing-failed" }>;
+
+/**
+ * The `listing-failed` warning that `result` carries for `target`, or
+ * `undefined` when `target` was read (or does not exist). Callers elevate
+ * it to an `unreadable-*-dir` MUST error.
+ */
+function findListingFailed(result: ListResult, target: string) {
+  return result.warnings.find(
+    (w): w is ListingFailed =>
+      w.category === "listing-failed" && w.path === target,
+  );
+}
+
 /**
  * Load and parse a package's manifest.yaml.
  *
@@ -507,6 +566,16 @@ export function loadManifest(
   }
 }
 
+/**
+ * Runs the per-package checks for `packagesDir/<slug>`: the manifest, the
+ * demo folders and the QA docs. The report also carries the demo ids that
+ * the manifest routes, for `auditSharedSuite`.
+ *
+ * @throws InvalidBaselineError when `baselineDemoCount` is not a positive
+ *   integer.
+ * @throws Error ("audit of <slug> crashed", with the original error as
+ *   `cause`) when reading the manifest fails in an unexpected way.
+ */
 export function auditPackage(
   slug: string,
   packagesDir: string = DEFAULT_PACKAGES_DIR,
@@ -531,16 +600,17 @@ export function auditPackage(
   const mustErrors: PackageIssue[] = [];
   const warnings: PackageIssue[] = [];
 
-  // Pre-compute spec/qa/demo-dir listings up-front so the reporter row
+  // Pre-compute qa/demo-dir listings up-front so the reporter row
   // still shows accurate counts even if manifest parsing fails. MUST
   // errors still gate the exit code — this only affects the table.
+  // Specs live in the shared suite, which `auditSharedSuite` checks once
+  // for all packages, so a package without tests/e2e/ is not reported.
   //
   // Demos can live at either <pkg>/demos/<cell>/ (per-column container
   // layout with one folder per cell containing frontend/ + backend/) OR
   // <pkg>/src/app/demos/<cell>/ (legacy shared-tree layout). Union the
   // two listings so the check is permissive during the transition — a
   // cell declared in manifest passes as long as either directory exists.
-  const specResult = listFiles(path.join(pkgDir, "tests", "e2e"), ".spec.ts");
   const qaResult = listFiles(path.join(pkgDir, "qa"), ".md");
   const topLevelDemosDir = path.join(pkgDir, "demos");
   const legacyDemosDir = path.join(pkgDir, "src", "app", "demos");
@@ -566,13 +636,12 @@ export function auditPackage(
     ],
   };
 
-  const specFiles = specResult.entries;
   const qaFiles = qaResult.entries;
   const demoDirs = demoDirResult.entries;
 
-  // When src/app/demos/, tests/e2e/, or qa/ is unreadable, elevate to a
-  // MUST error under category "unreadable-{demos,specs,qa}-dir" and
-  // SUPPRESS the downstream missing-{demo-dir,spec,qa} cascade so the
+  // When src/app/demos/ or qa/ is unreadable, elevate to a
+  // MUST error under category "unreadable-{demos,qa}-dir" and
+  // SUPPRESS the downstream missing-{demo-dir,qa} cascade so the
   // EACCES root cause isn't buried. We detect this by checking whether
   // the respective list call returned a listing-failed warning for the
   // target path specifically (not an unrelated path).
@@ -580,16 +649,7 @@ export function auditPackage(
   // warning at EITHER candidate path (new top-level demos/ or legacy
   // src/app/demos/). Report the failing path verbatim so the operator
   // sees which location couldn't be read.
-  const specsDirPath = path.join(pkgDir, "tests", "e2e");
   const qaDirPath = path.join(pkgDir, "qa");
-  const findListingFailed = (
-    result: ListResult,
-    target: string,
-  ): Extract<PackageIssue, { category: "listing-failed" }> | undefined =>
-    result.warnings.find(
-      (w): w is Extract<PackageIssue, { category: "listing-failed" }> =>
-        w.category === "listing-failed" && w.path === target,
-    );
   const topLevelDemosUnreadable = findListingFailed(
     demoDirResult,
     topLevelDemosDir,
@@ -601,30 +661,17 @@ export function auditPackage(
   // Collect all demos-dir listing failures so BOTH paths are surfaced on
   // the MUST when both fail (previously only the first match was
   // reported, hiding the second EACCES root cause).
-  const demosDirUnreadableAll: Extract<
-    PackageIssue,
-    { category: "listing-failed" }
-  >[] = [];
+  const demosDirUnreadableAll: ListingFailed[] = [];
   if (topLevelDemosUnreadable)
     demosDirUnreadableAll.push(topLevelDemosUnreadable);
   if (legacyDemosUnreadable) demosDirUnreadableAll.push(legacyDemosUnreadable);
   const demosDirUnreadable = demosDirUnreadableAll[0];
-  const specsDirUnreadable = findListingFailed(specResult, specsDirPath);
   const qaDirUnreadable = findListingFailed(qaResult, qaDirPath);
 
   // Merge listing warnings only when the underlying path was NOT elevated
   // to a MUST error. For the elevated paths, push the typed MUST variant
   // so consumers see a single authoritative signal instead of a warning
   // plus N cascaded per-demo errors.
-  if (!specsDirUnreadable) {
-    warnings.push(...specResult.warnings);
-  } else {
-    mustErrors.push({
-      category: "unreadable-specs-dir",
-      path: specsDirPath,
-      error: specsDirUnreadable.error,
-    });
-  }
   if (!qaDirUnreadable) {
     warnings.push(...qaResult.warnings);
   } else {
@@ -680,13 +727,13 @@ export function auditPackage(
       // so including the inner message here would render it twice.
       throw new Error(`audit of ${slug} crashed`, { cause: err });
     }
-    // Don't early-return: we still return the report with spec/qa/demo
+    // Don't early-return: we still return the report with qa/demo
     // dir counts populated so the table row is accurate. MUST error
     // already gates the exit code.
     return {
       slug,
       demoIds: [],
-      specFiles,
+      routedDemoIds: [],
       qaFiles,
       demoDirs,
       mustErrors,
@@ -699,7 +746,7 @@ export function auditPackage(
     return {
       slug,
       demoIds: [],
-      specFiles,
+      routedDemoIds: [],
       qaFiles,
       demoDirs,
       mustErrors,
@@ -718,13 +765,10 @@ export function auditPackage(
   // Informational-only demos (e.g. cli-start with a `command:` field)
   // live in the registry but have no on-disk folder to audit. They're
   // identified by the `command` field; exclude them from parity checks.
-  const auditableDemos = demos.filter(
-    (d) => !(d as { command?: string }).command,
-  );
+  const auditableDemos = demos.filter((d) => !d.command);
   const demoIds = auditableDemos.map((d) => d.id);
 
   const demoDirSet = new Set(demoDirs);
-  const specIdSet = new Set(specFiles.map((f) => f.replace(/\.spec\.ts$/, "")));
   const qaIdSet = new Set(qaFiles.map((f) => f.replace(/\.md$/, "")));
 
   // MUST: every declared demo has a demos/<dir>/ directory. The
@@ -750,18 +794,6 @@ export function auditPackage(
     }
   }
 
-  // SHOULD: every declared demo has a spec file. Suppressed when the
-  // tests/e2e/ dir itself is unreadable — a single unreadable-specs-dir
-  // MUST is clearer than N cascaded missing-spec warnings that all trace
-  // to the same EACCES root cause.
-  if (!specsDirUnreadable) {
-    for (const id of demoIds) {
-      if (!specIdSet.has(id)) {
-        warnings.push({ category: "missing-spec", demoId: id });
-      }
-    }
-  }
-
   // SHOULD: every declared demo has a QA doc. Suppressed when qa/ is
   // unreadable — see unreadable-qa-dir rationale above.
   if (!qaDirUnreadable) {
@@ -781,24 +813,9 @@ export function auditPackage(
     });
   }
 
-  // SHOULD: spec count >= demo count. Spec count EXCEEDING demo count is
-  // legitimate (e.g. a cross-demo spec covers renderer selection for
-  // multiple demos and is intentionally not tied to a single declared
-  // demo), so we only warn on UNDER-coverage. Suppressed when the
-  // tests/e2e/ dir itself is unreadable — the elevated
-  // `unreadable-specs-dir` MUST is the authoritative signal; a spurious
-  // "0 < N" coverage warning on top of it would bury the EACCES root
-  // cause, same rationale as the per-demo missing-spec suppression above.
-  if (!specsDirUnreadable && specFiles.length < demoIds.length) {
-    warnings.push({
-      category: "spec-under-coverage",
-      specCount: specFiles.length,
-      demoCount: demoIds.length,
-    });
-  }
-
-  // SHOULD: qa count >= demo count. Suppressed when qa/ is unreadable —
-  // see spec-under-coverage rationale above.
+  // SHOULD: qa count >= demo count. Suppressed when qa/ is unreadable:
+  // the elevated `unreadable-qa-dir` MUST is the authoritative signal, and
+  // a "0 < N" coverage warning on top of it would bury the root cause.
   if (!qaDirUnreadable && qaFiles.length < demoIds.length) {
     warnings.push({
       category: "qa-under-coverage",
@@ -810,12 +827,67 @@ export function auditPackage(
   return {
     slug,
     demoIds,
-    specFiles,
+    // Every routed entry has a page in the unified app, including an
+    // informational demo that happens to declare a route.
+    routedDemoIds: routedDemoIds(demos),
     qaFiles,
     demoDirs,
     mustErrors,
     warnings,
   };
+}
+
+/**
+ * MUST check for the shared e2e suite: every demo id that a package routes
+ * (see `routedDemoIds`) has `<id>.spec.ts` in `specsDir`.
+ *
+ * Returns one `missing-spec` issue per demo id without a spec, sorted by
+ * demo id, with the packages that route it. When `specsDir` cannot be read,
+ * it returns one `unreadable-specs-dir` issue and checks no demo id. A
+ * `specsDir` that does not exist holds no spec, so every routed demo id is
+ * reported.
+ *
+ * @param specsDir - The shared suite folder, from `sharedSpecsDir`.
+ * @param reports - The package reports, for their slugs and routed demo ids.
+ *
+ * @example
+ * const issues = auditSharedSuite(sharedSpecsDir(showcaseRoot), reports);
+ * for (const issue of issues) console.error(deriveMessage(issue));
+ */
+export function auditSharedSuite(
+  specsDir: string,
+  reports: readonly PackageReport[],
+) {
+  const issues: PackageIssue[] = [];
+  const listing = listFiles(specsDir, SPEC_SUFFIX);
+  // One MUST for the folder instead of a missing-spec per demo id that all
+  // trace to the same read failure.
+  const unreadable = findListingFailed(listing, specsDir);
+  if (unreadable) {
+    issues.push({
+      category: "unreadable-specs-dir",
+      path: specsDir,
+      error: unreadable.error,
+    });
+    return issues;
+  }
+
+  const specIds = new Set(
+    listing.entries.map((file) => file.slice(0, -SPEC_SUFFIX.length)),
+  );
+  const routedBy = new Map<string, string[]>();
+  for (const report of reports) {
+    for (const demoId of report.routedDemoIds) {
+      routedBy.set(demoId, [...(routedBy.get(demoId) ?? []), report.slug]);
+    }
+  }
+  const routes = [...routedBy].sort(([a], [b]) => (a < b ? -1 : 1));
+  for (const [demoId, slugs] of routes) {
+    if (!specIds.has(demoId)) {
+      issues.push({ category: "missing-spec", demoId, routedBy: slugs });
+    }
+  }
+  return issues;
 }
 
 interface MainOptions {
@@ -974,12 +1046,6 @@ export const HEADER_COLUMNS: readonly HeaderColumn[] = [
     width: 5,
     align: "right",
     render: (r) => String(r.demoIds.length),
-  },
-  {
-    label: "specs",
-    width: 5,
-    align: "right",
-    render: (r) => String(r.specFiles.length),
   },
   {
     label: "qa",
@@ -1185,7 +1251,7 @@ function runParityImpl(
       reports.push({
         slug: s,
         demoIds: [],
-        specFiles: [],
+        routedDemoIds: [],
         qaFiles: [],
         demoDirs: [],
         mustErrors: [{ category: "crashed", error: message }],
@@ -1193,6 +1259,14 @@ function runParityImpl(
       });
     }
   }
+
+  // The shared suite sits next to the packages folder in the showcase
+  // folder, in the real tree and in a VALIDATE_PARITY_REPO_ROOT fixture.
+  const suiteErrors = auditSharedSuite(
+    sharedSpecsDir(path.dirname(resolvedPackagesDir)),
+    reports,
+  );
+  const hasSuiteFailure = suiteErrors.length > 0;
 
   let hasMustFailure = false;
   let totalWarnings = 0;
@@ -1223,6 +1297,9 @@ function runParityImpl(
       console.error(`[FAIL] ${r.slug}: ${deriveMessage(issue)}`);
     }
   }
+  for (const issue of suiteErrors) {
+    console.error(`[FAIL] ${SHARED_SUITE_LABEL}: ${deriveMessage(issue)}`);
+  }
 
   // Emit warnings to stderr
   for (const r of reports) {
@@ -1232,7 +1309,7 @@ function runParityImpl(
   }
 
   console.log(
-    `\n${reports.length} package(s) checked, ${reports.filter((r) => r.mustErrors.length === 0).length} pass, ${reports.filter((r) => r.mustErrors.length > 0).length} fail, ${totalWarnings} warning(s)`,
+    `\n${reports.length} package(s) checked, ${reports.filter((r) => r.mustErrors.length === 0).length} pass, ${reports.filter((r) => r.mustErrors.length > 0).length} fail, ${totalWarnings} warning(s); ${SHARED_SUITE_LABEL}: ${hasSuiteFailure ? "fail" : "pass"}`,
   );
 
   // Ordering of the exit-code checks is deliberate: a slug crash is an
@@ -1254,7 +1331,7 @@ function runParityImpl(
     );
     return EXIT_INTERNAL;
   }
-  return hasMustFailure ? EXIT_MUST_FAILURE : EXIT_OK;
+  return hasMustFailure || hasSuiteFailure ? EXIT_MUST_FAILURE : EXIT_OK;
 }
 
 /**

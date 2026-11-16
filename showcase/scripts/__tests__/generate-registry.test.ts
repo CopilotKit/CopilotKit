@@ -10,6 +10,7 @@ import {
 import fs from "fs";
 import path from "path";
 import { execFileSync } from "child_process";
+import yaml from "yaml";
 import {
   FileSnapshotRestorer,
   acquireGeneratedDataLock,
@@ -18,8 +19,29 @@ import {
 } from "./test-cleanup";
 import { SCRIPTS_DIR, SHELL_DATA_DIR } from "./paths";
 
+/** The fields these tests read from registry.json. */
+interface Registry {
+  feature_registry: { features: { id: string }[] };
+  integrations: {
+    slug: string;
+    name: string;
+    category: string;
+    language: string;
+    sort_order?: number;
+    features: string[];
+    demos: { id: string }[];
+  }[];
+}
+
+/** The fields these tests read from an integration's manifest.yaml. */
+interface ManifestFields {
+  features: string[];
+  demos: { id: string }[];
+}
+
 // `generate-registry.ts` multi-emits registry.json + catalog.json into
-// EVERY shell's src/data plus the shell-only constraints.json. Without
+// EVERY shell's src/data and the unified app's src/data, plus the
+// shell-only constraints.json. Without
 // this, every test run leaks regenerated JSON into the working tree, so
 // the full write set must be snapshotted, not just the shell
 // registry/constraints pair. (catalog.json used to drift on every run too,
@@ -30,6 +52,14 @@ import { SCRIPTS_DIR, SHELL_DATA_DIR } from "./paths";
 // with the catalog and integration-smoke suites, so each generator mutation
 // window holds the generated-data lock.
 const SHOWCASE_ROOT = path.resolve(SCRIPTS_DIR, "..");
+// The unified Next.js app reads its own copy of the registry from here.
+const APP_DATA_DIR = path.join(
+  SHOWCASE_ROOT,
+  "frontends",
+  "nextjs",
+  "src",
+  "data",
+);
 const DATA_FILES = [
   path.join(SHELL_DATA_DIR, "registry.json"),
   path.join(SHELL_DATA_DIR, "catalog.json"),
@@ -38,7 +68,28 @@ const DATA_FILES = [
     path.join(SHOWCASE_ROOT, pkg, "src", "data", "registry.json"),
     path.join(SHOWCASE_ROOT, pkg, "src", "data", "catalog.json"),
   ]),
+  path.join(APP_DATA_DIR, "registry.json"),
+  path.join(APP_DATA_DIR, "catalog.json"),
 ];
+
+function readRegistry(registryPath: string) {
+  const registry: Registry = JSON.parse(fs.readFileSync(registryPath, "utf-8"));
+  return registry;
+}
+
+function readLangGraphPythonManifest() {
+  const manifestPath = path.resolve(
+    SCRIPTS_DIR,
+    "..",
+    "integrations",
+    "langgraph-python",
+    "manifest.yaml",
+  );
+  const manifest: ManifestFields = yaml.parse(
+    fs.readFileSync(manifestPath, "utf-8"),
+  );
+  return manifest;
+}
 const dataRestorer = new FileSnapshotRestorer(DATA_FILES);
 let releaseGeneratedDataLock: (() => void) | undefined;
 
@@ -103,7 +154,7 @@ afterAll(() => withGeneratedDataLock(() => dataRestorer.restore()));
 // langgraph-python package.
 
 describe("Registry Generator", () => {
-  it("generates registry.json from existing packages", async () => {
+  it("generates registry.json from existing packages", () => {
     const stdout = runGenerator();
 
     expect(stdout).toContain("Generating integration registry");
@@ -112,35 +163,43 @@ describe("Registry Generator", () => {
     const registryPath = path.join(SHELL_DATA_DIR, "registry.json");
     expect(fs.existsSync(registryPath)).toBe(true);
 
-    const registry = JSON.parse(fs.readFileSync(registryPath, "utf-8"));
+    const registry = readRegistry(registryPath);
     expect(registry.feature_registry).toBeDefined();
     expect(registry.feature_registry.features.length).toBeGreaterThan(0);
     expect(registry.integrations.length).toBeGreaterThan(0);
 
     const langgraph = registry.integrations.find(
-      (i: any) => i.slug === "langgraph-python",
+      (i) => i.slug === "langgraph-python",
     );
-    expect(langgraph).toBeDefined();
-    expect(langgraph.name).toBe("LangGraph (Python)");
-    expect(langgraph.category).toBe("popular");
-    expect(langgraph.language).toBe("python");
+    expect(langgraph).toMatchObject({
+      name: "LangGraph (Python)",
+      category: "popular",
+      language: "python",
+    });
 
     // Derive the expected counts from the manifest the generator reads, rather
     // than pinning magic numbers — the generator copies `features`/`demos`
     // straight through, so this can't rot when the wired-feature set changes
     // (e.g. the interrupt-pill quarantine that moved gen-ui-interrupt /
     // interrupt-headless from `features:` to `not_supported_features:`).
-    const manifestPath = path.resolve(
-      SCRIPTS_DIR,
-      "..",
-      "integrations",
-      "langgraph-python",
-      "manifest.yaml",
+    const manifest = readLangGraphPythonManifest();
+    expect(langgraph?.features.length).toBe(manifest.features.length);
+    expect(langgraph?.demos.length).toBe(manifest.demos.length);
+  });
+
+  it("writes the same registry into the unified app's data folder", () => {
+    // Remove the app's copy first, so only this run can write it.
+    const appRegistryPath = path.join(APP_DATA_DIR, "registry.json");
+    fs.rmSync(appRegistryPath, { force: true });
+
+    runGenerator();
+
+    const slugs = readRegistry(appRegistryPath).integrations.map((i) => i.slug);
+    expect(slugs).toContain("langgraph-python");
+    const shellRegistry = fs.readFileSync(
+      path.join(SHELL_DATA_DIR, "registry.json"),
     );
-    const yaml = await import("yaml");
-    const manifest = yaml.parse(fs.readFileSync(manifestPath, "utf-8"));
-    expect(langgraph.features.length).toBe(manifest.features.length);
-    expect(langgraph.demos.length).toBe(manifest.demos.length);
+    expect(fs.readFileSync(appRegistryPath).equals(shellRegistry)).toBe(true);
   });
 
   it("sorts integrations by sort_order", () => {
@@ -150,15 +209,14 @@ describe("Registry Generator", () => {
     // in bundle-demo-content.test.ts tests 2-5.
     runGenerator();
 
-    const registryPath = path.join(SHELL_DATA_DIR, "registry.json");
-    const registry = JSON.parse(fs.readFileSync(registryPath, "utf-8"));
+    const registry = readRegistry(path.join(SHELL_DATA_DIR, "registry.json"));
 
     // langgraph-python (sort_order: 10) should come before mastra (sort_order: 20)
     const lgIdx = registry.integrations.findIndex(
-      (i: any) => i.slug === "langgraph-python",
+      (i) => i.slug === "langgraph-python",
     );
     const mastraIdx = registry.integrations.findIndex(
-      (i: any) => i.slug === "mastra",
+      (i) => i.slug === "mastra",
     );
     expect(lgIdx).toBeLessThan(mastraIdx);
 
@@ -170,27 +228,19 @@ describe("Registry Generator", () => {
     }
   });
 
-  it("validates feature IDs against the registry", async () => {
+  it("validates feature IDs against the registry", () => {
     const featureRegistryPath = path.resolve(
       SCRIPTS_DIR,
       "..",
       "shared",
       "feature-registry.json",
     );
-    const featureRegistry = JSON.parse(
+    const featureRegistry: Registry["feature_registry"] = JSON.parse(
       fs.readFileSync(featureRegistryPath, "utf-8"),
     );
-    const validIds = new Set(featureRegistry.features.map((f: any) => f.id));
+    const validIds = new Set(featureRegistry.features.map((f) => f.id));
 
-    const manifestPath = path.resolve(
-      SCRIPTS_DIR,
-      "..",
-      "integrations",
-      "langgraph-python",
-      "manifest.yaml",
-    );
-    const yaml = await import("yaml");
-    const manifest = yaml.parse(fs.readFileSync(manifestPath, "utf-8"));
+    const manifest = readLangGraphPythonManifest();
 
     for (const featureId of manifest.features) {
       expect(validIds.has(featureId)).toBe(true);

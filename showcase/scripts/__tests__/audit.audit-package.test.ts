@@ -21,8 +21,8 @@ import {
   parseArgs,
   BORN_IN_SHOWCASE,
   SLUG_TO_EXAMPLES,
-  type Anomaly,
 } from "../audit.js";
+import type { Anomaly } from "../audit.js";
 import {
   AUDIT_SCRIPT,
   makeTmpTree,
@@ -30,7 +30,32 @@ import {
   writePackage,
   makeExampleDir,
   anomalyStrings,
+  sharedSuiteDir,
+  writeSharedSpecs,
 } from "./audit.shared.js";
+
+// Writes ag2 (born in showcase, so it needs no examples counterpart): a
+// deployed package with 4 demos, 3 of them routed to 2 pages (a and
+// hitl-in-chat), and a QA doc for each routed demo.
+function writeRoutedPackage(root: string) {
+  writePackage(root, "ag2", {
+    manifest: [
+      "slug: ag2",
+      "deployed: true",
+      "demos:",
+      "  - id: cli-start",
+      "    command: npx copilotkit@latest init",
+      "  - id: a",
+      "    route: /demos/a",
+      "  - id: hitl-in-chat-booking",
+      "    route: /demos/hitl-in-chat",
+      "  - id: hitl-in-chat",
+      "    route: /demos/hitl-in-chat",
+      "",
+    ].join("\n"),
+    qaFiles: ["a.md", "hitl-in-chat-booking.md", "hitl-in-chat.md"],
+  });
+}
 
 describe("auditPackage", () => {
   let root: string;
@@ -82,7 +107,6 @@ describe("auditPackage", () => {
 
     writePackage(root, slug, {
       manifest: `slug: ${slug}\ndeployed: true\ndemos:\n  - id: x\n`,
-      specs: ["x.spec.ts"],
       qaFiles: ["x.md"],
     });
     // Intentionally DO NOT create an examples/integrations/ag2 directory.
@@ -96,7 +120,6 @@ describe("auditPackage", () => {
     expect(BORN_IN_SHOWCASE.has(slug)).toBe(true);
     writePackage(root, slug, {
       manifest: `slug: ${slug}\ndeployed: true\ndemos:\n  - id: x\n`,
-      specs: ["x.spec.ts"],
       qaFiles: ["x.md"],
     });
     const cfg = makeConfig(root);
@@ -104,13 +127,34 @@ describe("auditPackage", () => {
     expect(a.anomalies).toEqual([]);
   });
 
-  it("surfaces 'could not read' anomaly when spec dir readdir fails", () => {
+  it("counts the shared-suite specs of the routed demos, once per page, and ignores other specs", () => {
+    // Three routed entries make two pages: hitl-in-chat-booking and
+    // hitl-in-chat share /demos/hitl-in-chat. The CLI command has no page.
+    // other-demo.spec.ts belongs to another integration's demo.
+    writeRoutedPackage(root);
+    writeSharedSpecs(root, ["a", "hitl-in-chat", "other-demo"]);
+    const a = auditPackage("ag2", makeConfig(root));
+    expect(a.spec).toEqual({ state: "ok", count: 2 });
+    expect(a.anomalies).toEqual([]);
+  });
+
+  it("flags a spec count-mismatch against the routed page count when a routed demo has no shared spec", () => {
+    writeRoutedPackage(root);
+    writeSharedSpecs(root, ["a"]);
+    const a = auditPackage("ag2", makeConfig(root));
+    expect(a.spec).toEqual({ state: "ok", count: 1 });
+    expect(a.anomalies).toEqual([
+      { kind: "count-mismatch", dimension: "spec", expected: 2, actual: 1 },
+    ]);
+  });
+
+  it("surfaces 'could not read' anomaly when the shared suite readdir fails", () => {
     writePackage(root, "perm", {
-      manifest: `slug: perm\ndeployed: true\ndemos:\n  - id: x\n`,
-      specs: ["x.spec.ts"],
+      manifest: `slug: perm\ndeployed: true\ndemos:\n  - id: x\n    route: /demos/x\n`,
       qaFiles: ["x.md"],
     });
-    const e2eDir = path.join(root, "integrations", "perm", "tests", "e2e");
+    writeSharedSpecs(root, ["x"]);
+    const e2eDir = sharedSuiteDir(root);
     const orig = fs.readdirSync;
     const spy = vi.spyOn(fs, "readdirSync").mockImplementation(((
       p: fs.PathLike,
@@ -129,7 +173,11 @@ describe("auditPackage", () => {
     try {
       const cfg = makeConfig(root);
       const a = auditPackage("perm", cfg);
-      expect(a.anomalies.some((x) => x.kind === "unreadable-dir")).toBe(true);
+      const unreadable = a.anomalies.find(
+        (x): x is Extract<Anomaly, { kind: "unreadable-dir" }> =>
+          x.kind === "unreadable-dir",
+      );
+      expect(unreadable?.dir).toBe(e2eDir);
     } finally {
       spy.mockRestore();
     }
@@ -138,7 +186,6 @@ describe("auditPackage", () => {
   it("surfaces 'could not read' anomaly when qa dir readdir fails (symmetric to spec)", () => {
     writePackage(root, "qaperm", {
       manifest: `slug: qaperm\ndeployed: true\ndemos:\n  - id: x\n`,
-      specs: ["x.spec.ts"],
       qaFiles: ["x.md"],
     });
     const qaDir = path.join(root, "integrations", "qaperm", "qa");
@@ -178,7 +225,6 @@ describe("auditPackage", () => {
     // union — callers read the raw boolean off the manifest variant.
     writePackage(root, "unset", {
       manifest: `slug: unset\ndemos:\n  - id: x\n`,
-      specs: ["x.spec.ts"],
       qaFiles: ["x.md"],
     });
     makeExampleDir(root, "unset");
@@ -199,7 +245,6 @@ describe("auditPackage", () => {
     // Counterpart: deployed:false is distinct.
     writePackage(root, "falsedep", {
       manifest: `slug: falsedep\ndeployed: false\ndemos:\n  - id: x\n`,
-      specs: ["x.spec.ts"],
       qaFiles: ["x.md"],
     });
     makeExampleDir(root, "falsedep");
@@ -230,7 +275,6 @@ describe("auditPackage", () => {
     expect(SLUG_TO_EXAMPLES[mappedSlug]).toBeDefined();
     writePackage(root, mappedSlug, {
       manifest: `slug: ${mappedSlug}\ndeployed: true\ndemos:\n  - id: x\n`,
-      specs: ["x.spec.ts"],
       qaFiles: ["x.md"],
     });
     // Intentionally DO NOT create the examples/integrations/<mapped> dir.
@@ -253,7 +297,6 @@ describe("auditPackage", () => {
     expect(candidates.length).toBeGreaterThan(0);
     writePackage(root, mappedSlug, {
       manifest: `slug: ${mappedSlug}\ndeployed: true\ndemos:\n  - id: x\n`,
-      specs: ["x.spec.ts"],
       qaFiles: ["x.md"],
     });
     // Create the candidate dirs so existsSync sees them; mock statSync
@@ -413,7 +456,6 @@ describe("auditPackage", () => {
     expect(candidates).toBeDefined();
     writePackage(root, slug, {
       manifest: `slug: ${slug}\ndeployed: true\ndemos:\n  - id: x\n`,
-      specs: ["x.spec.ts"],
       qaFiles: ["x.md"],
     });
     const fullPaths = candidates.map((c) =>
@@ -459,7 +501,6 @@ describe("auditPackage", () => {
     const mappedSlug = "mastra";
     writePackage(root, mappedSlug, {
       manifest: `slug: ${mappedSlug}\ndeployed: true\ndemos:\n  - id: x\n`,
-      specs: ["x.spec.ts"],
       qaFiles: ["x.md"],
     });
     // NOTE: no makeExampleDir — the mapping is stale.
@@ -487,7 +528,6 @@ describe("auditPackage", () => {
     expect(candidates).toBeDefined();
     writePackage(root, mappedSlug, {
       manifest: `slug: ${mappedSlug}\ndeployed: true\ndemos:\n  - id: x\n`,
-      specs: ["x.spec.ts"],
       qaFiles: ["x.md"],
     });
     for (const c of candidates) makeExampleDir(root, c);
@@ -600,7 +640,6 @@ describe("auditPackage", () => {
     expect(candidates.length).toBeGreaterThan(0);
     writePackage(root, slug, {
       manifest: `slug: ${slug}\ndeployed: true\ndemos:\n  - id: x\n`,
-      specs: ["x.spec.ts"],
       qaFiles: ["x.md"],
     });
     // Write a regular file (not a directory) at every candidate path.
@@ -680,18 +719,15 @@ describe("buildReport", () => {
   it("counts clean vs anomaly packages correctly", () => {
     writePackage(root, "crewai-crews", {
       manifest: `slug: crewai-crews\ndeployed: true\ndemos:\n  - id: a\n`,
-      specs: ["a.spec.ts"],
       qaFiles: ["a.md"],
     });
     makeExampleDir(root, "crewai-crews");
     writePackage(root, "ag2", {
       manifest: `slug: ag2\ndeployed: true\ndemos:\n  - id: a\n`,
-      specs: ["a.spec.ts"],
       qaFiles: ["a.md"],
     });
     writePackage(root, "anomalous", {
       manifest: `slug: anomalous\ndeployed: false\ndemos:\n  - id: a\n  - id: b\n`,
-      specs: ["a.spec.ts"],
       qaFiles: ["a.md"],
     });
     const cfg = makeConfig(root);
@@ -723,15 +759,16 @@ describe("buildReport", () => {
     // mismatch. The old filter would hide the whole package from
     // countMismatches because *any* 'could not read' was treated as a
     // reason to suppress. The fix: per-dimension suppression — qa
-    // mismatch remains visible.
+    // mismatch remains visible. Its 2 routed demos have no shared spec,
+    // so a readable suite would add a spec mismatch.
     writePackage(root, "mixed", {
-      manifest: `slug: mixed\ndeployed: true\ndemos:\n  - id: a\n  - id: b\n`,
-      specs: ["a.spec.ts", "b.spec.ts"],
+      manifest: `slug: mixed\ndeployed: true\ndemos:\n  - id: a\n    route: /demos/a\n  - id: b\n    route: /demos/b\n`,
       qaFiles: ["only-one.md"], // 1 qa vs 2 demos — real mismatch
     });
     makeExampleDir(root, "mixed");
+    writeSharedSpecs(root, []);
 
-    const e2eDir = path.join(root, "integrations", "mixed", "tests", "e2e");
+    const e2eDir = sharedSuiteDir(root);
     const orig = fs.readdirSync;
     const spy = vi.spyOn(fs, "readdirSync").mockImplementation(((
       p: fs.PathLike,
@@ -772,7 +809,6 @@ describe("buildReport", () => {
     // re-derive it from nested arrays.
     writePackage(root, "ok1", {
       manifest: `slug: ok1\ndeployed: true\ndemos:\n  - id: a\n`,
-      specs: ["a.spec.ts"],
       qaFiles: ["a.md"],
     });
     makeExampleDir(root, "ok1");
@@ -783,7 +819,6 @@ describe("buildReport", () => {
 
     writePackage(root, "bad", {
       manifest: `slug: bad\ndeployed: false\ndemos:\n  - id: a\n`,
-      specs: [],
       qaFiles: [],
     });
     const dirty = buildReport(["bad"], cfg);
@@ -796,11 +831,11 @@ describe("buildReport", () => {
     // appears in countMismatches AND notDeployed (buckets overlap), but
     // totals.withAnomalies counts it once.
     writePackage(root, "multi", {
-      manifest: `slug: multi\ndeployed: false\ndemos:\n  - id: a\n  - id: b\n`,
-      specs: ["a.spec.ts"], // 1 vs 2 — real spec mismatch
+      manifest: `slug: multi\ndeployed: false\ndemos:\n  - id: a\n    route: /demos/a\n  - id: b\n    route: /demos/b\n`,
       qaFiles: ["a.md", "b.md"],
     });
     makeExampleDir(root, "multi");
+    writeSharedSpecs(root, ["a"]); // 1 spec vs 2 routed demos: real spec mismatch
     const cfg = makeConfig(root);
     const report = buildReport(["multi"], cfg);
     expect(report.anomalies.countMismatches).toContain("multi");
@@ -811,7 +846,6 @@ describe("buildReport", () => {
   it("freezes PackageAudit entries to prevent downstream mutation", () => {
     writePackage(root, "frozen", {
       manifest: `slug: frozen\ndeployed: true\ndemos:\n  - id: a\n`,
-      specs: ["a.spec.ts"],
       qaFiles: ["a.md"],
     });
     makeExampleDir(root, "frozen");
@@ -839,7 +873,6 @@ describe("buildReport", () => {
     expect(candidates.length).toBeGreaterThan(0);
     writePackage(root, slug, {
       manifest: `slug: ${slug}\ndeployed: true\ndemos:\n  - id: x\n`,
-      specs: ["x.spec.ts"],
       qaFiles: ["x.md"],
     });
     // Write a regular file (not a directory) at every candidate path so
@@ -880,7 +913,6 @@ describe("buildReport", () => {
     const candidates = SLUG_TO_EXAMPLES[slug];
     writePackage(root, slug, {
       manifest: `slug: ${slug}\ndeployed: true\ndemos:\n  - id: x\n`,
-      specs: ["x.spec.ts"],
       qaFiles: ["x.md"],
     });
     for (const c of candidates) {
@@ -911,7 +943,6 @@ describe("buildReport", () => {
     // containers cannot be reassigned OR pushed to.
     writePackage(root, "deepfrozen", {
       manifest: `slug: deepfrozen\ndeployed: true\ndemos:\n  - id: a\n`,
-      specs: ["a.spec.ts"],
       qaFiles: ["a.md"],
     });
     makeExampleDir(root, "deepfrozen");
@@ -946,7 +977,6 @@ describe("auditPackage — direct-caller invariants", () => {
     // and could mutate them.
     writePackage(root, "direct", {
       manifest: `slug: direct\ndeployed: true\ndemos:\n  - id: a\n`,
-      specs: ["a.spec.ts"],
       qaFiles: ["a.md"],
     });
     makeExampleDir(root, "direct");
@@ -959,13 +989,11 @@ describe("auditPackage — direct-caller invariants", () => {
   it("Anomaly.not-deployed.state distinguishes 'unset' from 'explicit-false'", () => {
     writePackage(root, "unsetreal", {
       manifest: `slug: unsetreal\ndemos:\n  - id: x\n`,
-      specs: ["x.spec.ts"],
       qaFiles: ["x.md"],
     });
     makeExampleDir(root, "unsetreal");
     writePackage(root, "falsereal", {
       manifest: `slug: falsereal\ndeployed: false\ndemos:\n  - id: x\n`,
-      specs: ["x.spec.ts"],
       qaFiles: ["x.md"],
     });
     makeExampleDir(root, "falsereal");
@@ -991,7 +1019,6 @@ describe("auditPackage — direct-caller invariants", () => {
   it("Object.freeze on manifest.manifest also freezes the demos array and each demo", () => {
     writePackage(root, "frozendemos", {
       manifest: `slug: frozendemos\ndeployed: true\ndemos:\n  - id: a\n  - id: b\n`,
-      specs: ["a.spec.ts", "b.spec.ts"],
       qaFiles: ["a.md", "b.md"],
     });
     makeExampleDir(root, "frozendemos");
@@ -1064,7 +1091,6 @@ describe("buildReport — scalar summary fields", () => {
     const mappedSlug = Object.keys(SLUG_TO_EXAMPLES)[0];
     writePackage(root, mappedSlug, {
       manifest: `slug: ${mappedSlug}\ndeployed: true\ndemos:\n  - id: a\n`,
-      specs: ["a.spec.ts"],
       qaFiles: ["a.md"],
     });
     const cfg = makeConfig(root);
@@ -1074,7 +1100,6 @@ describe("buildReport — scalar summary fields", () => {
     // And a clean package — no warnings.
     writePackage(root, "clean", {
       manifest: `slug: clean\ndeployed: true\ndemos:\n  - id: a\n`,
-      specs: ["a.spec.ts"],
       qaFiles: ["a.md"],
     });
     makeExampleDir(root, "clean");
@@ -1176,7 +1201,6 @@ describe("buildReport — --strict exit code", () => {
     const slug = "ag2"; // born-in-showcase → no SLUG_TO_EXAMPLES lookup
     writePackage(root, slug, {
       manifest: `slug: ${slug}\ndeployed: true\ndemos:\n  - id: a\n`,
-      specs: ["a.spec.ts"],
       qaFiles: ["a.md"],
     });
     const cfg = makeConfig(root);
@@ -1231,7 +1255,6 @@ describe("buildReport — --strict exit code", () => {
     const slug = "mastra"; // mapped, missing dir → warning + anomaly
     writePackage(root, slug, {
       manifest: `slug: ${slug}\ndeployed: true\ndemos:\n  - id: a\n`,
-      specs: ["a.spec.ts"],
       qaFiles: ["a.md"],
     });
     const cfg = makeConfig(root);

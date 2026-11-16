@@ -2,7 +2,10 @@
  * Integration Package Generator
  *
  * Scaffolds a new integration package in showcase/integrations/<slug>/
- * with all required files, demo stubs, and deployment configs.
+ * with all required files, demo stubs, and deployment configs, plus the
+ * integration's agent wiring in the unified app at
+ * showcase/frontends/nextjs/src/integrations/<slug>/ (env.ts, agents.ts).
+ * The demos' e2e specs live in the app's shared suite, not in the package.
  *
  * Usage:
  *   npx tsx create-integration/index.ts \
@@ -14,9 +17,11 @@
  */
 
 import fs from "fs";
+import { createRequire } from "module";
 import path from "path";
 import { fileURLToPath } from "url";
 import yaml from "yaml";
+import type { DEMO_AGENT_IDS } from "../../frontends/nextjs/src/demo-agents.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -35,6 +40,11 @@ const PACKAGES_DIR =
 const WORKFLOWS_DIR =
   process.env.CREATE_INTEGRATION_WORKFLOWS_DIR ??
   path.resolve(ROOT, "..", ".github", "workflows");
+// The integration folders of the unified Next.js app. Overridable for the
+// same reason PACKAGES_DIR is.
+const APP_INTEGRATIONS_DIR =
+  process.env.CREATE_INTEGRATION_APP_INTEGRATIONS_DIR ??
+  path.join(ROOT, "frontends", "nextjs", "src", "integrations");
 // The Playwright smoke spec whose `STARTERS` array must stay set-equal to the
 // workflow's `matrix.starter`. Overridable for the same reason WORKFLOWS_DIR is.
 const SMOKE_SPEC_PATH =
@@ -505,7 +515,6 @@ function generatePackageJson(args: CLIArgs): string {
           build: "next build",
           start: "next start",
           lint: "next lint",
-          "test:e2e": "playwright test",
         },
         dependencies: {
           "@ag-ui/client": "^0.0.43",
@@ -518,7 +527,6 @@ function generatePackageJson(args: CLIArgs): string {
           ...Object.fromEntries(args.extraDeps.map((d) => [d, "latest"])),
         },
         devDependencies: {
-          "@playwright/test": "^1.50.0",
           "@types/node": "^22.0.0",
           "@types/react": "^19.0.0",
           typescript: "^5.7.0",
@@ -1463,35 +1471,90 @@ copilotkit>=0.1.0
 `;
 }
 
-function generateE2ETest(
-  featureId: string,
-  feature: Feature | undefined,
-): string {
-  return `import { test, expect } from "@playwright/test";
+/**
+ * The name of the integration's agent address variable in the unified app:
+ * `AGENT_URL_` and the slug in upper case, with `_` for `-`. It is the name
+ * that `envName("AGENT_URL", slug)` in
+ * showcase/frontends/nextjs/src/lib/agents.ts builds. This script cannot
+ * import that module, because it loads the app's own packages.
+ */
+function agentUrlVariable(slug: string) {
+  return `AGENT_URL_${slug.toUpperCase().replaceAll("-", "_")}`;
+}
 
-test.describe("${feature?.name || featureId}", () => {
-    test("page loads and chat renders", async ({ page }) => {
-        await page.goto("/demos/${featureId}");
+// An object key as TypeScript source: bare when the name is an identifier
+// (subagents), quoted otherwise ("agentic-chat").
+function objectKey(name: string) {
+  return /^[A-Za-z_$][\w$]*$/.test(name) ? name : JSON.stringify(name);
+}
 
-        // Chat interface should be visible
-        await expect(page.getByPlaceholder("Type a message")).toBeVisible();
-    });
+/**
+ * The demo ids of the unified app: the keys of `DEMO_AGENT_IDS` in
+ * showcase/frontends/nextjs/src/demo-agents.ts, which maps each demo to the
+ * agent ids that its page uses.
+ *
+ * The app is a CommonJS package, so an ES module import gets no named
+ * exports from it. `require` loads it instead, and tsx compiles it.
+ */
+function loadAppDemoIds() {
+  const demoAgents: { DEMO_AGENT_IDS: typeof DEMO_AGENT_IDS } = createRequire(
+    import.meta.url,
+  )("../../frontends/nextjs/src/demo-agents.ts");
+  return new Set(Object.keys(demoAgents.DEMO_AGENT_IDS));
+}
 
-    test("can send a message and receive a response", async ({ page }) => {
-        await page.goto("/demos/${featureId}");
+/**
+ * The unified app's src/integrations/<slug>/env.ts: the address of the
+ * integration's agent server, on port 8000.
+ */
+function generateAppEnv(args: CLIArgs) {
+  return `// The ${args.slug} agent server, on port 8000.
+import type { IntegrationEnv } from "@/lib/agents";
 
-        const input = page.getByPlaceholder("Type a message");
-        await input.fill("Hello");
-        await input.press("Enter");
+export default {
+  ${agentUrlVariable(args.slug)}: { port: 8000 },
+} satisfies IntegrationEnv;
+`;
+}
 
-        // Wait for agent response (adjust timeout as needed)
-        await expect(page.locator('.copilotKitAssistantMessage').first()).toBeVisible({
-            timeout: 30000,
-        });
-    });
+/**
+ * The unified app's src/integrations/<slug>/agents.ts: an `httpAgent` for
+ * each scaffolded demo at path "/", under the agent ids that the demo page
+ * uses (`DEMO_AGENT_IDS`, read when the app runs). A feature that is not a
+ * demo of the app (not in `appDemoIds`) gets no entry, and a warning.
+ */
+function generateAppAgents(args: CLIArgs, appDemoIds: ReadonlySet<string>) {
+  const demoIds = args.features.filter((id) => appDemoIds.has(id));
+  const skippedIds = args.features.filter((id) => !appDemoIds.has(id));
+  for (const id of skippedIds) {
+    console.warn(
+      `[create-integration] agents.ts: "${id}" is not a demo of the unified app (no DEMO_AGENT_IDS entry), so agents.ts has no entry for it.`,
+    );
+  }
+  const pathEntries = demoIds.map((id) => `  ${objectKey(id)}: "/",`);
+  return `// The agents of each ${args.slug} demo. Each demo's agent posts to
+// ${agentUrlVariable(args.slug)} followed by its path below. Change a path when the
+// agent server serves that demo at its own endpoint, for example "/agui".
+import { DEMO_AGENT_IDS } from "@/demo-agents";
+import { httpAgent } from "@/lib/agents";
+import type { IntegrationRuntime } from "@/lib/agents";
 
-    // TODO: Add feature-specific assertions
-});
+// The path of each demo's agent on the agent server, by demo id.
+const AGENT_PATHS: Partial<Record<string, string>> = {
+${pathEntries.join("\n")}
+};
+
+export default {
+  createRuntimeConfig(demoId) {
+    const path = AGENT_PATHS[demoId];
+    const agentIds = DEMO_AGENT_IDS[demoId];
+    if (path === undefined || agentIds === undefined) return undefined;
+    const agents = Object.fromEntries(
+      agentIds.map((agentId) => [agentId, httpAgent("${args.slug}", path)]),
+    );
+    return { agents };
+  },
+} satisfies IntegrationRuntime;
 `;
 }
 
@@ -1525,37 +1588,6 @@ function generateQATemplate(
 - Chat loads within 3 seconds
 - Agent responds within 10 seconds
 - No UI errors or broken layouts
-`;
-}
-
-function generatePlaywrightConfig(): string {
-  return `import { defineConfig, devices } from "@playwright/test";
-
-export default defineConfig({
-    testDir: "./tests/e2e",
-    fullyParallel: true,
-    forbidOnly: !!process.env.CI,
-    retries: process.env.CI ? 2 : 0,
-    workers: process.env.CI ? 1 : undefined,
-    reporter: "html",
-    use: {
-        baseURL: process.env.BASE_URL || "http://localhost:3000",
-        trace: "on-first-retry",
-    },
-    projects: [
-        {
-            name: "chromium",
-            use: { ...devices["Desktop Chrome"] },
-        },
-    ],
-    webServer: process.env.CI
-        ? undefined
-        : {
-              command: "pnpm dev",
-              url: "http://localhost:3000",
-              reuseExistingServer: true,
-          },
-});
 `;
 }
 
@@ -1618,65 +1650,6 @@ function generateTsConfig(): string {
   );
 }
 
-function generateDockerComposeTest(): string {
-  return `# Docker Compose stack for e2e smoke testing with aimock.
-# Usage: docker compose -f docker-compose.test.yml up -d
-services:
-  aimock:
-    image: ghcr.io/copilotkit/aimock:latest
-    ports:
-      - "4010:4010"
-    volumes:
-      - ./fixtures:/fixtures:ro
-    command: ["--fixtures", "/fixtures", "--host", "0.0.0.0", "--validate-on-load"]
-
-  app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        INSTALL_MODE: fresh
-    ports:
-      - "3000:3000"
-    environment:
-      - OPENAI_API_KEY=test-key-for-aimock
-      - OPENAI_BASE_URL=http://aimock:4010/v1
-    depends_on:
-      aimock:
-        condition: service_started
-    healthcheck:
-      test: ["CMD", "curl", "-sf", "http://localhost:3000/"]
-      interval: 5s
-      timeout: 5s
-      retries: 30
-      start_period: 60s
-`;
-}
-
-function generateDefaultFixtures(slug: string): string {
-  return JSON.stringify(
-    {
-      fixtures: [
-        {
-          match: { userMessage: "Hello" },
-          response: {
-            content: `Hello! I'm the ${slug} AI assistant. How can I help you?`,
-          },
-        },
-        {
-          match: {},
-          response: {
-            content:
-              "You're currently running against aimock (a mock LLM server). This response is a catch-all for requests that don't match any test fixture. To use a real LLM: (1) Add your OPENAI_API_KEY to .env, (2) Remove or unset OPENAI_BASE_URL from your environment so requests go to OpenAI instead of aimock, (3) Restart with `pnpm dev`.",
-          },
-        },
-      ],
-    },
-    null,
-    2,
-  );
-}
-
 function generateGitignore(): string {
   return `node_modules/
 .next/
@@ -1687,8 +1660,6 @@ function generateGitignore(): string {
 __pycache__/
 .venv/
 dist/
-playwright-report/
-test-results/
 `;
 }
 
@@ -1801,20 +1772,6 @@ async function main() {
     path.join(packageDir, "postcss.config.mjs"),
     generatePostcssConfig(),
   );
-  writeFile(
-    path.join(packageDir, "playwright.config.ts"),
-    generatePlaywrightConfig(),
-  );
-
-  // E2E test infrastructure
-  writeFile(
-    path.join(packageDir, "docker-compose.test.yml"),
-    generateDockerComposeTest(),
-  );
-  writeFile(
-    path.join(packageDir, "fixtures", "default.json"),
-    generateDefaultFixtures(args.slug),
-  );
 
   if (args.language !== "typescript") {
     writeFile(
@@ -1904,18 +1861,21 @@ See the LangGraph Python reference implementation for patterns.
       );
     }
 
-    // E2E test stub
-    writeFile(
-      path.join(packageDir, "tests", "e2e", `${featureId}.spec.ts`),
-      generateE2ETest(featureId, feature),
-    );
-
     // QA template
     writeFile(
       path.join(packageDir, "qa", `${featureId}.md`),
       generateQATemplate(featureId, feature, args),
     );
   }
+
+  // Agent wiring in the unified app. Its shared e2e suite already has a
+  // spec for every demo, so the package gets none.
+  const appIntegrationDir = path.join(APP_INTEGRATIONS_DIR, args.slug);
+  writeFile(path.join(appIntegrationDir, "env.ts"), generateAppEnv(args));
+  writeFile(
+    path.join(appIntegrationDir, "agents.ts"),
+    generateAppAgents(args, loadAppDemoIds()),
+  );
 
   console.log(`\nPackage created at: showcase/integrations/${args.slug}/`);
 
@@ -1968,7 +1928,9 @@ See the LangGraph Python reference implementation for patterns.
   console.log(
     "  2. Pin framework deps to exact versions from the Dojo example",
   );
-  console.log("  3. Fill in E2E test assertions");
+  console.log(
+    `  3. Point each demo's agent at its endpoint in showcase/frontends/nextjs/src/integrations/${args.slug}/agents.ts`,
+  );
   console.log(
     `  4. Deploy to Railway: npx tsx showcase/scripts/deploy-to-railway.ts ${args.slug}`,
   );

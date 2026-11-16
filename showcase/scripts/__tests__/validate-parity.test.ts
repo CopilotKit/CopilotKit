@@ -18,6 +18,7 @@ import {
   beforeEach,
   afterEach,
 } from "vitest";
+import type { MockInstance } from "vitest";
 import fs from "fs";
 import path from "path";
 import os from "os";
@@ -25,6 +26,7 @@ import { fileURLToPath } from "url";
 import { spawnSync } from "child_process";
 import {
   auditPackage,
+  auditSharedSuite,
   loadManifest,
   listFiles,
   listDirs,
@@ -37,17 +39,18 @@ import {
   formatRow,
   buildHeader,
   routeToDirName,
-  type PackageIssue,
+  routedDemoIds,
 } from "../validate-parity.js";
+import type { PackageIssue, PackageReport } from "../validate-parity.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const PARITY_SCRIPT = path.resolve(__dirname, "..", "validate-parity.ts");
 
 // Shared tmpdir populated by beforeAll with all the "static" fixture
-// packages (ok-pkg, missing-manifest, missing-demo-dir, missing-spec,
-// spec-exceeds, spec-less). Malformed / empty / scalar fixtures are
-// built in per-test tmpdirs because they exercise distinct crash paths.
+// packages (ok-pkg, missing-manifest, missing-demo-dir). Malformed /
+// empty / scalar fixtures are built in per-test tmpdirs because they
+// exercise distinct crash paths.
 let FIXTURES_DIR: string;
 // Save cwd / env to restore in afterAll — avoids cross-file pollution if
 // any individual test temporarily swaps them.
@@ -61,7 +64,6 @@ function writeFixturePackage(
   opts: {
     manifest?: string;
     demoDirs?: string[];
-    specFiles?: string[];
     qaFiles?: string[];
   },
 ) {
@@ -79,13 +81,6 @@ function writeFixturePackage(
       recursive: true,
     });
   }
-  if (opts.specFiles?.length) {
-    const e2eDir = path.join(pkgDir, "tests", "e2e");
-    fs.mkdirSync(e2eDir, { recursive: true });
-    for (const name of opts.specFiles) {
-      fs.writeFileSync(path.join(e2eDir, name), "", "utf-8");
-    }
-  }
   if (opts.qaFiles?.length) {
     const qaDir = path.join(pkgDir, "qa");
     fs.mkdirSync(qaDir, { recursive: true });
@@ -96,12 +91,11 @@ function writeFixturePackage(
 }
 
 function seedStaticFixtures(root: string) {
-  // ok-pkg: 1 demo, 1 spec, 1 qa, demo dir present → no errors, no warnings
+  // ok-pkg: 1 demo, 1 qa, demo dir present → no errors, no warnings
   // except baseline (1 != 9) which tests don't assert on here.
   writeFixturePackage(root, "ok-pkg", {
     manifest: "slug: ok-pkg\ndemos:\n  - id: chat\n    name: Chat\n",
     demoDirs: ["chat"],
-    specFiles: ["chat.spec.ts"],
     qaFiles: ["chat.md"],
   });
 
@@ -112,38 +106,47 @@ function seedStaticFixtures(root: string) {
   writeFixturePackage(root, "missing-demo-dir", {
     manifest: "slug: missing-demo-dir\ndemos:\n  - id: chat\n    name: Chat\n",
   });
+}
 
-  // missing-spec: demo dir present, qa present, spec absent → WARNING only
-  writeFixturePackage(root, "missing-spec", {
-    manifest: "slug: missing-spec\ndemos:\n  - id: chat\n    name: Chat\n",
-    demoDirs: ["chat"],
-    qaFiles: ["chat.md"],
-  });
+// The shared e2e suite folder of a showcase tree. Spelled out here, not
+// taken from validate-parity, so a wrong path in the validator fails.
+function sharedSuiteDir(showcaseRoot: string) {
+  return path.join(showcaseRoot, "frontends", "nextjs", "tests", "e2e");
+}
 
-  // spec-exceeds: spec count > demo count (legitimate cross-demo extras)
-  writeFixturePackage(root, "spec-exceeds", {
-    manifest: "slug: spec-exceeds\ndemos:\n  - id: chat\n    name: Chat\n",
-    demoDirs: ["chat"],
-    specFiles: ["chat.spec.ts", "renderer-selector.spec.ts"],
-    qaFiles: ["chat.md"],
-  });
+// Writes <demo-id>.spec.ts into the shared e2e suite of a showcase tree.
+function writeSharedSpecs(showcaseRoot: string, demoIds: readonly string[]) {
+  const dir = sharedSuiteDir(showcaseRoot);
+  fs.mkdirSync(dir, { recursive: true });
+  for (const demoId of demoIds) {
+    fs.writeFileSync(path.join(dir, `${demoId}.spec.ts`), "", "utf-8");
+  }
+}
 
-  // spec-less: 2 demos, only 1 spec → WARNING for under-coverage
-  writeFixturePackage(root, "spec-less", {
-    manifest:
-      "slug: spec-less\ndemos:\n  - id: chat\n    name: Chat\n  - id: tools\n    name: Tools\n",
-    demoDirs: ["chat", "tools"],
-    specFiles: ["chat.spec.ts"],
-    qaFiles: ["chat.md", "tools.md"],
-  });
+// Makes the shared suite folder unreadable: a regular file where its
+// parent folder belongs, so reading it fails with ENOTDIR.
+function blockSharedSuite(showcaseRoot: string) {
+  const parent = path.dirname(sharedSuiteDir(showcaseRoot));
+  fs.mkdirSync(path.dirname(parent), { recursive: true });
+  fs.writeFileSync(parent, "not a directory", "utf-8");
+}
 
-  // spec-equal-demos: exactly spec count == demo count → NO warning
-  writeFixturePackage(root, "spec-equal", {
-    manifest: "slug: spec-equal\ndemos:\n  - id: chat\n    name: Chat\n",
-    demoDirs: ["chat"],
-    specFiles: ["chat.spec.ts"],
-    qaFiles: ["chat.md"],
-  });
+// A report for a package that routes `routedIds` and has no issues.
+function packageReport(slug: string, routedIds: readonly string[]) {
+  return {
+    slug,
+    demoIds: [],
+    routedDemoIds: routedIds,
+    qaFiles: [],
+    demoDirs: [],
+    mustErrors: [],
+    warnings: [],
+  } satisfies PackageReport;
+}
+
+// The lines that a console.log / console.error spy received.
+function spyLines(spy: MockInstance<typeof console.error>) {
+  return spy.mock.calls.map((call) => String(call[0]));
 }
 
 // Malformed-YAML fixtures are written to a throwaway tmpdir at test time
@@ -465,7 +468,6 @@ describe("validate-parity", () => {
           manifest:
             "slug: route-split\ndemos:\n  - id: hitl-in-chat\n    name: HITL\n    route: /demos/hitl\n",
           demoDirs: ["hitl"],
-          specFiles: ["hitl-in-chat.spec.ts"],
           qaFiles: ["hitl-in-chat.md"],
         });
         const report = auditPackage("route-split", tmp);
@@ -494,7 +496,6 @@ describe("validate-parity", () => {
           // see "hitl-in-chat/" and pass; the fix makes it look for "hitl/"
           // which is absent, surfacing the real drift.
           demoDirs: ["hitl-in-chat"],
-          specFiles: ["hitl-in-chat.spec.ts"],
           qaFiles: ["hitl-in-chat.md"],
         });
         const report = auditPackage("route-missdir", tmp);
@@ -524,7 +525,6 @@ describe("validate-parity", () => {
         writeFixturePackage(tmp, "route-fallback", {
           manifest: "slug: route-fallback\ndemos:\n  - id: agentic-chat\n",
           demoDirs: ["agentic-chat"],
-          specFiles: ["agentic-chat.spec.ts"],
           qaFiles: ["agentic-chat.md"],
         });
         const report = auditPackage("route-fallback", tmp);
@@ -536,58 +536,45 @@ describe("validate-parity", () => {
       }
     });
 
-    it("flags a demo with no spec file as a WARNING, not a MUST error", () => {
-      const report = auditPackage("missing-spec", FIXTURES_DIR);
-      expect(report.mustErrors).toEqual([]);
-      expect(
-        report.warnings.some(
-          (w) =>
-            w.category === "missing-spec" &&
-            /no tests\/e2e\/chat\.spec\.ts/.test(deriveMessage(w)),
-        ),
-      ).toBe(true);
-    });
-
-    it("does NOT warn when spec count exceeds demo count (legitimate extras)", () => {
-      // A cross-demo spec (e.g. one covering renderer selection) is allowed.
-      const report = auditPackage("spec-exceeds", FIXTURES_DIR);
-      expect(
-        report.warnings.some((w) => w.category === "spec-under-coverage"),
-      ).toBe(false);
-    });
-
-    it("does NOT warn when spec count equals demo count (equality boundary)", () => {
-      // Pin the boundary: the under-coverage warning uses strict `<`, so an
-      // exact match must not warn. Regression guard against accidentally
-      // tightening the comparison.
-      const report = auditPackage("spec-equal", FIXTURES_DIR);
-      expect(
-        report.warnings.some((w) => w.category === "spec-under-coverage"),
-      ).toBe(false);
-    });
-
-    it("warns when spec count is less than demo count", () => {
-      const report = auditPackage("spec-less", FIXTURES_DIR);
-      expect(
-        report.warnings.some(
-          (w) =>
-            w.category === "spec-under-coverage" &&
-            /spec count.*<.*demo count/.test(deriveMessage(w)),
-        ),
-      ).toBe(true);
+    it("reports the demo ids that the manifest routes, and no spec issue for a package without tests/e2e/", () => {
+      // Specs live in the shared suite, which auditSharedSuite checks once
+      // for all packages. The package has no tests/e2e/, and that is fine.
+      const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "parity-routed-"));
+      try {
+        writeFixturePackage(tmp, "routed", {
+          manifest: [
+            "slug: routed",
+            "demos:",
+            "  - id: chat",
+            "    route: /demos/chat",
+            "  - id: hitl-in-chat-booking",
+            "    route: /demos/hitl-in-chat",
+            "  - id: hitl-in-chat",
+            "    route: /demos/hitl-in-chat",
+            "",
+          ].join("\n"),
+          demoDirs: ["chat", "hitl-in-chat"],
+          qaFiles: ["chat.md", "hitl-in-chat-booking.md", "hitl-in-chat.md"],
+        });
+        const report = auditPackage("routed", tmp, 3);
+        expect(report.routedDemoIds).toEqual(["chat", "hitl-in-chat"]);
+        expect(report.mustErrors).toEqual([]);
+        expect(report.warnings).toEqual([]);
+      } finally {
+        fs.rmSync(tmp, { recursive: true, force: true });
+      }
     });
 
     it("warns with qa-under-coverage when qa count < demo count", () => {
-      // Fixture: 2 demos but only 1 QA doc. Distinct from spec-less (which
-      // omits a spec). Exercises the qa-under-coverage branch via a
-      // direct in-process auditPackage call (no CLI subprocess).
+      // Fixture: 2 demos but only 1 QA doc. Exercises the
+      // qa-under-coverage branch via a direct in-process auditPackage call
+      // (no CLI subprocess).
       const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "parity-qaundercov-"));
       try {
         writeFixturePackage(tmp, "qa-less", {
           manifest:
             "slug: qa-less\ndemos:\n  - id: chat\n    name: Chat\n  - id: tools\n    name: Tools\n",
           demoDirs: ["chat", "tools"],
-          specFiles: ["chat.spec.ts", "tools.spec.ts"],
           qaFiles: ["chat.md"],
         });
         const report = auditPackage("qa-less", tmp);
@@ -603,16 +590,15 @@ describe("validate-parity", () => {
       }
     });
 
-    it("warns with missing-qa category when a demo has spec but no qa file", () => {
-      // Fixture: demo has a spec but no qa — tests the per-demo
-      // missing-qa branch explicitly, distinct from the bucket-wide
-      // qa-under-coverage warning.
+    it("warns with missing-qa category when a demo has no qa file", () => {
+      // Fixture: demo has no qa. Tests the per-demo missing-qa branch
+      // explicitly, distinct from the bucket-wide qa-under-coverage
+      // warning.
       const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "parity-missqa-"));
       try {
         writeFixturePackage(tmp, "no-qa", {
           manifest: "slug: no-qa\ndemos:\n  - id: chat\n    name: Chat\n",
           demoDirs: ["chat"],
-          specFiles: ["chat.spec.ts"],
         });
         const report = auditPackage("no-qa", tmp);
         expect(
@@ -640,22 +626,6 @@ describe("validate-parity", () => {
             /demo count 1 deviates from baseline 5/.test(deriveMessage(w)),
         ),
       ).toBe(true);
-    });
-
-    it("uses structured warning category assertions instead of [WARN] prefix text", () => {
-      // Replaces brittle stderr [WARN] prefix scraping. Assert on the
-      // typed `warnings` array shape directly.
-      const report = auditPackage("missing-spec", FIXTURES_DIR);
-      const missingSpec = report.warnings.find(
-        (w) => w.category === "missing-spec",
-      );
-      expect(missingSpec).toBeDefined();
-      if (missingSpec && missingSpec.category === "missing-spec") {
-        expect(missingSpec.demoId).toBe("chat");
-        expect(deriveMessage(missingSpec)).toMatch(
-          /no tests\/e2e\/chat\.spec\.ts/,
-        );
-      }
     });
 
     it("elevates unreadable demos dir to MUST with unreadable-demos-dir and suppresses missing-demo-dir cascade", () => {
@@ -730,99 +700,8 @@ describe("validate-parity", () => {
       }
     });
 
-    it("elevates unreadable tests/e2e dir to MUST with unreadable-specs-dir and suppresses missing-spec cascade", () => {
-      // When tests/e2e/ is unreadable (EACCES etc.), the legacy
-      // behaviour was to report a listing-failed WARNING plus N
-      // missing-spec WARNING entries (one per declared demo), burying
-      // the EACCES root cause. New contract: one MUST error of
-      // category "unreadable-specs-dir", no per-demo missing-spec
-      // cascade, and the listing-failed warning is elevated (not
-      // duplicated into the warnings array).
-      const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "parity-specsunread-"));
-      try {
-        const pkgDir = path.join(tmp, "specs-unreadable");
-        fs.mkdirSync(path.join(pkgDir, "src", "app", "demos", "a"), {
-          recursive: true,
-        });
-        fs.mkdirSync(path.join(pkgDir, "src", "app", "demos", "b"), {
-          recursive: true,
-        });
-        fs.mkdirSync(path.join(pkgDir, "src", "app", "demos", "c"), {
-          recursive: true,
-        });
-        fs.mkdirSync(path.join(pkgDir, "tests", "e2e"), { recursive: true });
-        fs.mkdirSync(path.join(pkgDir, "qa"), { recursive: true });
-        fs.writeFileSync(path.join(pkgDir, "qa", "a.md"), "", "utf-8");
-        fs.writeFileSync(path.join(pkgDir, "qa", "b.md"), "", "utf-8");
-        fs.writeFileSync(path.join(pkgDir, "qa", "c.md"), "", "utf-8");
-        fs.writeFileSync(
-          path.join(pkgDir, "manifest.yaml"),
-          "slug: specs-unreadable\ndemos:\n  - id: a\n  - id: b\n  - id: c\n",
-          "utf-8",
-        );
-        const warnSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-        const origReaddir = fs.readdirSync;
-        const readdirSpy = vi.spyOn(fs, "readdirSync").mockImplementation(((
-          p: fs.PathLike,
-          ...rest: unknown[]
-        ) => {
-          const s = typeof p === "string" ? p : p.toString();
-          if (
-            s.endsWith(`${path.sep}tests${path.sep}e2e`) ||
-            s.endsWith("/tests/e2e")
-          ) {
-            const e: NodeJS.ErrnoException = Object.assign(
-              new Error("EACCES: permission denied"),
-              { code: "EACCES" },
-            );
-            throw e;
-          }
-          return (
-            origReaddir as unknown as (
-              p: fs.PathLike,
-              ...rest: unknown[]
-            ) => unknown
-          ).call(fs, p, ...rest);
-        }) as unknown as typeof fs.readdirSync);
-        try {
-          const report = auditPackage("specs-unreadable", tmp);
-          const unreadable = report.mustErrors.filter(
-            (e) => e.category === "unreadable-specs-dir",
-          );
-          expect(unreadable.length).toBe(1);
-          // No missing-spec cascade.
-          const missingSpec = report.warnings.filter(
-            (w) => w.category === "missing-spec",
-          );
-          expect(missingSpec.length).toBe(0);
-          // listing-failed for tests/e2e was elevated, not duplicated.
-          const listingFailedSpecs = report.warnings.filter(
-            (w) => w.category === "listing-failed" && /tests\/e2e/.test(w.path),
-          );
-          expect(listingFailedSpecs.length).toBe(0);
-          // Aggregate spec-under-coverage warning also suppressed —
-          // otherwise operators see "0 < 3" coverage noise on top of
-          // the EACCES root cause, burying the actionable signal.
-          const specUnderCoverage = report.warnings.filter(
-            (w) => w.category === "spec-under-coverage",
-          );
-          expect(specUnderCoverage.length).toBe(0);
-          // Sanity: qa cascade NOT suppressed (unrelated dir).
-          const missingQa = report.warnings.filter(
-            (w) => w.category === "missing-qa",
-          );
-          expect(missingQa.length).toBe(0); // all qa present
-        } finally {
-          readdirSpy.mockRestore();
-          warnSpy.mockRestore();
-        }
-      } finally {
-        fs.rmSync(tmp, { recursive: true, force: true });
-      }
-    });
-
     it("elevates unreadable qa dir to MUST with unreadable-qa-dir and suppresses missing-qa cascade", () => {
-      // Same contract as unreadable-specs-dir: one MUST error of
+      // Same contract as unreadable-demos-dir: one MUST error of
       // category "unreadable-qa-dir", missing-qa cascade suppressed,
       // listing-failed entry elevated (not duplicated).
       const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "parity-qaunread-"));
@@ -834,17 +713,6 @@ describe("validate-parity", () => {
         fs.mkdirSync(path.join(pkgDir, "src", "app", "demos", "b"), {
           recursive: true,
         });
-        fs.mkdirSync(path.join(pkgDir, "tests", "e2e"), { recursive: true });
-        fs.writeFileSync(
-          path.join(pkgDir, "tests", "e2e", "a.spec.ts"),
-          "",
-          "utf-8",
-        );
-        fs.writeFileSync(
-          path.join(pkgDir, "tests", "e2e", "b.spec.ts"),
-          "",
-          "utf-8",
-        );
         fs.mkdirSync(path.join(pkgDir, "qa"), { recursive: true });
         fs.writeFileSync(
           path.join(pkgDir, "manifest.yaml"),
@@ -883,7 +751,7 @@ describe("validate-parity", () => {
           );
           expect(missingQa.length).toBe(0);
           const listingFailedQa = report.warnings.filter(
-            (w) => w.category === "listing-failed" && /\/qa$/.test(w.path),
+            (w) => w.category === "listing-failed" && w.path.endsWith("/qa"),
           );
           expect(listingFailedQa.length).toBe(0);
           // Aggregate qa-under-coverage warning also suppressed — an
@@ -902,11 +770,11 @@ describe("validate-parity", () => {
       }
     });
 
-    it("still lists spec/qa files after a manifest failure so reporter counts are accurate", () => {
+    it("still lists qa files after a manifest failure so reporter counts are accurate", () => {
       // When manifest is malformed, MUST error still fires, but the
-      // reporter row benefits from knowing spec/qa counts. Early return
-      // was hiding those counts. New contract: specFiles / qaFiles
-      // populated with whatever is on disk.
+      // reporter row benefits from knowing the qa count. Early return
+      // was hiding those counts. New contract: qaFiles populated with
+      // whatever is on disk.
       const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "parity-manfail-"));
       try {
         const pkgDir = path.join(tmp, "manifest-bad");
@@ -917,13 +785,7 @@ describe("validate-parity", () => {
           "slug: manifest-bad\ndemos:\n  - id: a\n  invalid: [unclosed\n",
           "utf-8",
         );
-        // But qa + spec files exist.
-        fs.mkdirSync(path.join(pkgDir, "tests", "e2e"), { recursive: true });
-        fs.writeFileSync(
-          path.join(pkgDir, "tests", "e2e", "a.spec.ts"),
-          "",
-          "utf-8",
-        );
+        // But qa files exist.
         fs.mkdirSync(path.join(pkgDir, "qa"), { recursive: true });
         fs.writeFileSync(path.join(pkgDir, "qa", "a.md"), "", "utf-8");
         const report = auditPackage("manifest-bad", tmp);
@@ -931,8 +793,7 @@ describe("validate-parity", () => {
         expect(
           report.mustErrors.some((e) => e.category === "malformed-manifest"),
         ).toBe(true);
-        // specFiles / qaFiles populated from disk, not empty.
-        expect(report.specFiles).toEqual(["a.spec.ts"]);
+        // qaFiles populated from disk, not empty.
         expect(report.qaFiles).toEqual(["a.md"]);
       } finally {
         fs.rmSync(tmp, { recursive: true, force: true });
@@ -1061,6 +922,129 @@ describe("validate-parity", () => {
     });
   });
 
+  describe("auditSharedSuite", () => {
+    let root: string;
+
+    beforeEach(() => {
+      root = fs.mkdtempSync(path.join(os.tmpdir(), "parity-suite-"));
+    });
+
+    afterEach(() => {
+      fs.rmSync(root, { recursive: true, force: true });
+    });
+
+    it("reports each routed demo id without a spec once, sorted by id, with the packages that route it", () => {
+      // A spec that no package routes is allowed.
+      writeSharedSpecs(root, ["chat", "not-routed"]);
+      const issues = auditSharedSuite(sharedSuiteDir(root), [
+        packageReport("a-pkg", ["zeta", "chat"]),
+        packageReport("b-pkg", ["chat", "alpha", "zeta"]),
+      ]);
+      expect(issues).toEqual([
+        { category: "missing-spec", demoId: "alpha", routedBy: ["b-pkg"] },
+        {
+          category: "missing-spec",
+          demoId: "zeta",
+          routedBy: ["a-pkg", "b-pkg"],
+        },
+      ]);
+    });
+
+    it("reports every routed demo id when the suite folder does not exist", () => {
+      const issues = auditSharedSuite(sharedSuiteDir(root), [
+        packageReport("a-pkg", ["chat"]),
+      ]);
+      expect(issues).toEqual([
+        { category: "missing-spec", demoId: "chat", routedBy: ["a-pkg"] },
+      ]);
+    });
+
+    it("reports one unreadable-specs-dir issue, and no demo id, when the suite folder cannot be read", () => {
+      blockSharedSuite(root);
+      const specsDir = sharedSuiteDir(root);
+      const issues = auditSharedSuite(specsDir, [
+        packageReport("a-pkg", ["chat"]),
+      ]);
+      expect(issues).toEqual([
+        {
+          category: "unreadable-specs-dir",
+          path: specsDir,
+          error: expect.stringContaining("ENOTDIR"),
+        },
+      ]);
+    });
+  });
+
+  describe("runParity checks the shared e2e suite next to the packages folder", () => {
+    let tree: { root: string; packagesDir: string };
+
+    beforeEach(() => {
+      tree = makeMainTree();
+    });
+
+    afterEach(() => {
+      fs.rmSync(tree.root, { recursive: true, force: true });
+    });
+
+    // A package that routes the chat demo and passes every package check.
+    // It has no tests/e2e/ folder.
+    function writeChatPackage() {
+      writeFixturePackage(tree.packagesDir, "chat-pkg", {
+        manifest:
+          "slug: chat-pkg\ndemos:\n  - id: chat\n    route: /demos/chat\n",
+        demoDirs: ["chat"],
+        qaFiles: ["chat.md"],
+      });
+    }
+
+    // Runs runParity in process, and returns its exit code and output.
+    function runParityQuietly() {
+      const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+      try {
+        const code = runParity(tree.packagesDir, 1);
+        return { code, stderr: spyLines(errSpy), stdout: spyLines(logSpy) };
+      } finally {
+        errSpy.mockRestore();
+        logSpy.mockRestore();
+      }
+    }
+
+    it("exits 0 with nothing on stderr when every routed demo has a spec", () => {
+      writeChatPackage();
+      writeSharedSpecs(tree.root, ["chat"]);
+      const result = runParityQuietly();
+      expect(result.code).toBe(0);
+      expect(result.stderr).toEqual([]);
+      expect(result.stdout.at(-1)).toMatch(/; shared e2e suite: pass$/);
+    });
+
+    it("exits 1 and names the demo when a routed demo has no spec", () => {
+      writeChatPackage();
+      writeSharedSpecs(tree.root, []);
+      const result = runParityQuietly();
+      expect(result.code).toBe(1);
+      expect(result.stderr).toEqual([
+        "[FAIL] shared e2e suite: demo 'chat' (routed by chat-pkg) has no frontends/nextjs/tests/e2e/chat.spec.ts",
+      ]);
+      expect(result.stdout.at(-1)).toMatch(
+        /1 package\(s\) checked, 1 pass, 0 fail, 0 warning\(s\); shared e2e suite: fail$/,
+      );
+    });
+
+    it("emits exactly one [FAIL] line for an unreadable suite folder (no duplicate from the helper, no per-demo cascade)", () => {
+      writeChatPackage();
+      blockSharedSuite(tree.root);
+      const result = runParityQuietly();
+      expect(result.code).toBe(1);
+      expect(result.stderr).toEqual([
+        expect.stringMatching(
+          /^\[FAIL\] shared e2e suite: unreadable specs directory: failed to read directory .*frontends\/nextjs\/tests\/e2e: ENOTDIR/,
+        ),
+      ]);
+    });
+  });
+
   describe("listDirs / listFiles graceful error handling", () => {
     let tmpDir: string;
 
@@ -1179,81 +1163,6 @@ describe("validate-parity", () => {
       }
     });
 
-    it("runParity emits exactly one [WARN] line per listing failure (no duplicate from helper)", () => {
-      // End-to-end guarantee for the single-emission contract:
-      // auditPackage routes listing-failed through warnings[] and
-      // runParity iterates warnings to emit one line each. The helper
-      // must not also log, otherwise the operator sees N*2 lines.
-      const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "parity-singleemit-"));
-      try {
-        // Build a package with a readable demos dir but unreadable
-        // tests/e2e — listDirs succeeds on demos, listFiles fails on
-        // tests/e2e producing ONE listing-failed warning (which then
-        // gets elevated to unreadable-specs-dir MUST — so we instead
-        // trigger a scenario that leaves listing-failed in warnings).
-        //
-        // Simpler: unreadable a non-elevated path by making demos dir
-        // exist but inaccessible at a non-target sub-location. The
-        // existing elevation only suppresses duplicates for the three
-        // known target paths, so to assert the no-duplicate property we
-        // pick a target path (tests/e2e) and verify elevation path ALSO
-        // emits no duplicate stderr line.
-        const pkgDir = path.join(tmp, "one-warn");
-        fs.mkdirSync(path.join(pkgDir, "src", "app", "demos", "a"), {
-          recursive: true,
-        });
-        fs.mkdirSync(path.join(pkgDir, "tests", "e2e"), { recursive: true });
-        fs.mkdirSync(path.join(pkgDir, "qa"), { recursive: true });
-        fs.writeFileSync(path.join(pkgDir, "qa", "a.md"), "", "utf-8");
-        fs.writeFileSync(
-          path.join(pkgDir, "manifest.yaml"),
-          "slug: one-warn\ndemos:\n  - id: a\n",
-          "utf-8",
-        );
-        const origReaddir = fs.readdirSync;
-        const readdirSpy = vi.spyOn(fs, "readdirSync").mockImplementation(((
-          p: fs.PathLike,
-          ...rest: unknown[]
-        ) => {
-          const s = typeof p === "string" ? p : p.toString();
-          if (
-            s.endsWith(`${path.sep}tests${path.sep}e2e`) ||
-            s.endsWith("/tests/e2e")
-          ) {
-            const e: NodeJS.ErrnoException = Object.assign(
-              new Error("EACCES: permission denied"),
-              { code: "EACCES" },
-            );
-            throw e;
-          }
-          return (
-            origReaddir as unknown as (
-              p: fs.PathLike,
-              ...rest: unknown[]
-            ) => unknown
-          ).call(fs, p, ...rest);
-        }) as unknown as typeof fs.readdirSync);
-        const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-        const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-        try {
-          runParity(tmp, 1);
-          // Count the number of stderr lines that reference the
-          // tests/e2e path — we want exactly one (elevated as
-          // unreadable-specs-dir MUST), not one from the helper + one
-          // from the caller iteration.
-          const lines = errSpy.mock.calls.map((c) => String(c[0]));
-          const e2eRefs = lines.filter((l) => /tests\/e2e/.test(l));
-          expect(e2eRefs.length, lines.join("\n")).toBe(1);
-        } finally {
-          readdirSpy.mockRestore();
-          errSpy.mockRestore();
-          logSpy.mockRestore();
-        }
-      } finally {
-        fs.rmSync(tmp, { recursive: true, force: true });
-      }
-    });
-
     it("listDirs surfaces EACCES (unreadable) as listing-failed, not as silent 'missing'", () => {
       // Regression: fs.existsSync returns false for EACCES just as it
       // does for ENOENT, so using existsSync as the "missing" gate
@@ -1363,9 +1272,9 @@ describe("validate-parity", () => {
 
     it("listDirs surfaces ENOTDIR (path component is a file) as listing-failed, not silent 'missing'", () => {
       // Regression: ENOTDIR means "a component in the path is a
-      // regular file, not a directory" — e.g. someone committed a
-      // stray file at integrations/foo/tests and we try to walk into
-      // integrations/foo/tests/e2e. That's a misconfiguration (not a
+      // regular file, not a directory", for example a stray file
+      // committed at frontends/nextjs/tests when we walk into
+      // frontends/nextjs/tests/e2e. That's a misconfiguration (not a
       // legitimately-absent directory), and collapsing it into
       // { kind: "missing" } silently drops the entire subtree from
       // parity checks with zero warning, zero anomaly surfaced.
@@ -1379,10 +1288,13 @@ describe("validate-parity", () => {
       const target = path.join(stray, "e2e");
       const result = listDirs(target);
       expect(result.entries).toEqual([]);
-      expect(result.warnings.length, JSON.stringify(result)).toBe(1);
-      expect(result.warnings[0].category).toBe("listing-failed");
-      expect(result.warnings[0].path).toBe(target);
-      expect(deriveMessage(result.warnings[0])).toMatch(/ENOTDIR/);
+      expect(result.warnings).toEqual([
+        {
+          category: "listing-failed",
+          path: target,
+          error: expect.stringContaining("ENOTDIR"),
+        },
+      ]);
     });
 
     it("listFiles surfaces ENOTDIR (path component is a file) as listing-failed, not silent 'missing'", () => {
@@ -1393,10 +1305,13 @@ describe("validate-parity", () => {
       const target = path.join(stray, "specs");
       const result = listFiles(target, ".md");
       expect(result.entries).toEqual([]);
-      expect(result.warnings.length, JSON.stringify(result)).toBe(1);
-      expect(result.warnings[0].category).toBe("listing-failed");
-      expect(result.warnings[0].path).toBe(target);
-      expect(deriveMessage(result.warnings[0])).toMatch(/ENOTDIR/);
+      expect(result.warnings).toEqual([
+        {
+          category: "listing-failed",
+          path: target,
+          error: expect.stringContaining("ENOTDIR"),
+        },
+      ]);
     });
 
     it("listDirs / listFiles return results in sorted order", () => {
@@ -1469,12 +1384,15 @@ describe("validate-parity", () => {
     }
 
     it("exits 0 when there are no MUST failures", () => {
+      // The routed demo's spec sits in <root>/frontends/nextjs/tests/e2e/,
+      // so this also pins where the CLI looks for the shared suite.
       writeFixturePackage(tree.packagesDir, "ok-pkg", {
-        manifest: "slug: ok-pkg\ndemos:\n  - id: chat\n    name: Chat\n",
+        manifest:
+          "slug: ok-pkg\ndemos:\n  - id: chat\n    name: Chat\n    route: /demos/chat\n",
         demoDirs: ["chat"],
-        specFiles: ["chat.spec.ts"],
         qaFiles: ["chat.md"],
       });
+      writeSharedSpecs(tree.root, ["chat"]);
       const r = runCli([], {
         env: { VALIDATE_PARITY_REPO_ROOT: tree.root },
       });
@@ -1528,7 +1446,6 @@ describe("validate-parity", () => {
       writeFixturePackage(tree.packagesDir, "only-pkg", {
         manifest: "slug: only-pkg\ndemos:\n  - id: chat\n    name: Chat\n",
         demoDirs: ["chat"],
-        specFiles: ["chat.spec.ts"],
         qaFiles: ["chat.md"],
       });
       const r = runCli([], {
@@ -1545,7 +1462,6 @@ describe("validate-parity", () => {
       writeFixturePackage(tree.packagesDir, "only-pkg", {
         manifest: "slug: only-pkg\ndemos:\n  - id: chat\n    name: Chat\n",
         demoDirs: ["chat"],
-        specFiles: ["chat.spec.ts"],
         qaFiles: ["chat.md"],
       });
       const r = runCli(["--baseline=5"], {
@@ -1560,7 +1476,6 @@ describe("validate-parity", () => {
       writeFixturePackage(tree.packagesDir, "only-pkg", {
         manifest: "slug: only-pkg\ndemos:\n  - id: chat\n    name: Chat\n",
         demoDirs: ["chat"],
-        specFiles: ["chat.spec.ts"],
         qaFiles: ["chat.md"],
       });
       const r = runCli([], {
@@ -1588,7 +1503,6 @@ describe("validate-parity", () => {
         writeFixturePackage(tree.packagesDir, "only-pkg", {
           manifest: "slug: only-pkg\ndemos:\n  - id: chat\n    name: Chat\n",
           demoDirs: ["chat"],
-          specFiles: ["chat.spec.ts"],
           qaFiles: ["chat.md"],
         });
         const r = runCli([], {
@@ -1609,7 +1523,6 @@ describe("validate-parity", () => {
       writeFixturePackage(tree.packagesDir, "only-pkg", {
         manifest: "slug: only-pkg\ndemos:\n  - id: chat\n    name: Chat\n",
         demoDirs: ["chat"],
-        specFiles: ["chat.spec.ts"],
         qaFiles: ["chat.md"],
       });
       const r = runCli(["--baseline=abc"], {
@@ -1628,7 +1541,6 @@ describe("validate-parity", () => {
       writeFixturePackage(tree.packagesDir, "only-pkg", {
         manifest: "slug: only-pkg\ndemos:\n  - id: chat\n    name: Chat\n",
         demoDirs: ["chat"],
-        specFiles: ["chat.spec.ts"],
         qaFiles: ["chat.md"],
       });
       const r = runCli(["--baseline=9", "--basline=10"], {
@@ -1647,7 +1559,6 @@ describe("validate-parity", () => {
       writeFixturePackage(tree.packagesDir, "only-pkg", {
         manifest: "slug: only-pkg\ndemos:\n  - id: chat\n    name: Chat\n",
         demoDirs: ["chat"],
-        specFiles: ["chat.spec.ts"],
         qaFiles: ["chat.md"],
       });
       const r = runCli(["--baseline=9", "--baseline=12"], {
@@ -1669,7 +1580,6 @@ describe("validate-parity", () => {
       writeFixturePackage(tree.packagesDir, "boom-pkg", {
         manifest: "slug: boom-pkg\ndemos:\n  - id: chat\n    name: Chat\n",
         demoDirs: ["chat"],
-        specFiles: ["chat.spec.ts"],
         qaFiles: ["chat.md"],
       });
       const preload = fs.mkdtempSync(path.join(os.tmpdir(), "parity-preload-"));
@@ -1773,7 +1683,7 @@ Object.freeze = function(o) {
           // Stderr must carry both the outer wrapping context AND the
           // root cause, surfaced by walking the error cause chain so
           // operators see the underlying failure text.
-          const stderr = errSpy.mock.calls.map((c) => String(c[0])).join("\n");
+          const stderr = spyLines(errSpy).join("\n");
           expect(stderr).toMatch(/\[INTERNAL ERROR\] validate-parity crashed/);
           expect(stderr).toMatch(/audit of boom-pkg crashed/);
           expect(stderr).toMatch(/caused by:/);
@@ -1802,14 +1712,12 @@ Object.freeze = function(o) {
         writeFixturePackage(tmp, "a-ok", {
           manifest: "slug: a-ok\ndemos:\n  - id: chat\n    name: Chat\n",
           demoDirs: ["chat"],
-          specFiles: ["chat.spec.ts"],
           qaFiles: ["chat.md"],
         });
         // Package B: will be poisoned to throw via Object.freeze spy.
         writeFixturePackage(tmp, "b-boom", {
           manifest: "slug: b-boom\ndemos:\n  - id: poison\n    name: Poison\n",
           demoDirs: ["poison"],
-          specFiles: ["poison.spec.ts"],
           qaFiles: ["poison.md"],
         });
         // Package C: legitimate — should ALSO produce a pass row and
@@ -1817,7 +1725,6 @@ Object.freeze = function(o) {
         writeFixturePackage(tmp, "c-ok", {
           manifest: "slug: c-ok\ndemos:\n  - id: chat\n    name: Chat\n",
           demoDirs: ["chat"],
-          specFiles: ["chat.spec.ts"],
           qaFiles: ["chat.md"],
         });
 
@@ -1854,7 +1761,7 @@ Object.freeze = function(o) {
 
           // All three slugs must show up in the pass/summary table —
           // the crashed one with [FAIL], the others with [PASS].
-          const stdout = logSpy.mock.calls.map((c) => String(c[0])).join("\n");
+          const stdout = spyLines(logSpy).join("\n");
           expect(stdout, stdout).toMatch(/a-ok\s+\[PASS\]/);
           expect(stdout, stdout).toMatch(/c-ok\s+\[PASS\]/);
           expect(stdout, stdout).toMatch(/b-boom\s+\[FAIL\]/);
@@ -1862,7 +1769,7 @@ Object.freeze = function(o) {
           // Crashed slug surfaces as a structured issue + emits a
           // [FAIL] line to stderr (not just the top-level [INTERNAL
           // ERROR] banner) so operators can scan the per-package list.
-          const stderr = errSpy.mock.calls.map((c) => String(c[0])).join("\n");
+          const stderr = spyLines(errSpy).join("\n");
           expect(stderr, stderr).toMatch(/\[FAIL\] b-boom:/);
           expect(stderr, stderr).toMatch(/synthetic b-boom failure/);
         } finally {
@@ -1947,7 +1854,6 @@ Object.freeze = function(o) {
         writeFixturePackage(packagesDir, "only-pkg", {
           manifest: "slug: only-pkg\ndemos:\n  - id: chat\n    name: Chat\n",
           demoDirs: ["chat"],
-          specFiles: ["chat.spec.ts"],
           qaFiles: ["chat.md"],
         });
         const r = spawnSync("npx", ["tsx", PARITY_SCRIPT, "--baseline=1.5"], {
@@ -1979,18 +1885,7 @@ Object.freeze = function(o) {
       // count is identical on both sides.
       const slugWidth = 10;
       const header = buildHeader(slugWidth);
-      const row = formatRow(
-        {
-          slug: "short",
-          demoIds: ["a"],
-          specFiles: ["a.spec.ts"],
-          qaFiles: ["a.md"],
-          demoDirs: ["a"],
-          mustErrors: [],
-          warnings: [],
-        },
-        slugWidth,
-      );
+      const row = formatRow(packageReport("short", ["a"]), slugWidth);
       expect(row.length).toBe(header.length);
     });
 
@@ -2000,15 +1895,7 @@ Object.freeze = function(o) {
       // width (or the slug width at index 0). This locks the contract
       // without depending on how cells are joined into a line.
       const slugWidth = 12;
-      const report = {
-        slug: "p".padEnd(slugWidth, "p"),
-        demoIds: ["a"],
-        specFiles: ["a.spec.ts"],
-        qaFiles: ["a.md"],
-        demoDirs: ["a"],
-        mustErrors: [],
-        warnings: [],
-      };
+      const report = packageReport("p".padEnd(slugWidth, "p"), ["a"]);
       const row = formatRow(report, slugWidth);
       const header = buildHeader(slugWidth);
       // Sum of column widths + separators is identical on both sides.
@@ -2047,7 +1934,6 @@ Object.freeze = function(o) {
       writeFixturePackage(tree.packagesDir, "ok-pkg", {
         manifest: "slug: ok-pkg\ndemos:\n  - id: chat\n    name: Chat\n",
         demoDirs: ["chat"],
-        specFiles: ["chat.spec.ts"],
         qaFiles: ["chat.md"],
       });
       writeFixturePackage(tree.packagesDir, "bad-pkg", {
@@ -2187,10 +2073,12 @@ Object.freeze = function(o) {
       expect(
         deriveMessage({
           category: "unreadable-specs-dir",
-          path: "/x/y/tests/e2e",
+          path: "/x/y/frontends/nextjs/tests/e2e",
           error: "EACCES",
         }),
-      ).toMatch(/unreadable specs directory/);
+      ).toBe(
+        "unreadable specs directory: failed to read directory /x/y/frontends/nextjs/tests/e2e: EACCES",
+      );
     });
 
     it("renders unreadable-qa-dir including the failing path", () => {
@@ -2203,9 +2091,15 @@ Object.freeze = function(o) {
       ).toMatch(/unreadable qa directory/);
     });
 
-    it("renders missing-spec including the demo id", () => {
-      expect(deriveMessage({ category: "missing-spec", demoId: "tools" })).toBe(
-        "demo 'tools' has no tests/e2e/tools.spec.ts",
+    it("renders missing-spec with the demo id, the packages that route it, and the shared suite path", () => {
+      expect(
+        deriveMessage({
+          category: "missing-spec",
+          demoId: "tools",
+          routedBy: ["a-pkg", "b-pkg"],
+        }),
+      ).toBe(
+        "demo 'tools' (routed by a-pkg, b-pkg) has no frontends/nextjs/tests/e2e/tools.spec.ts",
       );
     });
 
@@ -2223,16 +2117,6 @@ Object.freeze = function(o) {
           baseline: 9,
         }),
       ).toBe("demo count 1 deviates from baseline 9");
-    });
-
-    it("renders spec-under-coverage with the counts", () => {
-      expect(
-        deriveMessage({
-          category: "spec-under-coverage",
-          specCount: 1,
-          demoCount: 2,
-        }),
-      ).toBe("spec count 1 < demo count 2");
     });
 
     it("renders qa-under-coverage with the counts", () => {
@@ -2275,13 +2159,13 @@ Object.freeze = function(o) {
       (r1.mustErrors as PackageIssue[]).push(fakeIssue);
       (r1.warnings as PackageIssue[]).push(fakeIssue);
       (r1.demoIds as string[]).push("__mutated-demo__");
-      (r1.specFiles as string[]).push("__mutated-spec__.ts");
+      (r1.routedDemoIds as string[]).push("__mutated-route__");
       (r1.qaFiles as string[]).push("__mutated-qa__.md");
       (r1.demoDirs as string[]).push("__mutated-demo-dir__");
       expect(r2.mustErrors).not.toContain(fakeIssue);
       expect(r2.warnings).not.toContain(fakeIssue);
       expect(r2.demoIds).not.toContain("__mutated-demo__");
-      expect(r2.specFiles).not.toContain("__mutated-spec__.ts");
+      expect(r2.routedDemoIds).not.toContain("__mutated-route__");
       expect(r2.qaFiles).not.toContain("__mutated-qa__.md");
       expect(r2.demoDirs).not.toContain("__mutated-demo-dir__");
     });
@@ -2297,7 +2181,6 @@ Object.freeze = function(o) {
         writeFixturePackage(packagesDir, "only-pkg", {
           manifest: "slug: only-pkg\ndemos:\n  - id: chat\n    name: Chat\n",
           demoDirs: ["chat"],
-          specFiles: ["chat.spec.ts"],
           qaFiles: ["chat.md"],
         });
         const originalArgv = process.argv;
@@ -2321,9 +2204,7 @@ Object.freeze = function(o) {
             // With explicit baseline=5 passed, argv must be skipped.
             expect(code).toBe(0);
             // And no "invalid --baseline value" must have been logged.
-            const errCalls = errSpy.mock.calls
-              .map((c) => c.join(" "))
-              .join("\n");
+            const errCalls = spyLines(errSpy).join("\n");
             expect(errCalls).not.toMatch(/invalid --baseline value/);
           } finally {
             logSpy.mockRestore();
@@ -2355,5 +2236,19 @@ describe("routeToDirName", () => {
   it("strips the /demos/ prefix and returns the tail segment", () => {
     expect(routeToDirName("/demos/hitl")).toBe("hitl");
     expect(routeToDirName("/demos/agentic-chat")).toBe("agentic-chat");
+  });
+});
+
+describe("routedDemoIds", () => {
+  it("returns each routed demo id once, in manifest order, and skips entries without a route", () => {
+    expect(
+      routedDemoIds([
+        { route: "/demos/chat" },
+        { route: "/demos/hitl-in-chat" },
+        {},
+        { route: "/demos/hitl-in-chat" },
+        { route: "/demos/chat" },
+      ]),
+    ).toEqual(["chat", "hitl-in-chat"]);
   });
 });

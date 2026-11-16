@@ -26,13 +26,15 @@ import {
   canonicalizeForIsMain,
   BORN_IN_SHOWCASE,
   SLUG_TO_EXAMPLES,
-  type Anomaly,
 } from "../audit.js";
+import type { Anomaly } from "../audit.js";
 import {
   makeTmpTree,
   makeConfig,
   writePackage,
   makeExampleDir,
+  sharedSuiteDir,
+  writeSharedSpecs,
 } from "./audit.shared.js";
 
 describe("readManifest", () => {
@@ -279,24 +281,18 @@ describe("auditPackage — EACCES on spec dir stat → unreadable-dir anomaly (n
     fs.rmSync(root, { recursive: true, force: true });
   });
 
-  it("EACCES on statSync of tests/e2e → unreadable-dir anomaly, no phantom count-mismatch", () => {
-    // End-to-end: when the e2e dir's stat fails with EACCES, the package
-    // must surface an `unreadable-dir` anomaly — NOT a `count-mismatch`
-    // claiming 0 specs against declared demos. Previously the existsSync
-    // gate in countFiles collapsed EACCES to `missing` (count=0), which
-    // then compared unequal against demos and fired a phantom mismatch.
+  it("EACCES on statSync of the shared suite folder → unreadable-dir anomaly, no phantom count-mismatch", () => {
+    // End-to-end: when the shared suite folder's stat fails with EACCES,
+    // the package must surface an `unreadable-dir` anomaly, NOT a
+    // `count-mismatch` claiming 0 specs against its routed demo. Previously
+    // the existsSync gate in countFiles collapsed EACCES to `missing`
+    // (count=0), which then compared unequal and fired a phantom mismatch.
     writePackage(root, "eacces-e2e", {
-      manifest: `slug: eacces-e2e\ndeployed: true\ndemos:\n  - id: a\n`,
-      specs: ["a.spec.ts"],
+      manifest: `slug: eacces-e2e\ndeployed: true\ndemos:\n  - id: a\n    route: /demos/a\n`,
       qaFiles: ["a.md"],
     });
-    const e2eDir = path.join(
-      root,
-      "integrations",
-      "eacces-e2e",
-      "tests",
-      "e2e",
-    );
+    writeSharedSpecs(root, ["a"]);
+    const e2eDir = sharedSuiteDir(root);
     const orig = fs.statSync;
     const spy = vi.spyOn(fs, "statSync").mockImplementation(((
       p: fs.PathLike,
@@ -325,6 +321,7 @@ describe("auditPackage — EACCES on spec dir stat → unreadable-dir anomaly (n
         `expected unreadable-dir anomaly, got: ${JSON.stringify(a.anomalies)}`,
       ).toBeDefined();
       if (unreadable) {
+        expect(unreadable.dir).toBe(e2eDir);
         expect(unreadable.error).toContain("EACCES");
       }
       // MUST NOT fire a phantom spec count-mismatch (unreadable !== zero).
@@ -922,9 +919,8 @@ describe("UnreadableDirError", () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "audit-unreadable-"));
     try {
       const cfg = {
+        ...makeConfig(root),
         packagesDir: path.join(root, "does-not-exist"),
-        examplesIntegrationsDir: path.join(root, "examples", "integrations"),
-        repoRoot: root,
       };
       let thrown: unknown = null;
       try {

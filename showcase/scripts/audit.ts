@@ -2,7 +2,8 @@
  * Showcase Audit CLI
  *
  * Walks showcase/integrations/* and emits a human-readable coverage report
- * comparing declared demos vs. e2e spec files vs. QA markdown, plus
+ * comparing declared demos vs. the shared e2e suite's spec files
+ * (showcase/frontends/nextjs/tests/e2e/) vs. QA markdown, plus
  * deployment status and examples/integrations provenance.
  *
  * Usage:
@@ -42,12 +43,10 @@
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import {
-  parseManifest,
-  type Manifest,
-  type ParsedManifest,
-} from "./lib/manifest.js";
+import { parseManifest } from "./lib/manifest.js";
+import type { Manifest, ParsedManifest } from "./lib/manifest.js";
 import { BORN_IN_SHOWCASE, SLUG_TO_EXAMPLES } from "./lib/slug-map.js";
+import { routedDemoIds, sharedSpecsDir } from "./validate-parity.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -96,6 +95,11 @@ interface AuditConfig {
   packagesDir: string;
   examplesIntegrationsDir: string;
   repoRoot: string;
+  /**
+   * The shared e2e suite, with one `<demo-id>.spec.ts` per demo id. The
+   * specs column counts the files here that cover a package's routed demos.
+   */
+  sharedSpecsDir: string;
 }
 
 // Exit-code constants — see the module header JSDoc for the full
@@ -304,11 +308,13 @@ function buildCliConfig(): AuditConfig {
       throw new UnreadableDirError(envRoot, new Error(msg, { cause: e }));
     }
     // Tests: SHOWCASE_AUDIT_ROOT=/tmp/fixture → /tmp/fixture/packages,
-    // /tmp/fixture/examples/integrations, repoRoot = /tmp/fixture.
+    // /tmp/fixture/examples/integrations, repoRoot = /tmp/fixture, and the
+    // shared suite at /tmp/fixture/frontends/nextjs/tests/e2e.
     return {
       packagesDir: path.join(envRoot, "integrations"),
       examplesIntegrationsDir: path.join(envRoot, "examples", "integrations"),
       repoRoot: envRoot,
+      sharedSpecsDir: sharedSpecsDir(envRoot),
     };
   }
   const showcaseRoot = path.resolve(__dirname, "..");
@@ -317,6 +323,7 @@ function buildCliConfig(): AuditConfig {
     packagesDir: path.join(showcaseRoot, "integrations"),
     examplesIntegrationsDir: path.join(repoRoot, "examples", "integrations"),
     repoRoot,
+    sharedSpecsDir: sharedSpecsDir(showcaseRoot),
   };
 }
 
@@ -649,10 +656,15 @@ function resolveExamplesSource(
 function auditPackage(slug: string, cfg: AuditConfig): PackageAudit {
   const manifestRes = readManifest(slug, cfg);
   const pkgDir = path.join(cfg.packagesDir, slug);
-  const e2eDir = path.join(pkgDir, "tests", "e2e");
   const qaDir = path.join(pkgDir, "qa");
 
-  const specRes = countFiles(e2eDir, (n) => n.endsWith(".spec.ts"));
+  // The specs column counts the shared-suite specs that cover this
+  // package's demos: `<demo-id>.spec.ts` for each demo id the manifest
+  // routes. A manifest that did not parse routes no demo.
+  const routedIds =
+    manifestRes.kind === "ok" ? routedDemoIds(manifestRes.manifest.demos) : [];
+  const specNames = new Set(routedIds.map((id) => `${id}.spec.ts`));
+  const specRes = countFiles(cfg.sharedSpecsDir, (n) => specNames.has(n));
   const qaRes = countFiles(qaDir, (n) => n.endsWith(".md"));
 
   // findExamplesSource records stale SLUG_TO_EXAMPLES / statSync-race
@@ -689,7 +701,7 @@ function auditPackage(slug: string, cfg: AuditConfig): PackageAudit {
   if (specRes.state === "unreadable") {
     anomalies.push({
       kind: "unreadable-dir",
-      dir: e2eDir,
+      dir: cfg.sharedSpecsDir,
       error: specRes.error,
     });
   }
@@ -727,27 +739,32 @@ function auditPackage(slug: string, cfg: AuditConfig): PackageAudit {
       // number; "missing" implies count=0 which IS a legitimate data
       // point for parity comparison.
       //
+      // The spec dimension expects one shared-suite spec per routed demo
+      // id. Two manifest entries can share a route (hitl-in-chat-booking
+      // uses /demos/hitl-in-chat), so the routed count can be lower than
+      // the demo count.
+      //
       // Informational-only demos (e.g. cli-start entries with a
       // `command:` field) live in the registry but have no on-disk
-      // folder + no spec/qa file to audit. Exclude them from the
+      // folder + no qa file to audit. Exclude them from the qa
       // count-mismatch denominator so audit.ts agrees with
       // validate-parity.ts on which packages are "clean" — otherwise
       // a package that's clean per parity would spuriously flag a
       // count mismatch here. Mirrors the `!d.command` filter in
-      // validate-parity.ts :: auditPackage (~line 723, the
+      // validate-parity.ts :: auditPackage (the
       // `auditableDemos` derivation). `demosDeclared` on the
       // PackageAudit still carries the RAW manifest count (summary
       // table + JSON consumers depend on that); only the parity
       // comparison uses the filtered count.
       const auditableDemosDeclared = manifest.demos.filter(
-        (d) => !(d as { command?: string }).command,
+        (d) => !d.command,
       ).length;
       const specCount = countValue(specRes);
-      if (specCount !== null && specCount !== auditableDemosDeclared) {
+      if (specCount !== null && specCount !== routedIds.length) {
         anomalies.push({
           kind: "count-mismatch",
           dimension: "spec",
-          expected: auditableDemosDeclared,
+          expected: routedIds.length,
           actual: specCount,
         });
       }
@@ -1133,7 +1150,7 @@ function renderHealthSection(report: AuditReport): string {
   const suggestions: string[] = [];
   if (report.anomalies.countMismatches.length > 0) {
     suggestions.push(
-      "Align demos/specs/qa counts — each declared demo should have exactly one spec and one QA doc.",
+      "Add the missing specs and QA docs: each routed demo needs a spec in frontends/nextjs/tests/e2e/, and each declared demo needs a QA doc.",
     );
   }
   if (report.anomalies.notDeployed.length > 0) {
