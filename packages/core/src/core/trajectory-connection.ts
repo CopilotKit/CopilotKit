@@ -160,11 +160,14 @@ export class TrajectoryConnection {
   // Core-scoped high water mark prevents collisions after reconnect or stop/start.
   // Gateway drops a seq it already stored for the Trajectory yet acknowledges it
   // as accepted, and a reload or second tab can reuse the id. Starting at the
-  // creation time in microseconds keeps later Cores above earlier ones and
+  // first start time in microseconds keeps later Cores above earlier ones and
   // stays a safe integer until about 2255. Seqs can still collide only if two
   // Cores start the same Trajectory in one millisecond, or if a Core averages
   // more than 1000 events per millisecond, or if the clock goes back.
-  private nextSeq = Math.floor(Date.now()) * 1000;
+  // Set by the first start(), not at construction: frameworks build the Core
+  // while rendering, and some (Next.js with cacheComponents) reject reading
+  // the clock there.
+  private nextSeq: number | undefined;
 
   constructor(
     private readonly core: CopilotKitCore,
@@ -186,6 +189,7 @@ export class TrajectoryConnection {
       return this.session.promise;
     }
     this.stop();
+    this.nextSeq ??= Math.floor(Date.now()) * 1000;
     const id = trajectoryId ?? crypto.randomUUID();
     let resolveStart!: (result: StartResult) => void;
     const promise = new Promise<StartResult>((resolve) => {
@@ -658,11 +662,14 @@ export class TrajectoryConnection {
       this.fail(session, connection, "CONNECTION_LOST");
       return;
     }
-    if (!Number.isSafeInteger(this.nextSeq)) {
+    // start() set nextSeq before any session could send.
+    const seq = this.nextSeq ?? 0;
+    if (!Number.isSafeInteger(seq)) {
       this.addDropped(session, 1);
       this.report(session, "SEQUENCE_EXHAUSTED");
       return;
     }
+    this.nextSeq = seq + 1;
     const original = event.value;
     const fields =
       isObject(original) &&
@@ -672,7 +679,7 @@ export class TrajectoryConnection {
         : { data: original };
     const wire: WireEvent = {
       ...event,
-      value: { ...fields, seq: this.nextSeq++ },
+      value: { ...fields, seq },
     };
     if (byteLength(wire) > MAX_EVENT_BYTES) {
       this.addDropped(session, 1);
