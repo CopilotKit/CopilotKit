@@ -486,9 +486,12 @@ describe("ActionRegistry", () => {
           reg.rescopeActions(tree, { conversationKey: "conv1" }),
       ],
       [
-        "setting an owner",
+        "opening a choice gate",
         (reg: ActionRegistry, id: string) =>
-          reg.setActionOwner([id], "actor-1"),
+          reg.openChoiceGate([id], {
+            lifetimeMs: Infinity,
+            ownerActorId: "actor-1",
+          }),
       ],
     ])("never lets %s carry an action past its gate", async (_label, renew) => {
       vi.useFakeTimers();

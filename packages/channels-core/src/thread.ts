@@ -1,6 +1,6 @@
 import type { PlatformAdapter, ReplyTarget } from "./platform-adapter.js";
 import { ActionInitiatorMismatchError } from "./action-registry.js";
-import type { ActionRegistry } from "./action-registry.js";
+import type { ActionRegistry, ChoiceGate } from "./action-registry.js";
 import type {
   ActionContinuationContext,
   ActionContinuationSnapshot,
@@ -151,11 +151,13 @@ export interface ThreadDeps {
    * Claim a picker's controls for `actorId` (`undefined`: anyone) before the
    * picker is posted: until {@link registerWaiter} opens its choice, no click
    * runs them. Returns a function that abandons the claim (and revokes the
-   * controls) if the picker never became a pending choice.
+   * controls, and takes `choiceGate`) if the picker never became a pending
+   * choice.
    */
   reserveChoiceControls: (
     controlIds: Iterable<string>,
     actorId: string | undefined,
+    choiceGate?: ChoiceGate,
   ) => () => void;
   interruptHandlers: Map<
     string,
@@ -881,11 +883,21 @@ export class Thread implements ThreadInterface {
       const ir = await this.prepareNative(bound.root);
       const controls = collectChoiceControls(ir, unboundActionIds);
       // The controls' ids can reach the platform as soon as the post starts:
-      // claim them for this choice first, and revoke them if the post fails.
-      if (actorId !== undefined) {
-        await this.deps.registry.setActionOwner(controls.keys(), actorId);
-      }
-      const abandon = this.deps.reserveChoiceControls(controls.keys(), actorId);
+      // open the picker's shared gate and claim the controls for this choice
+      // first (a failed write means nothing is posted), and revoke them if
+      // the post fails.
+      const choiceGate = await this.deps.registry.openChoiceGate(
+        controls.keys(),
+        {
+          lifetimeMs: timeoutMs,
+          ...(actorId !== undefined ? { ownerActorId: actorId } : {}),
+        },
+      );
+      const abandon = this.deps.reserveChoiceControls(
+        controls.keys(),
+        actorId,
+        choiceGate,
+      );
       let ref: MessageRef;
       try {
         ref = await this.deps.adapter.post(this.deps.replyTarget, ir);
@@ -918,6 +930,7 @@ export class Thread implements ThreadInterface {
             platform: this.platform,
             controls,
             actorId,
+            choiceGate,
           },
         );
         // Give up on the choice: retire the picker so it answers nothing more,
@@ -1454,6 +1467,11 @@ export interface ChoiceWaiter {
    * or `undefined` when anyone in the conversation may (`"conversation"`).
    */
   actorId?: string;
+  /**
+   * The picker's one-shot gate: the click that answers it takes the gate,
+   * and retiring the picker takes it too, in the store every process shares.
+   */
+  choiceGate?: ChoiceGate;
 }
 
 /**

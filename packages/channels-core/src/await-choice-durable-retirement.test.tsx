@@ -1,0 +1,232 @@
+import { Actions, Button } from "@copilotkit/channels-ui";
+import type { ChannelNode, ProviderActor } from "@copilotkit/channels-ui";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { createChannel } from "./create-channel.js";
+import type { Channel } from "./create-channel.js";
+import { MemoryStore } from "./state/memory-store.js";
+import { FakeAdapter } from "./testing/fake-adapter.js";
+import { FakeAgent } from "./testing/fake-agent.js";
+
+/**
+ * A settled picker must stay settled for every process sharing the store:
+ * after its snapshot delete fails, after a restart, and on a replica that
+ * never posted it.
+ */
+
+const alice: ProviderActor = { id: "U_ALICE", kind: "human" };
+
+const tick = async () => {
+  for (let i = 0; i < 10; i++) await new Promise((r) => setTimeout(r, 0));
+};
+
+/** A shared store whose action deletes, or gate writes, can be made to fail. */
+class FlakyStore extends MemoryStore {
+  failActionDeletes = false;
+  failGateWrites = false;
+
+  constructor() {
+    super();
+    const { delete: del, set } = this.kv;
+    this.kv = {
+      ...this.kv,
+      delete: async (key: string) => {
+        if (this.failActionDeletes && key.startsWith("action:")) {
+          throw new Error("store unavailable");
+        }
+        return del(key);
+      },
+      set: async <T,>(key: string, value: T, ttlMs?: number) => {
+        if (this.failGateWrites && key.startsWith("action:choice:")) {
+          throw new Error("store unavailable");
+        }
+        return set(key, value, ttlMs);
+      },
+    };
+  }
+}
+
+const activeChannels: Channel[] = [];
+
+afterEach(async () => {
+  vi.restoreAllMocks();
+  while (activeChannels.length > 0) {
+    await activeChannels.pop()!.ɵruntime.stop();
+  }
+});
+
+function buttonId(nodes: readonly ChannelNode[]): string {
+  for (const node of nodes) {
+    const action = node.props.onClick as { id: string } | undefined;
+    if (node.type === "button" && action) return action.id;
+    const children = node.props.children;
+    if (Array.isArray(children)) return buttonId(children as ChannelNode[]);
+  }
+  throw new Error("missing button");
+}
+
+interface Harness {
+  shared: FlakyStore;
+  clicks: string[];
+  answers: unknown[];
+  errors: unknown[];
+  /** Resolves every handler run that is waiting on it. */
+  release: () => void;
+  replica: () => Promise<{ fake: FakeAdapter; channel: Channel }>;
+}
+
+function harness(opts: { timeoutMs?: number; slowHandler?: boolean } = {}) {
+  vi.spyOn(console, "warn").mockImplementation(() => {});
+  const shared = new FlakyStore();
+  const clicks: string[] = [];
+  const answers: unknown[] = [];
+  const errors: unknown[] = [];
+  let release!: () => void;
+  const released = new Promise<void>((r) => {
+    release = r;
+  });
+
+  function Picker() {
+    return (
+      <Actions>
+        <Button
+          value="go"
+          onClick={async ({ actor }) => {
+            clicks.push(actor.id);
+            if (opts.slowHandler) await released;
+          }}
+        >
+          Go
+        </Button>
+      </Actions>
+    );
+  }
+
+  const replica = async () => {
+    const fake = new FakeAdapter({ nativeEphemeral: true });
+    const channel = createChannel({
+      identifyUser: "platform",
+      adapters: [fake],
+      agent: () => new FakeAgent(),
+      components: [Picker],
+      store: { adapter: shared },
+    });
+    channel.onMention(async ({ thread }) => {
+      try {
+        answers.push(
+          await thread.awaitChoice(
+            <Picker />,
+            opts.timeoutMs ? { timeoutMs: opts.timeoutMs } : {},
+          ),
+        );
+      } catch (err) {
+        errors.push(err);
+      }
+    });
+    await channel.ɵruntime.start();
+    activeChannels.push(channel);
+    return { fake, channel };
+  };
+
+  const h: Harness = { shared, clicks, answers, errors, release, replica };
+  return h;
+}
+
+async function postPicker(h: Harness, fake: FakeAdapter): Promise<string> {
+  fake.emitTurn({ userText: "deploy", conversationKey: "c1", actor: alice });
+  await tick();
+  return buttonId(fake.posted[0]!);
+}
+
+describe("awaitChoice retirement is durable", () => {
+  it("(1) a picker whose delete failed stays retired after a restart", async () => {
+    const h = harness();
+    const a = await h.replica();
+    const id = await postPicker(h, a.fake);
+    h.shared.failActionDeletes = true;
+
+    a.fake.emitInteraction({ id, conversationKey: "c1", actor: alice });
+    await tick();
+    expect(h.answers).toEqual(["go"]);
+    expect(h.clicks).toEqual([alice.id]);
+
+    // Restart: the posting process goes away, a fresh one shares the store.
+    await activeChannels
+      .splice(activeChannels.indexOf(a.channel), 1)[0]!
+      .ɵruntime.stop();
+    const restarted = await h.replica();
+    restarted.fake.emitInteraction({
+      id,
+      conversationKey: "c1",
+      actor: alice,
+    });
+    await tick();
+
+    expect(h.clicks).toEqual([alice.id]);
+  });
+
+  it("(2) a picker answered on one replica is refused on another", async () => {
+    const h = harness();
+    const a = await h.replica();
+    const b = await h.replica();
+    const id = await postPicker(h, a.fake);
+    h.shared.failActionDeletes = true;
+
+    a.fake.emitInteraction({ id, conversationKey: "c1", actor: alice });
+    await tick();
+    expect(h.answers).toEqual(["go"]);
+
+    b.fake.emitInteraction({ id, conversationKey: "c1", actor: alice });
+    await tick();
+
+    expect(h.clicks).toEqual([alice.id]);
+    expect(b.fake.ephemeralPosts).toHaveLength(1);
+  });
+
+  it("(3) simultaneous clicks on two replicas run the handler once", async () => {
+    const h = harness({ slowHandler: true });
+    const a = await h.replica();
+    const b = await h.replica();
+    const id = await postPicker(h, a.fake);
+
+    a.fake.emitInteraction({ id, conversationKey: "c1", actor: alice });
+    b.fake.emitInteraction({ id, conversationKey: "c1", actor: alice });
+    await tick();
+    h.release();
+    await tick();
+
+    expect(h.clicks).toEqual([alice.id]);
+  });
+
+  it("(4) a timed-out picker whose delete failed is refused on another replica", async () => {
+    const h = harness({ timeoutMs: 40 });
+    const a = await h.replica();
+    const b = await h.replica();
+    const id = await postPicker(h, a.fake);
+    h.shared.failActionDeletes = true;
+
+    await new Promise((r) => setTimeout(r, 80));
+    await tick();
+    expect(h.errors).toHaveLength(1);
+
+    b.fake.emitInteraction({ id, conversationKey: "c1", actor: alice });
+    await tick();
+
+    expect(h.clicks).toEqual([]);
+  });
+
+  it("(5) a picker whose gate cannot be written is never posted", async () => {
+    const h = harness();
+    const a = await h.replica();
+    h.shared.failGateWrites = true;
+
+    a.fake.emitTurn({
+      userText: "deploy",
+      conversationKey: "c1",
+      actor: alice,
+    });
+    await tick();
+
+    expect(a.fake.posted).toEqual([]);
+    expect(h.errors).toHaveLength(1);
+  });
+});

@@ -19,6 +19,7 @@ import {
   ActionScopeMismatchError,
   DEFAULT_ACTION_RETENTION_MS,
 } from "./action-registry.js";
+import type { ChoiceGate } from "./action-registry.js";
 import type { ActionStore } from "./action-store.js";
 import { createHash } from "node:crypto";
 import { MemoryStore } from "./state/memory-store.js";
@@ -699,6 +700,8 @@ interface ChoiceControlOwner {
   actorId: string | undefined;
   /** The pending choice it answers, once registered. */
   waiter?: ChoiceWaiter;
+  /** The picker's shared one-shot gate, taken when the picker is retired. */
+  choiceGate?: ChoiceGate;
 }
 
 type InteractionRefusal = keyof typeof INTERACTION_REFUSALS;
@@ -988,9 +991,14 @@ export function createChannel<
   function reserveChoiceControls(
     controlIds: Iterable<string>,
     actorId: string | undefined,
+    choiceGate?: ChoiceGate,
   ): () => void {
     const ids = [...controlIds];
-    const owner: ChoiceControlOwner = { state: "reserved", actorId };
+    const owner: ChoiceControlOwner = {
+      state: "reserved",
+      actorId,
+      choiceGate,
+    };
     for (const id of ids) choiceControlOwners.set(id, owner);
     return () => {
       if (owner.state === "reserved") invalidateChoiceControls(ids, owner);
@@ -1000,14 +1008,17 @@ export function createChannel<
   /**
    * Revoke picker controls. They are retired synchronously (see
    * `ActionRegistry.revokeActions`), and their owner check stays in force until
-   * the revocation has settled.
+   * the revocation has settled. Taking the picker's gate is what retires them
+   * in every other process too.
    */
   function invalidateChoiceControls(
     ids: readonly string[],
     owner: ChoiceControlOwner | undefined,
+    choiceGate: ChoiceGate | undefined = owner?.choiceGate,
   ): void {
     if (owner) owner.state = "retired";
-    const revocation = registry?.revokeActions(ids) ?? Promise.resolve();
+    const revocation =
+      registry?.revokeActions(ids, choiceGate?.id) ?? Promise.resolve();
     void revocation
       .catch((err: unknown) => {
         console.warn(
@@ -1034,7 +1045,7 @@ export function createChannel<
     const owner = ids
       .map((id) => choiceControlOwners.get(id))
       .find((o) => o?.waiter === waiter);
-    invalidateChoiceControls(ids, owner);
+    invalidateChoiceControls(ids, owner, waiter.choiceGate);
   }
 
   /**
@@ -1399,7 +1410,11 @@ export function createChannel<
           if (explicit) {
             await explicit(ctx);
           } else if (control && !control.bound) {
-            // A picker control without a handler: nothing to dispatch.
+            // A picker control without a handler: nothing to dispatch, but
+            // the click still has to take the picker's gate to answer it.
+            if (picker?.choiceGate) {
+              await registry!.takeChoiceGate(picker.choiceGate, evt.id);
+            }
           } else {
             await registry!.dispatch(evt.id, ctx, {
               conversationKey: evt.conversationKey,
@@ -1458,6 +1473,29 @@ export function createChannel<
             console.warn(
               `[channel] ${platform} interaction ${evt.id} in conversation ${conversationLogRef(evt.conversationKey)}: the picker control's handler has expired; answering the picker without it`,
             );
+            // Answering still takes the picker's gate: past its deadline, or
+            // once another process answered or retired it, the click is
+            // refused.
+            if (picker.choiceGate) {
+              try {
+                await registry!.takeChoiceGate(picker.choiceGate, evt.id);
+              } catch (gateErr) {
+                const gateRefusal =
+                  resumeRefusal(gateErr) ??
+                  (gateErr instanceof ActionExpiredError
+                    ? "expired"
+                    : undefined);
+                if (!gateRefusal) throw gateErr;
+                await refuseInteraction(
+                  adapter,
+                  platform,
+                  evt,
+                  identityContext.actor,
+                  gateRefusal,
+                );
+                return;
+              }
+            }
           } else {
             // The picker's own handler failed: settle the choice with the
             // error, once, rather than leave it pending and re-runnable.
