@@ -10,14 +10,15 @@ import type { RuntimeOptions } from "@/lib/agents";
 // One MCP Apps server at MCP_SERVER_URL. `url` is a getter, so the variable is
 // read each time the runtime connects to the server, not when this module
 // loads. A fixed `serverId` keeps MCP Apps in earlier threads restorable when
-// the URL changes.
+// the URL changes. The default is Excalidraw's MCP endpoint itself: the MCP
+// Apps middleware refuses redirects, and the site root redirects to /mcp.
 function mcpServer(serverId: string) {
   return {
     servers: [
       {
         type: "http",
         get url() {
-          return process.env.MCP_SERVER_URL || "https://mcp.excalidraw.com";
+          return process.env.MCP_SERVER_URL || "https://mcp.excalidraw.com/mcp";
         },
         serverId,
       },

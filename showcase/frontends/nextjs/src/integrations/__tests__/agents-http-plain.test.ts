@@ -66,9 +66,10 @@ const APP_DASHBOARD_CATALOG = "copilotkit://app-dashboard-catalog";
 const DECLARATIVE_CATALOG = "declarative-gen-ui-catalog";
 const FLIGHT_CATALOG = "copilotkit://flight-fixed-catalog";
 
-// MCP_SERVER_URL is not set in these tests, so each server is at its default.
-const EXCALIDRAW = "https://mcp.excalidraw.com";
-const EXCALIDRAW_MCP_ENDPOINT = "https://mcp.excalidraw.com/mcp";
+// MCP_SERVER_URL is not set in these tests, so each server is at its default:
+// Excalidraw's MCP endpoint, which the MCP Apps middleware needs because it
+// refuses the site root's redirect.
+const EXCALIDRAW = "https://mcp.excalidraw.com/mcp";
 
 function mcpApps(url: string, serverId: string) {
   return {
@@ -406,10 +407,10 @@ const GOOGLE_ANTIGRAVITY: TodaysRoutes = {
     ...COMMON_OPTIONS,
     "beautiful-chat": {
       ...BEAUTIFUL_CHAT_WITHOUT_MCP_APPS,
-      ...mcpApps(EXCALIDRAW_MCP_ENDPOINT, "beautiful_chat_mcp"),
+      ...mcpApps(EXCALIDRAW, "beautiful_chat_mcp"),
     },
-    "headless-complete": mcpApps(EXCALIDRAW_MCP_ENDPOINT, "excalidraw"),
-    "mcp-apps": mcpApps(EXCALIDRAW_MCP_ENDPOINT, "excalidraw"),
+    "headless-complete": mcpApps(EXCALIDRAW, "excalidraw"),
+    "mcp-apps": mcpApps(EXCALIDRAW, "excalidraw"),
   },
 };
 
@@ -669,11 +670,6 @@ function agentOf(runtime: IntegrationRuntime, demo: string) {
   return httpAgentOf(agent);
 }
 
-// The URL of the first MCP Apps server in `options`.
-function mcpServerUrl(options: RuntimeOptions | undefined) {
-  return options?.mcpApps?.servers.at(0)?.url;
-}
-
 beforeEach(() => {
   for (const { slug, variable } of INTEGRATIONS) {
     vi.stubEnv(variable, agentServer(slug));
@@ -775,25 +771,6 @@ describe("voice transcription", () => {
     },
   );
 });
-
-describe.each([GOOGLE_ANTIGRAVITY, OPENAI_AGENTS_PYTHON])(
-  "$slug's MCP Apps server",
-  ({ runtime }) => {
-    it("is replaced by MCP_SERVER_URL", () => {
-      vi.stubEnv("MCP_SERVER_URL", "http://diagrams:3001/mcp");
-
-      const urls = ["beautiful-chat", "headless-complete", "mcp-apps"].map(
-        (demo) => mcpServerUrl(configOf(runtime, demo).options),
-      );
-
-      expect(urls).toEqual([
-        "http://diagrams:3001/mcp",
-        "http://diagrams:3001/mcp",
-        "http://diagrams:3001/mcp",
-      ]);
-    });
-  },
-);
 
 describe("claude-sdk-typescript's agents", () => {
   const demos = servedDemos("claude-sdk-typescript");

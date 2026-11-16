@@ -1,6 +1,5 @@
 // The agents of each openai-agents-python demo. One agent server serves an
 // Agents SDK agent for each demo, at a path named after the agent.
-import type { McpAppsConfig } from "@copilotkit/runtime/v2";
 import { DEMO_AGENT_IDS } from "@/demo-agents";
 import { httpAgent } from "@/lib/agents";
 import type { IntegrationRuntime, RuntimeOptions } from "@/lib/agents";
@@ -50,31 +49,9 @@ const AGENT_PATHS: Partial<Record<string, string>> = {
   voice: "/voice",
 };
 
-// MCP Apps with the Excalidraw MCP server at its /mcp endpoint, or at
-// MCP_SERVER_URL when that is set. The URL is read each time the runtime
-// connects.
-function excalidrawMcpApps(serverId: string) {
-  return {
-    servers: [
-      {
-        type: "http",
-        get url() {
-          return process.env.MCP_SERVER_URL || "https://mcp.excalidraw.com/mcp";
-        },
-        serverId,
-      },
-    ],
-  } satisfies McpAppsConfig;
-}
-
 // The runtime options that replace DEMO_RUNTIME_OPTIONS for
 // openai-agents-python, key by key, by demo id.
 const RUNTIME_OPTIONS: Partial<Record<string, () => RuntimeOptions>> = {
-  "beautiful-chat": () => ({
-    mcpApps: excalidrawMcpApps("beautiful_chat_mcp"),
-  }),
-  "headless-complete": () => ({ mcpApps: excalidrawMcpApps("excalidraw") }),
-  "mcp-apps": () => ({ mcpApps: excalidrawMcpApps("excalidraw") }),
   // Transcribes with OPENAI_TRANSCRIPTION_API_KEY. Without it the voice demo
   // has no transcription.
   voice: () => ({ transcriptionService: createTranscriptionService() }),

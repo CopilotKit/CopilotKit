@@ -13,7 +13,7 @@
  * is required.
  *
  * By default, this cell points at the public Excalidraw MCP app
- * (https://mcp.excalidraw.com). MCP_SERVER_URL sets another server.
+ * (https://mcp.excalidraw.com/mcp). MCP_SERVER_URL sets another server.
  *
  * Reference:
  * https://docs.copilotkit.ai/integrations/langgraph/generative-ui/mcp-apps

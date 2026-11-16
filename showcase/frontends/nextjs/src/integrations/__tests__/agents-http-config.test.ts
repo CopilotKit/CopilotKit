@@ -60,7 +60,7 @@ const EXCALIDRAW_MCP_APPS = {
     servers: [
       {
         type: "http",
-        url: "https://mcp.excalidraw.com",
+        url: "https://mcp.excalidraw.com/mcp",
         serverId: "excalidraw",
       },
     ],

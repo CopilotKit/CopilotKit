@@ -21,7 +21,7 @@ The agent calls the drawing tool of the MCP server, and the Excalidraw canvas sh
 
 ## Configuration
 
-- `MCP_SERVER_URL`: the URL of the HTTP MCP server. The default is `https://mcp.excalidraw.com`.
+- `MCP_SERVER_URL`: the URL of the HTTP MCP server. The default is `https://mcp.excalidraw.com/mcp`. Use the MCP endpoint itself: the runtime does not follow redirects.
 - `serverId`: a fixed id for the server ("excalidraw"). Without it, CopilotKit makes the id from the URL, and a new URL breaks the MCP Apps in earlier threads.
 
 Reference: https://docs.copilotkit.ai/integrations/langgraph/generative-ui/mcp-apps
