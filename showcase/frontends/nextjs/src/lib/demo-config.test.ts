@@ -18,11 +18,11 @@ describe("loadIntegrationDemoConfig", () => {
     },
   );
 
-  it("rejects a demo the integration's manifest does not list", async () => {
+  it("rejects a demo the integration does not serve", async () => {
     await expect(
       loadIntegrationDemoConfig("strands", "background-agents"),
     ).rejects.toThrow(
-      "The strands manifest does not list the background-agents demo.",
+      "The strands integration does not serve the background-agents demo.",
     );
   });
 

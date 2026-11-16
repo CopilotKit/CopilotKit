@@ -20,6 +20,13 @@
       "@copilotkit/showcase-shared-tools/*": ["../../shared/typescript/tools/*"]
     }
   },
-  "include": ["next-env.d.ts", "src", "tests", "scripts", ".next/types/**/*.ts"],
+  "include": [
+    "next-env.d.ts",
+    "src",
+    "tests",
+    "scripts",
+    "playwright.config.ts",
+    ".next/types/**/*.ts"
+  ],
   "exclude": ["node_modules"]
 }

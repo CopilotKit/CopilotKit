@@ -1,23 +1,5 @@
-import { getDemo } from "@/lib/registry";
-
-const KEBAB_CASE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-
-// Module-not-found codes: webpack and Node CommonJS use the first, Node ESM
-// and Vite use the second.
-const MODULE_NOT_FOUND_CODES = new Set([
-  "MODULE_NOT_FOUND",
-  "ERR_MODULE_NOT_FOUND",
-]);
-
-// True when `error` reports that `modulePath` itself does not exist. A module
-// that exists but imports something missing names that other module instead,
-// so its error is not swallowed.
-function isMissingModule(error: unknown, modulePath: string) {
-  if (!(error instanceof Error) || !("code" in error)) return false;
-  const isNotFound =
-    typeof error.code === "string" && MODULE_NOT_FOUND_CODES.has(error.code);
-  return isNotFound && error.message.includes(modulePath);
-}
+import { isKebabCase, isMissingModule } from "@/lib/integration-modules";
+import { hasDemo } from "@/lib/registry";
 
 // The file's own default export. Playwright runs TypeScript as CommonJS, and
 // Node's import() of a CommonJS module returns the whole `exports` object as
@@ -49,8 +31,9 @@ function fileDefaultExport(loaded: { default?: unknown }) {
  * @param demo - The demo id, which is its URL segment, for example `"gen-ui-interrupt"`.
  * @returns The default export, or `undefined` when the integration has no
  *   file for this demo.
- * @throws Error when a segment is not kebab-case, or when the integration's
- *   manifest does not list the demo.
+ * @throws Error when a segment is not kebab-case, or when the integration
+ *   does not serve the demo (it is neither in its manifest nor in its extra
+ *   demos).
  *
  * @example
  * export default async function Page({ params }: { params: Promise<{ integration: string }> }) {
@@ -63,15 +46,14 @@ export async function loadIntegrationDemoConfig<T>(
   integration: string,
   demo: string,
 ) {
-  const isKebabCase = KEBAB_CASE.test(integration) && KEBAB_CASE.test(demo);
-  if (!isKebabCase) {
+  if (!isKebabCase(integration) || !isKebabCase(demo)) {
     throw new Error(
       `Demo config segments must be kebab-case: "${integration}", "${demo}".`,
     );
   }
-  if (getDemo(integration, demo) === undefined) {
+  if (!hasDemo(integration, demo)) {
     throw new Error(
-      `The ${integration} manifest does not list the ${demo} demo.`,
+      `The ${integration} integration does not serve the ${demo} demo.`,
     );
   }
 

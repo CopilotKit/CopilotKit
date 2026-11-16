@@ -9,6 +9,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { HttpAgent } from "@ag-ui/client";
 import type { AbstractAgent, HttpAgentConfig } from "@ag-ui/client";
 import type { CopilotSseRuntimeOptions } from "@copilotkit/runtime/v2";
+import { isKebabCase, isMissingModule } from "@/lib/integration-modules";
 import { getIntegration } from "@/lib/registry";
 
 /** Where one address variable points inside the integration's container. */
@@ -148,29 +149,9 @@ export function unsetVariables(env: IntegrationEnv) {
   return Object.keys(env).filter((variable) => !process.env[variable]);
 }
 
-// The same rule as KEBAB_CASE in src/lib/demo-config.ts.
-const KEBAB_CASE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-
-// Module-not-found codes: webpack and Node CommonJS use the first, Node ESM
-// and Vite use the second. The same check as in src/lib/demo-config.ts.
-const MODULE_NOT_FOUND_CODES = new Set([
-  "MODULE_NOT_FOUND",
-  "ERR_MODULE_NOT_FOUND",
-]);
-
-// True when `error` reports that `modulePath` itself does not exist. A module
-// that exists but imports something missing names that other module instead,
-// so its error is not swallowed.
-function isMissingModule(error: unknown, modulePath: string) {
-  if (!(error instanceof Error) || !("code" in error)) return false;
-  const isNotFound =
-    typeof error.code === "string" && MODULE_NOT_FOUND_CODES.has(error.code);
-  return isNotFound && error.message.includes(modulePath);
-}
-
 // Only a slug from the registry reaches a dynamic import path.
 function isRegisteredSlug(slug: string) {
-  return KEBAB_CASE.test(slug) && getIntegration(slug) !== undefined;
+  return isKebabCase(slug) && getIntegration(slug) !== undefined;
 }
 
 const NO_ADDRESSES: IntegrationEnv = {};

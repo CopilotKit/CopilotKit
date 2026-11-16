@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { getDemo, getIntegration, parseDemoPath } from "@/lib/registry";
+import { getIntegration, hasDemo, parseDemoPath } from "@/lib/registry";
 
 /**
  * Guards /demos/<integration>/<demo>.
  *
  * - Answers 404 when no manifest has the integration, or when the
- *   integration's manifest does not list the demo.
+ *   integration does not serve the demo (it is neither in its manifest nor
+ *   in its extra demos).
  * - Otherwise passes the request on with its path in the `x-pathname`
  *   header. The demos layout reads it to name the page.
  */
@@ -18,7 +19,7 @@ export function middleware(request: NextRequest) {
   const isUnlistedDemo =
     integration !== undefined &&
     demo !== undefined &&
-    getDemo(integration, demo) === undefined;
+    !hasDemo(integration, demo);
 
   if (isUnknownIntegration || isUnlistedDemo) {
     return new NextResponse("Not Found", { status: 404 });

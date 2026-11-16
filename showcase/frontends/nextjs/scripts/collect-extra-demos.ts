@@ -13,6 +13,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { isKebabCase } from "../src/lib/integration-modules";
 
 /** The fields this script reads from src/data/registry.json. */
 interface Registry {
@@ -27,8 +28,6 @@ const INTEGRATIONS_DIR = path.join(APP_DIR, "src", "integrations");
 const REGISTRY_PATH = path.join(APP_DIR, "src", "data", "registry.json");
 const OUTPUT_PATH = path.join(APP_DIR, "src", "data", "extra-demos.json");
 const LIST_FILE_NAME = "extra-demos.json";
-// The same rule as KEBAB_CASE in src/lib/demo-config.ts.
-const KEBAB_CASE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 function isStringList(value: unknown): value is string[] {
   return (
@@ -42,7 +41,7 @@ function findProblems(ids: string[], routes: Set<string>) {
   const problems: string[] = [];
   const seen = new Set<string>();
   for (const id of ids) {
-    if (!KEBAB_CASE.test(id)) {
+    if (!isKebabCase(id)) {
       problems.push(`"${id}" is not kebab-case.`);
     }
     if (routes.has(`/demos/${id}`)) {

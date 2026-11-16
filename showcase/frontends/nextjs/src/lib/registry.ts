@@ -138,6 +138,18 @@ export function getDemo(integrationSlug: string, demoId: string) {
 }
 
 /**
+ * True when the app serves /demos/<integration>/<demo>: the demo is in the
+ * integration's manifest or in its extra demos.
+ *
+ * @example
+ * hasDemo("strands", "agentic-chat"); // true
+ * hasDemo("strands", "background-agents"); // false: only mastra has it
+ */
+export function hasDemo(integrationSlug: string, demoId: string) {
+  return getDemo(integrationSlug, demoId) !== undefined;
+}
+
+/**
  * Reads the integration and demo segments of a /demos/<integration>/<demo>
  * path. A segment the path does not have is `undefined`.
  */

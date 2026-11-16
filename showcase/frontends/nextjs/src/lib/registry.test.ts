@@ -7,6 +7,7 @@ import {
   getDemo,
   getIntegration,
   getIntegrations,
+  hasDemo,
   parseDemoPath,
 } from "@/lib/registry";
 
@@ -146,6 +147,24 @@ describe("extra demos", () => {
     );
 
     expect(unserved).toEqual([]);
+  });
+});
+
+describe("hasDemo", () => {
+  it("is true for a demo in the integration's manifest", () => {
+    expect(hasDemo("strands", "agentic-chat")).toBe(true);
+  });
+
+  it("is true for one of the integration's extra demos", () => {
+    expect(hasDemo("strands", "threadid-frontend-tool-roundtrip")).toBe(true);
+  });
+
+  it("is false for a demo the integration does not serve", () => {
+    expect(hasDemo("strands", "background-agents")).toBe(false);
+  });
+
+  it("is false for an unknown integration", () => {
+    expect(hasDemo("no-such-integration", "agentic-chat")).toBe(false);
   });
 });
 

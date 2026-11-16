@@ -1,5 +1,5 @@
 import { afterAll, describe, expect, it, vi } from "vitest";
-import { demoPath, isDemoListed, requireIntegration } from "./helpers";
+import { demoPath, requireIntegration } from "./helpers";
 
 // helpers.ts reads INTEGRATION when it loads, as it does in a Playwright run.
 // Vitest runs vi.hoisted before the imports above.
@@ -17,16 +17,6 @@ afterAll(() => {
 describe("demoPath", () => {
   it("puts the demo under the integration from INTEGRATION", () => {
     expect(demoPath("agentic-chat")).toBe("/demos/strands/agentic-chat");
-  });
-});
-
-describe("isDemoListed", () => {
-  it("is true for a demo the integration's manifest lists", () => {
-    expect(isDemoListed("strands", "agentic-chat")).toBe(true);
-  });
-
-  it("is false for a demo the integration's manifest does not list", () => {
-    expect(isDemoListed("strands", "background-agents")).toBe(false);
   });
 });
 

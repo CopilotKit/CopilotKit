@@ -14,7 +14,7 @@ test.describe("Showcase app", () => {
     ).toBeVisible();
   });
 
-  test("a demo path the manifest does not list answers 404", async ({
+  test("a demo path the integration does not serve answers 404", async ({
     request,
   }) => {
     const response = await request.get(demoPath("no-such-demo"));
