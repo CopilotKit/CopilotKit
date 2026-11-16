@@ -6,9 +6,8 @@ export const BASE = process.env.BASE ?? "http://localhost:3100";
 
 /**
  * Component names, in sidebar order, read from the /components overview links (the macros page is not a component).
- * The links carry the app's base path when it has one, so they are matched under BASE's own path, on this origin
- * only (the overview also links to CopilotKit's docs, whose URL has a /components/ in it).
- * Throws when it finds none, so a check never passes by checking nothing.
+ * The links carry the app's base path when it has one, so they are matched under BASE's own path, on this origin.
+ * Throws when it finds none, or when `filter` names none of them, so a check never passes by checking nothing.
  */
 export async function componentNames(page, filter) {
   await page.goto(`${BASE}/components`, {
@@ -32,22 +31,39 @@ export async function componentNames(page, filter) {
   );
   if (!names.length)
     throw new Error(`No component links found on ${BASE}/components`);
-  return filter ? names.filter((n) => filter.includes(n)) : names;
+  if (!filter) return names;
+  const picked = names.filter((n) => filter.includes(n));
+  if (!picked.length)
+    throw new Error(
+      `None of ${filter.join(", ")} is a component on ${BASE}/components`,
+    );
+  return picked;
 }
 
 /**
- * Opens a component's page and waits for its preview stage. Returns false for a page without one: a Gen UI 2.0
- * standard component with no sample shows its props only. The stage is in the server-rendered HTML, so a page
- * without it is known as soon as it loads.
+ * Opens a component's page. Returns true once its preview stage is there, or false for the component's own page
+ * rendered without one: a Gen UI 2.0 standard component with no sample shows its props only. The stage is in the
+ * server-rendered HTML, so that is known as soon as the page loads. A page that answers with an error, or that is
+ * not the component's own page, throws: it must never pass as a component that merely has no sample.
  */
 export async function openComponent(page, name, settle = 1200) {
-  await page.goto(`${BASE}/components/${name}`, {
+  const url = `${BASE}/components/${name}`;
+  const res = await page.goto(url, {
     waitUntil: "networkidle2",
     timeout: 120000,
   });
-  const stage = `[data-preview="${name}"]`;
-  if (!(await page.$(stage))) return false;
-  await page.waitForSelector(stage, { timeout: 30000 });
+  if (!res?.ok())
+    throw new Error(`${url} answered ${res?.status() ?? "nothing"}`);
+  if (!(await page.$(`[data-preview="${name}"]`))) {
+    const heading = await page
+      .$eval("main h1", (h) => h.textContent?.trim())
+      .catch(() => null);
+    if (heading !== name)
+      throw new Error(
+        `${url} is not ${name}'s page (h1: ${heading ?? "none"})`,
+      );
+    return false;
+  }
   await new Promise((r) => setTimeout(r, settle));
   return true;
 }
