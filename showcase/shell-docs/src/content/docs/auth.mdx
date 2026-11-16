@@ -497,7 +497,7 @@ If several users share one deployment, each user must reach only their own threa
 | Runtime | Who scopes threads to a user |
 | --- | --- |
 | `CopilotRuntime` with `intelligence` | The runtime, via [`identifyUser`](#copilotkit-intelligence-scopes-thread-routes). |
-| `CopilotRuntime` from `@copilotkit/runtime/v2` without `intelligence`, with `identifyUser` | The runtime, when the runner is `InMemoryAgentRunner` or `SqliteAgentRunner`. |
+| `CopilotRuntime` from `@copilotkit/runtime/v2` without `intelligence`, with `identifyUser` | The runtime, with `InMemoryAgentRunner` or new `SqliteAgentRunner` threads. Legacy SQLite histories remain reachable by id; see below. |
 | Anything else: no `identifyUser`, a custom runner, or a custom store | You do. See [Scope threads yourself](#scope-threads-yourself). |
 
 ### CopilotKit Intelligence scopes thread routes
@@ -559,11 +559,14 @@ read and continue that thread.
 
 The default `InMemoryAgentRunner` and `SqliteAgentRunner` enforce ownership when
 you set `identifyUser` on the `CopilotRuntime` from `@copilotkit/runtime/v2`:
-each thread belongs to the identity of its first run, and another user's
+new threads belong to the identity of their first run, and another user's
 thread reads like an unknown one. An auth hook alone does not do this, because
 it tells the runtime nothing about who the caller is. The compatibility
 `CopilotRuntime` from `@copilotkit/runtime` forwards `identifyUser` only with
 Intelligence, so its local threads stay reachable by id.
+
+SQLite histories stored before owners were recorded (schema 1) stay unowned and reachable by id, even after an identified run.
+Apply your own authorization gate or migration policy to those histories.
 
 Without `identifyUser`, `InMemoryAgentRunner` returns `403` for `GET /threads`
 and `POST /threads/clear` unless you set `threads: { access: "open" }`. Any
