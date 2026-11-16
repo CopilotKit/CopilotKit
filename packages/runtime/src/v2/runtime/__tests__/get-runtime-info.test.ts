@@ -759,6 +759,27 @@ describe("handleGetRuntimeInfo", () => {
     expect(data.agents.research_agent_v2.name).toBe("research_agent_v2");
   });
 
+  it("should treat a blank agent name as unset", async () => {
+    const runtime = new CopilotRuntime({
+      agents: {
+        empty_name: new BuiltInAgent({ model: "openai/gpt-5-mini", name: "" }),
+        blank_name: new BuiltInAgent({
+          model: "openai/gpt-5-mini",
+          name: "   ",
+        }),
+      },
+    });
+
+    const response = await handleGetRuntimeInfo({
+      runtime,
+      request: mockRequest,
+    });
+    const data = await response.json();
+
+    expect(data.agents.empty_name.name).toBe("empty_name");
+    expect(data.agents.blank_name.name).toBe("blank_name");
+  });
+
   it("should include capabilities when agent implements getCapabilities", async () => {
     const mockCapabilities = {
       tools: { supported: true, clientProvided: true },

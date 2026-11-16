@@ -1508,7 +1508,7 @@ export class AgentRegistry {
                 this._runtimeTransport,
               )
             ) {
-              existing.name = name ?? id; // Update display name and save existing instance
+              existing.name = name || id;
               this.applyHeadersToAgent(existing);
               this.applyCredentialsToAgent(existing);
               this.applyMessageFilterToAgent(existing);
@@ -1519,7 +1519,7 @@ export class AgentRegistry {
             const agent = new ProxiedCopilotRuntimeAgent({
               runtimeUrl: this._runtimeEndpointUrl ?? runtimeUrl,
               agentId: id, // Runtime agents always have their ID set correctly
-              name: name ?? id, // Stores display name or ID fallback
+              name: name || id,
               description: description,
               transport: this._runtimeTransport,
               credentials,
