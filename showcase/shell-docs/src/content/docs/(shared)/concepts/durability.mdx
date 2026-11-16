@@ -57,7 +57,10 @@ If an approval must survive a reload, use `useInterrupt` on a framework that emi
 A replay shows the history of a thread. It does not continue a run that a server failure stopped. Durable execution belongs to your agent framework:
 
 - **LangGraph:** a database checkpointer keeps the graph state across restarts. CopilotKit threads and the checkpointer share only the `threadId`.
-- **Other frameworks:** use the persistence of the framework, or a durable workflow engine.
+- **Durable execution engines:** Temporal and Restate run your agent code so that a run continues after a crash or a restart. Both list integrations with agent frameworks, for example the OpenAI Agents SDK, Google ADK, and Pydantic AI.
+- **Other frameworks:** use the persistence of the framework.
+
+A durable engine keeps the run alive. CopilotKit shows the run to your users and collects their input. Temporal and Restate have no official AG-UI or CopilotKit integration, so you write the code that connects a workflow run to your AG-UI endpoint.
 
 ## More than one device or instance
 
