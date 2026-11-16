@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import type { Page } from "@playwright/test";
 
 // Keep renders deterministic: the page may only talk to the dev server.
 test.beforeEach(async ({ page, baseURL }) => {
@@ -10,7 +11,7 @@ test.beforeEach(async ({ page, baseURL }) => {
   await page.goto("/visual/tool-calls");
 });
 
-const toolCall = (page: import("@playwright/test").Page, status: string) =>
+const toolCall = (page: Page, status: string) =>
   page.getByTestId("wildcard-tool-render").filter({ hasText: status });
 
 test("transcript", async ({ page }) => {

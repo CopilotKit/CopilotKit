@@ -22,7 +22,8 @@ demo imports first: `pnpm --filter "@copilotkit/angular-demo^..." run build`.
 
 ## Reference images
 
-Images live in `baselines/` and are named per platform. CI runs on Linux and
+Images live in `baselines/<spec file name>/` (for example
+`baselines/tool-calls.spec.ts/`) and are named per platform. CI runs on Linux and
 compares against the `*-linux.png` images, which are the only ones committed.
 Fonts render differently on macOS and Windows, so `pnpm run test:visual:update`
 on those platforms writes local-only images (gitignored) for your own checks.
@@ -31,13 +32,21 @@ To change the committed images after an intended UI change:
 
 1. Run the **test / visual / angular** workflow manually on your branch with
    `update_baselines` checked.
-2. Download the `angular-visual-baselines` artifact and copy its `*-linux.png`
-   files into `baselines/`.
+2. Download the `angular-visual-baselines` artifact and copy its contents into
+   `baselines/`, keeping the per-spec folders (the artifact's
+   `tool-calls.spec.ts/` folder becomes `baselines/tool-calls.spec.ts/`).
 3. Commit them. PNGs are stored with Git LFS, so `git lfs install` first.
 
 When a CI run fails, the `angular-visual-diffs` artifact holds the expected,
 actual, and diff images. For a new screenshot with no reference image yet, the
-failing run writes one, and the same artifact carries it under `e2e/visual/baselines/`.
+failing run writes one, and the same artifact carries it under
+`e2e/visual/baselines/<spec file name>/`. That artifact is rooted at the demo
+folder, so copy its `e2e/visual/baselines/` folder over the one in the demo.
+
+The manual run needs a branch in this repository. From a fork, take the images
+from the failing run on your pull request instead: new screenshots as described
+above, and for a changed screenshot the `*-actual.png` under `test-results/`,
+renamed to the reference image's name.
 
 ## Adding a state
 

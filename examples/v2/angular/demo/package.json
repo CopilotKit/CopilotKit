@@ -61,7 +61,7 @@
     "@angular/build": "22.0.0",
     "@angular/cli": "22.0.0",
     "@angular/compiler-cli": "22.0.0",
-    "@playwright/test": "^1.59.1",
+    "@playwright/test": "1.59.1",
     "nodemon": "^3.1.7",
     "rimraf": "^6.0.1",
     "typescript": "6.0.3"

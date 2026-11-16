@@ -12,6 +12,12 @@ on:
     paths:
       - "examples/v2/angular/demo/**"
       - "packages/angular/**"
+      # Workspace packages the demo builds from.
+      - "packages/core/**"
+      - "packages/shared/**"
+      - "packages/web-inspector/**"
+      - "packages/mcp-apps-renderer/**"
+      - "packages/learning/**"
       - "pnpm-lock.yaml"
       - ".github/workflows/test_visual-angular.yml"
   push:
@@ -19,6 +25,12 @@ on:
     paths:
       - "examples/v2/angular/demo/**"
       - "packages/angular/**"
+      # Workspace packages the demo builds from.
+      - "packages/core/**"
+      - "packages/shared/**"
+      - "packages/web-inspector/**"
+      - "packages/mcp-apps-renderer/**"
+      - "packages/learning/**"
       - "pnpm-lock.yaml"
       - ".github/workflows/test_visual-angular.yml"
   workflow_dispatch:
