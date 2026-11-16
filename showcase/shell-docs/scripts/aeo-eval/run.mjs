@@ -69,8 +69,11 @@ function parseArgs(argv) {
   const args = { _: [] };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
-    if (a.startsWith("--")) args[a.slice(2)] = argv[++i];
-    else args._.push(a);
+    if (!a.startsWith("--")) args._.push(a);
+    // A flag with no value (`--blind`) is true.
+    else if (argv[i + 1] === undefined || argv[i + 1].startsWith("--"))
+      args[a.slice(2)] = true;
+    else args[a.slice(2)] = argv[++i];
   }
   return args;
 }
@@ -110,11 +113,28 @@ function claude(prompt, flags, { timeoutMs = 600_000, cwd }) {
           .map((line) => JSON.parse(line));
         const data = events.findLast((e) => e.type === "result");
         if (!data) throw new Error("no result event");
+        const resultText = new Map(
+          events
+            .filter((e) => e.type === "user")
+            .flatMap((e) => e.message?.content ?? [])
+            .filter((block) => block.type === "tool_result")
+            .map((block) => [
+              block.tool_use_id,
+              typeof block.content === "string"
+                ? block.content
+                : (block.content ?? []).map((c) => c.text ?? "").join("\n"),
+            ]),
+        );
+        // In call order, each with the text the tool returned.
         const toolCalls = events
           .filter((e) => e.type === "assistant")
           .flatMap((e) => e.message?.content ?? [])
           .filter((block) => block.type === "tool_use")
-          .map((block) => ({ name: block.name, input: block.input }));
+          .map((block) => ({
+            name: block.name,
+            input: block.input,
+            resultText: resultText.get(block.id) ?? "",
+          }));
         if (data.is_error) {
           throw new Error(`${data.subtype ?? "error"}: ${data.result ?? ""}`);
         }
@@ -503,9 +523,18 @@ function compare([beforeFile, afterFile]) {
 const DOCS_HOST = new URL(PUBLIC_ORIGIN).hostname;
 const isCopilotKit = (s) => /copilot\s*-?\s*kit/i.test(s);
 
-function webAgentPrompt(p) {
-  return `You are advising a developer on which tools to use. Research the question on the web before you answer. Use WebSearch to find candidates and the fetch tool to read pages. Read every page you cite.
+// With `blind`, the agent may name a product only after the web showed it,
+// so what it recommends comes from the web and not from its own memory.
+const BLIND_RULES = `
+Work only from what you find on the web, not from what you already know:
+- Your first searches describe the need in the question's own terms. They name no product, library, or company.
+- Name a product in a search query, or fetch its site, only after it appeared in an earlier search result or page.
+- Recommend only products that appeared in your search results or in pages you read.
+`;
 
+function webAgentPrompt(p, blind) {
+  return `You are advising a developer on which tools to use. Research the question on the web before you answer. Use WebSearch to find candidates and the fetch tool to read pages. Read every page you cite.
+${blind ? BLIND_RULES : ""}
 Answer in no more than 140 words. Give 2-4 citations, as the URLs of pages you read. recommended_products lists the products, libraries, or protocols you recommend, best first, each under its own name. Recommend only what fits the question. State uncertainty instead of guessing.
 
 Question:
@@ -528,6 +557,17 @@ function readFetchLog(file) {
     .map((line) => JSON.parse(line));
 }
 
+// Where CopilotKit first came into the run: "web" when a search result or a
+// fetched page showed it before the agent named it, "memory" when the agent
+// typed it first, "never" when no tool call or result touched it.
+function discoverySource(toolCalls) {
+  for (const call of toolCalls) {
+    if (isCopilotKit(JSON.stringify(call.input ?? {}))) return "memory";
+    if (isCopilotKit(call.resultText)) return "web";
+  }
+  return "never";
+}
+
 async function runOneWeb(opts, p, runNumber) {
   const cwd = mkdtempSync(join(tmpdir(), "aeo-web-"));
   const fetchLog = join(cwd, "fetches.jsonl");
@@ -548,7 +588,7 @@ async function runOneWeb(opts, p, runNumber) {
     }),
   );
   const agent = await claude(
-    webAgentPrompt(p),
+    webAgentPrompt(p, opts.blind),
     [
       "--model",
       opts.model,
@@ -581,6 +621,13 @@ async function runOneWeb(opts, p, runNumber) {
     answer: agent.output,
     copilotkitRank: rank,
     mentioned: rank !== null || isCopilotKit(agent.output.answer),
+    // An answer that names CopilotKit with no tool call touching it also
+    // comes from memory.
+    discovery:
+      discoverySource(agent.toolCalls) === "never" &&
+      (rank !== null || isCopilotKit(agent.output.answer))
+        ? "memory"
+        : discoverySource(agent.toolCalls),
     citations: agent.output.citations.map((url) => ({
       url,
       host: hostOf(url),
@@ -602,10 +649,12 @@ const pct = (n, d) => (d ? `${Math.round((100 * n) / d)}%` : "n/a");
 // Lower case, without a trailing "(...)" note, so "LangGraph (Python)" and
 // "langgraph" count as one product.
 function productKey(name) {
-  return name
+  if (isCopilotKit(name)) return "copilotkit";
+  const key = name
     .replace(/\s*\(.*\)\s*$/, "")
     .trim()
     .toLowerCase();
+  return /^ag-?ui( protocol)?$/.test(key) ? "ag-ui" : key;
 }
 
 function countTop(items, limit) {
@@ -622,6 +671,11 @@ const rates = (rs) => ({
   first: rs.filter((r) => r.copilotkitRank === 1).length,
   mentioned: rs.filter((r) => r.mentioned).length,
   readDocs: rs.filter((r) => r.readCopilotKitDocs).length,
+  // Recommended after the web showed it first: what the web and docs earned.
+  recommendedFromWeb: rs.filter(
+    (r) => r.copilotkitRank && r.discovery === "web",
+  ).length,
+  fromMemory: rs.filter((r) => r.discovery === "memory").length,
 });
 
 function summarizeWeb(results) {
@@ -648,7 +702,7 @@ function summarizeWeb(results) {
   };
 }
 
-function formatWebSummary({ label, docsBaseUrl, summary: s }) {
+function formatWebSummary({ label, docsBaseUrl, blind, summary: s }) {
   const titles = Object.fromEntries(
     allWebPrompts().map((p) => [p.id, p.title]),
   );
@@ -657,7 +711,9 @@ function formatWebSummary({ label, docsBaseUrl, summary: s }) {
   return [
     `## ${label}: CopilotKit recommended in ${pct(s.overall.recommended, s.overall.runs)} of answers, first in ${pct(s.overall.first, s.overall.runs)}`,
     "",
-    `Docs content: ${docsBaseUrl ? `branch build at ${docsBaseUrl} (${s.branchFetches} page reads)` : "production"}`,
+    `Docs content: ${docsBaseUrl ? `branch build at ${docsBaseUrl} (${s.branchFetches} page reads)` : "production"}. Blind: ${blind ? "yes" : "no"}.`,
+    "",
+    `Recommended after the web showed it first: ${pct(s.overall.recommendedFromWeb, s.overall.runs)}. Runs where the agent named CopilotKit before any result showed it: ${pct(s.overall.fromMemory, s.overall.runs)}.`,
     "",
     "| Prompt | Runs | Recommended | Ranked first | Mentioned | Read CopilotKit docs |",
     "| --- | --- | --- | --- | --- | --- |",
@@ -689,6 +745,7 @@ function allWebPrompts() {
 async function runWeb(args) {
   const opts = {
     docsBaseUrl: args["docs-base-url"]?.replace(/\/$/, "") ?? null,
+    blind: args.blind === true,
     label: args.label ?? "web",
     model: args.model ?? "sonnet",
     runs: Number(args.runs ?? 1),
@@ -703,6 +760,7 @@ async function runWeb(args) {
   const { results, failures } = await runPool(opts, prompts, runOneWeb);
   const report = {
     mode: "web",
+    blind: opts.blind,
     label: opts.label,
     docsBaseUrl: opts.docsBaseUrl,
     model: opts.model,
