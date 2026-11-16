@@ -394,6 +394,12 @@ export interface CopilotKitSseRuntimeOptions extends BaseCopilotRuntimeOptions {
    * (InMemoryAgentRunner and SqliteAgentRunner do); with a runner that does
    * not, those requests are refused. See `threads`.
    *
+   * Listing, reading and clearing Threads over HTTP need a runner that serves
+   * the local Thread endpoints (InMemoryAgentRunner does). SqliteAgentRunner
+   * does not serve them: with it, list and read requests fail and a clear
+   * request does nothing. Its Threads can still be continued, replayed by
+   * connecting, and stopped by their owner.
+   *
    * Threads that SqliteAgentRunner stored before it recorded owners belong to
    * nobody: as before the upgrade, whoever holds such a Thread's id can reach
    * it, and continuing it does not claim it. The runner logs how many it holds
