@@ -1,6 +1,5 @@
 import { loader } from "fumadocs-core/source";
 import type { LoaderPlugin } from "fumadocs-core/source";
-import { lucideIconsPlugin } from "fumadocs-core/source/lucide-icons";
 import { defineDocs } from "fumadocs-mdx/macro";
 import { metaSchema, pageSchema } from "fumadocs-core/source/schema";
 import { z } from "zod";
@@ -114,10 +113,13 @@ const navTitlePlugin: LoaderPlugin = {
  */
 const liveFiles = liveDocs.toFumadocsSource();
 
+// No icon plugin: content icons are prefixed names (`lucide/Play`,
+// `custom/a2a`) that Fumadocs' `lucideIconsPlugin` can't resolve. The sidebar
+// draws no row icons; the cookbook maps its own in `src/proto/live-tree.tsx`.
 export const liveSource = loader({
   baseUrl: "/",
   source: liveFiles,
-  plugins: [lucideIconsPlugin(), navTitlePlugin],
+  plugins: [navTitlePlugin],
 });
 
 /**
@@ -141,5 +143,4 @@ export function folderSource(dir: string) {
 export const referenceSource = loader({
   baseUrl: "/reference",
   source: liveReference.toFumadocsSource(),
-  plugins: [lucideIconsPlugin()],
 });
