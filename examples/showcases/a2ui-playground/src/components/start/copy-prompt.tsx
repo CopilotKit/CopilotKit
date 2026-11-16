@@ -10,6 +10,7 @@ import { highlightCode } from "./highlight";
 import { buildPrompt } from "./prompt";
 import { Steps } from "./steps";
 import { Tabs } from "./tabs";
+import { withBase } from "@/lib/site";
 
 type Agent =
   | "antigravity"
@@ -91,7 +92,7 @@ function AgentLogo({ name, color }: { name: string; color?: boolean }) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
-        src={`/brand/agents/${name}.svg`}
+        src={withBase(`/brand/agents/${name}.svg`)}
         alt=""
         aria-hidden
         className="size-3.5 flex-none"
@@ -101,7 +102,7 @@ function AgentLogo({ name, color }: { name: string; color?: boolean }) {
     <span
       aria-hidden
       className="size-3.5 flex-none bg-foreground [mask-position:center] [mask-repeat:no-repeat] [mask-size:contain]"
-      style={{ maskImage: `url(/brand/agents/${name}.svg)` }}
+      style={{ maskImage: `url(${withBase(`/brand/agents/${name}.svg`)})` }}
     />
   );
 }
@@ -109,9 +110,9 @@ function AgentLogo({ name, color }: { name: string; color?: boolean }) {
 /** The agent path: copy the prompt, paste it into a coding agent, then add a key and run the app. */
 export function CopyPrompt() {
   const { id } = useDesignSystem();
-  // The prompt links this site; its address is known in the browser only.
+  // The prompt links this site (the host plus BASE_PATH); its address is known in the browser only.
   const [origin, setOrigin] = useState("");
-  useEffect(() => setOrigin(window.location.origin), []);
+  useEffect(() => setOrigin(window.location.origin + withBase("")), []);
   const prompt = buildPrompt(id, origin);
 
   const [copied, setCopied] = useState(false);

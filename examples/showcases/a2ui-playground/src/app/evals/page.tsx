@@ -11,11 +11,13 @@ import type { EvalData } from "@/components/evals/eval-results";
 import { SiteHeader } from "@/components/site/site-header";
 import { CodeBlock } from "@/components/start/code-block";
 import results from "@/data/evals.json";
+import { SITE_URL } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Evals · A2UI Playground",
   description:
     "Per-model scores for composing A2UI 1.0 surfaces: valid-render rate, component choice, latency and payload size, for Gemini, Gemma and GPT in Express and JSON.",
+  alternates: { canonical: `${SITE_URL}/evals` },
 };
 
 const data = results as unknown as EvalData;

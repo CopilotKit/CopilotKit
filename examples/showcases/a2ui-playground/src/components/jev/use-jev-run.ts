@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { JevEvent, JevNotice, JevResult } from "@/jev/decide.server";
 import type { UseCaseId } from "@/jev/usecases";
+import { withBase } from "@/lib/site";
 
 export type { JevEvent, JevNotice, JevResult };
 
@@ -65,7 +66,7 @@ export function useJevRun(usecase: UseCaseId, opts: { stream?: boolean } = {}) {
       setState({ phase: "running", startedAt });
       setEvents([]);
       try {
-        const res = await fetch("/api/jev", {
+        const res = await fetch(withBase("/api/jev"), {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ usecase, prompt, fixture, stream }),

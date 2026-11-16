@@ -13,6 +13,7 @@ import {
   headerButton,
 } from "./json-editor";
 import { sendable } from "./sendable";
+import { withBase } from "@/lib/site";
 
 type View = "express" | "json";
 const VIEWS: Array<[View, string]> = [
@@ -55,7 +56,7 @@ export function useDecompiled(opsJson: string | null): Decompiled | null {
       decompiled.set(opsJson, r);
       rerender((n) => n + 1);
     };
-    fetch("/api/express", {
+    fetch(withBase("/api/express"), {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: `{"ops":${opsJson}}`,

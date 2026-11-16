@@ -2,6 +2,9 @@
 export const REPO_URL: string | undefined =
   process.env.NEXT_PUBLIC_REPO_URL?.trim() || undefined;
 
+/** OpenBot's site. It serves this playground at open.bot/a2ui, and the header links back to it. */
+export const OPENBOT_URL = "https://open.bot";
+
 /** Where the site points people while there is no public repo. */
 export const DOCS_URL =
   "https://docs.copilotkit.ai/generative-ui/components/standard-catalog";

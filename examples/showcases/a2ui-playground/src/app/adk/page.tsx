@@ -2,6 +2,7 @@
 
 import { CopilotChat, CopilotKitProvider } from "@copilotkit/react-core/v2";
 import { playgroundTheme, playgroundUI } from "@/a2ui/catalog/catalog";
+import { withBase } from "@/lib/site";
 
 const GENERATIVE_UI = { ui: playgroundUI, theme: playgroundTheme };
 
@@ -9,7 +10,7 @@ const GENERATIVE_UI = { ui: playgroundUI, theme: playgroundTheme };
 export default function AdkPage() {
   return (
     <CopilotKitProvider
-      runtimeUrl="/api/adk"
+      runtimeUrl={withBase("/api/adk")}
       generativeUI={GENERATIVE_UI}
       enableInspector={false}
     >
