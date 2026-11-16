@@ -104,6 +104,12 @@ fi
 
 info "Starting ${services[*]}..."
 "${compose[@]}" "${up[@]}" "${services[@]}"
+# aimock replays sequence-indexed fixtures in order, and a run uses them up.
+# A fresh aimock for every run gives a second run the same results as the
+# first.
+info "Restarting aimock so this run starts with fresh fixtures..."
+"${compose[@]}" restart aimock
+wait_healthy aimock "$WAIT_SECONDS"
 wait_healthy "$APP_SERVICE" "$WAIT_SECONDS"
 while IFS= read -r address; do
   if [ -n "$address" ]; then

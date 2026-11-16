@@ -203,8 +203,10 @@ The command does these steps:
 2. It starts aimock, the integration's own service (for its agent), and
    `frontend-nextjs`: the app, at `http://localhost:3200`. The in-process
    integrations, built-in-agent and mastra, have no service to start.
-3. It waits for the app's `/api/health` and for the agent.
-4. It runs the suite with `INTEGRATION=strands` and
+3. It restarts aimock. A run uses up aimock's sequence-indexed fixtures, so
+   every run starts with fresh fixtures and gets the same results.
+4. It waits for the app's `/api/health` and for the agent.
+5. It runs the suite with `INTEGRATION=strands` and
    `BASE_URL=http://localhost:3200`, and exits with the suite's exit code.
 
 The specs of demos that the integration does not serve are skipped. The
@@ -212,13 +214,13 @@ containers keep running after the suite, so the next run starts faster. The
 run prints the command that stops them. Playwright writes its HTML report to
 `showcase/frontends/nextjs/playwright-report/`.
 
-| To                                                          | Run                                                                                     |
-| ----------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| Rebuild the images first, after a code change               | `pnpm nx run showcase-frontend-nextjs:e2e-local --build strands`                        |
-| Run one spec (arguments after the slug go to Playwright)    | `pnpm nx run showcase-frontend-nextjs:e2e-local strands tests/e2e/agentic-chat.spec.ts` |
-| Load a fixture change (aimock reads fixtures only at start) | `docker restart showcase-aimock`                                                        |
-| Test an app that runs already, in the app folder            | `INTEGRATION=strands BASE_URL=http://localhost:3200 npm run e2e`                        |
-| Run the suite in CI, for a Python-backed integration        | Comment `/test-aimock <slug>` on the PR                                                 |
+| To                                                        | Run                                                                                     |
+| --------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| Rebuild the images first, after a code change             | `pnpm nx run showcase-frontend-nextjs:e2e-local --build strands`                        |
+| Run one spec (arguments after the slug go to Playwright)  | `pnpm nx run showcase-frontend-nextjs:e2e-local strands tests/e2e/agentic-chat.spec.ts` |
+| Load a fixture change between manual runs (`npm run e2e`) | `docker restart showcase-aimock` (the command above restarts aimock on every run)       |
+| Test an app that runs already, in the app folder          | `INTEGRATION=strands BASE_URL=http://localhost:3200 npm run e2e`                        |
+| Run the suite in CI, for a Python-backed integration      | Comment `/test-aimock <slug>` on the PR                                                 |
 
 ### Writing a spec
 
