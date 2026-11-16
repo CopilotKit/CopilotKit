@@ -50,7 +50,7 @@ for (const w of widthsArg.split(",").map(Number)) {
               cs.overflowX === "visible" &&
               el.scrollWidth > el.clientWidth + 2 &&
               el.clientWidth > 0 &&
-              !el.closest("svg,canvas,.maplibregl-map")
+              !el.closest("svg,canvas,.maplibregl-map,.katex-mathml")
             ) {
               if (
                 (el.textContent || "").trim() &&
