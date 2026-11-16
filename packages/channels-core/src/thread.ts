@@ -155,13 +155,14 @@ export interface ThreadDeps {
    * picker is posted: until {@link registerWaiter} opens its choice, no click
    * runs them. Returns a function that abandons the claim (and revokes the
    * controls, and takes `choiceGate`) if the picker never became a pending
-   * choice.
+   * choice; its promise settles once no process can run them, and rejects
+   * when that cannot be confirmed.
    */
   reserveChoiceControls: (
     controlIds: Iterable<string>,
     actorId: string | undefined,
     choiceGate?: ChoiceGate,
-  ) => () => void;
+  ) => () => void | Promise<void>;
   interruptHandlers: Map<
     string,
     (args: {
@@ -906,7 +907,18 @@ export class Thread implements ThreadInterface {
         ref = await this.deps.adapter.post(this.deps.replyTarget, ir);
         await this.bindPosted(ref, bound);
       } catch (err) {
-        abandon();
+        // The controls may have been published: report the failure only once
+        // no process can run them, or with the store error as well when that
+        // cannot be confirmed.
+        try {
+          await abandon();
+        } catch (retirementError) {
+          throw new AggregateError(
+            [retirementError, err],
+            "the picker could not be retired in the shared store; its controls may still run in other processes until their deadline",
+            { cause: retirementError },
+          );
+        }
         throw err;
       }
       // The timeout counts from the moment the gate opened, so the choice
@@ -916,7 +928,8 @@ export class Thread implements ThreadInterface {
         ? choiceGate.deadline - Date.now()
         : Infinity;
       if (remainingMs <= 0) {
-        abandon();
+        // Past its gate's deadline the picker is retired everywhere anyway.
+        await Promise.resolve(abandon()).catch(() => {});
         throw new ChannelChoiceTimeoutError(timeoutMs);
       }
       // Registered only once the picker is posted (a failed post leaves no

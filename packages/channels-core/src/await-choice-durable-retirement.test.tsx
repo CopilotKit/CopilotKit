@@ -42,6 +42,11 @@ class FlakyStore extends MemoryStore {
    */
   holdAfterRescopeWrite: Promise<void> | undefined;
   onRescopeHeld: (() => void) | undefined;
+  /**
+   * An action write re-scoping a snapshot to `conversationKey` "posted"
+   * reaches the store, but its acknowledgement fails.
+   */
+  failRescopeAcks = false;
 
   constructor() {
     super();
@@ -62,6 +67,14 @@ class FlakyStore extends MemoryStore {
           throw new Error("store unavailable");
         }
         await set(key, value, ttlMs);
+        if (
+          this.failRescopeAcks &&
+          key.startsWith("action:") &&
+          (value as { conversationKey?: string } | undefined)
+            ?.conversationKey === "posted"
+        ) {
+          throw new Error("store unavailable");
+        }
         const hold = this.holdAfterRescopeWrite;
         if (
           hold &&
@@ -561,5 +574,93 @@ describe("awaitChoice settles only once its picker is retired everywhere", () =>
 
     expect(h.errors).toHaveLength(1);
     expect((h.errors[0] as Error).message).toBe("store unavailable");
+  });
+});
+
+describe("awaitChoice reports a failed post only once its picker is retired everywhere", () => {
+  /**
+   * Holds replica A's retirement, clicks the published control on replica
+   * B meanwhile, and returns the order of handler runs and settlement.
+   */
+  async function clickDuringRetirement(
+    h: Harness,
+    a: { fake: FakeAdapter },
+    b: { fake: FakeAdapter },
+    clickKey: string,
+  ): Promise<void> {
+    let releaseStore!: () => void;
+    const storeHeld = new Promise<void>((r) => {
+      releaseStore = r;
+    });
+    h.shared.holdNextGateConsume = storeHeld;
+    h.shared.holdActionDeletes = storeHeld;
+
+    a.fake.emitTurn({
+      userText: "deploy",
+      conversationKey: "c1",
+      actor: alice,
+    });
+    await until(() => a.fake.posted.length === 1, "the picker to publish");
+    await tick();
+    const id = buttonId(a.fake.posted[0]!);
+    // A click on replica B while A's retirement is still in flight.
+    b.fake.emitInteraction({ id, conversationKey: clickKey, actor: alice });
+    await tick();
+    releaseStore();
+    await until(() => h.errors.length === 1, "the failed post to settle");
+  }
+
+  it("(13) a provider that publishes the picker and then fails reports it after retirement", async () => {
+    const h = harness();
+    const a = await h.replica();
+    const b = await h.replica();
+    const post = a.fake.post.bind(a.fake);
+    a.fake.post = async (target, ir) => {
+      await post(target, ir);
+      throw new Error("post failed after publishing");
+    };
+
+    await clickDuringRetirement(h, a, b, "c1");
+
+    expect((h.errors[0] as Error).message).toBe("post failed after publishing");
+    // Whatever B did, it did before the caller saw the post fail.
+    expect(h.log.indexOf("settled")).toBe(h.log.length - 1);
+  });
+
+  it("(14) a re-scope whose acknowledgement fails after a post reports it after retirement", async () => {
+    const h = harness();
+    const a = await h.replica();
+    const b = await h.replica();
+    // A click on a posted message arrives under that message's own key.
+    Object.assign(a.fake, { postedConversationKey: () => "posted" });
+    h.shared.failRescopeAcks = true;
+
+    await clickDuringRetirement(h, a, b, "posted");
+
+    expect((h.errors[0] as Error).message).toBe("store unavailable");
+    expect(h.log.indexOf("settled")).toBe(h.log.length - 1);
+  });
+
+  it("(15) a failed post whose picker cannot be retired reports both errors", async () => {
+    const h = harness();
+    const a = await h.replica();
+    a.fake.post = async () => {
+      throw new Error("post failed");
+    };
+    h.shared.failGateConsumes = 100;
+
+    a.fake.emitTurn({
+      userText: "deploy",
+      conversationKey: "c1",
+      actor: alice,
+    });
+    await until(() => h.errors.length === 1, "the failed post to settle");
+
+    const err = h.errors[0] as AggregateError;
+    expect(err).toBeInstanceOf(AggregateError);
+    expect(err.errors.map((e: Error) => e.message)).toEqual([
+      "store unavailable",
+      "post failed",
+    ]);
   });
 });

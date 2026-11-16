@@ -986,13 +986,14 @@ export function createChannel<
    * can run one before its choice exists. Returns a function that gives the
    * claim up when the picker never became a pending choice (its post failed):
    * every control is then revoked, since its ids may have reached the
-   * platform anyway.
+   * platform anyway. Its promise settles once no process can run them (see
+   * `invalidateChoiceControls`).
    */
   function reserveChoiceControls(
     controlIds: Iterable<string>,
     actorId: string | undefined,
     choiceGate?: ChoiceGate,
-  ): () => void {
+  ): () => Promise<void> {
     const ids = [...controlIds];
     const owner: ChoiceControlOwner = {
       state: "reserved",
@@ -1000,9 +1001,9 @@ export function createChannel<
       choiceGate,
     };
     for (const id of ids) choiceControlOwners.set(id, owner);
-    return () => {
+    return async () => {
       if (owner.state === "reserved") {
-        void invalidateChoiceControls(ids, owner).catch(() => {});
+        await invalidateChoiceControls(ids, owner);
       }
     };
   }
