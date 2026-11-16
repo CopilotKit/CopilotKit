@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/angular",
-  "version": "0.6.0",
+  "version": "1.87.0",
   "description": "Angular library for CopilotKit",
   "license": "MIT",
   "engines": {
@@ -75,12 +75,12 @@
   "dependencies": {
     "@ag-ui/client": "1.0.4",
     "@ag-ui/core": "1.0.4",
-    "@copilotkit/core": "workspace:^",
-    "@copilotkit/markdown": "workspace:^",
-    "@copilotkit/mcp-apps-renderer": "workspace:^",
-    "@copilotkit/shared": "workspace:^",
-    "@copilotkit/web-components": "workspace:^",
-    "@copilotkit/web-inspector": "workspace:^",
+    "@copilotkit/core": "workspace:*",
+    "@copilotkit/markdown": "workspace:*",
+    "@copilotkit/mcp-apps-renderer": "workspace:*",
+    "@copilotkit/shared": "workspace:*",
+    "@copilotkit/web-components": "workspace:*",
+    "@copilotkit/web-inspector": "workspace:*",
     "katex": "^0.16.22",
     "zod": "^4.2.0"
   },

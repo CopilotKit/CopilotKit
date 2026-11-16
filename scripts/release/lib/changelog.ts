@@ -3,7 +3,7 @@
  * and how the publish job reads them back.
  *
  * One file per release lane, because the lanes version independently — a shared
- * file would interleave `1.70.0`, `angular/0.5.0` and `channels/0.9.0` into one
+ * file would interleave `1.70.0`, `channels/0.9.0` and `intelligence-mastra/0.3.0` into one
  * unreadable sequence.
  *
  * The flow is: prepare-release writes the raw notes, generate-ai-release-notes
@@ -26,7 +26,6 @@ import type { ReleaseScope } from "./config.js";
  */
 export const CHANGELOG_PATHS: Record<ReleaseScope, string> = {
   monorepo: "CHANGELOG.md",
-  angular: "packages/angular/CHANGELOG.md",
   channels: "packages/channels/CHANGELOG.md",
   "intelligence-langgraph": "packages/intelligence-langgraph/CHANGELOG.md",
   "intelligence-mastra": "packages/intelligence-mastra/CHANGELOG.md",
