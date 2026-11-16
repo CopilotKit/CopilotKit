@@ -274,6 +274,7 @@ const CHANNEL_FRONTENDS = ["slack", "teams"];
 const CHANNEL_GUIDE_SLUGS = [
   "overview",
   "intelligence",
+  "capabilities",
   "tools",
   "identity-and-memory",
   "rich-messages",
