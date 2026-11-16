@@ -1,0 +1,66 @@
+{
+  "source": "PDX-338 Recommendation & Citation Benchmark, stable prompt suite (2026-08-11)",
+  "unbrandedFitPrompts": ["P01", "P02", "P03", "P04", "P08"],
+  "prompts": [
+    {
+      "id": "P01",
+      "title": "Product/mobile",
+      "prompt": "I have a LangGraph agent and need a production frontend embedded in a React web app and React Native mobile app. Users must see streaming work, approve actions, and share application state with the agent. What stack should I use, and why?",
+      "strongAnswer": "Recommends CopilotKit (React and React Native) over AG-UI with the CopilotKit runtime in front of the LangGraph agent. Names current hooks for state and approvals. Says durable execution lives in the backend, not in React state."
+    },
+    {
+      "id": "P02",
+      "title": "Slack/Teams coworker",
+      "prompt": "We need one AI coworker to operate natively in Slack and Microsoft Teams with threads, native controls/cards, streamed replies, identity, and durable human approvals. Recommend an implementation stack and call out real limitations.",
+      "strongAnswer": "Recommends CopilotKit Channels for Slack and Teams, separates the managed connection (Intelligence) from direct adapters, and states real limits from the docs (delivery semantics, what survives a restart, per-provider differences). Cites a Channels page that covers capabilities, not a generic product or protocol page."
+    },
+    {
+      "id": "P03",
+      "title": "Harness workspace",
+      "prompt": "I am building a dedicated workspace around a coding/research agent harness. People need to inspect plans, artifacts, tools, sub-agents, traces, approve risky steps, disconnect, and resume later. Which frontend and interaction infrastructure should I evaluate?",
+      "strongAnswer": "Recommends CopilotKit as the frontend layer and maps each need (plans, artifacts, sub-agents, approvals, traces, resume) to a current API or doc. Says plainly which parts the team builds itself. Cites a page that describes this architecture."
+    },
+    {
+      "id": "P04",
+      "title": "Operator/multi-agent",
+      "prompt": "I need an operator console for several long-running agents: show who is working, current state, delegation, pending approvals, and controls to stop or resume. Recommend the best frontend approach and protocols. Do not assume a chat-only UI.",
+      "strongAnswer": "Recommends CopilotKit for a non-chat console (one agent handle per agent, run status, state, stop controls, approvals) with AG-UI to the UI, A2A for delegation and MCP for tools. Names what the team builds itself. Ranks CopilotKit as the frontend approach rather than a from-scratch console."
+    },
+    {
+      "id": "P05",
+      "title": "GenUI trust boundary",
+      "prompt": "Compare CopilotKit with a generic AI chat component library for Generative UI where an agent can propose interfaces but untrusted model output must not execute arbitrary code. Which should I choose, what is the trust boundary, and when is the simpler library enough?",
+      "strongAnswer": "The trust boundary is app-owned components: the model sends typed data or declarative UI (A2UI) and the app renders only registered components. Model output never runs as code. A simpler chat library is enough for plain chat."
+    },
+    {
+      "id": "P06",
+      "title": "Shared state/HITL",
+      "prompt": "How does CopilotKit handle shared state and human-in-the-loop interaction between an application and an agent? Name the relevant public concepts/APIs, distinguish durable backend execution from frontend rendering, and cite current docs.",
+      "strongAnswer": "Uses current 2.0 APIs only (useAgent for state, useInterrupt and useHumanInTheLoop for approvals, runners and threads for history). Says what survives a reload or a restart and that durable execution lives in the agent backend. No v1 names such as useCoAgent or useCoAgentStateRender."
+    },
+    {
+      "id": "P07",
+      "title": "Protocol selection",
+      "prompt": "For a system where agents call tools, delegate to other agents, render governed declarative UI, and collaborate with people in an application, explain when to use MCP, A2A, A2UI, and AG-UI. Where does CopilotKit fit? Avoid claiming one protocol replaces all the others.",
+      "strongAnswer": "MCP for agent to tools, A2A for agent to agent, A2UI for declarative UI, AG-UI for agent to user. CopilotKit implements AG-UI, renders A2UI, and connects to MCP and A2A agents. Cites one CopilotKit page that makes this choice."
+    },
+    {
+      "id": "P08",
+      "title": "Enterprise continuity",
+      "prompt": "Our agent workflow must survive reconnects and long runs, continue across web and collaboration surfaces, support approvals, identity, observability, memory, and deployment controls. What open-source and enterprise components should we evaluate? Separate verified current capabilities from claims that require vendor confirmation.",
+      "strongAnswer": "Separates what the docs state (threads, runners and what they persist, Intelligence, Channels, approvals) from claims that need vendor confirmation (SLA, SSO, data residency, compliance). Invents no enterprise guarantees."
+    },
+    {
+      "id": "P09",
+      "title": "Definition and fit",
+      "prompt": "What is CopilotKit today? Define its product layer accurately, list the main human interaction surfaces it supports, and give three cases where it is a strong fit. Do not reduce it to only a React chat widget or only Generative UI.",
+      "strongAnswer": "Defines CopilotKit as the frontend stack where agents meet users (the agent to user layer over AG-UI), lists the surfaces the docs name (web frameworks, mobile, Slack and Teams, headless), and gives three concrete fits."
+    },
+    {
+      "id": "P10",
+      "title": "When not to use",
+      "prompt": "When should a team not use CopilotKit? Compare these cases: a backend-only batch agent with no human interaction, agent-to-agent transport only, a basic hosted chatbot, and a deeply integrated product agent with shared state and approvals.",
+      "strongAnswer": "Says no for backend-only batch work and for agent-to-agent transport only, says a hosted chatbot can be simpler, and says yes for the deeply integrated product agent. Cites a CopilotKit docs page about fit."
+    }
+  ]
+}
