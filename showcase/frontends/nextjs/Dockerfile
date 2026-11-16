@@ -57,11 +57,12 @@ RUN chown node:node /app
 USER node
 
 # `next start` loads next.config.ts with the typescript package, a dev
-# dependency, so the image keeps the full install. Everything else the server
-# needs is in .next.
+# dependency, so the image keeps the full install. It serves the build from
+# .next and static files (the logo, the multimodal samples) from public/.
 COPY --from=builder --chown=node:node /showcase/frontends/nextjs/package.json /showcase/frontends/nextjs/next.config.ts ./
 COPY --from=builder --chown=node:node /showcase/frontends/nextjs/node_modules ./node_modules
 COPY --from=builder --chown=node:node /showcase/frontends/nextjs/.next ./.next
+COPY --from=builder --chown=node:node /showcase/frontends/nextjs/public ./public
 
 EXPOSE 10000
 HEALTHCHECK --interval=5s --timeout=3s --start-period=15s --retries=5 \
