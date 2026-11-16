@@ -1,4 +1,10 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type { ReactNode } from "react";
 import {
   CopilotKitContext,
@@ -11,6 +17,7 @@ import type {
 import { CopilotKitCoreReact } from "@copilotkit/react-core/v2/headless";
 import type {
   CopilotKitCoreErrorCode,
+  CopilotKitHeadersSource,
   CopilotKitMessageFilter,
 } from "@copilotkit/core";
 import type { DebugConfig, RuntimeLicenseStatus } from "@copilotkit/shared";
@@ -20,8 +27,12 @@ export interface CopilotKitNativeProviderProps {
   children: ReactNode;
   /** URL of the CopilotKit runtime endpoint */
   runtimeUrl: string;
-  /** Custom headers sent with every request */
-  headers?: Record<string, string> | (() => Record<string, string>);
+  /**
+   * Headers sent with every request. A record, or a sync or async builder
+   * that runs when each request is sent. An inline arrow is fine. The builder
+   * should be cheap; cache tokens in it (Clerk's `getToken()` already does).
+   */
+  headers?: CopilotKitHeadersSource;
   /**
    * Credentials mode for fetch requests (e.g., "include" for HTTP-only cookies in cross-origin requests).
    */
@@ -116,17 +127,35 @@ export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
   debug,
   defaultThrottleMs,
 }) => {
-  // Resolve headers from function or static object (matches web provider pattern)
-  const resolvedHeaders =
-    typeof headersProp === "function" ? headersProp() : headersProp;
+  // A headers builder runs when each request is sent, never during render, so
+  // a rotated token is picked up without a provider re-render (#7513, parity
+  // with the web provider in #7510). Core gets one stable wrapper that reads
+  // the latest builder from a ref. The ref is assigned during render (not in
+  // an effect) so a request started from a child effect in the same commit
+  // reads the new closure.
+  const headersRef = useRef(headersProp);
+  headersRef.current = headersProp;
+  const isHeadersBuilder = typeof headersProp === "function";
+  // The wrapper returns a record or a promise depending on the current
+  // builder, which one `CopilotKitHeadersSource` member can't express; same
+  // cast as the web provider.
+  const stableHeadersBuilder = useCallback(() => {
+    const current = headersRef.current;
+    return typeof current === "function" ? current() : (current ?? {});
+  }, []) as () => Record<string, string>;
 
-  // Stabilize headers/properties references to avoid effect churn when callers
-  // pass inline object literals (e.g. headers={{}} or the undefined default).
+  // Stabilize record headers/properties references to avoid effect churn when
+  // callers pass inline object literals (e.g. headers={{}} or the undefined
+  // default).
+  const recordHeaders = isHeadersBuilder ? undefined : headersProp;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const stableHeaders = useMemo(
-    () => resolvedHeaders ?? {},
-    [JSON.stringify(resolvedHeaders)],
+  const stableRecordHeaders = useMemo(
+    () => recordHeaders ?? {},
+    [JSON.stringify(recordHeaders)],
   );
+  const stableHeaders: CopilotKitHeadersSource = isHeadersBuilder
+    ? stableHeadersBuilder
+    : stableRecordHeaders;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const stableProperties = useMemo(
     () => properties ?? {},
