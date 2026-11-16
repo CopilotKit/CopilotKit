@@ -109,6 +109,12 @@ export function runStateStoreConformance(
         await new Promise((r) => setTimeout(r, 60));
         expect(await s.dedup.seen("e2", 30)).toBe(false);
       });
+      it("records a key again after forget, when the store supports it", async () => {
+        if (!s.dedup.forget) return;
+        expect(await s.dedup.seen("e3", 1000)).toBe(false);
+        await s.dedup.forget("e3");
+        expect(await s.dedup.seen("e3", 1000)).toBe(false);
+      });
     });
 
     describe("queue", () => {

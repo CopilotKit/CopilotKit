@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import {
   ActionRegistry,
+  ActionAlreadyClaimedError,
   ActionContinuationMismatchError,
   ActionExpiredError,
 } from "./action-registry.js";
@@ -204,22 +205,227 @@ describe("ActionRegistry", () => {
       },
     };
 
+    const firstActionId = (tree: ChannelNode[]) =>
+      (
+        (tree[0]!.props.children as ChannelNode[])[0]!.props.onClick as {
+          id: string;
+        }
+      ).id;
+
+    const bindTwo = async (store: InMemoryActionStore) => {
+      const reg = new ActionRegistry({ store, retentionMs: 60_000 });
+      reg.registerComponent("Confirm", Confirm as never);
+      const chain = { ...continuation };
+      const bind = async () =>
+        firstActionId(
+          await reg.bindTree("Confirm", { action: "approve" }, "conv1", chain),
+        );
+      return { reg, ids: [await bind(), await bind()] as [string, string] };
+    };
+
+    it("claims once when removing the action fails after the gate is taken", async () => {
+      const store = new InMemoryActionStore();
+      vi.spyOn(console, "warn").mockImplementation(() => {});
+      const { reg, ids } = await bindTwo(store);
+      const [id, sibling] = ids;
+      const consume = store.consume.bind(store);
+      vi.spyOn(store, "consume").mockImplementation(async (key) => {
+        if (key === id) throw new Error("store unavailable");
+        return consume(key);
+      });
+
+      await expect(
+        reg.claimContinuation(id, continuation),
+      ).resolves.toMatchObject({ actionId: id });
+
+      await expect(
+        reg.claimContinuation(id, continuation),
+      ).rejects.toBeInstanceOf(ActionAlreadyClaimedError);
+      await expect(
+        reg.claimContinuation(sibling, continuation),
+      ).rejects.toBeInstanceOf(ActionAlreadyClaimedError);
+    });
+
+    it("spends nothing when consuming the gate fails, so the same control can retry", async () => {
+      const store = new InMemoryActionStore();
+      const { reg, ids } = await bindTwo(store);
+      const consume = store.consume.bind(store);
+      vi.spyOn(store, "consume").mockImplementationOnce(async (key) => {
+        if (key.startsWith("resume:")) throw new Error("store unavailable");
+        return consume(key);
+      });
+
+      await expect(reg.claimContinuation(ids[0], continuation)).rejects.toThrow(
+        "store unavailable",
+      );
+
+      await expect(
+        reg.claimContinuation(ids[0], continuation),
+      ).resolves.toMatchObject({ actionId: ids[0] });
+      await expect(
+        reg.claimContinuation(ids[1], continuation),
+      ).rejects.toBeInstanceOf(ActionAlreadyClaimedError);
+    });
+
+    it("reports expiry and keeps the gate when the action vanishes during a claim", async () => {
+      const store = new InMemoryActionStore();
+      const { reg, ids } = await bindTwo(store);
+      const consume = store.consume.bind(store);
+      vi.spyOn(store, "consume").mockImplementation(async (key) =>
+        key === ids[0] ? undefined : consume(key),
+      );
+
+      await expect(
+        reg.claimContinuation(ids[0], continuation),
+      ).rejects.toBeInstanceOf(ActionExpiredError);
+
+      await expect(
+        reg.claimContinuation(ids[1], continuation),
+      ).resolves.toMatchObject({ actionId: ids[1] });
+    });
+
+    it("reports a claim when the spent marker records one", async () => {
+      const store = new InMemoryActionStore();
+      const { reg, ids } = await bindTwo(store);
+      await store.put(`resume:spent:${ids[0]}`, {
+        path: [],
+        conversationKey: "conv1",
+      });
+      const consume = store.consume.bind(store);
+      vi.spyOn(store, "consume").mockImplementation(async (key) =>
+        key === ids[0] ? undefined : consume(key),
+      );
+
+      await expect(
+        reg.claimContinuation(ids[0], continuation),
+      ).rejects.toBeInstanceOf(ActionAlreadyClaimedError);
+    });
+
+    it("publishes nothing when the gate cannot be stored, and the next bind retries", async () => {
+      const store = new InMemoryActionStore();
+      const reg = new ActionRegistry({ store, retentionMs: 60_000 });
+      reg.registerComponent("Confirm", Confirm as never);
+      const chain = { ...continuation };
+      const put = vi
+        .spyOn(store, "put")
+        .mockRejectedValueOnce(new Error("store unavailable"));
+
+      await expect(
+        reg.bindTree("Confirm", { action: "approve" }, "conv1", chain),
+      ).rejects.toThrow("store unavailable");
+      expect(put).toHaveBeenCalledTimes(1);
+
+      const id = firstActionId(
+        await reg.bindTree("Confirm", { action: "approve" }, "conv1", chain),
+      );
+      await expect(
+        reg.claimContinuation(id, continuation),
+      ).resolves.toMatchObject({ actionId: id });
+    });
+
+    it("gives binds running together one gate", async () => {
+      const store = new InMemoryActionStore();
+      const reg = new ActionRegistry({ store, retentionMs: 60_000 });
+      reg.registerComponent("Confirm", Confirm as never);
+      const chain = { ...continuation };
+      const bind = async () =>
+        firstActionId(
+          await reg.bindTree("Confirm", { action: "approve" }, "conv1", chain),
+        );
+      const [first, second] = await Promise.all([bind(), bind()]);
+
+      await reg.claimContinuation(first, continuation);
+
+      await expect(
+        reg.claimContinuation(second, continuation),
+      ).rejects.toBeInstanceOf(ActionAlreadyClaimedError);
+    });
+
+    it.each([
+      [
+        "re-scoping",
+        (reg: ActionRegistry, _id: string, tree: ChannelNode[]) =>
+          reg.rescopeActions(tree, { conversationKey: "conv1" }),
+      ],
+      [
+        "setting an owner",
+        (reg: ActionRegistry, id: string) =>
+          reg.setActionOwner([id], "actor-1"),
+      ],
+    ])("never lets %s carry an action past its gate", async (_label, renew) => {
+      vi.useFakeTimers();
+      try {
+        const store = new InMemoryActionStore();
+        const reg = new ActionRegistry({ store, retentionMs: 60_000 });
+        reg.registerComponent("Confirm", Confirm as never);
+        const chain = { ...continuation };
+        await reg.bindTree("Confirm", { action: "first" }, "conv1", chain);
+
+        vi.advanceTimersByTime(50_000);
+        const tree = await reg.bindTree(
+          "Confirm",
+          { action: "late" },
+          "conv1",
+          chain,
+        );
+        const id = firstActionId(tree);
+        vi.advanceTimersByTime(20_000);
+        const put = vi.spyOn(store, "put");
+        await renew(reg, id, tree);
+        expect(
+          put.mock.calls.filter(([key]) => key.startsWith("resume:")),
+        ).toEqual([]);
+
+        vi.advanceTimersByTime(55_000);
+
+        await expect(
+          reg.claimContinuation(id, continuation),
+        ).rejects.toBeInstanceOf(ActionExpiredError);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("gives a card rendered late in a run leg a gate that is still live", async () => {
+      vi.useFakeTimers();
+      try {
+        const store = new InMemoryActionStore();
+        const reg = new ActionRegistry({ store, retentionMs: 60_000 });
+        reg.registerComponent("Confirm", Confirm as never);
+        const chain = { ...continuation };
+        await reg.bindTree("Confirm", { action: "first" }, "conv1", chain);
+
+        vi.advanceTimersByTime(90_000);
+        const id = firstActionId(
+          await reg.bindTree("Confirm", { action: "late" }, "conv1", chain),
+        );
+        vi.advanceTimersByTime(45_000);
+
+        await expect(
+          reg.claimContinuation(id, continuation),
+        ).resolves.toMatchObject({ actionId: id });
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
     it("mints random capabilities and stores the trusted binding in the action snapshot", async () => {
       const store = new InMemoryActionStore();
       const reg = new ActionRegistry({ store, retentionMs: 60_000 });
       reg.registerComponent("Confirm", Confirm as never);
 
+      const chain = { ...continuation };
       const first = await reg.bindTree(
         "Confirm",
         { action: "approve" },
         "conv1",
-        continuation,
+        chain,
       );
       const second = await reg.bindTree(
         "Confirm",
         { action: "approve" },
         "conv1",
-        continuation,
+        chain,
       );
       const firstId = (
         (first[0]!.props.children as ChannelNode[])[0]!.props.onClick as {
@@ -234,7 +440,7 @@ describe("ActionRegistry", () => {
 
       expect(firstId).not.toBe(secondId);
       expect(await store.get(firstId)).toMatchObject({
-        continuation: { ...continuation, actionId: firstId },
+        continuation: { ...chain, actionId: firstId },
       });
     });
 
@@ -248,7 +454,7 @@ describe("ActionRegistry", () => {
         "Confirm",
         { action: "approve" },
         "conv1",
-        continuation,
+        { ...continuation },
       );
       const id = (
         (tree[0]!.props.children as ChannelNode[])[0]!.props.onClick as {
@@ -273,7 +479,7 @@ describe("ActionRegistry", () => {
             (outcome) => outcome.status === "rejected",
           ) as PromiseRejectedResult
         ).reason,
-      ).toBeInstanceOf(ActionExpiredError);
+      ).toBeInstanceOf(ActionAlreadyClaimedError);
     });
 
     it.each([
@@ -292,7 +498,7 @@ describe("ActionRegistry", () => {
           "Confirm",
           { action: "approve" },
           "conv1",
-          continuation,
+          { ...continuation },
         );
         const id = (
           (tree[0]!.props.children as ChannelNode[])[0]!.props.onClick as {

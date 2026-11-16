@@ -35,6 +35,7 @@ interface StateStore {
   };
   dedup: {
     seen(key: string, ttlMs: number): Promise<boolean>;
+    forget?(key: string): Promise<void>;
   };
   queue: {
     enqueue<T>(
@@ -62,6 +63,8 @@ interface StateStore {
 - `lock.release` must not release a lock owned by another or newer token.
 - `dedup.seen` returns `false` for the first observation and `true` for a repeat
   inside the TTL.
+- `dedup.forget` is optional. It drops a recorded key so a redelivery can retry
+  an event whose handler threw. Without it, the event stays recorded for the TTL.
 - Queues are FIFO. The configured overflow policy must be deterministic.
 
 Remote stores must support JSON-serializable values. `MemoryStore` preserves
