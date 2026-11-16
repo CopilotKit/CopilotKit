@@ -19,7 +19,7 @@ for (const w of widthsArg.split(",").map(Number)) {
   const names = await componentNames(p, filter?.split(","));
   const issues = [];
   for (const n of names) {
-    await openComponent(p, n, 1500);
+    if (!(await openComponent(p, n, 1500))) continue;
     issues.push(
       ...(await p.evaluate(() => {
         const out = [];

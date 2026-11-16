@@ -20,7 +20,10 @@ const res = {
   empty: [],
 };
 for (const n of names) {
-  await openComponent(p, n);
+  if (!(await openComponent(p, n))) {
+    res.noSample.push(n);
+    continue;
+  }
   const r = await p.$eval(`[data-preview="${n}"]`, (s) => ({
     pending: s.textContent.includes("renderer pending"),
     noSample: s.textContent.includes("no sample"),

@@ -35,12 +35,19 @@ export async function componentNames(page, filter) {
   return filter ? names.filter((n) => filter.includes(n)) : names;
 }
 
-/** Opens a component's page and waits for its preview stage. */
+/**
+ * Opens a component's page and waits for its preview stage. Returns false for a page without one: a Gen UI 2.0
+ * standard component with no sample shows its props only. The stage is in the server-rendered HTML, so a page
+ * without it is known as soon as it loads.
+ */
 export async function openComponent(page, name, settle = 1200) {
   await page.goto(`${BASE}/components/${name}`, {
     waitUntil: "networkidle2",
     timeout: 120000,
   });
-  await page.waitForSelector(`[data-preview="${name}"]`, { timeout: 30000 });
+  const stage = `[data-preview="${name}"]`;
+  if (!(await page.$(stage))) return false;
+  await page.waitForSelector(stage, { timeout: 30000 });
   await new Promise((r) => setTimeout(r, settle));
+  return true;
 }
