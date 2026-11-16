@@ -1,5 +1,7 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
+import type { FrameworkOverviewData } from "@/data/frameworks/types";
+import { frameworkOverviewMarkdown } from "./remark-framework-overview";
 import {
   expandFrameworkSetups,
   expandShowcase,
@@ -33,6 +35,7 @@ export async function renderLivePageMarkdown(
   live: ResolvedLivePage,
   url: string,
 ): Promise<string> {
+  if (live.overview) return frameworkLandingMarkdown(live, live.overview);
   const { title, description } = live.page.data;
   const [processed, raw] = await Promise.all([
     live.page.data.getText("processed"),
@@ -65,6 +68,50 @@ export async function renderLivePageMarkdown(
   if (description) header.push(`> ${description}`, "");
   const notice = isV1Reference(url) ? `${V1_DEPRECATION_MARKDOWN}\n` : "";
   return `${header.join("\n")}\n${notice}${body.trim()}\n`;
+}
+
+/**
+ * A generated framework landing (`/langgraph-python`) as Markdown: the
+ * record's sections, as `<FrameworkOverview>` renders them, then the
+ * landing's authored section (`framework-overviews/<slug>/after-features.mdx`)
+ * where the page shows one. `live.page` is the quickstart that backs the
+ * route, not what the landing shows. Title and description match the page's
+ * metadata.
+ */
+function frameworkLandingMarkdown(
+  live: ResolvedLivePage,
+  overview: FrameworkOverviewData,
+): string {
+  const framework = live.scope.framework;
+  const extra =
+    overview.hasAfterFeaturesMdx && framework
+      ? afterFeaturesMarkdown(framework)
+      : "";
+  const body = rewriteScopedLinks(
+    [frameworkOverviewMarkdown({ ...overview }, ""), extra]
+      .filter(Boolean)
+      .join("\n\n"),
+    (href) => liveHref(href, live.scope) ?? href,
+  ).trim();
+  const header = [`# ${overview.frameworkName}`, ""];
+  if (overview.subheader) header.push(`> ${overview.subheader}`, "");
+  return `${header.join("\n")}\n${body}\n`;
+}
+
+/** `after-features.mdx` without its layout wrapper, or "" when there is none. */
+function afterFeaturesMarkdown(framework: string): string {
+  const file = join(
+    process.cwd(),
+    "src",
+    "content",
+    "framework-overviews",
+    framework,
+    "after-features.mdx",
+  );
+  if (!existsSync(file)) return "";
+  return readFileSync(file, "utf8")
+    .replace(/^<\/?div\b[^>]*>[ \t]*$/gm, "")
+    .trim();
 }
 
 /** `@/snippets/*` (tsconfig `paths`). */
