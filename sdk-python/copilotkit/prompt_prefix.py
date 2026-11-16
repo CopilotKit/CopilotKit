@@ -10,9 +10,7 @@ imports, so each integration can use them.
 from typing import Any
 
 
-def prepend_to_newest_user_message(
-    messages: list[Any], note: str
-) -> list[Any] | None:
+def prepend_to_newest_user_message(messages: list[Any], note: str) -> list[Any] | None:
     """Returns a copy of ``messages`` (OpenAI-style dicts) with ``note`` at the
     start of the newest user message. Returns None when no user message has
     text content, so that the caller can keep the note in the system message.
