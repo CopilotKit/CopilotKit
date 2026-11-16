@@ -27,6 +27,10 @@
 //
 //   node scripts/aeo-eval/run.mjs web --label prod --runs 5
 //   node scripts/aeo-eval/run.mjs web --label branch --runs 5 --docs-base-url http://127.0.0.1:3003
+//
+// charts.mjs draws a chart page from a `web` report. weekly.mjs turns a normal
+// and a blind `web` report into the weekly report that
+// .github/workflows/aeo_weekly-report.yml posts every Monday.
 import { spawn } from "node:child_process";
 import {
   existsSync,
