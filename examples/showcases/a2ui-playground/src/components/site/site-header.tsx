@@ -248,10 +248,11 @@ function MenuSheet({ active }: { active?: Active }) {
     "text-muted-foreground hover:bg-black/[0.03] hover:text-foreground dark:hover:bg-white/[0.04]";
   const iconCls = "size-[18px] flex-none transition-colors";
   const iconOff = "text-muted-foreground/70 group-hover:text-foreground";
-  // The catalog list starts open, so every component is one tap away.
+  // On the Components pages the catalog list starts open, so every component is one tap away. Elsewhere it starts
+  // shut, so the theme and the source stay a few tab stops from the top instead of 120 links down.
   const pathname = usePathname();
   const current = catalogEntry(pathname);
-  const [catalogOpen, setCatalogOpen] = useState(true);
+  const [catalogOpen, setCatalogOpen] = useState(active === "components");
   const standard = useStandardNames(open && catalogOpen);
   const catalog: Array<{ label: string; items: string[] }> = [
     ...GROUPS.map((g) => ({ label: g.cat, items: g.items })),
