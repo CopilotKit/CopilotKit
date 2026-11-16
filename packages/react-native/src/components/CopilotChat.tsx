@@ -413,12 +413,21 @@ export function CopilotChat({
           multiline
           numberOfLines={4}
           returnKeyType="send"
+          // A multiline input inserts a newline on Return unless told to
+          // submit. React Native 0.73+ reads submitBehavior; older versions and
+          // react-native-web read blurOnSubmit. On the web, Shift+Enter still
+          // inserts a newline.
+          submitBehavior="submit"
+          blurOnSubmit
           onSubmitEditing={handleSend}
         />
         <TouchableOpacity
           style={[styles.sendButton, sendDisabled && styles.sendButtonDisabled]}
           onPress={handleSend}
           disabled={sendDisabled}
+          accessibilityRole="button"
+          accessibilityLabel="Send message"
+          accessibilityState={{ disabled: sendDisabled }}
           testID="send-button"
         >
           <Text style={styles.sendButtonIcon}>{"↑"}</Text>
