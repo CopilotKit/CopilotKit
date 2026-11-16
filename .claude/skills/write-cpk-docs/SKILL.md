@@ -1,9 +1,9 @@
 ---
-name: docs
-description: Use when writing, editing, or organizing documentation, when planning what docs a feature needs, and whenever planning or implementing a new feature or change in a repo (docs ship with the code). Also use when tempted to write docs without showing the discovered readers to the user, without asking for tone, or without loading simple-english and i-have-adhd. Triggers on "write docs for X", "document this feature", "add a guide", "update the docs", "reorganize the docs", "plan feature X", "implement X", or /docs.
+name: write-cpk-docs
+description: Use only when writing, editing, or reorganizing CopilotKit documentation pages (showcase/shell-docs). Do not use for planning or implementing features, code changes, or other writing such as PR descriptions or chat answers. Triggers on "write docs for X", "document this feature", "add a guide", "update the docs", "reorganize the docs", or /write-cpk-docs.
 ---
 
-# docs
+# write-cpk-docs
 
 Write docs a real person wants to read. Short, plain, built around someone trying to do a real thing.
 
@@ -23,15 +23,9 @@ Find docs
   → Phase 2: write
 ```
 
-A doc-impact list in a feature plan still runs the persona gate. It does not run the tone gate or load the writing skills until pages are actually written.
-
 ## When to run
 
-Docs ship with the code. Run this skill at three moments, not only when asked.
-
-- Someone asks for docs. Write them.
-- Planning a feature or change in a repo. Before the plan is done, list which docs are new and which need updating. This doc-impact list is part of the plan, the same as the code changes. Name the reader for each page.
-- Finishing an implementation. Write or update those docs before you call the work done. A change to how something behaves that ships no doc change is not finished.
+Run this skill only when someone asks for docs, or when you are about to write or edit a docs page. Do not run it while planning or implementing a feature. Docs work starts when pages are written.
 
 ## Required skills for the final pages
 
@@ -381,8 +375,6 @@ Then run the `simple-english` self-check on the same added text.
 | One page for everyone                                                                               | Name the readers. Give each a path or a page. Show the list. Stop.                                                                    |
 | Posting a snippet "they can adapt"                                                                  | Make it complete and runnable.                                                                                                        |
 | Guessing where docs go                                                                              | Find the docs folder, or ask. Read neighbors first.                                                                                   |
-| Calling a feature done with no doc change                                                           | If behavior changed, docs change too. Write them before you finish.                                                                   |
-| Planning a feature without a doc-impact list                                                        | Add the list of new and changed docs to the plan. Name the reader for each page.                                                      |
 | "Unlike the old X, this now..." / "we renamed X to Y"                                               | The reader never saw X. Describe only what ships now.                                                                                 |
 | "we chose Y over zod because..." / "X is no longer needed"                                          | Cut the rejected alternative. Document only what shipped, no comparison.                                                              |
 | Warning readers not to do a thing they never knew was possible (e.g. "don't pass locks as a store") | Delete it. If they never saw the old arrangement, the warning only confuses. Describe the thing in its own terms.                     |

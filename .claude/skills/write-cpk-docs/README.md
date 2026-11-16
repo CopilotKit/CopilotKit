@@ -1,4 +1,4 @@
-# docs
+# write-cpk-docs
 
 Write documentation a real person wants to read: short, plain, and built around someone trying to do a real thing.
 
@@ -6,7 +6,7 @@ The skill treats "document feature X" as the wrong goal. The right goal is "help
 
 ## What it does
 
-- **Finds your docs.** Looks for a docs folder (`docs/`, `documentation/`, `content/docs/`, and so on). If it finds none, it asks you where docs should go instead of guessing.
+- **Finds your docs.** Looks for a docs folder (`docs/`, `documentation/`, `content/write-cpk-docs/`, and so on). If it finds none, it asks you where docs should go instead of guessing.
 - **Adapts to your site.** Reads a few existing pages, learns the structure and frontmatter, and reuses whatever components the site already has (steps, tabs, callouts, cards) for storytelling. It never invents a component your site does not have and is not tied to any framework.
 - **Stops on personas.** After it names the readers, it shows you the list (who, the user story, the page) and waits. It does not bury this in a plan and keep going.
 - **Stops on tone.** Before it writes pages, it tells you the tone it inferred from neighboring pages and asks you to confirm or change it. Matching neighbors is not a silent yes.
@@ -20,9 +20,9 @@ Tiny copy edits (typo, broken link, code-fence language, factual fix) skip the t
 ## Usage
 
 ```
-/docs
-/docs write docs for tool interrupts
-/docs reorganize the auth section
+/write-cpk-docs
+/write-cpk-docs write docs for tool interrupts
+/write-cpk-docs reorganize the auth section
 ```
 
 Expect two stops before any page is written: the persona list, then the tone question. Answer those, then the pages land.
