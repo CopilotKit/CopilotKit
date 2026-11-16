@@ -4,6 +4,7 @@
     "monorepo": {
       "packages": [
         "@copilotkit/agentcore-runner",
+        "@copilotkit/angular",
         "@copilotkit/core",
         "@copilotkit/learning",
         "@copilotkit/markdown",
@@ -21,11 +22,6 @@
       ],
       "versionSource": "@copilotkit/react-core",
       "sharedVersion": true
-    },
-    "angular": {
-      "packages": ["@copilotkit/angular"],
-      "versionSource": "@copilotkit/angular",
-      "sharedVersion": false
     },
     "channels": {
       "packages": [

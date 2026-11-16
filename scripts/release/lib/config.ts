@@ -9,7 +9,6 @@ export const ROOT = path.resolve(
 
 export type ReleaseScope =
   | "monorepo"
-  | "angular"
   | "channels"
   | "intelligence-langgraph"
   | "intelligence-mastra";

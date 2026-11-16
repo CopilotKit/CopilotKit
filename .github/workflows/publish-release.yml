@@ -56,7 +56,6 @@ on:
         type: choice
         options:
           - monorepo
-          - angular
           - channels
           - intelligence-langgraph
           - intelligence-mastra
@@ -79,7 +78,7 @@ on:
         type: string
         default: ""
       rc:
-        description: "Release-candidate base X.Y.Z (mode=prerelease, single scope, no suffix): publishes the next <rc>-rc.N under the 'next' dist-tag. Set by release / rc."
+        description: "Release-candidate base X.Y.Z (mode=prerelease, no suffix): publishes the next <rc>-rc.N under the 'next' dist-tag. With scope=all, the monorepo gets <rc>-rc.N and each other scope a candidate of its own next minor. Set by release / rc."
         required: false
         type: string
         default: ""
@@ -266,8 +265,8 @@ jobs:
         run: |
           set -euo pipefail
           if [ -n "$INPUT_RC" ]; then
-            # bump-prerelease.ts validates the base and rejects scope=all; the
-            # meta step above already rejected a suffix.
+            # bump-prerelease.ts validates the base; the meta step above
+            # already rejected a suffix.
             pnpm tsx scripts/release/bump-prerelease.ts --scope "$INPUT_SCOPE" --rc "$INPUT_RC"
           elif [ -n "$INPUT_SUFFIX" ]; then
             if ! [[ "$INPUT_SUFFIX" =~ ^[a-zA-Z0-9._-]+$ ]]; then
@@ -1236,9 +1235,6 @@ jobs:
         run: |
           set -euo pipefail
           case "$SCOPE" in
-            angular)
-              NPM_URL="https://www.npmjs.com/package/@copilotkit/angular"
-              ;;
             *)
               NPM_URL="https://www.npmjs.com/org/copilotkit"
               ;;

@@ -8,10 +8,11 @@ A breaking change is a change that can stop working code from building or runnin
 
 The packages release in groups called scopes. Each scope has its own version number. The scopes are in `release.config.json`:
 
-- `monorepo`: the main `@copilotkit/*` packages, released together at one version.
-- `angular`: `@copilotkit/angular`, a 0.x package.
+- `monorepo`: the main `@copilotkit/*` packages, released together at one version. This includes `@copilotkit/angular` and `@copilotkit/learning`.
 - `channels`: the channel packages.
-- `learning`, `intelligence-langgraph`, `intelligence-mastra`: other independent packages.
+- `intelligence-langgraph`, `intelligence-mastra`: other independent packages.
+
+A release-line branch, such as `2.0.0`, publishes release candidates under the `next` dist-tag. The monorepo packages get `2.0.0-rc.N`. Each other scope gets a candidate of its own next minor, built from the same commit.
 
 A 0.x scope can break in any minor release, as in standard semver.
 

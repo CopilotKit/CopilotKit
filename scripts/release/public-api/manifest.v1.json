@@ -80,7 +80,7 @@
     },
     {
       "name": "@copilotkit/angular",
-      "version": "0.6.0",
+      "version": "1.87.0",
       "sourceDirectory": "packages/angular",
       "entrypoints": [
         {
@@ -218,7 +218,7 @@
         "releaseScope": {
           "kind": "release-config",
           "path": "release.config.json",
-          "selector": "scopes.angular.packages"
+          "selector": "scopes.monorepo.packages"
         }
       }
     },

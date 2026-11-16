@@ -135,7 +135,7 @@ export interface BuildReleaseNotificationInput {
   pyBuildResult: JobResult;
   /** needs.build-python.outputs.version — the published PyPI version. */
   pyVer: string;
-  /** needs.build.outputs.scope — "monorepo" | "angular". */
+  /** needs.build.outputs.scope — "monorepo", "channels", ... (a release.config.json scope). */
   scope: string;
   /** inputs.dry-run — true on a dry-run dispatch. */
   dryRun: boolean;

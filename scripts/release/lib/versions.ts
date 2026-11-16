@@ -196,6 +196,34 @@ export function assertRcBaseAhead(base: string, current: string): void {
 }
 
 /**
+ * The release-candidate base for a scope that is not on the release line's
+ * version: the next minor after the newest stable version the workspace or npm
+ * holds (`channels` at `0.12.0` → `0.13.0`).
+ *
+ * `release / rc` names one version, the branch (`2.0.0`), and only the
+ * monorepo scope is on that line. The other scopes still need candidates from
+ * the same commit: the runtime depends on the channel packages, and their last
+ * stable release was cut from main, built against a different Core. Counting
+ * npm's stable versions keeps the base ahead of anything main released since.
+ */
+export function nextCompanionRcBase(
+  current: string,
+  published: Iterable<string>,
+): string {
+  let newest = parseSemver(current);
+  for (const version of published) {
+    if (!/^\d+\.\d+\.\d+$/.test(version)) continue;
+    const v = parseSemver(version);
+    const order =
+      v.major - newest.major ||
+      v.minor - newest.minor ||
+      v.patch - newest.patch;
+    if (order > 0) newest = v;
+  }
+  return `${newest.major}.${newest.minor + 1}.0`;
+}
+
+/**
  * The dist-tag a prerelease publishes under. Release candidates go to
  * `RC_DIST_TAG` (`2.0.0-rc.3` → `next`); every other prerelease goes to its
  * prerelease identifier (`1.80.1-canary.123` → `canary`).

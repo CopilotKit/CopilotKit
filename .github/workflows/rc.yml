@@ -6,6 +6,13 @@ name: release / rc
 # monorepo scope as 2.0.0-rc.0, 2.0.0-rc.1, ... under the `next` dist-tag, and
 # `npm i @copilotkit/react-core@next` always installs the newest candidate.
 #
+# Every other scope publishes a candidate of its own next minor from the same
+# commit (channels 0.12.0 -> 0.13.0-rc.N), also under `next`. The runtime
+# depends on the channel packages, and the prerelease publisher pins those
+# dependencies to the versions of this run. A monorepo-only candidate instead
+# pinned the channel packages' last stable release, which main had built
+# against Core 1.x, so every 2.0 install carried two copies of Core.
+#
 # Merges that touch nothing under packages/ (docs, showcase, CI) publish
 # nothing. The RC number is picked in publish-release.yml's build job, one past
 # the highest rc any monorepo package already has on npm, so it needs no state
@@ -43,7 +50,7 @@ jobs:
   rc:
     uses: $/.github/workflows/canary.yml
     with:
-      scope: monorepo
+      scope: all
       rc: ${{ github.ref_name }}
       dry_run: ${{ inputs.dry_run == true }}
     secrets:
