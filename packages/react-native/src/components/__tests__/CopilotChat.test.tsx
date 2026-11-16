@@ -99,12 +99,27 @@ vi.mock("react-native", () => {
     },
     Text: ({ children, ...props }: any) =>
       React.createElement("span", props, children),
-    TextInput: ({ value, onChangeText, onSubmitEditing, ...props }: any) =>
+    TextInput: ({
+      value,
+      onChangeText,
+      onSubmitEditing,
+      multiline,
+      submitBehavior,
+      blurOnSubmit,
+      numberOfLines: _numberOfLines,
+      returnKeyType: _returnKeyType,
+      placeholderTextColor: _placeholderTextColor,
+      ...props
+    }: any) =>
       React.createElement("input", {
         value,
         onChange: (e: any) => onChangeText?.(e.target.value),
+        // Like React Native: Return in a multiline input inserts a newline
+        // unless submitBehavior or blurOnSubmit asks it to submit.
         onKeyDown: (e: any) => {
-          if (e.key === "Enter") onSubmitEditing?.();
+          const submits =
+            !multiline || submitBehavior === "submit" || blurOnSubmit === true;
+          if (e.key === "Enter" && !e.shiftKey && submits) onSubmitEditing?.();
         },
         "data-testid": "text-input",
         ...props,
@@ -114,13 +129,18 @@ vi.mock("react-native", () => {
       onPress,
       disabled,
       testID,
+      accessibilityRole,
+      accessibilityLabel,
+      accessibilityState: _accessibilityState,
       ...props
     }: any) =>
+      // react-native-web maps the accessibility props to role and aria-label.
       React.createElement(
-        "button",
+        accessibilityRole === "button" ? "button" : "div",
         {
           onClick: onPress,
           disabled,
+          "aria-label": accessibilityLabel,
           ...(testID ? { "data-testid": testID } : {}),
           ...props,
         },
@@ -227,6 +247,27 @@ describe("CopilotChat", () => {
     expect(hoisted.mockRunAgent).toHaveBeenCalledWith({
       agent: hoisted.mockAgent,
     });
+  });
+
+  it("sends when Return is pressed in the multiline input", async () => {
+    const { getByTestId } = render(<CopilotChat />);
+    const input = getByTestId("text-input");
+
+    await act(async () => {
+      fireEvent.change(input, { target: { value: "Sent with Return" } });
+    });
+    await act(async () => {
+      fireEvent.keyDown(input, { key: "Enter" });
+    });
+
+    expect(hoisted.mockAgent.addMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ role: "user", content: "Sent with Return" }),
+    );
+  });
+
+  it("gives the send button a role and a name for screen readers", () => {
+    const { getByRole } = render(<CopilotChat />);
+    expect(getByRole("button", { name: "Send message" })).toBeTruthy();
   });
 
   it("disables send button when input is empty", () => {
