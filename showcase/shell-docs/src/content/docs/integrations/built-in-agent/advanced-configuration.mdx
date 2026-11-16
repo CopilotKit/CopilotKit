@@ -138,6 +138,26 @@ const agent = new BuiltInAgent({
 });
 ```
 
+## Context placement and prompt caching
+
+By default, the agent puts the application context (from `useAgentContext`) and the application state in the system prompt. Model providers cache the unchanged start of a request (tools, then the system prompt, then the messages). So if the context or the state changes between turns, the system prompt changes, and the whole conversation history misses the cache. You then pay the full input price for the history on every turn.
+
+Set `contextPlacement: "message"` to put the context and the state at the start of the newest user message instead:
+
+```typescript
+const agent = new BuiltInAgent({
+  model: "openai:gpt-6-luna",
+  prompt: "You are a CRM assistant.",
+  contextPlacement: "message", // [!code highlight]
+});
+```
+
+The system prompt then stays the same for the whole thread, and the cache covers the history up to the newest turn. The earlier turns go to the model without their old context. If the request has no user message, the context stays in the system prompt.
+
+The agent also sorts frontend tools by name, so a new registration order does not change the tool list.
+
+The LangGraph middleware takes the same option: `createCopilotkitMiddleware({ contextPlacement: "message" })` in TypeScript, and `CopilotKitMiddleware(context_placement="message")` in Python.
+
 ## URL attachments
 
 When a message has an image or file given by URL, and the model cannot take that URL directly, the server downloads the file and sends its content to the model. Use `urlDownload` to control these downloads:
@@ -207,6 +227,7 @@ factory: (ctx) =>
 | `providerOptions` | `Record<string, any>` | none | Provider-specific options |
 | `forwardSystemMessages` | `boolean` | `false` | Forward system messages |
 | `forwardDeveloperMessages` | `boolean` | `false` | Forward developer messages |
+| `contextPlacement` | `"system"` or `"message"` | `"system"` | Where the application context and state go. `"message"` keeps the system prompt the same across turns, so the provider's prompt cache covers the history |
 | `urlDownload` | `"disabled"`, object, or function | public addresses only | Server-side download of URL attachments. Pass `"disabled"`, a `SafeUrlDownloadOptions` object, or an `Experimental_DownloadFunction` |
 | `capabilities` | `Partial<AgentCapabilities>` | inferred | Capabilities the agent reports. Each category you set replaces the inferred one |
 | `learnedSkills` | `BuiltInAgentLearnedSkillsOptions` | none | Loads learned skills before each run. See [Skill delivery](/intelligence/learned-skills#builtinagent) |

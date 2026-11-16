@@ -19,7 +19,7 @@ import json
 import re
 from collections.abc import Awaitable, Callable, Iterable
 from copy import copy, deepcopy
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Literal
 
 from langchain.agents.middleware import (
     AgentMiddleware,
@@ -27,7 +27,7 @@ from langchain.agents.middleware import (
     ModelRequest,
     ModelResponse,
 )
-from langchain_core.messages import AIMessage, SystemMessage, ToolMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 from langgraph.runtime import Runtime
 from langgraph.types import interrupt
 
@@ -232,6 +232,15 @@ _RESERVED_STATE_KEYS = frozenset(
 )
 
 
+ContextPlacement = Literal["system", "message"]
+
+
+def _tool_name(tool: Any) -> str:
+    if isinstance(tool, dict):
+        return str((tool.get("function") or {}).get("name") or tool.get("name") or "")
+    return str(getattr(tool, "name", "") or "")
+
+
 class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
     """CopilotKit Middleware for LangGraph agents.
 
@@ -286,6 +295,16 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
             (ag-ui-langgraph >= 0.0.43). The legacy
             ``forwardedProps.command.resume`` carries no id, so it can only
             answer a lone pending call.
+        context_placement: Where the app context and the exposed state go.
+
+            - ``"system"`` (default) — at the end of the system message.
+            - ``"message"`` — at the start of the newest human message, in the
+              model request only. The system message then stays the same for
+              the whole thread, so the provider's prompt cache covers the
+              conversation history. Providers cache an unchanged request
+              prefix (tools, system message, messages), and a context change
+              in the system message misses all of it. With no human message
+              in the request, the note stays in the system message.
     """
 
     state_schema = StateSchema
@@ -297,8 +316,14 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         expose_state: bool | Iterable[str] = False,
         a2ui_params: "A2UIToolParams | None" = None,
         interrupt_frontend_tools: bool = False,
+        context_placement: ContextPlacement = "system",
     ):
         super().__init__()
+        if context_placement not in ("system", "message"):
+            raise ValueError(
+                f'context_placement must be "system" or "message", got {context_placement!r}'
+            )
+        self._context_placement: ContextPlacement = context_placement
         if isinstance(expose_state, bool):
             self._expose_state: bool | frozenset[str] = expose_state
         else:
@@ -441,10 +466,31 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
             body = str(snapshot)
         return f"Current agent state:\n{body}"
 
-    def _apply_state_note(self, request: ModelRequest) -> ModelRequest:
-        note = self._build_state_note(request.state or {})
-        if not note:
-            return request
+    @staticmethod
+    def _prepend_to_newest_human_message(
+        request: ModelRequest, note: str
+    ) -> ModelRequest | None:
+        """Put ``note`` at the start of the newest human message, in the request
+        only. Returns None when the request has no human message."""
+        messages = list(request.messages)
+        for i in range(len(messages) - 1, -1, -1):
+            message = messages[i]
+            if not isinstance(message, HumanMessage):
+                continue
+            content = message.content
+            if isinstance(content, str):
+                new_content: Any = f"{note}\n\n{content}"
+            else:
+                new_content = [{"type": "text", "text": f"{note}\n\n"}, *content]
+            messages[i] = message.model_copy(update={"content": new_content})
+            return request.override(messages=messages)
+        return None
+
+    def _place_note(self, request: ModelRequest, note: str) -> ModelRequest:
+        if self._context_placement == "message":
+            placed = self._prepend_to_newest_human_message(request, note)
+            if placed is not None:
+                return placed
         existing = request.system_message
         if existing is None:
             return request.override(system_message=SystemMessage(content=note))
@@ -456,6 +502,12 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         return request.override(
             system_message=SystemMessage(content=f"{base}\n\n{note}")
         )
+
+    def _apply_state_note(self, request: ModelRequest) -> ModelRequest:
+        note = self._build_state_note(request.state or {})
+        if not note:
+            return request
+        return self._place_note(request, note)
 
     def _build_app_context_note(
         self,
@@ -507,17 +559,7 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         )
         if not note:
             return request
-        existing = request.system_message
-        if existing is None:
-            return request.override(system_message=SystemMessage(content=note))
-        base = (
-            existing.content
-            if isinstance(existing.content, str)
-            else str(existing.content)
-        )
-        return request.override(
-            system_message=SystemMessage(content=f"{base}\n\n{note}")
-        )
+        return self._place_note(request, note)
 
     # ------------------------------------------------------------------
     # Auto-A2UI tool injection
@@ -721,6 +763,10 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
             return handler(request)
 
         extra_tools = [a2ui_tool] if a2ui_tool is not None else []
+        # Sorted by name: the client sends frontend tools in registration
+        # order, which can change between renders, and the tool list starts
+        # the provider's cached prefix.
+        frontend_tools = sorted(frontend_tools, key=_tool_name)
         merged_tools = [*request.tools, *extra_tools, *frontend_tools]
 
         return handler(request.override(tools=merged_tools))
@@ -1096,6 +1142,10 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
             return await handler(request)
 
         extra_tools = [a2ui_tool] if a2ui_tool is not None else []
+        # Sorted by name: the client sends frontend tools in registration
+        # order, which can change between renders, and the tool list starts
+        # the provider's cached prefix.
+        frontend_tools = sorted(frontend_tools, key=_tool_name)
         merged_tools = [*request.tools, *extra_tools, *frontend_tools]
 
         return await handler(request.override(tools=merged_tools))

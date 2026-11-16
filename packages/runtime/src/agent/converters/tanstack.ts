@@ -18,6 +18,11 @@ import type {
 } from "@ag-ui/client";
 import { contentToText, EventType } from "@ag-ui/client";
 import { randomUUID } from "@copilotkit/shared";
+import {
+  prependToNewestUserMessage,
+  sortToolsByName,
+} from "../context-placement";
+import type { ContextPlacement } from "../context-placement";
 import { createStateEventNormalizer } from "../state-delta";
 import {
   aggregateRunUsage,
@@ -249,22 +254,58 @@ function sanitizeClientToolSchema(schema: unknown): unknown {
   return node;
 }
 
+const hasTanStackState = (state: unknown): boolean =>
+  state !== undefined &&
+  state !== null &&
+  typeof state === "object" &&
+  Object.keys(state).length > 0;
+
+/** The same text the system prompts carry, as one note for a user message. */
+function tanStackContextNote(
+  context: RunAgentInput["context"],
+  state: unknown,
+): string | undefined {
+  const parts = (context ?? []).map(
+    (ctx) => `${ctx.description}:\n${ctx.value}`,
+  );
+  if (hasTanStackState(state)) {
+    parts.push(
+      `Application State:\n\`\`\`json\n${JSON.stringify(state, null, 2)}\n\`\`\``,
+    );
+  }
+  return parts.length > 0 ? parts.join("\n\n") : undefined;
+}
+
 /**
  * Converts a RunAgentInput into the format expected by TanStack AI's `chat()`.
  *
  * - Keeps only user/assistant/tool messages (activity, reasoning, and other roles are also excluded)
  * - Extracts system/developer messages into `systemPrompts`
- * - Appends context entries and application state to `systemPrompts`
+ * - Appends context entries and application state to `systemPrompts`, or,
+ *   with `contextPlacement: "message"`, to the start of the newest user message
  * - Preserves tool calls on assistant messages and toolCallId on tool messages
  */
 export function convertInputToTanStackAI(
   input: RunAgentInput,
+  options: { contextPlacement?: ContextPlacement } = {},
 ): TanStackInputResult {
+  const contextNote =
+    options.contextPlacement === "message"
+      ? tanStackContextNote(input.context, input.state)
+      : undefined;
+  // With "message", the context and state go into the newest user message,
+  // so the system prompts stay the same across turns and stay cached.
+  const placedMessages = contextNote
+    ? prependToNewestUserMessage(input.messages, contextNote)
+    : undefined;
+  const sourceMessages = placedMessages ?? input.messages;
+  const contextInSystem = placedMessages === undefined;
+
   // Allowlist: only pass user/assistant/tool messages to TanStack.
   // Other roles (system, developer, activity, reasoning) are either
   // extracted into systemPrompts or not applicable.
   const chatRoles = new Set(["user", "assistant", "tool"]);
-  const messages: TanStackChatMessage[] = input.messages
+  const messages: TanStackChatMessage[] = sourceMessages
     .filter((m: Message) => chatRoles.has(m.role))
     .map((m: Message): TanStackChatMessage => {
       const msg: TanStackChatMessage = {
@@ -305,18 +346,13 @@ export function convertInputToTanStackAI(
     }
   }
 
-  if (input.context?.length) {
+  if (contextInSystem && input.context?.length) {
     for (const ctx of input.context) {
       systemPrompts.push(`${ctx.description}:\n${ctx.value}`);
     }
   }
 
-  if (
-    input.state !== undefined &&
-    input.state !== null &&
-    typeof input.state === "object" &&
-    Object.keys(input.state).length > 0
-  ) {
+  if (contextInSystem && hasTanStackState(input.state)) {
     systemPrompts.push(
       `Application State:\n\`\`\`json\n${JSON.stringify(input.state, null, 2)}\n\`\`\``,
     );
@@ -325,12 +361,16 @@ export function convertInputToTanStackAI(
   // Frontend-provided tools become client-side TanStack tools (no executor):
   // the model can call them, TanStack pauses the run, and the AG-UI client
   // executes them and resumes — the CopilotKit client-tool round-trip.
-  const tools: TanStackClientTool[] = (input.tools ?? []).map((t) => ({
-    __toolSide: "client",
-    name: t.name,
-    description: t.description,
-    inputSchema: sanitizeClientToolSchema(t.parameters),
-  }));
+  // Sorted by name: the tool list starts the cached prefix, and the client
+  // sends tools in registration order, which can change between renders.
+  const tools: TanStackClientTool[] = sortToolsByName(input.tools ?? []).map(
+    (t) => ({
+      __toolSide: "client",
+      name: t.name,
+      description: t.description,
+      inputSchema: sanitizeClientToolSchema(t.parameters),
+    }),
+  );
 
   return { messages, systemPrompts, tools };
 }

@@ -66,6 +66,13 @@ import {
 } from "./converters/aisdk";
 import { convertTanStackStream } from "./converters/tanstack";
 import {
+  applicationContextSection,
+  applicationStateSection,
+  prependToNewestUserMessage,
+  sortToolsByName,
+} from "./context-placement";
+import type { ContextPlacement } from "./context-placement";
+import {
   collectStandardRunFinishedDetails,
   getNonEmptyString,
   isRecord,
@@ -1206,6 +1213,13 @@ export interface BuiltInAgentClassicConfig {
    */
   forwardDeveloperMessages?: boolean;
   /**
+   * Where the application context and state go: `"system"` (default) puts
+   * them in the system prompt. `"message"` puts them at the start of the
+   * newest user message, so the system prompt stays the same for the whole
+   * thread and the provider's prompt cache covers the conversation history.
+   */
+  contextPlacement?: ContextPlacement;
+  /**
    * Provider-specific options passed to the model (e.g., OpenAI reasoningEffort).
    * Example: `{ openai: { reasoningEffort: "high" } }`
    */
@@ -1409,7 +1423,24 @@ export class BuiltInAgent extends AbstractAgent {
           Object.keys(input.state).length === 0
         );
 
-      if (hasPrompt || hasContext || hasState) {
+      // With contextPlacement "message", the context and state go into the
+      // newest user message, and the system prompt keeps only the agent's
+      // prompt. That keeps the cached request prefix the same across turns.
+      let inputMessages = input.messages;
+      if (config.contextPlacement === "message" && (hasContext || hasState)) {
+        const note = [
+          applicationContextSection(input.context),
+          applicationStateSection(input.state),
+        ]
+          .filter((section): section is string => section !== undefined)
+          .join("\n");
+        const placed = prependToNewestUserMessage(input.messages, note);
+        // With no user message to carry it, the note stays in the system prompt.
+        if (placed) inputMessages = placed;
+      }
+      const contextInSystem = inputMessages === input.messages;
+
+      if (hasPrompt || (contextInSystem && (hasContext || hasState))) {
         const parts: string[] = [];
 
         // First: the prompt if any
@@ -1418,7 +1449,7 @@ export class BuiltInAgent extends AbstractAgent {
         }
 
         // Second: context from the application
-        if (hasContext) {
+        if (contextInSystem && hasContext) {
           parts.push("\n## Context from the application\n");
           for (const ctx of input.context) {
             parts.push(`${ctx.description}:\n${ctx.value}\n`);
@@ -1426,7 +1457,7 @@ export class BuiltInAgent extends AbstractAgent {
         }
 
         // Third: state from the application that can be edited
-        if (hasState) {
+        if (contextInSystem && hasState) {
           parts.push(
             "\n## Application State\n" +
               "This is state from the application that you can edit by calling AGUISendStateSnapshot or AGUISendStateDelta.\n" +
@@ -1449,7 +1480,7 @@ export class BuiltInAgent extends AbstractAgent {
         });
       }
 
-      const messages = convertMessagesToVercelAISDKMessages(input.messages, {
+      const messages = convertMessagesToVercelAISDKMessages(inputMessages, {
         forwardSystemMessages: config.forwardSystemMessages,
         forwardDeveloperMessages: config.forwardDeveloperMessages,
       });
@@ -1506,7 +1537,11 @@ export class BuiltInAgent extends AbstractAgent {
       }
 
       // Merge tools from input and config
-      let allTools: ToolSet = convertToolsToVercelAITools(input.tools);
+      // Sorted, so that a new frontend registration order does not change
+      // the tool list, which is the start of the cached prefix.
+      let allTools: ToolSet = convertToolsToVercelAITools(
+        sortToolsByName(input.tools),
+      );
       if (config.tools && config.tools.length > 0) {
         const configTools = convertToolDefinitionsToVercelAITools(config.tools);
         allTools = { ...allTools, ...configTools };
@@ -2666,6 +2701,7 @@ export class BasicAgent extends BuiltInAgent {
 export type BasicAgentConfiguration = BuiltInAgentClassicConfig;
 
 export * from "./converters";
+export type { ContextPlacement } from "./context-placement";
 export { createSafeUrlDownload } from "./url-download";
 export type {
   CreateSafeUrlDownloadOptions,
