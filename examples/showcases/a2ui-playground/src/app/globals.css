@@ -504,7 +504,7 @@
   white-space: nowrap;
 }
 
-/* Landing and docs pages: one container for heroes and sections, the width of the header's .site-container,
+/* Landing and content pages: one container for heroes and sections, the width of the header's .site-container,
    so every left edge lines up. .landing-narrow is kept as an alias for pages that still use it. */
 .landing-container,
 .landing-narrow {

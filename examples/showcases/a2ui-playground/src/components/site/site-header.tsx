@@ -260,7 +260,7 @@ function MenuSheet({ active }: { active?: Active }) {
   const iconOff = "text-muted-foreground/70 group-hover:text-foreground";
   // The catalog list starts open, so every component is one tap away.
   const pathname = usePathname();
-  const current = decodeURIComponent(pathname.split("/")[2] ?? "");
+  const current = catalogEntry(pathname);
   const [catalogOpen, setCatalogOpen] = useState(true);
   const standard = useStandardNames(open && catalogOpen);
   const catalog: Array<{ label: string; items: string[] }> = [
@@ -427,6 +427,20 @@ function MenuSheet({ active }: { active?: Active }) {
       </DialogPrimitive.Portal>
     </DialogPrimitive.Root>
   );
+}
+
+/**
+ * The page a /components/<name> address names, for marking it in the menu's catalog list; "" anywhere else. Every
+ * page renders this header, the 404 included, so an address with a malformed escape must not throw here.
+ */
+function catalogEntry(pathname: string): string {
+  const segment = /^\/components\/([^/]+)/.exec(pathname)?.[1];
+  if (!segment) return "";
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    return "";
+  }
 }
 
 /** A component in the menu's catalog list. */
