@@ -3,7 +3,7 @@
 
 The CopilotKit CLI helps you create CopilotKit apps connected to CopilotKit Intelligence, whether cloud-hosted or [self-hosted](/intelligence/self-hosting). It handles browser sign-in, project selection, project-scoped runtime API keys, historical thread import, and local project configuration so your app can use threads and conversation history.
 
-Use the CLI when you want to start a new app, import historical ADK or LangGraph conversations, or install CopilotKit agent skills for your coding agent.
+Use the CLI when you want to start a new app, add CopilotKit to an app you already have, find what is wrong with a setup, import historical ADK or LangGraph conversations, or install CopilotKit agent skills for your coding agent.
 
 <OpsPlatformCTA
   variant="inline"
@@ -27,7 +27,7 @@ Use the CLI when you want to start a new app, import historical ADK or LangGraph
 ## Start a new app
 
 <Callout type="info" title="Creating vs. adding to an existing app">
-  `init` (aliased as `create`) scaffolds a brand-new project in its own directory. It prompts for an app name and does not detect or bootstrap an app you already have. To add CopilotKit to an existing app, follow the manual installation in the [Quickstart](/quickstart) instead.
+  `init` (aliased as `create`) scaffolds a brand-new project in its own directory. It prompts for an app name and does not detect or bootstrap an app you already have. To add CopilotKit to an existing app, run [`scaffold`](#add-copilotkit-to-an-existing-app) instead.
 </Callout>
 
 <Steps>
@@ -118,6 +118,115 @@ Use the CLI when you want to start a new app, import historical ADK or LangGraph
   </Step>
 </Steps>
 
+## Add CopilotKit to an existing app
+
+You have an app and you want a working chat in it. `scaffold` adds one with a single command. You do not need a CopilotKit account.
+
+<Steps>
+  <Step>
+    ### Run scaffold
+
+    Run this command from the folder of your app:
+
+    ```bash title="Terminal"
+    npx copilotkit@latest scaffold
+    ```
+
+    `scaffold` finds your framework. Then it shows a plan with every file that it will change. Confirm the plan. `scaffold` then adds these parts:
+
+    - The CopilotKit packages.
+    - The provider around your app.
+    - A chat UI. The default is a popup.
+    - A runtime with the built-in agent.
+  </Step>
+
+  <Step>
+    ### Add your model key
+
+    The built-in agent uses `openai/gpt-5-mini` by default. `scaffold` adds an empty `OPENAI_API_KEY` entry to `.env.local` for Next.js, and to `.env` for other frameworks. Put your key in that entry:
+
+    ```bash title=".env"
+    OPENAI_API_KEY=sk-...
+    ```
+
+    To use a different model, run `scaffold` with `--model <provider/model>`. Then set the key for that provider.
+  </Step>
+
+  <Step>
+    ### Start the runtime
+
+    The location of the runtime depends on your framework:
+
+    | Framework | Runtime |
+    |---|---|
+    | Next.js, React Router (framework mode), TanStack Start | A runtime route in your app. It starts with your app. |
+    | Vite + React, Create React App, TanStack Router, Vue, Angular, React Native or Expo | A small Node server in `copilotkit/server.mjs`, on port 8200. |
+
+    If your app uses the Node server, start it in a second terminal:
+
+    ```bash title="Terminal"
+    npm run copilotkit:runtime
+    ```
+  </Step>
+
+  <Step>
+    ### Send a message
+
+    Start your app. Send a message in the chat. The agent answers.
+
+    If the agent does not answer, run [`doctor`](#diagnose-your-setup-with-doctor).
+  </Step>
+</Steps>
+
+You can run `scaffold` again at any time. It skips the steps that are already done. If `scaffold` does not recognize the shape of a file, it does not change that file. It lists the edit for that file as a manual step.
+
+| Option | What it does |
+|---|---|
+| `--ui <ui>` | The chat UI to add: `popup`, `sidebar`, or `chat`. Default `popup`. |
+| `--model <provider/model>` | The model that the built-in agent uses. The provider is `openai`, `anthropic`, or `gemini`. Default `openai/gpt-5-mini`. |
+| `--dry-run` | Show the plan and write nothing. |
+| `--yes` | Apply the plan without the confirm prompt. |
+| `--no-install` | Do not install the packages. The next steps show the install command. |
+
+<Callout type="info" title="Frameworks that are not supported yet">
+  `scaffold` does not support Nuxt, Remix v2, SvelteKit, or Astro yet. For these frameworks, it reports the framework and writes nothing.
+</Callout>
+
+### In a monorepo
+
+Run `scaffold` from the root of the workspace. It reads the workspace config to find your apps. It skips libraries and asks which apps to set up.
+
+To choose an app without the prompt, pass `--app`:
+
+```bash title="Terminal"
+npx copilotkit@latest scaffold --app apps/web
+```
+
+To set up more than one app, pass `--app` once for each app.
+
+### Run it from a coding agent
+
+If a coding agent runs `scaffold`, `scaffold` does not prompt. Add `--json` to get one JSON object on stdout:
+
+```bash title="Terminal"
+npx copilotkit@latest scaffold --json --app apps/web --yes
+```
+
+The object has these fields:
+
+- `status`: `completed`, `partial`, `blocked`, or `failed`.
+- `plan`: the steps and the files that they change.
+- `nextAction`: the next thing for the agent to do.
+
+The exit code gives the same result:
+
+| Exit code | Status |
+|---|---|
+| `0` | Completed. |
+| `1` | Failed. |
+| `2` | Blocked. It needs an answer, for example `--app` for a folder with several apps. |
+| `75` | Partial. Some steps need a manual edit. |
+
 ## Evaluate Intelligence locally
 
 To try Intelligence without a cloud-hosted project, run it in Docker on your own machine. Local evaluation is a preview supported on macOS with Docker Desktop. Read [Evaluate Intelligence locally](/intelligence/self-hosting-local) for the supported preview scope. From your app's folder:
@@ -162,6 +271,43 @@ To import ADK or LangGraph history into your project, run a dry run first:
 </Tabs>
 
 The dry run shows the source agent keys, conversation counts, skips, and the estimated upload size. It does not open an import batch. For the full import flow, see [Add AG-UI Streams to Existing Threads](/threads-import). Source-specific setup lives in [Add AG-UI streams to ADK sessions](/google-adk/threads-import) and [Add AG-UI streams to LangGraph threads](/langgraph-python/threads-import).
+
+## Diagnose your setup with doctor
+
+If the chat does not answer, run `doctor` from the folder of your app:
+
+```bash title="Terminal"
+npx copilotkit@latest doctor
+```
+
+`doctor` reads the files in your app and checks these parts:
+
+- The framework and the CopilotKit packages. The packages must be installed and on matching versions.
+- The provider, the chat UI, and the runtime. The runtime path in the provider must match the runtime.
+- The model key. The key must be set, and it must not be in an env var that the browser can read.
+- The TypeScript module resolution.
+- CORS on the separate runtime server.
+
+The checks look at how your framework runs CopilotKit, not at the files that `scaffold` writes. A setup that you wrote by hand also passes.
+
+Every check reports **PASS**, **WARN**, **FAIL**, or **SKIP**. For each failed check, `doctor` prints the fix. Apply each fix, then run `doctor` again.
+
+To also call the running runtime, start your app and add `--live`:
+
+```bash title="Terminal"
+npx copilotkit@latest doctor --live --url http://localhost:3000/api/copilotkit
+```
+
+| Option | What it does |
+|---|---|
+| `--live` | Also call the running runtime and check that it answers and allows the app origin. |
+| `--url <runtime url>` | The runtime URL that `--live` calls. Without it, `doctor` uses the default URL for your framework and dev port. |
+| `--app <path>` | Check only this app. Use it in a monorepo. |
+| `--json` | Emit one JSON result on stdout, for coding agents. |
+
+When a check fails, `doctor` exits with code `1`. As a result, it works as a CI gate.
+
+`doctor` checks the files and the model key in your app. To check an app that is connected to a cloud-hosted project, use [`verify`](#verify-your-setup).
 
 ## Verify your setup
 
