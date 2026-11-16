@@ -276,6 +276,22 @@ describe("stored message history across runs", () => {
     ]);
   });
 
+  it("replays stored message order after a snapshot omits earlier messages", async () => {
+    const threadId = ownershipThreadId("history-snapshot-order");
+    await send(threadId, [{ id: "a", content: "first" }]);
+    expect(
+      await send(
+        threadId,
+        [{ id: "b", content: "second" }],
+        normalizingAgent((message) => message),
+      ),
+    ).toEqual(["a:first", "b:second"]);
+    expect(await replayMessages(threadId)).toEqual([
+      { id: "a", role: "user", content: "first" },
+      { id: "b", role: "user", content: "second" },
+    ]);
+  });
+
   it("restores stored history before replaying an active run's partial output", async () => {
     const threadId = ownershipThreadId("history-active-replay");
     await send(threadId, [{ id: "a", content: "first" }]);

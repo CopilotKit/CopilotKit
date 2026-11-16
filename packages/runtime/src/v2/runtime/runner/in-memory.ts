@@ -1327,7 +1327,14 @@ export class InMemoryAgentRunner extends AgentRunner {
           type: EventType.MESSAGES_SNAPSHOT,
           messages: [...store.messagesSnapshot],
         };
-        compactedEvents.splice(terminalIndex, 0, snapshot);
+        // The reducer preserves existing message order; clear ordinary
+        // messages first so the stored snapshot restores their order too.
+        compactedEvents.splice(
+          terminalIndex,
+          0,
+          { ...snapshot, messages: [] },
+          snapshot,
+        );
       }
     }
 
@@ -1472,9 +1479,9 @@ export class InMemoryAgentRunner extends AgentRunner {
    * Returns all AG-UI events for a thread, compacted across historic runs.
    *
    * Powers the local-dev fallback for `GET /threads/:threadId/events` when the
-   * CopilotKit Intelligence is not configured. The compaction logic matches
-   * the connection-replay path in {@link connect}, so the stream a
-   * late-joining inspector sees matches what this method returns.
+   * CopilotKit Intelligence is not configured. Returns recorded, compacted
+   * history; {@link connect} can add snapshots that reconcile retained
+   * message history.
    */
   getThreadEvents(
     threadId: string,
