@@ -13,7 +13,8 @@ vi.mock("phoenix", () => ({
 }));
 
 // Must come after vi.mock so phoenix is mocked when the module is loaded.
-const { IntelligenceAgent } = await import("../intelligence-agent");
+const { IntelligenceAgent, IntelligenceReplayFailedError } =
+  await import("../intelligence-agent");
 const { ProxiedCopilotRuntimeAgent } = await import("../agent");
 type IntelligenceAgentInstance = InstanceType<typeof IntelligenceAgent>;
 
@@ -569,6 +570,149 @@ describe("IntelligenceAgent", () => {
       expect(result.error).toBeInstanceOf(Error);
       expect(result.error!.message).toBe("something went wrong");
       expect(result.events).toContainEqual(errorEvent);
+    });
+
+    it("fails a live run with a typed error when its replay fails, without stopping it", async () => {
+      const agent = createAgent();
+      const promise = collectEvents(agent);
+      await waitForConnection(agent);
+
+      const socket = getSocket(agent)!;
+      const channel = getChannel(agent)!;
+      channel.triggerJoin("ok");
+      channel.serverPush("ag_ui_event", {
+        type: EventType.RUN_STARTED,
+        threadId: "thread-1",
+        runId: "run-1",
+      } as BaseEvent);
+      channel.serverPush("replay_failed", { reason: "timeout" });
+      // The gateway still sends replay_complete for clients that ignore the
+      // failure; the run must not resume from it.
+      channel.serverPush("replay_complete", { latestEventId: null });
+
+      const result = await promise;
+      expect(result.completed).toBe(false);
+      expect(result.error).toBeInstanceOf(IntelligenceReplayFailedError);
+      expect(result.error).toMatchObject({
+        code: "INTELLIGENCE_REPLAY_FAILED",
+        threadId: "thread-1",
+      });
+      expect(channel.pushLog.some((push) => push.event === "stop_run")).toBe(
+        false,
+      );
+      expect(channel.left).toBe(true);
+      expect(socket.disconnected).toBe(true);
+    });
+
+    it("restores the join's cursor when a live run's replay fails", async () => {
+      const agent = createAgent();
+      const promise = collectEvents(agent);
+      await waitForConnection(agent);
+
+      const runChannel = getChannel(agent)!;
+      runChannel.triggerJoin("ok");
+      runChannel.serverPush("ag_ui_event", {
+        type: EventType.RUN_STARTED,
+        threadId: "thread-1",
+        runId: "run-1",
+        metadata: { cpki_event_id: "event-1", cpki_event_seq: 1 },
+      } as BaseEvent);
+      runChannel.serverPush("replay_failed", { reason: "run_replay_gap" });
+      await promise;
+
+      // The failed replay never delivered the run whole, so the next connect
+      // must ask for that history again rather than resume after event-1.
+      mockFetch.mockResolvedValueOnce(await jsonResponse(runtimeCredentials()));
+      connectWithTestAccess(agent, defaultInput).subscribe({
+        next: () => {},
+        error: () => {},
+      });
+      await waitForConnection(agent);
+
+      expect(getChannel(agent)!.params).toEqual({
+        stream_mode: "connect",
+        last_seen_event_id: null,
+      });
+    });
+
+    it("lets the next connect move the cursor through the run again after a replay fails", async () => {
+      const agent = createAgent();
+      const connectOnce = async () => {
+        mockFetch.mockResolvedValueOnce(
+          await jsonResponse(runtimeCredentials()),
+        );
+        connectWithTestAccess(agent, defaultInput).subscribe({
+          next: () => {},
+          error: () => {},
+        });
+        await waitForConnection(agent);
+        const channel = getChannel(agent)!;
+        channel.triggerJoin("ok");
+        return channel;
+      };
+
+      // An earlier connect leaves the cursor at a previous run's event.
+      const first = await connectOnce();
+      first.serverPush("ag_ui_event", {
+        type: EventType.RUN_FINISHED,
+        threadId: "thread-1",
+        runId: "run-0",
+        metadata: { cpki_event_id: "event-0", cpki_event_seq: 9 },
+      } as BaseEvent);
+
+      // The run's replay gets as far as seq 2, then fails.
+      const promise = collectEvents(agent);
+      await waitForConnection(agent);
+      const runChannel = getChannel(agent)!;
+      runChannel.triggerJoin("ok");
+      for (const seq of [1, 2]) {
+        runChannel.serverPush("ag_ui_event", {
+          type: seq === 1 ? EventType.RUN_STARTED : EventType.STEP_STARTED,
+          threadId: "thread-1",
+          runId: "run-1",
+          stepName: "step",
+          metadata: { cpki_event_id: `event-${seq}`, cpki_event_seq: seq },
+        } as BaseEvent);
+      }
+      runChannel.serverPush("replay_failed", { reason: "run_replay_gap" });
+      await promise;
+
+      // The next connect resumes from event-0 and replays the run from seq 1;
+      // the cursor follows it rather than staying at event-0.
+      const third = await connectOnce();
+      expect(third.params).toEqual({
+        stream_mode: "connect",
+        last_seen_event_id: "event-0",
+      });
+      third.serverPush("ag_ui_event", {
+        type: EventType.RUN_STARTED,
+        threadId: "thread-1",
+        runId: "run-1",
+        metadata: { cpki_event_id: "event-1", cpki_event_seq: 1 },
+      } as BaseEvent);
+
+      const fourth = await connectOnce();
+      expect(fourth.params.last_seen_event_id).toBe("event-1");
+    });
+
+    it("names the client's run in the replay error when the credentials omit it", async () => {
+      mockFetch.mockResolvedValueOnce(
+        await jsonResponse(runtimeCredentials({ runId: null })),
+      );
+      const agent = createAgent();
+      const promise = collectEvents(agent);
+      await waitForConnection(agent);
+
+      const channel = getChannel(agent)!;
+      channel.triggerJoin("ok");
+      channel.serverPush("replay_failed", { reason: "run_replay_gap" });
+
+      const result = await promise;
+      expect(result.error).toMatchObject({
+        code: "INTELLIGENCE_REPLAY_FAILED",
+        threadId: "thread-1",
+        runId: "run-1",
+      });
     });
 
     it("cleans up socket and channel on RUN_FINISHED", async () => {
