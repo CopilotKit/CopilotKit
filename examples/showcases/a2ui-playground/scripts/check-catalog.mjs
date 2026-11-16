@@ -1,4 +1,7 @@
-/** Verifies every catalog component renders its sample on its /components/<name> page without validation errors. */
+/**
+ * Verifies every catalog component renders its sample on its /components/<name> page without validation errors.
+ * Prints the findings as JSON and exits 1 when any preview is pending, failed or empty, or a page threw.
+ */
 import puppeteer from "puppeteer-core";
 import { componentNames, openComponent } from "./lib-components.mjs";
 const b = await puppeteer.launch({
@@ -35,3 +38,7 @@ for (const n of names) {
 }
 console.log(JSON.stringify({ ...res, pageErrors: errors }, null, 2));
 await b.close();
+process.exitCode =
+  res.pending.length + res.failed.length + res.empty.length + errors.length
+    ? 1
+    : 0;

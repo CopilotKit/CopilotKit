@@ -1,13 +1,18 @@
 /**
  * Shared by the catalog checks: every component's docs page (/components/<name>) renders its sample in [data-preview].
- * BASE is the site's root, including any base path (BASE=http://localhost:3100/a2ui when the app has one).
+ * BASE is the site's root, including any base path (BASE=http://localhost:3100/a2ui when the app has one); a
+ * trailing slash is dropped.
  */
-export const BASE = process.env.BASE ?? "http://localhost:3100";
+export const BASE = (process.env.BASE ?? "http://localhost:3100").replace(
+  /\/+$/,
+  "",
+);
 
 /**
  * Component names, in sidebar order, read from the /components overview links (the macros page is not a component).
  * The links carry the app's base path when it has one, so they are matched under BASE's own path, on this origin.
- * Throws when it finds none, or when `filter` names none of them, so a check never passes by checking nothing.
+ * Throws when it finds none, or when `filter` is empty or names anything that is not a component, so a check never
+ * passes by checking nothing or by quietly checking less than it was asked to.
  */
 export async function componentNames(page, filter) {
   await page.goto(`${BASE}/components`, {
@@ -32,19 +37,21 @@ export async function componentNames(page, filter) {
   if (!names.length)
     throw new Error(`No component links found on ${BASE}/components`);
   if (!filter) return names;
-  const picked = names.filter((n) => filter.includes(n));
-  if (!picked.length)
+  const wanted = filter.map((n) => n.trim()).filter(Boolean);
+  const unknown = wanted.filter((n) => !names.includes(n));
+  if (!wanted.length || unknown.length)
     throw new Error(
-      `None of ${filter.join(", ")} is a component on ${BASE}/components`,
+      `Not a component on ${BASE}/components: ${unknown.join(", ") || "(empty filter)"}`,
     );
-  return picked;
+  return names.filter((n) => wanted.includes(n));
 }
 
 /**
- * Opens a component's page. Returns true once its preview stage is there, or false for the component's own page
- * rendered without one: a Gen UI 2.0 standard component with no sample shows its props only. The stage is in the
- * server-rendered HTML, so that is known as soon as the page loads. A page that answers with an error, or that is
- * not the component's own page, throws: it must never pass as a component that merely has no sample.
+ * Opens a component's page. Returns true once its preview stage is there, or false for a Gen UI 2.0 standard
+ * component's page rendered without one: a standard component with no sample shows its props only. The stage and
+ * the page's breadcrumb are in the server-rendered HTML, so that is known as soon as the page loads. A page that
+ * answers with an error, that is not the component's own page, or that is one of the playground's own components
+ * without a stage (every one of them has a sample) throws: it must never pass as a component with no sample.
  */
 export async function openComponent(page, name, settle = 1200) {
   const url = `${BASE}/components/${name}`;
@@ -61,6 +68,13 @@ export async function openComponent(page, name, settle = 1200) {
     if (heading !== name)
       throw new Error(
         `${url} is not ${name}'s page (h1: ${heading ?? "none"})`,
+      );
+    const standard = await page.$(
+      'nav[aria-label="Breadcrumb"] a[href$="/components#standard"]',
+    );
+    if (!standard)
+      throw new Error(
+        `${url} has no preview stage, but ${name} is one of the playground's own components`,
       );
     return false;
   }
