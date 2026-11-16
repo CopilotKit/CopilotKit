@@ -153,6 +153,7 @@ public sealed class McpAppsAgent(IRuntimeAgent next, IReadOnlyList<McpAppServer>
         enhanced["tools"] = new JsonArray((input["tools"] as JsonArray ?? []).Select(tool => tool?.DeepClone()).Concat(catalog.Tools.Select(tool => (JsonNode?)tool.Tool.DeepClone())).ToArray());
         var emptyAllowlist = servers.Any(server => server.IncludeTools is { Count: 0 });
         var calls = new AgentToolCalls(enhanced); JsonObject? held = null; Exception? failure = null;
+        var observedCalls = new HashSet<string>(StringComparer.Ordinal);
         await using var source = next.RunAsync(enhanced, cancellationToken).GetAsyncEnumerator(cancellationToken);
         while (true)
         {
@@ -160,6 +161,8 @@ public sealed class McpAppsAgent(IRuntimeAgent next, IReadOnlyList<McpAppServer>
             try { available = await source.MoveNextAsync(); } catch (Exception error) { failure = error; break; }
             if (!available) break;
             var value = source.Current; calls.Observe(value);
+            if (A2UIValidation.Text(value["type"]) == "TOOL_CALL_START" && A2UIValidation.Text(value["toolCallId"]) is { } callId)
+                observedCalls.Add(callId);
             if (held is not null) { yield return held; held = null; }
             if (A2UIValidation.Text(value["type"]) == "RUN_FINISHED") held = value;
             else yield return value;
@@ -168,7 +171,7 @@ public sealed class McpAppsAgent(IRuntimeAgent next, IReadOnlyList<McpAppServer>
         {
             if (failure is null)
             {
-                foreach (var call in calls.Pending.Where(call => routes.ContainsKey(call.Name)))
+                foreach (var call in calls.Pending.Where(call => observedCalls.Contains(call.Id) && routes.ContainsKey(call.Name)))
                 {
                     var tool = routes[call.Name]; JsonObject result; JsonObject? activity = null;
                     try
@@ -188,9 +191,11 @@ public sealed class McpAppsAgent(IRuntimeAgent next, IReadOnlyList<McpAppServer>
                     yield return result; if (activity is not null) yield return activity;
                 }
             }
-            foreach (var call in calls.Pending.Where(call => !routes.ContainsKey(call.Name) && !frontendTools.Contains(call.Name)))
+            foreach (var call in calls.Pending.Where(call => !frontendTools.Contains(call.Name) && (!observedCalls.Contains(call.Id) || !routes.ContainsKey(call.Name))))
             {
-                if (UnseenConfiguredTool(call.Name, catalog) || LostDuringDiscovery(call.Name, catalog))
+                if (!observedCalls.Contains(call.Id))
+                    yield return AgentToolCalls.Result(call.Id, "MCP tool call from history has no verified server binding: " + call.Name);
+                else if (UnseenConfiguredTool(call.Name, catalog) || LostDuringDiscovery(call.Name, catalog))
                     yield return AgentToolCalls.Result(call.Id, "MCP tool discovery failed: " + call.Name);
                 else if (catalog.RejectedNames.Contains(call.Name) || ExcludedByConfig(call.Name) || OmittedByAllowlist(call.Name) || emptyAllowlist)
                     yield return AgentToolCalls.Result(call.Id, "MCP tool is not allowed: " + call.Name);
@@ -226,11 +231,13 @@ public sealed class McpAppsAgent(IRuntimeAgent next, IReadOnlyList<McpAppServer>
                     var tool = page[index];
                     var meta = tool["_meta"] as JsonObject;
                     var ui = meta?["ui"] as JsonObject;
-                    if (ui?.ContainsKey("visibility") == true &&
-                        (ui["visibility"] is not JsonArray visibility || !visibility.Any(value => A2UIValidation.Text(value) == "model"))) continue;
+                    var visibility = ui?["visibility"] as JsonArray;
+                    var modelVisible = ui?.ContainsKey("visibility") != true || visibility?.Any(value => A2UIValidation.Text(value) == "model") == true;
+                    var appOnly = !modelVisible && visibility?.Any(value => A2UIValidation.Text(value) == "app") == true;
+                    if (!modelVisible && !appOnly) continue;
                     var resource = A2UIValidation.Text(ui?["resourceUri"]) ?? A2UIValidation.Text(meta?["ui/resourceUri"]);
                     if (A2UIValidation.Text(tool["name"]) is not { } name) continue;
-                    if (resource is null)
+                    if (resource is null && !appOnly)
                     {
                         if (server.IncludeTools is not null && !server.AllowsTool(name)) stagedRejected.Add(name);
                         continue;
@@ -240,9 +247,13 @@ public sealed class McpAppsAgent(IRuntimeAgent next, IReadOnlyList<McpAppServer>
                     if (!server.AllowsTool(name)) stagedRejected.Add(name);
                     else if (!targeted || server.IncludeTools?.Contains(name) == true)
                     {
-                        var exposedName = AllocateExposedName(name, server, stagedUsed);
-                        stagedTools.Add(new UiTool(exposedName, name, new JsonObject { ["name"] = exposedName, ["description"] = (A2UIValidation.Text(tool["description"]) ?? "") + "\n[UI Resource: " + resource + "]", ["parameters"] = tool["inputSchema"]?.DeepClone() ?? new JsonObject { ["type"] = "object", ["properties"] = new JsonObject() } }, server, resource));
                         stagedOriginal.Add(name);
+                        if (appOnly) stagedRejected.Add(name);
+                        else
+                        {
+                            var exposedName = AllocateExposedName(name, server, stagedUsed);
+                            stagedTools.Add(new UiTool(exposedName, name, new JsonObject { ["name"] = exposedName, ["description"] = (A2UIValidation.Text(tool["description"]) ?? "") + "\n[UI Resource: " + resource + "]", ["parameters"] = tool["inputSchema"]?.DeepClone() ?? new JsonObject { ["type"] = "object", ["properties"] = new JsonObject() } }, server, resource!));
+                        }
                     }
                     if (scannedUiTools >= UiToolScanLimit * 2 || (scannedUiTools >= UiToolScanLimit && !MissingConfiguredTool(server, stagedOriginal)))
                     {
