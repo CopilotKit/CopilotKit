@@ -32,9 +32,7 @@ describeDemo("hitl", "Human in the Loop", () => {
 
   test("task request shows step selector with checkboxes", async ({ page }) => {
     const input = page.getByPlaceholder("Type a message");
-    await input.fill(
-      "Create a plan with steps to organize a team offsite event",
-    );
+    await input.fill("Plan a trip to mars in 5 steps");
     await input.press("Enter");
 
     // The HITL demo surfaces a single steps card regardless of whether the
@@ -59,7 +57,7 @@ describeDemo("hitl", "Human in the Loop", () => {
     page,
   }) => {
     const input = page.getByPlaceholder("Type a message");
-    await input.fill("Plan the steps to write a quarterly report");
+    await input.fill("Plan a trip to mars in 5 steps");
     await input.press("Enter");
 
     const stepSelector = page.locator('[data-testid="select-steps"]').first();
