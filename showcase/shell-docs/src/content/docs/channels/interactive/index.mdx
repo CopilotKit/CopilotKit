@@ -257,8 +257,10 @@ Earlier versions let anyone in the conversation resume. After upgrading:
   to approve, or the click is refused. Cards already posted follow the new
   default too.
 - Add `await thread.assertCanResume()` before anything a refused click must not
-  do. A handler that updates the card and then calls `resume` would otherwise
-  show "Approved" on a click that was refused.
+  do, passing the same `answerableBy` value as `resume`. For teammate approvals,
+  use `await thread.assertCanResume({ answerableBy: "conversation" })`. A handler
+  that updates the card and then calls `resume` would otherwise show "Approved"
+  on a click that was refused.
 - Don't swallow errors from `resume`. Refusals reach the SDK as errors with
   stable codes: `channel_action_not_initiator`,
   `channel_action_already_claimed`, and `channel_choice_initiator_unknown`.
