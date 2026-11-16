@@ -12,16 +12,25 @@ import {
   catalogReferenceFromPath,
 } from "@/components/standard-catalog/catalog-reference";
 import { resolveLivePage, unsupportedRedirect } from "@/lib/live-docs";
+import { JsonLd } from "@/components/json-ld";
 import { absoluteUrl } from "@/lib/seo/base-url";
 import {
   HOME_DESCRIPTION,
   HOME_TITLE,
   liveDocMetadata,
 } from "@/lib/seo/metadata";
+import { docPageJsonLd, homeJsonLd } from "@/lib/seo/structured-data";
 
 export default async function Page({ params }: PageProps<"/[[...path]]">) {
   const { path = [] } = await params;
-  if (path.length === 0) return <DHome />;
+  if (path.length === 0) {
+    return (
+      <>
+        <JsonLd data={homeJsonLd()} />
+        <DHome />
+      </>
+    );
+  }
   if (path.length === 1 && path[0] === "examples") {
     return (
       <Suspense>
@@ -33,9 +42,33 @@ export default async function Page({ params }: PageProps<"/[[...path]]">) {
   // The live docs, ported from shell-docs, at their docs.copilotkit.ai URLs.
   const live = resolveLivePage(path);
   if (live?.overview) {
-    return <FrameworkLanding {...live} overview={live.overview} />;
+    return (
+      <>
+        <JsonLd
+          data={docPageJsonLd({
+            title: live.overview.frameworkName,
+            description: live.overview.subheader,
+            path: live.canonical,
+          })}
+        />
+        <FrameworkLanding {...live} overview={live.overview} />
+      </>
+    );
   }
-  if (live) return <LiveArticle {...live} url={`/${path.join("/")}`} />;
+  if (live) {
+    return (
+      <>
+        <JsonLd
+          data={docPageJsonLd({
+            title: live.page.data.title,
+            description: live.page.data.description,
+            path: live.canonical,
+          })}
+        />
+        <LiveArticle {...live} url={`/${path.join("/")}`} />
+      </>
+    );
+  }
 
   // The standard catalog's per-component pages, generated from the catalog
   // itself, as on docs.copilotkit.ai (`/generative-ui/components/standard-catalog/box`).
