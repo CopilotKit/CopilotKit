@@ -67,6 +67,8 @@ To keep history, pick the runner for your deployment:
 - One instance that must keep history across restarts: `SqliteAgentRunner` from `@copilotkit/sqlite-runner`.
 - Several instances: CopilotKit Intelligence's `IntelligenceAgentRunner`, or your own runner backed by a shared datastore.
 
+To see what each runner keeps after a reload or a restart, including shared state and pending approvals, read [Shared State, Interrupts, and Durability](/concepts/durability).
+
 <Callout type="warn" title="Without `identifyUser`, a thread id works as a key">
 Without `identifyUser`, whoever has a thread id can read, connect to, and stop
 that thread through the runtime's

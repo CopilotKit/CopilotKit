@@ -39,6 +39,7 @@ const CHANNEL_REDIRECT_FRONTENDS = ["slack", "teams"];
 const CHANNEL_REDIRECT_GUIDE_SLUGS = [
   "overview",
   "intelligence",
+  "capabilities",
   "connect",
   "tools",
   "identity-and-memory",

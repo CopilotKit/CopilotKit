@@ -77,9 +77,13 @@
       "title": "Concepts",
       "pages": [
         "concepts/architecture",
+        "concepts/when-to-use",
         "concepts/generative-ui-overview",
         "[Which Hook for Which Job](/concepts/which-hook)",
         "concepts/oss-vs-enterprise",
+        "concepts/durability",
+        "concepts/harness-workspace",
+        "concepts/operator-console",
         "[Overview](/agentic-protocols)",
         "agentic-protocols/ag-ui",
         "agentic-protocols/ag-ui-middleware",

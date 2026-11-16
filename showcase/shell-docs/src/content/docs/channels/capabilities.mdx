@@ -1,0 +1,74 @@
+---
+title: Capabilities and Limits
+description: Compare what a CopilotKit Channels agent can do in Slack, Microsoft Teams, Discord, and WhatsApp, and what stays your responsibility.
+icon: "lucide/Table"
+doc_type: reference
+---
+
+Before you build a channel agent, you must know what each provider supports. Slack and Teams render UI in different ways, and a direct adapter does less than the managed connection. Use these tables to find the limits before you write code.
+
+## Choose a connection
+
+| | Managed connection | Direct adapter |
+| --- | --- | --- |
+| Providers | Slack and Microsoft Teams | Slack, Microsoft Teams, Discord, and WhatsApp |
+| Status | Generally available on cloud-hosted Intelligence | Exported by the Channels SDK |
+| Who holds the provider credentials | CopilotKit Intelligence | Your Channels process |
+| Delivery, retry, and durability | The managed Realtime Gateway | Your process |
+
+Discord and WhatsApp are available as direct adapters only. A direct adapter still uses an Intelligence connection for the Channel lifecycle. To set one up, see [Direct adapters](/reference/channels/sdk/direct-adapters).
+
+## Managed Slack and Teams
+
+### Messages and UI
+
+| Capability | Slack | Microsoft Teams |
+| --- | --- | --- |
+| Streamed replies | Yes, with the native Slack stream | Yes. The message is posted, then updated in place. |
+| [Native UI](/channels/rich-messages) | Block Kit | Adaptive Cards 1.5 |
+| Update and delete a posted message | Yes | Yes |
+| [Render and Carousel](/channels/render-and-carousel) | Yes | Yes, up to a 64 KiB packet |
+| [JSX posted as an image](/channels/posting-jsx-as-images) | Yes | Yes |
+
+### Interaction
+
+| Capability | Slack | Microsoft Teams |
+| --- | --- | --- |
+| Buttons, selects, and inputs | Each control has its own callback. | Input values arrive in `ctx.values` on the button. `onSelect` and `onSubmit` do not run. |
+| Modals | No | No |
+| [Approvals](/channels/interactive) | Post the choice, then resume the run. Callbacks survive a restart. | Same as Slack |
+| [Slash commands](/channels/commands-and-reactions) | No. A leading slash is ordinary message text. | No. A leading slash is ordinary message text. |
+| Reactions | Received and sent | Received and sent. Sending uses the Microsoft reaction API, which is in public preview. |
+
+A managed delivery cannot wait inside `thread.awaitChoice()`. Post the choice, and resume the run from the callback.
+
+### Files, history, and identity
+
+| Capability | Slack | Microsoft Teams |
+| --- | --- | --- |
+| [Files from users](/channels/files-and-multimodality) | Yes, with the `files:read` scope | Depends on the surface. Managed group chats are not supported. |
+| Files from the agent | Yes, with `thread.postFile()` | SharePoint in team channels. A consent card in personal chats. |
+| File size | Up to 25 MiB on the managed connection | Up to 25 MiB on the managed connection |
+| [History](/channels/history-and-transcripts) | Managed history, 20 messages by default | Managed history, 20 messages by default |
+| [User identity and memory](/channels/identity-and-memory) | `identifyUser`, plus Intelligence Memory for each run | `identifyUser`, plus Intelligence Memory for each run |
+
+## Direct adapters
+
+| Capability | Slack | Microsoft Teams | Discord | WhatsApp |
+| --- | --- | --- | --- | --- |
+| Streamed replies | Yes | Yes, by message edit | Yes | No |
+| Modals | Yes | No | Yes | No |
+| Reactions | Yes | No | Yes | No |
+| Slash commands | Yes, with `onCommand` | Not documented | Yes, registered for a `guildId` | A command prefix, `/` by default |
+| Render, Carousel, and JSX images | No. The adapter returns an error. | No | No | No |
+
+## What stays your responsibility
+
+The managed connection keeps provider ingress and the history of each Thread. Your Channels process owns its own workflow state:
+
+- **Repeated deliveries.** Managed delivery is at-least-once. Make audit writes and database writes idempotent.
+- **State after a restart.** With the default managed store, `thread.state()` and component snapshots survive a restart. SDK transcripts, locks, deduplication windows, and queues stay in process memory.
+- **Your own store.** The SDK ships `MemoryStore` and a conformance suite. It does not ship a Redis or Postgres store.
+- **Pending work during a deploy.** The **Online** state shows that the listener is connected. It does not show that a pending approval survives a deployment.
+
+To plan for restarts and more than one instance, read [Persistence and scaling](/channels/persistence-and-scaling). To connect your first agent, follow [Connect and run your agent](/connect).

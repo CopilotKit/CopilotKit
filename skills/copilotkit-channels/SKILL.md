@@ -179,7 +179,7 @@ Everything from here down is the hand-wiring path — the less-trodden one. If `
 
 A scaffolded project satisfies all four of these already. Before starting, confirm all four. Stop and fix any that fail — each one produces a silent failure rather than an error.
 
-1. **The Intelligence runtime is wired.** `channels` is not available in SSE mode; the type is `channels?: undefined` there. If the project still constructs `CopilotRuntime` with a `runner` and no `intelligence`, connect the project to Intelligence first — `copilotkit login` then `copilotkit project select`, per the **copilotkit-cli** skill.
+1. **The Intelligence runtime is wired.** `channels` is not available in SSE mode; the type is `channels?: undefined` there. If the project still constructs `CopilotKitRuntime` with a `runner` and no `intelligence`, connect the project to Intelligence first. Run `copilotkit login`, then `copilotkit project select`, per the **copilotkit-cli** skill.
 2. **A long-running host.** Activation opens a persistent connection, so the process has to outlive a request. A Next.js route handler on serverless, a Lambda, or an edge function cannot host a Channel. See "Deployment shape" below.
 3. **The hosted environment values are set** — the project API key, and the realtime URL if you are overriding defaults.
 4. **The provider half exists, or is in progress.** The two halves can be done in either order; a Channel simply does not answer until both are done.
@@ -224,13 +224,13 @@ The agent is **framework-agnostic**: `agent` accepts any AG-UI `AbstractAgent`, 
 ### Step 3: Pass the Channel to the runtime
 
 ```typescript
-import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime/v2";
+import { CopilotKitRuntime, CopilotKitIntelligence } from "@copilotkit/runtime";
 
 const intelligence = new CopilotKitIntelligence({
   apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
 });
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   // A Channel supplies its own agent, so runtime-hosted agents are optional here.
   agents: {},
   intelligence,
@@ -243,9 +243,9 @@ const runtime = new CopilotRuntime({
 
 ```typescript
 import { createServer } from "node:http";
-import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
+import { createCopilotKitNodeListener } from "@copilotkit/runtime/node";
 
-const listener = createCopilotNodeListener({
+const listener = createCopilotKitNodeListener({
   runtime,
   basePath: "/api/copilotkit",
 });
@@ -261,17 +261,15 @@ await listener.channels.ready({ timeoutMs: 30_000 });
 
 This is the single most misunderstood thing about Channels. Activation is **not** lazy everywhere.
 
-| Mount                                         | Activation                          | Is `ready()` required?   |
-| --------------------------------------------- | ----------------------------------- | ------------------------ |
-| `createCopilotNodeListener`                   | Starts when the listener is created | No — await it to observe |
-| `createCopilotExpressHandler`                 | Starts when the router is created   | No — await it to observe |
-| `createCopilotHonoHandler`                    | Deferred to the first `ready()`     | **Yes**                  |
-| `createCopilotRuntimeHandler` (generic fetch) | Deferred to the first `ready()`     | **Yes**                  |
-| any mount with `activateChannels: false`      | None; no control surface, no socket | Nothing will connect     |
+| Mount                                            | Activation                          | Is `ready()` required?   |
+| ------------------------------------------------ | ----------------------------------- | ------------------------ |
+| `createCopilotKitNodeListener`                   | Starts when the listener is created | No. Await it to observe. |
+| `createCopilotKitRuntimeHandler` (generic fetch) | Deferred to the first `ready()`     | **Yes**                  |
+| any mount with `activateChannels: false`         | None; no control surface, no socket | Nothing will connect     |
 
-The two lifecycle-owning wrappers start on their own because they own their process lifetime — a declared Channel connects because it was declared, and there is no incantation to forget. The fetch and hono handlers defer on purpose: they are the serverless and edge entry points, where an isolate freezes and recycles per request and separate cold starts would mint competing listeners for the same Channel.
+The Node listener starts on its own because it owns its process lifetime. A declared Channel connects because it was declared, and there is no incantation to forget. The fetch handler defers on purpose: it is the serverless and edge entry point, where an isolate freezes and recycles per request and separate cold starts would mint competing listeners for the same Channel.
 
-So the silent failure — a process that serves HTTP, looks healthy, and answers nothing — happens on a **deferring** mount when nothing ever calls `ready()`. On a node or express host, a missing `ready()` is not that failure.
+So the silent failure (a process that serves HTTP, looks healthy, and answers nothing) happens on a **deferring** mount when nothing ever calls `ready()`. On a Node listener host, a missing `ready()` is not that failure.
 
 Two details either way:
 

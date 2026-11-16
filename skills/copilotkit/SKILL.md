@@ -108,8 +108,8 @@ hosted Intelligence and do not fix an open-source app. See the `copilotkit-cli` 
 
 ## Two versions exist
 
-v2 is current. Import from the `/v2` subpath — `@copilotkit/react-core/v2`,
-`@copilotkit/runtime/v2`. The package root is the deprecated v1 surface and still resolves,
-so mixing the two raises nothing at import time and surfaces later as a runtime mismatch.
-Check which subpath a project imports before trusting anything else about it. v1 is
-deprecated but supported; [the migration guide](/migrate/v2) covers moving off it.
+2.0 is current. Import from the package roots, `@copilotkit/react-core` and `@copilotkit/runtime`.
+2.0 has no `/v2` subpaths for React or the runtime, and it removed the v1 React and runtime APIs.
+A 1.x project shows it in its imports: `@copilotkit/react-ui`, or a `/v2` subpath. Check the
+installed version before you trust anything else about a project.
+[The migration guide](/migrate/v2) covers moving a 1.x project to 2.0.
