@@ -3,9 +3,21 @@ import { loadIntegrationDemoConfig } from "@/lib/demo-config";
 
 // Pairs come from the real manifests: only mastra lists background-agents,
 // and no integration keeps a src/integrations/mastra/demos/background-agents.ts
-// (a demo that only one integration runs has nothing to vary).
+// (a demo that only one integration runs has nothing to vary). The files are
+// real too: strands keeps src/integrations/strands/demos/gen-ui-interrupt.ts,
+// because its agent pauses with an interrupt.
 
 describe("loadIntegrationDemoConfig", () => {
+  it("returns the default export of the integration's file for the demo", async () => {
+    await expect(
+      loadIntegrationDemoConfig("strands", "gen-ui-interrupt"),
+    ).resolves.toEqual({
+      mechanism: "interrupt",
+      payload: "strands-reason",
+      answer: "selection",
+    });
+  });
+
   it.each([
     ["an integration", "../strands", "agentic-chat"],
     ["a demo", "strands", "Agentic_Chat"],
