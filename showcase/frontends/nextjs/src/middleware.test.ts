@@ -2,26 +2,30 @@ import { describe, expect, it } from "vitest";
 import { NextRequest } from "next/server";
 import { middleware } from "@/middleware";
 
-// The pairs come from the real manifests: strands lists agentic-chat, and
-// only mastra lists background-agents.
+// The pairs come from the real data: the strands manifest lists agentic-chat,
+// src/integrations/strands/extra-demos.json lists
+// threadid-frontend-tool-roundtrip, and only mastra has background-agents.
 
 function visit(pathname: string) {
   return middleware(new NextRequest(`http://localhost:3000${pathname}`));
 }
 
 describe("middleware", () => {
-  it("passes a listed demo on with its path in x-pathname", () => {
-    const response = visit("/demos/strands/agentic-chat");
+  it.each([
+    ["a demo the manifest lists", "/demos/strands/agentic-chat"],
+    ["an extra demo", "/demos/strands/threadid-frontend-tool-roundtrip"],
+  ])("passes %s on with its path in x-pathname", (_, pathname) => {
+    const response = visit(pathname);
 
     expect(response.status).toBe(200);
     expect(response.headers.get("x-middleware-next")).toBe("1");
     // How NextResponse.next() hands an overridden request header to the page.
     expect(response.headers.get("x-middleware-request-x-pathname")).toBe(
-      "/demos/strands/agentic-chat",
+      pathname,
     );
   });
 
-  it("answers 404 for a demo the integration's manifest does not list", () => {
+  it("answers 404 for a demo that is not in the manifest or the extra demos", () => {
     expect(visit("/demos/strands/background-agents").status).toBe(404);
   });
 

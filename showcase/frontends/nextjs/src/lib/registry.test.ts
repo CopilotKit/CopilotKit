@@ -1,4 +1,8 @@
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import registryData from "@/data/registry.json";
 import {
   getDemo,
   getIntegration,
@@ -6,12 +10,37 @@ import {
   parseDemoPath,
 } from "@/lib/registry";
 
-// These read the real registry that generate-registry.ts builds from
-// showcase/integrations/*/manifest.yaml. Expected values are literals from
-// the strands and mastra manifests.
+// These read the real data: the registry that generate-registry.ts builds from
+// showcase/integrations/*/manifest.yaml, and the extra demos that
+// collect-extra-demos.ts collects from src/integrations/*/extra-demos.json.
+// Expected values are literals from those files.
+
+// Each integration's own website keeps its demos in
+// showcase/integrations/<slug>/src/app/demos/<id>/.
+const INTEGRATIONS_DIR = fileURLToPath(
+  new URL("../../../../integrations/", import.meta.url),
+);
 
 function demoName(integration: string, demo: string) {
   return getDemo(integration, demo)?.demo.name;
+}
+
+// The demo folders of an integration's website. A folder whose name starts
+// with "_", such as _shared, holds helpers and is not a demo.
+function websiteDemoIds(slug: string) {
+  const demosDir = path.join(INTEGRATIONS_DIR, slug, "src", "app", "demos");
+  const entries = fs.readdirSync(demosDir, { withFileTypes: true });
+  return entries
+    .filter((entry) => entry.isDirectory() && !entry.name.startsWith("_"))
+    .map((entry) => entry.name);
+}
+
+// The routes in an integration's manifest, read from registry.json directly.
+function manifestRoutes(slug: string) {
+  const manifest = registryData.integrations.find(
+    (integration) => integration.slug === slug,
+  );
+  return manifest?.demos.map((demo) => demo.route) ?? [];
 }
 
 describe("getIntegration", () => {
@@ -31,11 +60,34 @@ describe("getDemo", () => {
   it("finds a demo page the manifest lists", () => {
     expect(getDemo("strands", "agentic-chat")).toMatchObject({
       integration: { slug: "strands", name: "AWS Strands (Python)" },
-      demo: { id: "agentic-chat", name: "Agentic Chat" },
+      demo: { id: "agentic-chat", name: "Agentic Chat", extra: false },
     });
   });
 
-  it("returns undefined for a demo only another integration lists", () => {
+  it("finds an extra demo, named from its id when no manifest lists it", () => {
+    expect(getDemo("strands", "threadid-frontend-tool-roundtrip")).toEqual({
+      integration: expect.objectContaining({ slug: "strands" }),
+      demo: {
+        id: "threadid-frontend-tool-roundtrip",
+        name: "Threadid Frontend Tool Roundtrip",
+        description: "",
+        extra: true,
+      },
+    });
+  });
+
+  it("names an extra demo after the first manifest that lists the page", () => {
+    // The langgraph-python manifest has no /demos/hitl. In registry order,
+    // mastra's manifest is the first that has it.
+    expect(getDemo("langgraph-python", "hitl")?.demo).toEqual({
+      id: "hitl",
+      name: "Human in the Loop (Step Selection)",
+      description: "",
+      extra: true,
+    });
+  });
+
+  it("returns undefined for a demo that is not in the manifest or the extra demos", () => {
     expect(demoName("mastra", "background-agents")).toBe("Background Agents");
     expect(getDemo("strands", "background-agents")).toBeUndefined();
   });
@@ -60,6 +112,40 @@ describe("getDemo", () => {
     // command with no route.
     expect(getDemo("strands", "hitl-in-chat-booking")).toBeUndefined();
     expect(getDemo("strands", "cli-start")).toBeUndefined();
+  });
+});
+
+describe("extra demos", () => {
+  const extraDemos = getIntegrations().flatMap((integration) =>
+    integration.demos
+      .filter((demo) => demo.extra)
+      .map((demo) => ({ slug: integration.slug, id: demo.id })),
+  );
+
+  it("each names a demo folder of the integration's website", () => {
+    const missing = extraDemos.filter(
+      ({ slug, id }) => !websiteDemoIds(slug).includes(id),
+    );
+
+    expect(missing).toEqual([]);
+  });
+
+  it("is never a page the integration's manifest lists", () => {
+    const listed = extraDemos.filter(({ slug, id }) =>
+      manifestRoutes(slug).includes(`/demos/${id}`),
+    );
+
+    expect(listed).toEqual([]);
+  });
+
+  it("with the manifest pages, serves every demo folder of each website", () => {
+    const unserved = getIntegrations().flatMap(({ slug }) =>
+      websiteDemoIds(slug)
+        .filter((id) => getDemo(slug, id) === undefined)
+        .map((id) => ({ slug, id })),
+    );
+
+    expect(unserved).toEqual([]);
   });
 });
 

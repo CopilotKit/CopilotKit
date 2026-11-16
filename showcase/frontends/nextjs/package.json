@@ -3,16 +3,16 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "predev": "tsx ../../scripts/generate-registry.ts",
+    "predev": "tsx ../../scripts/generate-registry.ts && tsx scripts/collect-extra-demos.ts",
     "dev": "next dev --turbopack",
-    "prebuild": "tsx ../../scripts/generate-registry.ts",
+    "prebuild": "tsx ../../scripts/generate-registry.ts && tsx scripts/collect-extra-demos.ts",
     "build": "next build",
     "start": "next start",
-    "pretypecheck": "tsx ../../scripts/generate-registry.ts",
+    "pretypecheck": "tsx ../../scripts/generate-registry.ts && tsx scripts/collect-extra-demos.ts",
     "typecheck": "rm -rf .next/types && next typegen && tsc --noEmit",
-    "pretest": "tsx ../../scripts/generate-registry.ts",
+    "pretest": "tsx ../../scripts/generate-registry.ts && tsx scripts/collect-extra-demos.ts",
     "test": "vitest run",
-    "pree2e": "tsx ../../scripts/generate-registry.ts",
+    "pree2e": "tsx ../../scripts/generate-registry.ts && tsx scripts/collect-extra-demos.ts",
     "e2e": "playwright test"
   },
   "dependencies": {
