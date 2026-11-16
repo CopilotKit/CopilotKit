@@ -765,13 +765,11 @@ export class ActionRegistry {
         this.renewalTtl(snap),
       );
       // The read and the write above are not atomic: an action revoked or
-      // claimed in between must not come back, nor one whose picker settled
-      // in any process.
-      const gate = choiceGateOf(snap);
-      if (
-        this.retired.get(id) ||
-        (gate !== undefined && !(await this.isChoiceGateOpen(gate)))
-      ) {
+      // claimed in this process must not come back. A picker control stays:
+      // once its picker settles its taken gate refuses every later click,
+      // and the click that took the gate may still need the snapshot to
+      // resume.
+      if (this.retired.get(id)) {
         this.hot.delete(id);
         await this.store.delete(id);
       }
@@ -847,14 +845,17 @@ export class ActionRegistry {
   }
 
   /**
-   * Take a retired picker's gate so no process runs its controls again,
-   * retrying with backoff. If every attempt fails the gate's deadline still
-   * ends the picker everywhere; the last error is rethrown.
+   * @internal Take a retired picker's gate so no process runs its controls
+   * again, retrying with backoff. Resolves once no control of the picker can
+   * run in any process: the gate is taken (by this call or by the click that
+   * answered the picker) or past its deadline. If every attempt fails, the
+   * last error is rethrown and only the deadline ends the picker elsewhere.
    */
-  private async retireChoiceGate(gateId: string): Promise<void> {
+  async retireChoiceGate(gate: ChoiceGate): Promise<void> {
     for (let attempt = 0; ; attempt++) {
+      if (Date.now() > gate.deadline) return;
       try {
-        await this.store.consume(choiceGateKey(gateId));
+        await this.store.consume(choiceGateKey(gate.id));
         return;
       } catch (err) {
         const delay = CHOICE_GATE_RETRY_DELAYS_MS[attempt];
@@ -873,34 +874,25 @@ export class ActionRegistry {
    * store is doing. Each stored snapshot is then deleted; one delete failing
    * does not stop the others, and the promise rejects once they have all
    * settled if any failed. A retired id stays refused here even while its
-   * snapshot survives a failed delete.
-   *
-   * `choiceGateId` is the gate of the picker the ids belong to: it is taken
-   * too (retrying with backoff), which is what refuses the controls in every
-   * other process, whether or not their snapshots could be deleted.
+   * snapshot survives a failed delete. A picker's controls are refused in
+   * every other process by taking its gate (see {@link retireChoiceGate}).
    */
-  async revokeActions(
-    ids: Iterable<string>,
-    choiceGateId?: string,
-  ): Promise<void> {
+  async revokeActions(ids: Iterable<string>): Promise<void> {
     const revoked = [...ids];
     for (const id of revoked) {
       this.retired.set(id, true);
       this.hot.delete(id);
     }
-    const results = await Promise.allSettled([
-      ...(choiceGateId !== undefined
-        ? [this.retireChoiceGate(choiceGateId)]
-        : []),
-      ...revoked.map(async (id) => this.store.delete(id)),
-    ]);
+    const results = await Promise.allSettled(
+      revoked.map(async (id) => this.store.delete(id)),
+    );
     const failures = results.filter(
       (r): r is PromiseRejectedResult => r.status === "rejected",
     );
     if (failures.length > 0) {
       throw new AggregateError(
         failures.map((f) => f.reason),
-        `could not retire ${failures.length} of ${results.length} revoked action snapshot(s) and picker gate(s)`,
+        `could not delete ${failures.length} of ${revoked.length} revoked action snapshot(s)`,
       );
     }
   }

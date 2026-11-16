@@ -1001,7 +1001,9 @@ export function createChannel<
     };
     for (const id of ids) choiceControlOwners.set(id, owner);
     return () => {
-      if (owner.state === "reserved") invalidateChoiceControls(ids, owner);
+      if (owner.state === "reserved") {
+        void invalidateChoiceControls(ids, owner).catch(() => {});
+      }
     };
   }
 
@@ -1009,16 +1011,24 @@ export function createChannel<
    * Revoke picker controls. They are retired synchronously (see
    * `ActionRegistry.revokeActions`), and their owner check stays in force until
    * the revocation has settled. Taking the picker's gate is what retires them
-   * in every other process too.
+   * in every other process too: the returned promise settles with that, and
+   * rejects when the gate could not be taken (the controls are still retired
+   * here, and their gate's deadline still ends them everywhere).
    */
   function invalidateChoiceControls(
     ids: readonly string[],
     owner: ChoiceControlOwner | undefined,
     choiceGate: ChoiceGate | undefined = owner?.choiceGate,
-  ): void {
+  ): Promise<void> {
     if (owner) owner.state = "retired";
-    const revocation =
-      registry?.revokeActions(ids, choiceGate?.id) ?? Promise.resolve();
+    const gateRetirement =
+      choiceGate && registry
+        ? registry.retireChoiceGate(choiceGate)
+        : Promise.resolve();
+    const revocation = Promise.all([
+      gateRetirement,
+      registry?.revokeActions(ids),
+    ]);
     void revocation
       .catch((err: unknown) => {
         console.warn(
@@ -1032,31 +1042,62 @@ export function createChannel<
             choiceControlOwners.delete(id);
         }
       });
+    return gateRetirement;
   }
 
   /**
    * Remove a settled picker and revoke its controls, so they never run or
-   * answer anything again.
+   * answer anything again. It stops answering here at once; the returned
+   * promise settles once no process can run its controls (see
+   * `invalidateChoiceControls`).
    */
-  function retireWaiter(conversationKey: string, waiter: ChoiceWaiter): void {
+  function retireWaiter(
+    conversationKey: string,
+    waiter: ChoiceWaiter,
+  ): Promise<void> {
     if (waiters.get(conversationKey) === waiter)
       waiters.delete(conversationKey);
     const ids = [...waiter.controls.keys()];
     const owner = ids
       .map((id) => choiceControlOwners.get(id))
       .find((o) => o?.waiter === waiter);
-    invalidateChoiceControls(ids, owner, waiter.choiceGate);
+    return invalidateChoiceControls(ids, owner, waiter.choiceGate);
+  }
+
+  /**
+   * Retire a picker, then settle its choice with `reason`, so a caller never
+   * sees the choice settled while a control of the picker can still run in
+   * another process. When that cannot be confirmed (the gate could not be
+   * taken), the choice rejects with an `AggregateError` of the store error
+   * and `reason` instead.
+   */
+  function retireAndReject(
+    conversationKey: string,
+    waiter: ChoiceWaiter,
+    reason: unknown,
+  ): Promise<void> {
+    return retireWaiter(conversationKey, waiter).then(
+      () => waiter.reject(reason),
+      (err: unknown) =>
+        waiter.reject(
+          new AggregateError(
+            [err, reason],
+            "the picker could not be retired in the shared store; its controls may still run in other processes until their deadline",
+          ),
+        ),
+    );
   }
 
   /**
    * Register a pending choice; a newer one supersedes (and settles) the old.
    * The picker's reserved controls open for clicks from here on. Returns a
-   * function that retires this one (for a timeout or an abort).
+   * function that retires this one and then settles it with the given reason
+   * (for a timeout or an abort; see `retireAndReject`).
    */
   function registerWaiter(
     conversationKey: string,
     waiter: ChoiceWaiter,
-  ): () => void {
+  ): (reason: unknown) => Promise<void> {
     const previous = waiters.get(conversationKey);
     waiters.set(conversationKey, waiter);
     for (const id of waiter.controls.keys()) {
@@ -1067,10 +1108,13 @@ export function createChannel<
       }
     }
     if (previous) {
-      retireWaiter(conversationKey, previous);
-      previous.reject(new ChannelChoiceSupersededError());
+      void retireAndReject(
+        conversationKey,
+        previous,
+        new ChannelChoiceSupersededError(),
+      );
     }
-    return () => retireWaiter(conversationKey, waiter);
+    return (reason) => retireAndReject(conversationKey, waiter, reason);
   }
   let intelligenceMemoryAvailable = false;
 
@@ -1485,7 +1529,14 @@ export function createChannel<
                   (gateErr instanceof ActionExpiredError
                     ? "expired"
                     : undefined);
-                if (!gateRefusal) throw gateErr;
+                if (!gateRefusal) {
+                  // A store failure: settle the choice with it, as when the
+                  // picker's own handler fails, rather than leave it pending.
+                  if (waiters.get(evt.conversationKey) === picker) {
+                    await retireAndReject(evt.conversationKey, picker, gateErr);
+                  }
+                  throw gateErr;
+                }
                 await refuseInteraction(
                   adapter,
                   platform,
@@ -1500,8 +1551,7 @@ export function createChannel<
             // The picker's own handler failed: settle the choice with the
             // error, once, rather than leave it pending and re-runnable.
             if (picker && waiters.get(evt.conversationKey) === picker) {
-              retireWaiter(evt.conversationKey, picker);
-              picker.reject(err);
+              await retireAndReject(evt.conversationKey, picker, err);
             }
             throw err;
           }
@@ -1513,7 +1563,9 @@ export function createChannel<
           picker &&
           waiters.get(evt.conversationKey) === picker
         ) {
-          retireWaiter(evt.conversationKey, picker);
+          // This click took the picker's gate, so the answer is already final
+          // in every process; the retirement only tidies up.
+          void retireWaiter(evt.conversationKey, picker).catch(() => {});
           picker.resolve(answer.value);
         } else if (waiter && !picker) {
           console.debug(

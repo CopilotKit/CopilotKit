@@ -143,10 +143,13 @@ export interface ThreadDeps {
   context: ContextEntry[];
   /**
    * Register a pending choice under `conversationKey`. Returns a function that
-   * retires it (unregisters it and revokes its controls) if it is still the
-   * pending choice there.
+   * retires it (unregisters it and revokes its controls) and then rejects it
+   * with `reason`, once no process can run its controls any more.
    */
-  registerWaiter: (conversationKey: string, waiter: ChoiceWaiter) => () => void;
+  registerWaiter: (
+    conversationKey: string,
+    waiter: ChoiceWaiter,
+  ) => (reason: unknown) => void | Promise<void>;
   /**
    * Claim a picker's controls for `actorId` (`undefined`: anyone) before the
    * picker is posted: until {@link registerWaiter} opens its choice, no click
@@ -906,6 +909,16 @@ export class Thread implements ThreadInterface {
         abandon();
         throw err;
       }
+      // The timeout counts from the moment the gate opened, so the choice
+      // and its controls end together. A post that used it all up leaves a
+      // picker nobody can answer: settle as timed out without waiting.
+      const remainingMs = Number.isFinite(timeoutMs)
+        ? choiceGate.deadline - Date.now()
+        : Infinity;
+      if (remainingMs <= 0) {
+        abandon();
+        throw new ChannelChoiceTimeoutError(timeoutMs);
+      }
       // Registered only once the picker is posted (a failed post leaves no
       // waiter behind), under the key a click on the posted picker carries.
       return new Promise<T>((resolve, reject) => {
@@ -934,16 +947,16 @@ export class Thread implements ThreadInterface {
           },
         );
         // Give up on the choice: retire the picker so it answers nothing more,
-        // then settle with `reason`.
+        // here at once and in every process before the choice settles (with
+        // `reason`, or with the store error if that cannot be confirmed).
         const giveUp = (reason: Error) => {
           cleanup();
-          retire();
-          reject(reason);
+          void Promise.resolve(retire(reason)).finally(() => reject(reason));
         };
-        if (Number.isFinite(timeoutMs)) {
+        if (Number.isFinite(remainingMs)) {
           timer = setTimeout(
             () => giveUp(new ChannelChoiceTimeoutError(timeoutMs)),
-            timeoutMs,
+            remainingMs,
           );
           // A pending choice must not keep the process alive on its own.
           if (typeof timer === "object" && "unref" in timer) timer.unref();
