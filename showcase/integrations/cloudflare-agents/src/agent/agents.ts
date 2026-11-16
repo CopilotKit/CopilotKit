@@ -69,9 +69,9 @@ abstract class ShowcaseAgentBase extends withAGUI(Agent<Env, ShowcaseState>) {
   /** Server tools that wait for the user (AI SDK `toolApproval`: an AG-UI interrupt). */
   protected readonly approvalRequired: string[] = [];
 
-  /** The page's tools. A server tool of the same name wins. */
-  protected clientTools(run: Run): ToolSet {
-    return run.clientTools;
+  /** The tools the model may call: the page's, then the agent's (a server tool of the same name wins). */
+  protected modelTools(tools: ToolSet): ToolSet {
+    return tools;
   }
 
   protected openai(run: Run) {
@@ -88,17 +88,19 @@ abstract class ShowcaseAgentBase extends withAGUI(Agent<Env, ShowcaseState>) {
   }
 
   onAGUIRun(run: Run) {
+    const options = run.streamTextOptions({
+      instructions: this.prompt,
+      tools: this.tools(run),
+    });
     return streamText({
       model: this.model(run),
-      instructions: run.instructions(this.prompt),
-      messages: run.messages,
-      tools: { ...this.clientTools(run), ...this.tools(run) },
+      ...options,
+      tools: this.modelTools(options.tools),
       toolApproval: Object.fromEntries(
         this.approvalRequired.map((name) => [name, "user-approval" as const]),
       ),
       providerOptions: this.providerOptions(),
       stopWhen: stepCountIs(this.maxSteps),
-      abortSignal: run.abortSignal,
     });
   }
 
@@ -148,8 +150,8 @@ export class BeautifulChat extends Showcase {
     };
   }
 
-  protected clientTools(run: Run): ToolSet {
-    return withoutRenderTool(run.clientTools);
+  protected modelTools(tools: ToolSet): ToolSet {
+    return withoutRenderTool(tools);
   }
 }
 
@@ -199,8 +201,8 @@ export class DeclarativeGenUi extends ShowcaseAgentBase {
     };
   }
 
-  protected clientTools(run: Run): ToolSet {
-    return withoutRenderTool(run.clientTools);
+  protected modelTools(tools: ToolSet): ToolSet {
+    return withoutRenderTool(tools);
   }
 }
 

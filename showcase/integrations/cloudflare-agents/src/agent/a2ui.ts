@@ -45,12 +45,12 @@ function renderGuideDescription(toolName: string): string {
 }
 
 /**
- * The client tools without the middleware's `render_a2ui`: with the
+ * The tools without the middleware's `render_a2ui` client tool: with the
  * backend-owned `generate_a2ui` in place, the model must not call the render
  * tool directly.
  */
-export function withoutRenderTool(clientTools: ToolSet): ToolSet {
-  const { [RENDER_TOOL]: _render, ...rest } = clientTools;
+export function withoutRenderTool(tools: ToolSet): ToolSet {
+  const { [RENDER_TOOL]: _render, ...rest } = tools;
   return rest;
 }
 
