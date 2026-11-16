@@ -3,8 +3,9 @@ import type { Page } from "@playwright/test";
 
 // Keep renders deterministic: the page may only talk to the dev server.
 test.beforeEach(async ({ page, baseURL }) => {
+  const origin = new URL(baseURL!).origin;
   await page.route("**/*", (route) =>
-    route.request().url().startsWith(baseURL!)
+    new URL(route.request().url()).origin === origin
       ? route.continue()
       : route.abort("blockedbyclient"),
   );
