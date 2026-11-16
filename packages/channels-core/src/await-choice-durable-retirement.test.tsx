@@ -23,10 +23,13 @@ const tick = async () => {
 class FlakyStore extends MemoryStore {
   failActionDeletes = false;
   failGateWrites = false;
+  /** How many upcoming gate takes fail before the store recovers. */
+  failGateConsumes = 0;
+  gateConsumeAttempts = 0;
 
   constructor() {
     super();
-    const { delete: del, set } = this.kv;
+    const { delete: del, set, consume } = this.kv;
     this.kv = {
       ...this.kv,
       delete: async (key: string) => {
@@ -40,6 +43,16 @@ class FlakyStore extends MemoryStore {
           throw new Error("store unavailable");
         }
         return set(key, value, ttlMs);
+      },
+      consume: async <T,>(key: string) => {
+        if (key.startsWith("action:choice:")) {
+          this.gateConsumeAttempts++;
+          if (this.failGateConsumes > 0) {
+            this.failGateConsumes--;
+            throw new Error("store unavailable");
+          }
+        }
+        return consume<T>(key);
       },
     };
   }
@@ -74,7 +87,13 @@ interface Harness {
   replica: () => Promise<{ fake: FakeAdapter; channel: Channel }>;
 }
 
-function harness(opts: { timeoutMs?: number; slowHandler?: boolean } = {}) {
+function harness(
+  opts: {
+    timeoutMs?: number;
+    slowHandler?: boolean;
+    signal?: AbortSignal;
+  } = {},
+) {
   vi.spyOn(console, "warn").mockImplementation(() => {});
   const shared = new FlakyStore();
   const clicks: string[] = [];
@@ -113,10 +132,10 @@ function harness(opts: { timeoutMs?: number; slowHandler?: boolean } = {}) {
     channel.onMention(async ({ thread }) => {
       try {
         answers.push(
-          await thread.awaitChoice(
-            <Picker />,
-            opts.timeoutMs ? { timeoutMs: opts.timeoutMs } : {},
-          ),
+          await thread.awaitChoice(<Picker />, {
+            ...(opts.timeoutMs ? { timeoutMs: opts.timeoutMs } : {}),
+            ...(opts.signal ? { signal: opts.signal } : {}),
+          }),
         );
       } catch (err) {
         errors.push(err);
@@ -212,6 +231,50 @@ describe("awaitChoice retirement is durable", () => {
     await tick();
 
     expect(h.clicks).toEqual([]);
+  });
+
+  it("(6) an aborted picker with no timeout whose delete failed is refused on another replica", async () => {
+    const controller = new AbortController();
+    const h = harness({ signal: controller.signal });
+    const a = await h.replica();
+    const b = await h.replica();
+    const id = await postPicker(h, a.fake);
+    h.shared.failActionDeletes = true;
+
+    controller.abort();
+    await tick();
+    expect(h.errors).toHaveLength(1);
+
+    // Its snapshot survived and its deadline is an hour away: only the taken
+    // gate stops replica B from running the handler.
+    b.fake.emitInteraction({ id, conversationKey: "c1", actor: alice });
+    await tick();
+
+    expect(h.clicks).toEqual([]);
+    expect(b.fake.ephemeralPosts).toHaveLength(1);
+  });
+
+  it("(7) retiring an aborted picker retries a failed gate take", async () => {
+    const controller = new AbortController();
+    const h = harness({ signal: controller.signal });
+    const a = await h.replica();
+    const b = await h.replica();
+    const id = await postPicker(h, a.fake);
+    h.shared.failActionDeletes = true;
+    h.shared.failGateConsumes = 1;
+
+    controller.abort();
+    // Past the first retry delay.
+    await new Promise((r) => setTimeout(r, 120));
+    await tick();
+    expect(h.errors).toHaveLength(1);
+    expect(h.shared.gateConsumeAttempts).toBe(2);
+
+    b.fake.emitInteraction({ id, conversationKey: "c1", actor: alice });
+    await tick();
+
+    expect(h.clicks).toEqual([]);
+    expect(b.fake.ephemeralPosts).toHaveLength(1);
   });
 
   it("(5) a picker whose gate cannot be written is never posted", async () => {

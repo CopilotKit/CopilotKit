@@ -709,8 +709,10 @@ export class ActionRegistry {
     // or still-pending delete): it never runs.
     if (this.retired.get(id)) throw new ActionExpiredError(id);
     // A picker control runs only for the click that takes its picker's gate,
-    // in whichever process that click lands. Nothing has run yet, so a click
-    // refused here, or one whose store call fails, spends nothing.
+    // in whichever process that click lands. The handler has not run yet. A
+    // click refused here spends nothing and the picker stays pending. A store
+    // error on the take is different: it propagates like a handler failure,
+    // and the caller settles the picker with that error.
     if (gate) await this.takeChoiceGate(gate, id);
     const actionValue = value === undefined ? ctx.action.value : value;
     await handler({
