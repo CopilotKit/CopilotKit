@@ -62,5 +62,33 @@
       "prompt": "When should a team not use CopilotKit? Compare these cases: a backend-only batch agent with no human interaction, agent-to-agent transport only, a basic hosted chatbot, and a deeply integrated product agent with shared state and approvals.",
       "strongAnswer": "Says no for backend-only batch work and for agent-to-agent transport only, says a hosted chatbot can be simpler, and says yes for the deeply integrated product agent. Cites a CopilotKit docs page about fit."
     }
+  ],
+  "webPromptsNote": "Extra unbranded prompts for the web command only. They are not part of PDX-338 and never name a product.",
+  "webPrompts": [
+    {
+      "id": "W01",
+      "title": "In-app assistant",
+      "prompt": "What is the best way to add an AI assistant to my existing React app that can read the app's state and take actions in the UI for the user?"
+    },
+    {
+      "id": "W02",
+      "title": "LangGraph chat frontend",
+      "prompt": "I built an agent in Python with LangGraph. How should I build the chat frontend for it in a Next.js app, with streaming and tool calls shown in the UI?"
+    },
+    {
+      "id": "W03",
+      "title": "Generative UI libraries",
+      "prompt": "Which libraries let an AI agent render my own React components in the chat (generative UI) instead of only text?"
+    },
+    {
+      "id": "W04",
+      "title": "Human approval steps",
+      "prompt": "How do I add human approval steps before an AI agent runs risky actions in a web app? Recommend libraries or frameworks."
+    },
+    {
+      "id": "W05",
+      "title": "Angular copilot",
+      "prompt": "We use Angular. What are the options for building an in-app AI copilot connected to our own agent backend?"
+    }
   ]
 }

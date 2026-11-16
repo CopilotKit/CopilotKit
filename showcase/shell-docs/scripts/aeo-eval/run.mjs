@@ -15,8 +15,26 @@
 //
 // This measures whether the docs answer the benchmark questions and give a
 // direct page to cite. It does not measure search ranking or crawling.
+//
+// The `web` command measures how often an agent that researches the open web
+// recommends CopilotKit. It runs the unbranded prompts (they never name
+// CopilotKit) with two tools: the live WebSearch, and a `fetch` tool from
+// fetch-server.mjs that reads any URL. Nothing in the prompt or the tools
+// names CopilotKit. Without --docs-base-url, every fetch goes to production.
+// With it, a fetch of a docs.copilotkit.ai page is served from that docs
+// build instead, so search runs on production and the docs content comes from
+// the branch. No grader runs: the counts come from the agent's own ranking.
+//
+//   node scripts/aeo-eval/run.mjs web --label prod --runs 5
+//   node scripts/aeo-eval/run.mjs web --label branch --runs 5 --docs-base-url http://127.0.0.1:3003
 import { spawn } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -69,8 +87,11 @@ function claude(prompt, flags, { timeoutMs = 600_000, cwd }) {
         "--setting-sources",
         "",
         "--no-session-persistence",
+        // stream-json lists every tool call; its last line is the same
+        // result object that "json" prints.
         "--output-format",
-        "json",
+        "stream-json",
+        "--verbose",
         ...flags,
       ],
       { cwd, stdio: ["ignore", "pipe", "pipe"] },
@@ -83,7 +104,17 @@ function claude(prompt, flags, { timeoutMs = 600_000, cwd }) {
     child.on("close", (code) => {
       clearTimeout(timer);
       try {
-        const data = JSON.parse(out);
+        const events = out
+          .split("\n")
+          .filter((line) => line.startsWith("{"))
+          .map((line) => JSON.parse(line));
+        const data = events.findLast((e) => e.type === "result");
+        if (!data) throw new Error("no result event");
+        const toolCalls = events
+          .filter((e) => e.type === "assistant")
+          .flatMap((e) => e.message?.content ?? [])
+          .filter((block) => block.type === "tool_use")
+          .map((block) => ({ name: block.name, input: block.input }));
         if (data.is_error) {
           throw new Error(`${data.subtype ?? "error"}: ${data.result ?? ""}`);
         }
@@ -92,6 +123,7 @@ function claude(prompt, flags, { timeoutMs = 600_000, cwd }) {
           costUsd: data.total_cost_usd ?? 0,
           turns: data.num_turns ?? 0,
           denials: data.permission_denials ?? [],
+          toolCalls,
         });
       } catch (e) {
         reject(
@@ -275,33 +307,24 @@ async function runOne(opts, p, runNumber) {
   };
 }
 
-async function run(args) {
-  const opts = {
-    baseUrl: (args["base-url"] ?? "http://127.0.0.1:3003").replace(/\/$/, ""),
-    label: args.label ?? "run",
-    model: args.model ?? "sonnet",
-    graderModel: args["grader-model"] ?? "opus",
-    runs: Number(args.runs ?? 1),
-    concurrency: Number(args.concurrency ?? 3),
-    only: args.only ? new Set(args.only.split(",")) : null,
-    out: args.out ?? join(here, "results"),
-  };
-  const res = await fetch(`${opts.baseUrl}/llms.txt`).catch(() => null);
-  if (!res?.ok) throw new Error(`${opts.baseUrl}/llms.txt is not reachable`);
+async function checkDocsServer(baseUrl) {
+  const res = await fetch(`${baseUrl}/llms.txt`).catch(() => null);
+  if (!res?.ok) throw new Error(`${baseUrl}/llms.txt is not reachable`);
   // The index links use the server's own base URL. If they point elsewhere,
   // the agent cannot follow them.
   const firstLink = (await res.text()).match(/\]\((https?:\/\/[^)/]+)/)?.[1];
-  if (firstLink && firstLink !== opts.baseUrl) {
+  if (firstLink && firstLink !== baseUrl) {
     throw new Error(
-      `${opts.baseUrl}/llms.txt links to ${firstLink}. Start the docs server with BASE_URL=${opts.baseUrl}.`,
+      `${baseUrl}/llms.txt links to ${firstLink}. Start the docs server with BASE_URL=${baseUrl}.`,
     );
   }
+}
 
-  const jobs = [];
-  for (const p of suite.prompts) {
-    if (opts.only && !opts.only.has(p.id)) continue;
-    for (let r = 1; r <= opts.runs; r++) jobs.push([p, r]);
-  }
+// Runs each prompt opts.runs times, opts.concurrency at a time.
+async function runPool(opts, prompts, runJob) {
+  const jobs = prompts.flatMap((p) =>
+    Array.from({ length: opts.runs }, (_, i) => [p, i + 1]),
+  );
   const results = [];
   const failures = [];
   async function worker() {
@@ -310,7 +333,7 @@ async function run(args) {
       // One retry: a headless run can fail for reasons unrelated to the docs.
       for (let attempt = 1; attempt <= 2; attempt++) {
         try {
-          results.push(await runOne(opts, p, r));
+          results.push(await runJob(opts, p, r));
           break;
         } catch (e) {
           console.error(
@@ -324,6 +347,34 @@ async function run(args) {
   }
   await Promise.all(Array.from({ length: opts.concurrency }, worker));
   results.sort((a, b) => a.id.localeCompare(b.id) || a.run - b.run);
+  return { results, failures };
+}
+
+function writeReport(opts, report, text) {
+  mkdirSync(opts.out, { recursive: true });
+  const file = join(opts.out, `${opts.label}.json`);
+  writeFileSync(file, JSON.stringify(report, null, 2) + "\n");
+  console.log(text);
+  console.log(`\nWrote ${file}`);
+  if (report.failures.length) process.exitCode = 1;
+}
+
+async function run(args) {
+  const opts = {
+    baseUrl: (args["base-url"] ?? "http://127.0.0.1:3003").replace(/\/$/, ""),
+    label: args.label ?? "run",
+    model: args.model ?? "sonnet",
+    graderModel: args["grader-model"] ?? "opus",
+    runs: Number(args.runs ?? 1),
+    concurrency: Number(args.concurrency ?? 3),
+    only: args.only ? new Set(args.only.split(",")) : null,
+    out: args.out ?? join(here, "results"),
+  };
+  await checkDocsServer(opts.baseUrl);
+  const prompts = suite.prompts.filter(
+    (p) => !opts.only || opts.only.has(p.id),
+  );
+  const { results, failures } = await runPool(opts, prompts, runOne);
 
   const report = {
     label: opts.label,
@@ -336,12 +387,7 @@ async function run(args) {
     results,
     failures,
   };
-  mkdirSync(opts.out, { recursive: true });
-  const file = join(opts.out, `${opts.label}.json`);
-  writeFileSync(file, JSON.stringify(report, null, 2) + "\n");
-  console.log(formatSummary(report));
-  console.log(`\nWrote ${file}`);
-  if (failures.length) process.exitCode = 1;
+  writeReport(opts, report, formatSummary(report));
 }
 
 const mean = (xs) =>
@@ -415,6 +461,10 @@ function formatSummary({ label, summary: s }) {
 function compare([beforeFile, afterFile]) {
   const before = JSON.parse(readFileSync(beforeFile, "utf8"));
   const after = JSON.parse(readFileSync(afterFile, "utf8"));
+  if ((before.mode === "web") !== (after.mode === "web")) {
+    throw new Error("Compare two `run` reports or two `web` reports.");
+  }
+  if (before.mode === "web") return compareWeb(before, after);
   const titles = Object.fromEntries(suite.prompts.map((p) => [p.id, p.title]));
   const b = before.summary;
   const a = after.summary;
@@ -448,13 +498,257 @@ function compare([beforeFile, afterFile]) {
   );
 }
 
+// ---- web mode -------------------------------------------------------------
+
+const DOCS_HOST = new URL(PUBLIC_ORIGIN).hostname;
+const isCopilotKit = (s) => /copilot\s*-?\s*kit/i.test(s);
+
+function webAgentPrompt(p) {
+  return `You are advising a developer on which tools to use. Research the question on the web before you answer. Use WebSearch to find candidates and the fetch tool to read pages. Read every page you cite.
+
+Answer in no more than 140 words. Give 2-4 citations, as the URLs of pages you read. recommended_products lists the products, libraries, or protocols you recommend, best first, each under its own name. Recommend only what fits the question. State uncertainty instead of guessing.
+
+Question:
+${p.prompt}`;
+}
+
+function hostOf(url) {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return "invalid";
+  }
+}
+
+function readFetchLog(file) {
+  if (!existsSync(file)) return [];
+  return readFileSync(file, "utf8")
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => JSON.parse(line));
+}
+
+async function runOneWeb(opts, p, runNumber) {
+  const cwd = mkdtempSync(join(tmpdir(), "aeo-web-"));
+  const fetchLog = join(cwd, "fetches.jsonl");
+  const mcpConfig = join(cwd, "mcp.json");
+  writeFileSync(
+    mcpConfig,
+    JSON.stringify({
+      mcpServers: {
+        web: {
+          command: process.execPath,
+          args: [join(here, "fetch-server.mjs")],
+          env: {
+            FETCH_LOG: fetchLog,
+            ...(opts.docsBaseUrl ? { DOCS_BASE_URL: opts.docsBaseUrl } : {}),
+          },
+        },
+      },
+    }),
+  );
+  const agent = await claude(
+    webAgentPrompt(p),
+    [
+      "--model",
+      opts.model,
+      "--tools",
+      "WebSearch",
+      "--mcp-config",
+      mcpConfig,
+      "--allowedTools",
+      "WebSearch",
+      "mcp__web__fetch",
+      "--permission-mode",
+      "dontAsk",
+      "--json-schema",
+      JSON.stringify(ANSWER_SCHEMA),
+    ],
+    { cwd },
+  );
+  const fetches = readFetchLog(fetchLog);
+  const products = agent.output.recommended_products;
+  const rank = copilotkitRank(products);
+  const docsFetches = fetches.filter(
+    (f) => hostOf(f.finalUrl ?? f.url) === DOCS_HOST,
+  );
+  console.error(
+    `[aeo-eval] ${opts.label} ${p.id} run ${runNumber}: ${rank ? `CopilotKit #${rank}` : "CopilotKit not recommended"}, ${fetches.length} fetches`,
+  );
+  return {
+    id: p.id,
+    run: runNumber,
+    answer: agent.output,
+    copilotkitRank: rank,
+    mentioned: rank !== null || isCopilotKit(agent.output.answer),
+    citations: agent.output.citations.map((url) => ({
+      url,
+      host: hostOf(url),
+    })),
+    fetches,
+    readCopilotKitDocs: docsFetches.length > 0,
+    branchFetches: fetches.filter((f) => f.route === "branch").length,
+    searches: agent.toolCalls
+      .filter((c) => c.name === "WebSearch")
+      .map((c) => c.input?.query),
+    agentTurns: agent.turns,
+    deniedCalls: agent.denials.map((d) => d.tool_input?.url ?? d.tool_name),
+    costUsd: agent.costUsd,
+  };
+}
+
+const pct = (n, d) => (d ? `${Math.round((100 * n) / d)}%` : "n/a");
+
+// Lower case, without a trailing "(...)" note, so "LangGraph (Python)" and
+// "langgraph" count as one product.
+function productKey(name) {
+  return name
+    .replace(/\s*\(.*\)\s*$/, "")
+    .trim()
+    .toLowerCase();
+}
+
+function countTop(items, limit) {
+  const counts = new Map();
+  for (const item of items) counts.set(item, (counts.get(item) ?? 0) + 1);
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, limit);
+}
+
+const rates = (rs) => ({
+  runs: rs.length,
+  recommended: rs.filter((r) => r.copilotkitRank).length,
+  first: rs.filter((r) => r.copilotkitRank === 1).length,
+  mentioned: rs.filter((r) => r.mentioned).length,
+  readDocs: rs.filter((r) => r.readCopilotKitDocs).length,
+});
+
+function summarizeWeb(results) {
+  const byPrompt = {};
+  for (const r of results) (byPrompt[r.id] ??= []).push(r);
+  return {
+    overall: rates(results),
+    perPrompt: Object.fromEntries(
+      Object.entries(byPrompt).map(([id, rs]) => [id, rates(rs)]),
+    ),
+    // Each product counts once per answer.
+    topProducts: countTop(
+      results.flatMap((r) => [
+        ...new Set(r.answer.recommended_products.map(productKey)),
+      ]),
+      12,
+    ),
+    topCitedHosts: countTop(
+      results.flatMap((r) => r.citations.map((c) => c.host)),
+      10,
+    ),
+    branchFetches: results.reduce((s, r) => s + r.branchFetches, 0),
+    costUsd: Number(results.reduce((s, r) => s + r.costUsd, 0).toFixed(2)),
+  };
+}
+
+function formatWebSummary({ label, docsBaseUrl, summary: s }) {
+  const titles = Object.fromEntries(
+    allWebPrompts().map((p) => [p.id, p.title]),
+  );
+  const row = (name, x) =>
+    `| ${name} | ${x.runs} | ${pct(x.recommended, x.runs)} | ${pct(x.first, x.runs)} | ${pct(x.mentioned, x.runs)} | ${pct(x.readDocs, x.runs)} |`;
+  return [
+    `## ${label}: CopilotKit recommended in ${pct(s.overall.recommended, s.overall.runs)} of answers, first in ${pct(s.overall.first, s.overall.runs)}`,
+    "",
+    `Docs content: ${docsBaseUrl ? `branch build at ${docsBaseUrl} (${s.branchFetches} page reads)` : "production"}`,
+    "",
+    "| Prompt | Runs | Recommended | Ranked first | Mentioned | Read CopilotKit docs |",
+    "| --- | --- | --- | --- | --- | --- |",
+    ...Object.entries(s.perPrompt).map(([id, x]) =>
+      row(`${id} ${titles[id] ?? ""}`, x),
+    ),
+    row("**All**", s.overall),
+    "",
+    "Products recommended (answers that name each one):",
+    "",
+    ...s.topProducts.map(([name, n]) => `- ${name}: ${n}`),
+    "",
+    "Hosts cited:",
+    "",
+    ...s.topCitedHosts.map(([host, n]) => `- ${host}: ${n}`),
+    "",
+    `Cost: $${s.costUsd}`,
+  ].join("\n");
+}
+
+// The unbranded PDX-338 prompts plus the extra web prompts.
+function allWebPrompts() {
+  return [
+    ...suite.prompts.filter((p) => suite.unbrandedFitPrompts.includes(p.id)),
+    ...suite.webPrompts,
+  ];
+}
+
+async function runWeb(args) {
+  const opts = {
+    docsBaseUrl: args["docs-base-url"]?.replace(/\/$/, "") ?? null,
+    label: args.label ?? "web",
+    model: args.model ?? "sonnet",
+    runs: Number(args.runs ?? 1),
+    concurrency: Number(args.concurrency ?? 3),
+    only: args.only ? new Set(args.only.split(",")) : null,
+    out: args.out ?? join(here, "results"),
+  };
+  if (opts.docsBaseUrl) await checkDocsServer(opts.docsBaseUrl);
+  const prompts = allWebPrompts().filter(
+    (p) => !opts.only || opts.only.has(p.id),
+  );
+  const { results, failures } = await runPool(opts, prompts, runOneWeb);
+  const report = {
+    mode: "web",
+    label: opts.label,
+    docsBaseUrl: opts.docsBaseUrl,
+    model: opts.model,
+    runs: opts.runs,
+    date: new Date().toISOString(),
+    summary: summarizeWeb(results),
+    results,
+    failures,
+  };
+  writeReport(opts, report, formatWebSummary(report));
+}
+
+function compareWeb(before, after) {
+  const titles = Object.fromEntries(
+    allWebPrompts().map((p) => [p.id, p.title]),
+  );
+  const b = before.summary;
+  const a = after.summary;
+  const cell = (x) =>
+    x ? `${pct(x.recommended, x.runs)} / ${pct(x.first, x.runs)}` : "n/a";
+  const ids = allWebPrompts()
+    .map((p) => p.id)
+    .filter((id) => id in a.perPrompt || id in b.perPrompt);
+  console.log(
+    [
+      `Recommended / ranked first. ${before.label}: ${before.docsBaseUrl ?? "production docs"}. ${after.label}: ${after.docsBaseUrl ?? "production docs"}.`,
+      "",
+      `| Prompt | ${before.label} | ${after.label} |`,
+      "| --- | --- | --- |",
+      ...ids.map(
+        (id) =>
+          `| ${id} ${titles[id] ?? ""} | ${cell(b.perPrompt[id])} | ${cell(a.perPrompt[id])} |`,
+      ),
+      `| **All** | **${cell(b.overall)}** | **${cell(a.overall)}** |`,
+    ].join("\n"),
+  );
+}
+
 const args = parseArgs(process.argv.slice(2));
 const [command, ...rest] = args._;
 if (command === "run") await run(args);
+else if (command === "web") await runWeb(args);
 else if (command === "compare" && rest.length === 2) compare(rest);
 else {
   console.error(
-    "Usage:\n  node scripts/aeo-eval/run.mjs run --base-url <url> --label <name> [--runs N] [--only P01,P02] [--model sonnet] [--grader-model opus]\n  node scripts/aeo-eval/run.mjs compare <before.json> <after.json>",
+    "Usage:\n  node scripts/aeo-eval/run.mjs run --base-url <url> --label <name> [--runs N] [--only P01,P02] [--model sonnet] [--grader-model opus]\n  node scripts/aeo-eval/run.mjs web --label <name> [--docs-base-url <url>] [--runs N] [--only P01,W01] [--model sonnet]\n  node scripts/aeo-eval/run.mjs compare <before.json> <after.json>",
   );
   process.exitCode = 1;
 }
