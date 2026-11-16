@@ -1,0 +1,49 @@
+{
+  "name": "showcase-frontend-nextjs",
+  "targets": {
+    "install-dependencies": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm ci --legacy-peer-deps --ignore-scripts --no-audit --no-fund",
+        "cwd": "showcase/frontends/nextjs"
+      },
+      "cache": false
+    },
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm run build",
+        "cwd": "showcase/frontends/nextjs"
+      },
+      "dependsOn": ["install-dependencies"],
+      "cache": false
+    },
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm run typecheck",
+        "cwd": "showcase/frontends/nextjs"
+      },
+      "dependsOn": ["install-dependencies"],
+      "cache": false
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm run test",
+        "cwd": "showcase/frontends/nextjs"
+      },
+      "dependsOn": ["install-dependencies"],
+      "cache": false
+    },
+    "e2e": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm run e2e",
+        "cwd": "showcase/frontends/nextjs"
+      },
+      "dependsOn": ["install-dependencies"],
+      "cache": false
+    }
+  }
+}

@@ -264,6 +264,8 @@ function writeFileAtomicSync(filePath: string, contents: string): void {
 //   - shell: home grid, integrations catalog, matrix, middleware
 //   - shell-docs: docs routes (framework lookup, MDX renderer)
 //   - shell-dojo: dojo app's integration grid and demo columns
+//   - frontends/nextjs: the shared demo app (index page, demo titles, and
+//     the middleware that answers 404 for a demo a manifest does not list)
 // so we multi-emit. constraints.json is shell-only (integration-explorer).
 const SHELL_OUTPUT_DIR = path.join(ROOT, "shell", "src", "data");
 const SHELL_DOCS_OUTPUT_DIR = path.join(ROOT, "shell-docs", "src", "data");
@@ -274,11 +276,19 @@ const SHELL_DASHBOARD_OUTPUT_DIR = path.join(
   "src",
   "data",
 );
+const FRONTEND_NEXTJS_OUTPUT_DIR = path.join(
+  ROOT,
+  "frontends",
+  "nextjs",
+  "src",
+  "data",
+);
 const OUTPUT_DIRS = [
   SHELL_OUTPUT_DIR,
   SHELL_DOCS_OUTPUT_DIR,
   SHELL_DOJO_OUTPUT_DIR,
   SHELL_DASHBOARD_OUTPUT_DIR,
+  FRONTEND_NEXTJS_OUTPUT_DIR,
 ];
 const PACKAGES_JSON_PATH = path.join(ROOT, "shared", "packages.json");
 const CONSTRAINTS_PATH = path.join(ROOT, "shared", "constraints.yaml");
