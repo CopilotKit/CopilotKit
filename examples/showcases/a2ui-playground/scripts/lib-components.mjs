@@ -6,7 +6,8 @@ export const BASE = process.env.BASE ?? "http://localhost:3100";
 
 /**
  * Component names, in sidebar order, read from the /components overview links (the macros page is not a component).
- * The links carry the app's base path when it has one, so they are matched on the segment after /components/.
+ * The links carry the app's base path when it has one, so they are matched under BASE's own path, on this origin
+ * only (the overview also links to CopilotKit's docs, whose URL has a /components/ in it).
  * Throws when it finds none, so a check never passes by checking nothing.
  */
 export async function componentNames(page, filter) {
@@ -14,18 +15,22 @@ export async function componentNames(page, filter) {
     waitUntil: "networkidle2",
     timeout: 120000,
   });
-  const names = await page.$$eval('a[href*="/components/"]', (as) => [
-    ...new Set(
-      as
-        .map((a) =>
-          decodeURIComponent(
-            new URL(a.href).pathname.match(/\/components\/([^/]+)\/?$/)?.[1] ??
-              "",
-          ),
-        )
-        .filter((n) => n && n !== "macros"),
-    ),
-  ]);
+  const prefix = new URL(`${BASE}/components/`).pathname;
+  const names = await page.$$eval(
+    "a[href]",
+    (as, prefix) => [
+      ...new Set(
+        as
+          .filter(
+            (a) =>
+              a.origin === location.origin && a.pathname.startsWith(prefix),
+          )
+          .map((a) => decodeURIComponent(a.pathname.slice(prefix.length)))
+          .filter((n) => n && !n.includes("/") && n !== "macros"),
+      ),
+    ],
+    prefix,
+  );
   if (!names.length)
     throw new Error(`No component links found on ${BASE}/components`);
   return filter ? names.filter((n) => filter.includes(n)) : names;
