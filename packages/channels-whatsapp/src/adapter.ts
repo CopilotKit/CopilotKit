@@ -138,7 +138,8 @@ export class WhatsAppAdapter implements PlatformAdapter {
     ir: ChannelNode[],
   ): Promise<EphemeralResult | null> {
     if ((typeof user === "string" ? user : user.id) !== target.to) return null;
-    return { ok: true, usedFallback: false, ref: await this.post(target, ir) };
+    const ref = await this.post(target, ir);
+    return ref.id ? { ok: true, usedFallback: false, ref } : null;
   }
 
   async update(ref: MessageRef, ir: ChannelNode[]): Promise<void> {
