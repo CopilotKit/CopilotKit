@@ -391,10 +391,12 @@ export interface CopilotRuntimeConstructorParams_BASE<
   debug?: DebugConfig;
 
   /**
-   * Serve `/cpk-debug-events` whatever `NODE_ENV` and `debug` say. This is the
+   * Enable `/cpk-debug-events` regardless of `NODE_ENV` and `debug`. This is the
    * only way to open the feed when `NODE_ENV` is neither `development` nor
    * `test`, unset included. The feed streams
-   * every thread's events to any caller that reaches the route.
+   * every thread's events to any caller that reaches the route. Intelligence
+   * runtimes still require web `identifyUser` to serve this route; the callback
+   * does not filter the feed by user.
    */
   exposeDebugEvents?: boolean;
 
