@@ -19,6 +19,7 @@
   "dependencies": {
     "@ai-sdk/mcp": "^1.0.99",
     "@base-ui/react": "^1.9.0",
+    "@bprogress/next": "^3.2.12",
     "@copilotkit/react-core": "^1.84.1",
     "@copilotkit/runtime": "^1.84.1",
     "@floating-ui/react-dom": "^2.1.9",
