@@ -18,14 +18,13 @@ export async function componentNames(page, filter) {
   const prefix = new URL(`${BASE}/components/`).pathname;
   const names = await page.$$eval(
     "a[href]",
-    (as, prefix) => [
+    (as, under) => [
       ...new Set(
         as
           .filter(
-            (a) =>
-              a.origin === location.origin && a.pathname.startsWith(prefix),
+            (a) => a.origin === location.origin && a.pathname.startsWith(under),
           )
-          .map((a) => decodeURIComponent(a.pathname.slice(prefix.length)))
+          .map((a) => decodeURIComponent(a.pathname.slice(under.length)))
           .filter((n) => n && !n.includes("/") && n !== "macros"),
       ),
     ],
