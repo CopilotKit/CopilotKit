@@ -70,5 +70,18 @@ def test_drop_in_blocks_does_not_start_with_an_orphaned_tool_result():
 
     kept = drop_in_blocks(history, 6)
 
-    assert kept[0]["role"] != "tool"
-    assert kept == history[4:]
+    # The cut moves back to the tool call, so its results keep it.
+    assert kept == history[1:]
+
+
+def test_drop_in_blocks_keeps_the_active_tool_exchange():
+    # The history ends with more tool results than a block holds.
+    history = [
+        {"role": "user", "content": "q"},
+        {"role": "assistant", "content": "", "tool_calls": [{"id": f"t{i}"} for i in range(6)]},
+        *({"role": "tool", "tool_call_id": f"t{i}", "content": "r"} for i in range(6)),
+    ]
+
+    kept = drop_in_blocks(history, 6)
+
+    assert kept == history[1:]

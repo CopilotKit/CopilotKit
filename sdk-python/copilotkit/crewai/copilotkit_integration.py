@@ -182,10 +182,11 @@ class CopilotKitFlow(Flow[S], Generic[S]):  # Make it generic
                 messages.insert(0, {"role": "system", "content": system_prompt})
                 logger.info(f"get_message_history: Added system prompt message")
 
-        # Limit to max_messages, but keep the system message if present.
+        # Limit to about max_messages, but keep the system message if present.
         # Old messages are dropped in blocks of half the limit, not one per
         # turn: then the start of the history stays the same until the next
-        # block drop, and the provider's prompt cache covers it.
+        # block drop, and the provider's prompt cache covers it. A cut on a tool
+        # result moves back to its tool call, so a few more messages can stay.
         if len(messages) > max_messages:
             keep_system = bool(messages) and messages[0].get("role") == "system"
             head = messages[:1] if keep_system else []

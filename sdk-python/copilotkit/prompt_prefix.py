@@ -34,15 +34,19 @@ def drop_in_blocks(messages: list[Any], limit: int) -> list[Any]:
     """Keeps at most ``limit`` of the newest messages. Old messages are dropped
     in blocks of half the limit, not one per turn: the first kept message then
     stays the same until the next block drop, and the cache covers the
-    history between drops. Tool results at the cut are dropped too, because
-    providers reject a tool result whose tool call is not in the request."""
+    history between drops.
+
+    If the cut lands on a tool result, it moves back to the assistant message
+    with the tool call, so the result keeps its call. Providers reject a tool
+    result whose call is not in the request. The kept list can then be a few
+    messages longer than ``limit``."""
     excess = len(messages) - limit
     if excess <= 0:
         return messages
     block = max(1, limit // 2)
     dropped = -(-excess // block) * block
-    while dropped < len(messages) and _is_tool_result(messages[dropped]):
-        dropped += 1
+    while dropped > 0 and _is_tool_result(messages[dropped]):
+        dropped -= 1
     return messages[dropped:]
 
 
