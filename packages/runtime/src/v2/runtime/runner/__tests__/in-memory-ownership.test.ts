@@ -2,10 +2,14 @@
  * Thread ownership inside InMemoryAgentRunner, tested on the runner itself.
  * The HTTP routes are covered by `__tests__/thread-access.test.ts`.
  */
-import { AbstractAgent, EventType } from "@ag-ui/client";
+import {
+  AbstractAgent,
+  EventType,
+  enforceEvents,
+  verifyEvents,
+} from "@ag-ui/client";
 import type { BaseEvent, Message, RunAgentInput } from "@ag-ui/client";
-import type { Observable } from "rxjs";
-import { from } from "rxjs";
+import { Observable, from } from "rxjs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ThreadAccessDeniedError } from "../agent-runner";
 import {
@@ -113,6 +117,25 @@ describe("stored message history across runs", () => {
         new InMemoryAgentRunner().connect({ threadId, ownerId: "" }),
       ),
     );
+
+  function replayAgent(threadId: string) {
+    class ReplayAgent extends ScriptedAgent {
+      protected override connect(input: RunAgentInput): Observable<BaseEvent> {
+        return new InMemoryAgentRunner()
+          .connect({ threadId: input.threadId, ownerId: "" })
+          .pipe(enforceEvents(), verifyEvents());
+      }
+    }
+    const agent = new ReplayAgent();
+    agent.threadId = threadId;
+    return agent;
+  }
+
+  async function replayMessages(threadId: string) {
+    const agent = replayAgent(threadId);
+    await agent.connectAgent();
+    return agent.messages;
+  }
 
   it("keeps stored messages when a run sends a list without them", async () => {
     const threadId = ownershipThreadId("history-partial");
@@ -238,6 +261,78 @@ describe("stored message history across runs", () => {
     ).toEqual(["a:rewritten by agent"]);
   });
 
+  it("replays stored history when a snapshot echoes a rejected same-id edit", async () => {
+    const threadId = ownershipThreadId("history-snapshot-replay");
+    await send(threadId, [{ id: "a", content: "first" }]);
+    expect(
+      await send(
+        threadId,
+        [{ id: "a", content: "edited" }],
+        normalizingAgent((message) => message),
+      ),
+    ).toEqual(["a:first"]);
+    expect(await replayMessages(threadId)).toEqual([
+      { id: "a", role: "user", content: "first" },
+    ]);
+  });
+
+  it("restores stored history before replaying an active run's partial output", async () => {
+    const threadId = ownershipThreadId("history-active-replay");
+    await send(threadId, [{ id: "a", content: "first" }]);
+    let finish: (() => void) | undefined;
+    class LiveAgent extends ScriptedAgent {
+      override run(input: RunAgentInput): Observable<BaseEvent> {
+        return new Observable((observer) => {
+          observer.next({
+            type: EventType.RUN_STARTED,
+            threadId,
+            runId: input.runId,
+          });
+          observer.next({
+            type: EventType.TEXT_MESSAGE_START,
+            messageId: "live",
+            role: "assistant",
+          } as BaseEvent);
+          observer.next({
+            type: EventType.TEXT_MESSAGE_CONTENT,
+            messageId: "live",
+            delta: "partial",
+          } as BaseEvent);
+          finish = () => {
+            observer.next({
+              type: EventType.TEXT_MESSAGE_END,
+              messageId: "live",
+            } as BaseEvent);
+            observer.next({
+              type: EventType.RUN_FINISHED,
+              threadId,
+              runId: input.runId,
+            });
+            observer.complete();
+          };
+        });
+      }
+    }
+    const runner = new InMemoryAgentRunner();
+    const input = { ...ownershipInput(threadId, "live"), messages: [] };
+    const agent = new LiveAgent();
+    const done = collect(runner.run({ threadId, agent, input, ownerId: "" }));
+    const client = replayAgent(threadId);
+    const connected = client.connectAgent();
+    try {
+      await vi.waitFor(() => {
+        expect(client.messages).toEqual([
+          { id: "a", role: "user", content: "first" },
+          { id: "live", role: "assistant", content: "partial" },
+        ]);
+      });
+    } finally {
+      finish?.();
+      await Promise.all([done, connected]);
+    }
+    expect(client.messages.at(-1)?.content).toBe("partial");
+  });
+
   it("takes a differing copy when the agent emitted events for that id", async () => {
     const threadId = ownershipThreadId("history-emitted");
     await send(threadId, [{ id: "a", content: "first" }]);
@@ -315,6 +410,29 @@ describe("stored message history across runs", () => {
     afterEach(() => {
       ɵGLOBAL_STORE.setLimits(ɵINMEMORY_DEFAULTS);
     });
+
+    it.each([1, 2])(
+      "replays retained messages after their original run ages out with cap %i",
+      async (maxRunsPerThread) => {
+        ɵGLOBAL_STORE.setLimits({ ...ɵINMEMORY_DEFAULTS, maxRunsPerThread });
+        const threadId = ownershipThreadId("history-cap-replay");
+        const original = { id: "a", content: "first" };
+        await send(threadId, [original]);
+        for (let i = 0; i < maxRunsPerThread; i++) {
+          await send(threadId, [original]);
+        }
+        expect(await replayMessages(threadId)).toEqual([
+          { ...original, role: "user" },
+        ]);
+
+        expect(await send(threadId, [{ id: "a", content: "edited" }])).toEqual([
+          "a:first",
+        ]);
+        expect(await replayMessages(threadId)).toEqual([
+          { ...original, role: "user" },
+        ]);
+      },
+    );
 
     it("drops messages no run touched within the cap", async () => {
       ɵGLOBAL_STORE.setLimits({ ...ɵINMEMORY_DEFAULTS, maxRunsPerThread: 3 });

@@ -1311,6 +1311,26 @@ export class InMemoryAgentRunner extends AgentRunner {
     // Apply compaction to all historic events together (like SQLite)
     const compactedEvents = compactEvents(allHistoricEvents);
 
+    // Retained messages can outlive their original run events, and rejected
+    // client edits can still appear in an agent's snapshot. Reconcile replay
+    // with the stored history inside the last finished run, before bridging
+    // any active run's partial output. Generate this only for the connection
+    // so historic runs do not retain duplicate copies of the message history.
+    if (store.messagesSnapshot.length > 0) {
+      const terminalIndex = compactedEvents.findLastIndex(
+        (event) =>
+          event.type === EventType.RUN_FINISHED ||
+          event.type === EventType.RUN_ERROR,
+      );
+      if (terminalIndex !== -1) {
+        const snapshot = {
+          type: EventType.MESSAGES_SNAPSHOT,
+          messages: [...store.messagesSnapshot],
+        };
+        compactedEvents.splice(terminalIndex, 0, snapshot);
+      }
+    }
+
     // Emit compacted events and track message IDs
     const emittedMessageIds = new Set<string>();
     for (const event of compactedEvents) {
