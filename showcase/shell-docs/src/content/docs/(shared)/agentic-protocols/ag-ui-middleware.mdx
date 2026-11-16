@@ -78,5 +78,5 @@ Send a message in the chat. Your server log prints one `[agent event]` line for 
 
 The runtime ships first-class middleware options you can enable directly on `CopilotKitRuntime` without calling `.use()` on each agent:
 
-- **`a2ui`**: apply `A2UIMiddleware` to all (or a subset of) registered agents. See [Copilot Runtime → A2UI](/backend/copilot-runtime#a2ui).
+- **`generativeUI`**: turn on A2UI and the other generative UI middleware for all registered agents, or for a subset of them. See [Copilot Runtime → Generative UI](/backend/copilot-runtime#generative-ui).
 - **`mcpApps`**: configure MCP servers for all agents from a single place. See [Copilot Runtime → mcpApps](/backend/copilot-runtime#mcpapps).

@@ -1,0 +1,54 @@
+---
+title: "When to Use CopilotKit"
+description: "See which agent projects CopilotKit fits, which ones a different tool serves better, and what CopilotKit leaves to your agent framework."
+icon: "lucide/Compass"
+doc_type: explanation
+---
+
+You have an agent, or you plan to build one, and you must decide how people will work with it. CopilotKit connects an agent to the people who use it: in your web app, in a mobile app, or in Slack and Microsoft Teams. Use this page to decide if it fits your project.
+
+## The 30-second version
+
+| Your project | Use CopilotKit? | Why |
+| --- | --- | --- |
+| An agent in your product that streams its work, shares app state, and asks users to approve actions | Yes | This is the main use case: chat, generative UI, shared state, and human-in-the-loop on one AG-UI connection. |
+| One agent that answers in your app and in Slack or Teams | Yes | [Channels](/channels) runs the same AG-UI agent in Slack and Teams, with CopilotKit Intelligence. |
+| A workspace or console where people supervise agents | Yes, for the interaction layer | You build the layout. CopilotKit carries the runs, tool calls, state, and approvals. |
+| A batch agent on a server that no person watches | No | There is no human interaction. Use your agent framework and a job queue directly. |
+| Only transport between agents | No | Use [A2A](/agentic-protocols/a2a). CopilotKit connects agents to people, not agents to agents. |
+| A basic FAQ chatbot with no app state and no tools | Usually no | A hosted chatbot product or a small chat component is faster to set up. |
+
+## Strong fits
+
+CopilotKit is a strong choice when one or more of these is true:
+
+- **The agent works inside your product.** It reads app state, calls [frontend tools](/frontend-tools), and renders [generative UI](/generative-ui) in your own components.
+- **People must approve or correct the agent.** [Human-in-the-loop](/human-in-the-loop) pauses a run, shows a control, and continues with the answer.
+- **The same agent must reach more than one surface.** One agent can serve React, Angular, Vue, React Native, Slack, and Teams.
+- **You want to keep your agent framework.** CopilotKit connects to LangGraph, Mastra, CrewAI, Google ADK, PydanticAI, and more over AG-UI. You can also use the [Built-in Agent](/backend/custom-agent) with no framework.
+- **You want to own the stack.** The SDKs and the TypeScript runtime are open source under the MIT license and run on your own servers.
+
+For a workspace around a coding or research agent, see [Harness Workspace Architecture](/concepts/harness-workspace). For a console that supervises several agents, see [Operator Console Architecture](/concepts/operator-console).
+
+## When a different tool is better
+
+- **No person interacts with the agent.** A nightly report or a data pipeline does not need a frontend layer. Run it with your agent framework and your job scheduler.
+- **You only connect agents to other agents.** That connection is A2A. Add CopilotKit when a person must see or steer the result.
+- **You need a simple chat window and nothing more.** If the bot has no tools, no app state, and no approvals, a hosted chatbot is less work.
+- **Your server cannot run TypeScript, and you do not want CopilotKit Intelligence.** The TypeScript runtime is the only runtime that runs without Intelligence. The Python, Go, Ruby, and C#/.NET runtimes need it. Your agent itself can be written in any language.
+
+## What CopilotKit leaves to your stack
+
+CopilotKit is the interaction layer. These parts stay with your agent and your backend:
+
+- **The plan and the tool calls.** Your agent framework decides what the agent does next.
+- **Durable execution.** The default runtime keeps history in process memory. To keep runs and approvals across restarts, see [Shared State, Interrupts, and Durability](/concepts/durability).
+- **Permissions.** CopilotKit shows the approval control. Your backend decides which user can approve which action. See [Authentication](/auth).
+
+## Open source or Intelligence
+
+The open-source packages are enough for chat, tools, shared state, generative UI, and any AG-UI integration. CopilotKit Intelligence adds AG-UI Streams, User Memories, Automatic Learning, Product Analytics, and Channels. You can use it cloud-hosted or self-hosted. To compare the two, see [Open source vs Intelligence](/concepts/oss-vs-enterprise).
+
+## Start building
+
+If your project is a fit, the [quickstart](/quickstart) connects CopilotKit to your agent framework and gives you a working chat with your agent.
