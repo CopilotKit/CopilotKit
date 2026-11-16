@@ -4,8 +4,8 @@ import { Observable, Subject } from "rxjs";
 import { WebSocket, WebSocketServer } from "ws";
 import { expect, test, vi } from "vitest";
 import { IntelligenceAgentRunner } from "../intelligence";
-import { CopilotRuntime } from "../../core/runtime";
-import { createCopilotRuntimeHandler } from "../../core/fetch-handler";
+import { CopilotKitRuntime } from "../../core/runtime";
+import { createCopilotKitRuntimeHandler } from "../../core/fetch-handler";
 
 type Frame = [string | null, string, string, string, Record<string, unknown>];
 
@@ -425,12 +425,12 @@ for (const mode of ["multi-route", "single-route"] as const) {
     const fixture = await setup();
     try {
       const agent = fixture.start();
-      const runtime = new CopilotRuntime({
+      const runtime = new CopilotKitRuntime({
         agents: { test: agent },
         runner: fixture.runner,
         threads: { access: "open" },
       });
-      const handler = createCopilotRuntimeHandler({
+      const handler = createCopilotKitRuntimeHandler({
         runtime,
         mode,
         activateChannels: false,

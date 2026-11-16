@@ -1,8 +1,8 @@
 import {
-  CopilotRuntime,
-  createCopilotRuntimeHandler,
+  CopilotKitRuntime,
+  createCopilotKitRuntimeHandler,
 } from "@copilotkit/runtime";
-const runtime = new CopilotRuntime({ agents: {} });
-const app = createCopilotRuntimeHandler({ cors: true, runtime, basePath: "/api/copilotkit" });
+const runtime = new CopilotKitRuntime({ agents: {} });
+const app = createCopilotKitRuntimeHandler({ cors: true, runtime, basePath: "/api/copilotkit" });
 export const GET = app;
 export const POST = app;

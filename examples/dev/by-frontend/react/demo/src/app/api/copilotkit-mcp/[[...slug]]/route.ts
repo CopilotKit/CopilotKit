@@ -1,6 +1,6 @@
 import {
-  CopilotRuntime,
-  createCopilotRuntimeHandler,
+  CopilotKitRuntime,
+  createCopilotKitRuntimeHandler,
   InMemoryAgentRunner,
 } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
@@ -46,14 +46,14 @@ const agent = new BuiltInAgent({
   }),
 );
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: {
     default: agent,
   },
   runner: new InMemoryAgentRunner(),
 });
 
-const app = createCopilotRuntimeHandler({
+const app = createCopilotKitRuntimeHandler({
   cors: true,
   runtime: runtime,
   basePath: "/api/copilotkit-mcp",

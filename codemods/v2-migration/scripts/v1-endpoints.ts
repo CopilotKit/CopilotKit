@@ -50,7 +50,7 @@ const SERVICE_ADAPTERS: Record<
  * return handleRequest(req);
  * ```
  *
- * to the 2.0 handler on the same route: `createCopilotRuntimeHandler({
+ * to the 2.0 handler on the same route: `createCopilotKitRuntimeHandler({
  * runtime, basePath, mode: "single-route" })`. The 2.0 client finds a
  * single-route runtime on its own, so the route file stays where it is, and
  * `handleRequest(req)` keeps working.
@@ -183,7 +183,7 @@ function convertEndpoint(rootNode: Node, call: Node, source: string) {
       .parent()!
       .replace(
         [
-          `const ${local} = createCopilotRuntimeHandler({`,
+          `const ${local} = createCopilotKitRuntimeHandler({`,
           runtimeText === "runtime"
             ? "  runtime,"
             : `  runtime: ${runtimeText},`,
@@ -195,7 +195,7 @@ function convertEndpoint(rootNode: Node, call: Node, source: string) {
   );
   return {
     edits,
-    hooks: ["createCopilotRuntimeHandler"],
+    hooks: ["createCopilotKitRuntimeHandler"],
     imports,
     dropIfUnused: drop,
   };

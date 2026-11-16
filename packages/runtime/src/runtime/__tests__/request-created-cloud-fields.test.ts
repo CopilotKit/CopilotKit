@@ -16,18 +16,18 @@ import type { MockInstance } from "vitest";
 import { handleRunAgent } from "../handlers/handle-run";
 import { resolveForwardHeadersPolicy } from "../handlers/header-utils";
 import { telemetry } from "../telemetry";
-import type { CopilotRuntime } from "../core/runtime";
+import type { CopilotKitRuntime } from "../core/runtime";
 
 const CLOUD_KEY = "ck_live_abc123.secret";
 
-function mockRuntime(): CopilotRuntime {
+function mockRuntime(): CopilotKitRuntime {
   return {
     agents: Promise.resolve({}),
     transcriptionService: undefined,
     beforeRequestMiddleware: undefined,
     afterRequestMiddleware: undefined,
     forwardHeadersPolicy: resolveForwardHeadersPolicy(undefined),
-  } as unknown as CopilotRuntime;
+  } as unknown as CopilotKitRuntime;
 }
 
 function runRequest(

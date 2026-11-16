@@ -25,14 +25,14 @@ place because other routes may use them.
 ## Fetch and Next.js
 
 Replace `createCopilotHonoHandler` or `createCopilotEndpoint` with
-`createCopilotRuntimeHandler`. It returns a function, not a Hono app. Remove
+`createCopilotKitRuntimeHandler`. It returns a function, not a Hono app. Remove
 `handle(app)` from `hono/vercel` and calls to `app.fetch(request)`.
 
 ```ts
-import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { CopilotKitRuntime, createCopilotKitRuntimeHandler } from "@copilotkit/runtime";
 
-const runtime = new CopilotRuntime({ agents: {} }); // Supply your agents.
-const handler = createCopilotRuntimeHandler({
+const runtime = new CopilotKitRuntime({ agents: {} }); // Supply your agents.
+const handler = createCopilotKitRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
   cors: true,
@@ -50,10 +50,10 @@ mount a route that passes the raw request to the handler:
 
 ```ts
 import { Hono } from "hono";
-import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { CopilotKitRuntime, createCopilotKitRuntimeHandler } from "@copilotkit/runtime";
 
-const runtime = new CopilotRuntime({ agents: {} }); // Supply your agents.
-const handler = createCopilotRuntimeHandler({
+const runtime = new CopilotKitRuntime({ agents: {} }); // Supply your agents.
+const handler = createCopilotKitRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
   cors: true,
@@ -66,15 +66,15 @@ app.all("/api/copilotkit/*", (c) => handler(c.req.raw));
 ## Node and Express
 
 Replace `createCopilotExpressHandler` or `createCopilotEndpointExpress` with
-`createCopilotNodeListener` from `@copilotkit/runtime/node`.
+`createCopilotKitNodeListener` from `@copilotkit/runtime/node`.
 
 ```ts
 import { createServer } from "node:http";
-import { CopilotRuntime } from "@copilotkit/runtime";
-import { createCopilotNodeListener } from "@copilotkit/runtime/node";
+import { CopilotKitRuntime } from "@copilotkit/runtime";
+import { createCopilotKitNodeListener } from "@copilotkit/runtime/node";
 
-const runtime = new CopilotRuntime({ agents: {} }); // Supply your agents.
-const listener = createCopilotNodeListener({
+const runtime = new CopilotKitRuntime({ agents: {} }); // Supply your agents.
+const listener = createCopilotKitNodeListener({
   runtime,
   basePath: "/api/copilotkit",
   cors: true,
@@ -87,15 +87,15 @@ to that mount. Express strips the mount prefix from `req.url`:
 
 ```ts
 import express from "express";
-import { CopilotRuntime } from "@copilotkit/runtime";
-import { createCopilotNodeListener } from "@copilotkit/runtime/node";
+import { CopilotKitRuntime } from "@copilotkit/runtime";
+import { createCopilotKitNodeListener } from "@copilotkit/runtime/node";
 
-const runtime = new CopilotRuntime({ agents: {} }); // Supply your agents.
+const runtime = new CopilotKitRuntime({ agents: {} }); // Supply your agents.
 const app = express();
 
 app.use(
   "/api/copilotkit",
-  createCopilotNodeListener({
+  createCopilotKitNodeListener({
     runtime,
     basePath: "/",
     cors: true,
@@ -111,18 +111,36 @@ Existing `express.json()` body parsing is supported.
 
 ## Single-route endpoints
 
-For `createCopilotEndpointSingleRoute`, use `createCopilotRuntimeHandler` with
+For `createCopilotEndpointSingleRoute`, use `createCopilotKitRuntimeHandler` with
 `mode: "single-route"`. For `createCopilotEndpointSingleRouteExpress`, use
-`createCopilotNodeListener` with the same option. Keep the frontend's
+`createCopilotKitNodeListener` with the same option. Keep the frontend's
 `useSingleEndpoint` setting and the existing endpoint URL.
 
 The generated Hono wildcard mount covers the base path and its descendants;
 the Fetch handler validates the endpoint path and single-route envelope.
 
+## Renamed runtime exports
+
+The 2.0 release candidates named some runtime exports without "Kit". The old
+names still work, but they are deprecated. The codemod renames them.
+
+| Deprecated name               | Name to use                      |
+| ----------------------------- | -------------------------------- |
+| `CopilotRuntime`              | `CopilotKitRuntime`              |
+| `createCopilotRuntimeHandler` | `createCopilotKitRuntimeHandler` |
+| `createCopilotNodeListener`   | `createCopilotKitNodeListener`   |
+| `createCopilotNodeHandler`    | `createCopilotKitNodeHandler`    |
+| `CopilotSseRuntime`           | `CopilotKitSseRuntime`           |
+
+The same rule applies to the other runtime exports named `Copilot...`, for
+example `CopilotRuntimeOptions` (`CopilotKitRuntimeOptions`),
+`CopilotRuntimeFetchHandler` (`CopilotKitRuntimeFetchHandler`), and
+`NodeCopilotListener` (`NodeCopilotKitListener`).
+
 ## CORS and lifecycle
 
 The generic handlers default to no CORS. Pass `cors: true` to retain the old
-adapters' permissive default, or provide a `CopilotCorsConfig`. Express `cors`
+adapters' permissive default, or provide a `CopilotKitCorsConfig`. Express `cors`
 options are not accepted: `methods`, `allowedHeaders`, and `exposedHeaders` become
 `allowMethods`, `allowHeaders`, and `exposeHeaders`. Origin callbacks return a
 string or `null` synchronously; they do not receive an Express callback or Hono
@@ -142,9 +160,9 @@ the runtime. As a result, license warnings print on the first `/info` request,
 not at startup.
 
 ```ts
-import { CopilotRuntime } from "@copilotkit/runtime";
+import { CopilotKitRuntime } from "@copilotkit/runtime";
 
-const runtime = new CopilotRuntime({ agents: {} }); // Supply your agents.
+const runtime = new CopilotKitRuntime({ agents: {} }); // Supply your agents.
 
 export async function licenseStatus() {
   const checker = await runtime.getLicenseChecker?.();
@@ -169,7 +187,7 @@ formatted them with `pino-pretty`, which needs Node streams and does not run on
 edge runtimes. To read the logs formatted, pipe your server output through
 `npx pino-pretty`.
 
-If your code calls `runtime.debugLogger` (type `CopilotRuntimeLogger`), it has
+If your code calls `runtime.debugLogger` (type `CopilotKitRuntimeLogger`), it has
 only these methods in 2.0:
 
 - `debug`, `info`, `warn`, and `error`. Each one takes `(msg)` or `(obj, msg)`.

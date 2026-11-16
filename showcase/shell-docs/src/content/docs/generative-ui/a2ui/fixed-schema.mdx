@@ -330,9 +330,9 @@ them, with no subagent involved:
 
 ```typescript title="app/api/copilotkit/[[...slug]]/route.ts"
 import { LangGraphAgent } from "@ag-ui/langgraph";
-import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { CopilotKitRuntime, createCopilotKitRuntimeHandler } from "@copilotkit/runtime";
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: {
     "a2ui-fixed-schema": new LangGraphAgent({
       deploymentUrl: process.env.LANGGRAPH_DEPLOYMENT_URL ?? "http://localhost:8123",
@@ -346,7 +346,7 @@ const runtime = new CopilotRuntime({
   },
 });
 
-const handler = createCopilotRuntimeHandler({ runtime, basePath: "/api/copilotkit" });
+const handler = createCopilotKitRuntimeHandler({ runtime, basePath: "/api/copilotkit" });
 
 export const GET = handler;
 export const POST = handler;

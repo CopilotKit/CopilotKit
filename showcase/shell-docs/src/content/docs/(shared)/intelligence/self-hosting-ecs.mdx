@@ -256,7 +256,7 @@ Run the following commands in Bash. Keep the same shell open so the paths set in
     });
     ```
 
-    Replace the hosts with `uiHostName` and `realtimeHostName`, and set the server-side key to the project key you just created. Pass `intelligence` to your existing `CopilotRuntime` as shown in the runtime guide. Do not append `/api`, `/runner`, or `/client` to these base URLs; the client adds the paths.
+    Replace the hosts with `uiHostName` and `realtimeHostName`, and set the server-side key to the project key you just created. Pass `intelligence` to your existing `CopilotKitRuntime` as shown in the runtime guide. Do not append `/api`, `/runner`, or `/client` to these base URLs; the client adds the paths.
 
     <Callout type="info" title="Check your application's browser origin">
       The `0.12.9` release template sets realtime `CHECK_ORIGIN` to `https://<uiHostName>`. The configurator has no additional browser-origin field. If your app runs on another origin, review the gateway origin configuration with your deployment team before testing its browser connection; changing the runtime's URLs alone does not change that setting.

@@ -15,7 +15,7 @@ vi.mock("../../telemetry", () => ({
   telemetry: { capture: vi.fn() },
 }));
 
-import type { CopilotRuntimeLogger } from "../core/logger";
+import type { CopilotKitRuntimeLogger } from "../core/logger";
 import { createSseEventResponse } from "../handlers/shared/sse-response";
 
 function createTestObservable(events: BaseEvent[]): Observable<BaseEvent> {
@@ -68,7 +68,7 @@ async function runStream(
   events: BaseEvent[],
   options: {
     debug?: ResolvedDebugConfig;
-    debugLogger?: CopilotRuntimeLogger;
+    debugLogger?: CopilotKitRuntimeLogger;
   } = {},
 ) {
   const response = createSseEventResponse({
@@ -175,7 +175,7 @@ describe("createSseEventResponse debug logging", () => {
 
   it("writes to a pre-created debug logger instead of the console when one is provided", async () => {
     const externalDebug = vi.fn();
-    const externalLogger: CopilotRuntimeLogger = {
+    const externalLogger: CopilotKitRuntimeLogger = {
       debug: externalDebug,
       info: vi.fn(),
       warn: vi.fn(),

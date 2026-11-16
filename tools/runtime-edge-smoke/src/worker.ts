@@ -1,5 +1,5 @@
 /**
- * The smallest real deployment: a CopilotRuntime with one agent, behind the
+ * The smallest real deployment: a CopilotKitRuntime with one agent, behind the
  * fetch handler, built at module scope the way users write it. The same
  * module is bundled for Cloudflare Workers (by wrangler) and for the Vercel
  * Edge runtime (by run.mjs).
@@ -7,8 +7,8 @@
 import { AbstractAgent, EventType } from "@ag-ui/client";
 import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
 import {
-  CopilotRuntime,
-  createCopilotRuntimeHandler,
+  CopilotKitRuntime,
+  createCopilotKitRuntimeHandler,
 } from "@copilotkit/runtime";
 import { Observable } from "rxjs";
 
@@ -55,10 +55,10 @@ class EchoAgent extends AbstractAgent {
 // @ag-ui/client <= 1.0.3 generates a UUID in the AbstractAgent constructor.
 // ag-ui main defers it (ag-ui 9fe03bce); once a release with that ships and
 // the runtime depends on it, use `agents: { default: new EchoAgent() }`.
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: () => ({ default: new EchoAgent() }),
 });
-const handler = createCopilotRuntimeHandler({
+const handler = createCopilotKitRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
 });

@@ -187,14 +187,14 @@ frontend interacts with agents.
 
 ## How agents slot into the runtime
 
-On the server, `CopilotRuntime` accepts a map of AG-UI `AbstractAgent`
+On the server, `CopilotKitRuntime` accepts a map of AG-UI `AbstractAgent`
 instances. For example, register an agent that runs on a remote AG-UI server:
 
 ```ts
-import { CopilotRuntime } from "@copilotkit/runtime";
+import { CopilotKitRuntime } from "@copilotkit/runtime";
 import { HttpAgent } from "@ag-ui/client";
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: {
     my_agent: new HttpAgent({ url: "http://localhost:8000/" }),
   },

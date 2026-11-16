@@ -15,7 +15,7 @@ import {
   phoenixExponentialBackoff,
 } from "@copilotkit/shared";
 import { getRuntimeLogger } from "../core/logger";
-import type { CopilotRuntimeLogger } from "../core/logger";
+import type { CopilotKitRuntimeLogger } from "../core/logger";
 import type { Channel } from "phoenix";
 import { Socket } from "phoenix";
 
@@ -35,7 +35,7 @@ export interface IntelligenceAgentRunnerOptions {
    */
   heartbeatIntervalMs?: number;
   /** Where the runner writes its logs. Default: the console. */
-  logger?: CopilotRuntimeLogger;
+  logger?: CopilotKitRuntimeLogger;
 }
 
 export interface RunnerStartupBoundary {
@@ -98,7 +98,7 @@ export const STOP_RECORD_DEADLINE_MS = 2_000;
 export class IntelligenceAgentRunner extends AgentRunner {
   private options: IntelligenceAgentRunnerOptions;
   private threads = new Map<string, ThreadState>();
-  private readonly logger: CopilotRuntimeLogger;
+  private readonly logger: CopilotKitRuntimeLogger;
 
   constructor(options: IntelligenceAgentRunnerOptions) {
     super();
@@ -1185,7 +1185,7 @@ export class IntelligenceAgentRunner extends AgentRunner {
 function recordStopWithin(
   state: ThreadState,
   deadlineMs: number,
-  logger: CopilotRuntimeLogger,
+  logger: CopilotKitRuntimeLogger,
 ): Promise<void> {
   const record = state.recordStop;
   if (!record) return Promise.resolve();

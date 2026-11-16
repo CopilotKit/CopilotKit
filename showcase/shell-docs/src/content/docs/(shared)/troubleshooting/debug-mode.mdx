@@ -25,14 +25,14 @@ Enable it to see:
 
 ### Server-Side (Runtime)
 
-Pass `debug: true` to the `CopilotRuntime` constructor:
+Pass `debug: true` to the `CopilotKitRuntime` constructor:
 
 ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
-import { CopilotRuntime } from "@copilotkit/runtime";
+import { CopilotKitRuntime } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
   debug: true, // [!code highlight]
 });
@@ -73,13 +73,13 @@ Your logger's level decides which lines it writes, so set it to `debug`:
 
 ```ts
 import pino from "pino";
-import { CopilotRuntime } from "@copilotkit/runtime";
+import { CopilotKitRuntime } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
 const myAgent = new BuiltInAgent({ model: openaiText("gpt-6-luna") });
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: { default: myAgent },
   debug: true,
   logger: pino({ level: "debug" }), // [!code highlight]
@@ -112,7 +112,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
 }
 ```
 
-The client passes this setting to the AG-UI transport. The AG-UI library decides if it logs anything. For full event logs, turn on `debug` in `CopilotRuntime`.
+The client passes this setting to the AG-UI transport. The AG-UI library decides if it logs anything. For full event logs, turn on `debug` in `CopilotKitRuntime`.
 
 <Callout type="info">
   The server and client debug toggles are independent. Enabling debug on the client does not affect the server, and vice versa.
@@ -123,22 +123,22 @@ The client passes this setting to the AG-UI transport. The AG-UI library decides
 ### Client-side inspection
 
 `@copilotkit/angular` does not expose a separate client debug toggle. Enable
-debugging on `CopilotRuntime`, inspect the SSE request in browser developer
+debugging on `CopilotKitRuntime`, inspect the SSE request in browser developer
 tools, or connect the [AG-UI Event Inspector](/troubleshooting/event-inspector)
 to the development runtime.
 </FrontendOnly>
 
 ## Granular Configuration
 
-On `CopilotRuntime`, pass an object instead of `true` for fine-grained control
+On `CopilotKitRuntime`, pass an object instead of `true` for fine-grained control
 over what gets logged:
 
 ```ts
-import { CopilotRuntime } from "@copilotkit/runtime";
+import { CopilotKitRuntime } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
   debug: {
     events: true, // Log every event emitted/received
@@ -163,11 +163,11 @@ When `debug` is a boolean (`true`), events and lifecycle logging are enabled but
 Log only lifecycle events (no per-event logs):
 
 ```ts
-import { CopilotRuntime } from "@copilotkit/runtime";
+import { CopilotKitRuntime } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
   debug: { events: false, lifecycle: true },
 });
@@ -176,11 +176,11 @@ const runtime = new CopilotRuntime({
 Log events with full payloads but skip lifecycle:
 
 ```ts
-import { CopilotRuntime } from "@copilotkit/runtime";
+import { CopilotKitRuntime } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
   debug: { events: true, lifecycle: false, verbose: true },
 });

@@ -1,6 +1,6 @@
 import { expect, test, vi } from "vitest";
-import { createCopilotRuntimeHandler } from "../core/fetch-handler";
-import { CopilotRuntime } from "../core/runtime";
+import { createCopilotKitRuntimeHandler } from "../core/fetch-handler";
+import { CopilotKitRuntime } from "../core/runtime";
 import { CopilotKitIntelligence } from "../intelligence-platform";
 import { telemetry } from "../telemetry";
 
@@ -47,7 +47,7 @@ function setup(upstreamPayload: unknown) {
     wsUrl: "wss://ws.example.com",
     apiKey: "server-api-key",
   });
-  const runtime = new CopilotRuntime({
+  const runtime = new CopilotKitRuntime({
     agents: {},
     intelligence,
     identifyUser: async () => ({ id: "user-1", name: "User One" }),
@@ -93,7 +93,7 @@ test.each([
     ...expectedMetadata,
     futureTopLevelField: "drop-me",
   });
-  const handler = createCopilotRuntimeHandler({
+  const handler = createCopilotKitRuntimeHandler({
     runtime,
     basePath: "/api/copilotkit",
     mode,
@@ -135,7 +135,7 @@ test("drops malformed expiry without dropping base usage or sibling modules", as
       expiringSoonCount: "37",
     },
   });
-  const handler = createCopilotRuntimeHandler({
+  const handler = createCopilotKitRuntimeHandler({
     runtime,
     basePath: "/api/copilotkit",
     mode: "multi-route",
@@ -167,7 +167,7 @@ test("drops malformed expiry without dropping base usage or sibling modules", as
 test("advertises metadata support without fetching metadata", async () => {
   const { intelligence, runtime, teardown } = setup({ schemaVersion: 1 });
   const getInspectorMetadata = vi.spyOn(intelligence, "getInspectorMetadata");
-  const handler = createCopilotRuntimeHandler({
+  const handler = createCopilotKitRuntimeHandler({
     runtime,
     basePath: "/api/copilotkit",
     mode: "multi-route",

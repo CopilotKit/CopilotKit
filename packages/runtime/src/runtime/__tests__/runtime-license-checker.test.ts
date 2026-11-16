@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
-  CopilotIntelligenceRuntime,
-  CopilotRuntime,
-  CopilotSseRuntime,
+  CopilotKitIntelligenceRuntime,
+  CopilotKitRuntime,
+  CopilotKitSseRuntime,
 } from "../core/runtime";
 import { CopilotKitIntelligence } from "../intelligence-platform";
 
@@ -52,14 +52,14 @@ describe("runtime license checker", () => {
   });
 
   it("does not verify the license while the runtime is constructed", () => {
-    new CopilotIntelligenceRuntime(intelligenceOptions("token-a"));
-    new CopilotRuntime(intelligenceOptions("token-b"));
+    new CopilotKitIntelligenceRuntime(intelligenceOptions("token-a"));
+    new CopilotKitRuntime(intelligenceOptions("token-b"));
 
     expect(verifier.createLicenseChecker).not.toHaveBeenCalled();
   });
 
   it("verifies once on first use and reuses the result", async () => {
-    const runtime = new CopilotIntelligenceRuntime(
+    const runtime = new CopilotKitIntelligenceRuntime(
       intelligenceOptions("token-a"),
     );
 
@@ -76,15 +76,15 @@ describe("runtime license checker", () => {
 
   it("verifies the environment token when no option is given", async () => {
     process.env.COPILOTKIT_LICENSE_TOKEN = "env-token";
-    const runtime = new CopilotIntelligenceRuntime(intelligenceOptions());
+    const runtime = new CopilotKitIntelligenceRuntime(intelligenceOptions());
 
     await runtime.getLicenseChecker();
 
     expect(verifier.createLicenseChecker).toHaveBeenCalledWith("env-token");
   });
 
-  it("delegates from the CopilotRuntime shim to its Intelligence runtime", async () => {
-    const runtime = new CopilotRuntime(intelligenceOptions("token-a"));
+  it("delegates from the CopilotKitRuntime shim to its Intelligence runtime", async () => {
+    const runtime = new CopilotKitRuntime(intelligenceOptions("token-a"));
 
     const checker = await runtime.getLicenseChecker();
 
@@ -94,8 +94,8 @@ describe("runtime license checker", () => {
   });
 
   it("resolves no checker for runtimes without Intelligence", async () => {
-    const sse = new CopilotSseRuntime({ agents: {} });
-    const shim = new CopilotRuntime({ agents: {} });
+    const sse = new CopilotKitSseRuntime({ agents: {} });
+    const shim = new CopilotKitRuntime({ agents: {} });
 
     expect(await sse.getLicenseChecker()).toBeUndefined();
     expect(await shim.getLicenseChecker()).toBeUndefined();

@@ -14,7 +14,7 @@ vi.mock("../shared/agent-utils", () => ({
 }));
 
 import { handleSuggestAgent } from "../handle-suggest";
-import type { CopilotRuntimeLike } from "../../core/runtime";
+import type { CopilotKitRuntimeLike } from "../../core/runtime";
 
 /**
  * The subscriber bag the handler passes to `runAgent`. The suggest handler
@@ -117,11 +117,11 @@ function stubParsedInput() {
 }
 
 /**
- * Bridges a typed fake runtime to the `CopilotRuntimeLike` the handler's
+ * Bridges a typed fake runtime to the `CopilotKitRuntimeLike` the handler's
  * signature requires.
  */
-function asRuntime(runtime: FakeRuntime): CopilotRuntimeLike {
-  return runtime as unknown as CopilotRuntimeLike;
+function asRuntime(runtime: FakeRuntime): CopilotKitRuntimeLike {
+  return runtime as unknown as CopilotKitRuntimeLike;
 }
 
 /** Drains an SSE `Response` body into the list of parsed `data:` events. */

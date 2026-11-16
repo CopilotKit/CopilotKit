@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
-import { CopilotRuntime } from "../core/runtime";
-import { createCopilotRuntimeHandler } from "../core/fetch-handler";
+import { CopilotKitRuntime } from "../core/runtime";
+import { createCopilotKitRuntimeHandler } from "../core/fetch-handler";
 import { CopilotKitIntelligence } from "../intelligence-platform";
 import { createChannel } from "@copilotkit/channels";
 import { InMemoryAgentRunner } from "../runner/in-memory";
@@ -13,10 +13,10 @@ const intelligence = () =>
   });
 const identifyUser = vi.fn().mockResolvedValue({ id: "u", name: "U" });
 
-describe("CopilotRuntime — channels option", () => {
+describe("CopilotKitRuntime — channels option", () => {
   it("intelligence runtime exposes declared channels", () => {
     const ch = createChannel({ identifyUser: "platform", name: "support" });
-    const rt = new CopilotRuntime({
+    const rt = new CopilotKitRuntime({
       agents: {},
       intelligence: intelligence(),
       identifyUser,
@@ -27,7 +27,7 @@ describe("CopilotRuntime — channels option", () => {
 
   it("accepts a Channels-only Intelligence runtime", () => {
     const ch = createChannel({ identifyUser: "platform", name: "support" });
-    const rt = new CopilotRuntime({
+    const rt = new CopilotKitRuntime({
       agents: {},
       intelligence: intelligence(),
       channels: [ch],
@@ -40,7 +40,7 @@ describe("CopilotRuntime — channels option", () => {
   it("copies the declared Channel list during construction", () => {
     const ch = createChannel({ identifyUser: "platform", name: "support" });
     const channels: [typeof ch] = [ch];
-    const rt = new CopilotRuntime({
+    const rt = new CopilotKitRuntime({
       agents: {},
       intelligence: intelligence(),
       channels,
@@ -56,7 +56,7 @@ describe("CopilotRuntime — channels option", () => {
       user: "read-write",
       project: "read",
     });
-    const rt = new CopilotRuntime({
+    const rt = new CopilotKitRuntime({
       agents: {},
       intelligence: intelligence(),
       identifyUser,
@@ -84,21 +84,23 @@ describe("CopilotRuntime — channels option", () => {
   ])("rejects an Intelligence runtime with no valid surface", (options) => {
     expect(
       () =>
-        new CopilotRuntime(
-          options as unknown as ConstructorParameters<typeof CopilotRuntime>[0],
+        new CopilotKitRuntime(
+          options as unknown as ConstructorParameters<
+            typeof CopilotKitRuntime
+          >[0],
         ),
     ).toThrow(/identifyUser|Channel|surface|memory/i);
   });
 
   it("hides every functional web route for a Channels-only runtime", async () => {
-    const runtime = new CopilotRuntime({
+    const runtime = new CopilotKitRuntime({
       agents: { hidden: {} as never },
       intelligence: intelligence(),
       transcriptionService: {} as never,
       exposeMemoryRoutes: true,
       channels: [createChannel({ identifyUser: "platform", name: "support" })],
     });
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime,
       activateChannels: false,
     });
@@ -148,22 +150,22 @@ describe("CopilotRuntime — channels option", () => {
   it("intelligence runtime rejects a caller-supplied runner", () => {
     expect(
       () =>
-        new CopilotRuntime({
+        new CopilotKitRuntime({
           agents: {},
           intelligence: intelligence(),
           identifyUser,
           runner: new InMemoryAgentRunner(),
-        } as unknown as ConstructorParameters<typeof CopilotRuntime>[0]),
+        } as unknown as ConstructorParameters<typeof CopilotKitRuntime>[0]),
     ).toThrow(/runner/);
   });
 
   it("intelligence runtime tolerates an explicitly undefined runner", () => {
-    const rt = new CopilotRuntime({
+    const rt = new CopilotKitRuntime({
       agents: {},
       intelligence: intelligence(),
       identifyUser,
       runner: undefined,
-    } as unknown as ConstructorParameters<typeof CopilotRuntime>[0]);
+    } as unknown as ConstructorParameters<typeof CopilotKitRuntime>[0]);
 
     expect(rt.runner).toBeDefined();
   });
@@ -172,10 +174,10 @@ describe("CopilotRuntime — channels option", () => {
     const ch = createChannel({ identifyUser: "platform", name: "support" });
     expect(
       () =>
-        new CopilotRuntime({
+        new CopilotKitRuntime({
           agents: {},
           channels: [ch],
-        } as unknown as ConstructorParameters<typeof CopilotRuntime>[0]),
+        } as unknown as ConstructorParameters<typeof CopilotKitRuntime>[0]),
     ).toThrow(/Intelligence/);
   });
 });

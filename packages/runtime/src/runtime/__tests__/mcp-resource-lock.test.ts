@@ -1,7 +1,7 @@
 import type { AbstractAgent, RunAgentInput } from "@ag-ui/client";
 import { Observable } from "rxjs";
 import { describe, expect, it, vi } from "vitest";
-import type { CopilotRuntimeLike } from "../core/runtime";
+import type { CopilotKitRuntimeLike } from "../core/runtime";
 import { resolveForwardHeadersPolicy } from "../handlers/header-utils";
 import { handleRunAgent } from "../handlers/handle-run";
 
@@ -99,7 +99,7 @@ function fixture() {
     lockTtlSeconds: 30,
     lockHeartbeatIntervalSeconds: 15,
     forwardHeadersPolicy: resolveForwardHeadersPolicy(undefined),
-  } as unknown as CopilotRuntimeLike;
+  } as unknown as CopilotKitRuntimeLike;
   const request = (
     runId: string,
     proxy?: { method: string },
@@ -153,7 +153,7 @@ describe("Intelligence MCP resource reads", () => {
       created: true,
     });
     (
-      f.runtime as CopilotRuntimeLike & { generateThreadNames: boolean }
+      f.runtime as CopilotKitRuntimeLike & { generateThreadNames: boolean }
     ).generateThreadNames = true;
 
     const read = handleRunAgent({

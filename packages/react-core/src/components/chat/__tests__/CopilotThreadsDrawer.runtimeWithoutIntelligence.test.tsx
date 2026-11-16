@@ -99,7 +99,7 @@ test("a runtime that refuses to list threads without a caller identity shows why
   await waitFor(() => {
     expect(drawerState()).toEqual({
       testId: "drawer-error",
-      text: "Listing threads needs a caller identity. Set identifyUser on CopilotRuntime.",
+      text: "Listing threads needs a caller identity. Set identifyUser on CopilotKitRuntime.",
     });
   });
   expect(requestedPaths).not.toContain("/api/threads");

@@ -1,6 +1,6 @@
 import type {
-  CopilotIntelligenceRuntimeLike,
-  CopilotRuntimeUser,
+  CopilotKitIntelligenceRuntimeLike,
+  CopilotKitRuntimeUser,
   MemoryConsumer,
   MemoryGrant,
 } from "../../core/runtime";
@@ -15,7 +15,7 @@ const NO_MEMORY: MemoryGrant = Object.freeze({
 });
 
 export interface ResolvedWebMemory {
-  readonly user: CopilotRuntimeUser;
+  readonly user: CopilotKitRuntimeUser;
   readonly grant: MemoryGrant;
 }
 
@@ -53,9 +53,9 @@ export function grantAllowsMemory(grant: MemoryGrant): boolean {
  * each call site applies `grantAllowsMemory` to its own case.
  */
 export async function resolveWebMemory(
-  runtime: CopilotIntelligenceRuntimeLike,
+  runtime: CopilotKitIntelligenceRuntimeLike,
   request: Request,
-  user: CopilotRuntimeUser,
+  user: CopilotKitRuntimeUser,
   consumer: MemoryConsumer,
 ): Promise<ResolvedWebMemory | Response> {
   if (!runtime.memory) {

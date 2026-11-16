@@ -195,7 +195,7 @@ describe("ɵThreadsController errors", () => {
     controller.update(input);
 
     const identityError = new Error(
-      "Listing threads needs a caller identity. Set identifyUser on CopilotRuntime.",
+      "Listing threads needs a caller identity. Set identifyUser on CopilotKitRuntime.",
     );
     expect(controller.getSnapshot()).toMatchObject({
       error: identityError,

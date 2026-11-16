@@ -1,6 +1,6 @@
 import type { InspectorMetadataV1 } from "@copilotkit/shared";
 import { expect, test, vi } from "vitest";
-import { CopilotRuntime } from "../../core/runtime";
+import { CopilotKitRuntime } from "../../core/runtime";
 import { CopilotKitIntelligence } from "../../intelligence-platform";
 import { handleInspectorMetadata } from "../handle-inspector-metadata";
 
@@ -30,7 +30,7 @@ function setupIntelligenceRuntime() {
     wsUrl: "wss://ws.example.com",
     apiKey: "server-api-key",
   });
-  const runtime = new CopilotRuntime({
+  const runtime = new CopilotKitRuntime({
     agents: {},
     intelligence,
     identifyUser: async () => ({ id: "user-1", name: "User One" }),
@@ -151,7 +151,7 @@ test("handle-inspector-metadata returns private 204 for invalid or unknown schem
 });
 
 test("handle-inspector-metadata returns private 204 for a non-Intelligence runtime", async () => {
-  const runtime = new CopilotRuntime({ agents: {} });
+  const runtime = new CopilotKitRuntime({ agents: {} });
   const request = new Request("https://runtime.example/inspector-metadata", {
     method: "GET",
   });

@@ -1,7 +1,7 @@
 import type {
-  CopilotIntelligenceRuntimeLike,
-  CopilotRuntimeLike,
-  CopilotRuntimeUser,
+  CopilotKitIntelligenceRuntimeLike,
+  CopilotKitRuntimeLike,
+  CopilotKitRuntimeUser,
   IdentifyUserCallback,
 } from "../../core/runtime";
 import { isIntelligenceRuntime } from "../../core/runtime";
@@ -10,20 +10,20 @@ import { errorResponse } from "./json-response";
 import { isValidIdentifier } from "./intelligence-utils";
 
 /** A runtime whose `identifyUser` is known to be set. */
-export type IdentifiedRuntimeLike = CopilotRuntimeLike & {
+export type IdentifiedRuntimeLike = CopilotKitRuntimeLike & {
   identifyUser: IdentifyUserCallback;
 };
 
 /** Narrows a runtime to one that has `identifyUser`. */
 export function hasIdentifyUser(
-  runtime: CopilotRuntimeLike,
+  runtime: CopilotKitRuntimeLike,
 ): runtime is IdentifiedRuntimeLike {
   return typeof runtime.identifyUser === "function";
 }
 
 const resolvedUsers = new WeakMap<
   Request,
-  Promise<CopilotRuntimeUser | Response>
+  Promise<CopilotKitRuntimeUser | Response>
 >();
 
 /**
@@ -35,9 +35,9 @@ const resolvedUsers = new WeakMap<
  * A callback that throws gets a 500 on every route.
  */
 export async function resolveIntelligenceUser(params: {
-  runtime: CopilotIntelligenceRuntimeLike | IdentifiedRuntimeLike;
+  runtime: CopilotKitIntelligenceRuntimeLike | IdentifiedRuntimeLike;
   request: Request;
-}): Promise<CopilotRuntimeUser | Response> {
+}): Promise<CopilotKitRuntimeUser | Response> {
   const { runtime, request } = params;
 
   const existing = resolvedUsers.get(request);
@@ -49,9 +49,9 @@ export async function resolveIntelligenceUser(params: {
 }
 
 async function resolveUser(
-  runtime: CopilotRuntimeLike,
+  runtime: CopilotKitRuntimeLike,
   request: Request,
-): Promise<CopilotRuntimeUser | Response> {
+): Promise<CopilotKitRuntimeUser | Response> {
   if (!hasIdentifyUser(runtime)) {
     getRuntimeLogger(runtime).error(
       "Error identifying user: identifyUser is not configured",

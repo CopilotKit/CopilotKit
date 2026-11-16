@@ -5,7 +5,7 @@ Most applications should use the batteries-included `@copilotkit/channels` packa
 install core directly when building an adapter or intentionally selecting one platform.
 
 **Channels run through a channel runner.** CopilotKit Intelligence provides the
-managed runner, available on a free plan: the `CopilotRuntime` starts and owns
+managed runner, available on a free plan: the `CopilotKitRuntime` starts and owns
 each Channel once Intelligence is configured — see "Running a Channel" below.
 Building and operating your own channel runner on the SDK primitives is also a
 supported path; teams choosing it own their state, persistence, concurrency,
@@ -68,14 +68,14 @@ A `Channel` has no public `start()` / `stop()` — lifecycle is runtime-owned
 ## Running a Channel
 
 In the managed path, a Channel runs when it's declared on an
-Intelligence-configured `CopilotRuntime`. Pass the `Channel` in `channels`,
+Intelligence-configured `CopilotKitRuntime`. Pass the `Channel` in `channels`,
 then drive activation through the returned handler:
 
 ```ts
 import { createChannel } from "@copilotkit/channels-core";
 import { slack } from "@copilotkit/channels-slack";
-import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime";
-import { createCopilotNodeListener } from "@copilotkit/runtime/node";
+import { CopilotKitRuntime, CopilotKitIntelligence } from "@copilotkit/runtime";
+import { createCopilotKitNodeListener } from "@copilotkit/runtime/node";
 
 const channel = createChannel({
   name: "support-bot", // project-unique Intelligence Channel name
@@ -83,7 +83,7 @@ const channel = createChannel({
   adapters: [slack({ botToken, appToken })],
 });
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   intelligence: new CopilotKitIntelligence({
     // apiUrl and wsUrl default to cloud-hosted CopilotKit Intelligence — override
     // both together only for a self-hosted deployment.
@@ -93,7 +93,7 @@ const runtime = new CopilotRuntime({
 });
 
 // Creating the listener starts every declared channel's connection.
-const listener = createCopilotNodeListener({ runtime });
+const listener = createCopilotKitNodeListener({ runtime });
 // Optional: await that activation so a broken config fails startup loudly.
 await listener.channels.ready();
 // await listener.channels.stop(); // tears them down

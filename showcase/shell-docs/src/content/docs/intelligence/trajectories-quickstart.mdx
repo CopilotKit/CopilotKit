@@ -77,7 +77,7 @@ npm install @copilotkit/react-core @copilotkit/runtime @tanstack/ai-openai
 Use the values from `.env` to configure the Intelligence client in your existing Runtime:
 
 ```ts title="Your CopilotKit Runtime"
-import { CopilotKitIntelligence, CopilotRuntime } from "@copilotkit/runtime";
+import { CopilotKitIntelligence, CopilotKitRuntime } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 import { identifyUser } from "./auth";
@@ -88,7 +88,7 @@ const intelligence = new CopilotKitIntelligence({
   wsUrl: process.env.INTELLIGENCE_GATEWAY_WS_URL!,
 });
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   // Your existing agent registration
   agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
   intelligence,

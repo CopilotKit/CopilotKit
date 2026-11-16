@@ -1,9 +1,9 @@
 import { handleGetRuntimeInfo } from "../handlers/get-runtime-info";
-import { CopilotRuntime } from "../core/runtime";
+import { CopilotKitRuntime } from "../core/runtime";
 import { resolveForwardHeadersPolicy } from "../handlers/header-utils";
 import type {
-  CopilotIntelligenceRuntimeLike,
-  CopilotRuntimeLike,
+  CopilotKitIntelligenceRuntimeLike,
+  CopilotKitRuntimeLike,
 } from "../core/runtime";
 import type { AgentRunner } from "../runner/agent-runner";
 import { InMemoryAgentRunner } from "../runner/in-memory";
@@ -35,8 +35,8 @@ const INVALID_LEGACY_LICENSE_TOKEN = `header.${Buffer.from(
 
 /** Build the typed Intelligence runtime fixture shared by `/info` tests. */
 function createIntelligenceRuntimeLike(
-  overrides: Partial<CopilotIntelligenceRuntimeLike> = {},
-): CopilotIntelligenceRuntimeLike {
+  overrides: Partial<CopilotKitIntelligenceRuntimeLike> = {},
+): CopilotKitIntelligenceRuntimeLike {
   return {
     agents: {},
     transcriptionService: undefined,
@@ -64,7 +64,7 @@ function createIntelligenceRuntimeLike(
 
 /** Install the wished entitlement lookup API on the real Intelligence client. */
 function installRuntimeEntitlementsLookup(
-  runtime: CopilotIntelligenceRuntimeLike,
+  runtime: CopilotKitIntelligenceRuntimeLike,
   lookup: () => Promise<unknown>,
 ): void {
   Object.defineProperty(runtime.intelligence, "getRuntimeEntitlements", {
@@ -130,7 +130,7 @@ test("does not request Runtime entitlements for an SSE-only Runtime", async () =
     installRuntimeEntitlementsLookupPrototype(getRuntimeEntitlements);
 
   try {
-    const runtime = new CopilotRuntime({
+    const runtime = new CopilotKitRuntime({
       agents: {},
       licenseToken: INVALID_LEGACY_LICENSE_TOKEN,
     });
@@ -386,8 +386,8 @@ describe("handleGetRuntimeInfo", () => {
       stop: vi.fn(),
     }) as unknown as AgentRunner;
   const createRuntimeLike = (
-    overrides: Partial<CopilotRuntimeLike>,
-  ): CopilotRuntimeLike =>
+    overrides: Partial<CopilotKitRuntimeLike>,
+  ): CopilotKitRuntimeLike =>
     ({
       agents: {},
       transcriptionService: undefined,
@@ -404,9 +404,9 @@ describe("handleGetRuntimeInfo", () => {
         verbose: false,
       },
       ...overrides,
-    }) as unknown as CopilotRuntimeLike;
+    }) as unknown as CopilotKitRuntimeLike;
   it("should return runtime info with audioFileTranscriptionEnabled=false when no transcription service", async () => {
-    const runtime = new CopilotRuntime({
+    const runtime = new CopilotKitRuntime({
       agents: {},
       // No transcriptionService provided
     });
@@ -434,7 +434,7 @@ describe("handleGetRuntimeInfo", () => {
 
   it("should return runtime info with audioFileTranscriptionEnabled=true when transcription service is configured", async () => {
     const mockTranscriptionService = new MockTranscriptionService();
-    const runtime = new CopilotRuntime({
+    const runtime = new CopilotKitRuntime({
       agents: {},
       transcriptionService: mockTranscriptionService,
     });
@@ -466,7 +466,7 @@ describe("handleGetRuntimeInfo", () => {
       constructor: { name: "TestAgent" },
     };
 
-    const runtime = new CopilotRuntime({
+    const runtime = new CopilotKitRuntime({
       agents: {
         testAgent: mockAgent as AbstractAgent,
       },
@@ -501,7 +501,7 @@ describe("handleGetRuntimeInfo", () => {
   });
 
   it("advertises the stateless suggestions capability", async () => {
-    const runtime = new CopilotRuntime({
+    const runtime = new CopilotKitRuntime({
       agents: {},
     });
 
@@ -635,7 +635,7 @@ describe("handleGetRuntimeInfo", () => {
   });
 
   it("does not send the retired a2ui fields", async () => {
-    const runtime = new CopilotRuntime({
+    const runtime = new CopilotKitRuntime({
       agents: {},
       generativeUI: { a2uiVersion: "0.9" },
     });
@@ -653,7 +653,7 @@ describe("handleGetRuntimeInfo", () => {
   });
 
   describe("generativeUI", () => {
-    const getGenerativeUI = async (runtime: CopilotRuntimeLike) => {
+    const getGenerativeUI = async (runtime: CopilotKitRuntimeLike) => {
       const response = await handleGetRuntimeInfo({
         runtime,
         request: mockRequest,
@@ -666,7 +666,7 @@ describe("handleGetRuntimeInfo", () => {
     it("reports generative UI on for every agent when generativeUI is true", async () => {
       expect(
         await getGenerativeUI(
-          new CopilotRuntime({ agents: {}, generativeUI: true }),
+          new CopilotKitRuntime({ agents: {}, generativeUI: true }),
         ),
       ).toEqual({ enabled: true });
     });
@@ -674,7 +674,7 @@ describe("handleGetRuntimeInfo", () => {
     it("reports the agents that generativeUI is limited to", async () => {
       expect(
         await getGenerativeUI(
-          new CopilotRuntime({
+          new CopilotKitRuntime({
             agents: {},
             generativeUI: { agents: ["agentic_chat"] },
           }),
@@ -685,7 +685,7 @@ describe("handleGetRuntimeInfo", () => {
     it("reports generative UI on when every agent speaks A2UI v0.9", async () => {
       expect(
         await getGenerativeUI(
-          new CopilotRuntime({
+          new CopilotKitRuntime({
             agents: {},
             generativeUI: { a2uiVersion: "0.9", agents: ["legacy"] },
           }),
@@ -696,7 +696,7 @@ describe("handleGetRuntimeInfo", () => {
     it("reports generative UI off when generativeUI is false", async () => {
       expect(
         await getGenerativeUI(
-          new CopilotRuntime({ agents: {}, generativeUI: false }),
+          new CopilotKitRuntime({ agents: {}, generativeUI: false }),
         ),
       ).toEqual({ enabled: false });
     });
@@ -725,7 +725,7 @@ describe("handleGetRuntimeInfo", () => {
       getCapabilities: async () => mockCapabilities,
     };
 
-    const runtime = new CopilotRuntime({
+    const runtime = new CopilotKitRuntime({
       agents: {
         capableAgent: mockAgent as unknown as AbstractAgent,
       },
@@ -748,7 +748,7 @@ describe("handleGetRuntimeInfo", () => {
       constructor: { name: "BasicAgent" },
     };
 
-    const runtime = new CopilotRuntime({
+    const runtime = new CopilotKitRuntime({
       agents: {
         basicAgent: mockAgent as unknown as AbstractAgent,
       },
@@ -772,7 +772,7 @@ describe("handleGetRuntimeInfo", () => {
       getCapabilities: async () => ({}),
     };
 
-    const runtime = new CopilotRuntime({
+    const runtime = new CopilotKitRuntime({
       agents: {
         emptyAgent: mockAgent as unknown as AbstractAgent,
       },
@@ -809,7 +809,7 @@ describe("handleGetRuntimeInfo", () => {
       }),
     };
 
-    const runtime = new CopilotRuntime({
+    const runtime = new CopilotKitRuntime({
       agents: {
         failing: failingAgent as unknown as AbstractAgent,
         healthy: healthyAgent as unknown as AbstractAgent,
@@ -861,7 +861,7 @@ describe("handleGetRuntimeInfo", () => {
     });
 
     it("returns telemetryDisabled: false when env var is not set", async () => {
-      const runtime = new CopilotRuntime({ agents: {} });
+      const runtime = new CopilotKitRuntime({ agents: {} });
       const response = await handleGetRuntimeInfo({
         runtime,
         request: mockRequest,
@@ -872,7 +872,7 @@ describe("handleGetRuntimeInfo", () => {
 
     it("returns telemetryDisabled: true when COPILOTKIT_TELEMETRY_DISABLED=true", async () => {
       process.env.COPILOTKIT_TELEMETRY_DISABLED = "true";
-      const runtime = new CopilotRuntime({ agents: {} });
+      const runtime = new CopilotKitRuntime({ agents: {} });
       const response = await handleGetRuntimeInfo({
         runtime,
         request: mockRequest,
@@ -883,7 +883,7 @@ describe("handleGetRuntimeInfo", () => {
 
     it("returns telemetryDisabled: true when COPILOTKIT_TELEMETRY_DISABLED=1", async () => {
       process.env.COPILOTKIT_TELEMETRY_DISABLED = "1";
-      const runtime = new CopilotRuntime({ agents: {} });
+      const runtime = new CopilotKitRuntime({ agents: {} });
       const response = await handleGetRuntimeInfo({
         runtime,
         request: mockRequest,
@@ -894,7 +894,7 @@ describe("handleGetRuntimeInfo", () => {
 
     it("returns telemetryDisabled: true when DO_NOT_TRACK=1", async () => {
       process.env.DO_NOT_TRACK = "1";
-      const runtime = new CopilotRuntime({ agents: {} });
+      const runtime = new CopilotKitRuntime({ agents: {} });
       const response = await handleGetRuntimeInfo({
         runtime,
         request: mockRequest,
@@ -913,7 +913,7 @@ describe("handleGetRuntimeInfo", () => {
       beforeRequestMiddleware: undefined,
       afterRequestMiddleware: undefined,
       mode: "sse",
-    } as CopilotRuntime;
+    } as CopilotKitRuntime;
 
     const response = await handleGetRuntimeInfo({
       runtime,
@@ -937,7 +937,7 @@ test("get-runtime-info advertises inspector metadata without fetching it", async
     apiKey: "server-api-key",
   });
   const getInspectorMetadata = vi.spyOn(intelligence, "getInspectorMetadata");
-  const runtime = new CopilotRuntime({
+  const runtime = new CopilotKitRuntime({
     agents: {},
     intelligence,
     identifyUser: async () => ({ id: "user-1", name: "User One" }),
@@ -955,7 +955,7 @@ test("get-runtime-info advertises inspector metadata without fetching it", async
 });
 
 test("get-runtime-info omits inspector metadata for an SSE runtime", async () => {
-  const runtime = new CopilotRuntime({ agents: {} });
+  const runtime = new CopilotKitRuntime({ agents: {} });
 
   const response = await handleGetRuntimeInfo({
     runtime,

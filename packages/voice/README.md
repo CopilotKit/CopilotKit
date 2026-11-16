@@ -9,11 +9,11 @@ pnpm add @copilotkit/voice openai
 ```
 
 ```typescript
-import { CopilotRuntime, createCopilotEndpoint } from "@copilotkit/runtime";
+import { CopilotKitRuntime, createCopilotEndpoint } from "@copilotkit/runtime";
 import { TranscriptionServiceOpenAI } from "@copilotkit/voice";
 import OpenAI from "openai";
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: { default: yourAgent },
   transcriptionService: new TranscriptionServiceOpenAI({
     openai: new OpenAI({ apiKey: process.env.OPENAI_API_KEY }),

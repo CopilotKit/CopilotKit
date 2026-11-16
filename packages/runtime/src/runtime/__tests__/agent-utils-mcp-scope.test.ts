@@ -1,14 +1,14 @@
 import { HttpAgent } from "@ag-ui/client";
 import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
 import { expect, test, vi } from "vitest";
-import { CopilotIntelligenceRuntime } from "../core/runtime";
+import { CopilotKitIntelligenceRuntime } from "../core/runtime";
 import { CopilotKitIntelligence } from "../intelligence-platform/client";
 import { configureAgentForRequest } from "../handlers/shared/agent-utils";
 
 /** Configure an agent without making platform or MCP requests. */
 function setup(scopedElsewhere: boolean) {
   const agent = new HttpAgent({ url: "http://localhost:9999/agent" });
-  const runtime = new CopilotIntelligenceRuntime({
+  const runtime = new CopilotKitIntelligenceRuntime({
     intelligence: new CopilotKitIntelligence({ apiKey: "fixture-key" }),
     identifyUser: () => ({ id: "alice", name: "Alice" }),
     agents: { default: agent },

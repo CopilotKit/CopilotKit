@@ -5,7 +5,7 @@ import type {
   RunAgentInput,
 } from "@ag-ui/client";
 import { EventType } from "@ag-ui/client";
-import type { CopilotIntelligenceRuntimeLike } from "../../core/runtime";
+import type { CopilotKitIntelligenceRuntimeLike } from "../../core/runtime";
 import { generateThreadNameForNewThread } from "./thread-names";
 import { getRuntimeLogger } from "../../core/logger";
 import { telemetry } from "../../telemetry";
@@ -47,8 +47,8 @@ interface RunnerWithStartupBoundary {
 }
 
 function hasRunnerStartupBoundary(
-  runner: CopilotIntelligenceRuntimeLike["runner"],
-): runner is CopilotIntelligenceRuntimeLike["runner"] &
+  runner: CopilotKitIntelligenceRuntimeLike["runner"],
+): runner is CopilotKitIntelligenceRuntimeLike["runner"] &
   RunnerWithStartupBoundary {
   const candidate = runner as { runWithStartupBoundary?: unknown };
 
@@ -60,7 +60,7 @@ function hasRunnerStartupBoundary(
 }
 
 interface HandleIntelligenceRunParams {
-  runtime: CopilotIntelligenceRuntimeLike;
+  runtime: CopilotKitIntelligenceRuntimeLike;
   request: Request;
   agentId: string;
   agent: AbstractAgent;

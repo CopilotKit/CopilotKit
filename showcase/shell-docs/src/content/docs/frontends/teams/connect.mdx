@@ -97,9 +97,9 @@ Use this prompt to connect your agent to Microsoft Teams, start the runner, and 
     import { createChannel } from "@copilotkit/channels";
     import {
       CopilotKitIntelligence,
-      CopilotRuntime,
+      CopilotKitRuntime,
     } from "@copilotkit/runtime";
-    import { createCopilotNodeListener } from "@copilotkit/runtime/node";
+    import { createCopilotKitNodeListener } from "@copilotkit/runtime/node";
     import { makeAgent } from "./agent.js";
 
     function required(name: string): string {
@@ -130,7 +130,7 @@ Use this prompt to connect your agent to Microsoft Teams, start the runner, and 
       wsUrl: process.env.INTELLIGENCE_GATEWAY_WS_URL,
     });
 
-    const runtime = new CopilotRuntime({
+    const runtime = new CopilotKitRuntime({
       agents: {},
       intelligence,
       channels: [channel],
@@ -146,7 +146,7 @@ Use this prompt to connect your agent to Microsoft Teams, start the runner, and 
     process.once("SIGINT", shutdown);
     process.once("SIGTERM", shutdown);
 
-    const listener = createCopilotNodeListener({
+    const listener = createCopilotKitNodeListener({
       runtime,
       basePath: "/api/copilotkit",
     });
@@ -171,7 +171,7 @@ Use this prompt to connect your agent to Microsoft Teams, start the runner, and 
     });
     ```
 
-    Calling `createCopilotNodeListener` starts the Channel. `ready()` is
+    Calling `createCopilotKitNodeListener` starts the Channel. `ready()` is
     optional. It waits until the start settles and throws if it fails.
     `ready()` can settle while setup is still incomplete, so check `status()`
     before you report the Channel online. Without `ready()`, start failures

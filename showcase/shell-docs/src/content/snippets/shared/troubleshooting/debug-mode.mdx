@@ -15,12 +15,12 @@ Enable it to see:
 
 ### Server-Side (Runtime)
 
-Pass `debug: true` to the `CopilotRuntime` constructor:
+Pass `debug: true` to the `CopilotKitRuntime` constructor:
 
 ```ts title="app/api/copilotkit/route.ts"
-import { CopilotRuntime } from "@copilotkit/runtime";
+import { CopilotKitRuntime } from "@copilotkit/runtime";
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: {
     // your agents
   },
@@ -77,7 +77,7 @@ export function Providers({ children }: { children: ReactNode }) {
 }
 ```
 
-This forwards the debug configuration to the AG-UI client transport layer (`transformChunks`), which may produce transport-level debug output depending on the AG-UI library version. Note that the richest debug logging comes from the **server-side** `CopilotRuntime`. Enable `debug: true` there to get JSON logs of every AG-UI event, in the pino format.
+This forwards the debug configuration to the AG-UI client transport layer (`transformChunks`), which may produce transport-level debug output depending on the AG-UI library version. Note that the richest debug logging comes from the **server-side** `CopilotKitRuntime`. Enable `debug: true` there to get JSON logs of every AG-UI event, in the pino format.
 
 <Callout type="info">
   The server and client debug toggles are independent. Enabling debug on the client does not affect the server, and vice versa.
@@ -97,7 +97,7 @@ const debug = {
 } satisfies DebugConfig;
 ```
 
-Pass it as `debug` to `CopilotRuntime` on the server or to `<CopilotKitProvider>` on the client. It works the same way on both.
+Pass it as `debug` to `CopilotKitRuntime` on the server or to `<CopilotKitProvider>` on the client. It works the same way on both.
 
 ### Defaults
 

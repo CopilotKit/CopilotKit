@@ -1,4 +1,4 @@
-import type { CopilotRuntimeLike } from "../core/runtime";
+import type { CopilotKitRuntimeLike } from "../core/runtime";
 import { isIntelligenceRuntime, resolveAgents } from "../core/runtime";
 import { getRuntimeLogger } from "../core/logger";
 import { EventType } from "@ag-ui/client";
@@ -9,7 +9,7 @@ import { resolveLocalThreadOwner } from "./shared/thread-access";
 
 interface StopAgentParameters {
   request: Request;
-  runtime: CopilotRuntimeLike;
+  runtime: CopilotKitRuntimeLike;
   agentId: string;
   threadId: string;
 }

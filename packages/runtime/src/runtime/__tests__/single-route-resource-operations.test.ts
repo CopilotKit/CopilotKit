@@ -1,13 +1,13 @@
 import { expect, test, vi } from "vitest";
 
-import type { CopilotRuntimeLike } from "../core/runtime";
-import { createCopilotRuntimeHandler } from "../core/fetch-handler";
+import type { CopilotKitRuntimeLike } from "../core/runtime";
+import { createCopilotKitRuntimeHandler } from "../core/fetch-handler";
 import type {
   HandlerHookContext,
   ResponseHookContext,
   RouteInfo,
 } from "../core/hooks";
-import { CopilotRuntime } from "../core/runtime";
+import { CopilotKitRuntime } from "../core/runtime";
 
 /** Builds an Intelligence runtime whose thread-list dependency is observable. */
 function setup() {
@@ -33,8 +33,8 @@ function setup() {
       isRunning: vi.fn(),
       stop: vi.fn(),
     },
-  } as unknown as CopilotRuntimeLike;
-  const handler = createCopilotRuntimeHandler({
+  } as unknown as CopilotKitRuntimeLike;
+  const handler = createCopilotKitRuntimeHandler({
     runtime,
     basePath: "/api/copilotkit",
     mode: "single-route",
@@ -196,11 +196,11 @@ test("single-route resource requests preserve every Intelligence REST operation"
       route: { method: "annotate" },
     },
   ];
-  const runtime = new CopilotRuntime({
+  const runtime = new CopilotKitRuntime({
     agents: {},
     exposeMemoryRoutes: true,
   });
-  const handler = createCopilotRuntimeHandler({
+  const handler = createCopilotKitRuntimeHandler({
     runtime,
     basePath: "/api/copilotkit",
     mode: "single-route",
@@ -267,8 +267,8 @@ test("single-route info advertises resource operations without changing legacy t
 
 test("single-route resource requests reject hidden memory routes before hooks", async () => {
   const onBeforeHandler = vi.fn(({ request }: HandlerHookContext) => request);
-  const runtime = new CopilotRuntime({ agents: {} });
-  const handler = createCopilotRuntimeHandler({
+  const runtime = new CopilotKitRuntime({ agents: {} });
+  const handler = createCopilotKitRuntimeHandler({
     runtime,
     basePath: "/api/copilotkit",
     mode: "single-route",
@@ -289,8 +289,8 @@ test("single-route resource requests reject hidden memory routes before hooks", 
 });
 
 test("single-route hidden memory routes return 404 before method validation", async () => {
-  const runtime = new CopilotRuntime({ agents: {} });
-  const handler = createCopilotRuntimeHandler({
+  const runtime = new CopilotKitRuntime({ agents: {} });
+  const handler = createCopilotKitRuntimeHandler({
     runtime,
     basePath: "/api/copilotkit",
     mode: "single-route",
@@ -310,8 +310,8 @@ test("single-route hidden memory routes return 404 before method validation", as
 });
 
 test("single-route resource requests reject unsafe paths and non-resource routes", async () => {
-  const runtime = new CopilotRuntime({ agents: {} });
-  const handler = createCopilotRuntimeHandler({
+  const runtime = new CopilotKitRuntime({ agents: {} });
+  const handler = createCopilotKitRuntimeHandler({
     runtime,
     basePath: "/api/copilotkit",
     mode: "single-route",
@@ -337,8 +337,8 @@ test("single-route resource requests reject unsafe paths and non-resource routes
 
 test("single-route resource requests preserve REST method errors", async () => {
   const onResponse = vi.fn(({ response }: ResponseHookContext) => response);
-  const runtime = new CopilotRuntime({ agents: {} });
-  const handler = createCopilotRuntimeHandler({
+  const runtime = new CopilotKitRuntime({ agents: {} });
+  const handler = createCopilotKitRuntimeHandler({
     runtime,
     basePath: "/api/copilotkit",
     mode: "single-route",
@@ -366,8 +366,8 @@ test("single-route resource requests preserve REST method errors", async () => {
 
 test("single-route resource errors report the matched resource path", async () => {
   const onError = vi.fn().mockReturnValue(new Response(null, { status: 503 }));
-  const runtime = new CopilotRuntime({ agents: {} });
-  const handler = createCopilotRuntimeHandler({
+  const runtime = new CopilotKitRuntime({ agents: {} });
+  const handler = createCopilotKitRuntimeHandler({
     runtime,
     basePath: "/api/copilotkit",
     mode: "single-route",

@@ -22,19 +22,19 @@ Add the route file. Here is a minimal example for Next.js:
 
 ```ts title="app/api/copilotkit/[[...slug]]/route.ts" doctest="component"
 import {
-  CopilotRuntime,
-  createCopilotRuntimeHandler,
+  CopilotKitRuntime,
+  createCopilotKitRuntimeHandler,
   InMemoryAgentRunner,
 } from "@copilotkit/runtime";
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: {
     // your agents go here
   },
   runner: new InMemoryAgentRunner(),
 });
 
-const handler = createCopilotRuntimeHandler({
+const handler = createCopilotKitRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
 });
@@ -100,8 +100,8 @@ see [Runtime HTTP endpoints](/backend/runtime-endpoints).
 
   | Host | 2.0 handler |
   | --- | --- |
-  | Fetch: Next.js App Router, Hono, Bun, Deno, Cloudflare Workers | `createCopilotRuntimeHandler` (from `@copilotkit/runtime`) |
-  | Node.js HTTP, Express | `createCopilotNodeListener` (from `@copilotkit/runtime/node`) |
+  | Fetch: Next.js App Router, Hono, Bun, Deno, Cloudflare Workers | `createCopilotKitRuntimeHandler` (from `@copilotkit/runtime`) |
+  | Node.js HTTP, Express | `createCopilotKitNodeListener` (from `@copilotkit/runtime/node`) |
 
   See [Runtime HTTP handlers in 2.0](/migrate/runtime-2.0) and [Deploy to any runtime](/runtime-server-adapter).
 </Callout>
@@ -155,11 +155,11 @@ serves, including any required suffix.
 If you register an agent under the name `"default"`, CopilotKit's prebuilt UI components will use it automatically without any additional configuration on the frontend. This is useful when you have one primary agent and don't want to specify an `agentId` everywhere.
 
 ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
-import { CopilotRuntime } from "@copilotkit/runtime";
+import { CopilotKitRuntime } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: {
     // Frontend components use this agent unless given another agentId.
     default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }),
@@ -173,7 +173,7 @@ When you register multiple agents, the `"default"` agent is what powers the chat
 
 ### Authentication & security
 
-The runtime runs on your server, which means agent communication stays server-side. This gives you a trusted environment to enforce authentication, validate requests, and keep API keys secure. The runtime does not reject unauthenticated requests on its own. Reject them in the `onRequest` hook of `createCopilotRuntimeHandler`, and pass `identifyUser` to `CopilotRuntime` to scope threads per user. See [Authentication](/auth).
+The runtime runs on your server, which means agent communication stays server-side. This gives you a trusted environment to enforce authentication, validate requests, and keep API keys secure. The runtime does not reject unauthenticated requests on its own. Reject them in the `onRequest` hook of `createCopilotKitRuntimeHandler`, and pass `identifyUser` to `CopilotKitRuntime` to scope threads per user. See [Authentication](/auth).
 
 ### AG-UI middleware
 
@@ -191,7 +191,7 @@ To group Threads for Learning, see [Learning](/learning).
 
 ## Built-in middleware
 
-The runtime exposes two first-class middleware options you can enable directly on `CopilotRuntime` without calling `.use()` on each agent manually.
+The runtime exposes two first-class middleware options you can enable directly on `CopilotKitRuntime` without calling `.use()` on each agent manually.
 
 ### Generative UI
 
@@ -203,11 +203,11 @@ The `generativeUI` option gives the agent the `render_ui` tool and its guide, so
 - `false`: off.
 
 ```ts title="app/api/copilotkit/route.ts"
-import { CopilotRuntime } from "@copilotkit/runtime";
+import { CopilotKitRuntime } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: { "my-agent": new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
   generativeUI: { agents: ["my-agent"] },
 });
@@ -217,9 +217,9 @@ An agent that writes A2UI v0.9 (for example, with the Python `copilotkit.a2ui` h
 
 ```ts title="app/api/copilotkit/route.ts"
 import { HttpAgent } from "@ag-ui/client";
-import { CopilotRuntime } from "@copilotkit/runtime";
+import { CopilotKitRuntime } from "@copilotkit/runtime";
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: { default: new HttpAgent({ url: "http://localhost:8000/" }) },
   generativeUI: { a2uiVersion: "0.9" },
 });
@@ -256,13 +256,13 @@ To use your own components or colors, see [Components and surfaces](/generative-
 Pass `mcpApps` to configure MCP servers for all agents from a single place:
 
 ```ts title="app/api/copilotkit/route.ts"
-import { CopilotRuntime } from "@copilotkit/runtime";
+import { CopilotKitRuntime } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
 const myAgent = new BuiltInAgent({ model: openaiText("gpt-6-luna") });
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: { default: myAgent },
   mcpApps: {
     servers: [
@@ -299,16 +299,16 @@ Headers you set on an agent (e.g. `new HttpAgent({ headers: { Authorization: "Be
 
 ### Configuring the policy
 
-Pass `forwardHeaders` to `CopilotRuntime` to tune what forwards:
+Pass `forwardHeaders` to `CopilotKitRuntime` to tune what forwards:
 
 ```ts title="app/api/copilotkit/route.ts"
-import { CopilotRuntime } from "@copilotkit/runtime";
+import { CopilotKitRuntime } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
 const myAgent = new BuiltInAgent({ model: openaiText("gpt-6-luna") });
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: { default: myAgent },
   forwardHeaders: {
     // Strip additional headers on top of the default denylist:
@@ -327,13 +327,13 @@ The options:
 Empty or whitespace-only entries are ignored in every list.
 
 ```ts title="app/api/copilotkit/route.ts"
-import { CopilotRuntime } from "@copilotkit/runtime";
+import { CopilotKitRuntime } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
 const myAgent = new BuiltInAgent({ model: openaiText("gpt-6-luna") });
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: { default: myAgent },
   // Allowlist mode: forward ONLY these two, nothing else.
   forwardHeaders: { allow: ["authorization", "x-tenant-id"] },
@@ -354,13 +354,13 @@ By default, the runtime writes its warnings and errors to the console. To send t
 
 ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
 import pino from "pino";
-import { CopilotRuntime } from "@copilotkit/runtime";
+import { CopilotKitRuntime } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
 const myAgent = new BuiltInAgent({ model: openaiText("gpt-6-luna") });
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: { default: myAgent },
   logger: pino({ level: "info" }), // [!code highlight]
 });
@@ -372,12 +372,12 @@ A logger that takes the message first, such as winston, needs a small adapter. W
 
 ```ts
 import winston from "winston";
-import { CopilotRuntime } from "@copilotkit/runtime";
-import type { CopilotRuntimeLogger } from "@copilotkit/runtime";
+import { CopilotKitRuntime } from "@copilotkit/runtime";
+import type { CopilotKitRuntimeLogger } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
-function fromWinston(logger: winston.Logger): CopilotRuntimeLogger {
+function fromWinston(logger: winston.Logger): CopilotKitRuntimeLogger {
   const method =
     (level: "debug" | "info" | "warn" | "error") =>
     (fieldsOrMessage: object | string, message?: string) =>
@@ -394,7 +394,7 @@ function fromWinston(logger: winston.Logger): CopilotRuntimeLogger {
 
 const myAgent = new BuiltInAgent({ model: openaiText("gpt-6-luna") });
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: { default: myAgent },
   logger: fromWinston(winston.createLogger()),
 });

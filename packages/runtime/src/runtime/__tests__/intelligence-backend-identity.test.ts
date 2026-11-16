@@ -1,7 +1,7 @@
 import { AbstractAgent, EventType } from "@ag-ui/client";
 import { EMPTY, of } from "rxjs";
 import { expect, test, vi } from "vitest";
-import { CopilotIntelligenceRuntime } from "../core/runtime";
+import { CopilotKitIntelligenceRuntime } from "../core/runtime";
 import { CopilotKitIntelligence } from "../intelligence-platform/client";
 import { IntelligenceAgentRunner } from "../runner/intelligence";
 import { handleIntelligenceRun } from "../handlers/intelligence/run";
@@ -34,7 +34,7 @@ function setup() {
   });
   vi.spyOn(intelligence, "ɵgetThreadMessageIds").mockResolvedValue([]);
   const agent = new TestAgent({ threadId });
-  const runtime = new CopilotIntelligenceRuntime({
+  const runtime = new CopilotKitIntelligenceRuntime({
     agents: { test: agent },
     intelligence,
     identifyUser: () => ({ id: "user-1", name: "User One" }),

@@ -121,7 +121,7 @@ describe("runtime error reporter", () => {
 
       expect(handler).not.toHaveBeenCalled();
       expect(errorSpy).toHaveBeenCalledWith(
-        "CopilotRuntime onError reporting failed:",
+        "CopilotKitRuntime onError reporting failed:",
         expect.any(TypeError),
       );
     } finally {

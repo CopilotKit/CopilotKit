@@ -1,6 +1,6 @@
 import { getRuntimeLogger } from "../core/logger";
 import type { AgentCapabilities } from "@ag-ui/core";
-import type { CopilotRuntimeLike } from "../core/runtime";
+import type { CopilotKitRuntimeLike } from "../core/runtime";
 import { hasLearningContainerConfiguration } from "../core/learning";
 import { isIntelligenceRuntime, resolveAgents } from "../core/runtime";
 import type {
@@ -69,7 +69,7 @@ function resolveCompatibilityLicenseStatus(
 }
 
 interface HandleGetRuntimeInfoParameters {
-  runtime: CopilotRuntimeLike;
+  runtime: CopilotKitRuntimeLike;
   request: Request;
   threadEndpointsEnabled?: boolean;
   singleRouteResourceOperationsEnabled?: boolean;
@@ -83,7 +83,7 @@ interface HandleGetRuntimeInfoParameters {
  * error is not exposed because it may contain upstream response details.
  */
 async function resolveRuntimeEntitlements(
-  runtime: CopilotRuntimeLike,
+  runtime: CopilotKitRuntimeLike,
 ): Promise<RuntimeEntitlementResponse | undefined> {
   if (!isIntelligenceRuntime(runtime)) {
     return undefined;
@@ -240,7 +240,7 @@ export async function handleGetRuntimeInfo({
  * still turn generative UI on.
  */
 function resolveGenerativeUIInfo(
-  runtime: CopilotRuntimeLike,
+  runtime: CopilotKitRuntimeLike,
   webEnabled: boolean,
 ): GenerativeUIRuntimeInfo {
   const generativeUI = runtime.generativeUI;
@@ -251,7 +251,7 @@ function resolveGenerativeUIInfo(
 }
 
 function resolveThreadEndpointInfo(
-  runtime: CopilotRuntimeLike,
+  runtime: CopilotKitRuntimeLike,
   threadEndpointsEnabled: boolean,
 ): ThreadEndpointRuntimeInfo {
   // A local route is advertised only when the Thread access policy lets it

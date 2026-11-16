@@ -82,9 +82,9 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 
 /** Configuration options for `CopilotKitCore`. */
 export interface CopilotKitCoreConfig {
-  /** The endpoint of the CopilotRuntime. */
+  /** The endpoint of the CopilotKitRuntime. */
   runtimeUrl?: string;
-  /** Transport style for CopilotRuntime endpoints. Defaults to REST. */
+  /** Transport style for CopilotKitRuntime endpoints. Defaults to REST. */
   runtimeTransport?: CopilotRuntimeTransport;
   /**
    * When true, the constructor sets the runtime config but does NOT start the
@@ -95,7 +95,7 @@ export interface CopilotKitCoreConfig {
    * See https://github.com/CopilotKit/CopilotKit/issues/5801.
    */
   deferInitialConnection?: boolean;
-  /** Mapping from agent name to its `AbstractAgent` instance. For development only - production requires CopilotRuntime. */
+  /** Mapping from agent name to its `AbstractAgent` instance. For development only - production requires CopilotKitRuntime. */
   agents__unsafe_dev_only?: Record<string, AbstractAgent>;
   /**
    * Headers sent with every runtime request: a record, or a sync or async

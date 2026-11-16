@@ -80,7 +80,7 @@ Before you begin, you'll need the following:
     <Step>
         ### Add the Copilot Runtime route
 
-        Create an API route with the `BuiltInAgent` and `CopilotRuntime`:
+        Create an API route with the `BuiltInAgent` and `CopilotKitRuntime`:
 
         <Callout type="warn" title="Already have an agent? Do not use BuiltInAgent">
           `BuiltInAgent` is CopilotKit's *own* agent. It calls the model
@@ -96,8 +96,8 @@ Before you begin, you'll need the following:
 
         ```ts title="app/api/copilotkit/[[...slug]]/route.ts" doctest="component"
         import {
-          CopilotRuntime,
-          createCopilotRuntimeHandler,
+          CopilotKitRuntime,
+          createCopilotKitRuntimeHandler,
         } from "@copilotkit/runtime";
         import { BuiltInAgent } from "@copilotkit/runtime/agent"; // [!code highlight]
         import { openaiText } from "@tanstack/ai-openai"; // [!code highlight]
@@ -106,11 +106,11 @@ Before you begin, you'll need the following:
           model: openaiText("gpt-6-luna"),
         });
 
-        const runtime = new CopilotRuntime({
+        const runtime = new CopilotKitRuntime({
           agents: { default: builtInAgent }, // [!code highlight]
         });
 
-        const handler = createCopilotRuntimeHandler({
+        const handler = createCopilotKitRuntimeHandler({
           runtime,
           basePath: "/api/copilotkit",
         });

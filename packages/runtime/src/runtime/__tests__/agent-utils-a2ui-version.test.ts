@@ -22,8 +22,8 @@ import type {
   CopilotKitUIEnvelope,
   GenerativeUIComponentManifest,
 } from "@copilotkit/shared";
-import { CopilotRuntime } from "../core/runtime";
-import type { CopilotRuntimeOptions } from "../core/runtime";
+import { CopilotKitRuntime } from "../core/runtime";
+import type { CopilotKitRuntimeOptions } from "../core/runtime";
 import { configureAgentForRequest } from "../handlers/shared/agent-utils";
 import { handleRunAgent } from "../handlers/handle-run";
 import { resolveA2UIVersion } from "../generative-ui/a2ui-v09-middleware";
@@ -164,15 +164,15 @@ class ScriptedAgent extends AbstractAgent {
 }
 
 function runtimeWith(
-  generativeUI: CopilotRuntimeOptions["generativeUI"],
+  generativeUI: CopilotKitRuntimeOptions["generativeUI"],
   agent: AbstractAgent,
 ) {
-  return new CopilotRuntime({ agents: { default: agent }, generativeUI });
+  return new CopilotKitRuntime({ agents: { default: agent }, generativeUI });
 }
 
 /** Configures `agent` for one "tool" run and runs it. */
 async function runConfigured(
-  generativeUI: CopilotRuntimeOptions["generativeUI"],
+  generativeUI: CopilotKitRuntimeOptions["generativeUI"],
   script: BaseEvent[],
   messages: Message[] = [],
   forwardedProps: Record<string, unknown> = {
@@ -209,7 +209,7 @@ function activitySnapshots(events: BaseEvent[]) {
 }
 
 describe("resolveA2UIVersion", () => {
-  it.each<[string, CopilotRuntimeOptions["generativeUI"], string, string]>([
+  it.each<[string, CopilotKitRuntimeOptions["generativeUI"], string, string]>([
     ["defaults to 1.0 without the option", undefined, "default", "1.0"],
     ["defaults to 1.0 for generativeUI: true", true, "default", "1.0"],
     ["defaults to 1.0 without a2uiVersion", { agents: [] }, "default", "1.0"],

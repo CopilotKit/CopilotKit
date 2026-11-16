@@ -1,4 +1,4 @@
-import { createCopilotNodeListener } from "../../../endpoints/node";
+import { createCopilotKitNodeListener } from "../../../endpoints/node";
 import express from "express";
 import type { AddressInfo } from "node:net";
 
@@ -13,7 +13,7 @@ export async function createExpressSingleServer(
   const runtime = createTestRuntime(opts);
   const app = express();
   app.use(
-    createCopilotNodeListener({
+    createCopilotKitNodeListener({
       runtime,
       basePath: BASE_PATH,
       mode: "single-route",

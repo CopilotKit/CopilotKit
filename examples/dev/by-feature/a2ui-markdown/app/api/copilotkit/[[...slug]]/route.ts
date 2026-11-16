@@ -1,6 +1,6 @@
 import {
-  CopilotRuntime,
-  createCopilotRuntimeHandler,
+  CopilotKitRuntime,
+  createCopilotKitRuntimeHandler,
   InMemoryAgentRunner,
 } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
@@ -25,13 +25,13 @@ const langgraph = new LangGraphHttpAgent({
 
 // generativeUI: true gives every tool-transport run the render_ui tool. A
 // markdown-transport run never gets it: the model writes ```a2ui fences.
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: { default: builtIn, langgraph },
   runner: new InMemoryAgentRunner(),
   generativeUI: true,
 });
 
-const handler = createCopilotRuntimeHandler({
+const handler = createCopilotKitRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
 });

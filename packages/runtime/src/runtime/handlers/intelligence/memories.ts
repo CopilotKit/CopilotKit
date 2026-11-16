@@ -1,17 +1,17 @@
 import type {
-  CopilotIntelligenceRuntimeLike,
-  CopilotRuntimeLike,
+  CopilotKitIntelligenceRuntimeLike,
+  CopilotKitRuntimeLike,
 } from "../../core/runtime";
 import { isIntelligenceRuntime } from "../../core/runtime";
 import { getRuntimeLogger } from "../../core/logger";
-import type { CopilotRuntimeLogger } from "../../core/logger";
+import type { CopilotKitRuntimeLogger } from "../../core/logger";
 import { errorResponse, isHandlerResponse } from "../shared/json-response";
 import { resolveIntelligenceUser } from "../shared/resolve-intelligence-user";
 import { grantAllowsMemory, resolveWebMemory } from "../shared/memory-policy";
 import { platformErrorResponse } from "../shared/platform-error";
 
 interface MemoriesHandlerParams {
-  runtime: CopilotRuntimeLike;
+  runtime: CopilotKitRuntimeLike;
   request: Request;
 }
 
@@ -20,7 +20,7 @@ interface MemoryMutationParams extends MemoriesHandlerParams {
 }
 
 async function resolveClientMemory(
-  runtime: CopilotIntelligenceRuntimeLike,
+  runtime: CopilotKitIntelligenceRuntimeLike,
   request: Request,
 ) {
   const user = await resolveIntelligenceUser({ runtime, request });
@@ -38,7 +38,7 @@ async function resolveClientMemory(
 }
 
 const MISSING_INTELLIGENCE_MESSAGE =
-  "Missing CopilotKitIntelligence configuration. Memory operations require a CopilotKitIntelligence instance to be provided in CopilotRuntime options.";
+  "Missing CopilotKitIntelligence configuration. Memory operations require a CopilotKitIntelligence instance to be provided in CopilotKitRuntime options.";
 
 /** Allowed `kind` vocabulary the platform's memory endpoints accept. */
 const MEMORY_KINDS: ReadonlySet<string> = new Set([
@@ -60,7 +60,7 @@ const memoryErrorResponse = platformErrorResponse;
 
 async function parseJsonBody(
   request: Request,
-  logger: CopilotRuntimeLogger,
+  logger: CopilotKitRuntimeLogger,
 ): Promise<Record<string, unknown> | Response> {
   try {
     return (await request.json()) as Record<string, unknown>;

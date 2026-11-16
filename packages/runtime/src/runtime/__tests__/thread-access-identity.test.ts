@@ -2,9 +2,12 @@
  * How the runtime calls `identifyUser` on the local Thread routes.
  */
 import { describe, expect, it, vi } from "vitest";
-import { CopilotRuntime } from "../core/runtime";
-import type { CopilotRuntimeLike, IdentifyUserCallback } from "../core/runtime";
-import { createCopilotRuntimeHandler } from "../core/fetch-handler";
+import { CopilotKitRuntime } from "../core/runtime";
+import type {
+  CopilotKitRuntimeLike,
+  IdentifyUserCallback,
+} from "../core/runtime";
+import { createCopilotKitRuntimeHandler } from "../core/fetch-handler";
 import { resolveIntelligenceUser } from "../handlers/shared/resolve-intelligence-user";
 import {
   BASE,
@@ -102,8 +105,8 @@ describe("identifyUser on SSE runtimes (T9)", () => {
 
   it("accepts only runtimes that have identifyUser (compile-time check)", () => {
     // Never called: it exists so `tsc` rejects a runtime without identifyUser.
-    const check = (runtime: CopilotRuntimeLike, request: Request) =>
-      // @ts-expect-error identifyUser is optional on CopilotRuntimeLike
+    const check = (runtime: CopilotKitRuntimeLike, request: Request) =>
+      // @ts-expect-error identifyUser is optional on CopilotKitRuntimeLike
       resolveIntelligenceUser({ runtime, request });
     expect(typeof check).toBe("function");
   });
@@ -114,7 +117,7 @@ describe("an identifyUser that is not a function", () => {
     for (const identifyUser of [null, "alice", { id: "alice" }]) {
       expect(
         () =>
-          new CopilotRuntime({
+          new CopilotKitRuntime({
             agents: testAgents(),
             identifyUser: identifyUser as unknown as IdentifyUserCallback,
           }),
@@ -123,11 +126,11 @@ describe("an identifyUser that is not a function", () => {
   });
 
   it("counts as no identity on every Thread route of an external runtime", async () => {
-    // An external CopilotRuntimeLike can carry any value; it must not open
+    // An external CopilotKitRuntimeLike can carry any value; it must not open
     // list and clear to anonymous callers in the default mode.
-    const runtime = new CopilotRuntime({ agents: testAgents() });
+    const runtime = new CopilotKitRuntime({ agents: testAgents() });
     Object.defineProperty(runtime, "identifyUser", { value: null });
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime,
       basePath: "/api/copilotkit",
     });

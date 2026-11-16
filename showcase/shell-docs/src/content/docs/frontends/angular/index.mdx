@@ -82,12 +82,12 @@ Use this prompt to connect your Angular app to Copilot Runtime with the selected
 
         ```ts title="server.ts"
         import { createServer } from "node:http";
-        import { CopilotRuntime } from "@copilotkit/runtime";
+        import { CopilotKitRuntime } from "@copilotkit/runtime";
         import { BuiltInAgent } from "@copilotkit/runtime/agent";
         import { openaiText } from "@tanstack/ai-openai";
-        import { createCopilotNodeListener } from "@copilotkit/runtime/node";
+        import { createCopilotKitNodeListener } from "@copilotkit/runtime/node";
 
-        const runtime = new CopilotRuntime({
+        const runtime = new CopilotKitRuntime({
           agents: {
             default: new BuiltInAgent({
               model: openaiText("gpt-6-luna"),
@@ -99,7 +99,7 @@ Use this prompt to connect your Angular app to Copilot Runtime with the selected
         const port = Number(process.env['PORT'] ?? 8200);
 
         createServer(
-          createCopilotNodeListener({
+          createCopilotKitNodeListener({
             runtime,
             basePath: "/api/copilotkit",
             cors: true,
@@ -196,7 +196,7 @@ Use this prompt to connect your Angular app to Copilot Runtime with the selected
             <Accordion title="Troubleshooting">
                 - **Chat renders unstyled**: The chat components add their own `<style>` tag. If you set `injectStyles: false` in `provideCopilotKit`, add `node_modules/@copilotkit/core/styles.css` to the `styles` array in `angular.json`.
                 - **No response from the agent**: Confirm the runtime server is running and `http://localhost:8200/api/copilotkit/info` returns agent information.
-                - **CORS errors**: Keep `cors: true` in `createCopilotNodeListener` for local development, or configure CORS to allow your Angular app's origin in production.
+                - **CORS errors**: Keep `cors: true` in `createCopilotKitNodeListener` for local development, or configure CORS to allow your Angular app's origin in production.
                 - **Model auth errors**: Confirm `OPENAI_API_KEY` is set in the terminal running `npx tsx server.ts`.
                 - **Peer-dependency error on install**: `@angular/cdk` must match your Angular major version. Install the matching major, for example `@angular/cdk@^22` on Angular 22.
                 - **Production build exceeds the bundle budget**: CopilotKit pulls in markdown and syntax-highlighting dependencies, so a fresh app can exceed Angular's default 1 MB budget. Raise `budgets` in `angular.json` if your production build fails on size.

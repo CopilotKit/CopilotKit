@@ -149,11 +149,11 @@ function StartCaptureButton() {
 | `CANCELLED` | `stopTrajectory()`, unmount, or a start with another ID ended this start. Start result only. | None. |
 | `RUNTIME_REQUIRED` | Core has no `runtimeUrl`. | Set `runtimeUrl` on the provider. |
 | `INVALID_REQUEST` | The Trajectory ID is not a UUID. | Pass a UUID, such as `crypto.randomUUID()`. |
-| `INTELLIGENCE_RUNTIME_REQUIRED` | The Runtime has no `intelligence` configured. | Configure `CopilotRuntime` with `intelligence`. |
+| `INTELLIGENCE_RUNTIME_REQUIRED` | The Runtime has no `intelligence` configured. | Configure `CopilotKitRuntime` with `intelligence`. |
 | `IDENTITY_REQUIRED` | The Runtime has no `identifyUser`, or it did not identify the user. | Configure `identifyUser` and send the app session with Runtime requests. |
 | `CONNECTION_FAILED` | The Runtime could not connect to Intelligence, or Intelligence rejected the request. | Check the Intelligence credentials on the Runtime and the Runtime logs. |
 | `CONNECTION_TIMEOUT` | The Runtime or Intelligence did not answer within 10 seconds. | Check the network and the Runtime. |
-| `INVALID_GRANT` | The Runtime response was not a capture grant. | Check that `runtimeUrl` points to a `CopilotRuntime`. |
+| `INVALID_GRANT` | The Runtime response was not a capture grant. | Check that `runtimeUrl` points to a `CopilotKitRuntime`. |
 | `JOIN_FAILED` | Intelligence refused the connection without a known reason. | Check the Intelligence deployment. |
 | `TRAJECTORIES_NOT_ENABLED` | Trajectories are off for this Intelligence project. | Ask our engineering team to enable project access. |
 | `TRAJECTORIES_UNAVAILABLE` | This Intelligence deployment does not serve Trajectory capture. | Ask our engineering team to check deployment support. |
@@ -183,7 +183,7 @@ See [Batches](/intelligence/captured-data#batches) for delivery limits.
 
 ## Trajectory options on `CopilotKitIntelligence`
 
-Set these on the server, in `@copilotkit/runtime`. Capture also needs `identifyUser` on `CopilotRuntime`.
+Set these on the server, in `@copilotkit/runtime`. Capture also needs `identifyUser` on `CopilotKitRuntime`.
 
 ```ts
 import { CopilotKitIntelligence } from "@copilotkit/runtime";

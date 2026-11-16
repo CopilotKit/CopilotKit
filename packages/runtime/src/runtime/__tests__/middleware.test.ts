@@ -1,15 +1,15 @@
-import { createCopilotRuntimeHandler } from "../core/fetch-handler";
+import { createCopilotKitRuntimeHandler } from "../core/fetch-handler";
 import { vi } from "vitest";
 import type { MockedFunction } from "vitest";
 
-import { CopilotRuntime } from "../core/runtime";
-import type { CopilotSseRuntimeOptions } from "../core/runtime";
+import { CopilotKitRuntime } from "../core/runtime";
+import type { CopilotKitSseRuntimeOptions } from "../core/runtime";
 import { logger } from "@copilotkit/shared";
 import type { AbstractAgent } from "@ag-ui/client";
 import { afterEach, describe, expect, it } from "vitest";
 
-const dummyRuntime = (opts: Partial<CopilotSseRuntimeOptions> = {}) => {
-  const runtime = new CopilotRuntime({
+const dummyRuntime = (opts: Partial<CopilotKitSseRuntimeOptions> = {}) => {
+  const runtime = new CopilotKitRuntime({
     agents: { agent: {} as unknown as AbstractAgent },
     ...opts,
   });
@@ -66,7 +66,7 @@ describe("CopilotEndpoint middleware", () => {
       afterRequestMiddleware: after,
     });
 
-    const endpoint = createCopilotRuntimeHandler({
+    const endpoint = createCopilotKitRuntimeHandler({
       cors: true,
       runtime,
       basePath: "/",
@@ -104,7 +104,7 @@ describe("CopilotEndpoint middleware", () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .mockImplementation(() => undefined as any);
 
-    const endpoint = createCopilotRuntimeHandler({
+    const endpoint = createCopilotKitRuntimeHandler({
       cors: true,
       runtime,
       basePath: "/",
@@ -136,7 +136,7 @@ describe("CopilotEndpoint middleware", () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .mockImplementation(() => undefined as any);
 
-    const endpoint = createCopilotRuntimeHandler({
+    const endpoint = createCopilotKitRuntimeHandler({
       cors: true,
       runtime,
       basePath: "/",
@@ -178,7 +178,7 @@ describe("CopilotEndpoint middleware", () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .mockImplementation(() => undefined as any);
 
-    const endpoint = createCopilotRuntimeHandler({
+    const endpoint = createCopilotKitRuntimeHandler({
       cors: true,
       runtime,
       basePath: "/",
@@ -210,7 +210,7 @@ describe("CopilotEndpoint middleware", () => {
       afterRequestMiddleware: after,
     });
 
-    const endpoint = createCopilotRuntimeHandler({
+    const endpoint = createCopilotKitRuntimeHandler({
       cors: true,
       runtime,
       basePath: "/",
@@ -238,7 +238,7 @@ describe("CopilotEndpoint middleware", () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .mockImplementation(() => undefined as any);
 
-    const endpoint = createCopilotRuntimeHandler({
+    const endpoint = createCopilotKitRuntimeHandler({
       cors: true,
       runtime,
       basePath: "/",

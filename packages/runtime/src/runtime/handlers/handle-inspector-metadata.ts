@@ -1,5 +1,5 @@
 import { parseInspectorMetadataV1 } from "@copilotkit/shared";
-import type { CopilotRuntimeLike } from "../core/runtime";
+import type { CopilotKitRuntimeLike } from "../core/runtime";
 import { isIntelligenceRuntime } from "../core/runtime";
 
 const PRIVATE_NO_STORE_HEADERS = {
@@ -7,7 +7,7 @@ const PRIVATE_NO_STORE_HEADERS = {
 } as const;
 
 interface HandleInspectorMetadataParameters {
-  runtime: CopilotRuntimeLike;
+  runtime: CopilotKitRuntimeLike;
   request: Request;
 }
 

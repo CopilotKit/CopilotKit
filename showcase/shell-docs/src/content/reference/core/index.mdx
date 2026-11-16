@@ -3,7 +3,7 @@ title: "@copilotkit/core"
 description: "Framework-agnostic TypeScript client for CopilotKit. Runs anywhere JavaScript runs."
 ---
 
-`@copilotkit/core` is the framework-agnostic TypeScript client at the heart of CopilotKit. It connects to a CopilotRuntime over the AG-UI protocol, manages agents, frontend tools, shared context, and suggestions, and emits state changes to subscribers. It has no UI or React dependency, so it runs in browsers, Node, workers, and inside the React, Angular, and vanilla bindings.
+`@copilotkit/core` is the framework-agnostic TypeScript client at the heart of CopilotKit. It connects to a CopilotKitRuntime over the AG-UI protocol, manages agents, frontend tools, shared context, and suggestions, and emits state changes to subscribers. It has no UI or React dependency, so it runs in browsers, Node, workers, and inside the React, Angular, and vanilla bindings.
 
 ## Install
 
@@ -51,7 +51,7 @@ const sub = copilotkit.subscribe({
 ## Reference
 
 - [CopilotKitCore](/reference/core/classes/CopilotKitCore): the main client class.
-- [ProxiedCopilotRuntimeAgent](/reference/core/classes/ProxiedCopilotRuntimeAgent): AG-UI agent that proxies a CopilotRuntime agent.
+- [ProxiedCopilotRuntimeAgent](/reference/core/classes/ProxiedCopilotRuntimeAgent): AG-UI agent that proxies a CopilotKitRuntime agent.
 - [CopilotKitCoreConfig](/reference/core/types/CopilotKitCoreConfig): options accepted by the `CopilotKitCore` constructor.
 - [ProxiedCopilotRuntimeAgentConfig](/reference/core/types/ProxiedCopilotRuntimeAgentConfig): options accepted by the `ProxiedCopilotRuntimeAgent` constructor.
 - [FrontendTool](/reference/core/types/FrontendTool): shape of a tool registered with `addTool`.

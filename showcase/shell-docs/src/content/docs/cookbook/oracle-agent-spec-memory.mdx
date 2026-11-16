@@ -20,7 +20,7 @@ The example is a personal **travel concierge**: it remembers your preferences ac
 - The `recall_memory` tool reads saved preferences from Oracle Agent Memory. After each response streams, the server saves the turn. A reconcile pass then removes outdated facts, so an updated preference wins next time.
 
 ```text
-CopilotKit (Next.js) ──/api/copilotkit──▶ CopilotRuntime (HttpAgent)
+CopilotKit (Next.js) ──/api/copilotkit──▶ CopilotKitRuntime (HttpAgent)
                                                     │  AG-UI (SSE)
                                                     ▼
                                   Agent Spec JSON → ag_ui_agentspec (LangGraph)
@@ -161,7 +161,7 @@ long-term memory on Oracle AI Database. Requirements:
   persist each turn to Oracle Agent Memory after the AG-UI stream drains.
 - A Next.js CopilotKit frontend that proxies to the agent over AG-UI with
   `HttpAgent`, so the agent owns the LLM call (register the `HttpAgent` on a
-  `CopilotRuntime` with an `InMemoryAgentRunner`). The frontend renders generative UI: `search_flights` →
+  `CopilotKitRuntime` with an `InMemoryAgentRunner`). The frontend renders generative UI: `search_flights` →
   flight-option cards, `recall_memory` → a "🧠 Remembered your preferences"
   chip, and `book_flight` → a confirmation card that stamps into a
   boarding-pass ticket. A collapsible left sidebar lists conversation

@@ -1,7 +1,7 @@
 import { expect, it, vi } from "vitest";
 
 import { handleAnnotate } from "../handlers/handle-user-actions";
-import { CopilotRuntime } from "../core/runtime";
+import { CopilotKitRuntime } from "../core/runtime";
 import { PlatformRequestError } from "../intelligence-platform/client";
 
 const createIdentifyUser = () =>
@@ -28,7 +28,7 @@ const createIntelligenceRuntime = (options?: {
     generateThreadNames: false,
     identifyUser: options?.identifyUser ?? createIdentifyUser(),
     intelligence: options?.intelligence,
-  }) as unknown as CopilotRuntime;
+  }) as unknown as CopilotKitRuntime;
 
 const validBody = () => ({
   type: "user_action",
@@ -46,7 +46,7 @@ const buildRequest = (body: Record<string, unknown>) =>
   });
 
 it("returns 422 when intelligence is not configured", async () => {
-  const runtime = new CopilotRuntime({ agents: {} });
+  const runtime = new CopilotKitRuntime({ agents: {} });
   const response = await handleAnnotate({
     runtime,
     request: buildRequest(validBody()),

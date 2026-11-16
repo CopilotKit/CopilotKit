@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { handleDebugEvents } from "../handle-debug-events";
 import { DebugEventBus } from "../../core/debug-event-bus";
-import type { CopilotRuntimeLike } from "../../core/runtime";
+import type { CopilotKitRuntimeLike } from "../../core/runtime";
 import type { BaseEvent } from "@ag-ui/client";
 import type { ResolvedDebugConfig } from "@copilotkit/shared";
 
@@ -28,7 +28,7 @@ function createMockRuntime(
     debugEventBus?: DebugEventBus;
     debug?: ResolvedDebugConfig;
   } = {},
-): Pick<CopilotRuntimeLike, "debugEventBus" | "debug"> {
+): Pick<CopilotKitRuntimeLike, "debugEventBus" | "debug"> {
   return {
     debugEventBus: overrides.debugEventBus ?? new DebugEventBus(),
     debug: overrides.debug ?? DEBUG_ON,
@@ -91,7 +91,7 @@ describe("handleDebugEvents", () => {
       }
 
       return handleDebugEvents({
-        runtime: createMockRuntime({ debug }) as CopilotRuntimeLike,
+        runtime: createMockRuntime({ debug }) as CopilotKitRuntimeLike,
         request: createMockRequest(),
       }).status;
     }
@@ -124,7 +124,9 @@ describe("handleDebugEvents", () => {
       process.env.NODE_ENV = "production";
 
       const response = handleDebugEvents({
-        runtime: createMockRuntime({ debug: DEBUG_OFF }) as CopilotRuntimeLike,
+        runtime: createMockRuntime({
+          debug: DEBUG_OFF,
+        }) as CopilotKitRuntimeLike,
         request: createMockRequest(),
       });
 
@@ -140,7 +142,7 @@ describe("handleDebugEvents", () => {
     const request = createMockRequest();
 
     const response = handleDebugEvents({
-      runtime: runtime as CopilotRuntimeLike,
+      runtime: runtime as CopilotKitRuntimeLike,
       request,
     });
 
@@ -153,7 +155,7 @@ describe("handleDebugEvents", () => {
     const request = createMockRequest();
 
     const response = handleDebugEvents({
-      runtime: runtime as CopilotRuntimeLike,
+      runtime: runtime as CopilotKitRuntimeLike,
       request,
     });
 
@@ -169,7 +171,7 @@ describe("handleDebugEvents", () => {
     const request = createMockRequest();
 
     const response = handleDebugEvents({
-      runtime: runtime as CopilotRuntimeLike,
+      runtime: runtime as CopilotKitRuntimeLike,
       request,
     });
 
@@ -209,7 +211,7 @@ describe("handleDebugEvents", () => {
     const request = createMockRequest({ signal: abortController.signal });
 
     handleDebugEvents({
-      runtime: runtime as CopilotRuntimeLike,
+      runtime: runtime as CopilotKitRuntimeLike,
       request,
     });
 

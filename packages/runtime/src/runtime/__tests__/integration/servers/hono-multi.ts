@@ -1,4 +1,4 @@
-import { createCopilotRuntimeHandler } from "../../../core/fetch-handler";
+import { createCopilotKitRuntimeHandler } from "../../../core/fetch-handler";
 import { Hono } from "hono";
 import { serve } from "@hono/node-server";
 import type { AddressInfo } from "node:net";
@@ -13,7 +13,7 @@ export async function createHonoMultiServer(
 ): Promise<ServerHandle> {
   const runtime = createTestRuntime(opts);
   const app = new Hono();
-  const handler = createCopilotRuntimeHandler({
+  const handler = createCopilotKitRuntimeHandler({
     cors: true,
     runtime,
     basePath: BASE_PATH,

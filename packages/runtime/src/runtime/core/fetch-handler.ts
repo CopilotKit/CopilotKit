@@ -7,10 +7,10 @@
  *
  * @example
  * ```typescript
- * import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+ * import { CopilotKitRuntime, createCopilotKitRuntimeHandler } from "@copilotkit/runtime";
  *
- * const handler = createCopilotRuntimeHandler({
- *   runtime: new CopilotRuntime({ agents: { ... } }),
+ * const handler = createCopilotKitRuntimeHandler({
+ *   runtime: new CopilotKitRuntime({ agents: { ... } }),
  *   basePath: "/api/copilotkit",
  *   cors: true,
  * });
@@ -44,33 +44,33 @@
  *
  * This laziness is a property of THIS handler, because it is the one entry point
  * that must stay serverless-safe. The process-owning wrappers do not inherit it:
- * `createCopilotNodeListener` STARTS activation
+ * `createCopilotKitNodeListener` STARTS activation
  * at creation (OSS-641), so `ready()` there is optional and await-and-observe.
  *
  * @example
  * ```typescript
  * // Long-running host: open the managed-Channel listener once at startup.
- * const handler = createCopilotRuntimeHandler({ runtime });
+ * const handler = createCopilotKitRuntimeHandler({ runtime });
  * await handler.channels.ready();
  * ```
  */
 
 import type {
-  CopilotRuntimeLike,
-  CopilotIntelligenceRuntimeLike,
+  CopilotKitRuntimeLike,
+  CopilotKitIntelligenceRuntimeLike,
   RuntimeWithDeclaredChannels,
 } from "./runtime";
 import { isIntelligenceRuntime } from "./runtime";
 import { ChannelManager } from "./channel-manager";
 import type { ChannelsControl, ActivateChannelEngine } from "./channel-manager";
-import type { CopilotRuntimeHooks, RouteInfo, HookContext } from "./hooks";
+import type { CopilotKitRuntimeHooks, RouteInfo, HookContext } from "./hooks";
 import {
   runOnRequest,
   runOnBeforeHandler,
   runOnResponse,
   runOnError,
 } from "./hooks";
-import type { CopilotCorsConfig } from "./fetch-cors";
+import type { CopilotKitCorsConfig } from "./fetch-cors";
 import { handleCors, addCorsHeaders } from "./fetch-cors";
 import { matchRoute } from "./fetch-router";
 import {
@@ -141,8 +141,8 @@ const SINGLE_ROUTE_ENVELOPE_MESSAGE =
  * Public types
  * --------------------------------------------------------------------------------------------- */
 
-export interface CopilotRuntimeHandlerOptions {
-  runtime: CopilotRuntimeLike;
+export interface CopilotKitRuntimeHandlerOptions {
+  runtime: CopilotKitRuntimeLike;
 
   /**
    * Optional base path for routing.
@@ -167,12 +167,12 @@ export interface CopilotRuntimeHandlerOptions {
    * When not provided, no CORS headers are added (let the framework handle it).
    * Set to true for permissive defaults, or provide an object.
    */
-  cors?: boolean | CopilotCorsConfig;
+  cors?: boolean | CopilotKitCorsConfig;
 
   /**
    * Lifecycle hooks for request processing.
    */
-  hooks?: CopilotRuntimeHooks;
+  hooks?: CopilotKitRuntimeHooks;
 
   /**
    * Whether the handler builds the runtime's declared managed-Channel control
@@ -211,7 +211,7 @@ export interface CopilotRuntimeHandlerOptions {
  * control surface. A plain function is assignable to this type, so existing
  * call sites that treat it as `(Request) => Promise<Response>` keep working.
  */
-export type CopilotRuntimeFetchHandler = ((
+export type CopilotKitRuntimeFetchHandler = ((
   request: Request,
 ) => Promise<Response>) & {
   /**
@@ -222,13 +222,13 @@ export type CopilotRuntimeFetchHandler = ((
 };
 
 /**
- * A {@link CopilotRuntimeFetchHandler} whose {@link ChannelsControl} surface is
+ * A {@link CopilotKitRuntimeFetchHandler} whose {@link ChannelsControl} surface is
  * guaranteed present. Returned when the runtime was constructed with at least
  * one declared Intelligence Channel and activation was not opted out of, so the
  * documented `handler.channels.ready(...)` call type-checks without a `!` or
  * `?.` under strict TypeScript.
  */
-export type CopilotRuntimeFetchHandlerWithChannels = ((
+export type CopilotKitRuntimeFetchHandlerWithChannels = ((
   request: Request,
 ) => Promise<Response>) & {
   /** Lifecycle control surface for the runtime's activated managed Channels. */
@@ -267,7 +267,7 @@ const channelManagers = new WeakMap<object, ChannelManager>();
  * @returns The runtime's (un-activated) Channel manager.
  */
 function getOrCreateChannelManager(
-  runtime: CopilotIntelligenceRuntimeLike,
+  runtime: CopilotKitIntelligenceRuntimeLike,
   engine: ActivateChannelEngine | undefined,
 ): ChannelManager {
   const existing = channelManagers.get(runtime);
@@ -320,22 +320,22 @@ function getOrCreateChannelManager(
  * `.channels`) falls through to the optional-shape overload below rather than
  * dishonestly promising a control surface that will not exist.
  */
-export function createCopilotRuntimeHandler(
-  options: CopilotRuntimeHandlerOptions & {
+export function createCopilotKitRuntimeHandler(
+  options: CopilotKitRuntimeHandlerOptions & {
     runtime: RuntimeWithDeclaredChannels;
     activateChannels?: true | undefined;
   },
-): CopilotRuntimeFetchHandlerWithChannels;
+): CopilotKitRuntimeFetchHandlerWithChannels;
 /**
  * Overload: every other runtime (SSE, Intelligence without channels, or with
  * activation disabled) yields a handler whose `.channels` is optional.
  */
-export function createCopilotRuntimeHandler(
-  options: CopilotRuntimeHandlerOptions,
-): CopilotRuntimeFetchHandler;
-export function createCopilotRuntimeHandler(
-  options: CopilotRuntimeHandlerOptions,
-): CopilotRuntimeFetchHandler {
+export function createCopilotKitRuntimeHandler(
+  options: CopilotKitRuntimeHandlerOptions,
+): CopilotKitRuntimeFetchHandler;
+export function createCopilotKitRuntimeHandler(
+  options: CopilotKitRuntimeHandlerOptions,
+): CopilotKitRuntimeFetchHandler {
   const { runtime, basePath, mode = "multi-route", cors, hooks } = options;
   const logger = getRuntimeLogger(runtime);
 
@@ -346,7 +346,7 @@ export function createCopilotRuntimeHandler(
 
   const corsConfig = resolveCorsConfig(cors);
 
-  const handler: CopilotRuntimeFetchHandler = async (
+  const handler: CopilotKitRuntimeFetchHandler = async (
     request: Request,
   ): Promise<Response> => {
     const url = new URL(request.url, "http://localhost");
@@ -620,12 +620,39 @@ export function createCopilotRuntimeHandler(
   return handler;
 }
 
+/**
+ * @deprecated Use createCopilotKitRuntimeHandler. This old name is an alias
+ * with the same behavior.
+ */
+export function createCopilotRuntimeHandler(
+  options: CopilotKitRuntimeHandlerOptions & {
+    runtime: RuntimeWithDeclaredChannels;
+    activateChannels?: true | undefined;
+  },
+): CopilotKitRuntimeFetchHandlerWithChannels;
+/**
+ * @deprecated Use createCopilotKitRuntimeHandler. This old name is an alias
+ * with the same behavior.
+ */
+export function createCopilotRuntimeHandler(
+  options: CopilotKitRuntimeHandlerOptions,
+): CopilotKitRuntimeFetchHandler;
+/**
+ * @deprecated Use createCopilotKitRuntimeHandler. This old name is an alias
+ * with the same behavior.
+ */
+export function createCopilotRuntimeHandler(
+  options: CopilotKitRuntimeHandlerOptions,
+): CopilotKitRuntimeFetchHandler {
+  return createCopilotKitRuntimeHandler(options);
+}
+
 /* ------------------------------------------------------------------------------------------------
  * Route dispatch
  * --------------------------------------------------------------------------------------------- */
 
 function dispatchRoute(
-  runtime: CopilotRuntimeLike,
+  runtime: CopilotKitRuntimeLike,
   request: Request,
   route: RouteInfo,
   options: {
@@ -647,7 +674,7 @@ function dispatchRoute(
   // did not exist — this MUST run before the per-handler `isIntelligenceRuntime`
   // check so an un-opted-in deployment reveals nothing about memory (not even
   // whether Intelligence is configured). Coalesce a missing flag (external
-  // `CopilotRuntimeLike` implementor) to `false`.
+  // `CopilotKitRuntimeLike` implementor) to `false`.
   if (
     route.method.startsWith("memories/") &&
     runtime.exposeMemoryRoutes !== true
@@ -1004,8 +1031,8 @@ function validateHttpMethod(
  * --------------------------------------------------------------------------------------------- */
 
 function resolveCorsConfig(
-  cors: boolean | CopilotCorsConfig | undefined,
-): CopilotCorsConfig | null {
+  cors: boolean | CopilotKitCorsConfig | undefined,
+): CopilotKitCorsConfig | null {
   if (!cors) return null;
   if (cors === true) return {};
   return cors;
@@ -1013,7 +1040,7 @@ function resolveCorsConfig(
 
 function maybeAddCors(
   response: Response,
-  config: CopilotCorsConfig | null,
+  config: CopilotKitCorsConfig | null,
   requestOrigin: string | null,
 ): Response {
   if (!config) return response;

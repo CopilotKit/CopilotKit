@@ -10,7 +10,7 @@ You write your UI as JSX once (`@copilotkit/channels-ui`) and drive the bot with
 
 The adapter keeps its own Slack credentials (`botToken` / `appToken`) — in the
 managed path the Channel runs inside a CopilotKit Intelligence-configured
-`CopilotRuntime` (free plan available), which starts and owns the channel's
+`CopilotKitRuntime` (free plan available), which starts and owns the channel's
 lifecycle. Building and operating your own channel runner on the SDK primitives
 is also a supported path.
 
@@ -43,8 +43,8 @@ import {
   defaultSlackTools,
   defaultSlackContext,
 } from "@copilotkit/channels-slack";
-import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime";
-import { createCopilotNodeListener } from "@copilotkit/runtime/node";
+import { CopilotKitRuntime, CopilotKitIntelligence } from "@copilotkit/runtime";
+import { createCopilotKitNodeListener } from "@copilotkit/runtime/node";
 
 const bot = createChannel({
   name: "support-bot", // project-unique Intelligence Channel name
@@ -63,7 +63,7 @@ const bot = createChannel({
 bot.onMention(({ thread }) => thread.runAgent());
 
 // The runtime owns the channel's lifecycle — there is no `bot.start()`.
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   intelligence: new CopilotKitIntelligence({
     // apiUrl and wsUrl default to cloud-hosted CopilotKit Intelligence — override
     // both together only for a self-hosted deployment.
@@ -73,7 +73,7 @@ const runtime = new CopilotRuntime({
 });
 
 // Creating the listener starts the Channel's connection.
-const listener = createCopilotNodeListener({ runtime });
+const listener = createCopilotKitNodeListener({ runtime });
 // Optional: await that activation so a broken config fails startup loudly.
 await listener.channels.ready(); // listener.channels.stop() tears it down
 ```

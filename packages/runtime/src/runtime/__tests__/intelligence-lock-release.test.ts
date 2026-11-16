@@ -3,8 +3,8 @@ import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
 import { Observable } from "rxjs";
 import { WebSocket } from "ws";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createCopilotRuntimeHandler } from "../core/fetch-handler";
-import { CopilotIntelligenceRuntime } from "../core/runtime";
+import { createCopilotKitRuntimeHandler } from "../core/fetch-handler";
+import { CopilotKitIntelligenceRuntime } from "../core/runtime";
 import { CopilotKitIntelligence } from "../intelligence-platform/client";
 import { startFakeLockGateway } from "./helpers/fake-lock-gateway";
 import type { FakeLockGatewayOptions } from "./helpers/fake-lock-gateway";
@@ -114,7 +114,7 @@ async function startRun(
     ...gateway,
   });
   script = agentScript;
-  const runtime = new CopilotIntelligenceRuntime({
+  const runtime = new CopilotKitIntelligenceRuntime({
     agents: { test: new ScriptedAgent({ threadId }) },
     intelligence: new CopilotKitIntelligence({
       apiKey: "test-key",
@@ -124,7 +124,7 @@ async function startRun(
     identifyUser: () => ({ id: "user-1", name: "User One" }),
     generateThreadNames: false,
   });
-  const handler = createCopilotRuntimeHandler({
+  const handler = createCopilotKitRuntimeHandler({
     runtime,
     basePath: "/api/copilotkit",
   });

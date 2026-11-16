@@ -84,7 +84,7 @@ useThreads satisfies (input: UseThreadsInput) => UseThreadsResult;
   </PropertyReference>
 
   <PropertyReference name="listError" type="Error | null">
-    Like `error`, but without configuration errors. Show this one to end users, so a developer-facing setup message does not reach the UI. It does report a runtime that refuses to list threads because the caller has no identity: set `identifyUser` on `CopilotRuntime`.
+    Like `error`, but without configuration errors. Show this one to end users, so a developer-facing setup message does not reach the UI. It does report a runtime that refuses to list threads because the caller has no identity: set `identifyUser` on `CopilotKitRuntime`.
   </PropertyReference>
 
   <PropertyReference name="fetchMoreError" type="Error | null">

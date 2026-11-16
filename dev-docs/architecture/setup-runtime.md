@@ -17,7 +17,7 @@ graph TB
     subgraph Your Server
         EP["Express / Hono<br/><i>Endpoint handler</i>"]
         BM["beforeRequestMiddleware<br/><i>(optional)</i>"]
-        RT["<b>CopilotRuntime</b>"]
+        RT["<b>CopilotKitRuntime</b>"]
         AM["afterRequestMiddleware<br/><i>(optional)</i>"]
         Runner["<b>AgentRunner</b><br/><i>InMemory (default)<br/>or SQLite</i>"]
         TS["TranscriptionService<br/><i>(optional)</i>"]
@@ -57,12 +57,12 @@ npm install @copilotkit/runtime express
 ```typescript
 // server.ts
 import express from "express";
-import { CopilotRuntime } from "@copilotkit/runtime";
+import { CopilotKitRuntime } from "@copilotkit/runtime";
 import { createCopilotEndpointExpress } from "@copilotkit/runtime/express";
 
 const app = express();
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: {
     default: myAgent, // Any AbstractAgent implementation
   },
@@ -87,7 +87,7 @@ That's it. The endpoint handler creates these routes automatically:
 sequenceDiagram
     participant Client as Frontend
     participant EP as Express Router
-    participant RT as CopilotRuntime
+    participant RT as CopilotKitRuntime
     participant Agent as AI Agent
 
     Client->>EP: GET /api/copilotkit/info
@@ -109,12 +109,12 @@ sequenceDiagram
 
 ```typescript
 import { Hono } from "hono";
-import { CopilotRuntime } from "@copilotkit/runtime";
+import { CopilotKitRuntime } from "@copilotkit/runtime";
 import { createCopilotEndpointHono } from "@copilotkit/runtime/hono";
 
 const app = new Hono();
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: { default: myAgent },
 });
 
@@ -130,7 +130,7 @@ export default app;
 CopilotKit includes a built-in agent powered by TanStack AI. Pass it a TanStack AI adapter:
 
 ```typescript
-import { CopilotRuntime } from "@copilotkit/runtime";
+import { CopilotKitRuntime } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
@@ -139,7 +139,7 @@ const agent = new BuiltInAgent({
   prompt: "You are a helpful shopping assistant.",
 });
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: { default: agent },
 });
 ```
@@ -151,7 +151,7 @@ const runtime = new CopilotRuntime({
 Agents can be a `Promise` — useful for dynamic loading:
 
 ```typescript
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: loadAgents(), // Returns Promise<Record<string, AbstractAgent>>
 });
 
@@ -166,10 +166,10 @@ async function loadAgents() {
 
 ---
 
-## All CopilotRuntime Options
+## All CopilotKitRuntime Options
 
 ```typescript
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   // Required: map of agent IDs to agent instances
   agents: {
     default: defaultAgent,
@@ -198,7 +198,7 @@ const runtime = new CopilotRuntime({
 
 ```mermaid
 graph TB
-    subgraph "CopilotRuntime Options"
+    subgraph "CopilotKitRuntime Options"
         direction TB
 
         subgraph "Required"
@@ -247,7 +247,7 @@ Stores agent threads in memory. Simple, no persistence. Threads are lost on serv
 ```typescript
 import { InMemoryAgentRunner } from "@copilotkit/runtime";
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: { default: myAgent },
   runner: new InMemoryAgentRunner(), // This is the default
 });
@@ -260,7 +260,7 @@ Stores agent threads in SQLite. Survives restarts.
 ```typescript
 import { SQLiteAgentRunner } from "@copilotkit/sqlite-runner";
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: { default: myAgent },
   runner: new SQLiteAgentRunner({ dbPath: "./agent-state.db" }),
 });
@@ -305,7 +305,7 @@ Middleware lets you intercept requests before and after processing.
 Runs before any handler. Use it for auth, logging, request modification.
 
 ```typescript
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: { default: myAgent },
   beforeRequestMiddleware: async ({ request, path, runtime }) => {
     // Example: verify auth token
@@ -329,7 +329,7 @@ const runtime = new CopilotRuntime({
 Runs after the response is prepared but before it's sent.
 
 ```typescript
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: { default: myAgent },
   afterRequestMiddleware: async ({ response, path, runtime }) => {
     // Example: log responses
@@ -387,7 +387,7 @@ class OpenAITranscription extends TranscriptionService {
   }
 }
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: { default: myAgent },
   transcriptionService: new OpenAITranscription(),
 });
@@ -405,7 +405,7 @@ sequenceDiagram
     participant CORS as CORS Handler
     participant Before as Before Middleware
     participant Router as Route Handler
-    participant Runtime as CopilotRuntime
+    participant Runtime as CopilotKitRuntime
     participant Runner as AgentRunner
     participant Agent as AI Agent
     participant After as After Middleware
@@ -438,7 +438,7 @@ sequenceDiagram
 
 ```typescript
 import express from "express";
-import { CopilotRuntime } from "@copilotkit/runtime";
+import { CopilotKitRuntime } from "@copilotkit/runtime";
 import { createCopilotEndpointExpress } from "@copilotkit/runtime/express";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
@@ -458,7 +458,7 @@ const codeAgent = new BuiltInAgent({
 });
 
 // Create runtime with all optional features
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: {
     default: generalAgent,
     coding: codeAgent,

@@ -12,7 +12,7 @@
  *   • `AFTER_REQUEST`  – runs *after* the handler returns a `Response`.
  */
 
-import type { CopilotRuntimeLike } from "./runtime";
+import type { CopilotKitRuntimeLike } from "./runtime";
 import type { MaybePromise } from "@copilotkit/shared";
 import { getRuntimeLogger } from "./logger";
 import { parseSSEResponse } from "./middleware-sse-parser";
@@ -23,12 +23,12 @@ import type { Message } from "./middleware-sse-parser";
  * --------------------------------------------------------------------------------------------- */
 
 export interface BeforeRequestMiddlewareParameters {
-  runtime: CopilotRuntimeLike;
+  runtime: CopilotKitRuntimeLike;
   request: Request;
   path: string;
 }
 export interface AfterRequestMiddlewareParameters {
-  runtime: CopilotRuntimeLike;
+  runtime: CopilotKitRuntimeLike;
   response: Response;
   path: string;
   /** Reconstructed messages from the SSE stream (empty for non-SSE responses). */
@@ -94,7 +94,7 @@ export async function callAfterRequestMiddleware({
   response,
   path,
 }: {
-  runtime: CopilotRuntimeLike;
+  runtime: CopilotKitRuntimeLike;
   response: Response;
   path: string;
 }): Promise<void> {

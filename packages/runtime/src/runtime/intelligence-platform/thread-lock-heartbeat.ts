@@ -1,5 +1,5 @@
 import { getRuntimeLogger } from "../core/logger";
-import type { CopilotRuntimeLogger } from "../core/logger";
+import type { CopilotKitRuntimeLogger } from "../core/logger";
 import { PlatformRequestError } from "./client";
 import type { RenewThreadLockResponse } from "./client";
 
@@ -43,7 +43,7 @@ export interface ThreadLockHeartbeatOptions {
   /** Unref timers so a pending heartbeat never keeps the process alive. */
   unref?: boolean;
   /** Where retried renewals are reported. Default: the console. */
-  logger?: CopilotRuntimeLogger;
+  logger?: CopilotKitRuntimeLogger;
 }
 
 export interface ThreadLockHeartbeat {

@@ -1276,7 +1276,7 @@ describe("@copilotkit/react-native/generative-ui entry", () => {
   });
 
   // The same ban as the headless block's. The generative UI provider registers
-  // no tool (CopilotRuntime adds `render_ui` on the server), and the
+  // no tool (CopilotKitRuntime adds `render_ui` on the server), and the
   // `render_ui` renderer is written into CopilotKitCoreReact by react-core's
   // `GenerativeUIToolCallRenderer` (chat.tsx, via `setRenderToolCalls`), which
   // the provider mounts — in react-core, outside this walk. What this pins is

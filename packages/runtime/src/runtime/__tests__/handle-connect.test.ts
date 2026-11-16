@@ -2,7 +2,7 @@ import { Observable } from "rxjs";
 import { describe, it, expect, vi } from "vitest";
 import type { BaseEvent } from "@ag-ui/client";
 import { handleConnectAgent } from "../handlers/handle-connect";
-import type { CopilotRuntime } from "../core/runtime";
+import type { CopilotKitRuntime } from "../core/runtime";
 import { resolveForwardHeadersPolicy } from "../handlers/header-utils";
 import type { AgentRunnerConnectRequest } from "../runner/agent-runner";
 import { IntelligenceAgentRunner } from "../runner/intelligence";
@@ -13,7 +13,7 @@ describe("handleConnectAgent", () => {
     connectHandler?: (
       request: AgentRunnerConnectRequest,
     ) => Observable<BaseEvent>,
-  ): CopilotRuntime => {
+  ): CopilotKitRuntime => {
     return {
       agents: Promise.resolve(agents),
       transcriptionService: undefined,
@@ -34,7 +34,7 @@ describe("handleConnectAgent", () => {
         isRunning: async () => false,
         stop: async () => false,
       },
-    } as unknown as CopilotRuntime;
+    } as unknown as CopilotKitRuntime;
   };
 
   it("should return 404 when agent does not exist", async () => {
@@ -237,7 +237,7 @@ describe("handleConnectAgent", () => {
           ɵgetClientWsUrl: vi.fn(() => "wss://runtime.example/client"),
           ...platform,
         },
-      } as unknown as CopilotRuntime;
+      } as unknown as CopilotKitRuntime;
     };
 
     it("returns runtime websocket connection credentials when available", async () => {

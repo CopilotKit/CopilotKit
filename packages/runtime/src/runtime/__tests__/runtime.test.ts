@@ -1,11 +1,11 @@
 import { describe, expect, expectTypeOf, it, vi } from "vitest";
 
 import {
-  CopilotIntelligenceRuntime,
-  CopilotRuntime,
-  CopilotSseRuntime,
+  CopilotKitIntelligenceRuntime,
+  CopilotKitRuntime,
+  CopilotKitSseRuntime,
 } from "../core/runtime";
-import type { CopilotIntelligenceRuntimeOptions } from "../core/runtime";
+import type { CopilotKitIntelligenceRuntimeOptions } from "../core/runtime";
 import type { CopilotKitIntelligence } from "../intelligence-platform";
 import { InMemoryAgentRunner } from "../runner/in-memory";
 import { IntelligenceAgentRunner } from "../runner/intelligence";
@@ -24,13 +24,15 @@ describe("runtime construction", () => {
 
   it("exposes Learning configuration only under the experimental marker", () => {
     type HasUnprefixedLearning =
-      "learning" extends keyof CopilotIntelligenceRuntimeOptions ? true : false;
+      "learning" extends keyof CopilotKitIntelligenceRuntimeOptions
+        ? true
+        : false;
 
     expectTypeOf<HasUnprefixedLearning>().toEqualTypeOf<false>();
   });
 
   it("builds an SSE runtime by default", () => {
-    const runtime = new CopilotSseRuntime({ agents });
+    const runtime = new CopilotKitSseRuntime({ agents });
 
     expect(runtime.mode).toBe("sse");
 
@@ -41,7 +43,7 @@ describe("runtime construction", () => {
   it("rejects Learning Container config in SSE mode", () => {
     expect(
       () =>
-        new CopilotSseRuntime({
+        new CopilotKitSseRuntime({
           agents,
           ɵlearning: { containerId: "support-quality" },
         } as never),
@@ -51,7 +53,7 @@ describe("runtime construction", () => {
   it("builds an Intelligence runtime with an Intelligence runner", () => {
     const sdk = createMockIntelligence();
 
-    const runtime = new CopilotIntelligenceRuntime({
+    const runtime = new CopilotKitIntelligenceRuntime({
       agents,
       intelligence: sdk,
       identifyUser,
@@ -71,7 +73,7 @@ describe("runtime construction", () => {
     const sdk = createMockIntelligence();
     const containerId = vi.fn().mockResolvedValue("support-quality");
 
-    const runtime = new CopilotIntelligenceRuntime({
+    const runtime = new CopilotKitIntelligenceRuntime({
       agents,
       intelligence: sdk,
       identifyUser,
@@ -86,7 +88,7 @@ describe("runtime construction", () => {
     (containerId) => {
       expect(
         () =>
-          new CopilotIntelligenceRuntime({
+          new CopilotKitIntelligenceRuntime({
             agents,
             intelligence: createMockIntelligence(),
             identifyUser,
@@ -99,7 +101,7 @@ describe("runtime construction", () => {
   it("preserves an explicit generateThreadNames=false option in Intelligence mode", () => {
     const sdk = createMockIntelligence();
 
-    const runtime = new CopilotIntelligenceRuntime({
+    const runtime = new CopilotKitIntelligenceRuntime({
       agents,
       intelligence: sdk,
       identifyUser,
@@ -109,8 +111,8 @@ describe("runtime construction", () => {
     expect(runtime.generateThreadNames).toBe(false);
   });
 
-  it("keeps CopilotRuntime as an SSE shim when no CopilotKitIntelligence is provided", () => {
-    const runtime = new CopilotRuntime({ agents });
+  it("keeps CopilotKitRuntime as an SSE shim when no CopilotKitIntelligence is provided", () => {
+    const runtime = new CopilotKitRuntime({ agents });
 
     expect(runtime.mode).toBe("sse");
 
@@ -118,10 +120,10 @@ describe("runtime construction", () => {
     expect(runtime.intelligence).toBeUndefined();
   });
 
-  it("keeps CopilotRuntime as an Intelligence shim when CopilotKitIntelligence is provided", () => {
+  it("keeps CopilotKitRuntime as an Intelligence shim when CopilotKitIntelligence is provided", () => {
     const sdk = createMockIntelligence();
 
-    const runtime = new CopilotRuntime({
+    const runtime = new CopilotKitRuntime({
       agents,
       intelligence: sdk,
       identifyUser,
@@ -132,22 +134,22 @@ describe("runtime construction", () => {
     expect(runtime.intelligence).toBe(sdk);
     expect(runtime.runner).toBeInstanceOf(IntelligenceAgentRunner);
     expect(
-      (runtime as CopilotRuntime & { generateThreadNames?: boolean })
+      (runtime as CopilotKitRuntime & { generateThreadNames?: boolean })
         .generateThreadNames,
     ).toBe(true);
     expect(
       (
-        runtime as CopilotRuntime & {
+        runtime as CopilotKitRuntime & {
           identifyUser?: typeof identifyUser;
         }
       ).identifyUser,
     ).toBe(identifyUser);
   });
 
-  it("forwards generateThreadNames=false through the CopilotRuntime intelligence shim", () => {
+  it("forwards generateThreadNames=false through the CopilotKitRuntime intelligence shim", () => {
     const sdk = createMockIntelligence();
 
-    const runtime = new CopilotRuntime({
+    const runtime = new CopilotKitRuntime({
       agents,
       intelligence: sdk,
       identifyUser,
@@ -156,16 +158,16 @@ describe("runtime construction", () => {
 
     expect(runtime.mode).toBe("intelligence");
     expect(
-      (runtime as CopilotRuntime & { generateThreadNames?: boolean })
+      (runtime as CopilotKitRuntime & { generateThreadNames?: boolean })
         .generateThreadNames,
     ).toBe(false);
   });
 
   it("exposes identifyUser as undefined for SSE runtimes", () => {
-    const runtime = new CopilotRuntime({ agents });
+    const runtime = new CopilotKitRuntime({ agents });
 
     expect(
-      (runtime as CopilotRuntime & { identifyUser?: typeof identifyUser })
+      (runtime as CopilotKitRuntime & { identifyUser?: typeof identifyUser })
         .identifyUser,
     ).toBeUndefined();
   });
@@ -173,7 +175,7 @@ describe("runtime construction", () => {
   it("defaults lockTtlSeconds to 20 and lockHeartbeatIntervalSeconds to 15", () => {
     const sdk = createMockIntelligence();
 
-    const runtime = new CopilotIntelligenceRuntime({
+    const runtime = new CopilotKitIntelligenceRuntime({
       agents,
       intelligence: sdk,
       identifyUser,
@@ -186,7 +188,7 @@ describe("runtime construction", () => {
   it("clamps lockTtlSeconds to a maximum of 3600 (1 hour)", () => {
     const sdk = createMockIntelligence();
 
-    const runtime = new CopilotIntelligenceRuntime({
+    const runtime = new CopilotKitIntelligenceRuntime({
       agents,
       intelligence: sdk,
       identifyUser,
@@ -199,7 +201,7 @@ describe("runtime construction", () => {
   it("clamps lockHeartbeatIntervalSeconds to a maximum of 3000 (50 minutes)", () => {
     const sdk = createMockIntelligence();
 
-    const runtime = new CopilotIntelligenceRuntime({
+    const runtime = new CopilotKitIntelligenceRuntime({
       agents,
       intelligence: sdk,
       identifyUser,
@@ -212,7 +214,7 @@ describe("runtime construction", () => {
   it("uses provided values when they are within allowed range", () => {
     const sdk = createMockIntelligence();
 
-    const runtime = new CopilotIntelligenceRuntime({
+    const runtime = new CopilotKitIntelligenceRuntime({
       agents,
       intelligence: sdk,
       identifyUser,
@@ -223,10 +225,10 @@ describe("runtime construction", () => {
     expect(runtime.lockHeartbeatIntervalSeconds).toBe(15);
   });
 
-  it("stores lock config on CopilotIntelligenceRuntime", () => {
+  it("stores lock config on CopilotKitIntelligenceRuntime", () => {
     const sdk = createMockIntelligence();
 
-    const runtime = new CopilotIntelligenceRuntime({
+    const runtime = new CopilotKitIntelligenceRuntime({
       agents,
       intelligence: sdk,
       identifyUser,
@@ -240,10 +242,10 @@ describe("runtime construction", () => {
     expect(runtime.lockHeartbeatIntervalSeconds).toBe(10);
   });
 
-  it("forwards lock config through the CopilotRuntime intelligence shim", () => {
+  it("forwards lock config through the CopilotKitRuntime intelligence shim", () => {
     const sdk = createMockIntelligence();
 
-    const runtime = new CopilotRuntime({
+    const runtime = new CopilotKitRuntime({
       agents,
       intelligence: sdk,
       identifyUser,
@@ -253,28 +255,30 @@ describe("runtime construction", () => {
     });
 
     expect(
-      (runtime as CopilotRuntime & { lockTtlSeconds?: number }).lockTtlSeconds,
+      (runtime as CopilotKitRuntime & { lockTtlSeconds?: number })
+        .lockTtlSeconds,
     ).toBe(60);
     expect(
-      (runtime as CopilotRuntime & { lockKeyPrefix?: string }).lockKeyPrefix,
+      (runtime as CopilotKitRuntime & { lockKeyPrefix?: string }).lockKeyPrefix,
     ).toBe("agent");
     expect(
-      (runtime as CopilotRuntime & { lockHeartbeatIntervalSeconds?: number })
+      (runtime as CopilotKitRuntime & { lockHeartbeatIntervalSeconds?: number })
         .lockHeartbeatIntervalSeconds,
     ).toBe(20);
   });
 
   it("exposes lock config as undefined for SSE runtimes", () => {
-    const runtime = new CopilotRuntime({ agents });
+    const runtime = new CopilotKitRuntime({ agents });
 
     expect(
-      (runtime as CopilotRuntime & { lockTtlSeconds?: number }).lockTtlSeconds,
+      (runtime as CopilotKitRuntime & { lockTtlSeconds?: number })
+        .lockTtlSeconds,
     ).toBeUndefined();
     expect(
-      (runtime as CopilotRuntime & { lockKeyPrefix?: string }).lockKeyPrefix,
+      (runtime as CopilotKitRuntime & { lockKeyPrefix?: string }).lockKeyPrefix,
     ).toBeUndefined();
     expect(
-      (runtime as CopilotRuntime & { lockHeartbeatIntervalSeconds?: number })
+      (runtime as CopilotKitRuntime & { lockHeartbeatIntervalSeconds?: number })
         .lockHeartbeatIntervalSeconds,
     ).toBeUndefined();
   });

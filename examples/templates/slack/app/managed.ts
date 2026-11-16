@@ -12,15 +12,15 @@
  * The bot itself — the agent, tools, context, commands, and turn handlers — is
  * IDENTICAL to the native bot; only the transport changes. Instead of a
  * launcher, the managed path now goes through the NORMAL runtime handler: you
- * hand your `createChannel(...)` to `new CopilotRuntime({ …, channels })` and
- * mount it with `createCopilotNodeListener` — which activates the managed Channel
+ * hand your `createChannel(...)` to `new CopilotKitRuntime({ …, channels })` and
+ * mount it with `createCopilotKitNodeListener` — which activates the managed Channel
  * — then `await listener.channels.ready()` to wait until it is live (the runtime
  * derives every infra id — project, adapter, channel — from the Intelligence
  * config + the channel `name`, so the developer supplies NONE of them):
  *
  *   native:   createChannel({ adapters: [slack({ botToken, appToken }) ] })   // index.ts
- *   managed:  new CopilotRuntime({ intelligence, identifyUser, channels })     // this file
- *             + createCopilotNodeListener({ runtime })
+ *   managed:  new CopilotKitRuntime({ intelligence, identifyUser, channels })     // this file
+ *             + createCopilotKitNodeListener({ runtime })
  *
  * Run: `pnpm --filter slack-example channel` with the intelligence config env
  * set (see `.env.example`).
@@ -34,8 +34,8 @@ import {
   defaultSlackTools,
   defaultSlackContext,
 } from "@copilotkit/channels/slack";
-import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime";
-import { createCopilotNodeListener } from "@copilotkit/runtime/node";
+import { CopilotKitRuntime, CopilotKitIntelligence } from "@copilotkit/runtime";
+import { createCopilotKitNodeListener } from "@copilotkit/runtime/node";
 import { appTools } from "./tools/index.js";
 import { renderMrrTool } from "./tools/render-mrr.js";
 import {
@@ -189,7 +189,7 @@ async function main() {
     apiKey: requiredIntelligenceKey(),
   });
 
-  const runtime = new CopilotRuntime({
+  const runtime = new CopilotKitRuntime({
     // The Channel supplies its own agent (the HttpAgent above), so no
     // additional runtime-hosted agents are needed here.
     agents: {},
@@ -240,7 +240,7 @@ async function main() {
   // to observe or stop it. There is no public Slack ingress on this port —
   // Intelligence owns the Slack edge — but the server keeps the lifecycle-owning
   // process alive.
-  const listener = createCopilotNodeListener({
+  const listener = createCopilotKitNodeListener({
     runtime,
     basePath: "/api/copilotkit",
   });

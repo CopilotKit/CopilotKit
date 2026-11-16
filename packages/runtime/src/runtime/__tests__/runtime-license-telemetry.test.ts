@@ -10,9 +10,9 @@ import {
 } from "vitest";
 
 import {
-  CopilotIntelligenceRuntime,
-  CopilotRuntime,
-  CopilotSseRuntime,
+  CopilotKitIntelligenceRuntime,
+  CopilotKitRuntime,
+  CopilotKitSseRuntime,
 } from "../core/runtime";
 import { lambdaClient, parseTelemetryIdFromLicense } from "@copilotkit/shared";
 import { CopilotKitIntelligence } from "../intelligence-platform";
@@ -53,7 +53,7 @@ function createIntelligenceClient(): CopilotKitIntelligence {
  * its construction-time identity for all downstream events, including
  * instance_created, copilot_request_created, and agent_execution_*.
  *
- * Regression guard for the gap where only CopilotIntelligenceRuntime used the
+ * Regression guard for the gap where only CopilotKitIntelligenceRuntime used the
  * license token, so self-hosted SSE users never got a telemetry_id.
  */
 describe("runtime construction — telemetry license token", () => {
@@ -84,9 +84,9 @@ describe("runtime construction — telemetry license token", () => {
     }
   });
 
-  describe("CopilotSseRuntime (self-hosted, direct)", () => {
+  describe("CopilotKitSseRuntime (self-hosted, direct)", () => {
     it("forwards an explicit licenseToken option to telemetry", () => {
-      const runtime = new CopilotSseRuntime({
+      const runtime = new CopilotKitSseRuntime({
         agents: AGENTS,
         licenseToken: TOKEN,
       });
@@ -102,7 +102,7 @@ describe("runtime construction — telemetry license token", () => {
     it("falls back to COPILOTKIT_LICENSE_TOKEN when no option is given", () => {
       process.env.COPILOTKIT_LICENSE_TOKEN = TOKEN;
 
-      const runtime = new CopilotSseRuntime({ agents: AGENTS });
+      const runtime = new CopilotKitSseRuntime({ agents: AGENTS });
 
       expect(runtime.mode).toBe("sse");
       expect(createScopeSpy).toHaveBeenCalledTimes(1);
@@ -113,16 +113,16 @@ describe("runtime construction — telemetry license token", () => {
     });
 
     it("does not set a token when none is provided", () => {
-      const runtime = new CopilotSseRuntime({ agents: AGENTS });
+      const runtime = new CopilotKitSseRuntime({ agents: AGENTS });
 
       expect(runtime.mode).toBe("sse");
       expect(setTelemetryIdentitySpy).not.toHaveBeenCalled();
     });
   });
 
-  describe("CopilotRuntime shim — SSE delegate (self-hosted, default entrypoint)", () => {
+  describe("CopilotKitRuntime shim — SSE delegate (self-hosted, default entrypoint)", () => {
     it("forwards an explicit licenseToken option to telemetry", () => {
-      const runtime = new CopilotRuntime({
+      const runtime = new CopilotKitRuntime({
         agents: AGENTS,
         licenseToken: TOKEN,
       });
@@ -138,7 +138,7 @@ describe("runtime construction — telemetry license token", () => {
     it("falls back to COPILOTKIT_LICENSE_TOKEN when no option is given", () => {
       process.env.COPILOTKIT_LICENSE_TOKEN = TOKEN;
 
-      const runtime = new CopilotRuntime({ agents: AGENTS });
+      const runtime = new CopilotKitRuntime({ agents: AGENTS });
 
       expect(runtime.mode).toBe("sse");
       expect(createScopeSpy).toHaveBeenCalledTimes(1);
@@ -149,9 +149,9 @@ describe("runtime construction — telemetry license token", () => {
     });
   });
 
-  describe("CopilotIntelligenceRuntime (direct)", () => {
+  describe("CopilotKitIntelligenceRuntime (direct)", () => {
     it("forwards the licenseToken exactly once (no double-set after hoist)", () => {
-      const runtime = new CopilotIntelligenceRuntime({
+      const runtime = new CopilotKitIntelligenceRuntime({
         agents: AGENTS,
         intelligence: createIntelligenceClient(),
         identifyUser: IDENTIFY_USER,
@@ -169,7 +169,7 @@ describe("runtime construction — telemetry license token", () => {
     it("falls back to COPILOTKIT_LICENSE_TOKEN when no option is given", () => {
       process.env.COPILOTKIT_LICENSE_TOKEN = TOKEN;
 
-      const runtime = new CopilotIntelligenceRuntime({
+      const runtime = new CopilotKitIntelligenceRuntime({
         agents: AGENTS,
         intelligence: createIntelligenceClient(),
         identifyUser: IDENTIFY_USER,
@@ -186,7 +186,7 @@ describe("runtime construction — telemetry license token", () => {
     it("treats blank option and environment license tokens as unconfigured", async () => {
       process.env.COPILOTKIT_LICENSE_TOKEN = " \t ";
 
-      const runtime = new CopilotIntelligenceRuntime({
+      const runtime = new CopilotKitIntelligenceRuntime({
         agents: AGENTS,
         intelligence: createIntelligenceClient(),
         identifyUser: IDENTIFY_USER,
@@ -202,9 +202,9 @@ describe("runtime construction — telemetry license token", () => {
     });
   });
 
-  describe("CopilotRuntime shim — Intelligence delegate", () => {
+  describe("CopilotKitRuntime shim — Intelligence delegate", () => {
     it("forwards the licenseToken exactly once", () => {
-      const runtime = new CopilotRuntime({
+      const runtime = new CopilotKitRuntime({
         agents: AGENTS,
         intelligence: createIntelligenceClient(),
         identifyUser: IDENTIFY_USER,
@@ -239,7 +239,7 @@ interface RuntimeConstructorCase {
   construct(options: {
     telemetryId?: string;
     licenseToken?: string;
-  }): CopilotRuntime | CopilotSseRuntime | CopilotIntelligenceRuntime;
+  }): CopilotKitRuntime | CopilotKitSseRuntime | CopilotKitIntelligenceRuntime;
 }
 
 /** Installs scope, legacy-setter, sampling, and sink spies. */
@@ -357,30 +357,30 @@ const runtimeTelemetryIdentityCases: readonly RuntimeTelemetryIdentityCase[] = [
 
 const runtimeConstructorCases = [
   {
-    label: "CopilotRuntime SSE shim",
+    label: "CopilotKitRuntime SSE shim",
     expectedMode: "sse",
     construct: ({ telemetryId, licenseToken }) =>
-      new CopilotRuntime({
+      new CopilotKitRuntime({
         agents: AGENTS,
         telemetryId,
         licenseToken,
       }),
   },
   {
-    label: "direct CopilotSseRuntime",
+    label: "direct CopilotKitSseRuntime",
     expectedMode: "sse",
     construct: ({ telemetryId, licenseToken }) =>
-      new CopilotSseRuntime({
+      new CopilotKitSseRuntime({
         agents: AGENTS,
         telemetryId,
         licenseToken,
       }),
   },
   {
-    label: "direct CopilotIntelligenceRuntime",
+    label: "direct CopilotKitIntelligenceRuntime",
     expectedMode: "intelligence",
     construct: ({ telemetryId, licenseToken }) =>
-      new CopilotIntelligenceRuntime({
+      new CopilotKitIntelligenceRuntime({
         agents: AGENTS,
         intelligence: createIntelligenceClient(),
         identifyUser: IDENTIFY_USER,
@@ -540,7 +540,10 @@ test.each(runtimeConstructorCases)(
 
 /** Emits the request-created event through the runtime-bound V2 request path. */
 async function emitRuntimeRequest(
-  runtime: CopilotRuntime | CopilotSseRuntime | CopilotIntelligenceRuntime,
+  runtime:
+    | CopilotKitRuntime
+    | CopilotKitSseRuntime
+    | CopilotKitIntelligenceRuntime,
 ): Promise<Response> {
   return handleRunAgent({
     runtime,
@@ -561,11 +564,11 @@ test("a licensed runtime keeps its identity after an anonymous runtime is constr
   vi.stubEnv("COPILOTKIT_LICENSE_TOKEN", undefined);
 
   try {
-    const licensedRuntime = new CopilotSseRuntime({
+    const licensedRuntime = new CopilotKitSseRuntime({
       agents: AGENTS,
       licenseToken: LEGACY_IDENTITY_TOKEN,
     });
-    const anonymousRuntime = new CopilotSseRuntime({ agents: AGENTS });
+    const anonymousRuntime = new CopilotKitSseRuntime({ agents: AGENTS });
 
     await emitRuntimeRequest(licensedRuntime);
     await emitRuntimeRequest(anonymousRuntime);
@@ -598,11 +601,11 @@ test("two standalone-identified runtimes keep their own request identity", async
   vi.stubEnv("COPILOTKIT_LICENSE_TOKEN", undefined);
 
   try {
-    const runtimeA = new CopilotSseRuntime({
+    const runtimeA = new CopilotKitSseRuntime({
       agents: AGENTS,
       telemetryId: "runtime-a",
     });
-    const runtimeB = new CopilotSseRuntime({
+    const runtimeB = new CopilotKitSseRuntime({
       agents: AGENTS,
       telemetryId: "runtime-b",
     });

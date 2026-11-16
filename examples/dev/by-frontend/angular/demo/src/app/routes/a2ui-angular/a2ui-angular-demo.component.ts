@@ -88,7 +88,7 @@ export class A2UIAngularDemoComponent {
 provideGenerativeUI({ ui: dashboardUI });
 
 // Runtime: the agent speaks A2UI v0.9.
-new CopilotRuntime({
+new CopilotKitRuntime({
   agents,
   generativeUI: { a2uiVersion: { "a2ui-dashboard": "0.9" } },
 });`;

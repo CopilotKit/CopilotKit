@@ -1,6 +1,6 @@
 import express from "express";
-import { createCopilotRuntimeHandler as makeFetch } from "@copilotkit/runtime";
-import { createCopilotNodeListener as makeNode } from "@copilotkit/runtime/node";
+import { createCopilotKitRuntimeHandler as makeFetch } from "@copilotkit/runtime";
+import { createCopilotKitNodeListener as makeNode } from "@copilotkit/runtime/node";
 const app = express();
 const copilotListener = makeNode({ cors: true, mode: "single-route", runtime, basePath: "/" });
 const copilotRouter = express.Router();

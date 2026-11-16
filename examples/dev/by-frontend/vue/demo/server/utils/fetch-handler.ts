@@ -7,11 +7,13 @@ import {
   sendStream,
   setResponseStatus,
 } from "h3";
-import type { CopilotRuntimeFetchHandler } from "@copilotkit/runtime";
+import type { CopilotKitRuntimeFetchHandler } from "@copilotkit/runtime";
 
 const NO_BODY_METHODS = new Set(["GET", "HEAD"]);
 
-export function defineFetchEventHandler(handler: CopilotRuntimeFetchHandler) {
+export function defineFetchEventHandler(
+  handler: CopilotKitRuntimeFetchHandler,
+) {
   return defineEventHandler(async (event) => {
     const method = event.method?.toUpperCase() ?? "GET";
     const headers = new Headers();

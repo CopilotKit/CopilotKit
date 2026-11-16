@@ -3,7 +3,7 @@ import type { Message } from "@ag-ui/client";
 import { logger } from "@copilotkit/shared";
 import { EMPTY, of } from "rxjs";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { CopilotIntelligenceRuntime } from "../core/runtime";
+import { CopilotKitIntelligenceRuntime } from "../core/runtime";
 import { CopilotKitIntelligence } from "../intelligence-platform/client";
 import { IntelligenceAgentRunner } from "../runner/intelligence";
 import { handleIntelligenceRun } from "../handlers/intelligence/run";
@@ -47,7 +47,7 @@ function setup(historyResponse: () => Response) {
     created: false,
   });
   const agent = new TestAgent({ threadId });
-  const runtime = new CopilotIntelligenceRuntime({
+  const runtime = new CopilotKitIntelligenceRuntime({
     agents: { test: agent },
     intelligence,
     identifyUser: () => ({ id: "user-1", name: "User One" }),

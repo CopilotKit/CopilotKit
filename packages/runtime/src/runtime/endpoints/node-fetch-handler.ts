@@ -1,7 +1,7 @@
 /**
  * Generic Node ↔ Fetch bridge for CopilotKit runtime.
  *
- * Wraps a `CopilotRuntimeFetchHandler` as a Node HTTP handler using
+ * Wraps a `CopilotKitRuntimeFetchHandler` as a Node HTTP handler using
  * `@remix-run/node-fetch-server` for reliable streaming and conversion.
  *
  * When body-parsing middleware (Express `express.json()`, NestJS's default
@@ -12,11 +12,11 @@
  * @example
  * ```typescript
  * import { createServer } from "node:http";
- * import { createCopilotRuntimeHandler } from "@copilotkit/runtime";
- * import { createCopilotNodeHandler } from "@copilotkit/runtime/node";
+ * import { createCopilotKitRuntimeHandler } from "@copilotkit/runtime";
+ * import { createCopilotKitNodeHandler } from "@copilotkit/runtime/node";
  *
- * const handler = createCopilotRuntimeHandler({ runtime, basePath: "/api/copilotkit", cors: true });
- * const nodeHandler = createCopilotNodeHandler(handler);
+ * const handler = createCopilotKitRuntimeHandler({ runtime, basePath: "/api/copilotkit", cors: true });
+ * const nodeHandler = createCopilotKitNodeHandler(handler);
  * createServer(nodeHandler).listen(3000);
  * ```
  */
@@ -27,9 +27,9 @@ import {
   createRequest,
   sendResponse,
 } from "@remix-run/node-fetch-server";
-import type { CopilotRuntimeFetchHandler } from "../core/fetch-handler";
+import type { CopilotKitRuntimeFetchHandler } from "../core/fetch-handler";
 import { getRuntimeLogger } from "../core/logger";
-import type { CopilotRuntimeLogger } from "../core/logger";
+import type { CopilotKitRuntimeLogger } from "../core/logger";
 
 const METHODS_WITHOUT_BODY = new Set(["GET", "HEAD", "OPTIONS"]);
 
@@ -38,9 +38,9 @@ export type NodeFetchHandler = (
   res: ServerResponse,
 ) => Promise<void>;
 
-export function createCopilotNodeHandler(
-  handler: CopilotRuntimeFetchHandler,
-  logger: CopilotRuntimeLogger = getRuntimeLogger(),
+export function createCopilotKitNodeHandler(
+  handler: CopilotKitRuntimeFetchHandler,
+  logger: CopilotKitRuntimeLogger = getRuntimeLogger(),
 ): NodeFetchHandler {
   return async (req: IncomingMessage, res: ServerResponse) => {
     try {
@@ -59,6 +59,17 @@ export function createCopilotNodeHandler(
       }
     }
   };
+}
+
+/**
+ * @deprecated Use createCopilotKitNodeHandler. This old name is an alias with
+ * the same behavior.
+ */
+export function createCopilotNodeHandler(
+  handler: CopilotKitRuntimeFetchHandler,
+  logger: CopilotKitRuntimeLogger = getRuntimeLogger(),
+): NodeFetchHandler {
+  return createCopilotKitNodeHandler(handler, logger);
 }
 
 /**

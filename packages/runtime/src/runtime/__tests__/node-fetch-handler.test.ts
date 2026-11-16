@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { createServer } from "node:http";
 import type { Server } from "node:http";
-import { createCopilotNodeHandler } from "../endpoints/node-fetch-handler";
-import type { CopilotRuntimeFetchHandler } from "../core/fetch-handler";
+import { createCopilotKitNodeHandler } from "../endpoints/node-fetch-handler";
+import type { CopilotKitRuntimeFetchHandler } from "../core/fetch-handler";
 
 const getPort = (() => {
   let port = 19000;
@@ -19,9 +19,9 @@ function close(server: Server): Promise<void> {
   );
 }
 
-describe("createCopilotNodeHandler", () => {
+describe("createCopilotKitNodeHandler", () => {
   it("converts Node request to Fetch and sends response back", async () => {
-    const fetchHandler: CopilotRuntimeFetchHandler = async (request) => {
+    const fetchHandler: CopilotKitRuntimeFetchHandler = async (request) => {
       const url = new URL(request.url);
       return new Response(
         JSON.stringify({ path: url.pathname, method: request.method }),
@@ -32,7 +32,7 @@ describe("createCopilotNodeHandler", () => {
       );
     };
 
-    const nodeHandler = createCopilotNodeHandler(fetchHandler);
+    const nodeHandler = createCopilotKitNodeHandler(fetchHandler);
     const port = getPort();
     const server = createServer(nodeHandler);
     await listen(server, port);
@@ -48,7 +48,7 @@ describe("createCopilotNodeHandler", () => {
   });
 
   it("handles POST with JSON body", async () => {
-    const fetchHandler: CopilotRuntimeFetchHandler = async (request) => {
+    const fetchHandler: CopilotKitRuntimeFetchHandler = async (request) => {
       const body = await request.json();
       return new Response(JSON.stringify({ received: body }), {
         status: 200,
@@ -56,7 +56,7 @@ describe("createCopilotNodeHandler", () => {
       });
     };
 
-    const nodeHandler = createCopilotNodeHandler(fetchHandler);
+    const nodeHandler = createCopilotKitNodeHandler(fetchHandler);
     const port = getPort();
     const server = createServer(nodeHandler);
     await listen(server, port);
@@ -76,11 +76,11 @@ describe("createCopilotNodeHandler", () => {
   });
 
   it("returns 500 for unhandled errors in the fetch handler", async () => {
-    const fetchHandler: CopilotRuntimeFetchHandler = async () => {
+    const fetchHandler: CopilotKitRuntimeFetchHandler = async () => {
       throw new Error("Unexpected error");
     };
 
-    const nodeHandler = createCopilotNodeHandler(fetchHandler);
+    const nodeHandler = createCopilotKitNodeHandler(fetchHandler);
     const port = getPort();
     const server = createServer(nodeHandler);
     await listen(server, port);
@@ -96,7 +96,7 @@ describe("createCopilotNodeHandler", () => {
   });
 
   it("streams SSE responses without buffering", async () => {
-    const fetchHandler: CopilotRuntimeFetchHandler = async () => {
+    const fetchHandler: CopilotKitRuntimeFetchHandler = async () => {
       const stream = new ReadableStream({
         start(controller) {
           controller.enqueue(new TextEncoder().encode("data: event1\n\n"));
@@ -114,7 +114,7 @@ describe("createCopilotNodeHandler", () => {
       });
     };
 
-    const nodeHandler = createCopilotNodeHandler(fetchHandler);
+    const nodeHandler = createCopilotKitNodeHandler(fetchHandler);
     const port = getPort();
     const server = createServer(nodeHandler);
     await listen(server, port);
@@ -132,7 +132,7 @@ describe("createCopilotNodeHandler", () => {
   });
 
   it("preserves response headers", async () => {
-    const fetchHandler: CopilotRuntimeFetchHandler = async () => {
+    const fetchHandler: CopilotKitRuntimeFetchHandler = async () => {
       return new Response("ok", {
         status: 201,
         headers: {
@@ -142,7 +142,7 @@ describe("createCopilotNodeHandler", () => {
       });
     };
 
-    const nodeHandler = createCopilotNodeHandler(fetchHandler);
+    const nodeHandler = createCopilotKitNodeHandler(fetchHandler);
     const port = getPort();
     const server = createServer(nodeHandler);
     await listen(server, port);

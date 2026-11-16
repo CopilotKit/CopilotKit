@@ -15,7 +15,7 @@ vi.mock("@ag-ui/mcp-middleware", () => ({
 import { attachIntelligenceEnterpriseLearning } from "../agent-utils";
 import { INTELLIGENCE_USER_ID_HEADER } from "../../../intelligence-platform/client";
 import { INTELLIGENCE_MEMORY_GRANT_HEADER } from "../../../intelligence-platform/client";
-import type { CopilotRuntimeLike } from "../../../core/runtime";
+import type { CopilotKitRuntimeLike } from "../../../core/runtime";
 import { RUNTIME_MODE_INTELLIGENCE, logger } from "@copilotkit/shared";
 
 interface IntelligenceStub {
@@ -36,14 +36,14 @@ function makeAgent(): AbstractAgent & {
 function makeRuntime(opts: {
   intelligence?: IntelligenceStub;
   identifyUser?: (req: Request) => Promise<{ id: string; name: string }>;
-  memory?: CopilotRuntimeLike["memory"];
-}): CopilotRuntimeLike {
+  memory?: CopilotKitRuntimeLike["memory"];
+}): CopilotKitRuntimeLike {
   return {
     mode: opts.intelligence ? RUNTIME_MODE_INTELLIGENCE : "sse",
     intelligence: opts.intelligence,
     identifyUser: opts.identifyUser,
     memory: opts.memory,
-  } as unknown as CopilotRuntimeLike;
+  } as unknown as CopilotKitRuntimeLike;
 }
 
 function makeIntelligenceStub(
@@ -182,7 +182,7 @@ describe("attachIntelligenceEnterpriseLearning", () => {
           ɵisEnterpriseLearningEnabled: () => false,
         }),
         identifyUser: async () => ({ id: "u1", name: "User" }),
-        memory: { access } as CopilotRuntimeLike["memory"],
+        memory: { access } as CopilotKitRuntimeLike["memory"],
       }),
       request: request(),
       agent,
@@ -214,7 +214,7 @@ describe("attachIntelligenceEnterpriseLearning", () => {
         runtime: makeRuntime({
           intelligence: makeIntelligenceStub(),
           identifyUser: async () => ({ id: "u1", name: "User" }),
-          memory: { access } as CopilotRuntimeLike["memory"],
+          memory: { access } as CopilotKitRuntimeLike["memory"],
         }),
         request: request(),
         agent,
@@ -384,7 +384,7 @@ describe("attachIntelligenceEnterpriseLearning", () => {
         identifyUser: async () => ({ id: "u1", name: "User" }),
         memory: {
           access: (() => undefined) as unknown as NonNullable<
-            CopilotRuntimeLike["memory"]
+            CopilotKitRuntimeLike["memory"]
           >["access"],
         },
       }),

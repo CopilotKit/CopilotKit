@@ -2,8 +2,8 @@ import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import {
-  CopilotRuntime,
-  createCopilotRuntimeHandler,
+  CopilotKitRuntime,
+  createCopilotKitRuntimeHandler,
   InMemoryAgentRunner,
 } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
@@ -135,7 +135,7 @@ const agents = {
   "generative-ui": new GenerativeUIStoreAgent(),
 };
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents,
   runner: new InMemoryAgentRunner(),
   // The native generative UI tool transport for model-backed agents. The
@@ -167,7 +167,7 @@ app.use(
 );
 
 // Create the CopilotKit endpoint
-const copilotApp = createCopilotRuntimeHandler({
+const copilotApp = createCopilotKitRuntimeHandler({
   cors: true,
   runtime,
   basePath: "/api/copilotkit",

@@ -1,5 +1,5 @@
 import { getRuntimeLogger } from "../../core/logger";
-import type { CopilotIntelligenceRuntimeLike } from "../../core/runtime";
+import type { CopilotKitIntelligenceRuntimeLike } from "../../core/runtime";
 import { getPlatformErrorStatus } from "../shared/intelligence-utils";
 import { resolveIntelligenceUser } from "../shared/resolve-intelligence-user";
 import { isHandlerResponse } from "../shared/json-response";
@@ -18,7 +18,7 @@ function buildRealtimeConnectionInfo(params: {
 }
 
 interface HandleIntelligenceConnectParams {
-  runtime: CopilotIntelligenceRuntimeLike;
+  runtime: CopilotKitIntelligenceRuntimeLike;
   request: Request;
   agentId: string;
   threadId: string;

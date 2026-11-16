@@ -77,7 +77,7 @@ const RUNTIME_URL_MISSING = "Runtime URL is not configured";
 const THREAD_ENDPOINTS_UNAVAILABLE =
   "Thread endpoints are not available on this CopilotKit runtime";
 const THREAD_LIST_NEEDS_IDENTITY =
-  "Listing threads needs a caller identity. Set identifyUser on CopilotRuntime.";
+  "Listing threads needs a caller identity. Set identifyUser on CopilotKitRuntime.";
 const THREAD_MUTATIONS_UNAVAILABLE =
   "Thread mutations are not available on this CopilotKit runtime";
 

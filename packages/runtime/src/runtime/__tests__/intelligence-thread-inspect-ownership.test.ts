@@ -9,8 +9,8 @@
  * lookup answers 404 for a thread the user does not own.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { CopilotRuntime } from "../core/runtime";
-import { createCopilotRuntimeHandler } from "../core/fetch-handler";
+import { CopilotKitRuntime } from "../core/runtime";
+import { createCopilotKitRuntimeHandler } from "../core/fetch-handler";
 import { CopilotKitIntelligence } from "../intelligence-platform";
 
 const PLATFORM = "https://platform.test";
@@ -81,7 +81,7 @@ function fakePlatform(input: RequestInfo | URL): Promise<Response> {
 }
 
 function makeHandler() {
-  const runtime = new CopilotRuntime({
+  const runtime = new CopilotKitRuntime({
     agents: {},
     intelligence: new CopilotKitIntelligence({
       apiUrl: PLATFORM,
@@ -93,7 +93,10 @@ function makeHandler() {
       return { id, name: id };
     },
   });
-  return createCopilotRuntimeHandler({ runtime, basePath: "/api/copilotkit" });
+  return createCopilotKitRuntimeHandler({
+    runtime,
+    basePath: "/api/copilotkit",
+  });
 }
 
 function get(

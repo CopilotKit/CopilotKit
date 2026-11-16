@@ -52,12 +52,12 @@ const data: FrameworkOverviewData = {
     language: "ts",
     code: `import { HttpAgent } from "@ag-ui/client";
 import {
-  CopilotRuntime,
-  createCopilotRuntimeHandler,
+  CopilotKitRuntime,
+  createCopilotKitRuntimeHandler,
 } from "@copilotkit/runtime";
 import type { NextRequest } from "next/server";
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: {
     antigravity_agent: new HttpAgent({
       url: process.env.AGENT_URL ?? "http://localhost:8000",
@@ -65,7 +65,7 @@ const runtime = new CopilotRuntime({
   },
 });
 
-const handler = createCopilotRuntimeHandler({
+const handler = createCopilotKitRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
   mode: "single-route",

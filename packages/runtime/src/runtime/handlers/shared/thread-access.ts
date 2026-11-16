@@ -1,5 +1,5 @@
 import { getRuntimeLogger } from "../../core/logger";
-import type { CopilotRuntimeLike } from "../../core/runtime";
+import type { CopilotKitRuntimeLike } from "../../core/runtime";
 import type { AgentRunner } from "../../runner/agent-runner";
 import {
   enforcesThreadOwnership,
@@ -91,7 +91,7 @@ export const ANONYMOUS_THREAD_ACCESS: Readonly<
 
 export const THREAD_ACCESS_NOT_CONFIGURED_MESSAGE =
   "Listing and clearing threads need a caller identity. Pass `identifyUser: (request) => ({ id, name })` " +
-  "to CopilotRuntime so each user lists and clears only their own threads, or pass " +
+  "to CopilotKitRuntime so each user lists and clears only their own threads, or pass " +
   '`threads: { access: "open" }` to let every caller share threads created without identity ' +
   "(insecure for multi-user deployments).";
 
@@ -115,7 +115,7 @@ export function threadOwnershipUnsupportedMessage(runner: AgentRunner): string {
  * does not enforce thread ownership. Requests then fail with the same message.
  */
 export function warnIfThreadOwnershipUnenforced(
-  runtime: CopilotRuntimeLike,
+  runtime: CopilotKitRuntimeLike,
 ): void {
   if (hasIdentifyUser(runtime) && !enforcesThreadOwnership(runtime.runner)) {
     getRuntimeLogger(runtime).warn(
@@ -161,7 +161,7 @@ export function ɵresetThreadAccessWarnings(): void {
  * refuses the Thread list and clear routes, so operators see why those
  * requests get 403.
  */
-export function warnIfThreadListRefused(runtime: CopilotRuntimeLike): void {
+export function warnIfThreadListRefused(runtime: CopilotKitRuntimeLike): void {
   if (threadListRefusalWarned) return;
   if (!supportsLocalThreadEndpoints(runtime.runner)) return;
   if (isThreadOperationAvailable(runtime, "list")) return;
@@ -178,7 +178,7 @@ export function warnIfThreadListRefused(runtime: CopilotRuntimeLike): void {
  * {@link ANONYMOUS_THREAD_ACCESS}.
  */
 export function isThreadOperationAvailable(
-  runtime: CopilotRuntimeLike,
+  runtime: CopilotKitRuntimeLike,
   operation: ThreadOperation,
 ): boolean {
   // The same identity test as resolveLocalThreadOwner, so a non-function
@@ -202,7 +202,7 @@ export function isThreadOperationAvailable(
  *   options to set.
  */
 export async function resolveLocalThreadOwner(params: {
-  runtime: CopilotRuntimeLike;
+  runtime: CopilotKitRuntimeLike;
   request: Request;
   operation: ThreadOperation;
 }): Promise<string | Response> {

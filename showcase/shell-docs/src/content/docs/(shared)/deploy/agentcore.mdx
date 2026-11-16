@@ -180,14 +180,14 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
 
         ```typescript title="app/api/copilotkit/[[...slug]]/route.ts"
         import {
-          CopilotRuntime,
-          createCopilotRuntimeHandler,
+          CopilotKitRuntime,
+          createCopilotKitRuntimeHandler,
           InMemoryAgentRunner,
         } from "@copilotkit/runtime";
         import { HttpAgent } from "@ag-ui/client";
         import { AgentCoreRunner } from "../agent-core-runner";
 
-        const runtime = new CopilotRuntime({
+        const runtime = new CopilotKitRuntime({
           agents: {
             my_agent: new HttpAgent({
               url: process.env.AGENTCORE_ENDPOINT_URL!, // your /invocations URL
@@ -199,7 +199,7 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
           runner: new AgentCoreRunner(),
         });
 
-        const handler = createCopilotRuntimeHandler({
+        const handler = createCopilotKitRuntimeHandler({
           runtime,
           basePath: "/api/copilotkit",
         });

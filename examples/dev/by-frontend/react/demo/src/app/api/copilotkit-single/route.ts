@@ -1,7 +1,7 @@
 import {
-  CopilotRuntime,
+  CopilotKitRuntime,
   InMemoryAgentRunner,
-  createCopilotRuntimeHandler,
+  createCopilotKitRuntimeHandler,
 } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { anthropicText } from "@tanstack/ai-anthropic";
@@ -36,7 +36,7 @@ const transcriptionService = process.env.OPENAI_API_KEY?.trim()
     })
   : undefined;
 
-const singleRuntime = new CopilotRuntime({
+const singleRuntime = new CopilotKitRuntime({
   agents: {
     default: agent,
   },
@@ -44,7 +44,7 @@ const singleRuntime = new CopilotRuntime({
   transcriptionService,
 });
 
-const app = createCopilotRuntimeHandler({
+const app = createCopilotKitRuntimeHandler({
   mode: "single-route",
   cors: true,
   runtime: singleRuntime,

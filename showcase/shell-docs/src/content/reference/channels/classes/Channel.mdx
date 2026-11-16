@@ -4,7 +4,7 @@ description: Reference for createChannel options, managed providers, handlers, t
 ---
 
 `createChannel(options)` returns the Channel you declare on
-`CopilotRuntime({ channels })`.
+`CopilotKitRuntime({ channels })`.
 
 ```ts title="channel.ts"
 import { createChannel, HttpAgent } from "@copilotkit/channels";
@@ -39,7 +39,7 @@ both Slack and Teams for this Channel and keeps each delivery provider-scoped.
 | `render`         | `RenderConfig`                                         | Image-render configuration: `renderer`, `fonts`, `stylesheets`, `width`, `height`, and `allowImageUrl`. To post JSX as an image, set `renderer`. |
 
 One Channel may receive managed Slack and Teams deliveries. Names must be
-unique inside one `CopilotRuntime`.
+unique inside one `CopilotKitRuntime`.
 
 For long-reply defaults, event sanitization, and agent clone requirements, see
 the detailed [`createChannel` options](/reference/channels/functions/createChannel).
@@ -228,12 +228,12 @@ provider setup cannot prevent graceful teardown:
 
 ```ts title="channel.ts"
 import { createChannel } from "@copilotkit/channels";
-import { CopilotKitIntelligence, CopilotRuntime } from "@copilotkit/runtime";
-import { createCopilotNodeListener } from "@copilotkit/runtime/node";
+import { CopilotKitIntelligence, CopilotKitRuntime } from "@copilotkit/runtime";
+import { createCopilotKitNodeListener } from "@copilotkit/runtime/node";
 
 const channel = createChannel({ name: "support", identifyUser: "platform" });
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: {},
   intelligence: new CopilotKitIntelligence({
     apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
@@ -241,7 +241,7 @@ const runtime = new CopilotRuntime({
   channels: [channel],
 });
 
-const listener = createCopilotNodeListener({ runtime });
+const listener = createCopilotKitNodeListener({ runtime });
 const channels = listener.channels;
 
 const shutdown = async () => {

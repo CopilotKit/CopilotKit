@@ -4,20 +4,20 @@ import { isThreadAccessDeniedError } from "../../runner/agent-runner";
 import { threadAccessDeniedResponse } from "../shared/thread-access";
 import type { ResolvedDebugConfig, ModelHostClass } from "@copilotkit/shared";
 import { getRuntimeLogger } from "../../core/logger";
-import type { CopilotRuntimeLogger } from "../../core/logger";
-import type { CopilotRuntimeLike } from "../../core/runtime";
+import type { CopilotKitRuntimeLogger } from "../../core/logger";
+import type { CopilotKitRuntimeLike } from "../../core/runtime";
 import { getRuntimeErrorReporter } from "../../core/runtime-error-reporter";
 import { createSseEventResponse } from "../shared/sse-response";
 
 interface HandleSseRunParams {
-  runtime: CopilotRuntimeLike;
+  runtime: CopilotKitRuntimeLike;
   request: Request;
   agent: AbstractAgent;
   input: RunAgentInput;
   agentId: string;
   debug?: ResolvedDebugConfig;
   /** Pre-created debug logger, so a request does not create its own. */
-  debugLogger?: CopilotRuntimeLogger;
+  debugLogger?: CopilotKitRuntimeLogger;
   startTime?: number;
   /** Identity the run acts as; the runner records it as the thread owner. */
   ownerId?: string;

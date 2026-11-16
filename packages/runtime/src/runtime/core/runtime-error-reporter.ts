@@ -3,7 +3,7 @@ import type {
   CopilotErrorHandler,
 } from "@copilotkit/shared";
 
-import type { CopilotRuntimeLike } from "./runtime";
+import type { CopilotKitRuntimeLike } from "./runtime";
 
 export const runtimeErrorReporterOption = Symbol(
   "copilotkit.runtimeErrorReporter",
@@ -97,13 +97,16 @@ export function createRuntimeErrorReporter(
         if (result && typeof (result as Promise<void>).catch === "function") {
           void (result as Promise<void>).catch((handlerError) => {
             console.error(
-              "CopilotRuntime onError reporting failed:",
+              "CopilotKitRuntime onError reporting failed:",
               handlerError,
             );
           });
         }
       } catch (handlerError) {
-        console.error("CopilotRuntime onError reporting failed:", handlerError);
+        console.error(
+          "CopilotKitRuntime onError reporting failed:",
+          handlerError,
+        );
       }
     },
   };
@@ -126,9 +129,9 @@ export function attachRuntimeErrorReporter(
 }
 
 export function getRuntimeErrorReporter(
-  runtime: CopilotRuntimeLike,
+  runtime: CopilotKitRuntimeLike,
 ): RuntimeErrorReporter | undefined {
-  return (runtime as CopilotRuntimeLike & RuntimeErrorReporterOptions)[
+  return (runtime as CopilotKitRuntimeLike & RuntimeErrorReporterOptions)[
     runtimeErrorReporterOption
   ];
 }

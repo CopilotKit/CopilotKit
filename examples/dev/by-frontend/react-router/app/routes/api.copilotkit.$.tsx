@@ -1,7 +1,7 @@
 import type { Route } from "./+types/api.copilotkit.$";
 import {
-  CopilotRuntime,
-  createCopilotRuntimeHandler,
+  CopilotKitRuntime,
+  createCopilotKitRuntimeHandler,
   InMemoryAgentRunner,
 } from "@copilotkit/runtime";
 import {
@@ -134,7 +134,7 @@ const tanstackAgent = new BuiltInAgent({
   },
 });
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: {
     tanstack: tanstackAgent,
     aisdk: aisdkAgent,
@@ -142,7 +142,7 @@ const runtime = new CopilotRuntime({
   runner: new InMemoryAgentRunner(),
 });
 
-const handler = createCopilotRuntimeHandler({
+const handler = createCopilotKitRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
 });

@@ -1,4 +1,4 @@
-import type { CopilotRuntimeLike } from "../core/runtime";
+import type { CopilotKitRuntimeLike } from "../core/runtime";
 import { isIntelligenceRuntime } from "../core/runtime";
 import {
   isValidTrajectoryId,
@@ -22,7 +22,7 @@ export async function handleTrajectoryConnect({
   request,
   trajectoryId,
 }: {
-  runtime: CopilotRuntimeLike;
+  runtime: CopilotKitRuntimeLike;
   request: Request;
   trajectoryId: string;
 }): Promise<Response> {

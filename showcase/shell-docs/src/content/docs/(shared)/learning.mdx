@@ -136,7 +136,7 @@ When you are done, your Runtime will send selected Threads to a Learning Space, 
     ```ts title="Your CopilotKit runtime"
     import {
       CopilotKitIntelligence,
-      CopilotRuntime,
+      CopilotKitRuntime,
     } from "@copilotkit/runtime";
     import { BuiltInAgent } from "@copilotkit/runtime/agent";
     import { openaiText } from "@tanstack/ai-openai";
@@ -148,7 +148,7 @@ When you are done, your Runtime will send selected Threads to a Learning Space, 
         agentId === "expense-agent" ? "expense-review" : undefined,
     });
 
-    const runtime = new CopilotRuntime({
+    const runtime = new CopilotKitRuntime({
       agents: {
         "expense-agent": new BuiltInAgent({ model: openaiText("gpt-6-luna") }),
       },

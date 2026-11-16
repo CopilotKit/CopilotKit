@@ -6,8 +6,8 @@ import { LLMock, MCPMock } from "@copilotkit/aimock";
 import { MCPAppsMiddleware, getServerHash } from "@ag-ui/mcp-apps-middleware";
 import type * as MCPAppsMiddlewareModule from "@ag-ui/mcp-apps-middleware";
 import type { McpAppsServerConfig } from "../core/runtime";
-import type { CopilotRuntimeLike } from "../core/runtime";
-import { CopilotRuntime } from "../core/runtime";
+import type { CopilotKitRuntimeLike } from "../core/runtime";
+import { CopilotKitRuntime } from "../core/runtime";
 import { configureAgentForRequest } from "../handlers/shared/agent-utils";
 import { handleRunAgent } from "../handlers/handle-run";
 
@@ -132,7 +132,7 @@ describe("MCPAppsMiddleware integration", () => {
       serverId: "weather",
       excludeTools: ["delete_account"],
     } as unknown as McpAppsServerConfig;
-    const runtime = new CopilotRuntime({
+    const runtime = new CopilotKitRuntime({
       agents: { default: new MockNextAgent() },
       mcpApps: { servers: [server] },
     });
@@ -173,7 +173,7 @@ describe("MCPAppsMiddleware integration", () => {
           },
         ],
       },
-    } as unknown as CopilotRuntimeLike;
+    } as unknown as CopilotKitRuntimeLike;
 
     configureAgentForRequest({
       runtime,
@@ -208,7 +208,7 @@ describe("MCPAppsMiddleware integration", () => {
           },
         ],
       },
-    } as unknown as CopilotRuntimeLike;
+    } as unknown as CopilotKitRuntimeLike;
 
     configureAgentForRequest({
       runtime,
@@ -224,7 +224,7 @@ describe("MCPAppsMiddleware integration", () => {
     const agent = new MockNextAgent();
     const runtime = {
       mcpApps: { servers: [] },
-    } as unknown as CopilotRuntimeLike;
+    } as unknown as CopilotKitRuntimeLike;
 
     configureAgentForRequest({
       runtime,
@@ -247,7 +247,7 @@ describe("MCPAppsMiddleware integration", () => {
           },
         ],
       },
-    } as unknown as CopilotRuntimeLike;
+    } as unknown as CopilotKitRuntimeLike;
 
     configureAgentForRequest({
       runtime,

@@ -276,12 +276,12 @@ Before you begin, you'll need the following:
                 ```tsx title="app/api/copilotkit/[[...slug]]/route.ts" doctest="component"
                 import {
                   CopilotKitIntelligence,
-                  CopilotRuntime,
-                  createCopilotRuntimeHandler,
+                  CopilotKitRuntime,
+                  createCopilotKitRuntimeHandler,
                 } from "@copilotkit/runtime";
                 import { LangGraphAgent } from "@ag-ui/langgraph";
 
-                const runtime = new CopilotRuntime({
+                const runtime = new CopilotKitRuntime({
                     agents: {
                         sample_agent: new LangGraphAgent({
                             deploymentUrl: process.env.LANGGRAPH_DEPLOYMENT_URL || "http://localhost:8123",
@@ -300,7 +300,7 @@ Before you begin, you'll need the following:
                     }),
                 });
 
-                const handler = createCopilotRuntimeHandler({
+                const handler = createCopilotKitRuntimeHandler({
                   runtime,
                   basePath: "/api/copilotkit",
                 });
@@ -315,12 +315,12 @@ Before you begin, you'll need the following:
                 ```tsx title="app/api/copilotkit/[[...slug]]/route.ts"
                 import {
                   CopilotKitIntelligence,
-                  CopilotRuntime,
-                  createCopilotRuntimeHandler,
+                  CopilotKitRuntime,
+                  createCopilotKitRuntimeHandler,
                 } from "@copilotkit/runtime";
                 import { HttpAgent } from "@ag-ui/client";
 
-                const runtime = new CopilotRuntime({
+                const runtime = new CopilotKitRuntime({
                     agents: {
                         sample_agent: new HttpAgent({
                             url: process.env.LANGGRAPH_DEPLOYMENT_URL || "http://localhost:8123",
@@ -337,7 +337,7 @@ Before you begin, you'll need the following:
                     }),
                 });
 
-                const handler = createCopilotRuntimeHandler({
+                const handler = createCopilotKitRuntimeHandler({
                   runtime,
                   basePath: "/api/copilotkit",
                 });

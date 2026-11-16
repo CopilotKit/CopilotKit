@@ -34,11 +34,11 @@ const SETUP_HINTS: Record<string, string> = {
   RUNTIME_REQUIRED:
     "Set runtimeUrl: capture connects through the CopilotKit runtime.",
   INTELLIGENCE_RUNTIME_REQUIRED:
-    "Configure the CopilotRuntime with `intelligence` to accept capture.",
+    "Configure the CopilotKitRuntime with `intelligence` to accept capture.",
   CONNECTION_FAILED:
-    "Check that the CopilotRuntime is configured with `intelligence` and valid Intelligence credentials, and check the runtime logs.",
+    "Check that the CopilotKitRuntime is configured with `intelligence` and valid Intelligence credentials, and check the runtime logs.",
   IDENTITY_REQUIRED:
-    "The runtime could not identify the user. Configure `identifyUser` on the CopilotRuntime and send the app's session with runtime requests.",
+    "The runtime could not identify the user. Configure `identifyUser` on the CopilotKitRuntime and send the app's session with runtime requests.",
   TRAJECTORIES_NOT_ENABLED:
     "Trajectories are not enabled for this Intelligence project.",
   TRAJECTORIES_UNAVAILABLE:

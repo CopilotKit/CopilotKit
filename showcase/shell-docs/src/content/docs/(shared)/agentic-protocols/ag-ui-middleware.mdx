@@ -45,8 +45,8 @@ Call `.use(...)` on the agent before registering it with the runtime:
 
 ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
 import {
-  CopilotRuntime,
-  createCopilotRuntimeHandler,
+  CopilotKitRuntime,
+  createCopilotKitRuntimeHandler,
   InMemoryAgentRunner,
 } from "@copilotkit/runtime";
 import { LangGraphAgent } from "@ag-ui/langgraph";
@@ -58,12 +58,12 @@ const agent = new LangGraphAgent({
 });
 agent.use(new LoggingMiddleware());
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: { default: agent },
   runner: new InMemoryAgentRunner(),
 });
 
-const handler = createCopilotRuntimeHandler({
+const handler = createCopilotKitRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
 });
@@ -76,7 +76,7 @@ Send a message in the chat. Your server log prints one `[agent event]` line for 
 
 ## Built-in Middleware
 
-The runtime ships first-class middleware options you can enable directly on `CopilotRuntime` without calling `.use()` on each agent:
+The runtime ships first-class middleware options you can enable directly on `CopilotKitRuntime` without calling `.use()` on each agent:
 
 - **`a2ui`**: apply `A2UIMiddleware` to all (or a subset of) registered agents. See [Copilot Runtime → A2UI](/backend/copilot-runtime#a2ui).
 - **`mcpApps`**: configure MCP servers for all agents from a single place. See [Copilot Runtime → mcpApps](/backend/copilot-runtime#mcpapps).

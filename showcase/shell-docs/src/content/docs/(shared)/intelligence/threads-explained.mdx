@@ -60,7 +60,7 @@ From a developer's perspective, threads involve three things:
 |-------------|-------------|
 | Frontend thread API | Lists, renames, archives, and deletes threads. Supports pagination and stays in sync across tabs and devices via WebSocket. |
 | `CopilotChat` with `threadId` | Connects to a specific thread, loads its history, and streams new events in realtime. |
-| `CopilotRuntime` | Server-side layer that executes agents, stores thread data in CopilotKit Intelligence, and relays events to connected clients. |
+| `CopilotKitRuntime` | Server-side layer that executes agents, stores thread data in CopilotKit Intelligence, and relays events to connected clients. |
 
 You interact with the first two. The runtime and platform handle persistence and sync behind the scenes.
 

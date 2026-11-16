@@ -1,11 +1,11 @@
-import { createCopilotNodeListener } from "../endpoints/node";
+import { createCopilotKitNodeListener } from "../endpoints/node";
 import express from "express";
 import type { AddressInfo } from "node:net";
 import { afterEach, describe, expect, it } from "vitest";
 
 import type { AbstractAgent } from "@ag-ui/client";
 
-import { CopilotRuntime } from "../core/runtime";
+import { CopilotKitRuntime } from "../core/runtime";
 import { InMemoryAgentRunner } from "../runner/in-memory";
 
 const buildRuntime = () => {
@@ -39,7 +39,7 @@ const buildRuntime = () => {
     }),
   };
 
-  return new CopilotRuntime({
+  return new CopilotKitRuntime({
     agents: { default: fakeAgent as unknown as AbstractAgent },
     runner: new InMemoryAgentRunner(),
   });
@@ -84,7 +84,7 @@ describe("Express single-route SSE streaming", () => {
     const runtime = buildRuntime();
     const app = express();
     app.use(
-      createCopilotNodeListener({
+      createCopilotKitNodeListener({
         mode: "single-route",
         cors: true,
         runtime,

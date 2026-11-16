@@ -1,18 +1,18 @@
 import { HttpAgent } from "@ag-ui/client";
-import { CopilotRuntime } from "../core/runtime";
-import { createCopilotRuntimeHandler } from "../core/fetch-handler";
+import { CopilotKitRuntime } from "../core/runtime";
+import { createCopilotKitRuntimeHandler } from "../core/fetch-handler";
 import { describe, expect, it, vi } from "vitest";
 
 describe.each(["multi-route", "single-route"] as const)(
   "CopilotKit stop via %s",
   (mode) => {
     function setup() {
-      const runtime = new CopilotRuntime({
+      const runtime = new CopilotKitRuntime({
         agents: { ui: new HttpAgent({ url: "http://unused" }) },
         threads: { access: "open" },
       });
       const stop = vi.spyOn(runtime.runner, "stop").mockResolvedValue(true);
-      const handler = createCopilotRuntimeHandler({
+      const handler = createCopilotKitRuntimeHandler({
         runtime,
         basePath: "/runtime",
         mode,

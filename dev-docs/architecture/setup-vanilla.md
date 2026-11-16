@@ -25,7 +25,7 @@ graph LR
     end
 
     subgraph Your Server
-        Runtime["CopilotRuntime"]
+        Runtime["CopilotKitRuntime"]
     end
 
     App -->|creates| Core
@@ -88,7 +88,7 @@ That's it — `CopilotKitCore` handles connecting to the runtime, fetching agent
 sequenceDiagram
     participant App as Your Code
     participant Core as CopilotKitCore
-    participant Runtime as CopilotRuntime
+    participant Runtime as CopilotKitRuntime
 
     App->>Core: new CopilotKitCore({ runtimeUrl })
     Core->>Runtime: GET /info

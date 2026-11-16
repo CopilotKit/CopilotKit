@@ -2,7 +2,7 @@ import { test, expect, vi } from "vitest";
 // Import the handler factory through the package's PUBLIC `/v2` entry, whose
 // source barrel is `src/index.ts` (two levels up from this __tests__ dir).
 // This is the specifier a consumer compiles down to when they write
-// `import { createCopilotRuntimeHandler } from "@copilotkit/runtime"`, so it
+// `import { createCopilotKitRuntimeHandler } from "@copilotkit/runtime"`, so it
 // exercises the full public re-export chain (v2 index -> runtime index ->
 // core/fetch-handler) rather than the deep internal module. It locks the
 // contract that the public surface still carries `handler.channels`.
@@ -11,9 +11,9 @@ import { test, expect, vi } from "vitest";
 // package specifier on purpose: that specifier resolves to the gitignored,
 // prebuilt `dist/`, which the `test` target does not rebuild and which can lag
 // behind source — testing it would assert against a stale artifact.
-import { createCopilotRuntimeHandler } from "../../index";
-import type { CopilotRuntimeFetchHandler } from "../../index";
-import { CopilotRuntime } from "../core/runtime";
+import { createCopilotKitRuntimeHandler } from "../../index";
+import type { CopilotKitRuntimeFetchHandler } from "../../index";
+import { CopilotKitRuntime } from "../core/runtime";
 import { CopilotKitIntelligence } from "../intelligence-platform";
 import { createChannel } from "@copilotkit/channels";
 import type {
@@ -36,10 +36,10 @@ const intelligence = () =>
 /**
  * Build an Intelligence runtime declaring a single managed Channel.
  *
- * @returns A {@link CopilotRuntime} with one channel and a fake identify hook.
+ * @returns A {@link CopilotKitRuntime} with one channel and a fake identify hook.
  */
 const intelRuntimeWith1Channel = () =>
-  new CopilotRuntime({
+  new CopilotKitRuntime({
     agents: {},
     intelligence: intelligence(),
     identifyUser: vi.fn().mockResolvedValue({ id: "u", name: "U" }),
@@ -59,10 +59,12 @@ const fakeChannelEngine =
   });
 
 test("public /v2 entry exposes handler.channels for an intelligence+channels runtime", async () => {
-  const handler: CopilotRuntimeFetchHandler = createCopilotRuntimeHandler({
-    runtime: intelRuntimeWith1Channel(),
-    __channelEngine: fakeChannelEngine(),
-  });
+  const handler: CopilotKitRuntimeFetchHandler = createCopilotKitRuntimeHandler(
+    {
+      runtime: intelRuntimeWith1Channel(),
+      __channelEngine: fakeChannelEngine(),
+    },
+  );
 
   expect(handler.channels).toBeDefined();
   await handler.channels!.ready({ timeoutMs: 1000 });
@@ -72,8 +74,8 @@ test("public /v2 entry exposes handler.channels for an intelligence+channels run
 });
 
 test("public /v2 entry omits handler.channels for a plain runtime", () => {
-  const handler = createCopilotRuntimeHandler({
-    runtime: new CopilotRuntime({ agents: {} }),
+  const handler = createCopilotKitRuntimeHandler({
+    runtime: new CopilotKitRuntime({ agents: {} }),
     __channelEngine: fakeChannelEngine(),
   });
 

@@ -38,7 +38,7 @@ export interface CopilotKitConfig extends Pick<
   | "onError"
 > {
   /**
-   * Transport style for CopilotRuntime endpoints: `"single"`, `"rest"`, or
+   * Transport style for CopilotKitRuntime endpoints: `"single"`, `"rest"`, or
    * `"auto"` (the default) to detect it from the runtime.
    */
   runtimeTransport?: CopilotRuntimeTransport;

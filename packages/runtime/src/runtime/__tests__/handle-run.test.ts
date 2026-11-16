@@ -9,8 +9,8 @@ import {
   GenerativeUIMiddleware,
 } from "../generative-ui";
 import { handleRunAgent } from "../handlers/handle-run";
-import { CopilotRuntime } from "../core/runtime";
-import type { CopilotRuntimeMemoryConfig } from "../core/runtime";
+import { CopilotKitRuntime } from "../core/runtime";
+import type { CopilotKitRuntimeMemoryConfig } from "../core/runtime";
 import { resolveForwardHeadersPolicy } from "../handlers/header-utils";
 import { IntelligenceAgentRunner } from "../runner/intelligence";
 import { PlatformRequestError } from "../intelligence-platform/client";
@@ -33,14 +33,14 @@ function injectA2UIToolOf(useSpy: ReturnType<typeof vi.fn>) {
 describe("handleRunAgent", () => {
   const createMockRuntime = (
     agents: Record<string, unknown> = {},
-  ): CopilotRuntime => {
+  ): CopilotKitRuntime => {
     return {
       agents: Promise.resolve(agents),
       transcriptionService: undefined,
       beforeRequestMiddleware: undefined,
       afterRequestMiddleware: undefined,
       forwardHeadersPolicy: resolveForwardHeadersPolicy(undefined),
-    } as unknown as CopilotRuntime;
+    } as unknown as CopilotKitRuntime;
   };
 
   const createMockRequest = (): Request => {
@@ -77,7 +77,7 @@ describe("handleRunAgent", () => {
       beforeRequestMiddleware: undefined,
       afterRequestMiddleware: undefined,
       forwardHeadersPolicy: resolveForwardHeadersPolicy(undefined),
-    } as unknown as CopilotRuntime;
+    } as unknown as CopilotKitRuntime;
     const request = createMockRequest();
     const agentId = "test-agent";
 
@@ -147,7 +147,7 @@ describe("handleRunAgent", () => {
         isRunning: async () => false,
         stop: async () => false,
       },
-    } as unknown as CopilotRuntime;
+    } as unknown as CopilotKitRuntime;
 
     const requestBody = {
       threadId: "thread-1",
@@ -241,7 +241,7 @@ describe("handleRunAgent", () => {
         isRunning: async () => false,
         stop: async () => false,
       },
-    } as unknown as CopilotRuntime;
+    } as unknown as CopilotKitRuntime;
 
     const run = async (runId: string, authorization: string) => {
       const response = await handleRunAgent({
@@ -373,7 +373,7 @@ describe("handleRunAgent", () => {
 
   const createGenerativeUIRuntime = (
     agent: AbstractAgent,
-    generativeUI: CopilotRuntime["generativeUI"],
+    generativeUI: CopilotKitRuntime["generativeUI"],
   ) =>
     ({
       agents: Promise.resolve({ "my-agent": agent }),
@@ -383,7 +383,7 @@ describe("handleRunAgent", () => {
       forwardHeadersPolicy: resolveForwardHeadersPolicy(undefined),
       runner: createMockRunner(),
       generativeUI,
-    }) as unknown as CopilotRuntime;
+    }) as unknown as CopilotKitRuntime;
 
   it("gives a v0.9 agent the bridge and A2UIMiddleware with the render tool, and no render_ui", async () => {
     const { agent, useSpy } = createMockAgentWithUse();
@@ -530,7 +530,7 @@ describe("handleRunAgent", () => {
                 userId: string;
               }) => string | null | Promise<string | null>);
         };
-        memory?: CopilotRuntimeMemoryConfig;
+        memory?: CopilotKitRuntimeMemoryConfig;
       },
     ) => {
       const runner = Object.create(IntelligenceAgentRunner.prototype);
@@ -563,7 +563,7 @@ describe("handleRunAgent", () => {
           vi.fn().mockResolvedValue({ id: "user-1", name: "User One" }),
         learning: options?.learning,
         memory: options?.memory,
-      } as unknown as CopilotRuntime;
+      } as unknown as CopilotKitRuntime;
     };
 
     const createAgentForIntelligence = () => {
@@ -679,7 +679,7 @@ describe("handleRunAgent", () => {
           ɵcleanupThreadLock: vi.fn().mockResolvedValue(undefined),
         };
         const runtime = createIntelligenceRuntime(agent, platform, {
-          memory: { access } as CopilotRuntimeMemoryConfig,
+          memory: { access } as CopilotKitRuntimeMemoryConfig,
         });
 
         const response = await handleRunAgent({
@@ -1836,7 +1836,7 @@ describe("handleRunAgent", () => {
     it("propagates the registry agentId onto historic runs (NOT 'default')", async () => {
       const runner = new InMemoryAgentRunner();
       const agent = new TaggingTestAgent();
-      const runtime = new CopilotRuntime({
+      const runtime = new CopilotKitRuntime({
         agents: { tagged: agent },
         runner,
       });

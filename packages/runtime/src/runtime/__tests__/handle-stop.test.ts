@@ -1,6 +1,9 @@
 import { HttpAgent } from "@ag-ui/client";
 import { expect, test, vi } from "vitest";
-import { CopilotIntelligenceRuntime, CopilotSseRuntime } from "../core/runtime";
+import {
+  CopilotKitIntelligenceRuntime,
+  CopilotKitSseRuntime,
+} from "../core/runtime";
 import {
   CopilotKitIntelligence,
   PlatformRequestError,
@@ -15,7 +18,7 @@ function setup(body?: unknown) {
     wsUrl: "ws://localhost:9999",
     apiKey: "fixture-key",
   });
-  const runtime = new CopilotIntelligenceRuntime({
+  const runtime = new CopilotKitIntelligenceRuntime({
     intelligence,
     identifyUser,
     agents: { default: new HttpAgent({ url: "http://localhost:9999/agent" }) },
@@ -196,7 +199,7 @@ test.each([
 ])(
   "SSE stop applies the same run scope rules as Intelligence for body $body",
   async ({ body, status, call }) => {
-    const runtime = new CopilotSseRuntime({
+    const runtime = new CopilotKitSseRuntime({
       agents: {
         default: new HttpAgent({ url: "http://localhost:9999/agent" }),
       },

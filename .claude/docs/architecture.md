@@ -18,7 +18,7 @@ All packages live flat under `packages/` using the `@copilotkit/` scope. There i
 - **core**: The `CopilotKitCore` orchestrator — the central brain on the frontend. Manages the agent registry, tool registry, context store, and event subscriptions. All framework packages (React, Angular, Vanilla) wrap this.
 - **react-core**: The public `<CopilotKit>` provider, hooks, and chat UI (`CopilotChat`, `CopilotPopup`, `CopilotSidebar`). Wraps core for React. Subpaths: `/headless` (hooks without the UI, used by React Native), `/context`, `/generative-ui`, `/styles.css`.
 - **angular**: Angular DI tokens, services, and signal-based state. Same concepts as React but using Angular patterns (`inject()`, signals, `AgentStore`).
-- **runtime**: The server-side `CopilotRuntime` class that receives HTTP requests and delegates to agents. Provides Express and Hono adapters. Contains the `AgentRunner` abstraction for managing thread/conversation state. Subpaths: `/express`, `/hono`, `/node`.
+- **runtime**: The server-side `CopilotKitRuntime` class that receives HTTP requests and delegates to agents. Provides Express and Hono adapters. Contains the `AgentRunner` abstraction for managing thread/conversation state. Subpaths: `/express`, `/hono`, `/node`.
 - **agent**: The `BuiltInAgent` — a default agent implementation powered by the Vercel AI SDK. Used when developers don't bring their own agent framework.
 - **voice**: Voice input and transcription support.
 - **web-inspector**: A debug console (Lit web component) for inspecting agent communication in development.
@@ -59,11 +59,11 @@ Application data sent alongside messages to give agents awareness of the current
 
 ### Multi-Agent
 
-Multiple agents can be registered in a single `CopilotRuntime`. Each agent gets its own endpoint, message thread, state, and optionally scoped tools. The frontend selects which agent to interact with via `useAgent({ agentId })`.
+Multiple agents can be registered in a single `CopilotKitRuntime`. Each agent gets its own endpoint, message thread, state, and optionally scoped tools. The frontend selects which agent to interact with via `useAgent({ agentId })`.
 
 ### Middleware
 
-`CopilotRuntime` supports `beforeRequestMiddleware` and `afterRequestMiddleware` for cross-cutting concerns like authentication, logging, and request/response transformation.
+`CopilotKitRuntime` supports `beforeRequestMiddleware` and `afterRequestMiddleware` for cross-cutting concerns like authentication, logging, and request/response transformation.
 
 ## Debug Mode
 
@@ -74,7 +74,7 @@ CopilotKit includes a built-in debug mode for both the runtime and client that p
 **Runtime (server-side):**
 
 ```ts
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   debug: true, // Full debug output with Pino structured logging
 });
 ```

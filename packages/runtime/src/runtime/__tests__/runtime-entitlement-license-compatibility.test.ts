@@ -5,7 +5,7 @@ import type {
 import { createLicenseChecker } from "@copilotkit/license-verifier";
 import type { LicenseStatus } from "@copilotkit/license-verifier";
 import { expect, test, vi } from "vitest";
-import { CopilotRuntime } from "../core/runtime";
+import { CopilotKitRuntime } from "../core/runtime";
 import { handleGetRuntimeInfo } from "../handlers/get-runtime-info";
 import { CopilotKitIntelligence } from "../intelligence-platform";
 import {
@@ -81,7 +81,7 @@ test("normalizes the current flat managed entitlement transport through /info", 
         apiUrl: "https://runtime.example",
         wsUrl: "wss://runtime.example",
       });
-      const runtime = new CopilotRuntime({
+      const runtime = new CopilotKitRuntime({
         agents: {},
         intelligence,
         identifyUser: () => ({ id: "user-1", name: "Test User" }),
@@ -151,7 +151,7 @@ function setup(
   const getRuntimeEntitlements = vi
     .spyOn(intelligence, "getRuntimeEntitlements")
     .mockResolvedValue(runtimeEntitlements);
-  const runtime = new CopilotRuntime({
+  const runtime = new CopilotKitRuntime({
     agents: {},
     intelligence,
     identifyUser: () => ({ id: "user-1", name: "Test User" }),

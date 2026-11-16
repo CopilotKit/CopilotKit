@@ -1,6 +1,6 @@
 import { logger as consoleLogger, processEnv } from "@copilotkit/shared";
 import type { BaseEvent } from "@ag-ui/client";
-import type { CopilotRuntimeLogger } from "./logger";
+import type { CopilotKitRuntimeLogger } from "./logger";
 import type {
   DebugEventEnvelope,
   ResolvedDebugConfig,
@@ -12,7 +12,9 @@ export class DebugEventBus {
   private listeners = new Set<DebugEventListener>();
 
   /** @param logger - Where a failing listener is reported. Default: the console. */
-  constructor(private readonly logger: CopilotRuntimeLogger = consoleLogger) {}
+  constructor(
+    private readonly logger: CopilotKitRuntimeLogger = consoleLogger,
+  ) {}
 
   subscribe(listener: DebugEventListener): () => void {
     this.listeners.add(listener);
