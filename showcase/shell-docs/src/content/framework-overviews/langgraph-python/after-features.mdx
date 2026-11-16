@@ -1,5 +1,18 @@
 <div className="reference-content">
 
+## LangChain `useStream` or CopilotKit?
+
+Both put a LangGraph agent in front of users. LangChain's `useStream` hook (`@langchain/react`) streams a LangGraph run into a frontend that you build. It talks to LangGraph Platform, or to a server that implements LangChain's Agent Streaming Protocol. It also comes for Vue, Svelte, and Angular.
+
+| Pick `useStream` when | Pick CopilotKit when |
+| --- | --- |
+| Your app talks to one LangGraph deployment. | Your app talks to agents from more than one framework. CopilotKit reaches each one over [AG-UI](/agentic-protocols/ag-ui). |
+| You build every chat and run view yourself. | You want ready chat components, or [headless hooks](/langgraph-python/custom-look-and-feel/headless-ui) under your own UI. |
+| The agent only needs what the graph streams. | The agent calls [frontend tools](/langgraph-python/frontend-tools) in the browser, or reads and writes [app state](/langgraph-python/shared-state). |
+| The agent stays in your web app. | The same agent also answers in Slack or Microsoft Teams through [Channels](/channels). |
+
+You can start with either. Your graph does not change, because both read what the graph streams.
+
 ## Already have LangGraph conversations?
 
 When you add a user-facing app to an existing LangGraph agent, your users may need to open and continue conversations they already started. [CopilotKit Intelligence](/intelligence/overview) can import supported LangGraph history as threads so your app does not start with an empty thread list.
