@@ -1,15 +1,17 @@
 # Showcase Testing
 
-Tagline: `bin/showcase test` reference, cell red→green SOP, per-demo coverage
-matrix, and CI gating matrix.
+Tagline: `bin/showcase test` reference, cell red→green SOP, the shared e2e
+suite, per-demo coverage matrix, and CI gating matrix.
 
-Three concerns live here:
+Four concerns live here:
 
-1. **Cell red→green SOP** and `bin/showcase test` CLI reference — how to run the
+1. **Cell red→green SOP** and `bin/showcase test` CLI reference: how to run the
    harness locally and how to drive a cell from red to green.
-2. **Per-Demo Coverage Matrix** — what test surface exists for each demo across
+2. **Shared e2e suite**: how to run the Playwright suite of the shared app for
+   one integration, with one command.
+3. **Per-Demo Coverage Matrix**: what test surface exists for each demo across
    manual QA, unit, E2E, and aimock.
-3. **CI gating matrix** — which CI workflows fire on which triggers and whether
+4. **CI gating matrix**: which CI workflows fire on which triggers and whether
    they gate merges.
 
 Operational gotchas (aimock fixture caching, `--isolate` slot collisions, etc.)
@@ -174,23 +176,93 @@ showcase-iso<N>-aimock` + DOM/probe text):
     the verbatim assertion phrase. Fixture content is authored truth; tune the
     `match` keys to fire on the right turn.
 
+## Shared e2e suite
+
+One Playwright suite tests the demos of every integration in the shared app
+(`showcase/frontends/nextjs`). Each run tests one integration. Run it from the
+repo root:
+
+```sh
+pnpm nx run showcase-frontend-nextjs:e2e-local strands
+```
+
+Before the first run:
+
+1. Start Docker.
+2. Copy `showcase/.env.example` to `showcase/.env`.
+3. Install the dependencies and Chromium, from the repo root:
+
+   ```sh
+   pnpm install
+   (cd showcase/frontends/nextjs && npm ci --legacy-peer-deps && npx playwright install chromium)
+   ```
+
+The command does these steps:
+
+1. It installs the app's dependencies (`npm ci`).
+2. It starts aimock, the integration's own service (for its agent), and
+   `frontend-nextjs`: the app, at `http://localhost:3200`. The in-process
+   integrations, built-in-agent and mastra, have no service to start.
+3. It waits for the app's `/api/health` and for the agent.
+4. It runs the suite with `INTEGRATION=strands` and
+   `BASE_URL=http://localhost:3200`, and exits with the suite's exit code.
+
+The specs of demos that the integration does not serve are skipped. The
+containers keep running after the suite, so the next run starts faster. The
+run prints the command that stops them. Playwright writes its HTML report to
+`showcase/frontends/nextjs/playwright-report/`.
+
+| To                                                          | Run                                                                                     |
+| ----------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| Rebuild the images first, after a code change               | `pnpm nx run showcase-frontend-nextjs:e2e-local --build strands`                        |
+| Run one spec (arguments after the slug go to Playwright)    | `pnpm nx run showcase-frontend-nextjs:e2e-local strands tests/e2e/agentic-chat.spec.ts` |
+| Load a fixture change (aimock reads fixtures only at start) | `docker restart showcase-aimock`                                                        |
+| Test an app that runs already, in the app folder            | `INTEGRATION=strands BASE_URL=http://localhost:3200 npm run e2e`                        |
+| Run the suite in CI, for a Python-backed integration        | Comment `/test-aimock <slug>` on the PR                                                 |
+
+### Writing a spec
+
+- Name the spec after the demo id:
+  `showcase/frontends/nextjs/tests/e2e/<demo>.spec.ts`. If a demo that a
+  manifest routes has no spec, `validate-parity.ts` fails `Showcase: Validate`.
+- Wrap the tests in `describeDemo`, and open the page with `demoPath`. Both
+  come from `./helpers`.
+- Never branch on the slug. Put a difference between integrations in the
+  aimock fixture (iron rule 4). If a page differs by design, read the same demo
+  config as the page, with `integrationDemoConfig`.
+
+```ts
+import { expect, test } from "@playwright/test";
+import { demoPath, describeDemo } from "./helpers";
+
+describeDemo("agentic-chat", "Agentic Chat", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(demoPath("agentic-chat"));
+  });
+
+  test("shows the chat input", async ({ page }) => {
+    await expect(page.getByPlaceholder("Type a message")).toBeVisible();
+  });
+});
+```
+
 ## Per-Demo Coverage Matrix
 
 Tagline: what test surface exists per demo. PASS=covered, WARN=partial, FAIL=none, STUB=needs aimock fixture.
 
 ### Demo Coverage
 
-| Demo                         | Manual QA               | Vitest Unit | Playwright E2E (smoke)  | Playwright E2E (interaction) | Per-Package E2E                                  | Aimock Fixtures                                              | CI Auto                                             |
-| ---------------------------- | ----------------------- | ----------- | ----------------------- | ---------------------------- | ------------------------------------------------ | ------------------------------------------------------------ | --------------------------------------------------- |
-| **Agentic Chat**             | PASS 19 packages        | FAIL        | PASS load + suggestions | WARN suggestion click only   | PASS weather card, background change, multi-turn | WARN `background`, `weather` matches                         | WARN validate only (no Playwright in CI by default) |
-| **Human in the Loop**        | PASS 19 packages        | FAIL        | PASS load + suggestions | WARN suggestion click only   | PASS step selector, approve/reject               | WARN `plan`/`steps`/`mars` matches (text only, no interrupt) | WARN validate only                                  |
-| **Tool Rendering**           | PASS 19 packages        | FAIL        | PASS load + suggestions | WARN suggestion click only   | PASS WeatherCard with stats grid                 | WARN `weather` match (tool call)                             | WARN validate only                                  |
-| **Gen UI (Tool-Based)**      | PASS 19 packages        | FAIL        | FAIL                    | FAIL                         | PASS sidebar, haiku card, pie/bar chart          | FAIL no haiku-specific fixture                               | WARN validate only                                  |
-| **Gen UI (Agent)**           | PASS 19 packages        | FAIL        | FAIL                    | FAIL                         | PASS task progress tracker, progress bar         | FAIL no gen-ui-agent fixture                                 | WARN validate only                                  |
-| **Shared State (Read)**      | PASS 19 packages        | FAIL        | FAIL                    | FAIL                         | PASS recipe card, sidebar, pipeline              | FAIL no shared-state fixture                                 | WARN validate only                                  |
-| **Shared State (Write)**     | PASS 19 packages (stub) | FAIL        | FAIL                    | FAIL                         | PASS pipeline, deal CRUD, agent state writes     | FAIL no shared-state fixture                                 | WARN validate only                                  |
-| **Shared State (Streaming)** | PASS 19 packages (stub) | FAIL        | FAIL                    | FAIL                         | PASS document editor, confirm/reject changes     | FAIL no streaming fixture                                    | WARN validate only                                  |
-| **Sub-Agents**               | PASS 19 packages (stub) | FAIL        | FAIL                    | FAIL                         | PASS travel planner, agent indicators, sections  | FAIL no subagent fixture                                     | WARN validate only                                  |
+| Demo                         | Manual QA               | Vitest Unit | Playwright E2E (smoke)  | Playwright E2E (interaction) | Shared e2e suite                               | Aimock Fixtures                                              | CI Auto                                             |
+| ---------------------------- | ----------------------- | ----------- | ----------------------- | ---------------------------- | ---------------------------------------------- | ------------------------------------------------------------ | --------------------------------------------------- |
+| **Agentic Chat**             | PASS 19 packages        | FAIL        | PASS load + suggestions | WARN suggestion click only   | PASS suggestions, typed message, multi-turn    | WARN `background`, `weather` matches                         | WARN validate only (no Playwright in CI by default) |
+| **Human in the Loop**        | PASS 19 packages        | FAIL        | PASS load + suggestions | WARN suggestion click only   | PASS step selector, approve/reject             | WARN `plan`/`steps`/`mars` matches (text only, no interrupt) | WARN validate only                                  |
+| **Tool Rendering**           | PASS 19 packages        | FAIL        | PASS load + suggestions | WARN suggestion click only   | PASS weather, flights, stock and d20 cards     | WARN `weather` match (tool call)                             | WARN validate only                                  |
+| **Gen UI (Tool-Based)**      | PASS 19 packages        | FAIL        | FAIL                    | FAIL                         | PASS pie and bar chart SVGs                    | FAIL no haiku-specific fixture                               | WARN validate only                                  |
+| **Gen UI (Agent)**           | PASS 19 packages        | FAIL        | FAIL                    | FAIL                         | PASS state card, every step completes          | FAIL no gen-ui-agent fixture                                 | WARN validate only                                  |
+| **Shared State (Read)**      | PASS 19 packages        | FAIL        | FAIL                    | FAIL                         | PASS recipe card, sidebar, add ingredient      | FAIL no shared-state fixture                                 | WARN validate only                                  |
+| **Shared State (Write)**     | PASS 19 packages (stub) | FAIL        | FAIL                    | FAIL                         | PASS preference writes, agent notes, Clear     | FAIL no shared-state fixture                                 | WARN validate only                                  |
+| **Shared State (Streaming)** | PASS 19 packages (stub) | FAIL        | FAIL                    | FAIL                         | PASS document streams, char count, live badge  | FAIL no streaming fixture                                    | WARN validate only                                  |
+| **Sub-Agents**               | PASS 19 packages (stub) | FAIL        | FAIL                    | FAIL                         | PASS 3 subagent cards per pill, one critic run | FAIL no subagent fixture                                     | WARN validate only                                  |
 
 > The Manual-QA column counts the **19 integration packages that ship a `qa/`
 > directory** — `ms-agent-harness-dotnet` ships no manual-QA checklists, so it
@@ -219,20 +291,19 @@ Tagline: what test surface exists per demo. PASS=covered, WARN=partial, FAIL=non
 
 - **Manual QA**: `showcase/integrations/*/qa/*.md` (~498 files across 20 integration packages; per-package counts vary widely, e.g. `langgraph-python` 39, `langgraph-fastapi` 10).
 - **Vitest unit**: `showcase/scripts/__tests__/*.test.ts` — registry/constraint/bundle/integration generators.
-- **Shared E2E**: `showcase/scripts/__tests__/e2e/` — `starter-e2e.spec.ts`, `demo-e2e.spec.ts`, `screenshots.spec.ts`.
-- **Per-package E2E**: `showcase/integrations/*/tests/e2e/` — ~33–41 demo/feature specs per package (e.g. `langgraph-python` 38; `ms-agent-harness-dotnet` only 9).
+- **Scripts E2E**: `showcase/scripts/__tests__/e2e/` (`starter-e2e.spec.ts`, `demo-e2e.spec.ts`, `screenshots.spec.ts`).
+- **Shared app**: the shared e2e suite in `showcase/frontends/nextjs/tests/e2e/`, with a spec for each demo (see [Shared e2e suite](#shared-e2e-suite)). Its unit tests (`*.test.ts`) run with `npm test` in `showcase/frontends/nextjs`.
 - **Aimock fixtures**: `showcase/aimock/` — `shared/common.json`, `shared/smoke.json`, `d4/<slug>/`, `d6/<slug>/`.
 - **CI**: `.github/workflows/showcase_*.yml` (see Test-Gating Matrix below).
 
 ### Known coverage gaps
 
 1. No aimock fixtures for haiku, recipe/deals/document state, travel planning, HITL interrupt.
-2. No shared E2E for gen-ui-tool-based, gen-ui-agent, shared-state-\*, subagents.
-3. No automatic Angular or Vue Playwright/runtime matrix runs on every PR.
+2. No automatic Angular or Vue Playwright/runtime matrix runs on every PR.
    The React frontend baseline matrix is manual (`workflow_dispatch`), and
    aimock E2E requires a `/test-aimock` comment.
-4. No Sales Dashboard starter manual QA checklists.
-5. No per-package renderer-selector E2E spec — renderer-selector coverage comes from the shared starter E2E (`showcase/scripts/__tests__/e2e/starter-e2e.spec.ts`) against the shared starter-template component (`showcase/shared/starter-template/components/renderers/renderer-selector.tsx`).
+3. No Sales Dashboard starter manual QA checklists.
+4. No renderer-selector spec in the shared e2e suite. Renderer-selector coverage comes from the starter E2E (`showcase/scripts/__tests__/e2e/starter-e2e.spec.ts`) against the shared starter-template component (`showcase/shared/starter-template/components/renderers/renderer-selector.tsx`).
 
 ## Test-Gating Matrix
 
@@ -254,7 +325,7 @@ Scope: all testing-related workflows (unit, integration, e2e, smoke) across the 
 | `.github/workflows/showcase_build_check.yml`          | Showcase: Build Check (PR)        | pull_request                                                                                | `showcase/**`, relevant frontend/shared packages, this and the production build workflow                                             | No        | Builds canonical Angular/Vue browser artifacts, stages them into all applicable integration services selected by the workflow, and verifies those Docker images build without pushing |
 | `.github/workflows/test_unit-showcase.yml`            | test / unit-showcase              | push (main), pull_request (main)                                                            | `showcase/**`, workspace lock/config files, this workflow                                                                            | No        | Showcase harness unit suite with explicit quarantine exclusion and ratchet, plus shell-dashboard unit tests                                                                           |
 | `.github/workflows/test_showcase-frontend-matrix.yml` | test / showcase frontend baseline | workflow_dispatch                                                                           | n/a (manual input selects a frozen base commit and integration scope)                                                                | No        | Boots frozen integration services and runs browser cells to produce the React frontend baseline; it does not run Angular or Vue cells                                                 |
-| `.github/workflows/test_e2e-showcase-on-demand.yml`   | test / e2e / showcase / on-demand | issue_comment (`/test-aimock`), workflow_dispatch                                           | n/a (comment-gated)                                                                                                                  | No        | aimock-backed Playwright E2E on demand per-package                                                                                                                                    |
+| `.github/workflows/test_e2e-showcase-on-demand.yml`   | test / e2e / showcase / on-demand | issue_comment (`/test-aimock`), workflow_dispatch                                           | n/a (comment-gated)                                                                                                                  | No        | The shared e2e suite for one integration, against the shared app, the integration's Python agent and aimock                                                                           |
 | `.github/workflows/test_smoke-starter.yml`            | test / smoke / starter            | schedule (`0 */6 * * *`), workflow_run (publish / release), pull_request, workflow_dispatch | `examples/integrations/**`, this workflow                                                                                            | No        | Docker-compose smoke for 12 starter integrations (build + curl)                                                                                                                       |
 
 ## Which tests run on a typical PR?

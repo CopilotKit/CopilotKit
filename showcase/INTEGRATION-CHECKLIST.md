@@ -14,8 +14,8 @@ These govern ALL showcase cell work (integration, test, fixture, frontend). They
 
 A showcase "cell" is one (integration × feature) pair. The core invariant: **a cell's behavior must be determined by the integration's backend + its fixture, and NOTHING else.**
 
-1. **Identical tests — ONE shared probe.** The test measuring a feature (e2e/probe spec) is byte-identical across every integration; per-integration differences live ONLY in fixtures. For D6/D5 this is a single shared harness probe — e.g. `harness/src/probes/scripts/d5-gen-ui-a2ui-fixed.ts` — run against every integration. NEVER add a per-integration test copy.
-2. **Near-identical frontends.** The feature UI is shared/near-identical so a cell renders the same regardless of backend (e.g. mastra ≡ langgraph-python frontend, byte-identical). Verify by screenshot/diff; don't diverge per-integration.
+1. **Identical tests: ONE shared e2e suite, ONE shared probe.** One test measures a feature for every integration. Per-integration differences live ONLY in fixtures. For e2e, this is the shared e2e suite in `frontends/nextjs/tests/e2e/`. For D6/D5, it is a single shared harness probe, for example `harness/src/probes/scripts/d5-gen-ui-a2ui-fixed.ts`, run against every integration. NEVER add a per-integration test copy.
+2. **ONE copy of each demo.** Each demo has one copy, in the shared app at `frontends/nextjs/src/app/demos/[integration]/<demo>/`, so a cell renders the same regardless of backend. Only a real framework difference is per-integration data, in `frontends/nextjs/src/integrations/<slug>/demos/<demo>.ts`. NEVER add a per-integration demo copy.
 3. **Minimal backends.** Each integration's backend is the thinnest glue that drives the feature. No per-integration logic that belongs in shared — push it into `shared/`.
 4. **Per-integration fixtures ONLY.** The only sanctioned per-integration variation is the aimock fixture: one per integration, keyed to its slug, under `aimock/d6/<slug>/...`.
 
@@ -46,7 +46,7 @@ Observe RED (pre-fix) then GREEN (post-fix) on ≥3 real cells. Unit tests again
 
 ## A. Complete Package (what `pnpm create-integration` generates)
 
-Everything below should exist in `showcase/integrations/<slug>/`:
+Everything below goes in `showcase/integrations/<slug>/`, except the [Shared App](#shared-app) files:
 
 ### Source Files
 
@@ -116,10 +116,26 @@ One per declared feature. Each demo must:
 .../src/cvdiag/cvdiag-emitter.js`**, so the D6 column never renders.
 - [ ] `entrypoint.sh` — starts agent server and Next.js, waits for both
 
+### Shared App
+
+These files go in the shared app, in `showcase/frontends/nextjs/src/integrations/<slug>/`. The shared app renders every demo for every integration, and the shared e2e suite tests the integration there. The package's own website (above) still serves production, until the integration moves to the shared app in a later change.
+
+Required:
+
+- [ ] `env.ts`: each address variable (`AGENT_URL_<SLUG>`) and the port that it points to in the integration's container. Agents that run inside the app (built-in-agent, mastra) need no `env.ts`.
+- [ ] `agents.ts`: `createRuntimeConfig(demoId)` returns the demo's agents, under the agent ids in `src/demo-agents.ts`. It also returns any runtime options that replace the demo's entry in `src/demo-runtime-options.ts`. For a demo that the integration does not serve, it returns `undefined`.
+- [ ] The `AGENT_URL_<SLUG>` line in the `frontend-nextjs` service of `docker-compose.local.yml`. In `frontends/nextjs`, `npx tsx scripts/agent-env.ts <slug> <slug>` prints it.
+
+Only when needed:
+
+- [ ] `demos/<demo>.ts`: serializable data for a real framework difference in one demo. See [When one integration needs a difference](./frontends/nextjs/README.md#when-one-integration-needs-a-difference).
+- [ ] `extra-demos.json`: a JSON array of the demo ids that the integration serves, but that its manifest has no route for.
+
+`pnpm create-integration` writes stubs of `env.ts` (port 8000) and `agents.ts` (each scaffolded demo at path `/`). Change them to match the agent server.
+
 ### Testing & QA
 
-- [ ] `playwright.config.ts`
-- [ ] `tests/` — one E2E test per demo (basic: load → send message → get response)
+- [ ] The shared e2e suite passes for the integration: `pnpm nx run showcase-frontend-nextjs:e2e-local <slug>`. See [`TESTING.md`](./TESTING.md#shared-e2e-suite).
 - [ ] `qa/` — manual QA checklist per demo
 - [ ] **CVDIAG instrumentation staged** — add the slug to
       `_CVDIAG_TS_INTEGRATIONS` in `scripts/cli/cmd-cvdiag-stage-ts.sh`, run
