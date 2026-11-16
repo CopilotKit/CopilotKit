@@ -44,6 +44,22 @@
       },
       "dependsOn": ["install-dependencies"],
       "cache": false
+    },
+    "docker-build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "docker build -f showcase/frontends/nextjs/Dockerfile -t showcase-frontend-nextjs:local ."
+      },
+      "cache": false
+    },
+    "e2e-local": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "scripts/e2e-local.sh",
+        "cwd": "showcase/frontends/nextjs"
+      },
+      "dependsOn": ["install-dependencies"],
+      "cache": false
     }
   }
 }
