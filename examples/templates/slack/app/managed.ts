@@ -141,10 +141,9 @@ async function main() {
   // Turn + feature handlers — identical to the native example (app/index.ts).
   support.onMention(async ({ thread, message }) => {
     try {
-      // Channel history (app-api /api/channels/history) does NOT include the
-      // in-flight turn (unlike native adapters whose getHistory rebuilds the
-      // live thread), so pass the current message explicitly as `prompt` —
-      // otherwise runAgent runs with zero messages. Prefer multimodal parts.
+      // Managed history already holds the current message. Passing it as
+      // `prompt` too is safe: the thread drops the duplicate. Prefer
+      // multimodal parts.
       await thread.runAgent({
         prompt: message.contentParts?.length
           ? message.contentParts
