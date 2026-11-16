@@ -10,8 +10,16 @@ import {
   OtherGlyph,
 } from "@/components/icons/glyphs";
 import { FrameworkLogo } from "@/components/icons/framework-icons";
+import { FrontendLogo } from "@/components/icons/frontend-logo";
+import { frontendHref } from "@/lib/live-scope";
 import { useIntegrationClickTracking } from "@/components/telemetry/homepage";
-import { FRAMEWORKS, FRAMEWORK_FAMILIES, TOPICS, TOPIC_SUMMARY } from "./data";
+import {
+  FRAMEWORKS,
+  FRAMEWORK_FAMILIES,
+  FRONTENDS,
+  TOPICS,
+  TOPIC_SUMMARY,
+} from "./data";
 import { CopyPromptD } from "./copy-prompt-d";
 import { useLastFramework } from "./last-framework";
 import { FamilyCard, LinkCard, Tray } from "./link-card";
@@ -85,6 +93,22 @@ export function DHome() {
             title="Intelligence"
             description="Threads that persist, user memories, and agents that learn from real use."
           />
+        </Tray>
+      </section>
+
+      <section className="flex flex-col gap-5">
+        <h2 className={sectionTitle}>Frontends</h2>
+        <Tray variant="bare">
+          {FRONTENDS.map((f) => (
+            <LinkCard
+              key={f.id}
+              href={frontendHref([], f.id, "")}
+              glyph="logo"
+              icon={<FrontendLogo icon={f.id} size={22} />}
+              title={f.name}
+              description={f.summary}
+            />
+          ))}
         </Tray>
       </section>
 
