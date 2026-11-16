@@ -6,8 +6,8 @@ doc_type: reference
 
 <OpsPlatformCTA
   variant="card"
-  title="useThreads needs a CopilotKit Intelligence project"
-  body="Create a cloud-hosted project or connect a self-hosted deployment to start syncing threads."
+  title="Rename, archive, and sync threads with CopilotKit Intelligence"
+  body="Create a cloud-hosted project or connect a self-hosted deployment to manage threads and sync them in realtime."
   ctaLabel="Create a free account"
   surface="docs_reference_use_threads"
 />
@@ -22,7 +22,13 @@ Threads are sorted by the most recent run (`lastRunAt`), then by `updatedAt` for
 
 For a full thread sidebar, see [Headless Threads](/headless-threads).
 
-`useThreads` only activates when the connected runtime advertises compatible REST thread endpoints. Cloud-hosted Intelligence provides those endpoints for thread metadata and realtime updates. A self-managed runner, such as `AgentRunner`, `SqliteAgentRunner`, or a custom runner, can persist and replay chat history. It does not provide the thread list, the thread mutations, or the realtime updates that `useThreads` needs.
+`useThreads` only activates when the connected runtime advertises compatible REST thread endpoints. What works depends on the runtime:
+
+- **With Intelligence:** the thread list, rename, archive, delete, and realtime updates.
+- **With the default `InMemoryAgentRunner`:** the thread list only. Pass `identifyUser`, or `threads: { access: "open" }`, to `CopilotKitRuntime` to allow listing. The list lives in process memory, so a restart clears it.
+- **With `SqliteAgentRunner` or a custom runner:** no thread list. These runners persist and replay chat history only.
+
+For the routes behind each case, see [Runtime endpoints](/backend/runtime-endpoints).
 
 ## Signature
 
