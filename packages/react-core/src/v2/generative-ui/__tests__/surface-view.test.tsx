@@ -15,16 +15,16 @@ import type {
   GenerativeUIFunctionArgs,
   GenerativeUIStateOf,
 } from "../catalog";
-import { createGenerativeUIDispatcher } from "../dispatcher";
+import { createGenerativeUIDispatcher } from "@copilotkit/core/generative-ui";
 import type {
   GenerativeUIErrorInfo,
   GenerativeUIEventHandler,
-} from "../errors";
+} from "@copilotkit/shared/generative-ui";
 import { useGenerativeUIFunction, useGenerativeUIState } from "../hooks";
 import { GenerativeUIRuntimeContext } from "../runtime-context";
 import type { GenerativeUIRuntime } from "../runtime-context";
-import { invokeBoundEvent } from "../events";
-import { GenerativeUISurfaceManager } from "../surface-manager";
+import { invokeBoundEvent } from "@copilotkit/core/generative-ui";
+import { GenerativeUISurfaceManager } from "@copilotkit/core/generative-ui";
 import { SurfaceView } from "../SurfaceView";
 
 const mounts = new Map<string, number>();
@@ -258,15 +258,15 @@ function CartState({ cart }: { cart: Cart }) {
 
 const S = "s1";
 const create: A2UIOperation = {
-  version: "v1.0",
+  version: "1.0",
   createSurface: { surfaceId: S, catalogId: "shop" },
 };
 const nodes = (...components: A2UIComponentNode[]): A2UIOperation => ({
-  version: "v1.0",
+  version: "1.0",
   updateComponents: { surfaceId: S, components },
 });
 const data = (path: string, value: unknown): A2UIOperation => ({
-  version: "v1.0",
+  version: "1.0",
   updateDataModel: { surfaceId: S, path, value },
 });
 const content = (operations: A2UIOperation[]): GenerativeUISurfaceContent => ({

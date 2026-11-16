@@ -13,6 +13,8 @@ the rendering tool itself — it emits an `a2ui_operations` container
 directly without a secondary LLM call.
 """
 
+# @region[backend-render-operations]
+# @region[backend-schema-json-load]
 from __future__ import annotations
 
 import json
@@ -39,6 +41,7 @@ def _load_schema(filename: str) -> list[dict]:
 
 
 FLIGHT_SCHEMA = _load_schema("flight_schema.json")
+# @endregion[backend-schema-json-load]
 # `booked_schema.json` is shipped alongside `flight_schema.json` so the
 # schema is ready to wire up once the SDK exposes per-button action handlers
 # for fixed-schema surfaces (matching the langgraph-python reference).
@@ -90,6 +93,9 @@ def display_flight(origin: str, destination: str, airline: str, price: str):
     return json.dumps({"a2ui_operations": operations})
 
 
+# @endregion[backend-render-operations]
+
+
 SYSTEM_PROMPT = (
     "You help users find flights. When asked about a flight, call "
     "display_flight with origin (3-letter code), destination (3-letter "
@@ -99,7 +105,7 @@ SYSTEM_PROMPT = (
 
 
 agent = Agent(
-    model=OpenAIChat(id="gpt-4o-mini", timeout=120),
+    model=OpenAIChat(reasoning_effort="none", id="gpt-6-luna", timeout=120),
     tools=[display_flight],
     tool_call_limit=4,
     description=SYSTEM_PROMPT,

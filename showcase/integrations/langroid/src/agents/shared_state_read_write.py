@@ -191,9 +191,10 @@ async def _call_openai(
     follow-up call (no tool needed) doesn't confuse the model into
     re-calling tools.
     """
-    model = os.getenv("LANGROID_MODEL", "gpt-4.1")
+    model = os.getenv("LANGROID_MODEL", "gpt-6-luna")
     client = openai.AsyncOpenAI()
     response = await client.chat.completions.create(
+        reasoning_effort="none" if model == "gpt-6-luna" else openai.NOT_GIVEN,
         model=model,
         messages=messages,
         tools=tools if tools else openai.NOT_GIVEN,

@@ -6,6 +6,62 @@ import { applyA2UIOperations, normalizeA2UIOperations } from "../operations";
 const CATALOG_ID = "copilotkit://demo";
 
 describe("normalizeA2UIOperations", () => {
+  it("strips only the top-level routing surfaceId from v0.9 operations", () => {
+    const operations = [
+      {
+        version: "v0.9",
+        createSurface: { surfaceId: "nested", catalogId: CATALOG_ID },
+      },
+      {
+        version: "v0.9",
+        updateDataModel: {
+          surfaceId: "nested",
+          path: "/",
+          value: { label: "Hello" },
+        },
+      },
+      {
+        version: "v0.9",
+        updateComponents: {
+          surfaceId: "nested",
+          components: [{ id: "root", component: "Text", text: "Hello" }],
+        },
+      },
+      { version: "v0.9", deleteSurface: { surfaceId: "nested" } },
+    ];
+    const routed = operations.map((operation) =>
+      Object.freeze({ ...operation, surfaceId: "routing" }),
+    );
+
+    expect(normalizeA2UIOperations(routed, CATALOG_ID)).toEqual(operations);
+    expect(routed.every((operation) => operation.surfaceId === "routing")).toBe(
+      true,
+    );
+  });
+
+  it("still rejects unrelated envelope keys after stripping routing metadata", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      expect(
+        normalizeA2UIOperations(
+          [
+            {
+              version: "v0.9",
+              surfaceId: "routing",
+              unexpected: true,
+              deleteSurface: { surfaceId: "nested" },
+            },
+            { version: "v0.9", surfaceId: "routing", deleteSurface: {} },
+          ],
+          CATALOG_ID,
+        ),
+      ).toEqual([]);
+      expect(warn).toHaveBeenCalledTimes(2);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
   it("pins created surfaces to the catalog and reads a missing version as v0.9", () => {
     const messages = normalizeA2UIOperations(
       [

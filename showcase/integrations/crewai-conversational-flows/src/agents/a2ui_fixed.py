@@ -21,7 +21,7 @@ import json
 from pathlib import Path
 from typing import Any, Type
 
-from crewai import Agent, Crew, Process, Task
+from crewai import LLM, Agent, Crew, Process, Task
 from crewai.flow.flow import Flow, start
 from crewai.tools import BaseTool
 from litellm import acompletion
@@ -139,7 +139,11 @@ preseed_system_prompt(
 
 def _build_crew() -> Crew:
     agent = Agent(
-        llm="gpt-5.4",
+        llm=LLM(
+            model="openai/gpt-6-luna",
+            is_litellm=True,
+            additional_params={"extra_body": {"reasoning_effort": "none"}},
+        ),
         role="A2UI Fixed-Schema Flight Finder",
         goal=(
             "Answer the user's flight questions by calling display_flight "
@@ -165,7 +169,11 @@ def _build_crew() -> Crew:
         tasks=[task],
         process=Process.sequential,
         verbose=False,
-        chat_llm="gpt-5.4",
+        chat_llm=LLM(
+            model="openai/gpt-6-luna",
+            is_litellm=True,
+            additional_params={"extra_body": {"reasoning_effort": "none"}},
+        ),
     )
 
 
@@ -193,7 +201,9 @@ class A2UIFixedFlow(Flow[CopilotKitState]):
         for _iteration in range(3):
             response = await copilotkit_stream(
                 await acompletion(
-                    model="openai/gpt-5.4",
+                    allowed_openai_params=["reasoning_effort"],
+                    reasoning_effort="none",
+                    model="openai/gpt-6-luna",
                     messages=[
                         {"role": "system", "content": A2UI_FIXED_BACKSTORY},
                         *self.state.messages,

@@ -43,9 +43,12 @@ def create_model(default_spec: str) -> Model:
     OpenAIChat, Claude and Gemini.
 
     Args:
-        default_spec: The default when the variable is unset, e.g. ``"openai:gpt-4o"``.
+        default_spec: The default when the variable is unset, e.g. ``"openai:gpt-6-luna"``.
     """
     provider, model = parse_agent_model(
         (os.getenv("COPILOTKIT_AGENT_MODEL") or "").strip() or default_spec
     )
-    return get_model(f"{provider}:{model}")
+    llm = get_model(f"{provider}:{model}")
+    if provider == "openai" and model == "gpt-6-luna":
+        llm.reasoning_effort = "none"
+    return llm

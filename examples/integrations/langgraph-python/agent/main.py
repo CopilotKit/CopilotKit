@@ -17,9 +17,9 @@ from src.a2ui_fixed_schema import search_flights
 from src.model import create_chat_model
 
 # COPILOTKIT_AGENT_MODEL (e.g. "anthropic:claude-sonnet-4-5") overrides this and
-# every other model site in the agent; unset, this site uses gpt-5.4-mini.
+# every other model site in the agent; unset, this site uses gpt-6-luna.
 model = create_chat_model(
-    "openai:gpt-5.4-mini", model_kwargs={"parallel_tool_calls": False}
+    "openai:gpt-6-luna", model_kwargs={"parallel_tool_calls": False}
 )
 
 SYSTEM_PROMPT = """

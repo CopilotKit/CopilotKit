@@ -3,7 +3,7 @@ import { envelopeToManifest, readCopilotKitUIEnvelope } from "../a2ui-envelope";
 import type { CopilotKitUIEnvelope } from "../a2ui-envelope";
 
 type InlineCatalog = NonNullable<
-  CopilotKitUIEnvelope["v1.0"]["inlineCatalogs"]
+  CopilotKitUIEnvelope["1.0"]["inlineCatalogs"]
 >[number];
 type Extensions = CopilotKitUIEnvelope["metadata"]["extensions"];
 
@@ -52,7 +52,7 @@ function createEnvelope(options?: {
   extensions?: Partial<Extensions>;
 }): CopilotKitUIEnvelope {
   return {
-    "v1.0": {
+    "1.0": {
       supportedCatalogIds: ["acme/app@1"],
       inlineCatalogs: [createCatalog(options?.catalog)],
     },
@@ -78,8 +78,8 @@ const withCatalogField = (key: string, value: unknown) => {
   const envelope = createEnvelope();
   return {
     ...envelope,
-    "v1.0": {
-      ...envelope["v1.0"],
+    "1.0": {
+      ...envelope["1.0"],
       inlineCatalogs: [{ ...createCatalog(), [key]: value }],
     },
   };
@@ -88,7 +88,7 @@ const withCatalogField = (key: string, value: unknown) => {
 /** An envelope with one key of the capabilities replaced by any value. */
 const withCapability = (key: string, value: unknown) => {
   const envelope = createEnvelope();
-  return { ...envelope, "v1.0": { ...envelope["v1.0"], [key]: value } };
+  return { ...envelope, "1.0": { ...envelope["1.0"], [key]: value } };
 };
 
 /** An envelope with one CopilotKit extension replaced by any value. */
@@ -103,6 +103,11 @@ const withExtension = (key: string, value: unknown) => {
 };
 
 describe("readCopilotKitUIEnvelope", () => {
+  it("does not read the pre-release v1.0 capability key", () => {
+    const { "1.0": capabilities, ...rest } = createEnvelope();
+    expect(readUI({ ...rest, "v1.0": capabilities })).toBeUndefined();
+  });
+
   it("reads a markdown envelope from forwardedProps.copilotkit.ui", () => {
     const envelope = createEnvelope();
     expect(readUI(envelope)).toEqual(envelope);
@@ -110,7 +115,7 @@ describe("readCopilotKitUIEnvelope", () => {
 
   it("reads a tool envelope without instructions and without components", () => {
     const envelope: CopilotKitUIEnvelope = {
-      "v1.0": {
+      "1.0": {
         supportedCatalogIds: ["acme/app@1"],
         inlineCatalogs: [
           { catalogId: "acme/app@1", protocolVersion: "1.0", functions: {} },
@@ -132,7 +137,7 @@ describe("readCopilotKitUIEnvelope", () => {
   it("reads an envelope without inline catalogs", () => {
     const envelope: CopilotKitUIEnvelope = {
       ...createEnvelope(),
-      "v1.0": { supportedCatalogIds: ["acme/app@1"] },
+      "1.0": { supportedCatalogIds: ["acme/app@1"] },
     };
     expect(readUI(envelope)).toEqual(envelope);
   });
@@ -201,7 +206,7 @@ describe("readCopilotKitUIEnvelope", () => {
     ],
     ["format 2 in the extensions", withExtension("copilotkit_format", 2)],
     ["an unknown transport", withExtension("copilotkit_transport", "fence")],
-    ["no capabilities", { ...createEnvelope(), "v1.0": undefined }],
+    ["no capabilities", { ...createEnvelope(), "1.0": undefined }],
     ["no metadata", { ...createEnvelope(), metadata: undefined }],
     ["no extensions", { ...createEnvelope(), metadata: {} }],
     ["no catalog id", withCapability("supportedCatalogIds", [])],
@@ -333,7 +338,7 @@ describe("envelopeToManifest", () => {
 
   it("gives the action of the user event that started the run", () => {
     const action = {
-      version: "v1.0" as const,
+      version: "1.0" as const,
       action: {
         name: "buy",
         surfaceId: "s1",
@@ -371,7 +376,7 @@ describe("envelopeToManifest", () => {
   it("lists every supported catalog id, the first one as the catalog of the run", () => {
     const envelope: CopilotKitUIEnvelope = {
       ...createEnvelope(),
-      "v1.0": {
+      "1.0": {
         supportedCatalogIds: ["acme/app@1", "copilotkit/standard@1"],
         inlineCatalogs: [createCatalog()],
       },
@@ -386,7 +391,7 @@ describe("envelopeToManifest", () => {
   it("uses only the inline catalog of the first supported catalog id", () => {
     const envelope: CopilotKitUIEnvelope = {
       ...createEnvelope(),
-      "v1.0": {
+      "1.0": {
         supportedCatalogIds: ["acme/app@1"],
         inlineCatalogs: [createCatalog({ catalogId: "other/catalog" })],
       },
@@ -418,7 +423,7 @@ describe("component parameter order", () => {
     "rejects invalid metadata %j",
     (parameterOrder) => {
       const envelope = createEnvelope();
-      const catalog = envelope["v1.0"].inlineCatalogs![0];
+      const catalog = envelope["1.0"].inlineCatalogs![0];
       const invalid = {
         ...catalog,
         components: { ProductGrid: { ...productGrid, parameterOrder } },
@@ -426,7 +431,7 @@ describe("component parameter order", () => {
       expect(
         readUI({
           ...envelope,
-          "v1.0": { ...envelope["v1.0"], inlineCatalogs: [invalid] },
+          "1.0": { ...envelope["1.0"], inlineCatalogs: [invalid] },
         }),
       ).toBeUndefined();
     },

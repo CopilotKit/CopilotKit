@@ -29,6 +29,9 @@ export function normalizeA2UIOperations(
       version: "v0.9",
       ...(typeof operation === "object" ? operation : {}),
     };
+    // Compatibility with noncanonical agent payloads: this is routing metadata,
+    // not part of the v0.9 envelope. The nested action's surfaceId is authoritative.
+    delete message["surfaceId"];
     if (
       message["createSurface"] &&
       typeof message["createSurface"] === "object"

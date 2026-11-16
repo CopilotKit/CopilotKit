@@ -99,7 +99,7 @@ def schedule_meeting(topic: str, attendee: Optional[str] = None) -> str:
 # @endregion[backend-interrupt-tool]
 
 
-model = ChatOpenAI(model="gpt-5.4")
+model = ChatOpenAI(reasoning_effort="none", model="gpt-6-luna")
 
 graph = create_agent(
     model=model,

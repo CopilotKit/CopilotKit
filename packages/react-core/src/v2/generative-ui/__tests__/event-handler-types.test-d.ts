@@ -10,7 +10,7 @@ import { createGenerativeUI } from "../catalog";
 import type {
   GenerativeUIEventHandler,
   GenerativeUIInvokeResult,
-} from "../errors";
+} from "@copilotkit/shared/generative-ui";
 
 function CheckoutForm(_props: {
   onSubmit?: GenerativeUIEventHandler<typeof ui, "onSubmit">;

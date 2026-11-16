@@ -11,7 +11,7 @@ description: "React hook for providing dynamic context to agents"
   Re-exported from `@copilotkit/react-core/v2`. It is identical to the [React (V2) `useAgentContext`](/reference/v2/hooks/useAgentContext); only the import path differs.
 </Callout>
 
-Update the incoming context object to refresh what the agent sees. This is the v2 equivalent of `useCopilotReadable`. It lets you surface any serializable application state (user preferences, selected items, computed values, and so on) as context that agents can reference when generating responses or making decisions.
+Update the incoming context object to refresh what the agent sees. It lets you surface any serializable application state (user preferences, selected items, computed values, and so on) as context that agents can reference when generating responses or making decisions.
 
 ## Signature
 
@@ -32,7 +32,7 @@ function useAgentContext(context: AgentContextInput): void;
 </PropertyReference>
 
   <PropertyReference name="value" type="JsonSerializable" required>
-    The context value to provide. Must be JSON-serializable: `string`, `number`, `boolean`, `null`, arrays, or plain objects with string keys and serializable values. Anything that is not already a string is stringified with `JSON.stringify` before it is sent, so the agent receives a JSON string rather than the value you passed: see [What the agent receives](#what-the-agent-receives).
+    The context value. Use a JSON-serializable value: a `string`, `number`, `boolean`, `null`, an array, or a plain object with string keys and serializable values. The hook sends a string unchanged. It sends any other value as a `JSON.stringify` string. See [What the agent receives](#what-the-agent-receives).
   </PropertyReference>
 </PropertyReference>
 
@@ -193,9 +193,4 @@ Where that context list surfaces in your agent depends on your framework's AG-UI
 - **Reactive updates**: When the `context` object changes between renders, the agent immediately sees the updated value.
 - **Serialization**: The `value` must conform to `JsonSerializable` (`string | number | boolean | null | JsonSerializable[] | { [key: string]: JsonSerializable }`). Non-serializable values such as functions, class instances, or symbols will cause errors. Strings are sent through unchanged; every other value is stringified, so the agent always reads a string: see [What the agent receives](#what-the-agent-receives).
 - **Multiple contexts**: Multiple `useAgentContext` calls across your component tree are all visible to the agent concurrently. Each is identified by its description and value.
-- **No return value**: The hook returns `void`. Unlike `useCopilotReadable`, it does not return an ID for parent-child hierarchies.
-
-## Related
-
-- [`useCopilotReadable`](/reference/v1/hooks/useCopilotReadable): v1 equivalent for providing context
-- [React (V2) reference](/reference/v2/hooks/useAgentContext): the web `useAgentContext` this hook mirrors
+- **No return value**: The hook returns `void`.

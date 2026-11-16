@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- Spring AI backend is up with a vision-capable OpenAI model (e.g. gpt-4.1 / gpt-4o)
+- Spring AI backend is up with a vision-capable OpenAI model (e.g. gpt-6-luna / gpt-6-luna)
 
 ## Test Steps
 

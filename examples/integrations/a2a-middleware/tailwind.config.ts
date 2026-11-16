@@ -44,15 +44,6 @@ const config = {
           foreground: "hsl(var(--card-foreground))",
         },
       },
-      fontFamily: {
-        sans: ["Plus Jakarta Sans", "ui-sans-serif", "system-ui", "sans-serif"],
-        mono: [
-          "Spline Sans Mono",
-          "ui-monospace",
-          "SFMono-Regular",
-          "monospace",
-        ],
-      },
       boxShadow: {
         "elevation-sm": "var(--shadow-sm)",
         "elevation-md": "var(--shadow-md)",

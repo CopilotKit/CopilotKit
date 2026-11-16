@@ -78,8 +78,8 @@ export interface CopilotPopupProps {
   attachments?: NativeAttachmentsConfig;
 
   /**
-   * Optional children rendered below the CopilotChat content
-   * inside the popup card.
+   * Your chat UI, rendered inside the popup card below the header. The inner
+   * CopilotChat is headless and draws no messages or input of its own.
    */
   children?: ReactNode;
 

@@ -117,7 +117,8 @@ def generate_a2ui(run_context: RunContext, context: str) -> str:
     forwarded_headers = get_forwarded_headers()
     client = openai.OpenAI(default_headers=forwarded_headers or None)
     response = client.chat.completions.create(
-        model="gpt-5-mini",
+        reasoning_effort="none",
+        model="gpt-6-luna",
         messages=[
             {"role": "system", "content": system_prompt},
             {
@@ -149,7 +150,7 @@ def generate_a2ui(run_context: RunContext, context: str) -> str:
 
 
 agent = Agent(
-    model=OpenAIChat(id="gpt-5-mini", timeout=120),
+    model=OpenAIChat(reasoning_effort="none", id="gpt-6-luna", timeout=120),
     tools=[generate_a2ui],
     tool_call_limit=4,
     description=SYSTEM_PROMPT,

@@ -152,7 +152,8 @@ class GenerateA2uiInput(BaseModel):
 
 def _generate_a2ui_completion_params(context: str) -> dict[str, Any]:
     return {
-        "model": "gpt-5.4",
+        "model": "gpt-6-luna",
+        "reasoning_effort": "none",
         "messages": [
             {
                 "role": "system",

@@ -33,7 +33,7 @@ def get_memory() -> OracleAgentMemory:
         increment=1,
     )
     embedder = Embedder(model=os.getenv("EMBEDDING_MODEL", "text-embedding-3-small"))
-    llm = Llm(model=os.getenv("MEMORY_LLM_MODEL", "gpt-5.4-mini"))
+    llm = Llm(model=os.getenv("MEMORY_LLM_MODEL", "gpt-6-luna"))
     # schema_policy="create_if_necessary" provisions the memory tables on first
     # run (the cookbook DB user has DB_DEVELOPER_ROLE). Without it, OracleAgentMemory
     # errors on a fresh database with "Managed DB schema is missing required objects".

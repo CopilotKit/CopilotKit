@@ -150,7 +150,7 @@ function buildAgent(userId: string) {
     );
   }
   return new BuiltInAgent({
-    model: process.env.OPENAI_MODEL || "openai/gpt-5-mini",
+    model: process.env.OPENAI_MODEL || "openai/gpt-6-luna",
     apiKey: process.env.OPENAI_API_KEY,
     prompt: SYSTEM_PROMPT,
     tools: buildTools(userId),

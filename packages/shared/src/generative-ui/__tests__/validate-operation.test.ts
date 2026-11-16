@@ -62,19 +62,19 @@ const functions = {
 const knownSurfaces = new Set(["s1"]);
 
 const update = (...components: unknown[]) => ({
-  version: "v1.0",
+  version: "1.0",
   updateComponents: { surfaceId: "s1", components },
 });
 const setData = (fields: { path?: string; value?: unknown }) => ({
-  version: "v1.0",
+  version: "1.0",
   updateDataModel: { surfaceId: "s1", ...fields },
 });
 const create = (fields: Record<string, unknown>) => ({
-  version: "v1.0",
+  version: "1.0",
   createSurface: { surfaceId: "s2", ...fields },
 });
 const callFunction = (fields: Record<string, unknown>) => ({
-  version: "v1.0",
+  version: "1.0",
   callRendererFunction: { functionCallId: "f1", ...fields },
 });
 /** A valid ProductCard with `props` added or replaced. */
@@ -90,23 +90,29 @@ const reasonOf = (
 };
 
 describe("validateOperation: version and kind", () => {
-  it("rejects a v0.9 operation with a reason that names v1.0", () => {
+  it("rejects the pre-release v1.0 spelling", () => {
+    expect(
+      reasonOf({ version: "v1.0", deleteSurface: { surfaceId: "s1" } }),
+    ).toBe('unsupported version "v1.0"; use "1.0"');
+  });
+
+  it("rejects a v0.9 operation with a reason that names 1.0", () => {
     expect(
       reasonOf({ version: "v0.9", deleteSurface: { surfaceId: "s1" } }),
-    ).toBe('unsupported version "v0.9"; use "v1.0"');
+    ).toBe('unsupported version "v0.9"; use "1.0"');
   });
 
   it("rejects an operation without a version", () => {
     expect(reasonOf({ deleteSurface: { surfaceId: "s1" } })).toBe(
-      'operation needs "version":"v1.0"',
+      'operation needs "version":"1.0"',
     );
   });
 
   it("rejects ops with zero or several kinds", () => {
-    expect(reasonOf({ version: "v1.0" })).toMatch(/exactly one/);
+    expect(reasonOf({ version: "1.0" })).toMatch(/exactly one/);
     expect(
       reasonOf({
-        version: "v1.0",
+        version: "1.0",
         deleteSurface: { surfaceId: "s1" },
         updateDataModel: { surfaceId: "s1", value: 1 },
       }),
@@ -133,7 +139,7 @@ describe("validateOperation: createSurface", () => {
     };
     const check = (catalogId: string) =>
       validateOperation(
-        { version: "v1.0", createSurface: { surfaceId: "s2", catalogId } },
+        { version: "1.0", createSurface: { surfaceId: "s2", catalogId } },
         options,
       );
     expect(check("copilotkit/standard@1")).toEqual({ ok: true });
@@ -146,13 +152,13 @@ describe("validateOperation: createSurface", () => {
 
   it("rejects a createSurface without a surfaceId", () => {
     expect(
-      reasonOf({ version: "v1.0", createSurface: { catalogId: "shop" } }),
+      reasonOf({ version: "1.0", createSurface: { catalogId: "shop" } }),
     ).toBe("createSurface.surfaceId is required");
   });
 
   it("rejects an existing surface", () => {
     expect(
-      reasonOf({ version: "v1.0", createSurface: { surfaceId: "s1" } }),
+      reasonOf({ version: "1.0", createSurface: { surfaceId: "s1" } }),
     ).toBe('surface "s1" already exists');
   });
 
@@ -201,7 +207,7 @@ describe("validateOperation: surface updates", () => {
   it("rejects updates to surfaces that do not exist", () => {
     expect(
       reasonOf({
-        version: "v1.0",
+        version: "1.0",
         updateComponents: {
           surfaceId: "missing",
           components: [{ id: "root", component: "ProductGrid" }],

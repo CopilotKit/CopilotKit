@@ -36,8 +36,8 @@ def generate_a2ui(user_intent: str) -> str:
     A secondary LLM designs the UI schema and data. The result is returned
     as an a2ui_operations container for the runtime to detect and render.
     """
-    # COPILOTKIT_AGENT_MODEL overrides this site too; unset, it uses gpt-5-mini.
-    model = create_chat_model("openai:gpt-5-mini")
+    # COPILOTKIT_AGENT_MODEL overrides this site too; unset, it uses gpt-6-luna.
+    model = create_chat_model("openai:gpt-6-luna")
     # Name the forced tool as a string: LangChain translates it for every
     # provider, while the OpenAI-shaped dict only works for OpenAI.
     model_with_tool = model.bind_tools(

@@ -347,16 +347,16 @@ import { BuiltInAgent } from "@copilotkit/runtime/v2";
 
 const agents = {
   default: new BuiltInAgent({
-    model: "openai/gpt-4o",
+    model: "openai/gpt-6-luna",
     systemPrompt: "You are a general assistant.",
   }),
   research: new BuiltInAgent({
-    model: "openai/gpt-4o",
+    model: "openai/gpt-6-luna",
     systemPrompt:
       "You are a research specialist. Search for papers and summarize findings.",
   }),
   coding: new BuiltInAgent({
-    model: "openai/gpt-4o",
+    model: "openai/gpt-6-luna",
     systemPrompt: "You are a coding expert. Write clean, tested code.",
   }),
 };

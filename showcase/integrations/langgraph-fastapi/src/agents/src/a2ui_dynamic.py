@@ -73,7 +73,9 @@ def generate_a2ui() -> dict:
 
 
 graph = create_agent(
-    model=ChatOpenAI(model=os.getenv("OPENAI_MODEL", "gpt-4o")),
+    model=ChatOpenAI(
+        reasoning_effort="none", model=os.getenv("OPENAI_MODEL", "gpt-6-luna")
+    ),
     tools=[generate_a2ui],
     middleware=[CopilotKitMiddleware()],
     system_prompt=SYSTEM_PROMPT,

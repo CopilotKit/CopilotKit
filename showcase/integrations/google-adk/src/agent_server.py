@@ -52,6 +52,7 @@ from starlette.responses import JSONResponse
 from dotenv import load_dotenv
 
 from agents.registry import AGENT_REGISTRY
+from agents.a2ui_format import A2UIFormatMiddleware
 
 load_dotenv()
 
@@ -69,6 +70,14 @@ class HealthMiddleware(BaseHTTPMiddleware):
 
 
 app.add_middleware(HealthMiddleware)
+app.add_middleware(
+    A2UIFormatMiddleware,
+    routes={
+        f"/{name}"
+        for name, spec in AGENT_REGISTRY.items()
+        if spec.a2ui_inference_format is not None
+    },
+)
 
 # Forward inbound x-* headers onto outbound httpx calls so aimock fixture
 # matching sees the in-flight test's ``x-aimock-context``. Paired with
@@ -96,6 +105,11 @@ app.add_middleware(CvdiagBackendMiddleware)
 for agent_name, spec in AGENT_REGISTRY.items():
     middleware = ADKAgent(
         adk_agent=spec.llm_agent,
+        **(
+            {"a2ui": {"inference_format": spec.a2ui_inference_format}}
+            if spec.a2ui_inference_format is not None
+            else {}
+        ),
         user_id="demo_user",
         session_timeout_seconds=3600,
         use_in_memory_services=True,

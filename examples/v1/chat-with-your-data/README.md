@@ -134,7 +134,7 @@ const searchInternet = defineTool({
 const runtime = new CopilotRuntime({
   agents: {
     default: new BuiltInAgent({
-      model: "openai/gpt-5-mini",
+      model: "openai/gpt-6-luna",
       prompt,
       tools: [searchInternet],
       maxSteps: 5,

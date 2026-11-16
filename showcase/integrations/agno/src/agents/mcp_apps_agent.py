@@ -17,7 +17,7 @@ load_dotenv()
 agent = Agent(
     # Same timeout treatment as the main agent — keeps aimock-proxied requests
     # from timing out under load.
-    model=OpenAIChat(id="gpt-4o", timeout=120),
+    model=OpenAIChat(reasoning_effort="none", id="gpt-6-luna", timeout=120),
     tools=[],
     tool_call_limit=15,
     description=(

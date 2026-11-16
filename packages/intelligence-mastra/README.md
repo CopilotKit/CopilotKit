@@ -22,7 +22,7 @@ const agent = skills.wrapAgent(
   new Agent({
     id: "support",
     name: "Support",
-    model: "openai/gpt-4.1",
+    model: "openai/gpt-6-luna",
     instructions: "Follow our support policy.",
     inputProcessors: [skills],
     tools: { ...skills.tools },

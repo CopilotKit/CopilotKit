@@ -39,8 +39,7 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
-    font-family: var(--font-plus-jakarta-sans), sans-serif;
+    @apply bg-background text-foreground font-sans;
   }
 }
 

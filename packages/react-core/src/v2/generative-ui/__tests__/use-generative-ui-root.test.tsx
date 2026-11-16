@@ -9,6 +9,7 @@ import {
   buildGenerativeUIMarkdownGuidelines,
   buildGenerativeUIPrompt,
   envelopeToManifest,
+  GENERATIVE_UI_ACTIVITY_TYPE,
   GENERATIVE_UI_AGENT_FUNCTION_CALLS,
   randomUUID,
   readCopilotKitUIEnvelope,
@@ -24,9 +25,9 @@ import {
   toolCallChunkEvent,
 } from "../../__tests__/utils/test-helpers";
 import { createGenerativeUI } from "../catalog";
-import { createGenerativeUIDispatcher } from "../dispatcher";
-import { GenerativeUISurfaceManager } from "../surface-manager";
-import { buildGenerativeUIManifest } from "../manifest";
+import { createGenerativeUIDispatcher } from "@copilotkit/core/generative-ui";
+import { GenerativeUISurfaceManager } from "@copilotkit/core/generative-ui";
+import { buildGenerativeUIManifest } from "@copilotkit/core/generative-ui";
 import { useGenerativeUIFunction } from "../hooks";
 import { useGenerativeUIRuntime } from "../runtime-context";
 import type {
@@ -58,6 +59,7 @@ const ui = createGenerativeUI({
 
 /** The guideline for this UI: no events, no multiple slot, and no function mounted. */
 const SMALL_GUIDELINE = buildGenerativeUIMarkdownGuidelines({
+  components: ["Box", "Button"],
   functions: false,
   events: false,
   templates: false,
@@ -128,7 +130,7 @@ function envelopeOf(input: RunAgentInput) {
 
 /** The one inline catalog of the envelope of a run. */
 function catalogOf(input: RunAgentInput) {
-  return envelopeOf(input)?.["v1.0"].inlineCatalogs?.[0];
+  return envelopeOf(input)?.["1.0"].inlineCatalogs?.[0];
 }
 
 function buttonSurface(surfaceId: string): GenerativeUISurfaceContent {
@@ -139,9 +141,9 @@ function buttonSurface(surfaceId: string): GenerativeUISurfaceContent {
     status: "ready",
     rejected: [],
     operations: [
-      { version: "v1.0", createSurface: { surfaceId, catalogId: "shop" } },
+      { version: "1.0", createSurface: { surfaceId, catalogId: "shop" } },
       {
-        version: "v1.0",
+        version: "1.0",
         updateComponents: {
           surfaceId,
           components: [{ id: "root", component: "Button", label: "Buy now" }],
@@ -156,9 +158,9 @@ function missingRootSurface(surfaceId: string): GenerativeUISurfaceContent {
   return {
     ...buttonSurface(surfaceId),
     operations: [
-      { version: "v1.0", createSurface: { surfaceId, catalogId: "shop" } },
+      { version: "1.0", createSurface: { surfaceId, catalogId: "shop" } },
       {
-        version: "v1.0",
+        version: "1.0",
         updateComponents: {
           surfaceId,
           components: [{ id: "root", component: "Missing" }],
@@ -166,6 +168,13 @@ function missingRootSurface(surfaceId: string): GenerativeUISurfaceContent {
       },
     ],
   };
+}
+
+/** The development warnings about a skipped, malformed activity message. */
+function malformedWarnings(warn: ReturnType<typeof vi.spyOn>) {
+  return warn.mock.calls
+    .map((call) => String(call[0]))
+    .filter((message) => message.includes("malformed"));
 }
 
 const origin = { surfaceId: "s1", componentId: "root" };
@@ -247,13 +256,13 @@ describe("useGenerativeUIRoot", () => {
   });
 
   describe("envelope", () => {
-    it("sends the tool envelope in the v1.0 capabilities shape, with the components and no instructions", async () => {
+    it("sends the tool envelope in the 1.0 capabilities shape, with the components and no instructions", async () => {
       const { copilotkit, agent } = setup();
 
       const envelope = envelopeOf(await runOnce(copilotkit, agent));
 
       expect(envelope).toStrictEqual({
-        "v1.0": {
+        "1.0": {
           supportedCatalogIds: ["shop"],
           inlineCatalogs: [
             {
@@ -649,7 +658,7 @@ describe("useGenerativeUIRoot", () => {
       await waitFor(() => expect(CapturingAgent.inputs).toHaveLength(1));
       const sent = envelopeOf(CapturingAgent.inputs[0]);
       expect(sent?.metadata.extensions.copilotkit_action).toEqual({
-        version: "v1.0",
+        version: "1.0",
         action: {
           name: "buy",
           surfaceId: "s1",
@@ -665,7 +674,7 @@ describe("useGenerativeUIRoot", () => {
       const elsewhere = readCopilotKitUIEnvelope(
         copilotkit.getPropertiesForAgent("other"),
       );
-      expect(elsewhere?.["v1.0"].supportedCatalogIds).toEqual(["shop"]);
+      expect(elsewhere?.["1.0"].supportedCatalogIds).toEqual(["shop"]);
       expect(elsewhere?.metadata.extensions).not.toHaveProperty(
         "copilotkit_action",
       );
@@ -773,6 +782,65 @@ describe("useGenerativeUIRoot", () => {
         expect.objectContaining({ kind: "event", surfaceId: "s1" }),
       );
       expect(CapturingAgent.inputs).toHaveLength(0);
+    });
+  });
+
+  describe("ingesting the activity messages of an agent", () => {
+    const activity = (id: string, content: unknown) => ({
+      id,
+      role: "activity" as const,
+      activityType: GENERATIVE_UI_ACTIVITY_TYPE,
+      content,
+    });
+    it.each([
+      ["null", null],
+      ["a string", "text"],
+      ["no operations", { ...buttonSurface("bad"), operations: undefined }],
+      [
+        "a rejected entry with a NaN index",
+        {
+          ...buttonSurface("bad"),
+          rejected: [{ index: Number.NaN, reason: "x" }],
+        },
+      ],
+    ])(
+      "skips content that is %s with a development warning, and still ingests the valid content after it",
+      async (_label, content) => {
+        const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+        const error = vi.spyOn(console, "error").mockImplementation(() => {});
+        const { runtime, agent, copilotkit } = setup();
+        const messages = [
+          activity("bad", content),
+          activity("good", buttonSurface("s1")),
+        ] as unknown as typeof agent.messages;
+        // Ingested at the run start, then on each change of the messages.
+        agent.setMessages(messages);
+        await runOnce(copilotkit, agent);
+        // Core and the agent log a throwing subscriber with console.error.
+        expect(error).not.toHaveBeenCalled();
+        expect(runtime.manager.getSurface(agent.threadId, "s1")).toBeDefined();
+        expect(malformedWarnings(warn)).toHaveLength(1);
+        // The same messages again: no new warning for the same issue.
+        expect(() => act(() => agent.setMessages([...messages]))).not.toThrow();
+        expect(error).not.toHaveBeenCalled();
+        expect(malformedWarnings(warn)).toHaveLength(1);
+      },
+    );
+
+    it("does not warn in production", async () => {
+      vi.stubEnv("NODE_ENV", "production");
+      onTestFinished(() => {
+        vi.unstubAllEnvs();
+      });
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const { runtime, agent, copilotkit } = setup();
+      agent.setMessages([
+        activity("bad", null),
+        activity("good", buttonSurface("s1")),
+      ] as unknown as typeof agent.messages);
+      await runOnce(copilotkit, agent);
+      expect(runtime.manager.getSurface(agent.threadId, "s1")).toBeDefined();
+      expect(malformedWarnings(warn)).toHaveLength(0);
     });
   });
 });

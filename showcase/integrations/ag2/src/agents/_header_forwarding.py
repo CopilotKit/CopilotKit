@@ -341,8 +341,8 @@ def install_global_httpx_hook() -> None:
     instance auto-attaches the forwarded-header hook on construction.
 
     Use this when the LLM client is buried behind opaque framework
-    machinery (AG2's ``ConversableAgent`` constructs OpenAI clients
-    lazily, CrewAI uses litellm which constructs httpx clients per-call,
+    machinery (AG2's OpenAI config constructs its client lazily,
+    CrewAI uses litellm which constructs httpx clients per-call,
     etc.) and there is no single client instance to call
     :func:`install_httpx_hook` on at startup.
 
@@ -356,11 +356,21 @@ def install_global_httpx_hook() -> None:
     if _GLOBAL_HTTPX_PATCHED:
         return
 
-    try:
-        import httpx
-    except ImportError:  # pragma: no cover
-        return
+    # AG2 1.x builds its OpenAI client on ``httpx2`` (not ``httpx``), so both
+    # modules must be patched for x-aimock-context to reach the LLM call.
+    import importlib
 
+    for module_name in ("httpx", "httpx2"):
+        try:
+            module = importlib.import_module(module_name)
+        except ImportError:
+            continue
+        _patch_httpx_module(module)
+    _GLOBAL_HTTPX_PATCHED = True
+
+
+def _patch_httpx_module(httpx: Any) -> None:
+    """Patch ``Client`` / ``AsyncClient`` of one httpx-compatible module."""
     _orig_sync_init = httpx.Client.__init__
     _orig_async_init = httpx.AsyncClient.__init__
 
@@ -400,67 +410,3 @@ def install_global_httpx_hook() -> None:
 
     httpx.Client.__init__ = _patched_sync_init
     httpx.AsyncClient.__init__ = _patched_async_init
-    _GLOBAL_HTTPX_PATCHED = True
-
-
-# Module-scope sentinel preventing repeated executor patching.
-_EXECUTOR_CTXVAR_PATCHED = False
-
-
-def install_executor_contextvar_propagation() -> None:
-    """Patch ``asyncio.events.AbstractEventLoop.run_in_executor`` so the
-    parent task's ContextVars are propagated into the executor thread.
-
-    Why this exists
-    ---------------
-    autogen's ``ConversableAgent.a_generate_oai_reply`` dispatches the
-    underlying (sync) OpenAI/LiteLLM call onto the default thread pool
-    via ``loop.run_in_executor(None, functools.partial(...))``. The stock
-    ``run_in_executor`` does NOT copy the caller's :pep:`567` context to
-    the worker thread — so the :class:`HeaderForwardingHTTPMiddleware`
-    ContextVar (set on the inbound request task) is empty inside the
-    executor, and our outbound httpx hook sees no headers to forward.
-
-    ``asyncio.to_thread`` (Python 3.9+) does copy context the right way;
-    this patch makes plain ``run_in_executor`` behave the same. It only
-    affects functions submitted via ``run_in_executor`` — coroutines and
-    other constructs are unaffected.
-
-    Safe to call at import time. Idempotent via a module-scope sentinel.
-
-    Scope caveat: this patches ``asyncio.base_events.BaseEventLoop`` only.
-    Pre-existing *stdlib asyncio* event-loop instances inherit the patch
-    (``run_in_executor`` is defined on ``BaseEventLoop`` and resolved
-    per-call via normal method resolution). It is INERT under uvloop —
-    uvloop's loop does not subclass ``BaseEventLoop`` and resolves
-    ``run_in_executor`` from its own C implementation, so the stdlib
-    method this patch rebinds is never consulted. Under uvloop, ContextVar
-    propagation into ``run_in_executor`` worker threads is NOT provided by
-    this shim.
-    """
-    global _EXECUTOR_CTXVAR_PATCHED
-    if _EXECUTOR_CTXVAR_PATCHED:
-        return
-
-    import asyncio.base_events as _base_events
-
-    _orig_run_in_executor = _base_events.BaseEventLoop.run_in_executor
-
-    def _patched_run_in_executor(self, executor, func, *args):
-        # Capture the CURRENT task's context at submit time, then run the
-        # submitted callable inside that context on the worker thread.
-        ctx = contextvars.copy_context()
-
-        def _ctx_wrapper(*a, **kw):
-            return ctx.run(func, *a, **kw)
-
-        # Preserve __name__/__qualname__ for nicer tracebacks where possible.
-        try:
-            _ctx_wrapper.__wrapped__ = func  # type: ignore[attr-defined]
-        except Exception:  # pragma: no cover
-            pass
-
-        return _orig_run_in_executor(self, executor, _ctx_wrapper, *args)
-
-    _base_events.BaseEventLoop.run_in_executor = _patched_run_in_executor
-    _EXECUTOR_CTXVAR_PATCHED = True

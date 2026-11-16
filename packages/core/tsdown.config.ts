@@ -2,7 +2,7 @@ import { defineConfig } from "tsdown";
 
 export default defineConfig([
   {
-    entry: ["src/index.ts"],
+    entry: ["src/index.ts", "src/generative-ui/index.ts"],
     format: ["esm", "cjs"],
     dts: true,
     sourcemap: true,
@@ -25,6 +25,8 @@ export default defineConfig([
       "@ag-ui/core",
       "rxjs",
       "zod",
+      "@a2ui/web_core",
+      "@a2ui/web_core/v0_9",
     ],
     codeSplitting: false,
     checks: { pluginTimings: false },
@@ -38,6 +40,8 @@ export default defineConfig([
         "rxjs/operators": "rxjs.operators",
         "zod-to-json-schema": "zodToJsonSchema",
         zod: "Zod",
+        "@a2ui/web_core": "A2UIWebCore",
+        "@a2ui/web_core/v0_9": "A2UIWebCoreV09",
       };
       return options;
     },

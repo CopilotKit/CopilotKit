@@ -37,6 +37,7 @@ WRITE_DOCUMENT_TOOL = {
 }
 
 
+# @region[state-streaming-middleware]
 class SharedStateStreamingState(CopilotKitState):
     document: str = ""
 
@@ -55,10 +56,13 @@ class SharedStateStreamingFlow(Flow[SharedStateStreamingState]):
                 )
             ]
         )
+        # @endregion[state-streaming-middleware]
         tools = [*self.state.copilotkit.actions, WRITE_DOCUMENT_TOOL]
         response = await copilotkit_stream(
             await acompletion(
-                model="openai/gpt-5.4",
+                allowed_openai_params=["reasoning_effort"],
+                reasoning_effort="none",
+                model="openai/gpt-6-luna",
                 messages=[
                     {"role": "system", "content": SYSTEM_PROMPT},
                     *self.state.messages,
@@ -103,7 +107,9 @@ class SharedStateStreamingFlow(Flow[SharedStateStreamingState]):
 
         confirmation = await copilotkit_stream(
             await acompletion(
-                model="openai/gpt-5.4",
+                allowed_openai_params=["reasoning_effort"],
+                reasoning_effort="none",
+                model="openai/gpt-6-luna",
                 messages=[
                     {"role": "system", "content": SYSTEM_PROMPT},
                     *self.state.messages,

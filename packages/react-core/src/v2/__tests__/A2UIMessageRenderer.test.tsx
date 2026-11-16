@@ -2,6 +2,7 @@ import { afterEach, describe, it, expect, vi } from "vitest";
 import { render, act, waitFor } from "@testing-library/react";
 import React, { useState } from "react";
 import type { Theme } from "@copilotkit/a2ui-renderer";
+import a2ui10Fixture from "./fixtures/a2ui-1-0.json";
 
 // Imported statically, NOT with `await import()` inside each test.
 //
@@ -32,6 +33,91 @@ vi.mock("../providers", () => ({
 }));
 
 describe("A2UIMessageRenderer rendering integration", () => {
+  // ag-ui #3374, test_a2ui_protocol_versions.py::_ops at 89a59e1:
+  // native 1.0 operations, with its test catalog replaced by the basic catalog.
+  it("renders native 1.0 a2ui_operations from the ADK protocol fixture", async () => {
+    const RenderComponent = createA2UIMessageRenderer({ theme: {} as Theme })
+      .render as React.FC<any>;
+    const view = render(
+      <RenderComponent content={a2ui10Fixture} agent={null} />,
+    );
+    await waitFor(() => expect(view.getByText("Hello")).toBeTruthy());
+    expect(view.container.textContent).not.toContain("A2UI render error");
+  });
+
+  it("recovers a bind-time function failure when only data is added to the activity snapshot", async () => {
+    const renderer = createA2UIMessageRenderer({ theme: {} as Theme });
+    const RenderComponent = renderer.render as React.FC<any>;
+    const operations = [
+      {
+        version: "v0.9",
+        createSurface: {
+          surfaceId: "recovery",
+          catalogId: "https://a2ui.org/specification/v0_9/basic_catalog.json",
+        },
+      },
+      {
+        version: "v0.9",
+        updateComponents: {
+          surfaceId: "recovery",
+          components: [
+            {
+              id: "root",
+              component: "Text",
+              text: {
+                call: "formatNumber",
+                args: { value: { path: "/revenue" }, decimals: 0 },
+              },
+            },
+          ],
+        },
+      },
+    ];
+    const view = render(
+      <RenderComponent
+        content={{ a2ui_operations: operations }}
+        agent={null}
+      />,
+    );
+    await waitFor(() =>
+      expect(view.getByRole("alert", { hidden: true }).textContent).toMatch(
+        /formatNumber/,
+      ),
+    );
+    const surface = view.container.querySelector(
+      "[data-surface-id='recovery']",
+    );
+    const withRevenue = (revenue: number) => ({
+      a2ui_operations: [
+        ...operations,
+        {
+          version: "v0.9",
+          updateDataModel: {
+            surfaceId: "recovery",
+            path: "/",
+            value: { revenue },
+          },
+        },
+      ],
+    });
+    view.rerender(<RenderComponent content={withRevenue(1234)} agent={null} />);
+    await waitFor(() => expect(view.getByText("1,234")).toBeTruthy());
+    await waitFor(() =>
+      expect(
+        view.container
+          .querySelector("[aria-hidden]")
+          ?.getAttribute("aria-hidden"),
+      ).toBe("false"),
+    );
+    expect(view.queryByRole("alert", { hidden: true })).toBeNull();
+    expect(view.container.querySelector("[data-surface-id='recovery']")).toBe(
+      surface,
+    );
+    view.rerender(<RenderComponent content={withRevenue(5678)} agent={null} />);
+    await waitFor(() => expect(view.getByText("5,678")).toBeTruthy());
+    expect(view.queryByRole("alert", { hidden: true })).toBeNull();
+  });
+
   it("should render A2UI surface content via React renderer", async () => {
     const renderer = createA2UIMessageRenderer({
       theme: {} as Theme,
@@ -785,13 +871,22 @@ describe("A2UIMessageRenderer — resolving which surface an operation addresses
             {
               version: "v0.9",
               surfaceId: "top-level",
+              updateDataModel: {
+                surfaceId: "nested",
+                path: "/",
+                value: { message: "Nested wins" },
+              },
+            },
+            {
+              version: "v0.9",
+              surfaceId: "top-level",
               updateComponents: {
                 surfaceId: "nested",
                 components: [
                   {
                     id: "root",
                     component: "Text",
-                    text: "Nested wins",
+                    text: { path: "/message" },
                     variant: "body",
                   },
                 ],
@@ -809,6 +904,9 @@ describe("A2UIMessageRenderer — resolving which surface an operation addresses
       ).not.toBeNull();
     });
     expect(container.querySelector("[data-surface-id='top-level']")).toBeNull();
+    expect(container.textContent).toContain("Nested wins");
+    expect(container.textContent).not.toContain("A2UI render error");
+    expect(container.querySelector('[role="alert"]')).toBeNull();
 
     // Grouping under "top-level" would file the operations against a surface
     // createSurface never made, which is the silence the report names.

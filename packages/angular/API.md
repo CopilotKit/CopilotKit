@@ -255,19 +255,11 @@ Import these symbols from `@copilotkit/angular`.
 - `renderSlot`
 - `safeToolValue`
 - `transcribeAudio`
-
-### Internal extension points
-
-The following exports exist only for CopilotKit-maintained code. Two are
-Angular DI tokens. They hook Inspector development mode and built-in
-renderers. One is a helper function. `provideCopilotKit` and `CopilotKit`
-share it, so the public-key header default has one definition. Applications
-must not depend on these exports. The `ɵ` prefix and TSDoc mark them
-internal.
-
+- `ɵCOPILOTKIT_ASSISTANT_MARKDOWN_RENDERER`
 - `ɵCOPILOTKIT_BUILT_IN_ACTIVITY_RENDERERS`
 - `ɵCOPILOTKIT_INSPECTOR_DEVELOPMENT_MODE`
 - `ɵresolvePublicKeyHeaderDefaults`
+
 <!-- public-api:root:end -->
 
 ## A2UI Angular catalog entry point
@@ -302,6 +294,167 @@ own Angular components; see the [package README](./README.md#a2ui-with-angular-c
 - `injectA2UIComponentContext`
 
 <!-- public-api:a2ui:end -->
+
+## Generative UI entry point
+
+Import these symbols from `@copilotkit/angular/generative-ui` for native
+generative UI: `provideGenerativeUI({ ui })` lets the agent render the
+components of `ui` in the chat and in `<copilot-generative-ui-surface>`
+targets. The catalog comes from `@copilotkit/shared/generative-ui` and the
+engine from `@copilotkit/core/generative-ui`.
+
+<!-- public-api:generative-ui:start -->
+
+- `CopilotGenerativeUI`
+- `CopilotGenerativeUIActivityRenderer`
+- `CopilotGenerativeUIAudioPlayer`
+- `CopilotGenerativeUIBadge`
+- `CopilotGenerativeUIBlockquote`
+- `CopilotGenerativeUIBold`
+- `CopilotGenerativeUIBox`
+- `CopilotGenerativeUIButton`
+- `CopilotGenerativeUICaption`
+- `CopilotGenerativeUICard`
+- `CopilotGenerativeUICarousel`
+- `CopilotGenerativeUICarouselItem`
+- `CopilotGenerativeUICarouselMediaItem`
+- `CopilotGenerativeUIChart`
+- `CopilotGenerativeUIChatCard`
+- `CopilotGenerativeUICheckBox`
+- `CopilotGenerativeUIChildren`
+- `CopilotGenerativeUIChoicePicker`
+- `CopilotGenerativeUICitation`
+- `CopilotGenerativeUICode`
+- `CopilotGenerativeUIColumn`
+- `CopilotGenerativeUIDateTimeInput`
+- `CopilotGenerativeUIDivider`
+- `CopilotGenerativeUIEntityCard`
+- `CopilotGenerativeUIFavicon`
+- `CopilotGenerativeUIFlashcardFlip`
+- `CopilotGenerativeUIFlow`
+- `CopilotGenerativeUIFlowItem`
+- `CopilotGenerativeUIFollowUp`
+- `CopilotGenerativeUIForm`
+- `CopilotGenerativeUIFunctionCallRenderer`
+- `CopilotGenerativeUIGrid`
+- `CopilotGenerativeUIGridItem`
+- `CopilotGenerativeUIHtmlView`
+- `CopilotGenerativeUIIcon`
+- `CopilotGenerativeUIImage`
+- `CopilotGenerativeUIImageGrid`
+- `CopilotGenerativeUIItalic`
+- `CopilotGenerativeUILabel`
+- `CopilotGenerativeUILink`
+- `CopilotGenerativeUILinkCard`
+- `CopilotGenerativeUIList`
+- `CopilotGenerativeUIListItem`
+- `CopilotGenerativeUIMap`
+- `CopilotGenerativeUIMarkdown`
+- `CopilotGenerativeUIMarkdownChatSurface`
+- `CopilotGenerativeUIMarkdownSurfaces`
+- `CopilotGenerativeUIMath`
+- `CopilotGenerativeUIModal`
+- `CopilotGenerativeUINodeFallback`
+- `CopilotGenerativeUIPopover`
+- `CopilotGenerativeUIPopoverContent`
+- `CopilotGenerativeUIPopoverTrigger`
+- `CopilotGenerativeUIPressable`
+- `CopilotGenerativeUIPulseIndicator`
+- `CopilotGenerativeUIRadio`
+- `CopilotGenerativeUIRadioGroup`
+- `CopilotGenerativeUIRenderToolCall`
+- `CopilotGenerativeUIRow`
+- `CopilotGenerativeUISegmentedControl`
+- `CopilotGenerativeUISelect`
+- `CopilotGenerativeUIShimmerText`
+- `CopilotGenerativeUISlider`
+- `CopilotGenerativeUISpacer`
+- `CopilotGenerativeUIStrikethrough`
+- `CopilotGenerativeUISurface`
+- `CopilotGenerativeUISurfaceView`
+- `CopilotGenerativeUISvg`
+- `CopilotGenerativeUITable`
+- `CopilotGenerativeUITableCell`
+- `CopilotGenerativeUITableRow`
+- `CopilotGenerativeUITableSection`
+- `CopilotGenerativeUITabs`
+- `CopilotGenerativeUIText`
+- `CopilotGenerativeUITextArea`
+- `CopilotGenerativeUITextField`
+- `CopilotGenerativeUITitle`
+- `CopilotGenerativeUITooltip`
+- `CopilotGenerativeUIUnderline`
+- `CopilotGenerativeUIVideo`
+- `CreateGenerativeUIConfig`
+- `ExportA2UICatalogOptions`
+- `GENERATIVE_UI_CARD_DISTANCE`
+- `GENERATIVE_UI_CARD_NESTING`
+- `GENERATIVE_UI_CHART_LOADER`
+- `GENERATIVE_UI_CONFIG`
+- `GENERATIVE_UI_ICON_LOADER`
+- `GENERATIVE_UI_MAP_LOADER`
+- `GENERATIVE_UI_NODE_CONTEXT`
+- `GENERATIVE_UI_RUNTIME`
+- `GenerativeUI`
+- `GenerativeUIAccessibility`
+- `GenerativeUIAriaAttributes`
+- `GenerativeUIChatCardInputs`
+- `GenerativeUIChecksState`
+- `GenerativeUIChildren`
+- `GenerativeUIComponentDefinition`
+- `GenerativeUIComponentInputs`
+- `GenerativeUIComponentName`
+- `GenerativeUIConfig`
+- `GenerativeUIError`
+- `GenerativeUIErrorCode`
+- `GenerativeUIErrorInfo`
+- `GenerativeUIEventDefinition`
+- `GenerativeUIEventHandler`
+- `GenerativeUIFunctionArgs`
+- `GenerativeUIFunctionDefinition`
+- `GenerativeUIFunctionInput`
+- `GenerativeUIFunctionName`
+- `GenerativeUIInjectOptions`
+- `GenerativeUIInvokeResult`
+- `GenerativeUILibraryLoader`
+- `GenerativeUILightbox`
+- `GenerativeUIMarkdownConfig`
+- `GenerativeUINodeContext`
+- `GenerativeUIRuntime`
+- `GenerativeUISlotKind`
+- `GenerativeUIStateOf`
+- `GenerativeUIStyles`
+- `GenerativeUITheme`
+- `GenerativeUIThemeValues`
+- `GenerativeUIThemeVariable`
+- `GenerativeUIThemeVariables`
+- `GenerativeUIToolConfig`
+- `GenerativeUIValidationError`
+- `GenerativeUIVisibleHandler`
+- `LightboxImage`
+- `child`
+- `childList`
+- `compositeComponents`
+- `connectGenerativeUIState`
+- `connectVisibleOnce`
+- `createChecksState`
+- `createGenerativeUI`
+- `dataComponents`
+- `exportA2UICatalog`
+- `feedbackComponents`
+- `injectGenerativeUIAccessibility`
+- `inputComponents`
+- `layoutComponents`
+- `mediaComponents`
+- `openUrl`
+- `provideCardContext`
+- `provideContainerContext`
+- `provideGenerativeUI`
+- `registerGenerativeUIFunction`
+- `standardUI`
+- `textComponents`
+
+<!-- public-api:generative-ui:end -->
 
 ## MCP Apps entry point
 

@@ -3,7 +3,7 @@
 // Scoped to its own route mostly so the Playwright spec can assert against
 // exactly one URL. The runtime proxies to the same Spring-AI ChatClient
 // backend (the existing bean already uses a vision-capable OpenAI model
-// such as gpt-4.1). Whether the `ag-ui:spring-ai` adapter currently forwards
+// such as gpt-6-luna). Whether the `ag-ui:spring-ai` adapter currently forwards
 // multipart attachments from CopilotChat into Spring AI's
 // `UserMessage.media` list is integration-dependent — see PARITY_NOTES.md
 // for the current state.

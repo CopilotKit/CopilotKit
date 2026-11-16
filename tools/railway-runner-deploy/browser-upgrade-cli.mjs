@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile, mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
-import { STAGING, RUNNER_URL, sha256 } from "./contract.mjs";
+import { STAGING, sha256 } from "./contract.mjs";
 import { createRailway, createRunner } from "./adapters.mjs";
 import { createGithub, verifyRegistryImage } from "./github.mjs";
 import { verifyBuild } from "./provenance.mjs";
@@ -15,10 +15,10 @@ const bytes = await readFile(
   "tools/railway-runner-deploy/releases/browser-upgrade.json",
 );
 const intent = JSON.parse(bytes);
-assert.equal(intent.sourceRevision, "b6f89b83d4b6dd4efd2a1bc04f999cf38ff7233b");
+assert.equal(intent.sourceRevision, "a918ae011663c426a426243bcbc6c183f52f8d97");
 assert.equal(
   intent.baseline.runtimeIdentity.sourceRevision,
-  "855fb75ec8fd5bfbd0102ffe83765fe03a3953fb",
+  "b6f89b83d4b6dd4efd2a1bc04f999cf38ff7233b",
 );
 const github = createGithub({ token: env.GITHUB_TOKEN });
 async function verifyProvenance() {
@@ -59,8 +59,6 @@ async function verifyProvenance() {
   assert.deepEqual(changed, [
     "tools/intelligence-smoke/rich-threads/browser/session.mjs",
     "tools/intelligence-smoke/rich-threads/driver.integration.mjs",
-    "tools/intelligence-smoke/rich-threads/lifecycle/railway/recovery.test.mjs",
-    "tools/intelligence-smoke/rich-threads/lifecycle/railway/runner/deployment.mjs",
   ]);
 }
 if (process.argv.includes("--validate")) {
@@ -98,7 +96,7 @@ if (process.argv.includes("--validate")) {
   const railway = createRailway({ token: env.RAILWAY_TOKEN, deadline });
   let removalSent = false;
   railway.removeDeployment = async (id) => {
-    assert.equal(id, "27f7ec23-6b79-429f-9574-90da478b3985");
+    assert.equal(id, "fe7e30b4-213a-403c-994b-40c1066274ce");
     assert.equal(id, intent.removalBaseline.deploymentId);
     assert.equal(removalSent, false);
     const old = await railway.readDeploymentStatus(id);
@@ -116,25 +114,11 @@ if (process.argv.includes("--validate")) {
       throw error;
     }
   };
+  const runner = createRunner({ token: env.RICH_RUNNER_TOKEN, deadline });
   const verifyReceipts = async () => {
-    const status = await fetch(`${RUNNER_URL}/status`, {
-      headers: { authorization: `Bearer ${env.RICH_RUNNER_TOKEN}` },
-      redirect: "error",
-      signal: AbortSignal.timeout(30000),
-    });
-    assert.equal(status.status, 200);
-    assert.equal((await status.json()).scheduleEnabled, false);
+    assert.equal((await runner.status()).scheduleEnabled, false);
     for (const expected of [...intent.watches, intent.volumeWatch]) {
-      const response = await fetch(
-        `${RUNNER_URL}/runs/${expected.runnerRunId}`,
-        {
-          headers: { authorization: `Bearer ${env.RICH_RUNNER_TOKEN}` },
-          redirect: "error",
-          signal: AbortSignal.timeout(30000),
-        },
-      );
-      assert.equal(response.status, 200);
-      const value = await response.json();
+      const value = await runner.readRun(expected.runnerRunId);
       assert.equal(value.status, "failed");
       assert.equal(value.cleanup, "retained-watch");
       assert.equal(value.deadlineExceeded, true);
@@ -146,7 +130,7 @@ if (process.argv.includes("--validate")) {
     intent,
     operationId: `github-655515393-${env.GITHUB_RUN_ID}`,
     railway,
-    runner: createRunner({ token: env.RICH_RUNNER_TOKEN, deadline }),
+    runner,
     verifyProvenance,
     verifyReceipts,
     deadline,

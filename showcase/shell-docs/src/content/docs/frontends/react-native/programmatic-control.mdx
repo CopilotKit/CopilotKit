@@ -1,0 +1,235 @@
+---
+title: Programmatic Control
+icon: "lucide/Terminal"
+description: Drive agent runs from code in a React Native app, with no chat UI required.
+snippet_framework: built-in-agent
+---
+
+## What is this?
+
+Programmatic control is what you reach for when you want to drive an agent run from code rather than from a chat composer: a button, a form, a push notification, a voice transcript, or a background task. CopilotKit gives you three primitives that cover every trigger:
+
+- `agent.addMessage(...)`: add a message to the conversation without running the agent. Pair it with `copilotkit.runAgent({ agent })` when the message should start a turn.
+- `copilotkit.runAgent({ agent })`: the same entry point the prebuilt chat calls. It runs frontend tools, follow-up runs, and the subscriber lifecycle.
+- `agent.subscribe(subscriber)`: a low-level AG-UI event subscription (`onCustomEvent`, `onRunStartedEvent`, `onRunFinalized`, `onRunFailed`, and more). Use it with `copilotkit.runAgent({ agent, resume })` for standard AG-UI interrupts, or with `copilotkit.runAgent({ agent, forwardedProps: { command: { resume, interruptEvent } } })` for the `on_interrupt` custom events that the LangGraph adapter sends.
+
+## When should I use this?
+
+Use programmatic control when you want to:
+
+- Start agent runs from buttons, forms, or other views
+- Run one of your frontend tools directly, without an LLM turn
+- Build agent features without a chat screen (to build your own chat, see [Headless UI](/custom-look-and-feel/headless-ui))
+- Read agent state and results from code
+- Send a speech-to-text transcript as a user turn
+
+## Sending a message from code
+
+<FrameworkSetup concept="programmatic-control-setup" />
+
+Add a user message with `agent.addMessage`, then call `copilotkit.runAgent({ agent })`. Call `copilotkit.stopAgent({ agent })` to cancel a run in flight.
+
+```tsx title="src/AgentTrigger.tsx"
+import { Button, Text, View } from "react-native";
+import { useAgent, useCopilotKit } from "@copilotkit/react-native/headless";
+
+export function AgentTrigger({ agentId }: { agentId: string }) {
+  const { agent } = useAgent({ agentId });
+  const { copilotkit } = useCopilotKit();
+
+  const run = async () => {
+    if (agent.isRunning) return;
+
+    agent.addMessage({ // [!code highlight:5]
+      id: `user-${Date.now()}`,
+      role: "user",
+      content: "Summarize the latest sales data",
+    });
+
+    try {
+      await copilotkit.runAgent({ agent }); // [!code highlight]
+    } catch (error) {
+      console.error("CopilotKit runAgent failed:", error);
+    }
+  };
+
+  const last = agent.messages[agent.messages.length - 1];
+
+  return (
+    <View>
+      <Button title="Run agent" onPress={run} disabled={agent.isRunning} />
+      <Button
+        title="Stop"
+        onPress={() => copilotkit.stopAgent({ agent })}
+        disabled={!agent.isRunning}
+      />
+      {last?.role === "assistant" && last.content ? <Text>{last.content}</Text> : null}
+    </View>
+  );
+}
+```
+
+Tap **Run agent**. The agent's reply streams into `agent.messages`, and the last assistant message shows under the buttons.
+
+The message id comes from a timestamp. The React Native polyfills install `crypto.getRandomValues`, not `crypto.randomUUID`.
+
+### `copilotkit.runAgent()` vs `agent.runAgent()`
+
+Both methods start the agent, but they work at different levels:
+
+- **`copilotkit.runAgent({ agent })`**: the default. It runs the full lifecycle: it executes frontend tools, handles follow-up runs, and sends errors to the subscriber system and the provider's `onError`.
+- **`agent.runAgent(options)`**: the low-level method on the agent instance. It sends the request to the runtime but does **not** execute frontend tools or chain follow-ups. Use it only when you need direct control.
+
+## Running a tool without the model
+
+`copilotkit.runTool()` runs a registered frontend tool directly. The handler runs, the tool's `render` shows in the chat, and both the tool call and its result are added to `agent.messages`. No LLM turn happens unless you ask for one.
+
+```tsx
+const { copilotkit } = useCopilotKit();
+
+const { result, error } = await copilotkit.runTool({
+  name: "filter_tasks",
+  parameters: { status: "open" },
+  // false (default): no follow-up. "generate": the agent responds to the result.
+  followUp: false,
+});
+```
+
+The tool must be registered with `useFrontendTool` somewhere under the provider. See [Frontend Tools](/frontend-tools).
+
+## Subscribing to agent events
+
+`agent.subscribe(subscriber)` returns `{ unsubscribe }`. The subscriber accepts every AG-UI lifecycle callback: `onCustomEvent`, `onRunStartedEvent`, `onRunFinalized`, `onRunFailed`, and the streaming deltas. Use it to drive your own progress UI, to send events to analytics, or to catch pause and resume events and answer them, as shown below.
+
+Subscribe in an effect and unsubscribe in its cleanup:
+
+```tsx
+import { useEffect } from "react";
+
+useEffect(() => {
+  const { unsubscribe } = agent.subscribe({
+    onRunStartedEvent: () => setStatus("working"),
+    onRunFinalized: () => setStatus("done"),
+    onRunFailed: () => setStatus("failed"),
+  });
+  return unsubscribe;
+}, [agent]);
+```
+
+`useAgent` can swap in a new `agent` object once the runtime connects, so keep `agent` in the effect's dependencies.
+
+<WhenFrameworkHas flag="interrupt_pattern" equals="native">
+
+## Resolving a LangGraph interrupt from a button
+
+This hook answers an `on_interrupt` custom event without `useInterrupt`. It holds the event until the run finalizes, so the UI doesn't flash mid-stream. Its `resolve` resumes the run with the answer:
+
+```tsx title="src/useHeadlessInterrupt.ts"
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useAgent, useCopilotKit } from "@copilotkit/react-native/headless";
+
+type InterruptEvent = { name: string; value: unknown };
+
+export function useHeadlessInterrupt(agentId: string) {
+  const { copilotkit } = useCopilotKit();
+  const { agent } = useAgent({ agentId });
+  const [pending, setPending] = useState<InterruptEvent | null>(null);
+  const staged = useRef<InterruptEvent | null>(null);
+
+  useEffect(() => {
+    const { unsubscribe } = agent.subscribe({
+      onCustomEvent: ({ event }) => {
+        if (event.name === "on_interrupt") {
+          staged.current = { name: event.name, value: event.value };
+        }
+      },
+      onRunStartedEvent: () => {
+        staged.current = null;
+        setPending(null);
+      },
+      onRunFinalized: () => {
+        if (staged.current) setPending(staged.current);
+        staged.current = null;
+      },
+      onRunFailed: () => {
+        staged.current = null;
+      },
+    });
+    return unsubscribe;
+  }, [agent]);
+
+  const resolve = useCallback(
+    async (response: unknown) => {
+      if (!pending) return;
+      setPending(null);
+      await copilotkit.runAgent({
+        agent,
+        forwardedProps: {
+          command: { resume: response, interruptEvent: pending.value },
+        },
+      });
+    },
+    [agent, copilotkit, pending],
+  );
+
+  return { pending, resolve };
+}
+```
+
+`pending` and `resolve` are plain data and a function, so any view can use them: a button grid, a form, a bottom sheet, or a voice prompt. For an agent that finishes the run with a standard AG-UI interrupt instead, call `useInterrupt` with `renderInChat: false`. See [Headless Interrupts](/human-in-the-loop/headless). To pause inside the chat, see [Human-in-the-Loop](/human-in-the-loop).
+
+</WhenFrameworkHas>
+
+<WhenFrameworkHas flag="interrupt_pattern" equals="promise-based">
+
+## Resolving a frontend tool call from a button
+
+Promise-based integrations have no native interrupt. Use `useFrontendTool` with a handler that returns a Promise. The handler stores its `resolve` callback and the pending request, your screen renders the choice anywhere, and the user's tap resolves the Promise that the agent's tool call waits on:
+
+```tsx title="src/useMeetingRequest.ts"
+import { useCallback, useRef, useState } from "react";
+import { useFrontendTool } from "@copilotkit/react-native/headless";
+import { z } from "zod";
+
+type Request = { topic: string };
+
+export function useMeetingRequest() {
+  const [request, setRequest] = useState<Request | null>(null);
+  const resolver = useRef<((answer: unknown) => void) | null>(null);
+
+  useFrontendTool({
+    name: "schedule_meeting",
+    description: "Ask the user to pick a meeting time.",
+    parameters: z.object({ topic: z.string() }),
+    handler: (args) =>
+      new Promise((resolve) => {
+        resolver.current = resolve;
+        setRequest(args);
+      }),
+  });
+
+  const answer = useCallback((value: unknown) => {
+    resolver.current?.(value);
+    resolver.current = null;
+    setRequest(null);
+  }, []);
+
+  return { request, answer };
+}
+```
+
+Render `request` in any view, and call `answer({ chosen_time: "..." })` or `answer({ cancelled: true })` when the user taps. The agent doesn't know that a button answered instead of a chat card. To pause inside the chat, see [Human-in-the-Loop](/human-in-the-loop).
+
+</WhenFrameworkHas>
+
+<WhenFrameworkHas flag="interrupt_pattern" absent>
+
+## Resolving a pause from a button
+
+> **Interrupt-style pause and resume isn't available on this framework.** The headless interrupt pattern needs a runtime with a native `interrupt(...)` primitive (LangGraph) or a Promise-resolving frontend-tool path. For all other integrations, pause with [`useHumanInTheLoop`](/human-in-the-loop) instead. It works on every framework that supports tool calls. The `agent.addMessage`, `copilotkit.runAgent`, and `agent.subscribe` primitives above still apply. Only the interrupt path depends on the framework.
+
+</WhenFrameworkHas>
+
+For every method on the core, see the [`useCopilotKit` reference](/reference/react-native/hooks/useCopilotKit).
+
+<IntegrationGrid path="programmatic-control" />

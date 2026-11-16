@@ -1,35 +1,20 @@
 "use client";
 
 /**
- * Legacy-shape rewrite + media-dedupe shim.
+ * Media-dedupe shim.
  *
- * Three problems this fixes:
+ * Outgoing attachments are sent exactly as the composer builds them: modern
+ * `{ type: "image" | "document", source: { type, value, mimeType } }` parts.
+ * Every showcase backend reads that shape. An earlier version also appended
+ * a legacy `{ type: "binary" }` mirror for old LangChain converters; AG-UI
+ * protocol 1.0 removed `binary`, so Python bridges on 1.0 reject the whole
+ * run with HTTP 422. Do not reintroduce the mirror.
  *
- * 1. **Outgoing modern parts are invisible to the agent.** The published
- *    `@ag-ui/langgraph` converter (0.0.x) only understands the legacy
- *    `{ type: "binary", mimeType, data | url }` shape when forwarding
- *    AG-UI messages to LangChain. Modern
- *    `{ type: "image" | "document", source: { type, value, mimeType } }`
- *    parts are silently dropped. In `onRunInitialized` we walk the
- *    outgoing user message and APPEND a legacy `binary` mirror after
- *    every modern media part — we cannot REPLACE the modern part with
- *    `binary` because `CopilotChatUserMessage`'s `getMediaParts` only
- *    renders `image|audio|video|document`, so replacing would make the
- *    attachment visually disappear from the chat once the run snapshot
- *    round-trips through state. APPEND keeps both forms: the modern
- *    part stays for the UI, the legacy `binary` feeds the converter.
- *
- * 2. **Round-tripped media comes back doubled and mistyped.** The
- *    converter sends our `binary` parts out as LangChain `image_url`
- *    and pulls incoming `image_url` parts back in as AG-UI `image`
- *    regardless of mimeType, so PDFs come back as `type: "image"` with
- *    `mimeType: "application/pdf"` and fall to `ImageAttachment` (which
- *    renders a broken `<img>`). The user's original modern part also
- *    survives in state, so the chat shows TWO chips per attachment. On
- *    every `onMessagesSnapshotEvent` and `onRunFinalized` we dedupe by
- *    `source.value` and re-key the `type` field from the mimeType so
- *    PDFs route to `DocumentAttachment` (icon + filename) and images
- *    to `ImageAttachment`.
+ * Inbound, a round-tripped snapshot can carry the same attachment twice or
+ * tag a PDF as `type: "image"`, which renders a broken `<img>`. On every
+ * `onMessagesSnapshotEvent` and `onRunFinalized` we dedupe media parts by
+ * `source.value` and re-key the `type` from the mimeType so PDFs route to
+ * `DocumentAttachment` and images to `ImageAttachment`.
  */
 
 import { useEffect, useMemo } from "react";
@@ -37,7 +22,7 @@ import { useAgent } from "@copilotkit/react-core/v2";
 
 /**
  * Minimal structural shape of an AG-UI message. `@ag-ui/client`'s
- * exported `Message` is a tagged union by role, but for the rewrite
+ * exported `Message` is a tagged union by role, but for the dedupe
  * we only care about the `user` branch and treat every other role as
  * pass-through. Keeping the type local avoids pulling `@ag-ui/client`
  * into this package's direct dependencies.
@@ -47,117 +32,6 @@ type AgentMessage = {
   role: string;
   content?: unknown;
 };
-
-/**
- * Builds the legacy `binary` content part that mirrors a modern
- * `image | document | audio | video` part. Returns `null` if the input
- * is not a multimodal part we need to mirror, or if the part is already
- * a legacy `binary` (idempotent).
- *
- * The published `@ag-ui/langgraph` converter (see `aguiMessagesToLangChain`)
- * only recognizes legacy `binary` parts; modern parts are silently
- * filtered out. We APPEND the legacy mirror alongside the modern part
- * rather than replacing it, because `CopilotChatUserMessage`'s
- * `getMediaParts` only renders `image|audio|video|document` — replacing
- * the modern part with `binary` makes the attachment visually disappear
- * from the chat once the agent run completes (the run-state snapshot
- * round-trips through state and re-renders the user message). Keeping
- * both forms gives the UI something to render AND the converter
- * something to read.
- */
-function legacyBinaryFor(part: unknown): unknown | null {
-  if (!part || typeof part !== "object") return null;
-  const candidate = part as {
-    type?: string;
-    source?: {
-      type?: string;
-      value?: string;
-      mimeType?: string;
-    };
-  };
-  const type = candidate.type;
-  if (
-    type !== "image" &&
-    type !== "document" &&
-    type !== "audio" &&
-    type !== "video"
-  ) {
-    return null;
-  }
-  const source = candidate.source;
-  if (!source || typeof source.value !== "string") {
-    return null;
-  }
-  const mimeType = source.mimeType ?? "application/octet-stream";
-  if (source.type === "data") {
-    return { type: "binary", mimeType, data: source.value };
-  }
-  if (source.type === "url") {
-    return { type: "binary", mimeType, url: source.value };
-  }
-  return null;
-}
-
-/**
- * Walks a message list and APPENDS a legacy `binary` mirror after every
- * modern `image|document|audio|video` part on user messages, so the
- * outgoing payload contains both forms. Non-user messages, plain-string
- * user messages, and parts that already have a sibling `binary` mirror
- * pass through untouched (idempotent: re-running on already-augmented
- * messages is a no-op).
- *
- * Returns null if nothing changed so the subscriber in
- * `onRunInitialized` can skip a superfluous state write.
- */
-function rewriteMessagesForLegacyConverter(
-  messages: ReadonlyArray<Readonly<AgentMessage>>,
-): AgentMessage[] | null {
-  let mutated = false;
-  const next = messages.map((message) => {
-    if (message.role !== "user") return message as AgentMessage;
-    const content = message.content;
-    if (!Array.isArray(content)) return message as AgentMessage;
-
-    // Build a key set of `binary` parts already in the message so we
-    // don't double-append on a second run.
-    const existingBinaryKeys = new Set<string>();
-    for (const part of content) {
-      if (
-        part &&
-        typeof part === "object" &&
-        (part as { type?: string }).type === "binary"
-      ) {
-        const p = part as { mimeType?: string; data?: string; url?: string };
-        existingBinaryKeys.add(`${p.mimeType ?? ""}::${p.data ?? p.url ?? ""}`);
-      }
-    }
-
-    let partMutated = false;
-    const augmentedParts: unknown[] = [];
-    for (const part of content) {
-      augmentedParts.push(part);
-      const mirror = legacyBinaryFor(part);
-      if (!mirror) continue;
-      const m = mirror as {
-        mimeType?: string;
-        data?: string;
-        url?: string;
-      };
-      const key = `${m.mimeType ?? ""}::${m.data ?? m.url ?? ""}`;
-      if (existingBinaryKeys.has(key)) continue;
-      existingBinaryKeys.add(key);
-      augmentedParts.push(mirror);
-      partMutated = true;
-    }
-    if (!partMutated) return message as AgentMessage;
-    mutated = true;
-    return {
-      ...(message as object),
-      content: augmentedParts,
-    } as AgentMessage;
-  });
-  return mutated ? next : null;
-}
 
 /**
  * Normalize + dedupe media content parts within each user message:
@@ -248,7 +122,7 @@ function dedupeUserMessageMedia(
 /**
  * Installs the subscribers on the active agent. Scoped to a small inner
  * component so it can use the `useAgent` hook the <CopilotChat> parent
- * already relies on — subscribing there means we rewrite messages on the
+ * already relies on — subscribing there means we dedupe messages on the
  * *same* agent instance CopilotChat dispatches through, even when threads
  * are cloned or swapped.
  */
@@ -257,15 +131,6 @@ export function LegacyConverterShim() {
 
   const subscriber = useMemo(
     () => ({
-      onRunInitialized: ({
-        messages,
-      }: {
-        messages: ReadonlyArray<Readonly<AgentMessage>>;
-      }) => {
-        const rewritten = rewriteMessagesForLegacyConverter(messages);
-        if (!rewritten) return;
-        return { messages: rewritten };
-      },
       // After every messages snapshot from the server, strip duplicate
       // media parts and normalize types that the @ag-ui/langgraph
       // round-trip mangled. We hook both `onMessagesSnapshotEvent` and

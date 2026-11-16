@@ -7,17 +7,18 @@
  */
 
 import { z } from "zod";
-import { RunnableConfig } from "@langchain/core/runnables";
+import type { RunnableConfig } from "@langchain/core/runnables";
 import { tool } from "@langchain/core/tools";
 import { ToolNode } from "@langchain/langgraph/prebuilt";
-import { AIMessage, SystemMessage } from "@langchain/core/messages";
+import type { AIMessage } from "@langchain/core/messages";
+import { SystemMessage } from "@langchain/core/messages";
+import type { BaseMessage } from "@langchain/langgraph";
 import {
   Annotation,
   MemorySaver,
   START,
   StateGraph,
   messagesStateReducer,
-  BaseMessage,
 } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
 import { makeChatOpenAI } from "./openai-headers";
@@ -124,9 +125,9 @@ const rollDice = tool(
 
 // Route through a reasoning-capable model via the Responses API so the
 // chain of thought streams as AG-UI `ReasoningMessage` events alongside
-// the tool calls. Falls back to gpt-4o-mini (no reasoning stream) if
+// the tool calls. Falls back to gpt-4o (no reasoning stream) if
 // `OPENAI_REASONING_MODEL` is unset.
-const REASONING_MODEL = process.env.OPENAI_REASONING_MODEL ?? "gpt-5-mini";
+const REASONING_MODEL = process.env.OPENAI_REASONING_MODEL ?? "gpt-6-luna";
 
 const tools = [getWeather, searchFlights, getStockPrice, rollDice];
 

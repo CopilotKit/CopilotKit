@@ -370,7 +370,7 @@ describe("standard layout", () => {
     );
     await view.findByText("Alpha");
     view.update({
-      version: "v1.0",
+      version: "1.0",
       updateDataModel: {
         surfaceId: SURFACE_ID,
         path: "/items/1",

@@ -28,7 +28,11 @@ describe("decodeInteraction", () => {
     expect(evt!.conversationKey).toBe("C1::100.0");
     expect(evt!.replyTarget).toEqual({ channel: "C1", threadTs: "100.0" });
     expect(evt!.actor).toEqual({ id: "U1", kind: "human", name: "Ana" });
-    expect(evt!.messageRef).toEqual({ id: "111.1", channel: "C1" });
+    expect(evt!.messageRef).toEqual({
+      id: "111.1",
+      channel: "C1",
+      threadTs: "100.0",
+    });
   });
 
   it("uses DM_SCOPE and a flat replyTarget for DM channels", () => {

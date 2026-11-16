@@ -9,11 +9,11 @@ import type {
   GenerativeUISurfaceContent,
 } from "@copilotkit/shared";
 import type { GenerativeUI } from "../../catalog";
-import { createGenerativeUIDispatcher } from "../../dispatcher";
-import type { GenerativeUIErrorInfo } from "../../errors";
+import { createGenerativeUIDispatcher } from "@copilotkit/core/generative-ui";
+import type { GenerativeUIErrorInfo } from "@copilotkit/shared/generative-ui";
 import { GenerativeUIRuntimeContext } from "../../runtime-context";
 import type { GenerativeUIRuntime } from "../../runtime-context";
-import { GenerativeUISurfaceManager } from "../../surface-manager";
+import { GenerativeUISurfaceManager } from "@copilotkit/core/generative-ui";
 import { SurfaceView } from "../../SurfaceView";
 
 const THREAD_ID = "thread";
@@ -66,17 +66,17 @@ export function renderSurface(
   };
   let operations: A2UIOperation[] = [
     {
-      version: "v1.0",
+      version: "1.0",
       createSurface: { surfaceId: SURFACE_ID, catalogId: ui.id },
     },
     {
-      version: "v1.0",
+      version: "1.0",
       updateComponents: { surfaceId: SURFACE_ID, components },
     },
   ];
   if (data) {
     operations.push({
-      version: "v1.0",
+      version: "1.0",
       updateDataModel: { surfaceId: SURFACE_ID, path: "/", value: data },
     });
   }

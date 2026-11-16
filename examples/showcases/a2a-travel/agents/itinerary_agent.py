@@ -61,7 +61,9 @@ class ItineraryState(TypedDict):
 
 class ItineraryAgent:
     def __init__(self):
-        self.llm = ChatOpenAI(model="gpt-5-mini", temperature=0.7)
+        self.llm = ChatOpenAI(
+            reasoning_effort="none", model="gpt-6-luna", temperature=0.7
+        )
         self.graph = self._build_graph()
 
     def _build_graph(self):

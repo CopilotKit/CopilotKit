@@ -17,7 +17,7 @@
  *     and merges them into every request the OpenAI SDK makes.
  *
  * The route handler wraps each request in `withForwardedHeaders`; the
- * tanstack-factory constructs `openaiText("gpt-4o", { fetch: forwardingFetch })`
+ * tanstack-factory constructs `openaiText("gpt-6-luna", { fetch: forwardingFetch })`
  * once at module-scope and the custom fetch reads ALS dynamically per
  * outbound call.
  */

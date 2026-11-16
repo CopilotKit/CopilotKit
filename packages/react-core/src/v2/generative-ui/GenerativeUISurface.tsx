@@ -1,6 +1,9 @@
 import React, { useEffect, useLayoutEffect, useRef } from "react";
 import type { ReactNode } from "react";
-import { GENERATIVE_UI_MAX_TARGET_COMPONENTS } from "@copilotkit/shared";
+import {
+  allowedComponents,
+  scrollToSurface,
+} from "@copilotkit/core/generative-ui";
 import type { GenerativeUI, GenerativeUIComponentName } from "./catalog";
 import { useManagerVersion } from "./hooks";
 import { useRequiredGenerativeUIRuntime } from "./runtime-context";
@@ -24,20 +27,6 @@ interface GenerativeUISurfaceBaseProps {
    * (`[data-generative-ui-surface] { scroll-margin-top: 5rem }`).
    */
   autoScroll?: boolean;
-}
-
-/** Scrolls `element` into view, unless it is already fully on screen. */
-function scrollToSurface(element: HTMLElement) {
-  const { top, bottom } = element.getBoundingClientRect();
-  if (top >= 0 && bottom <= window.innerHeight) return;
-  const reduceMotion = window.matchMedia?.(
-    "(prefers-reduced-motion: reduce)",
-  ).matches;
-  // jsdom has no scrollIntoView.
-  element.scrollIntoView?.({
-    behavior: reduceMotion ? "auto" : "smooth",
-    block: "start",
-  });
 }
 
 /**
@@ -66,29 +55,6 @@ export type GenerativeUISurfaceProps<
   );
 
 const isDevelopment = () => process.env.NODE_ENV !== "production";
-
-/**
- * The names of `requested` that `ui` has, without repeats, at most the
- * number that the envelope takes. `warning` tells what was dropped.
- */
-function allowedComponents(requested: readonly string[], ui: GenerativeUI) {
-  const unique = [...new Set(requested)];
-  const unknown = unique.filter((name) => !ui.components.has(name));
-  const known = unique.filter((name) => ui.components.has(name));
-  const names = known.slice(0, GENERATIVE_UI_MAX_TARGET_COMPONENTS);
-  const problems: string[] = [];
-  if (unknown.length > 0) {
-    problems.push(
-      `these components are not in the UI and are ignored: ${unknown.join(", ")}`,
-    );
-  }
-  if (known.length > names.length) {
-    problems.push(
-      `only the first ${GENERATIVE_UI_MAX_TARGET_COMPONENTS} components are used`,
-    );
-  }
-  return { names, warning: problems.join("; ") };
-}
 
 /**
  * Experimental. A named place on the page where the agent can render UI.

@@ -20,13 +20,13 @@ const determineModel = (): BuiltInAgentClassicConfig["model"] => {
         "https://openrouter.ai/api/v1",
     });
     return openrouter(
-      process.env.OPENROUTER_MODEL?.trim() || "openai/gpt-5-mini",
+      process.env.OPENROUTER_MODEL?.trim() || "openai/gpt-6-luna",
     );
   }
-  if (process.env.OPENAI_API_KEY?.trim()) return "openai/gpt-5.2";
+  if (process.env.OPENAI_API_KEY?.trim()) return "openai/gpt-6-luna";
   if (process.env.ANTHROPIC_API_KEY?.trim()) return "anthropic/claude-opus-4-8";
   if (process.env.GOOGLE_API_KEY?.trim()) return "google/gemini-3.8-flash";
-  return "openai/gpt-5.2";
+  return "openai/gpt-6-luna";
 };
 
 const agent = new BuiltInAgent({

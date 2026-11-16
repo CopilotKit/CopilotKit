@@ -13,8 +13,8 @@ from .tools.frontend import add_proverb, set_theme_color
 
 agent = Agent(
     # COPILOTKIT_AGENT_MODEL (e.g. "anthropic:claude-sonnet-4-5") overrides this;
-    # unset, the agent uses gpt-4o.
-    model=create_model("openai:gpt-4o"),
+    # unset, the agent uses gpt-6-luna.
+    model=create_model("openai:gpt-6-luna"),
     tools=[
         # Example of backend tools, defined and handled in your agno agent
         YFinanceTools(),

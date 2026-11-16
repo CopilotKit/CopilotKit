@@ -17,7 +17,10 @@ function getModel(state: AgentState): BaseChatModel {
   console.log(`Using model: ${model}`);
 
   if (model === "openai") {
-    return new ChatOpenAI({ model: "gpt-5-mini" });
+    return new ChatOpenAI({
+      modelKwargs: { reasoning_effort: "none" },
+      model: "gpt-6-luna",
+    });
   }
   if (model === "anthropic") {
     return new ChatAnthropic({

@@ -77,7 +77,7 @@ with_agentspec_agent = Agent(
     system_prompt="You are a helpful assistant, named Specky, that has access to some tools.",
     llm_config=OpenAiCompatibleConfig(
         name="with-agentspec-agent",
-        model_id=os.getenv("OPENAI_MODEL", "gpt-4o"),
+        model_id=os.getenv("OPENAI_MODEL", "gpt-6-luna"),
         url=os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1"),
     ),
     tools=[weather_tool, go_to_moon_tool, setThemeColor_tool],

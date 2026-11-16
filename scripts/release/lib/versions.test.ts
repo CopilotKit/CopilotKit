@@ -6,6 +6,9 @@ import {
   parseSemver,
   computeNextStableVersion,
   computePrereleaseVersion,
+  computeNextRcVersion,
+  assertRcBaseAhead,
+  prereleaseDistTag,
   resolvePrereleaseId,
   bumpPackages,
   findCrossScopePins,
@@ -167,6 +170,69 @@ describe("computePrereleaseVersion", () => {
     expect(computePrereleaseVersion("1.56.0-alpha.1", "new")).toBe(
       "1.56.0-canary.new",
     );
+  });
+});
+
+describe("computeNextRcVersion", () => {
+  it("starts at rc.0", () => {
+    expect(computeNextRcVersion("2.0.0", ["1.80.0", "1.80.1-canary.1"])).toBe(
+      "2.0.0-rc.0",
+    );
+  });
+
+  it("goes one past the highest rc numerically, not lexically", () => {
+    expect(
+      computeNextRcVersion("2.0.0", [
+        "2.0.0-rc.9",
+        "2.0.0-rc.10",
+        "2.0.0-rc.2",
+      ]),
+    ).toBe("2.0.0-rc.11");
+  });
+
+  it("ignores rcs of other bases and non-numeric suffixes", () => {
+    expect(
+      computeNextRcVersion("2.0.0", [
+        "2.0.1-rc.7",
+        "3.0.0-rc.4",
+        "2.0.0-rc.1.hotfix",
+      ]),
+    ).toBe("2.0.0-rc.0");
+  });
+});
+
+describe("assertRcBaseAhead", () => {
+  it("accepts a base ahead of the current version", () => {
+    expect(() => assertRcBaseAhead("2.0.0", "1.83.0")).not.toThrow();
+    expect(() => assertRcBaseAhead("1.84.0", "1.83.9")).not.toThrow();
+  });
+
+  it("accepts the base while the current version is a prerelease of it", () => {
+    expect(() => assertRcBaseAhead("2.0.0", "2.0.0-rc.3")).not.toThrow();
+  });
+
+  it("refuses a base behind or equal to a stable current version", () => {
+    expect(() => assertRcBaseAhead("1.0.0", "1.83.0")).toThrow(/not ahead/);
+    expect(() => assertRcBaseAhead("1.83.0", "1.83.0")).toThrow(/not ahead/);
+    expect(() => assertRcBaseAhead("1.82.9", "1.83.0-canary.1")).toThrow(
+      /not ahead/,
+    );
+  });
+});
+
+describe("prereleaseDistTag", () => {
+  it("publishes a canary under its prerelease identifier", () => {
+    expect(prereleaseDistTag("1.80.1-canary.1792172552")).toBe("canary");
+    expect(prereleaseDistTag("1.80.1-canary.fix-user-issue")).toBe("canary");
+  });
+
+  it("publishes a release candidate under next", () => {
+    expect(prereleaseDistTag("2.0.0-rc.0")).toBe("next");
+    expect(prereleaseDistTag("2.0.0-rc.3")).toBe("next");
+  });
+
+  it("refuses a stable version", () => {
+    expect(() => prereleaseDistTag("2.0.0")).toThrow(/not a prerelease/);
   });
 });
 

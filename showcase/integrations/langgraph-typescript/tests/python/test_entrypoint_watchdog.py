@@ -507,6 +507,126 @@ class TestFilePersistenceDisabled:
             "in-lifetime conversation state."
         )
 
+    def test_real_package_flush_never_serialises_the_store_behavioral(self, tmp_path):
+        """BEHAVIORAL (real package): with the preload active, the REAL
+        FileSystemPersistence must never run its flush at all — neither from the
+        3-second `schedulePersist` timer that every `conn.with()` re-arms, nor
+        from an explicit `flush()`.
+
+        Why this matters (2026-11-10 prod OOM, showcase-langgraph-typescript):
+        suppressing only the fs write left `persist()` still calling
+        `superjson.stringify` over the ENTIRE in-memory store every 3 s. With
+        threads retained for the container's life the serialised form passed
+        V8's max string length after ~8 h (`RangeError: Invalid string length`,
+        25-37x/hour), and the transient base64/JSON copies of every checkpoint
+        pushed the heap to its 4 GB limit (exit 134) roughly every 40 h.
+
+        The driver plants a poison getter in the store: any serialiser walk
+        throws. With the flush disabled nothing ever walks the store, so no
+        rejection surfaces and `flush()` resolves; in-memory reads still work.
+        """
+        import json
+        import shutil
+
+        agent_dir = _PKG_ROOT / "src" / "agent"
+        persist_pkg = (
+            agent_dir
+            / "node_modules"
+            / "@langchain"
+            / "langgraph-api"
+            / "dist"
+            / "storage"
+            / "persist.mjs"
+        )
+        require_behavioral = os.environ.get("LGT_REQUIRE_BEHAVIORAL") == "1"
+        if not persist_pkg.exists():
+            msg = f"agent node_modules not installed at {persist_pkg}"
+            if require_behavioral:
+                pytest.fail("LGT_REQUIRE_BEHAVIORAL=1 but " + msg)
+            pytest.skip(msg)
+        node = shutil.which("node")
+        if node is None:
+            if require_behavioral:
+                pytest.fail("LGT_REQUIRE_BEHAVIORAL=1 but node is not on PATH")
+            pytest.skip("node not on PATH")
+
+        run_cwd = tmp_path / "run"
+        run_cwd.mkdir()
+        driver = tmp_path / "driver.mjs"
+        driver.write_text(
+            dedent(r"""
+            import { pathToFileURL } from "node:url";
+            const { FileSystemPersistence } =
+              await import(pathToFileURL(process.env.PERSIST_ABS).href);
+            let persistThrew = null;
+            process.on("unhandledRejection", (err) => {
+              persistThrew = String((err && err.message) || err);
+            });
+            const conn = new FileSystemPersistence(
+              ".langgraphjs_api.checkpointer.json", () => ({ threads: {} }));
+            await conn.initialize(process.env.RUN_CWD);
+            await conn.with(async (data) => {
+              data.threads.t0 = {
+                messages: [{ role: "assistant", content: "reply-0" }],
+                get poison() { throw new Error("serialiser walked the store"); },
+              };
+            });
+            let readBack;
+            await conn.with(async (data) => {
+              readBack = data.threads.t0.messages[0].content;
+            });
+            let flushThrew = null;
+            try { await conn.flush(); } catch (err) { flushThrew = String(err.message); }
+            // Outlive the 3 s schedulePersist timer re-armed by conn.with().
+            await new Promise((r) => setTimeout(r, 3500));
+            console.log(JSON.stringify({ readBack, flushThrew, persistThrew }));
+        """)
+        )
+
+        env = {
+            "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
+            "HOME": os.environ.get("HOME", "/tmp"),
+            "LANGGRAPH_DISABLE_FILE_PERSISTENCE": "true",
+            "PERSIST_ABS": str(persist_pkg),
+            "RUN_CWD": str(run_cwd),
+        }
+        preload = agent_dir / "disable-file-persistence.mjs"
+        result = subprocess.run(
+            [node, "--import", str(preload), str(driver)],
+            cwd=str(agent_dir),
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        assert result.returncode == 0, (
+            f"driver failed rc={result.returncode}\n"
+            f"stdout={result.stdout!r}\nstderr={result.stderr!r}"
+        )
+        payload = None
+        for line in reversed(result.stdout.strip().splitlines()):
+            try:
+                payload = json.loads(line)
+                break
+            except ValueError:
+                continue
+        assert payload is not None, f"no JSON result. stdout={result.stdout!r}"
+        assert payload["flushThrew"] is None, (
+            "explicit flush() still serialised the store: "
+            f"{payload['flushThrew']!r}. The preload must disable persist() itself."
+        )
+        assert payload["persistThrew"] is None, (
+            "the 3 s schedulePersist timer still serialised the store: "
+            f"{payload['persistThrew']!r}. The preload must disable schedulePersist()."
+        )
+        assert payload["readBack"] == "reply-0", (
+            f"in-memory round-trip broke: {payload['readBack']!r}"
+        )
+        assert "flush disabled" in result.stdout, (
+            "preload must log that the FileSystemPersistence flush is disabled "
+            f"so the boot log proves the seam is live. stdout={result.stdout!r}"
+        )
+
     def test_boot_fails_if_namespace_binding_not_patched_high1(self, tmp_path):
         """HIGH-1 negative proof: if node:fs/promises is LINKED before the
         preload's property reassignments run, the ESM namespace snapshots the

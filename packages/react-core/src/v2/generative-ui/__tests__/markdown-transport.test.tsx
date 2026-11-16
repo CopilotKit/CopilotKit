@@ -74,11 +74,11 @@ const T = "thread-1";
 const TARGET_DESCRIPTION = "Next to the product list.";
 
 const create = (surfaceId: string) => ({
-  version: "v1.0",
+  version: "1.0",
   createSurface: { surfaceId, catalogId: "shop" },
 });
 const buttonRoot = (surfaceId: string, label: string) => ({
-  version: "v1.0",
+  version: "1.0",
   updateComponents: {
     surfaceId,
     components: [{ id: "root", component: "Button", label }],
@@ -227,7 +227,7 @@ describe("markdown transport", () => {
   it("renders an inline createSurface while it streams, with its prose as chat markdown", async () => {
     const { agent } = setup();
     const line = JSON.stringify({
-      version: "v1.0",
+      version: "1.0",
       createSurface: {
         surfaceId: "s1",
         components: [
@@ -306,40 +306,30 @@ describe("markdown transport", () => {
     // The UI has a multiple slot and the mounted addToCart, but no events.
     expect(listed.context[0].value).toBe(
       buildGenerativeUIMarkdownGuidelines({
+        components: ["Button", "Column", "Text"],
         functions: true,
         events: false,
         templates: true,
         checks: false,
       }),
     );
-    expect(JSON.parse(listed.context[1].value)).toEqual({
-      catalogId: "shop",
-      targets: [
-        { id: "chat", kind: "chat" },
-        {
-          id: "recommendations",
-          kind: "inline",
-          description: TARGET_DESCRIPTION,
-        },
-      ],
-      functions: expect.objectContaining({
-        addToCart: { parameters: "{ sku: string }" },
-        formatCurrency: expect.any(Object),
-      }),
-      components: {
-        Button: { props: { label: "string" } },
-        Column: expect.any(Object),
-        Text: { props: { text: "string" } },
-      },
-      surfaces: {},
-    });
+    // The schema in the lines notation that ships: one line per component
+    // and prop.
+    const schema = listed.context[1].value;
+    expect(schema).toContain("Catalog shop.");
+    expect(schema).toContain(`recommendations (inline): ${TARGET_DESCRIPTION}`);
+    expect(schema).toContain("addToCart{ sku: string }");
+    expect(schema).toContain("\nButton\n label*: string");
+    expect(schema).toContain("\nText\n text*: string");
+    expect(schema).toMatch(/\nColumn/);
+    expect(schema).toContain("Surfaces: none");
     expect(unlisted.context).toEqual([]);
   });
 
   it("sends the dropped operations of a surface in the schema of the next run", async () => {
     const { copilotkit, agent } = setup();
     const missing = {
-      version: "v1.0",
+      version: "1.0",
       updateComponents: {
         surfaceId: "s1",
         components: [{ id: "extra", component: "Missing" }],
@@ -356,7 +346,12 @@ describe("markdown transport", () => {
       (entry) =>
         entry.description === GENERATIVE_UI_MARKDOWN_SCHEMA_CONTEXT_DESCRIPTION,
     );
-    expect(JSON.parse(schema?.value ?? "{}").surfaces).toEqual({
+    const value = schema?.value ?? "";
+    // The surfaces are the last line of the schema, as JSON.
+    const surfaces = value.slice(
+      value.indexOf("Surfaces: ") + "Surfaces: ".length,
+    );
+    expect(JSON.parse(surfaces)).toEqual({
       s1: {
         target: "chat",
         rejected: [

@@ -10,7 +10,7 @@ from langchain.tools import tool
 from langchain_openai import ChatOpenAI
 
 # We keep the extractor model cheap; this is structured JSON work, not chat.
-_EXTRACTOR = ChatOpenAI(model="gpt-5.5", temperature=0)
+_EXTRACTOR = ChatOpenAI(reasoning_effort="none", model="gpt-6-luna", temperature=0)
 
 
 class Kpi(TypedDict):

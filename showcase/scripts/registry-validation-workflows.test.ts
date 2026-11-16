@@ -178,3 +178,32 @@ describe("registry-only validation", () => {
     }
   });
 });
+
+describe("registry disconnected (PNI-786)", () => {
+  const binding = /SHOWCASE_DISPOSABLE_RUN_RECORDS_|SHOWCASE_REGISTRY_CONSUMER/;
+  const workflows = [
+    "showcase_build.yml",
+    "showcase_eval-webhook_build.yml",
+    "showcase_promote.yml",
+    "docs_promote.yml",
+  ];
+  it.each(workflows)(
+    "%s passes the registry binding only to the opt-in validation step",
+    (name) => {
+      const bound: string[] = [];
+      for (const [jobName, job] of Object.entries<any>(load(name).jobs)) {
+        for (const step of job.steps ?? []) {
+          if (!binding.test(JSON.stringify(step))) continue;
+          bound.push(`${jobName}/${step.name}`);
+          // Reconnecting ordinary readers is a deliberate, reviewed change:
+          // update this test and "Registry disconnected" in railway-lifecycle.md.
+          expect(step.run, `${jobName}/${step.name}`).toContain(
+            "ruby showcase/scripts/validate-registry.rb",
+          );
+          expect(step.if).toContain("inputs.validate_registry_only == true");
+        }
+      }
+      expect(bound.length).toBe(name.endsWith("_promote.yml") ? 1 : 0);
+    },
+  );
+});

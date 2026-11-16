@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import os
 
-from llama_index.llms.openai import OpenAI
+from agents._openai_models import OpenAI
 
 from agents._request_tools import make_request_aware_router
 
@@ -58,7 +58,7 @@ if os.environ.get("OPENAI_BASE_URL"):
 # LLM so the request matches the recorded aimock fixture; otherwise the run
 # 404s in aimock and emits RUN_ERROR (sse-missing). See agents/_request_tools.py.
 open_gen_ui_router = make_request_aware_router(
-    llm=OpenAI(model="gpt-5-mini", **_openai_kwargs),
+    llm=OpenAI(model="gpt-6-luna", **_openai_kwargs),
     frontend_tools=[],
     backend_tools=[],
     system_prompt=SYSTEM_PROMPT,

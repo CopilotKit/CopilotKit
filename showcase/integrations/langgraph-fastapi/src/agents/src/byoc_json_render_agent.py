@@ -145,7 +145,8 @@ Respond with the JSON object only.
 
 graph = create_agent(
     model=ChatOpenAI(
-        model="gpt-5-mini",
+        reasoning_effort="none",
+        model="gpt-6-luna",
         temperature=0.2,
         model_kwargs={"response_format": {"type": "json_object"}},
     ),

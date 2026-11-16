@@ -12,7 +12,7 @@ import { serve } from "@hono/node-server";
 const runtime = new CopilotRuntime({
   agents: {
     default: new BasicAgent({
-      model: "openai/gpt-5-mini",
+      model: "openai/gpt-6-luna",
       maxSteps: 5,
       temperature: 0.7,
     }),

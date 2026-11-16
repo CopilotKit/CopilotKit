@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { createGenerativeUI } from "../catalog";
-import { exportA2UICatalog } from "../catalog-export";
+import { exportA2UICatalog } from "@copilotkit/shared/generative-ui";
 import { standardUI } from "../standard";
 
 const View = () => null;

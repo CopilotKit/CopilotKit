@@ -16,5 +16,17 @@
 
     <DemoCode file="src/agent/readonly-state.ts" region="agent-context-setup" />
 
+    To read a single entry instead, find it in `state.copilotkit.context` by
+    its `description`. Its `value` arrives as a JSON string, so parse it with
+    `JSON.parse` before you read a field:
+
+    ```typescript title="agent-js/src/agent.ts"
+    const copilotKitContext = state.copilotkit.context
+    const colleaguesContextItem = copilotKitContext.find(contextItem => contextItem.description === "The current user's colleagues")
+
+    // The value is a JSON string, so parse it to read the fields
+    const colleagues = colleaguesContextItem ? JSON.parse(colleaguesContextItem.value) : [];
+    ```
+
   </Step>
 </Steps>

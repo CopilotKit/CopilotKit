@@ -9,6 +9,7 @@ describe.each(["multi-route", "single-route"] as const)(
     function setup() {
       const runtime = new CopilotRuntime({
         agents: { ui: new HttpAgent({ url: "http://unused" }) },
+        threads: { access: "open" },
       });
       const stop = vi.spyOn(runtime.runner, "stop").mockResolvedValue(true);
       const handler = createCopilotRuntimeHandler({
@@ -48,19 +49,26 @@ describe.each(["multi-route", "single-route"] as const)(
       expect(stop).toHaveBeenCalledExactlyOnceWith({
         threadId: "thread",
         runId: "run-A",
+        ownerId: "",
       });
     });
 
     it("preserves thread-wide stop without a body", async () => {
       const { stop, request } = setup();
       expect((await request()).status).toBe(200);
-      expect(stop).toHaveBeenCalledExactlyOnceWith({ threadId: "thread" });
+      expect(stop).toHaveBeenCalledExactlyOnceWith({
+        threadId: "thread",
+        ownerId: "",
+      });
     });
 
     it("preserves thread-wide stop with an empty object", async () => {
       const { stop, request } = setup();
       expect((await request({})).status).toBe(200);
-      expect(stop).toHaveBeenCalledExactlyOnceWith({ threadId: "thread" });
+      expect(stop).toHaveBeenCalledExactlyOnceWith({
+        threadId: "thread",
+        ownerId: "",
+      });
     });
 
     it.each([

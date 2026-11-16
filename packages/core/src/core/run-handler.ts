@@ -24,6 +24,10 @@ import {
   toToolResultContent,
 } from "./tool-result-content";
 import { createToolSchema } from "./tool-schema";
+import {
+  ɵgetAgentInterruptState,
+  ɵclearAgentInterruptState,
+} from "../interrupt-state";
 import { WebMCPRegistry } from "./webmcp";
 
 /**
@@ -303,6 +307,7 @@ export class RunHandler {
   private _executingToolCalls = new WeakMap<AbstractAgent, Set<string>>();
 
   private _connectionGenerations = new WeakMap<AbstractAgent, object>();
+  private _runGenerations = new WeakMap<AbstractAgent, object>();
 
   private _interactionAbortControllers = new WeakMap<
     AbstractAgent,
@@ -689,6 +694,7 @@ export class RunHandler {
         runAgentResult,
         agent,
         toolExecutionMode: "restore",
+        connectionGeneration: connection,
         signal: controller.signal,
       })
         .catch(async (error: unknown) => {
@@ -743,6 +749,9 @@ export class RunHandler {
      */
     followUpOf?: AbortController,
   ): Promise<RunAgentResult> {
+    this._connectionGenerations.set(agent, {});
+    this._runGenerations.set(agent, {});
+    ɵclearAgentInterruptState(agent);
     // Agent ID is guaranteed to be set by validateAndAssignAgentId
     if (agent.agentId) {
       void this._internal.suggestionEngine.clearSuggestions(agent.agentId);
@@ -888,6 +897,35 @@ export class RunHandler {
         }
         return onRunStartedEvent?.(params);
       };
+      // Only a run that finished cleanly can leave an advertised call open by
+      // mistake. An interrupted run leaves its calls for the interrupt's
+      // answer, a stopped run ends with a `cancelled` outcome, and a failed
+      // run never finished. The state manager tracks interrupts too, but only
+      // for registered agents, not the per-thread clones that runs use. A
+      // stream can carry more than one run, so one that ends any other way
+      // keeps every call open, even if a later run finishes cleanly.
+      let finishedCleanly = false;
+      let leftCallsOpen = false;
+      const onRunFinishedEvent = agentSubscriber.onRunFinishedEvent;
+      const onRunErrorEvent = agentSubscriber.onRunErrorEvent;
+      const onCustomEvent = agentSubscriber.onCustomEvent;
+      agentSubscriber.onRunFinishedEvent = (params) => {
+        const outcome = params.event.outcome?.type;
+        if (outcome === undefined || outcome === "success") {
+          finishedCleanly = true;
+        } else {
+          leftCallsOpen = true;
+        }
+        return onRunFinishedEvent?.(params);
+      };
+      agentSubscriber.onRunErrorEvent = (params) => {
+        leftCallsOpen = true;
+        return onRunErrorEvent?.(params);
+      };
+      agentSubscriber.onCustomEvent = (params) => {
+        if (params.event.name === "on_interrupt") leftCallsOpen = true;
+        return onCustomEvent?.(params);
+      };
       // An internal continuation (a human-in-the-loop tool resolved and this is
       // the recursive follow-up) deliberately does NOT pin the originating run
       // id on the wire. Pinning it made the transport treat the follow-up as a
@@ -902,6 +940,7 @@ export class RunHandler {
       // reported under it. So external tracing still gets a single run without
       // the wire having to lie about which invocation this is.
       const pinRunIdOnWire = runId !== undefined && !continuationHandoff;
+      const tools = this.buildFrontendTools(agent.agentId);
       const agentRunInput = {
         forwardedProps: {
           ...this._internal.getPropertiesForAgent(agent.agentId),
@@ -910,7 +949,7 @@ export class RunHandler {
         },
         ...(resume !== undefined ? { resume } : {}),
         ...(pinRunIdOnWire ? { runId } : {}),
-        tools: this.buildFrontendTools(agent.agentId),
+        tools,
         context: this._internal.getContextForAgent(agent.agentId),
       };
       const runAgentResult = await agent.runAgent(
@@ -928,6 +967,10 @@ export class RunHandler {
         agent,
         runId: logicalRunId,
         runController: controller,
+        advertisedToolNames:
+          finishedCleanly && !leftCallsOpen
+            ? new Set(tools.map((tool) => tool.name))
+            : undefined,
       });
     } catch (error) {
       logicalHandoff?.cancel();
@@ -989,6 +1032,8 @@ export class RunHandler {
     toolExecutionMode = "all",
     runController,
     signal = runController?.signal,
+    advertisedToolNames,
+    connectionGeneration,
   }: {
     runAgentResult: RunAgentResult;
     agent: AbstractAgent;
@@ -997,14 +1042,28 @@ export class RunHandler {
     /** Controller of the run that produced this result; follow-ups share it. */
     runController?: AbortController;
     signal?: AbortSignal;
+    /**
+     * Tools the run was offered, set only when it finished cleanly. A call to
+     * one of them that nothing handles any more is answered with an error.
+     */
+    advertisedToolNames?: ReadonlySet<string>;
+    connectionGeneration?: object;
   }): Promise<RunAgentResult> {
     const { newMessages } = runAgentResult;
     // Agent ID is guaranteed to be set by validateAndAssignAgentId
     const agentId = agent.agentId!;
 
     let needsFollowUp = false;
+    // Same-thread reconnects leave an executing handler in charge of its
+    // eventual follow-up; a new explicit run still supersedes that ownership.
+    let ownsHandlerFollowUp = false;
+    const runGeneration = this._runGenerations.get(agent);
 
     const threadId = agent.threadId;
+    const interruptState = agent.pendingInterrupts?.length
+      ? ɵgetAgentInterruptState(agent)
+      : undefined;
+    interruptState?.validateToolCalls(agent.messages);
     const executing = this._executingToolCalls.get(agent) ?? new Set<string>();
     this._executingToolCalls.set(agent, executing);
 
@@ -1065,19 +1124,6 @@ export class RunHandler {
           };
 
           const executableTool = tool ?? getWildcardTool();
-          // Handlerless frontend tools (e.g. chart components) must recreate
-          // missing empty results using their original call IDs. Handlers still
-          // run only for HITL prompts or an explicit "resume-pending" opt-in,
-          // so restoring history never repeats other tools' side effects.
-          if (
-            toolExecutionMode === "restore" &&
-            (!executableTool ||
-              (executableTool.handler &&
-                executableTool.type !== "human-in-the-loop" &&
-                executableTool.reconnectBehavior !== "resume-pending"))
-          ) {
-            continue;
-          }
           const executionKey = JSON.stringify([threadId, toolCall.id]);
           if (
             signal?.aborted ||
@@ -1099,21 +1145,74 @@ export class RunHandler {
               (m) => m.role === "tool" && m.toolCallId === toolCall.id,
             ) ?? newMessages[existingResultIndex];
 
+          // Reusing a completed result is not handler execution. Passive tools
+          // may resume saved successes but must keep unanswered placeholders.
+          if (
+            existingResult &&
+            !this.isFrontendPlaceholderResult(existingResult)
+          ) {
+            if (
+              executableTool &&
+              executableTool.followUp !== false &&
+              agent.pendingInterrupts?.some(
+                (interrupt) =>
+                  interrupt.reason === "tool_call" &&
+                  interrupt.toolCallId === toolCall.id,
+              )
+            )
+              needsFollowUp = true;
+            continue;
+          }
+          // Handlerless frontend tools (e.g. chart components) must recreate
+          // missing empty results using their original call IDs. Handlers still
+          // run only for HITL prompts or an explicit "resume-pending" opt-in,
+          // so restoring history never repeats other tools' side effects.
+          if (
+            toolExecutionMode === "restore" &&
+            (!executableTool ||
+              (executableTool.handler &&
+                executableTool.type !== "human-in-the-loop" &&
+                executableTool.reconnectBehavior !== "resume-pending"))
+          ) {
+            continue;
+          }
+
+          // An advertised tool that is gone can never replace the
+          // placeholder, so clear every placeholder for the not-found answer
+          // below, unless a run result already carries a real answer. A
+          // placeholder left behind would stay the call's only result.
+          const runResults = newMessages.filter(
+            (m) => m.role === "tool" && m.toolCallId === toolCall.id,
+          );
+          const answersRemovedTool =
+            !executableTool &&
+            !!advertisedToolNames?.has(toolCall.function.name) &&
+            runResults.every((m) => this.isFrontendPlaceholderResult(m));
+
           if (
             existingResult &&
             this.isFrontendPlaceholderResult(existingResult) &&
-            (toolExecutionMode === "restore" || executableTool?.handler)
+            (toolExecutionMode === "restore" ||
+              executableTool?.handler ||
+              answersRemovedTool)
           ) {
-            if (existingResultIndex !== -1)
-              newMessages.splice(existingResultIndex, 1);
-            existingResult = undefined;
+            if (answersRemovedTool) {
+              // All placeholders go; the arms below remove only the first.
+              // One left behind would stay the call's only result.
+              this.removePlaceholderResults(newMessages, toolCall.id);
+              this.removePlaceholderResults(agent.messages, toolCall.id);
+            } else {
+              if (existingResultIndex !== -1)
+                newMessages.splice(existingResultIndex, 1);
 
-            const agentMsgIdx = agent.messages.findIndex(
-              (m) => m.role === "tool" && m.toolCallId === toolCall.id,
-            );
-            if (agentMsgIdx !== -1) {
-              agent.messages.splice(agentMsgIdx, 1);
+              const agentMsgIdx = agent.messages.findIndex(
+                (m) => m.role === "tool" && m.toolCallId === toolCall.id,
+              );
+              if (agentMsgIdx !== -1) {
+                agent.messages.splice(agentMsgIdx, 1);
+              }
             }
+            existingResult = undefined;
           }
 
           if (!existingResult) {
@@ -1133,13 +1232,13 @@ export class RunHandler {
             };
             const abortInteraction = () => {
               if (!interactionController) return;
-              const connectionGeneration =
+              const stopConnectionGeneration =
                 this._connectionGenerations.get(agent);
               liveHITLStops.set(
                 interactionController.signal,
                 () =>
                   this._connectionGenerations.get(agent) ===
-                    connectionGeneration && agent.threadId === threadId,
+                    stopConnectionGeneration && agent.threadId === threadId,
               );
               interactionController.abort();
             };
@@ -1167,6 +1266,7 @@ export class RunHandler {
                   toolExecutionMode === "restore",
                 );
                 if (followUp) {
+                  ownsHandlerFollowUp ||= !!tool.handler;
                   needsFollowUp = true;
                 }
               } else {
@@ -1183,8 +1283,16 @@ export class RunHandler {
                     toolExecutionMode === "restore",
                   );
                   if (followUp) {
+                    ownsHandlerFollowUp ||= !!fallbackTool.handler;
                     needsFollowUp = true;
                   }
+                } else if (advertisedToolNames?.has(toolCall.function.name)) {
+                  await this.rejectUnregisteredTool(
+                    toolCall,
+                    message,
+                    agent,
+                    agentId,
+                  );
                 }
               }
             } finally {
@@ -1228,6 +1336,17 @@ export class RunHandler {
         // reads it. The base implementation is a no-op; React overrides this.
         await this._internal.waitForPendingFrameworkUpdates();
         if (
+          signal?.aborted ||
+          agent.threadId !== threadId ||
+          this._runGenerations.get(agent) !== runGeneration ||
+          (connectionGeneration &&
+            !ownsHandlerFollowUp &&
+            this._connectionGenerations.get(agent) !== connectionGeneration) ||
+          (interruptState && ɵgetAgentInterruptState(agent) !== interruptState)
+        )
+          return runAgentResult;
+
+        if (
           toolExecutionMode === "restore" &&
           !messagesToProcess.some((message) =>
             this.isInLatestUserTurn(agent.messages, message.id),
@@ -1235,12 +1354,28 @@ export class RunHandler {
         ) {
           return runAgentResult;
         }
+        let resume: ResumeEntry[] | undefined;
+        if (agent.pendingInterrupts?.length) {
+          // The shared state requires an explicit decision for failed results,
+          // including Stop, while retaining decisions made before handlers finish.
+          const decision = ɵgetAgentInterruptState(agent).resumeWithToolResults(
+            agent.messages,
+          );
+          // A completed frontend call is not permission to answer a native
+          // approval or a child question. Keep the full interrupt set pending.
+          if (decision.kind !== "resume") return runAgentResult;
+          resume = decision.resume;
+          for (const result of decision.toolResults) {
+            agent.addMessage({ id: randomUUID(), role: "tool", ...result });
+          }
+        }
         const continuationHandoff =
           this._internal.stateManager.markNextRunAsContinuation(agent, runId);
         return await this.runAgent(
           {
             agent,
             ...(runId !== undefined ? { runId } : {}),
+            ...(resume ? { resume } : {}),
           },
           continuationHandoff,
           runController,
@@ -1285,6 +1420,23 @@ export class RunHandler {
       insertAt++;
     }
     return insertAt;
+  }
+
+  /** Removes, in place, every placeholder result for `toolCallId`. */
+  private removePlaceholderResults(
+    messages: Message[],
+    toolCallId: string,
+  ): void {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i]!;
+      if (
+        m.role === "tool" &&
+        m.toolCallId === toolCallId &&
+        this.isFrontendPlaceholderResult(m)
+      ) {
+        messages.splice(i, 1);
+      }
+    }
   }
 
   /** Identify transport placeholders that must not count as completed answers. */
@@ -1657,6 +1809,54 @@ export class RunHandler {
     }
 
     return false;
+  }
+
+  /**
+   * Answer a call to a tool the run was offered but that no frontend tool (and
+   * no wildcard) handles any more, e.g. because its component unmounted. Left
+   * open, the call has no result, and providers reject every later request in
+   * the thread. Like a failed handler, the error result starts no follow-up:
+   * the model sees it on the next turn.
+   */
+  private async rejectUnregisteredTool(
+    toolCall: ToolCall,
+    message: Message,
+    agent: AbstractAgent,
+    agentId: string,
+  ): Promise<void> {
+    const messageIndex = agent.messages.findIndex((m) => m.id === message.id);
+    if (
+      messageIndex === -1 ||
+      agent.messages.some(
+        (m) => m.role === "tool" && m.toolCallId === toolCall.id,
+      )
+    ) {
+      return;
+    }
+
+    const error = new Error(`Tool not found: ${toolCall.function.name}`);
+    const errorMessage = toolFailureMessage(error);
+    agent.messages.splice(
+      this.toolResultInsertionIndex(agent.messages, messageIndex, toolCall.id),
+      0,
+      {
+        id: randomUUID(),
+        role: "tool",
+        toolCallId: toolCall.id,
+        content: `Error: ${errorMessage}`,
+        error: errorMessage,
+      },
+    );
+    await this._internal.emitError({
+      error,
+      code: CopilotKitCoreErrorCode.TOOL_NOT_FOUND,
+      context: {
+        agentId,
+        toolCallId: toolCall.id,
+        toolName: toolCall.function.name,
+        messageId: message.id,
+      },
+    });
   }
 
   /**

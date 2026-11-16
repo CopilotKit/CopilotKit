@@ -4,8 +4,13 @@ import type { Message } from "@ag-ui/core";
 import type { VirtualItem, Virtualizer } from "@tanstack/react-virtual";
 import type * as ReactVirtual from "@tanstack/react-virtual";
 import { renderWithCopilotKit } from "../../../__tests__/utils/test-helpers";
-import { CopilotChatMessageView } from "../CopilotChatMessageView";
+import {
+  CopilotChatMessageView,
+  messageGroup,
+  messageRow,
+} from "../CopilotChatMessageView";
 import { ScrollPinnedContext } from "../scroll-pinned-context";
+import { ScrollElementContext } from "../scroll-element-context";
 
 /**
  * Covers the two things CopilotChatMessageView configures on its virtualizer
@@ -78,18 +83,27 @@ function message(id: string): Message {
 
 let setMessages: ((messages: Message[]) => void) | null = null;
 
+type GroupMessages = React.ComponentProps<
+  typeof CopilotChatMessageView
+>["groupMessages"];
+
 function Harness({
   isPinnedToBottom,
   initialMessages = [],
+  groupMessages,
 }: {
   isPinnedToBottom: boolean;
   initialMessages?: Message[];
+  groupMessages?: GroupMessages;
 }) {
   const [messages, updateMessages] = React.useState(initialMessages);
   setMessages = updateMessages;
   return (
     <ScrollPinnedContext.Provider value={isPinnedToBottom}>
-      <CopilotChatMessageView messages={messages} />
+      <CopilotChatMessageView
+        messages={messages}
+        groupMessages={groupMessages}
+      />
     </ScrollPinnedContext.Provider>
   );
 }
@@ -97,6 +111,7 @@ function Harness({
 function renderMessageView(options: {
   isPinnedToBottom: boolean;
   initialMessages?: Message[];
+  groupMessages?: GroupMessages;
 }) {
   renderWithCopilotKit({ children: <Harness {...options} /> });
 }
@@ -144,6 +159,336 @@ describe("CopilotChatMessageView virtual-scroll tuning", () => {
     });
   });
 
+  describe("container width changes", () => {
+    it.each([false, true])(
+      "invalidates offscreen heights and preserves the reading row (rows measured first: %s)",
+      async (rowsFirst) => {
+        const callbacks = new Map<Element, Set<ResizeObserverCallback>>();
+        const originalObserver = globalThis.ResizeObserver;
+        globalThis.ResizeObserver = class {
+          callback: ResizeObserverCallback;
+          targets = new Set<Element>();
+          constructor(callback: ResizeObserverCallback) {
+            this.callback = callback;
+          }
+          observe(target: Element) {
+            this.targets.add(target);
+            const listeners = callbacks.get(target) ?? new Set();
+            listeners.add(this.callback);
+            callbacks.set(target, listeners);
+          }
+          unobserve(target: Element) {
+            callbacks.get(target)?.delete(this.callback);
+          }
+          disconnect() {
+            for (const target of this.targets) this.unobserve(target);
+          }
+        } as typeof ResizeObserver;
+        let width = 600;
+        const createContainer = () => {
+          const element = document.createElement("div");
+          Object.defineProperties(element, {
+            clientWidth: { get: () => width },
+            clientHeight: { value: 600 },
+            scrollHeight: { get: () => virtualizer().getTotalSize() },
+          });
+          element.getBoundingClientRect = () =>
+            ({ width, height: 600 }) as DOMRect;
+          element.scrollTo = vi.fn(({ top }: ScrollToOptions) => {
+            element.scrollTop = top ?? 0;
+            element.dispatchEvent(new Event("scroll"));
+          }) as typeof element.scrollTo;
+          return element;
+        };
+        const container = createContainer();
+        const messages: Message[] = Array.from({ length: 100 }, (_, index) => ({
+          id: String(index),
+          role: "user",
+          content: "word ".repeat(200),
+        }));
+        let replaceContainer: (element: HTMLDivElement) => void;
+        function ScrollContainerHarness() {
+          const [element, setElement] = React.useState(container);
+          replaceContainer = setElement;
+          return (
+            <ScrollElementContext.Provider value={element}>
+              <Harness isPinnedToBottom={false} initialMessages={messages} />
+            </ScrollElementContext.Provider>
+          );
+        }
+        const rect = vi
+          .spyOn(HTMLElement.prototype, "getBoundingClientRect")
+          .mockImplementation(function (this: HTMLElement) {
+            return {
+              width,
+              height: this.hasAttribute("data-index")
+                ? width < 400
+                  ? 600
+                  : 300
+                : 0,
+            } as DOMRect;
+          });
+        let nextFrame = 0;
+        const frames = new Map<number, FrameRequestCallback>();
+        const frame = vi
+          .spyOn(window, "requestAnimationFrame")
+          .mockImplementation((callback) => {
+            frames.set(++nextFrame, callback);
+            return nextFrame;
+          });
+        const cancelFrame = vi
+          .spyOn(window, "cancelAnimationFrame")
+          .mockImplementation((id) => {
+            frames.delete(id);
+          });
+        try {
+          renderWithCopilotKit({
+            children: <ScrollContainerHarness />,
+          });
+          act(() => {
+            // Row 0 is far above the reader; its measurement must also expire.
+            virtualizer().resizeItem(0, 900);
+            virtualizer().options.measureElement(
+              measuredRow(0, 900),
+              undefined,
+              virtualizer(),
+            );
+          });
+          act(() => {
+            const row = virtualizer().measurementsCache[50];
+            container.scrollTop = row.start + 25;
+            container.dispatchEvent(new Event("scroll"));
+          });
+          // Let the rows newly brought into view settle before resizing.
+          act(() => {
+            container.scrollTop =
+              virtualizer().measurementsCache[50].start + 25;
+            container.dispatchEvent(new Event("scroll"));
+          });
+          expect(
+            virtualizer().getVirtualItemForOffset(container.scrollTop)?.index,
+          ).toBe(50);
+          const resize = (nextWidth: number) =>
+            act(() => {
+              width = nextWidth;
+              if (rowsFirst) {
+                for (const row of document.querySelectorAll("[data-index]")) {
+                  virtualizer().measureElement(row);
+                }
+              }
+              for (const callback of callbacks.get(container) ?? []) {
+                callback(
+                  [
+                    {
+                      target: container,
+                      borderBoxSize: [{ inlineSize: width, blockSize: 600 }],
+                    },
+                  ] as unknown as ResizeObserverEntry[],
+                  {} as ResizeObserver,
+                );
+              }
+            });
+          const flushFrame = () =>
+            act(() => {
+              const pending = [...frames.values()];
+              frames.clear();
+              pending.forEach((callback) => callback(0));
+            });
+          resize(300);
+          flushFrame();
+          expect(virtualizer().measurementsCache[0].size).toBe(600);
+          expect(
+            container.scrollTop - virtualizer().measurementsCache[50].start,
+          ).toBe(25);
+          expect(virtualizer().options.estimateSize(0)).toBe(600);
+          const total = virtualizer().getTotalSize();
+          resize(300);
+          expect(virtualizer().getTotalSize()).toBe(total);
+          resize(600);
+          flushFrame();
+          expect(virtualizer().measurementsCache[0].size).toBe(300);
+          expect(virtualizer().options.estimateSize(0)).toBe(300);
+          expect(
+            container.scrollTop - virtualizer().measurementsCache[50].start,
+          ).toBe(25);
+          // Replace the viewport after remeasurement, before the next frame
+          // releases the old reading anchor.
+          const replacement = createContainer();
+          act(() => replaceContainer(replacement));
+          expect(callbacks.get(container)?.size).toBe(0);
+          expect(
+            virtualizer().shouldAdjustScrollPositionOnItemSizeChange!(
+              itemAt(100),
+              40,
+              scrolledTo(800),
+            ),
+          ).toBe(true);
+        } finally {
+          // TanStack's scroll-end debounce can notify after its listener is removed.
+          await act(async () => {
+            await new Promise((resolve) => setTimeout(resolve, 180));
+          });
+          cleanup();
+          rect.mockRestore();
+          frame.mockRestore();
+          cancelFrame.mockRestore();
+          globalThis.ResizeObserver = originalObserver;
+        }
+      },
+    );
+  });
+
+  describe("row identity", () => {
+    it("keys the virtualizer by row, so an inserted row does not shift the rest", () => {
+      renderMessageView({
+        isPinnedToBottom: false,
+        initialMessages: [message("a"), message("b")],
+      });
+      expect(virtualizer().options.getItemKey(0)).toBe("copilotkit-message:a");
+
+      act(() => {
+        setMessages!([message("a"), message("inserted"), message("b")]);
+      });
+
+      // Keyed by index, row 2 would inherit whatever was measured for index
+      // 2 before, and "b" would take the height cached for index 1.
+      expect(virtualizer().options.getItemKey(1)).toBe(
+        "copilotkit-message:inserted",
+      );
+      expect(virtualizer().options.getItemKey(2)).toBe("copilotkit-message:b");
+    });
+
+    it("keeps the same key function when a re-render rebuilds the same rows", () => {
+      renderMessageView({
+        isPinnedToBottom: false,
+        initialMessages: [message("a"), message("b")],
+      });
+      const getItemKey = virtualizer().options.getItemKey;
+
+      // A new key function makes the virtualizer re-estimate every unmeasured
+      // row above the viewport, which moves a reader who scrolled up.
+      act(() => {
+        setMessages!([message("a"), message("b")]);
+      });
+
+      expect(virtualizer().options.getItemKey).toBe(getItemKey);
+    });
+
+    it("keeps a row's measured height with the row when rows shift", () => {
+      renderMessageView({
+        isPinnedToBottom: false,
+        initialMessages: [message("a"), message("b")],
+      });
+      const measure = (index: number, height: number) =>
+        virtualizer().options.measureElement(
+          measuredRow(index, height),
+          undefined,
+          virtualizer(),
+        );
+      measure(0, 300);
+      measure(1, 100);
+      expect(virtualizer().options.estimateSize(2)).toBe(200);
+
+      act(() => {
+        setMessages!([message("a"), message("inserted"), message("b")]);
+      });
+      // "b" re-reports from its new index at the same height.
+      measure(2, 100);
+
+      // Still two rows at 300 and 100. Keyed by index, index 2 would count
+      // as a third row: mean(300, 100, 100) = 167.
+      expect(virtualizer().options.estimateSize(3)).toBe(200);
+    });
+
+    it("never gives a message the key of a group, whatever its id", () => {
+      const Wrapper = ({ children }: { children: React.ReactNode }) => (
+        <div>{children}</div>
+      );
+      const groupMessages: GroupMessages = (list) => [
+        messageGroup({
+          key: "tool-1",
+          messages: list.filter((m) => m.id === "tool-1"),
+          wrapper: Wrapper,
+        }),
+        ...list.filter((m) => m.id !== "tool-1").map(messageRow),
+      ];
+      renderMessageView({
+        isPinnedToBottom: false,
+        initialMessages: [
+          message("tool-1"),
+          message("copilotkit-group:tool-1"),
+        ],
+        groupMessages,
+      });
+
+      const { getItemKey } = virtualizer().options;
+      expect(getItemKey(0)).not.toBe(getItemKey(1));
+    });
+
+    it("keeps rows after a group on their own keys as the group absorbs messages", () => {
+      // Folds every message whose id starts with "tool-" into one row.
+      const Wrapper = ({ children }: { children: React.ReactNode }) => (
+        <div>{children}</div>
+      );
+      const groupMessages: GroupMessages = (list) => {
+        const tools = list.filter((m) => m.id.startsWith("tool-"));
+        const rest = list.filter((m) => !m.id.startsWith("tool-"));
+        return [
+          ...(tools.length > 0
+            ? [
+                messageGroup({
+                  key: tools[0]!.id,
+                  messages: tools,
+                  wrapper: Wrapper,
+                }),
+              ]
+            : []),
+          ...rest.map(messageRow),
+        ];
+      };
+      renderMessageView({
+        isPinnedToBottom: false,
+        initialMessages: [message("tool-1"), message("answer")],
+        groupMessages,
+      });
+      const keyOfAnswer = () => {
+        const { options } = virtualizer();
+        for (let i = 0; i < 4; i++) {
+          if (options.getItemKey(i) === "copilotkit-message:answer") return i;
+        }
+        return -1;
+      };
+      expect(keyOfAnswer()).toBe(1);
+
+      // A second tool call streams in. It joins the group, so the row count
+      // and the answer's index stay put, and the group keeps its key.
+      act(() => {
+        setMessages!([message("tool-1"), message("tool-2"), message("answer")]);
+      });
+      expect(virtualizer().options.getItemKey(0)).toBe(
+        "copilotkit-group:tool-1",
+      );
+      expect(keyOfAnswer()).toBe(1);
+    });
+
+    it("forgets rows that leave the list", () => {
+      renderMessageView({
+        isPinnedToBottom: false,
+        initialMessages: [message("a"), message("b"), message("c")],
+      });
+      const { options } = virtualizer();
+      options.measureElement(measuredRow(0, 300), undefined, virtualizer());
+      options.measureElement(measuredRow(1, 100), undefined, virtualizer());
+      options.measureElement(measuredRow(2, 500), undefined, virtualizer());
+
+      act(() => {
+        setMessages!([message("a"), message("c")]);
+      });
+
+      expect(virtualizer().options.estimateSize(2)).toBe(400);
+    });
+  });
+
   describe("estimateSize", () => {
     it("falls back to a flat estimate before anything is measured", () => {
       renderMessageView({ isPinnedToBottom: false });
@@ -151,7 +496,10 @@ describe("CopilotChatMessageView virtual-scroll tuning", () => {
     });
 
     it("counts a row once however often it is re-measured", () => {
-      renderMessageView({ isPinnedToBottom: false });
+      renderMessageView({
+        isPinnedToBottom: false,
+        initialMessages: [message("a"), message("b"), message("c")],
+      });
       const { options } = virtualizer();
 
       // Row 0 is streaming: the ResizeObserver reports it repeatedly as it
@@ -167,7 +515,10 @@ describe("CopilotChatMessageView virtual-scroll tuning", () => {
     });
 
     it("ignores rows that report no height", () => {
-      renderMessageView({ isPinnedToBottom: false });
+      renderMessageView({
+        isPinnedToBottom: false,
+        initialMessages: [message("a"), message("b"), message("c")],
+      });
       const { options } = virtualizer();
 
       options.measureElement(measuredRow(0, 300), undefined, virtualizer());

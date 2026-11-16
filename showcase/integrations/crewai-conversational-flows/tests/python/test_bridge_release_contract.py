@@ -21,7 +21,7 @@ def test_release_stack_and_native_surface(monkeypatch, tmp_path):
     assert version("ag-ui-crewai") == "0.3.0"
     assert version("ag-ui-protocol") == "0.1.19"
     assert version("crewai") == "1.15.11"
-    assert version("litellm") == "1.79.3"
+    assert version("litellm") == "1.105.0"
 
     from ag_ui_crewai import (
         add_crewai_flow_fastapi_endpoint,

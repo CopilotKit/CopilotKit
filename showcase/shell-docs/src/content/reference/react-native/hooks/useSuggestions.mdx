@@ -37,10 +37,11 @@ function useSuggestions(options?: UseSuggestionsOptions): UseSuggestionsResult;
   Object containing the current suggestions and control functions.
 
 <PropertyReference name="suggestions" type="Suggestion[]">
-  Array of current suggestions. Each `Suggestion` contains: `title: string`, the
-  short display title for the suggestion; `message: string`, the message
-  content to send when the suggestion is selected; and `isLoading: boolean`,
-  whether this suggestion is still being generated.
+  Array of current suggestions. Each `Suggestion` has:
+
+  - `title: string`: the short display title.
+  - `message: string`: the message that is sent when the user selects the suggestion.
+  - `isLoading: boolean`: `true` while this suggestion is still being generated.
 </PropertyReference>
 
 <PropertyReference name="reloadSuggestions" type="() => void">
@@ -139,8 +140,3 @@ function AgentSuggestions() {
 - **Agent Resolution**: The `agentId` is resolved in the following order of precedence: explicit `agentId` option, `agentId` from the nearest `CopilotChatConfigurationProvider`, then the default agent ID (`"default"`).
 - **Loading State**: `isLoading` becomes `true` when a dynamic suggestion reload begins and returns to `false` when generation completes.
 - **Initial State**: On mount, the hook synchronously reads the current suggestions from the core instance, so there is no unnecessary loading flash for static suggestions.
-
-## Related
-
-- [`useConfigureSuggestions`](/reference/react-native/hooks/useConfigureSuggestions): configure static or dynamic suggestions
-- [React (V2) reference](/reference/v2/hooks/useSuggestions)

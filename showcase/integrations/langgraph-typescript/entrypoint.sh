@@ -366,10 +366,15 @@ fi
 # equivalent of the langgraph-python fix in PR #5825 (which exported the same
 # LANGGRAPH_DISABLE_FILE_PERSISTENCE=true for its inmem runtime). Because the
 # TS package has no built-in switch, src/agent/disable-file-persistence.mjs —
-# preloaded via `node --import` in `npm start` — reads this var and no-ops the
-# .langgraph_api fs writes, leaving in-memory state (the actual runtime state)
-# intact. State is bounded by process memory and discarded on restart, so the
-# size-watchdog has nothing to fill and never trips under probe load.
+# preloaded via `node --import` in `npm start` — reads this var, makes
+# FileSystemPersistence's schedulePersist/persist no-ops (so the whole store is
+# NOT re-serialised with superjson every 3s — that churn, not disk, is what
+# drove the 2026-11-10 heap-limit OOM once threads accumulated), and as defence
+# in depth no-ops the .langgraph_api fs writes, leaving in-memory state (the
+# actual runtime state) intact. State is bounded by process memory and
+# discarded on restart, so the size-watchdog has nothing to fill and never
+# trips under probe load. Retention of probe threads is bounded by the
+# harness's /api/probe-threads cleanup (src/app/api/probe-threads/route.ts).
 export LANGGRAPH_DISABLE_FILE_PERSISTENCE=true
 
 # Start LangGraph agent server in background.

@@ -89,7 +89,12 @@ SYSTEM_PROMPT = (
 # ~15 supersteps. `recursion_limit=50` gives ~3× headroom for retries
 # inside the LLM loop.
 graph = create_agent(
-    model=init_chat_model("openai:gpt-4o-mini", temperature=0, use_responses_api=False),
+    model=init_chat_model(
+        "openai:gpt-6-luna",
+        reasoning_effort="none",
+        temperature=0,
+        use_responses_api=False,
+    ),
     tools=[set_steps],
     system_prompt=SYSTEM_PROMPT,
     state_schema=GenUiAgentState,

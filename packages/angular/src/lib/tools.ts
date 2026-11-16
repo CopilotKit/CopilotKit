@@ -183,10 +183,9 @@ export function registerFrontendTool<
 /**
  * Registers an Angular component as a tool the agent can call to display it.
  *
- * The simplest generative-UI registration there is, and the only one that needs
- * nothing on the agent side: the tool is declared by the frontend and forwarded to
- * the agent over AG-UI, so it works the same behind a Python agent as a TypeScript
- * one. Contrast `registerRenderToolCall`, which draws a tool the agent already
+ * It needs nothing on the agent side: the tool is declared by the frontend and
+ * forwarded to the agent over AG-UI, so it works the same behind a Python agent as
+ * a TypeScript one. Contrast `registerRenderToolCall`, which draws a tool the agent already
  * has and therefore requires that tool to exist in the agent.
  *
  * The component is an ordinary `ToolRenderer`: it takes the required `toolCall`

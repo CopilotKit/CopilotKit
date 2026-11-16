@@ -1,0 +1,29 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for openai-agents-python / prebuilt-sidebar",
+    "created": "2026-11-03",
+    "copiedFrom": "ms-agent-python"
+  },
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "hi from the sidebar test",
+        "context": "openai-agents-python"
+      },
+      "response": {
+        "content": "Hello from the sidebar — the CopilotSidebar prebuilt component is wired up and reachable. Anything else you would like me to confirm from inside the sidebar?"
+      }
+    },
+    {
+      "_comment": "prebuilt-sidebar e2e pill (from google-antigravity).",
+      "match": {
+        "userMessage": "Say hi!",
+        "turnIndex": 0,
+        "context": "openai-agents-python"
+      },
+      "response": {
+        "content": "Hi there! I'm docked in the sidebar — ask me anything while you keep working."
+      }
+    }
+  ]
+}

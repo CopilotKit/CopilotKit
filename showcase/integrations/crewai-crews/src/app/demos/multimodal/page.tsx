@@ -10,7 +10,7 @@
  * Architecture:
  * - Dedicated runtime route at `/api/copilotkit-multimodal` (see
  *   ../api/copilotkit-multimodal/route.ts). The vision-capable model
- *   (gpt-5.4) is scoped to just this demo, so other cells keep their
+ *   (gpt-6-luna) is scoped to just this demo, so other cells keep their
  *   cheaper text-only models.
  * - Dedicated CrewAI Flow at `src/agents/multimodal_flow.py`. The CrewAI
  *   bridge converts modern AG-UI attachment parts before the Flow starts,

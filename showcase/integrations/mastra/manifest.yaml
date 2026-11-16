@@ -11,7 +11,7 @@ partner_docs: https://docs.copilotkit.ai/integrations/mastra
 repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/mastra
 copilotkit_version: 2.0.0
 deployed: true
-docs_mode: authored
+docs_mode: generated
 sort_order: 20
 generative_ui:
   - constrained-explicit
@@ -186,6 +186,7 @@ demos:
     route: /demos/shared-state-streaming
     animated_preview_url:
     highlight:
+      - src/mastra/agents/index.ts
       - src/app/demos/shared-state-streaming/page.tsx
       - src/app/api/copilotkit/route.ts
   - id: readonly-state-agent-context
@@ -421,7 +422,7 @@ demos:
       - src/app/api/copilotkit-beautiful-chat/route.ts
   - id: multimodal
     name: Multimodal Attachments
-    description: Image + PDF uploads forwarded to a vision-capable Mastra agent (gpt-4o)
+    description: Image + PDF uploads forwarded to a vision-capable Mastra agent (gpt-6-luna)
     tags:
       - chat-ui
     route: /demos/multimodal

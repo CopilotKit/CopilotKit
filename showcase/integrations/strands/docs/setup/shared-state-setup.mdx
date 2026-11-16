@@ -1,0 +1,126 @@
+<Callout type="warn" title="Shared state in Strands is prompt-driven">
+  A Strands agent knows only the state that your code copies into its request
+  context. A state key you don't copy never reaches the model, and nothing
+  reports it: the agent answers as if the UI had written nothing. Say in your
+  system prompt what each copied value means.
+</Callout>
+
+<Steps>
+  <Step>
+    ### Copy UI state into the request context
+
+    The UI writes state with `agent.setState`, and it arrives on the AG-UI run
+    input as `input_data.state`. Copy the parts the model needs into the run's
+    `context`. The adapter shows that context to the model during the run and
+    restores the native history afterward, including on tool continuations:
+
+    ```python title="src/agents/agent.py"
+    from ag_ui.core.types import Context
+
+
+    def with_state_context(input_data):
+        """Copy current UI state into transient AG-UI context, preserving user text.
+
+        The adapter supplies context during model calls and restores native history
+        afterward, including tool continuations. Never use state_context_builder to
+        prepend application instructions to durable user messages.
+        """
+        context = list(input_data.context)
+        state = input_data.state
+        if isinstance(state, dict):
+            preferences = _format_preferences_block(state.get("preferences") or {})
+            if preferences:
+                context.append(
+                    Context(description="Current user preferences", value=preferences)
+                )
+        return input_data.model_copy(update={"context": context})
+    ```
+
+    `_format_preferences_block` turns the `preferences` object into a short
+    text block for the prompt. Format your own keys the same way.
+
+  </Step>
+  <Step>
+    ### Apply it before every run
+
+    Wrap the `StrandsAgent` so every request, including tool continuations,
+    passes through `with_state_context`:
+
+    ```python title="src/agents/agent.py"
+    from collections.abc import AsyncIterator
+    from contextlib import aclosing
+    from typing import Any
+
+    from ag_ui_strands import StrandsAgent
+
+
+    class _StateContextWrapper:
+        """Add transient state context and preserve the adapter's event stream."""
+
+        def __init__(self, delegate: StrandsAgent) -> None:
+            self._delegate = delegate
+
+        def __getattr__(self, name: str) -> Any:
+            return getattr(self._delegate, name)
+
+        async def run(self, input_data: Any) -> AsyncIterator[Any]:
+            # The adapter owns snapshots, including unfinished parallel calls.
+            async with aclosing(
+                self._delegate.run(with_state_context(input_data))
+            ) as events:
+                async for event in events:
+                    yield event
+    ```
+
+    Do not use `StrandsAgentConfig(state_context_builder=...)` to prepend the
+    state to the user's message. Its output is saved as native message history,
+    so every past message keeps the old state. Existing conversations created
+    that way keep that text; start a new conversation for a clean history.
+
+  </Step>
+  <Step>
+    ### Send agent writes back to the UI
+
+    The agent writes state through a tool. Give the tool a `ToolBehavior` with
+    `state_from_args`, and the adapter emits a state snapshot the moment the
+    tool fires, so the UI re-renders without waiting for the text response:
+
+    ```python title="src/agents/agent.py"
+    from ag_ui_strands import StrandsAgent, StrandsAgentConfig, ToolBehavior
+    from strands import tool
+
+
+    @tool
+    def set_notes(notes: list[str]):
+        """Replace the notes array in shared state with the full updated list.
+
+        Use this whenever the user asks you to remember something, or when
+        you have an observation about the user worth surfacing in the UI's
+        notes panel. ALWAYS pass the FULL notes list (existing notes + any
+        new ones), not a diff. Keep each note short (< 120 chars).
+
+        Args:
+            notes: The complete updated list of short note strings.
+
+        Returns:
+            Confirmation string for the LLM to summarise back to the user.
+        """
+        return f"Notes updated. Tracking {len(notes)} note(s)."
+
+
+    shared_state_config = StrandsAgentConfig(
+        tool_behaviors={
+            "set_notes": ToolBehavior(
+                state_from_args=notes_state_from_args,
+            ),
+        },
+    )
+    ```
+
+    `notes_state_from_args` reads the call's `tool_input` (a JSON string or a
+    dict) and returns `{"notes": [...]}`, the snapshot the adapter publishes.
+    Pass `shared_state_config` as `config=` to `StrandsAgent`, then wrap that
+    agent in `_StateContextWrapper`.
+
+  </Step>
+</Steps>

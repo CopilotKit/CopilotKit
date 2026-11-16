@@ -7,6 +7,6 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
   copilotKit.streamHttpServerResponse(
     req,
     res,
-    new OpenAIAdapter({ model: "gpt-4o" }),
+    new OpenAIAdapter({ model: "gpt-6-luna" }),
   );
 }

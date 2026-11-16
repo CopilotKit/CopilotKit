@@ -6,6 +6,7 @@ import type {
   ReasoningMessageEndEvent,
   ReasoningMessageStartEvent,
   ReasoningStartEvent,
+  ReasoningEncryptedValueEvent,
   TextMessageChunkEvent,
   ToolCallArgsEvent,
   ToolCallEndEvent,
@@ -17,7 +18,13 @@ import type {
 import { EventType } from "@ag-ui/client";
 import { randomUUID } from "@copilotkit/shared";
 import { createStateEventNormalizer } from "../state-delta";
-import { aggregateRunUsage, getTokenCount, tokenCountKeys } from "./usage";
+import {
+  aggregateRunUsage,
+  getTokenCount,
+  tokenCountKeys,
+  isRecord,
+  getNonEmptyString,
+} from "./usage";
 import type { AgentRunFinishedDetails, AgentRunUsage } from "./usage";
 
 /**
@@ -98,6 +105,29 @@ export function resolveStreamPartMessageId(providedId: unknown): string {
     return randomUUID();
   }
   return providedId;
+}
+
+/** Carry Gemini's opaque tool signature through the existing AG-UI history field. */
+export function toolCallThoughtSignatureEvent(
+  toolCallId: string,
+  providerMetadata: unknown,
+): ReasoningEncryptedValueEvent | undefined {
+  if (!isRecord(providerMetadata)) return undefined;
+  for (const provider of ["google", "vertex"]) {
+    const metadata = providerMetadata[provider];
+    const signature = isRecord(metadata)
+      ? getNonEmptyString(metadata.thoughtSignature)
+      : undefined;
+    if (signature !== undefined) {
+      return {
+        type: EventType.REASONING_ENCRYPTED_VALUE,
+        subtype: "tool-call",
+        entityId: toolCallId,
+        encryptedValue: signature,
+      };
+    }
+  }
+  return undefined;
 }
 
 /**
@@ -314,6 +344,11 @@ export async function* convertAISDKStream(
           }
 
           if (!state.ended) {
+            const signatureEvent = toolCallThoughtSignatureEvent(
+              toolCallId,
+              p.providerMetadata,
+            );
+            if (signatureEvent) yield signatureEvent;
             state.ended = true;
             const endEvent: ToolCallEndEvent = {
               type: EventType.TOOL_CALL_END,

@@ -2,7 +2,7 @@
 //
 // Why its own route? The backing MS Agent Framework agent (mounted at
 // `/multimodal` on the Python agent server) runs a vision-capable model
-// (gpt-4o-mini). Every other cell in this showcase uses the shared default
+// (gpt-6-luna). Every other cell in this showcase uses the shared default
 // agent. Registering the multimodal agent under the main `/api/copilotkit`
 // runtime would mix concerns; a dedicated route keeps the vision capability
 // scoped to exactly the cell that exercises it, matching the pattern used

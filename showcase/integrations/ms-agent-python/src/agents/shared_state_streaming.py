@@ -30,6 +30,7 @@ STATE_SCHEMA: dict[str, object] = {
     }
 }
 
+# @region[state-streaming-middleware]
 # Tells the runtime to stream tool-argument deltas straight into
 # `state.document` while `write_document` is still streaming — matches
 # LGP's StateStreamingMiddleware setup.
@@ -39,6 +40,7 @@ PREDICT_STATE_CONFIG: dict[str, dict[str, str]] = {
         "tool_argument": "document",
     }
 }
+# @endregion[state-streaming-middleware]
 
 
 @tool(

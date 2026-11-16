@@ -4,7 +4,9 @@ import agentSpec from "./agent-spec";
 import claudeSdkPython from "./claude-sdk-python";
 import claudeSdkTypescript from "./claude-sdk-typescript";
 import googleAdk from "./google-adk";
+import googleAntigravity from "./google-antigravity";
 import langgraphPython from "./langgraph-python";
+import openaiAgentsPython from "./openai-agents-python";
 import strands from "./strands";
 
 /**
@@ -28,6 +30,7 @@ export const frameworkOverviews: Record<string, FrameworkOverviewData> = {
   // Authored discovery sections live in content/framework-overviews; keep
   // these slot overrides here rather than editing extracted data records.
   "google-adk": { ...googleAdk, hasAfterFeaturesMdx: true },
+  "google-antigravity": googleAntigravity,
   "langgraph-python": {
     ...langgraphPython,
     hasAfterFeaturesMdx: true,
@@ -40,6 +43,7 @@ export const frameworkOverviews: Record<string, FrameworkOverviewData> = {
   // via SLUG_RENAMES; framework-aware link rewriting is a follow-up.
   "langgraph-typescript": langgraphPython,
   "langgraph-fastapi": langgraphPython,
+  "openai-agents-python": openaiAgentsPython,
   strands,
   // strands-typescript shares the aws-strands/ content folder with the
   // Python strands integration; intro content is framework-agnostic

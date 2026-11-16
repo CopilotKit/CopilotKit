@@ -27,7 +27,7 @@ SYSTEM_PROMPT = (
     "train and car travel for a 300 km trip, summarize the decision factors, "
     "and recommend one. Never reveal hidden chain-of-thought."
 )
-REASONING_MODEL = os.environ.get("OPENAI_REASONING_MODEL", "gpt-5.4")
+REASONING_MODEL = os.environ.get("OPENAI_REASONING_MODEL", "gpt-6-luna")
 
 
 class ReasoningFlow(Flow[CopilotKitState]):

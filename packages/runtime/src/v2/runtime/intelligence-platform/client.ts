@@ -37,6 +37,8 @@ import type {
 import { randomUUID } from "crypto";
 import { z } from "zod";
 import { resolveTrajectoryLearningContainerIds } from "../core/learning";
+import { normalizeAnalyticsContext } from "./analytics-context";
+import { sendStopRun } from "./stop-run";
 import type {
   GetLearningContainerId,
   GetTrajectoryLearningContainerIds,
@@ -703,6 +705,13 @@ export interface AcquireThreadLockRequest {
    * request send the same ID, so the platform counts the request once.
    */
   requestId?: string;
+  /**
+   * The app's analytics context for this run, sent as `analyticsContext`.
+   * Sent only when it is a plain JSON object of at most 4 KB serialized, and
+   * otherwise dropped without failing the lock. Intelligence validates the
+   * fields; the runtime does not read them.
+   */
+  analyticsContext?: Record<string, unknown>;
   /** Custom Redis key prefix for the lock (default: "thread"). */
   lockKeyPrefix?: string;
   /** Lock TTL in seconds. When set, the lock auto-expires after this duration. */
@@ -723,6 +732,8 @@ export interface RenewThreadLockRequest {
 export interface CleanupThreadLockRequest {
   threadId: string;
   runId: string;
+  /** Aborts the request, e.g. when the caller stops waiting for it. */
+  signal?: AbortSignal;
 }
 
 export interface RenewThreadLockResponse {
@@ -786,6 +797,19 @@ interface ThreadEnvelope {
  * });
  * ```
  */
+/**
+ * The thread events and state reads are scoped to one end user. A caller
+ * that omits `userId` (a JS caller, or one built against the earlier
+ * signature) would otherwise send the literal string "undefined" as the user.
+ */
+function requireThreadReadUserId(method: string, userId: unknown): void {
+  if (typeof userId !== "string" || userId === "") {
+    throw new TypeError(
+      `${method} requires a non-empty userId: the id identifyUser returned`,
+    );
+  }
+}
+
 export class CopilotKitIntelligence {
   /** Experimental server-side APIs; their contracts may change before release. */
   readonly experimental: { readonly learning: ExperimentalLearningManagement } =
@@ -2285,10 +2309,14 @@ export class CopilotKitIntelligence {
    */
   async getThreadEvents(params: {
     threadId: string;
+    /** The end user the read is for, as `identifyUser` returned it (not project-prefixed). */
+    userId: string;
   }): Promise<ThreadEventsResponse> {
+    requireThreadReadUserId("getThreadEvents", params.userId);
+    const qs = new URLSearchParams({ userId: params.userId }).toString();
     return this.#request<ThreadEventsResponse>(
       "GET",
-      `/api/_inspect/threads/${encodeURIComponent(params.threadId)}/events`,
+      `/api/_inspect/threads/${encodeURIComponent(params.threadId)}/events?${qs}`,
     );
   }
 
@@ -2307,10 +2335,46 @@ export class CopilotKitIntelligence {
    */
   async getThreadState(params: {
     threadId: string;
+    /** The end user the read is for, as `identifyUser` returned it (not project-prefixed). */
+    userId: string;
   }): Promise<ThreadStateResponse> {
+    return this.#getThreadState(params);
+  }
+
+  /**
+   * @internal Reads the state a run on the thread starts from, or undefined
+   * when the platform does not serve stored state. That platform answers
+   * 404, which is logged at debug rather than as a failed request.
+   *
+   * @throws {@link PlatformRequestError} on any other non-2xx response.
+   */
+  async ɵgetStoredThreadState(params: {
+    threadId: string;
+    userId: string;
+  }): Promise<ThreadStateResponse | undefined> {
+    try {
+      return await this.#getThreadState(params, NOT_FOUND);
+    } catch (error) {
+      if (error instanceof PlatformRequestError && error.status === 404) {
+        return undefined;
+      }
+      throw error;
+    }
+  }
+
+  async #getThreadState(
+    params: { threadId: string; userId: string },
+    expectedStatuses?: ReadonlySet<number>,
+  ): Promise<ThreadStateResponse> {
+    requireThreadReadUserId("getThreadState", params.userId);
+    const qs = new URLSearchParams({ userId: params.userId }).toString();
     return this.#request<ThreadStateResponse>(
       "GET",
-      `/api/_inspect/threads/${encodeURIComponent(params.threadId)}/state`,
+      `/api/_inspect/threads/${encodeURIComponent(params.threadId)}/state?${qs}`,
+      undefined,
+      undefined,
+      undefined,
+      expectedStatuses,
     );
   }
 
@@ -2420,6 +2484,9 @@ export class CopilotKitIntelligence {
   async ɵacquireThreadLock(
     params: AcquireThreadLockRequest,
   ): Promise<AcquireThreadLockResponse> {
+    // Checked here as well as in the run handler: headless callers reach the
+    // lock directly, without a run handler in between.
+    const analyticsContext = normalizeAnalyticsContext(params.analyticsContext);
     return this.#request<AcquireThreadLockResponse>(
       "POST",
       `/api/threads/${encodeURIComponent(params.threadId)}/lock`,
@@ -2436,6 +2503,7 @@ export class CopilotKitIntelligence {
         ...(params.requestId !== undefined
           ? { requestId: params.requestId }
           : {}),
+        ...(analyticsContext !== undefined ? { analyticsContext } : {}),
         ...(params.lockKeyPrefix !== undefined
           ? { lockKeyPrefix: params.lockKeyPrefix }
           : {}),
@@ -2456,6 +2524,8 @@ export class CopilotKitIntelligence {
       {
         runId: params.runId,
       },
+      undefined,
+      params.signal,
     );
   }
 
@@ -2504,6 +2574,47 @@ export class CopilotKitIntelligence {
 
     // request() returns undefined for empty/204 responses
     return result ?? null;
+  }
+
+  /**
+   * @internal Records that the runtime stopped a run, by the route a
+   * browser's Stop takes: mint a thread join token, join the thread's client
+   * channel and send `stop_run`. Intelligence stores the stop for the run, so
+   * it counts the run's terminal event as cancelled rather than finished.
+   *
+   * @throws {@link PlatformRequestError} when no join token is issued, or an
+   *   error when the channel or the stop is refused or `signal` aborts.
+   */
+  async ɵrecordRunStop(params: {
+    threadId: string;
+    runId: string;
+    /** The run's end user, as `identifyUser` returned it (not project-prefixed). */
+    userId: string;
+    agentId: string;
+    signal?: AbortSignal;
+  }): Promise<void> {
+    const connection = await this.#request<
+      ThreadConnectionResponse | undefined
+    >(
+      "POST",
+      `/api/threads/${encodeURIComponent(params.threadId)}/connect`,
+      { userId: params.userId, agentId: params.agentId },
+      undefined,
+      params.signal,
+    );
+    if (!connection?.joinToken) {
+      throw new PlatformRequestError(
+        "Intelligence issued no join token to record the stop",
+        502,
+      );
+    }
+    await sendStopRun({
+      url: this.#clientWsUrl,
+      joinToken: connection.joinToken,
+      threadId: params.threadId,
+      runId: params.runId,
+      ...(params.signal ? { signal: params.signal } : {}),
+    });
   }
 }
 

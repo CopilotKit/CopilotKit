@@ -87,7 +87,7 @@ function fence(operations: object[]) {
 }
 
 const callLine = (call: GenerativeUIFunctionCallContent) => ({
-  version: "v1.0",
+  version: "1.0",
   callRendererFunction: call,
 });
 
@@ -222,7 +222,7 @@ function developerContents(input: RunAgentInput | undefined) {
 }
 
 const errorOf = (functionCallId: string, code: string) => ({
-  version: "v1.0",
+  version: "1.0",
   rendererFunctionResponse: {
     functionCallId,
     error: { code, message: expect.stringContaining("addToCart") },
@@ -250,7 +250,7 @@ describeAgentCalls.each([toolTransport, markdownTransport])(
       await waitForRuns(2);
       expect(handler).toHaveBeenCalledExactlyOnceWith({ sku: "p1" });
       expect(developerContents(CapturingAgent.inputs[1])).toEqual([
-        '{"version":"v1.0","rendererFunctionResponse":{"functionCallId":"f1","value":{"added":"p1"}}}',
+        '{"version":"1.0","rendererFunctionResponse":{"functionCallId":"f1","value":{"added":"p1"}}}',
       ]);
     });
 
@@ -263,7 +263,7 @@ describeAgentCalls.each([toolTransport, markdownTransport])(
 
       await waitForRuns(2);
       expect(developerContents(CapturingAgent.inputs[1])).toEqual([
-        '{"version":"v1.0","rendererFunctionResponse":{"functionCallId":"f1","value":null}}',
+        '{"version":"1.0","rendererFunctionResponse":{"functionCallId":"f1","value":null}}',
       ]);
     });
 
@@ -313,8 +313,8 @@ describeAgentCalls.each([toolTransport, markdownTransport])(
 
       await waitForRuns(2);
       expect(developerContents(CapturingAgent.inputs[1])).toEqual([
-        '{"version":"v1.0","rendererFunctionResponse":{"functionCallId":"f1","value":"a"}}',
-        '{"version":"v1.0","rendererFunctionResponse":{"functionCallId":"f2","value":"b"}}',
+        '{"version":"1.0","rendererFunctionResponse":{"functionCallId":"f1","value":"a"}}',
+        '{"version":"1.0","rendererFunctionResponse":{"functionCallId":"f2","value":"b"}}',
       ]);
       agent.emit(runStartedEvent());
       agent.emit(runFinishedEvent());
@@ -369,7 +369,7 @@ describeAgentCalls.each([toolTransport, markdownTransport])(
           id: "d1",
           role: "developer",
           content:
-            '{"version":"v1.0","rendererFunctionResponse":{"functionCallId":"f1","value":"old"}}',
+            '{"version":"1.0","rendererFunctionResponse":{"functionCallId":"f1","value":"old"}}',
         },
       ];
       const { agent, copilotkit } = setup(transport, [handler], history);
@@ -380,7 +380,7 @@ describeAgentCalls.each([toolTransport, markdownTransport])(
       await waitForRuns(2);
       expect(handler).toHaveBeenCalledExactlyOnceWith({ sku: "new" });
       expect(developerContents(CapturingAgent.inputs[1]).at(-1)).toBe(
-        '{"version":"v1.0","rendererFunctionResponse":{"functionCallId":"f2","value":"new"}}',
+        '{"version":"1.0","rendererFunctionResponse":{"functionCallId":"f2","value":"new"}}',
       );
     });
 
@@ -404,7 +404,7 @@ describeAgentCalls.each([toolTransport, markdownTransport])(
 
       await waitFor(() => expect(answers(agent)).toHaveLength(6));
       expect(answers(agent).at(-1)).toEqual({
-        version: "v1.0",
+        version: "1.0",
         rendererFunctionResponse: {
           functionCallId: "f6",
           error: {
@@ -438,7 +438,7 @@ describeAgentCalls("agent-called functions, markdown transport only", () => {
         "m1",
         fence([
           {
-            version: "v1.0",
+            version: "1.0",
             callRendererFunction: {
               functionCallId: "f1",
               callFunction: { call: "addToCart", args: { sku: "p1" } },
@@ -452,7 +452,7 @@ describeAgentCalls("agent-called functions, markdown transport only", () => {
     await waitForRuns(2);
     expect(answers(agent)).toEqual([
       {
-        version: "v1.0",
+        version: "1.0",
         rendererFunctionResponse: {
           functionCallId: "f1",
           error: {
@@ -486,7 +486,7 @@ describeAgentCalls("agent-called functions, markdown transport only", () => {
     await waitForRuns(2);
     expect(answers(agent)).toEqual([
       {
-        version: "v1.0",
+        version: "1.0",
         rendererFunctionResponse: {
           functionCallId: "f1",
           error: {

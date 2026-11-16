@@ -1,0 +1,262 @@
+{
+  "model": "jev-1.13.0",
+  "ms": 462,
+  "recordedAt": "2026-10-21T14:24:57.127Z",
+  "mock": false,
+  "answers": {
+    "layout": {
+      "type": "choice",
+      "choice": "map_list",
+      "confidence": 0.89,
+      "probabilities": {
+        "map_list": 0.93,
+        "compare": 0,
+        "single": 0.07
+      }
+    },
+    "fit_13894684445": {
+      "type": "score",
+      "score": 1.07,
+      "confidence": 0.77,
+      "legend": {
+        "0": "Poor fit",
+        "1": "Weak fit",
+        "2": "Good fit",
+        "3": "Strong fit"
+      },
+      "probabilities": {
+        "0": 0.08,
+        "1": 0.78,
+        "2": 0.13,
+        "3": 0.01
+      }
+    },
+    "fit_2819256152": {
+      "type": "score",
+      "score": 0.9,
+      "confidence": 0.82,
+      "legend": {
+        "0": "Poor fit",
+        "1": "Weak fit",
+        "2": "Good fit",
+        "3": "Strong fit"
+      },
+      "probabilities": {
+        "0": 0.14,
+        "1": 0.82,
+        "2": 0.04,
+        "3": 0
+      }
+    },
+    "fit_6566538586": {
+      "type": "score",
+      "score": 1.06,
+      "confidence": 0.81,
+      "legend": {
+        "0": "Poor fit",
+        "1": "Weak fit",
+        "2": "Good fit",
+        "3": "Strong fit"
+      },
+      "probabilities": {
+        "0": 0.07,
+        "1": 0.8099999999999999,
+        "2": 0.12,
+        "3": 0
+      }
+    },
+    "fit_9301912409": {
+      "type": "score",
+      "score": 0.25,
+      "confidence": 0.75,
+      "legend": {
+        "0": "Poor fit",
+        "1": "Weak fit",
+        "2": "Good fit",
+        "3": "Strong fit"
+      },
+      "probabilities": {
+        "0": 0.76,
+        "1": 0.23,
+        "2": 0.01,
+        "3": 0
+      }
+    },
+    "fit_1246390510": {
+      "type": "score",
+      "score": 1.31,
+      "confidence": 0.64,
+      "legend": {
+        "0": "Poor fit",
+        "1": "Weak fit",
+        "2": "Good fit",
+        "3": "Strong fit"
+      },
+      "probabilities": {
+        "0": 0.03,
+        "1": 0.65,
+        "2": 0.31,
+        "3": 0.01
+      }
+    },
+    "fit_8248612191": {
+      "type": "score",
+      "score": 0.96,
+      "confidence": 0.83,
+      "legend": {
+        "0": "Poor fit",
+        "1": "Weak fit",
+        "2": "Good fit",
+        "3": "Strong fit"
+      },
+      "probabilities": {
+        "0": 0.11,
+        "1": 0.83,
+        "2": 0.06,
+        "3": 0
+      }
+    },
+    "fit_11683920862": {
+      "type": "score",
+      "score": 0.78,
+      "confidence": 0.72,
+      "legend": {
+        "0": "Poor fit",
+        "1": "Weak fit",
+        "2": "Good fit",
+        "3": "Strong fit"
+      },
+      "probabilities": {
+        "0": 0.25,
+        "1": 0.72,
+        "2": 0.03,
+        "3": 0
+      }
+    },
+    "fit_11253185336": {
+      "type": "score",
+      "score": 0.92,
+      "confidence": 0.81,
+      "legend": {
+        "0": "Poor fit",
+        "1": "Weak fit",
+        "2": "Good fit",
+        "3": "Strong fit"
+      },
+      "probabilities": {
+        "0": 0.14,
+        "1": 0.81,
+        "2": 0.05,
+        "3": 0
+      }
+    }
+  },
+  "places": {
+    "city": "San Francisco",
+    "source": "OpenStreetMap Nominatim",
+    "ms": 881,
+    "items": [
+      {
+        "id": "13894684445",
+        "name": "Café Valor",
+        "lat": 37.7796783,
+        "lon": -122.4206767,
+        "address": "Van Ness Avenue 401, Civic Center",
+        "distanceKm": 0.5,
+        "tags": {
+          "outdoor_seating": "yes",
+          "cuisine": "coffee_shop"
+        }
+      },
+      {
+        "id": "2819256152",
+        "name": "Third Wheel Coffee",
+        "lat": 37.7732772,
+        "lon": -122.4355489,
+        "address": "Oak Street, Western Addition",
+        "distanceKm": 1.4,
+        "tags": {
+          "cuisine": "coffee_shop"
+        }
+      },
+      {
+        "id": "6566538586",
+        "name": "Craftsman and Wolves",
+        "lat": 37.7608986,
+        "lon": -122.4216695,
+        "address": "Valencia Street 746, Mission",
+        "distanceKm": 1.6,
+        "tags": {
+          "opening_hours": "Mo-Fr 07:30-15:30; Sa-Su 08:00-16:00"
+        }
+      },
+      {
+        "id": "9301912409",
+        "name": "Cafe Dolci",
+        "lat": 37.7871159,
+        "lon": -122.4044766,
+        "address": "Market Street 740A, South of Market",
+        "distanceKm": 1.9,
+        "tags": {
+          "outdoor_seating": "no",
+          "indoor_seating": "no",
+          "wheelchair": "yes"
+        }
+      },
+      {
+        "id": "1246390510",
+        "name": "Blue Bottle Coffee",
+        "lat": 37.789741,
+        "lon": -122.4037025,
+        "address": "Sutter Street 199, Union Square",
+        "distanceKm": 2.1,
+        "tags": {
+          "opening_hours": "Mo-Su 06:30-17:30",
+          "wheelchair": "yes",
+          "cuisine": "coffee_shop"
+        }
+      },
+      {
+        "id": "8248612191",
+        "name": "Spike's Coffees and Teas",
+        "lat": 37.7591647,
+        "lon": -122.435253,
+        "address": "19th Street 4117, Mission",
+        "distanceKm": 2.2,
+        "tags": {
+          "opening_hours": "Mo-Fr 07:00-17:00; Sa-Su 07:30-17:00",
+          "wheelchair": "no",
+          "cuisine": "coffee_shop"
+        }
+      },
+      {
+        "id": "11683920862",
+        "name": "Dartealing Lounge",
+        "lat": 37.7816132,
+        "lon": -122.396453,
+        "address": "3rd Street 470, South of Market",
+        "distanceKm": 2.2,
+        "tags": {
+          "cuisine": "teahouse"
+        }
+      },
+      {
+        "id": "11253185336",
+        "name": "Cento Coffee Systeme D",
+        "lat": 37.7900526,
+        "lon": -122.402885,
+        "address": "Sutter Street 140, Union Square",
+        "distanceKm": 2.2,
+        "tags": {
+          "opening_hours": "Mo,Fr 08:00-14:00; Tu-Th 08:00-16:00; Sa-Su off",
+          "wheelchair": "yes",
+          "cuisine": "coffee_shop"
+        }
+      }
+    ],
+    "cached": false
+  },
+  "usage": {
+    "inputTokens": 2145
+  }
+}

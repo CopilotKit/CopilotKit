@@ -7,15 +7,15 @@
     },
     "hitl-in-chat": {
       "og_docs_url": "https://docs.copilotkit.ai/agno/human-in-the-loop",
-      "shell_docs_path": "/generative-ui/your-components/interactive"
+      "shell_docs_path": "/human-in-the-loop"
     },
     "tool-rendering": {
       "og_docs_url": "https://docs.copilotkit.ai/agno/generative-ui/tool-rendering",
       "shell_docs_path": "/generative-ui/tool-rendering"
     },
     "gen-ui-tool-based": {
-      "og_docs_url": "https://docs.copilotkit.ai/agno/generative-ui/your-components/display-only",
-      "shell_docs_path": "/generative-ui/your-components/display-only"
+      "og_docs_url": "https://docs.copilotkit.ai/agno/generative-ui/display",
+      "shell_docs_path": "/generative-ui/display"
     },
     "gen-ui-agent": {
       "og_docs_url": "https://docs.copilotkit.ai/generative-ui/state-rendering",

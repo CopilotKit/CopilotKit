@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 
 import pytest
 from websockets.asyncio.server import serve
@@ -184,3 +185,72 @@ async def test_batch_replay_is_immutable_and_final_send_waits_for_ack(cancellati
     assert batches[0] == batches[1]
     assert batches[0][0]["metadata"]["cpki_event_seq"] == 1
     assert batches[0][1]["metadata"]["cpki_event_seq"] == 2
+
+
+async def test_receiver_logs_debug_on_invalid_frame(caplog):
+    """Verify that a malformed Phoenix frame is logged at DEBUG level."""
+
+    async def server(socket):
+        frame = json.loads(await socket.recv())
+        await socket.send(json.dumps([*frame[:3], "phx_reply", {"status": "ok"}]))
+        # Send a frame that does not match the [join_ref, ref, topic, event, payload] schema
+        await socket.send(json.dumps({"not": "a phoenix frame"}))
+        await socket.wait_closed()
+
+    async with serve(server, "127.0.0.1", 0) as host:
+        gateway = Gateway(
+            RuntimeConfig(
+                api_key="fixture",
+                runner_url=f"ws://127.0.0.1:{host.sockets[0].getsockname()[1]}/runner",
+            ),
+            "thread",
+            "run",
+            Telemetry(enabled=False),
+        )
+        with caplog.at_level(logging.DEBUG, logger="copilotkit_runtime.gateway"):
+            await gateway.join()
+            # Wait for the receiver to observe and log the bad frame
+            await asyncio.wait_for(gateway._disconnected.wait(), timeout=1.0)
+        await gateway.aclose()
+
+    debug_records = [r for r in caplog.records if r.levelno == logging.DEBUG]
+    assert any("receiver stopped" in r.message.lower() for r in debug_records), (
+        f"Expected a DEBUG 'receiver stopped' log, got: {[r.message for r in debug_records]}"
+    )
+
+
+async def test_join_retry_logs_warning_on_transient_failure(caplog):
+    """Verify that each failed join attempt produces a WARNING log entry."""
+    attempts = []
+
+    async def server(socket):
+        frame = json.loads(await socket.recv())
+        attempts.append(frame)
+        # Reject first attempt as retryable, succeed on second
+        reply = (
+            {"status": "error", "response": {"reason": "gateway_draining", "retryable": True}}
+            if len(attempts) == 1
+            else {"status": "ok"}
+        )
+        await socket.send(json.dumps([*frame[:3], "phx_reply", reply]))
+        await socket.wait_closed()
+
+    async with serve(server, "127.0.0.1", 0) as host:
+        gateway = Gateway(
+            RuntimeConfig(
+                api_key="fixture",
+                runner_url=f"ws://127.0.0.1:{host.sockets[0].getsockname()[1]}/runner",
+            ),
+            "thread",
+            "run",
+            Telemetry(enabled=False),
+        )
+        with caplog.at_level(logging.WARNING, logger="copilotkit_runtime.gateway"):
+            await gateway.join()
+        await gateway.aclose()
+
+    assert len(attempts) == 2
+    warning_records = [r for r in caplog.records if r.levelno == logging.WARNING]
+    assert any("join attempt" in r.message.lower() for r in warning_records), (
+        f"Expected a WARNING 'join attempt' log, got: {[r.message for r in warning_records]}"
+    )

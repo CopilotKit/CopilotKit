@@ -107,7 +107,7 @@ def set_notes(run_context: RunContext, notes: list[str]) -> str:
 
 
 agent = Agent(
-    model=OpenAIChat(id="gpt-4o-mini", timeout=120),
+    model=OpenAIChat(reasoning_effort="none", id="gpt-6-luna", timeout=120),
     tools=[set_notes],
     # Re-evaluate instructions on every run so UI writes to
     # session_state["preferences"] are visible to the LLM on the very

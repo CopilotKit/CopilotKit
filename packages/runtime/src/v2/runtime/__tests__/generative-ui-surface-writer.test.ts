@@ -33,7 +33,7 @@ test("openSurface emits a snapshot, then one delta per call, then ready", () => 
       catalogId: "shop",
       operations: [
         {
-          version: "v1.0",
+          version: "1.0",
           createSurface: { surfaceId: "recs", catalogId: "shop" },
         },
       ],
@@ -48,7 +48,7 @@ test("openSurface emits a snapshot, then one delta per call, then ready", () => 
         op: "add",
         path: "/operations/-",
         value: {
-          version: "v1.0",
+          version: "1.0",
           updateComponents: {
             surfaceId: "recs",
             components: [
@@ -63,7 +63,7 @@ test("openSurface emits a snapshot, then one delta per call, then ready", () => 
         op: "add",
         path: "/operations/-",
         value: {
-          version: "v1.0",
+          version: "1.0",
           updateComponents: {
             surfaceId: "recs",
             components: [
@@ -83,7 +83,7 @@ test("openSurface emits a snapshot, then one delta per call, then ready", () => 
         op: "add",
         path: "/operations/-",
         value: {
-          version: "v1.0",
+          version: "1.0",
           updateDataModel: {
             surfaceId: "recs",
             path: "/products/a/price",

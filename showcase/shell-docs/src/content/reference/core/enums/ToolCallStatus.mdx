@@ -5,7 +5,7 @@ description: "Lifecycle states of a tool call as it streams in and executes."
 
 ## Overview
 
-`ToolCallStatus` describes where a tool call is in its lifecycle, from arguments still streaming in to a fully executed result. You encounter it when rendering or reacting to tool calls in a frontend tool handler or custom render logic.
+`ToolCallStatus` describes where a tool call is in its lifecycle, from arguments still streaming in to a fully executed result. You receive it as the `status` prop of a tool call render component, for example in [`useRenderTool`](/reference/hooks/useRenderTool) or the `render` option of [`useFrontendTool`](/reference/hooks/useFrontendTool).
 
 ## Import
 
@@ -26,7 +26,7 @@ enum ToolCallStatus {
 ## Members
 
 <PropertyReference name="InProgress" type="inProgress">
-  The tool call is still being received — its arguments are streaming in and are not yet complete.
+  The call has no result yet and no frontend handler is running. The arguments can still be streaming, or a backend tool can be waiting for its result.
 </PropertyReference>
 
 <PropertyReference name="Executing" type="executing">
@@ -53,8 +53,3 @@ function renderToolCall(status: ToolCallStatus) {
   }
 }
 ```
-
-## Related
-
-- [FrontendTool](/reference/core/types/FrontendTool) — tool handlers observe these statuses as a call progresses.
-- [CopilotKitCore](/reference/core/classes/CopilotKitCore)

@@ -2,11 +2,11 @@ import { describe, expect, it } from "vitest";
 import { RenderUIArgsStream, extractRenderUIArgs } from "../render-ui-args";
 
 const opA = {
-  version: "v1.0",
+  version: "1.0",
   createSurface: { surfaceId: "s" },
 };
 const opB = {
-  version: "v1.0",
+  version: "1.0",
   updateComponents: {
     surfaceId: "s",
     components: [
@@ -20,12 +20,12 @@ const opB = {
   },
 };
 const opC = {
-  version: "v1.0",
+  version: "1.0",
   updateDataModel: { surfaceId: "s", path: "/a", value: [1, { b: "]" }] },
 };
 /** One createSurface with the data model and the root inline. */
 const inlineCreate = {
-  version: "v1.0",
+  version: "1.0",
   createSurface: {
     surfaceId: "plan",
     dataModel: { seats: 10, plans: [{ name: "Team" }] },
@@ -40,7 +40,7 @@ const inlineCreate = {
   },
 };
 const functionCall = {
-  version: "v1.0",
+  version: "1.0",
   callRendererFunction: {
     functionCallId: "f1",
     callFunction: { "@call": "addToCart", args: { productId: "p{1}" } },
@@ -75,7 +75,7 @@ describe("extractRenderUIArgs", () => {
 
   it("returns null for a balanced element that is not valid JSON", () => {
     const text =
-      '{"target":"chat","operations":[{"version":"v1.0", bad},' +
+      '{"target":"chat","operations":[{"version":"1.0", bad},' +
       JSON.stringify(opA) +
       "]}";
     expect(extractRenderUIArgs(text).operations).toEqual([null, opA]);
@@ -140,7 +140,7 @@ describe("RenderUIArgsStream", () => {
 
   it("keeps the parser state across deltas that split strings, escapes and braces", () => {
     const tricky = {
-      version: "v1.0",
+      version: "1.0",
       updateDataModel: { surfaceId: "s", path: "/q", value: 'a "}{" \\ ]' },
     };
     const text = JSON.stringify({

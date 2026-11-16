@@ -71,7 +71,14 @@ async function runChatNode(
 }
 
 export async function chatNode(state: AgentState, config: RunnableConfig) {
-  return runChatNode(state, config, new ChatOpenAI({ model: "gpt-5.4" }));
+  return runChatNode(
+    state,
+    config,
+    new ChatOpenAI({
+      modelKwargs: { reasoning_effort: "none" },
+      model: "gpt-6-luna",
+    }),
+  );
 }
 // @endregion[agent-context-setup]
 
@@ -81,7 +88,7 @@ async function chatNodeWithHeaders(state: AgentState, config: RunnableConfig) {
   return runChatNode(
     state,
     config,
-    makeChatOpenAI(config, { model: "gpt-5.4" }),
+    makeChatOpenAI(config, { model: "gpt-6-luna" }),
   );
 }
 

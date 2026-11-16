@@ -69,7 +69,7 @@ imported on its own without pulling in the rest of the agent package.
 #     if the Python agent does not surface an equivalent built-in, the block is
 #     inert (it only ever restricts when the tool may be used) rather than wrong.
 # NOT part of the prompt and therefore not ported here: the `BuiltInAgent`
-# constructor's `model: "openai/gpt-5.4"` and `temperature: 0` — those are model
+# constructor's `model: "openai/gpt-6-luna"` and `temperature: 0` — those are model
 # configuration for whoever constructs the Python agent, not prompt text.
 
 BANKING_PROMPT = """You are the Northwind Copilot, an assistant embedded in a corporate

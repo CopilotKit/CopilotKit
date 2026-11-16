@@ -19,10 +19,19 @@
     "types": ["node"],
     "paths": {
       "@copilotkit/angular": ["./src/public-api.ts"],
+      "@copilotkit/angular/generative-ui": ["./src/generative-ui/index.ts"],
       "@copilotkit/core": ["../core/dist/index.d.mts", "../core/src/index.ts"],
+      "@copilotkit/core/generative-ui": [
+        "../core/dist/generative-ui/index.d.mts",
+        "../core/src/generative-ui/index.ts"
+      ],
       "@copilotkit/shared": [
         "../shared/dist/index.d.mts",
         "../shared/src/index.ts"
+      ],
+      "@copilotkit/shared/generative-ui": [
+        "../shared/dist/generative-ui/index.d.mts",
+        "../shared/src/generative-ui/index.ts"
       ]
     }
   },

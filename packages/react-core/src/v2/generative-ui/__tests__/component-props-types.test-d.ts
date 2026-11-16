@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 import { z } from "zod";
 import { createGenerativeUI } from "../catalog";
 import type { GenerativeUIComponentProps } from "../catalog";
-import type { GenerativeUIInvokeResult } from "../errors";
+import type { GenerativeUIInvokeResult } from "@copilotkit/shared/generative-ui";
 
 // Destructured, and typed through the generative UI that renders it.
 function CheckoutForm({

@@ -11,6 +11,7 @@ export default defineConfig(({ mode }) => ({
   plugins: [angular()],
   resolve: {
     alias: {
+      "@copilotkit/angular/generative-ui": r("src/generative-ui/index.ts"),
       "@copilotkit/angular": r("src/public-api.ts"),
     },
     dedupe: [

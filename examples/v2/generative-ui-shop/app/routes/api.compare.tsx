@@ -3,7 +3,7 @@ import {
   chatParamsFromRequest,
   toServerSentEventsResponse,
 } from "@tanstack/ai";
-import { openaiText } from "@tanstack/ai-openai";
+import { openaiText } from "../lib/openai-text";
 import { getProductById } from "#app/domain/products.server.ts";
 import {
   COMPARISON_SYSTEM_PROMPT,
@@ -14,9 +14,7 @@ import { ComparisonSchema } from "#app/schemas/comparison.ts";
 import { findSimilarProducts, searchProducts } from "#app/tools/products.ts";
 import type { Route } from "./+types/api.compare";
 
-const adapter = openaiText(
-  (process.env.OPENAI_MODEL ?? "gpt-5.5") as "gpt-5.5",
-);
+const adapter = openaiText(process.env.OPENAI_MODEL ?? "gpt-6-luna");
 
 export const action = async ({ request }: Route.ActionArgs) => {
   const { messages, forwardedProps } = await chatParamsFromRequest(request);

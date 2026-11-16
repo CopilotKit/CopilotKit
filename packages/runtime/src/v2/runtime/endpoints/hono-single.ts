@@ -2,7 +2,9 @@ import { Hono } from "hono";
 import type { CopilotRuntimeLike } from "../core/runtime";
 import { createCopilotRuntimeHandler } from "../core/fetch-handler";
 import type { CopilotRuntimeHooks } from "../core/hooks";
-import { CopilotEndpointCorsConfig, toFetchCorsConfig } from "./hono";
+import type { RuntimeInstanceCreatedInfo } from "../telemetry/events";
+import type { CopilotEndpointCorsConfig } from "./hono";
+import { toFetchCorsConfig } from "./hono";
 
 interface CopilotSingleEndpointParams {
   runtime: CopilotRuntimeLike;
@@ -19,6 +21,11 @@ interface CopilotSingleEndpointParams {
    * Lifecycle hooks for request processing.
    */
   hooks?: CopilotRuntimeHooks;
+  /**
+   * @internal Payload for `oss.runtime.instance_created`. See
+   * `CopilotRuntimeHandlerOptions.__instanceCreatedInfo`.
+   */
+  __instanceCreatedInfo?: RuntimeInstanceCreatedInfo;
 }
 
 /** @deprecated Use `createCopilotHonoHandler` with `mode: "single-route"` instead. */
@@ -27,6 +34,7 @@ export function createCopilotEndpointSingleRoute({
   basePath,
   cors: corsConfig,
   hooks,
+  __instanceCreatedInfo,
 }: CopilotSingleEndpointParams) {
   const routePath = normalizePath(basePath);
 
@@ -36,6 +44,7 @@ export function createCopilotEndpointSingleRoute({
     mode: "single-route",
     cors: corsConfig ? toFetchCorsConfig(corsConfig) : true,
     hooks,
+    __instanceCreatedInfo,
   });
 
   const app = new Hono();

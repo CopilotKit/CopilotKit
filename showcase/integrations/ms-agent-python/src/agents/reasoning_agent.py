@@ -3,7 +3,7 @@
 Why this agent uses OpenAIChatClient (Responses API) instead of the
 ChatCompletions client used by the other MAF agents in this showcase:
 the OpenAI Responses API streams `response.reasoning_summary_text.delta`
-items only for native reasoning models (gpt-5, o3, o4-mini, etc.). The
+items only for native reasoning models (gpt-6-luna, etc.). The
 `agent_framework_openai` Responses client translates those into AG-UI
 `REASONING_MESSAGE_*` events with `role: "reasoning"`, which the frontend
 renders via the built-in `reasoningMessage` slot. Without the Responses
@@ -11,7 +11,7 @@ API path, the reasoning slot never lights up — that's the bug the LGP
 parity port closes.
 
 Mirrors LangGraph's `langgraph-python/src/agents/reasoning_agent.py`,
-which configures `init_chat_model("openai:gpt-5", use_responses_api=True,
+which configures `init_chat_model("openai:gpt-6-luna", use_responses_api=True,
 reasoning={"effort": "medium", "summary": "detailed"})`.
 """
 
@@ -36,11 +36,11 @@ SYSTEM_PROMPT = dedent(
 def _build_reasoning_chat_client() -> BaseChatClient:
     """Build a Responses-API chat client for reasoning-event streaming.
 
-    The model env var defaults to `gpt-5` to match the LGP reference; the
+    The model env var defaults to `gpt-6-luna` to match the LGP reference; the
     deployment can override via `OPENAI_REASONING_MODEL`.
     """
     return OpenAIChatClient(
-        model=os.environ.get("OPENAI_REASONING_MODEL", "gpt-5.4"),
+        model=os.environ.get("OPENAI_REASONING_MODEL", "gpt-6-luna"),
         api_key=os.environ.get("OPENAI_API_KEY"),
     )
 
@@ -58,6 +58,7 @@ def create_reasoning_agent(
         name="reasoning_agent",
         instructions=SYSTEM_PROMPT,
         tools=[],
+        default_options={"reasoning": {"effort": "medium", "summary": "detailed"}},
     )
 
     return AgentFrameworkAgent(

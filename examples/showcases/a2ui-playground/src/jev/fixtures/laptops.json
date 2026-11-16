@@ -1,0 +1,137 @@
+{
+  "model": "jev-1.13.0",
+  "ms": 461,
+  "recordedAt": "2026-10-21T13:39:43.551Z",
+  "mock": false,
+  "answers": {
+    "layout": {
+      "type": "choice",
+      "choice": "compare_table",
+      "confidence": 0.72,
+      "probabilities": {
+        "compare_table": 0.81,
+        "cards": 0.12,
+        "table": 0.07
+      }
+    },
+    "fit_air13": {
+      "type": "score",
+      "score": 2.99,
+      "confidence": 0.99,
+      "legend": {
+        "0": "Poor fit",
+        "1": "Weak fit",
+        "2": "Good fit",
+        "3": "Strong fit"
+      },
+      "probabilities": {
+        "0": 0,
+        "1": 0,
+        "2": 0.01,
+        "3": 0.99
+      }
+    },
+    "fit_zen14": {
+      "type": "score",
+      "score": 2.96,
+      "confidence": 0.96,
+      "legend": {
+        "0": "Poor fit",
+        "1": "Weak fit",
+        "2": "Good fit",
+        "3": "Strong fit"
+      },
+      "probabilities": {
+        "0": 0,
+        "1": 0,
+        "2": 0.04,
+        "3": 0.96
+      }
+    },
+    "fit_xps13": {
+      "type": "score",
+      "score": 2.71,
+      "confidence": 0.71,
+      "legend": {
+        "0": "Poor fit",
+        "1": "Weak fit",
+        "2": "Good fit",
+        "3": "Strong fit"
+      },
+      "probabilities": {
+        "0": 0,
+        "1": 0,
+        "2": 0.29,
+        "3": 0.71
+      }
+    },
+    "fit_fw13": {
+      "type": "score",
+      "score": 1.64,
+      "confidence": 0.58,
+      "legend": {
+        "0": "Poor fit",
+        "1": "Weak fit",
+        "2": "Good fit",
+        "3": "Strong fit"
+      },
+      "probabilities": {
+        "0": 0,
+        "1": 0.39,
+        "2": 0.58,
+        "3": 0.03
+      }
+    },
+    "fit_surface": {
+      "type": "score",
+      "score": 2.91,
+      "confidence": 0.92,
+      "legend": {
+        "0": "Poor fit",
+        "1": "Weak fit",
+        "2": "Good fit",
+        "3": "Strong fit"
+      },
+      "probabilities": {
+        "0": 0,
+        "1": 0,
+        "2": 0.08,
+        "3": 0.92
+      }
+    },
+    "fit_x1": {
+      "type": "score",
+      "score": 0.77,
+      "confidence": 0.62,
+      "legend": {
+        "0": "Poor fit",
+        "1": "Weak fit",
+        "2": "Good fit",
+        "3": "Strong fit"
+      },
+      "probabilities": {
+        "0": 0.31,
+        "1": 0.63,
+        "2": 0.05,
+        "3": 0.01
+      }
+    },
+    "fit_blade14": {
+      "type": "score",
+      "score": 0.01,
+      "confidence": 0.99,
+      "legend": {
+        "0": "Poor fit",
+        "1": "Weak fit",
+        "2": "Good fit",
+        "3": "Strong fit"
+      },
+      "probabilities": {
+        "0": 0.99,
+        "1": 0.01,
+        "2": 0,
+        "3": 0
+      }
+    }
+  }
+}

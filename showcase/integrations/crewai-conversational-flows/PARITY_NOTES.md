@@ -13,7 +13,7 @@ CrewAI's public Conversational Flows API.
 - AG-UI `threadId` is used as the CrewAI conversation `session_id`.
 - The integration is pinned to the official `ag-ui-crewai==0.3.0` release and
   `crewai==1.15.11`.
-- All model-backed showcase paths use `gpt-5.4`.
+- All model-backed showcase paths use `gpt-6-luna`.
 
 `src/agents/conversational_flows.py` adapts the regular Flow classes using the
 same pattern as the upstream AG-UI Dojo. It keeps the feature logic inside the

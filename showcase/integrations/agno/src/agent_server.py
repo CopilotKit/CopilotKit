@@ -806,7 +806,7 @@ agent_os = AgentOS(
         # `openGenerativeUI` middleware injects the `generateSandboxedUi`
         # tool the LLM uses to author HTML+CSS for the sandboxed iframe.
         AGUI(agent=open_gen_ui_agent, prefix="/open-gen-ui"),  # -> /open-gen-ui/agui
-        # Vision-capable agent (gpt-4o) for the Multimodal Attachments cell.
+        # Vision-capable agent (gpt-6-luna) for the Multimodal Attachments cell.
         AGUI(agent=multimodal_agent, prefix="/multimodal"),  # -> /multimodal/agui
         # BYOC: hashbrown — agent emits a hashbrown UI-kit envelope as a single
         # JSON object that the frontend renderer parses progressively.

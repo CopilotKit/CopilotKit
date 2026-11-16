@@ -58,6 +58,25 @@ on:
         required: false
         default: false
         type: boolean
+  # release / rc (rc.yml) calls this to publish a release candidate instead of
+  # a canary. It runs in the caller's context, so the ref guard and canary ref
+  # below apply to the release-line branch that was pushed.
+  workflow_call:
+    inputs:
+      scope:
+        required: true
+        type: string
+      rc:
+        description: "Release-candidate base X.Y.Z; see publish-release.yml's rc input."
+        required: true
+        type: string
+      dry_run:
+        required: false
+        default: false
+        type: boolean
+    secrets:
+      DEVOPS_BOT_PRIVATE_KEY:
+        required: true
 
 concurrency:
   # Serialize repeated dispatches on the same source branch FOR THE SAME SCOPE.
@@ -66,7 +85,9 @@ concurrency:
   # The scope is folded into the key so canaries for different scopes (e.g.
   # `monorepo` vs `angular`) on the same branch run in independent lanes instead
   # of queuing behind each other (cancel-in-progress: false).
-  group: canary-publish-${{ inputs.scope }}-${{ github.ref }}
+  # Dry runs get their own lane too: GitHub keeps one pending run per group, so
+  # a dry run sharing the group could replace a queued publish.
+  group: canary-publish-${{ inputs.scope }}-${{ github.ref }}${{ inputs.dry_run == true && '-dry-run' || '' }}
   cancel-in-progress: false
 
 permissions:
@@ -114,6 +135,18 @@ jobs:
           # value whose first line is valid).
           if ! [[ "$SUFFIX" =~ ^[a-zA-Z0-9._-]+$ ]]; then
             echo "::error::Invalid suffix '$SUFFIX'. Allowed: [a-zA-Z0-9._-]+ (blank = unix timestamp)."
+            exit 1
+          fi
+
+      - name: Validate rc
+        if: inputs.rc != ''
+        env:
+          RC: ${{ inputs.rc }}
+        run: |
+          set -euo pipefail
+          # Same reasoning as "Validate suffix": fail before any ref exists.
+          if ! [[ "$RC" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Invalid rc '$RC'. Expected a release-line branch name such as 2.0.0."
             exit 1
           fi
 
@@ -189,6 +222,7 @@ jobs:
           BRANCH: ${{ steps.slug.outputs.branch }}
           SCOPE: ${{ inputs.scope }}
           SUFFIX: ${{ inputs.suffix }}
+          RC: ${{ inputs.rc }}
           DRY_RUN: ${{ inputs.dry_run }}
         run: |
           set -euo pipefail
@@ -205,6 +239,7 @@ jobs:
             -f mode=prerelease \
             -f scope="$SCOPE" \
             -f suffix="$SUFFIX" \
+            -f rc="$RC" \
             -f dry-run="$DRY_RUN"
 
           # The dispatch went through. If anything from here on fails BEFORE a run
@@ -264,6 +299,7 @@ jobs:
             echo "## Canary publish"
             echo ""
             echo "- **Scope:** \`${SCOPE}\`"
+            if [ -n "$RC" ]; then echo "- **Release candidate of:** \`${RC}\`"; fi
             echo "- **Source branch:** \`${GITHUB_REF_NAME}\`"
             echo "- **Delegated run:** ${RUN_URL}"
           } >> "$GITHUB_STEP_SUMMARY"

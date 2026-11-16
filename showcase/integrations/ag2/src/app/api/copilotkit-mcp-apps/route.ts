@@ -7,7 +7,9 @@
 //
 // Reference:
 // - showcase/integrations/langgraph-python/src/app/api/copilotkit-mcp-apps/route.ts
-// - src/agents/mcp_apps_agent.py (the AG2 backend, no bespoke tools)
+// - src/agents/mcp_apps_agent.py (the AG2 chat agent, no bespoke tools)
+// - src/agents/mcp_apps_server.py (the MCP server: AG2 `MCPServer` + `MCPApp`
+//   serving the `create_view` tool and its `ui://` document)
 
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
@@ -44,11 +46,13 @@ const runtime = new CopilotRuntime({
     servers: [
       {
         type: "http",
-        url: process.env.MCP_SERVER_URL || "https://mcp.excalidraw.com",
+        // The AG2 MCP server mounted on the agent server. The trailing slash
+        // matters: the mount redirects `/mcp` -> `/mcp/`.
+        url: process.env.MCP_SERVER_URL || `${AGENT_URL}/mcp-apps-server/mcp/`,
         // Pin a stable `serverId`. Without it CopilotKit hashes the URL and
         // a URL change silently breaks restoration of persisted MCP Apps in
         // prior conversation threads.
-        serverId: "excalidraw",
+        serverId: "ag2-diagram",
       },
     ],
   },

@@ -1,13 +1,16 @@
 import {
   AgentRunner,
+  ThreadAccessDeniedError,
   ThreadAlreadyRunningError,
   finalizeRunEvents,
+  ɵresolveThreadOwner,
 } from "@copilotkit/runtime/v2";
 import type {
   AgentRunnerConnectRequest,
   AgentRunnerIsRunningRequest,
   AgentRunnerRunRequest,
   AgentRunnerStopRequest,
+  LocalThreadEndpointScope,
 } from "@copilotkit/runtime/v2";
 import type { Observable } from "rxjs";
 import { ReplaySubject } from "rxjs";
@@ -20,7 +23,23 @@ import type {
 import { EventType, compactEvents } from "@ag-ui/client";
 import Database from "better-sqlite3";
 
-const SCHEMA_VERSION = 1;
+/**
+ * 2: adds `thread_owners`. Also written as the `version` of each stored run,
+ * so runs stored from now on are tagged 2.
+ */
+const SCHEMA_VERSION = 2;
+
+/**
+ * Owner of a legacy thread: one whose runs were stored before owners were
+ * recorded (schema 1), so it has runs but no `thread_owners` row. Before the
+ * upgrade, every caller that held a thread id could reach that thread. A
+ * legacy thread keeps exactly that: it stays a capability, reachable by id for
+ * every caller and every identity, and continuing it never claims it. Only a
+ * thread that has no runs yet is claimed, by its first run, so no new thread
+ * can become legacy. The value holds a NUL character, which no request
+ * identity can hold.
+ */
+const LEGACY_THREAD_OWNER = "\u0000legacy";
 
 interface AgentRunRecord {
   id: number;
@@ -45,11 +64,19 @@ interface ActiveConnectionContext {
   stopRequested?: boolean;
 }
 
-// Active connections for streaming events and stop support
-const ACTIVE_CONNECTIONS = new Map<string, ActiveConnectionContext>();
-
 export class SqliteAgentRunner extends AgentRunner {
   private db: any;
+
+  /**
+   * Live runs of this runner, by thread id, for streaming and stop. Kept per
+   * instance: owners are checked against this instance's database, so a live
+   * run of another runner, which may hold the same thread id for a different
+   * owner, must never be bridged, stopped or torn down from here.
+   */
+  private readonly activeConnections = new Map<
+    string,
+    ActiveConnectionContext
+  >();
 
   constructor(options: SqliteAgentRunnerOptions = {}) {
     super();
@@ -70,6 +97,29 @@ export class SqliteAgentRunner extends AgentRunner {
 
     this.db = new Database(dbPath);
     this.initializeSchema();
+    this.warnIfLegacyThreads();
+  }
+
+  /**
+   * Logs once, when the database opens, how many legacy threads it holds
+   * (see {@link LEGACY_THREAD_OWNER}), so operators know those threads are
+   * still reachable by id for every caller.
+   */
+  private warnIfLegacyThreads(): void {
+    const row = this.db
+      .prepare(
+        "SELECT COUNT(DISTINCT thread_id) AS count FROM agent_runs WHERE thread_id NOT IN (SELECT thread_id FROM thread_owners)",
+      )
+      .get() as { count: number } | undefined;
+    const count = row?.count ?? 0;
+    if (count === 0) return;
+    console.warn(
+      `[CopilotKit] SqliteAgentRunner: ${count} thread${count === 1 ? " was" : "s were"} ` +
+        "stored before thread owners were recorded. Anyone who holds the id of " +
+        "one of them can still read, continue and stop it, as before the upgrade, " +
+        "whatever identifyUser returns. Threads created from now on belong to the " +
+        "identity whose run created them.",
+    );
   }
 
   private initializeSchema(): void {
@@ -94,6 +144,15 @@ export class SqliteAgentRunner extends AgentRunner {
         is_running INTEGER DEFAULT 0,
         current_run_id TEXT,
         updated_at INTEGER NOT NULL
+      )
+    `);
+
+    // The identity that owns each thread, recorded by the thread's first run.
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS thread_owners (
+        thread_id TEXT PRIMARY KEY,
+        owner_id TEXT NOT NULL,
+        created_at INTEGER NOT NULL
       )
     `);
 
@@ -226,11 +285,98 @@ export class SqliteAgentRunner extends AgentRunner {
     };
   }
 
+  /**
+   * Owner of a thread: the recorded owner, {@link LEGACY_THREAD_OWNER} for a
+   * thread whose runs predate owner records, or `undefined` for an unknown
+   * thread.
+   *
+   * The owner record and the run check are read by one statement, so they
+   * come from one snapshot of the database. With two reads, another runner on
+   * the same file could claim the thread and store its first run in between,
+   * and this call would see runs but no owner and take that thread for a
+   * legacy one, open to every caller.
+   */
+  private getThreadOwner(threadId: string): string | undefined {
+    const row = this.db
+      .prepare(
+        "SELECT (SELECT owner_id FROM thread_owners WHERE thread_id = ?) AS owner_id, EXISTS (SELECT 1 FROM agent_runs WHERE thread_id = ?) AS has_runs",
+      )
+      .get(threadId, threadId) as
+      | { owner_id: string | null; has_runs: number }
+      | undefined;
+    if (row?.owner_id != null) return row.owner_id;
+    return row?.has_runs ? LEGACY_THREAD_OWNER : undefined;
+  }
+
+  /**
+   * True when a call acting as `ownerId` may reach an existing thread: its
+   * owner, or anyone for a legacy thread.
+   */
+  private isOwnedBy(threadId: string, ownerId: string | undefined): boolean {
+    const owner = this.getThreadOwner(threadId);
+    return (
+      owner === LEGACY_THREAD_OWNER || owner === ɵresolveThreadOwner(ownerId)
+    );
+  }
+
+  /**
+   * False when the thread is held by an owner other than `scope`'s. A legacy
+   * thread is held by nobody, so it is accessible to every caller.
+   */
+  isThreadAccessible(
+    threadId: string,
+    scope: LocalThreadEndpointScope,
+  ): boolean {
+    const owner = this.getThreadOwner(threadId);
+    return (
+      owner === undefined ||
+      owner === LEGACY_THREAD_OWNER ||
+      owner === ɵresolveThreadOwner(scope.ownerId)
+    );
+  }
+
+  /**
+   * Records `owner` as the owner of a new thread, and returns true when the
+   * run may go on as `owner`: `owner` holds the thread afterward, or the
+   * thread is legacy, which stays unowned. The read, the insert and the
+   * re-read run in one IMMEDIATE transaction, so when two runners or
+   * processes on one database file claim a new thread at once, exactly one
+   * wins and the other reads the winner's row.
+   */
+  private claimThread(threadId: string, owner: string): boolean {
+    return this.db
+      .transaction(() => {
+        const current = this.getThreadOwner(threadId);
+        if (current === LEGACY_THREAD_OWNER) return true;
+        if (current === undefined) {
+          this.db
+            .prepare(
+              "INSERT INTO thread_owners (thread_id, owner_id, created_at) VALUES (?, ?, ?) ON CONFLICT(thread_id) DO NOTHING",
+            )
+            .run(threadId, owner, Date.now());
+        }
+        return this.getThreadOwner(threadId) === owner;
+      })
+      .immediate();
+  }
+
   run(request: AgentRunnerRunRequest): Observable<BaseEvent> {
+    // A thread belongs to the identity of its first run.
+    const owner = ɵresolveThreadOwner(request.ownerId);
+    if (!this.isThreadAccessible(request.threadId, { ownerId: owner })) {
+      throw new ThreadAccessDeniedError();
+    }
+
     // Check if thread is already running in database
     const runState = this.getRunState(request.threadId);
     if (runState.isRunning) {
       throw new ThreadAlreadyRunningError();
+    }
+
+    // The check above is per process. Another process on the same database
+    // file can claim the thread in between, so the claim itself decides.
+    if (!this.claimThread(request.threadId, owner)) {
+      throw new ThreadAccessDeniedError();
     }
 
     // Mark thread as running in database
@@ -260,20 +406,21 @@ export class SqliteAgentRunner extends AgentRunner {
 
     // Get or create subject for this thread's connections
     const nextSubject = new ReplaySubject<BaseEvent>(Infinity);
-    const prevConnection = ACTIVE_CONNECTIONS.get(request.threadId);
+    const prevConnection = this.activeConnections.get(request.threadId);
     const prevSubject = prevConnection?.subject;
 
     // Create a subject for run() return value
     const runSubject = new ReplaySubject<BaseEvent>(Infinity);
 
     // Update the active connection for this thread
-    ACTIVE_CONNECTIONS.set(request.threadId, {
+    const runConnection: ActiveConnectionContext = {
       subject: nextSubject,
       agent: request.agent,
       runSubject,
       currentEvents: currentRunEvents,
       stopRequested: false,
-    });
+    };
+    this.activeConnections.set(request.threadId, runConnection);
 
     // Helper function to run the agent and handle errors
     const runAgent = async () => {
@@ -351,7 +498,7 @@ export class SqliteAgentRunner extends AgentRunner {
           },
         });
 
-        const connection = ACTIVE_CONNECTIONS.get(request.threadId);
+        const connection = this.activeConnections.get(request.threadId);
         ensureStoppedRunStarted(connection?.stopRequested ?? false);
         const appendedEvents = finalizeRunEvents(currentRunEvents, {
           stopRequested: connection?.stopRequested ?? false,
@@ -385,9 +532,16 @@ export class SqliteAgentRunner extends AgentRunner {
         runSubject.complete();
         nextSubject.complete();
 
-        ACTIVE_CONNECTIONS.delete(request.threadId);
-      } catch {
-        const connection = ACTIVE_CONNECTIONS.get(request.threadId);
+        this.activeConnections.delete(request.threadId);
+      } catch (error) {
+        const connection = this.activeConnections.get(request.threadId);
+        if (!connection?.stopRequested) {
+          console.error(
+            "Sqlite agent run failed",
+            { threadId: request.threadId, runId: request.input.runId },
+            error,
+          );
+        }
         ensureStoppedRunStarted(connection?.stopRequested ?? false);
         const appendedEvents = finalizeRunEvents(currentRunEvents, {
           stopRequested: connection?.stopRequested ?? false,
@@ -424,7 +578,7 @@ export class SqliteAgentRunner extends AgentRunner {
         runSubject.complete();
         nextSubject.complete();
 
-        ACTIVE_CONNECTIONS.delete(request.threadId);
+        this.activeConnections.delete(request.threadId);
       }
     };
 
@@ -439,8 +593,33 @@ export class SqliteAgentRunner extends AgentRunner {
       });
     }
 
-    // Start the agent execution immediately (not lazily)
-    runAgent();
+    // Start the agent execution immediately (not lazily). A failure while
+    // storing or finishing the run must not leave the thread marked running
+    // in the database, where it would refuse every later run, even after a
+    // restart.
+    runAgent().catch((error) => {
+      console.error(
+        "Failed to finish sqlite agent run",
+        { threadId: request.threadId, runId: request.input.runId },
+        error,
+      );
+      try {
+        const state = this.getRunState(request.threadId);
+        if (
+          state.currentRunId === null ||
+          state.currentRunId === request.input.runId
+        ) {
+          this.setRunState(request.threadId, false);
+        }
+      } catch (stateError) {
+        console.error("Failed to reset sqlite run state", stateError);
+      }
+      if (this.activeConnections.get(request.threadId) === runConnection) {
+        this.activeConnections.delete(request.threadId);
+      }
+      runSubject.complete();
+      nextSubject.complete();
+    });
 
     // Return the run subject (only agent events, no injected messages)
     return runSubject.asObservable();
@@ -448,6 +627,12 @@ export class SqliteAgentRunner extends AgentRunner {
 
   connect(request: AgentRunnerConnectRequest): Observable<BaseEvent> {
     const connectionSubject = new ReplaySubject<BaseEvent>(Infinity);
+
+    // A thread owned by another identity replays like an unknown one.
+    if (!this.isOwnedBy(request.threadId, request.ownerId)) {
+      connectionSubject.complete();
+      return connectionSubject.asObservable();
+    }
 
     // Load historic runs from database
     const historicRuns = this.getHistoricRuns(request.threadId);
@@ -471,7 +656,7 @@ export class SqliteAgentRunner extends AgentRunner {
     }
 
     // Bridge active run to connection if exists
-    const activeConnection = ACTIVE_CONNECTIONS.get(request.threadId);
+    const activeConnection = this.activeConnections.get(request.threadId);
     const runState = this.getRunState(request.threadId);
 
     if (
@@ -502,6 +687,10 @@ export class SqliteAgentRunner extends AgentRunner {
   }
 
   isRunning(request: AgentRunnerIsRunningRequest): Promise<boolean> {
+    // Another identity's thread reports "not running".
+    if (!this.isOwnedBy(request.threadId, request.ownerId)) {
+      return Promise.resolve(false);
+    }
     const runState = this.getRunState(request.threadId);
     return Promise.resolve(runState.isRunning);
   }
@@ -511,8 +700,19 @@ export class SqliteAgentRunner extends AgentRunner {
     if (!runState.isRunning) {
       return Promise.resolve(false);
     }
+    // A run on another identity's thread reports "no active run".
+    if (!this.isOwnedBy(request.threadId, request.ownerId)) {
+      return Promise.resolve(false);
+    }
+    // A run-scoped stop never stops a newer run on the thread.
+    if (
+      request.runId !== undefined &&
+      runState.currentRunId !== request.runId
+    ) {
+      return Promise.resolve(false);
+    }
 
-    const connection = ACTIVE_CONNECTIONS.get(request.threadId);
+    const connection = this.activeConnections.get(request.threadId);
     const agent = connection?.agent;
 
     if (!connection || !agent) {
@@ -532,7 +732,12 @@ export class SqliteAgentRunner extends AgentRunner {
     } catch (error) {
       console.error("Failed to abort sqlite agent run", error);
       connection.stopRequested = false;
-      this.setRunState(request.threadId, true);
+      // Restore the run's id too, or a later stop by run id would refuse it.
+      this.setRunState(
+        request.threadId,
+        true,
+        runState.currentRunId ?? undefined,
+      );
       return Promise.resolve(false);
     }
   }

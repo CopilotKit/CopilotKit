@@ -1,0 +1,29 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for openai-agents-python / prebuilt-popup",
+    "created": "2026-11-03",
+    "copiedFrom": "ms-agent-python"
+  },
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "hi from the popup test",
+        "context": "openai-agents-python"
+      },
+      "response": {
+        "content": "Hello from the popup — the CopilotPopup prebuilt component is wired up and reachable. The launcher floats in the corner and the chat sits in an overlay panel."
+      }
+    },
+    {
+      "_comment": "prebuilt-popup e2e pill (from google-antigravity).",
+      "match": {
+        "userMessage": "Say hi from the popup",
+        "turnIndex": 0,
+        "context": "openai-agents-python"
+      },
+      "response": {
+        "content": "Hello from the popup! I float over the page, so your layout stays exactly as it is."
+      }
+    }
+  ]
+}

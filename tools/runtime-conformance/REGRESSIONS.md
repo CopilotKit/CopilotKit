@@ -357,3 +357,41 @@ The local browser proof also passed approval, rejection, and cancellation for AI
 Each resumed run used a new run ID and saved exactly one answer.
 Stop during an AI SDK resumed run preserved the saved answer and produced a cancelled terminal event.
 A separate preexisting pending-interrupt validation failure during reconnect remains outside this approval fix.
+
+## Intelligence thread lock released before the last events
+
+Baseline: `ea197a2dc0ea6675c1f54a3cbada5533d585aa16`.
+Native case: `packages/runtime/src/v2/runtime/__tests__/intelligence-lock-release.test.ts`.
+
+The run handler released the thread lock as soon as it saw RUN_ERROR, a few milliseconds before the runner sent the batch carrying that RUN_ERROR.
+An Intelligence gateway that checks the lock when it stores each batch refused that batch, and any batch still in flight, as `active_lock_mismatch`.
+The run was then reported as "Runner connection dropped" instead of its real error.
+On success and on Stop the handler never released the lock itself and relied on the gateway.
+
+Before the fix, 5 of the 7 native tests failed against the TypeScript runtime with `expected 'stored RUN_STARTED TEXT_MESSAGE_START…' to match /\(lock held\)$/`, `expected [ Array(1) ] to deeply equal []` and `expected false to be true`.
+The runner now reports RUN_STARTED to the handler, a RUN_ERROR no longer releases the lock, and the handler releases it once when the runner's stream ends, on success, error and Stop.
+A runner that gives up, fails to join or dies still releases the lock or lets it expire.
+
+This is a native test rather than a shared case: the lock is released through the handler's REST call, which the public socket contract does not expose.
+The test's fake gateway checks the lock for every stored batch, as Intelligence's realtime gateway does.
+
+The following command failed before the fix and passed after, in a local run of the runtime package:
+
+```sh
+cd packages/runtime && npx vitest run src/v2/runtime/__tests__/intelligence-lock-release.test.ts
+```
+
+## TypeScript A2UI action history
+
+Baseline: `917e84b4ea5141af38fbf794a06c715e0e3f083f`.
+Case: `a2ui.action-history-and-catalog`.
+
+The local TypeScript socket case failed reading `assistant.toolCalls` because its assertion still required the synthetic `log_a2ui_event` pair. Published middleware 0.0.15 now supplies complete action JSON as private user context. The TypeScript driver declares that expected contract in its readiness record; the case requires it and rejects fabricated log calls. Port-only legacy drivers retain their existing paired-tool assertions, and the catalog assertion is unchanged.
+
+The same command failed before the test correction and passed after it:
+
+```sh
+pnpm nx run runtime-conformance:conformance --args='--filter a2ui.action-history-and-catalog -- node tools/runtime-conformance/typescript-driver.mjs'
+```
+
+This is local socket conformance with the existing platform fixture, not live-model or deployed-service validation. No production runtime behavior changed.

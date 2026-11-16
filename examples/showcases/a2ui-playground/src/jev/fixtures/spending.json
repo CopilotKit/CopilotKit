@@ -1,0 +1,120 @@
+{
+  "model": "jev-1.13.0",
+  "ms": 414,
+  "recordedAt": "2026-10-21T13:40:17.850Z",
+  "mock": false,
+  "answers": {
+    "layout": {
+      "type": "choice",
+      "choice": "month_bar",
+      "confidence": 1,
+      "probabilities": {
+        "month_bar": 1,
+        "trend_area": 0,
+        "focus_line": 0
+      }
+    },
+    "fit_groceries": {
+      "type": "score",
+      "score": 1.95,
+      "confidence": 0.53,
+      "legend": {
+        "0": "Ignore",
+        "1": "Glance at it",
+        "2": "Worth a look",
+        "3": "Look at it first"
+      },
+      "probabilities": {
+        "0": 0,
+        "1": 0.25,
+        "2": 0.53,
+        "3": 0.22
+      }
+    },
+    "fit_dining": {
+      "type": "score",
+      "score": 2.63,
+      "confidence": 0.63,
+      "legend": {
+        "0": "Ignore",
+        "1": "Glance at it",
+        "2": "Worth a look",
+        "3": "Look at it first"
+      },
+      "probabilities": {
+        "0": 0,
+        "1": 0,
+        "2": 0.37,
+        "3": 0.63
+      }
+    },
+    "fit_shopping": {
+      "type": "score",
+      "score": 1.4,
+      "confidence": 0.59,
+      "legend": {
+        "0": "Ignore",
+        "1": "Glance at it",
+        "2": "Worth a look",
+        "3": "Look at it first"
+      },
+      "probabilities": {
+        "0": 0.01,
+        "1": 0.59,
+        "2": 0.4,
+        "3": 0
+      }
+    },
+    "fit_transport": {
+      "type": "score",
+      "score": 1.02,
+      "confidence": 0.9,
+      "legend": {
+        "0": "Ignore",
+        "1": "Glance at it",
+        "2": "Worth a look",
+        "3": "Look at it first"
+      },
+      "probabilities": {
+        "0": 0.04,
+        "1": 0.9,
+        "2": 0.06,
+        "3": 0
+      }
+    },
+    "fit_travel": {
+      "type": "score",
+      "score": 1.75,
+      "confidence": 0.58,
+      "legend": {
+        "0": "Ignore",
+        "1": "Glance at it",
+        "2": "Worth a look",
+        "3": "Look at it first"
+      },
+      "probabilities": {
+        "0": 0.02,
+        "1": 0.3,
+        "2": 0.6,
+        "3": 0.08
+      }
+    },
+    "fit_subscriptions": {
+      "type": "score",
+      "score": 1.13,
+      "confidence": 0.82,
+      "legend": {
+        "0": "Ignore",
+        "1": "Glance at it",
+        "2": "Worth a look",
+        "3": "Look at it first"
+      },
+      "probabilities": {
+        "0": 0.03,
+        "1": 0.82,
+        "2": 0.15,
+        "3": 0
+      }
+    }
+  }
+}

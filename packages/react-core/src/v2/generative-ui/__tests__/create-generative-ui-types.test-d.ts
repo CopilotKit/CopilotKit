@@ -17,7 +17,7 @@ import type {
 import type {
   GenerativeUIEventHandler,
   GenerativeUIInvokeResult,
-} from "../errors";
+} from "@copilotkit/shared/generative-ui";
 
 const cartSchema = z.object({
   count: z.number(),

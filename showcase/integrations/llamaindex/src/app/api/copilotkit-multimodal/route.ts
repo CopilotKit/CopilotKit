@@ -1,6 +1,6 @@
 // Dedicated runtime for the Multimodal demo.
 //
-// The underlying agent is vision-capable (gpt-4o). Keeping it on its own
+// The underlying agent is vision-capable (gpt-6-luna). Keeping it on its own
 // runtime keeps the cost of the vision model isolated to the one demo that
 // exercises it.
 

@@ -16,12 +16,12 @@ export function Button({
 }: ButtonProps) {
   const variantClass =
     variant === "outline"
-      ? "border border-[#DBDBE5] bg-white text-[#010507] hover:bg-[#FAFAFC]"
+      ? "border border-[#DBDBE5] bg-white text-[#010507] hover:bg-[#FAFAFC] dark:border-border dark:bg-card dark:text-foreground dark:hover:bg-muted"
       : variant === "ghost"
-        ? "bg-transparent text-[#57575B] hover:bg-[#FAFAFC]"
+        ? "bg-transparent text-[#57575B] hover:bg-[#FAFAFC] dark:text-muted-foreground dark:hover:bg-muted"
         : variant === "destructive"
-          ? "border border-[#DBDBE5] bg-white text-[#57575B] hover:text-[#FA5F67] hover:border-[#FA5F67]"
-          : "bg-[#010507] text-white hover:bg-[#1F1F23]";
+          ? "border border-[#DBDBE5] bg-white text-[#57575B] hover:text-[#FA5F67] hover:border-[#FA5F67] dark:border-border dark:bg-card dark:text-muted-foreground dark:hover:text-[#FA5F67] dark:hover:border-[#FA5F67]"
+          : "bg-[#010507] text-white hover:bg-[#1F1F23] dark:bg-primary dark:text-primary-foreground dark:hover:bg-primary/90";
 
   const sizeClass =
     size === "sm"

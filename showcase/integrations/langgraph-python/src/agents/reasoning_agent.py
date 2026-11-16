@@ -5,10 +5,10 @@ reasoning-default (CopilotKit's built-in reasoning slot).
 
 Why a reasoning model + Responses API:
 The OpenAI Responses API streams `response.reasoning_summary_text.delta`
-items only for native reasoning models (gpt-5, o3, o4-mini, etc.).
+items only for native reasoning models (gpt-6-luna, etc.).
 CopilotKit's bridge translates those into AG-UI REASONING_MESSAGE_*
 events with `role: "reasoning"`, which the frontend renders via the
-`reasoningMessage` slot. gpt-4o / gpt-4o-mini do not emit reasoning
+`reasoningMessage` slot. gpt-4o / gpt-4.1 do not emit reasoning
 items, so a non-reasoning model would never light up the slot.
 """
 
@@ -26,7 +26,7 @@ SYSTEM_PROMPT = (
     "step-by-step about the approach, then give a concise answer."
 )
 
-REASONING_MODEL = os.environ.get("OPENAI_REASONING_MODEL", "gpt-5.4")
+REASONING_MODEL = os.environ.get("OPENAI_REASONING_MODEL", "gpt-6-luna")
 
 # No full CopilotKitMiddleware — this demo exercises only reasoning-token
 # streaming through the OpenAI Responses API and doesn't consume frontend

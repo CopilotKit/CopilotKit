@@ -64,7 +64,7 @@ ARCADE_USER_ID=you@example.com   # the user Arcade acts on behalf of
 
 # Model: https://platform.openai.com
 OPENAI_API_KEY=sk-...
-# OPENAI_MODEL=openai/gpt-5-mini     # optional override ("provider/model")
+# OPENAI_MODEL=openai/gpt-6-luna     # optional override ("provider/model")
 
 # CopilotKit runtime sends anonymous telemetry by default. Opt out:
 COPILOTKIT_TELEMETRY_DISABLED=true

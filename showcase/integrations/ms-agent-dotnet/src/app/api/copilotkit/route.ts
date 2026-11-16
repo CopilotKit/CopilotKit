@@ -926,7 +926,7 @@ agents["default"] = createAgent();
 // renders tool calls.
 // Reasoning cells (`reasoning-default` + `reasoning-custom`) share a
 // dedicated backend mounted at `/reasoning` that uses the OpenAI Responses
-// API (gpt-5/o-series) — the only chat client that emits AG-UI
+// API (gpt-6-luna/o-series) — the only chat client that emits AG-UI
 // `REASONING_MESSAGE_*` events. See `src/agents/reasoning_agent.py`.
 agents["reasoning-default"] = createReasoningAgent("/reasoning");
 agents["reasoning-custom"] = createReasoningAgent("/reasoning");

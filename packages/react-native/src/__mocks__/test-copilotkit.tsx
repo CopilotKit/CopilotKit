@@ -9,7 +9,7 @@
  * would stub the very thing under test. Driving a real core exercises the
  * production path end-to-end.
  *
- * The core and its single "default" agent are created ONCE (via refs) and kept
+ * The core and its agents are created ONCE (via refs) and kept
  * stable across re-renders. That stability is load-bearing: `useRenderTool`
  * registers its renderer into core and deliberately does NOT remove it on
  * unmount, so a renderer registered on one render must survive a later
@@ -38,7 +38,7 @@ import type { CopilotKitContextValue } from "@copilotkit/react-core/v2/context";
  * bundler cannot resolve a bare `rxjs` import. A throw-only body is assignable
  * to any declared return type, so no Observable value is constructed.
  */
-class SeededAgent extends AbstractAgent {
+export class SeededAgent extends AbstractAgent {
   run(): ReturnType<AbstractAgent["run"]> {
     throw new Error("SeededAgent.run() is not used in tests");
   }
@@ -83,6 +83,11 @@ export interface TestCopilotKitProps {
    * instance, and therefore the registered renderers, must stay stable).
    */
   agent?: AbstractAgent;
+  /**
+   * More agents to register next to "default", keyed by agent id, for tests
+   * that pick a non-default agent. Captured on first render like `agent`.
+   */
+  agents?: Record<string, AbstractAgent>;
   children: React.ReactNode;
 }
 
@@ -91,6 +96,7 @@ export function TestCopilotKit({
   executingToolCallIds = EMPTY_SET,
   agentRef: publishAgentRef,
   agent,
+  agents,
   children,
 }: TestCopilotKitProps) {
   const agentRef = useRef<AbstractAgent | null>(null);
@@ -102,7 +108,7 @@ export function TestCopilotKit({
   const copilotkitRef = useRef<CopilotKitCoreReact | null>(null);
   if (copilotkitRef.current === null) {
     copilotkitRef.current = new CopilotKitCoreReact({
-      agents__unsafe_dev_only: { default: agentRef.current },
+      agents__unsafe_dev_only: { ...agents, default: agentRef.current },
     });
   }
 

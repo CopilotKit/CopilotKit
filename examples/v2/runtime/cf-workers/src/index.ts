@@ -12,7 +12,7 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const runtime = new CopilotRuntime({
       agents: {
-        default: new BuiltInAgent({ model: "openai/gpt-5-mini" }),
+        default: new BuiltInAgent({ model: "openai/gpt-6-luna" }),
       },
     });
 

@@ -23,7 +23,7 @@ def get_model(state: AgentState) -> BaseChatModel:
     if model == "openai":
         from langchain_openai import ChatOpenAI
 
-        return ChatOpenAI(temperature=0, model="gpt-5-mini")
+        return ChatOpenAI(reasoning_effort="none", temperature=0, model="gpt-6-luna")
     if model == "anthropic":
         from langchain_anthropic import ChatAnthropic
 

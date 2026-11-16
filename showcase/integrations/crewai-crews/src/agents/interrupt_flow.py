@@ -64,6 +64,7 @@ def candidate_slots() -> list[dict[str, str]]:
     ]
 
 
+# @region[backend-interrupt-tool]
 class InterruptState(CopilotKitState):
     pending_tool_call_id: str | None = None
     meeting: dict[str, Any] = Field(default_factory=dict)
@@ -81,7 +82,9 @@ class InterruptFlow(Flow[InterruptState]):
     async def request_schedule(self) -> dict[str, Any]:
         response = await copilotkit_stream(
             await acompletion(
-                model="openai/gpt-5.4",
+                allowed_openai_params=["reasoning_effort"],
+                reasoning_effort="none",
+                model="openai/gpt-6-luna",
                 messages=[
                     {"role": "system", "content": SYSTEM_PROMPT},
                     *self.state.messages,
@@ -163,7 +166,9 @@ class InterruptFlow(Flow[InterruptState]):
             )
         response = await copilotkit_stream(
             await acompletion(
-                model="openai/gpt-5.4",
+                allowed_openai_params=["reasoning_effort"],
+                reasoning_effort="none",
+                model="openai/gpt-6-luna",
                 messages=[
                     {
                         "role": "system",
@@ -180,6 +185,7 @@ class InterruptFlow(Flow[InterruptState]):
             )
         )
         self.state.messages.append(response.choices[0].message)
+        # @endregion[backend-interrupt-tool]
 
 
 interrupt_flow = InterruptFlow()

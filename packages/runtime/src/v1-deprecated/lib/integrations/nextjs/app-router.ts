@@ -42,10 +42,10 @@ export function copilotRuntimeNextJSAppRouterEndpoint(
     });
   }
 
-  options.runtime.telemetry.capture(
-    "oss.runtime.instance_created",
-    getRuntimeInstanceTelemetryInfo(options),
-  );
+  // Compute the v1 payload before `handleServiceAdapter`: it reads
+  // `runtime.params` and must not build `runtime.instance` (see
+  // v1-endpoint-order.test.ts). The v2 handler below sends the event.
+  const instanceCreatedInfo = getRuntimeInstanceTelemetryInfo(options);
 
   const logger = commonConfig.logging;
   logger.debug("Creating NextJS App Router endpoint");
@@ -60,6 +60,7 @@ export function copilotRuntimeNextJSAppRouterEndpoint(
     runtime: options.runtime.instance,
     basePath: options.baseUrl ?? options.endpoint,
     ...(options.cors && { cors: options.cors }),
+    __instanceCreatedInfo: instanceCreatedInfo,
   } as any);
 
   const handleRequest = handle(copilotRoute as any);

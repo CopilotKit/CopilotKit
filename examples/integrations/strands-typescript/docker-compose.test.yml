@@ -14,7 +14,7 @@ services:
     environment:
       - OPENAI_API_KEY=test-key-for-aimock
       - OPENAI_BASE_URL=http://aimock:4010/v1
-      - MODEL_ID=gpt-4o
+      - MODEL_ID=gpt-6-luna
     depends_on:
       aimock:
         condition: service_started

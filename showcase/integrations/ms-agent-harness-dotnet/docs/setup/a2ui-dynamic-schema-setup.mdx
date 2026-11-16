@@ -1,0 +1,30 @@
+<Steps>
+  <Step>
+    ### Bind your own `generate_a2ui` and turn off injection
+
+    A harness agent binds its own `generate_a2ui` function tool, which calls a
+    second model and returns an `a2ui_operations` container. For a working agent,
+    see [`DeclarativeGenUiAgent.cs`](https://github.com/CopilotKit/CopilotKit/blob/main/showcase/integrations/ms-agent-harness-dotnet/agent/DeclarativeGenUiAgent.cs).
+
+    A catalog on the provider makes the runtime inject `generate_a2ui` by
+    default. Your agent already owns that tool, so set `injectA2UITool: false`
+    on the runtime. The A2UI middleware still renders the operations your
+    tool returns:
+
+    ```typescript title="app/api/copilotkit/route.ts"
+    const runtime = new CopilotRuntime({
+      agents: { default: myAgent },
+      a2ui: {
+        injectA2UITool: false,
+        defaultCatalogId: "declarative-gen-ui-catalog",
+      },
+    });
+    ```
+
+    Pin `defaultCatalogId` to the catalog id your page registers. Models often
+    omit `catalogId` from the operations, and the middleware then falls back to
+    a basic catalog the page never registered, which fails with a "Catalog not
+    found" render error.
+
+  </Step>
+</Steps>

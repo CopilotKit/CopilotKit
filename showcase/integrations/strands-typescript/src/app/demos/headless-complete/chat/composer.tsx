@@ -128,7 +128,7 @@ export function Composer({
                 : "Message the agent or drop a file..."
             }
             className={cn(
-              "min-h-[40px] max-h-40 flex-1 resize-none border-0 bg-transparent",
+              "min-h-[40px] max-h-40 flex-1 resize-none border-0 bg-transparent dark:bg-transparent",
               "px-2 py-2 text-sm shadow-none",
               "focus-visible:ring-0 focus-visible:border-transparent",
             )}

@@ -10,8 +10,8 @@ import { useManagerVersion } from "../hooks";
 import { useRequiredGenerativeUIRuntime } from "../runtime-context";
 import type { GenerativeUIRuntime } from "../runtime-context";
 import { SurfaceView } from "../SurfaceView";
-import { getMarkdownSurfaceSource } from "./source";
-import type { MarkdownFenceBlock } from "./source";
+import { getMarkdownSurfaceSource } from "@copilotkit/core/generative-ui";
+import type { MarkdownFenceBlock } from "@copilotkit/core/generative-ui";
 
 type MarkdownProps = Omit<ComponentProps<typeof Streamdown>, "children">;
 

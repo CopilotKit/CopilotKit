@@ -17,10 +17,11 @@
 import React from "react";
 import { createReactComponent } from "../../../adapter";
 import { ButtonApi } from "@a2ui/web_core/v0_9/basic_catalog";
-import { LEAF_MARGIN, STANDARD_BORDER } from "../utils";
+import { getAccessibilityProps, LEAF_MARGIN, STANDARD_BORDER } from "../utils";
 
 export const Button = createReactComponent(
   ButtonApi,
+  /** Name the actionable button itself, including when its child is only an icon. */
   ({ props, buildChild }) => {
     const style: React.CSSProperties = {
       margin: LEAF_MARGIN,
@@ -43,9 +44,10 @@ export const Button = createReactComponent(
 
     return (
       <button
+        {...getAccessibilityProps(props.accessibility)}
         type="button"
         style={style}
-        onClick={props.action}
+        onClick={() => props.action?.()}
         disabled={props.isValid === false}
       >
         {props.child ? buildChild(props.child) : null}

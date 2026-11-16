@@ -108,7 +108,9 @@ def build_agent(forwarded_props: dict | None) -> Agent:
         props["tone"], props["expertise"], props["response_length"]
     )
     return Agent(
-        model=OpenAIChat(id="gpt-4o-mini", temperature=0.4, timeout=120),
+        model=OpenAIChat(
+            reasoning_effort="none", id="gpt-6-luna", temperature=0.4, timeout=120
+        ),
         tools=[],
         description=system_prompt,
     )

@@ -104,22 +104,8 @@ const PYTHON_DEBT = {
   // pass against the pinned versions, which is out of scope for the check
   // that found them — see the PE-140 pull request for the per-starter list.
   "a2a-a2ui": ["litellm"],
-  adk: [
-    "fastapi",
-    "uvicorn",
-    "python-dotenv",
-    "pydantic",
-    "google-adk",
-    "google-genai",
-  ],
-  "adk-angular": [
-    "fastapi",
-    "uvicorn",
-    "python-dotenv",
-    "pydantic",
-    "google-adk",
-    "google-genai",
-  ],
+  adk: ["fastapi", "uvicorn", "python-dotenv", "pydantic"],
+  "adk-angular": ["fastapi", "uvicorn", "python-dotenv", "pydantic"],
   "agent-spec": ["uvicorn", "python-dotenv"],
   "ms-agent-framework-python": ["python-dotenv"],
   "pydantic-ai": ["uvicorn", "python-dotenv"],

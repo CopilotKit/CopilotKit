@@ -109,7 +109,7 @@ class UIGeneratorAgent:
 
     def _build_agent(self, use_ui: bool) -> LlmAgent:
         """Builds the LLM agent with appropriate configuration."""
-        LITELLM_MODEL = os.getenv("LITELLM_MODEL", "openai/gpt-5.2")
+        LITELLM_MODEL = os.getenv("LITELLM_MODEL", "openai/gpt-6-luna")
 
         if use_ui:
             # Construct prompt with UI instructions, examples, and schema
@@ -118,7 +118,17 @@ class UIGeneratorAgent:
             instruction = get_text_prompt()
 
         return LlmAgent(
-            model=LiteLlm(model=LITELLM_MODEL),
+            model=LiteLlm(
+                model=LITELLM_MODEL,
+                **(
+                    {
+                        "reasoning_effort": "none",
+                        "allowed_openai_params": ["reasoning_effort"],
+                    }
+                    if LITELLM_MODEL in ("gpt-6-luna", "openai/gpt-6-luna")
+                    else {}
+                ),
+            ),
             name="ui_generator_agent",
             description="An agent that generates any UI using A2UI declarative JSON.",
             instruction=instruction,

@@ -44,7 +44,7 @@ export function parseAgentModel(value: string): AgentModelSpec {
  * OpenAI-compatible provider is `openai:<its model id>` plus `OPENAI_BASE_URL`
  * (the OpenAI client reads that variable itself).
  *
- * @param defaultSpec - This site's default, e.g. `"openai:gpt-5.4"`.
+ * @param defaultSpec - This site's default, e.g. `"openai:gpt-6-luna"`.
  * @param openaiFields - Extra ChatOpenAI options, applied only for OpenAI.
  */
 export function createChatModel(
@@ -60,6 +60,17 @@ export function createChatModel(
     case "google":
       return new ChatGoogleGenerativeAI({ model });
     case "openai":
-      return new ChatOpenAI({ ...openaiFields, model });
+      return new ChatOpenAI({
+        ...openaiFields,
+        model,
+        ...(model === "gpt-6-luna" && !openaiFields.useResponsesApi
+          ? {
+              modelKwargs: {
+                ...openaiFields.modelKwargs,
+                reasoning_effort: "none",
+              },
+            }
+          : {}),
+      });
   }
 }

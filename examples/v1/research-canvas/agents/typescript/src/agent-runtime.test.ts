@@ -50,7 +50,7 @@ test.each(["openai", "anthropic", "google_genai"])(
   },
 );
 
-test("the GPT-5 mini request omits unsupported sampling parameters", () => {
+test("the Luna tool request disables reasoning and omits sampling parameters", () => {
   vi.stubEnv("MODEL", "");
   vi.stubEnv("OPENAI_API_KEY", "test-openai-key");
 
@@ -60,7 +60,8 @@ test("the GPT-5 mini request omits unsupported sampling parameters", () => {
   }
 
   const request = model.invocationParams();
-  expect(request.model).toBe("gpt-5-mini");
+  expect(request.model).toBe("gpt-6-luna");
+  expect(request).toMatchObject({ reasoning_effort: "none" });
   expect(request.temperature).toBeUndefined();
   expect(request.top_p).toBeUndefined();
 });

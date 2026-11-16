@@ -89,6 +89,8 @@ class AgentSpec:
     # shared-state-streaming demo so the UI sees the document grow as the
     # tool arguments arrive.
     streaming_function_call_arguments: bool = False
+    # Declares format-aware routes and their ADK default in one place.
+    a2ui_inference_format: Optional[str] = None
 
 
 # Simple conversational agents (no backend tools — frontend may inject tools).
@@ -181,15 +183,17 @@ AGENT_REGISTRY: dict[str, AgentSpec] = {
     # Dynamic A2UI: a plain agent; the runtime's injectA2UITool: true makes the
     # ag-ui-adk adapter auto-inject `generate_a2ui` (matching langgraph-python /
     # AWS Strands). See declarative_gen_ui_agent.py.
-    "declarative_gen_ui": AgentSpec(declarative_gen_ui_agent),
+    "declarative_gen_ui": AgentSpec(
+        declarative_gen_ui_agent, a2ui_inference_format="express"
+    ),
     # A2UI error recovery (ADK-only): backend-owned get_a2ui_tool wiring (the
     # only path that surfaces the recovery loop), with aimock fixtures forcing a
     # heal (free-form -> parse_and_fix) and an exhaust (always-invalid -> cap)
     # to make the toolkit recovery loop + hard-fail visible.
-    "a2ui_recovery": AgentSpec(recovery_agent),
+    "a2ui_recovery": AgentSpec(recovery_agent, a2ui_inference_format="express"),
     # Fixed-schema A2UI emits a2ui_operations directly from a deterministic
     # backend tool (no secondary planner), injectA2UITool: false.
-    "a2ui_fixed_schema": AgentSpec(a2ui_fixed_agent),
+    "a2ui_fixed_schema": AgentSpec(a2ui_fixed_agent, a2ui_inference_format="express"),
     # ----- BYOC / Declarative -----
     "declarative-hashbrown": AgentSpec(byoc_agent),
     "byoc_json_render": AgentSpec(byoc_agent),

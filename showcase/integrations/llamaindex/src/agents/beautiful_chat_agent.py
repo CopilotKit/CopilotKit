@@ -21,7 +21,7 @@ import json
 import os
 from typing import Annotated
 
-from llama_index.llms.openai import OpenAI
+from agents._openai_models import OpenAI
 
 from agents._request_tools import make_request_aware_router
 from tools import get_weather_impl, search_flights_impl
@@ -80,7 +80,7 @@ if os.environ.get("OPENAI_BASE_URL"):
 # injected tools, the request 404s in aimock, and the run emits RUN_ERROR
 # (sse-missing) instead of RUN_FINISHED. See agents/_request_tools.py.
 beautiful_chat_router = make_request_aware_router(
-    llm=OpenAI(model="gpt-5-mini", **_openai_kwargs),
+    llm=OpenAI(model="gpt-6-luna", **_openai_kwargs),
     frontend_tools=[],
     # search_flights is a backend tool the page's "Search Flights" pill exercises
     # (mirrors langgraph-python/beautiful_chat.py). The page-injected frontend

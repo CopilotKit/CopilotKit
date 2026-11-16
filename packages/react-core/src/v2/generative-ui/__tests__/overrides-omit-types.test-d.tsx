@@ -1,5 +1,6 @@
 // Type-only assertions, read by `tsc --noEmit` (`check-types`), never executed.
 import React from "react";
+import type { ReactNode } from "react";
 import { expectTypeOf } from "vitest";
 import { createGenerativeUI } from "../catalog";
 import type {
@@ -77,3 +78,9 @@ export const cannotOverrideOmitted = createGenerativeUI({
   },
   components: {},
 });
+
+// A child ref of a standard schema reaches an override as a React node.
+type TabsProps = GenerativeUIComponentProps<typeof standardUI, "Tabs">;
+expectTypeOf<
+  NonNullable<TabsProps["tabs"]>[number]["child"]
+>().toEqualTypeOf<ReactNode>();

@@ -32,19 +32,20 @@ Most integrations write that key literally in the runtime route, as above, so th
 binding is visible in one file. Some derive it instead, and that is where the rule
 stops being obvious:
 
-- **Mastra** — `MastraAgent.getRemoteAgents` and `getLocalAgents` both build the map
-  from `listAgents()`, which is keyed by the **record key** in
-  `new Mastra({ agents: { ... } })`, not by the agent's `id`. Given
-  `new Agent({ name: "My Agent" })` exported as `myAgent` and registered as
+- **Mastra**: the runtime key is the **record key** in
+  `new Mastra({ agents: { ... } })`, not the agent's `id`.
+  `MastraAgent.getRemoteAgents` and `getLocalAgents` both read it from `listAgents()`.
+  Given `new Agent({ name: "My Agent" })` exported as `myAgent` and registered as
   `agents: { myAgent }`, the runtime key is `myAgent`.
-- **LangGraph** — `graphId` is a *separate* binding, from the runtime to a key in your
+- **LangGraph**: `graphId` is a *separate* binding, from the runtime to a key in your
   deployment's `langgraph.json`. It does not have to equal the runtime's agents-map
   key, and it is not the name the frontend asks for. The starter template happens to
   use `sample_agent` for both.
 
 <Callout type="warn" title="An agent's declared name is not its routing key">
-  Asking for a name the runtime did not register resolves no agent, and the frontend
-  raises `CopilotKitAgentDiscoveryError` — see [Agent discovery
+  Asking for a name the runtime did not register resolves no agent. In React,
+  `useAgent` throws an error that starts with `useAgent: Agent '<name>' not found
+  after runtime sync`. See [Agent discovery
   failed](/troubleshooting/error-reference). The error message lists the keys the
   runtime actually returned, which is the quickest way to see the real names.
 </Callout>

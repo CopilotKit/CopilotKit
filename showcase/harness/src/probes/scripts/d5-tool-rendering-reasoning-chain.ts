@@ -4,7 +4,7 @@
  * Drives `/demos/tool-rendering-reasoning-chain`. The demo composes
  * two patterns into one chat surface:
  *
- *   1. Reasoning tokens streamed by `init_chat_model("openai:gpt-5.4",
+ *   1. Reasoning tokens streamed by `init_chat_model("openai:gpt-6-luna",
  *      use_responses_api=True, reasoning={"effort":"medium",
  *      "summary":"detailed"})` and rendered via a custom
  *      `messageView.reasoningMessage` slot

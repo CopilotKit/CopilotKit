@@ -132,8 +132,10 @@ describe("createCopilotRuntimeHandler — multi-route with basePath", () => {
     const body = await response.json();
     expect(body).toHaveProperty("version");
     expect(body).toHaveProperty("agents");
+    // A default runtime has no identity and no open access: it refuses the
+    // thread list but serves reads of a thread by id.
     expect(body.threadEndpoints).toMatchObject({
-      list: true,
+      list: false,
       inspect: true,
       mutations: false,
       realtimeMetadata: false,

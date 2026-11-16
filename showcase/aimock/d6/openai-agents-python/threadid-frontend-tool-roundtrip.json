@@ -1,0 +1,39 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for openai-agents-python",
+    "created": "2026-11-03",
+    "copiedFrom": "google-antigravity",
+    "_note": "turnIndex re-staged from google-antigravity's count (3 assistant-side messages per tool round) to the one aimock derives from Responses API input here: each function_call item is one assistant message and each text reply one more, so a tool round is 2."
+  },
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "invoke testFrontendToolCalling with label X",
+        "context": "openai-agents-python",
+        "turnIndex": 0
+      },
+      "response": {
+        "content": "Calling frontend tool.",
+        "toolCalls": [
+          {
+            "id": "call_ent_658_test_frontend_tool_x",
+            "name": "testFrontendToolCalling",
+            "arguments": {
+              "label": "X"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "invoke testFrontendToolCalling with label X",
+        "context": "openai-agents-python",
+        "turnIndex": 1
+      },
+      "response": {
+        "content": "Frontend tool finished for X."
+      }
+    }
+  ]
+}

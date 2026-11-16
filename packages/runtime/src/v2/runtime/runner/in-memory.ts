@@ -2,8 +2,15 @@ import type {
   AgentRunnerConnectRequest,
   AgentRunnerIsRunningRequest,
   AgentRunnerRunRequest,
+  LocalThreadEndpointScope,
 } from "./agent-runner";
-import { AgentRunner, ThreadAlreadyRunningError } from "./agent-runner";
+import {
+  AgentRunner,
+  ThreadAccessDeniedError,
+  ThreadAlreadyRunningError,
+  ɵSERVER_THREAD_OWNER,
+  ɵresolveThreadOwner,
+} from "./agent-runner";
 import type { AgentRunnerStopRequest } from "./agent-runner";
 import type { Observable } from "rxjs";
 import { ReplaySubject } from "rxjs";
@@ -195,14 +202,23 @@ export interface InMemoryThread {
   name: string | null;
   agentId: string;
   organizationId: ""; // always empty in in-memory mode
-  createdById: ""; // always empty in in-memory mode
+  /** Identity that owns the thread; `""` for a thread created without identity. */
+  createdById: string;
   archived: false; // always false in in-memory mode
   createdAt: string;
   updatedAt: string;
 }
 
 class InMemoryEventStore {
-  constructor(public threadId: string) {}
+  /**
+   * @param ownerId Identity that owns this thread, recorded when the thread is
+   * created by its first run. `""` is the anonymous owner;
+   * {@link ɵSERVER_THREAD_OWNER} is the owner of a thread created server-side.
+   */
+  constructor(
+    public threadId: string,
+    public readonly ownerId: string,
+  ) {}
 
   /** The subject that current consumers subscribe to. */
   subject: ReplaySubject<BaseEvent> | null = null;
@@ -266,8 +282,69 @@ class InMemoryEventStore {
   createdAt: number | null = null;
 }
 
+/**
+ * True when a caller acting as `owner` may reach `store`: only the thread's
+ * own owner may. Resolve an optional owner or scope with
+ * {@link ɵresolveThreadOwner} first; an omitted one is the server owner, never
+ * "every thread".
+ */
+function isVisibleTo(store: InMemoryEventStore, owner: string): boolean {
+  return store.ownerId === owner;
+}
+
+/** The owner a Thread endpoint call acts as. */
+function scopeOwner(scope: LocalThreadEndpointScope | undefined): string {
+  return ɵresolveThreadOwner(scope?.ownerId);
+}
+
+/**
+ * How long, and how many, owner records the store keeps for threads that left
+ * it through LRU eviction or a scoped clear. See
+ * {@link ɵBoundedThreadStore.ownerOf}.
+ *
+ * When a record is added over a limit, expired records go first; then, when
+ * the record's owner holds more than `maxEntriesPerOwner`, that owner's
+ * oldest record; then, over `maxEntries`, the oldest record of any owner. So
+ * one identity that churns threads (anonymous callers share one identity)
+ * only displaces its own records. Residual risk: many distinct identities
+ * together can still exceed `maxEntries` and push out another identity's
+ * live record. That frees the id for a new owner but leaks nothing, since
+ * the removed thread's history is already gone, and it needs the victim's
+ * thread id.
+ */
+export interface ɵOwnerRetention {
+  /** Milliseconds an owner record is kept after its thread was removed. */
+  ttlMs: number;
+  /** Most owner records kept in all. */
+  maxEntries: number;
+  /** Most owner records kept for one owner. */
+  maxEntriesPerOwner: number;
+  /** Clock, replaceable in tests. */
+  now: () => number;
+}
+
+export const ɵOWNER_RETENTION_DEFAULTS: ɵOwnerRetention = {
+  ttlMs: 24 * 60 * 60 * 1000,
+  maxEntries: 100_000,
+  maxEntriesPerOwner: 10_000,
+  now: () => Date.now(),
+};
+
 export class ɵBoundedThreadStore {
   private readonly map = new Map<string, InMemoryEventStore>();
+  /**
+   * Owners of threads that were removed from `map`, oldest first. A removed
+   * thread's history is gone, but its id stays reserved for its owner until
+   * the record expires, so another identity cannot claim the id and receive
+   * the owner's next runs or later replays.
+   */
+  private readonly removedOwners = new Map<
+    string,
+    { ownerId: string; removedAt: number }
+  >();
+  /** The ids in `removedOwners`, per owner, oldest first. */
+  private readonly removedOwnersByOwner = new Map<string, Set<string>>();
+  private ownerRetention: ɵOwnerRetention = ɵOWNER_RETENTION_DEFAULTS;
   private totalBytes = 0;
   private warned = false;
   /** True once limits have been EXPLICITLY set (via setLimits), not just the constructor default. */
@@ -343,13 +420,22 @@ export class ɵBoundedThreadStore {
     this.map.set(threadId, store);
   }
 
-  getOrCreate(threadId: string): InMemoryEventStore {
+  /**
+   * The thread's store, created and owned by `ownerId` when it does not exist
+   * yet. An existing store keeps its owner; callers check access first.
+   */
+  getOrCreate(
+    threadId: string,
+    ownerId: string = ɵSERVER_THREAD_OWNER,
+  ): InMemoryEventStore {
     const existing = this.map.get(threadId);
     if (existing) {
       this.touchOrder(threadId, existing);
       return existing;
     }
-    const store = new InMemoryEventStore(threadId);
+    const store = new InMemoryEventStore(threadId, ownerId);
+    // The live store now records the owner.
+    this.forgetOwner(threadId);
     this.map.set(threadId, store);
     this.evictThreadsIfNeeded(threadId);
     return store;
@@ -395,9 +481,19 @@ export class ɵBoundedThreadStore {
     return false;
   }
 
-  appendRun(threadId: string, run: HistoricRun): void {
+  /**
+   * Append a finished run to `writer`, the store its run started on. Nothing is
+   * written when `writer` is no longer the live store for `threadId` (the thread
+   * was removed, or removed and claimed again): a run must never write into a
+   * thread it did not start on, which may now belong to another owner.
+   */
+  appendRun(
+    threadId: string,
+    writer: InMemoryEventStore | undefined,
+    run: HistoricRun,
+  ): void {
     const store = this.map.get(threadId);
-    if (!store) return; // best-effort: nothing to append to
+    if (!store || store !== writer) return;
 
     // Thread-level creation timestamp: capture the FIRST run's createdAt once
     // and never overwrite it. Held on the store (not derived from
@@ -487,6 +583,87 @@ export class ɵBoundedThreadStore {
     // be reclaimed here in addition to the per-run event bytes.
     this.totalBytes -= store.approxMessagesSnapshotBytes;
     this.map.delete(threadId);
+    this.rememberOwner(threadId, store.ownerId);
+  }
+
+  /**
+   * Keep the owner of a removed thread, within the retention bounds. See
+   * {@link ɵOwnerRetention} for which records go first over a limit.
+   */
+  private rememberOwner(threadId: string, ownerId: string): void {
+    const { maxEntries, maxEntriesPerOwner, now } = this.ownerRetention;
+    this.forgetOwner(threadId); // re-insert at the tail (newest)
+    this.removedOwners.set(threadId, { ownerId, removedAt: now() });
+    let owned = this.removedOwnersByOwner.get(ownerId);
+    if (!owned) {
+      owned = new Set();
+      this.removedOwnersByOwner.set(ownerId, owned);
+    }
+    owned.add(threadId);
+    this.pruneRemovedOwners();
+    while (owned.size > maxEntriesPerOwner) {
+      const oldest = owned.values().next().value;
+      if (oldest === undefined) break;
+      this.forgetOwner(oldest);
+    }
+    while (this.removedOwners.size > maxEntries) {
+      const oldest = this.removedOwners.keys().next().value;
+      if (oldest === undefined) break;
+      this.forgetOwner(oldest);
+    }
+  }
+
+  /** Remove the owner record of `threadId`, if any. */
+  private forgetOwner(threadId: string): void {
+    const record = this.removedOwners.get(threadId);
+    if (!record) return;
+    this.removedOwners.delete(threadId);
+    const owned = this.removedOwnersByOwner.get(record.ownerId);
+    owned?.delete(threadId);
+    if (owned?.size === 0) this.removedOwnersByOwner.delete(record.ownerId);
+  }
+
+  /** Drop expired owner records. They are oldest first, so stop at the first live one. */
+  private pruneRemovedOwners(): void {
+    const { ttlMs, now } = this.ownerRetention;
+    const cutoff = now() - ttlMs;
+    for (const [threadId, record] of this.removedOwners) {
+      if (record.removedAt >= cutoff) break;
+      this.forgetOwner(threadId);
+    }
+  }
+
+  /**
+   * Owner of `threadId`: the live thread's owner, or the retained owner of a
+   * thread that was evicted or cleared. `undefined` when nobody owns the id, so
+   * the next run may claim it.
+   */
+  ownerOf(threadId: string): string | undefined {
+    const store = this.map.get(threadId);
+    if (store) return store.ownerId;
+    this.pruneRemovedOwners();
+    const record = this.removedOwners.get(threadId);
+    if (!record) return undefined;
+    const { ttlMs, now } = this.ownerRetention;
+    if (record.removedAt < now() - ttlMs) {
+      this.forgetOwner(threadId);
+      return undefined;
+    }
+    return record.ownerId;
+  }
+
+  /** True when a caller acting as `owner` may run on, or claim, `threadId`. */
+  canClaim(threadId: string, owner: string): boolean {
+    const current = this.ownerOf(threadId);
+    return current === undefined || current === owner;
+  }
+
+  /**
+   * Replace the owner-record retention. Omitted fields fall back to
+   * {@link ɵOWNER_RETENTION_DEFAULTS}. Internal: for tests.
+   */
+  ɵsetOwnerRetention(retention: Partial<ɵOwnerRetention>): void {
+    this.ownerRetention = { ...ɵOWNER_RETENTION_DEFAULTS, ...retention };
   }
 
   private evictThreadsIfNeeded(protect?: string): void {
@@ -505,10 +682,11 @@ export class ɵBoundedThreadStore {
     }
   }
 
-  listThreads(): InMemoryThread[] {
+  listThreads(scope?: LocalThreadEndpointScope): InMemoryThread[] {
     const threads: InMemoryThread[] = [];
     for (const [threadId, store] of this.map) {
       if (store.historicRuns.length === 0) continue;
+      if (!isVisibleTo(store, scopeOwner(scope))) continue;
       const lastRun = store.historicRuns[store.historicRuns.length - 1]!;
       // Creation time comes from the thread-level `store.createdAt` (the first
       // run ever appended), NOT `historicRuns[0]` (the oldest RETAINED run):
@@ -523,7 +701,7 @@ export class ɵBoundedThreadStore {
         name: null,
         agentId: lastRun.agentId,
         organizationId: "",
-        createdById: "",
+        createdById: store.ownerId,
         archived: false,
         createdAt: new Date(store.createdAt ?? lastRun.createdAt).toISOString(),
         updatedAt: new Date(lastRun.createdAt).toISOString(),
@@ -535,8 +713,30 @@ export class ɵBoundedThreadStore {
     );
   }
 
-  clear(): void {
+  /**
+   * Removes every thread visible to `scope`, except threads that are running
+   * or still finalizing: removing one would drop its owner record while its
+   * run still writes, so another identity could claim the id. Those threads
+   * stay, as in `evictOneLru`. A scoped clear leaves other owners' threads
+   * untouched.
+   *
+   * Without a scope the whole store is reset, running threads included. That
+   * is an internal reset for tests; `appendRun` keeps an orphaned run from
+   * writing into a thread created after the reset.
+   */
+  clear(scope?: LocalThreadEndpointScope): void {
+    if (scope !== undefined) {
+      // Deleting the current entry while iterating a Map is safe.
+      for (const [threadId, store] of this.map) {
+        if (store.isRunning || store.stopRequested) continue;
+        if (isVisibleTo(store, scopeOwner(scope)))
+          this.removeThread(threadId, store);
+      }
+      return;
+    }
     this.map.clear();
+    this.removedOwners.clear();
+    this.removedOwnersByOwner.clear();
     this.totalBytes = 0;
     this.warned = false;
   }
@@ -607,7 +807,13 @@ export class InMemoryAgentRunner extends AgentRunner {
   }
 
   run(request: AgentRunnerRunRequest): Observable<BaseEvent> {
-    const store = sharedStore.getOrCreate(request.threadId);
+    // A thread belongs to the identity of its first run. Check before
+    // `getOrCreate` so a refused run does not touch the thread's LRU position.
+    const owner = ɵresolveThreadOwner(request.ownerId);
+    if (!sharedStore.canClaim(request.threadId, owner)) {
+      throw new ThreadAccessDeniedError();
+    }
+    const store = sharedStore.getOrCreate(request.threadId, owner);
 
     // Enter the concurrency branch whenever a prior run still owns the thread —
     // either actively running OR still finalizing after a stop()/supersede.
@@ -759,7 +965,7 @@ export class InMemoryAgentRunner extends AgentRunner {
         ) {
           // Compact the events before storing (like SQLite does)
           const compactedEvents = compactEvents(currentRunEvents);
-          sharedStore.appendRun(request.threadId, {
+          sharedStore.appendRun(request.threadId, store, {
             threadId: request.threadId,
             runId: request.input.runId,
             agentId: request.agent.agentId ?? "default",
@@ -876,15 +1082,43 @@ export class InMemoryAgentRunner extends AgentRunner {
     // connect() subscribers via its own (now-detached) subject, never the
     // superseding run's.
 
-    // Start the agent execution immediately (not lazily)
-    runAgent();
+    // Start the agent execution immediately (not lazily). When finishing the
+    // run throws on both paths, release the thread anyway: otherwise it stays
+    // "running", refuses every later run and is never evicted.
+    runAgent().catch((error) => {
+      console.error(
+        "Failed to finish agent run",
+        { threadId: request.threadId, runId: request.input.runId },
+        error,
+      );
+      if (store.currentRunId === request.input.runId) {
+        store.currentEvents = null;
+        store.currentRunId = null;
+        store.agent = null;
+        store.runSubject = null;
+        store.stopRequested = false;
+        store.isRunning = false;
+        store.activeFinalize = null;
+      }
+      runSubject.complete();
+      nextSubject.complete();
+      if (store.subject === nextSubject) {
+        store.subject = null;
+      }
+    });
 
     // Return the run subject (only agent events, no injected messages)
     return runSubject.asObservable();
   }
 
   connect(request: AgentRunnerConnectRequest): Observable<BaseEvent> {
-    const store = sharedStore.get(request.threadId, { touch: true });
+    const found = sharedStore.peek(request.threadId);
+    // A thread owned by another identity is indistinguishable from an
+    // unknown one: no replay, no live bridge.
+    const store =
+      found && isVisibleTo(found, ɵresolveThreadOwner(request.ownerId))
+        ? sharedStore.get(request.threadId, { touch: true })
+        : undefined;
     const connectionSubject = new ReplaySubject<BaseEvent>(Infinity);
 
     if (!store) {
@@ -938,12 +1172,20 @@ export class InMemoryAgentRunner extends AgentRunner {
 
   isRunning(request: AgentRunnerIsRunningRequest): Promise<boolean> {
     const store = sharedStore.peek(request.threadId);
-    return Promise.resolve(store?.isRunning ?? false);
+    // Another identity's thread reports "not running".
+    if (!store || !isVisibleTo(store, ɵresolveThreadOwner(request.ownerId))) {
+      return Promise.resolve(false);
+    }
+    return Promise.resolve(store.isRunning);
   }
 
   stop(request: AgentRunnerStopRequest): Promise<boolean | undefined> {
     const store = sharedStore.peek(request.threadId);
     if (!store || !store.isRunning) {
+      return Promise.resolve(false);
+    }
+    // Another identity's run reports the same as "no active run".
+    if (!isVisibleTo(store, ɵresolveThreadOwner(request.ownerId))) {
       return Promise.resolve(false);
     }
     if (request.runId !== undefined && store.currentRunId !== request.runId) {
@@ -988,14 +1230,16 @@ export class InMemoryAgentRunner extends AgentRunner {
   }
 
   /**
-   * Returns a summary of every thread that has been run through this runner.
+   * Returns a summary of every thread that `scope`'s owner holds in the
+   * process-wide store, which every InMemoryAgentRunner shares. Without a
+   * scope, the server owner's threads ({@link ɵSERVER_THREAD_OWNER}).
    *
    * This powers the local-dev fallback for `GET /threads` when the Intelligence
    * platform is not configured. Each entry mirrors the shape of a platform
    * `ThreadRecord` so the HTTP handler can use the same response envelope.
    */
-  listThreads(): InMemoryThread[] {
-    return sharedStore.listThreads();
+  listThreads(scope?: LocalThreadEndpointScope): InMemoryThread[] {
+    return sharedStore.listThreads(scope);
   }
 
   /**
@@ -1007,8 +1251,11 @@ export class InMemoryAgentRunner extends AgentRunner {
    * objects come directly from the ag-ui agent, so their shape is compatible
    * with CopilotKit Intelligence's `ThreadMessage` type.
    */
-  getThreadMessages(threadId: string): Message[] {
-    const store = sharedStore.peek(threadId);
+  getThreadMessages(
+    threadId: string,
+    scope?: LocalThreadEndpointScope,
+  ): Message[] {
+    const store = this.peekVisible(threadId, scope);
     if (!store) return [];
     // The thread's latest non-empty snapshot is held at the store level,
     // independent of `historicRuns` lifecycle, so run-cap eviction and
@@ -1034,8 +1281,11 @@ export class InMemoryAgentRunner extends AgentRunner {
    * the connection-replay path in {@link connect}, so the stream a
    * late-joining inspector sees matches what this method returns.
    */
-  getThreadEvents(threadId: string): BaseEvent[] {
-    const store = sharedStore.peek(threadId);
+  getThreadEvents(
+    threadId: string,
+    scope?: LocalThreadEndpointScope,
+  ): BaseEvent[] {
+    const store = this.peekVisible(threadId, scope);
     if (!store || store.historicRuns.length === 0) return [];
     const all: BaseEvent[] = [];
     for (const run of store.historicRuns) all.push(...run.events);
@@ -1052,8 +1302,11 @@ export class InMemoryAgentRunner extends AgentRunner {
    *
    * Returns `null` when the thread has never emitted a STATE_SNAPSHOT.
    */
-  getThreadState(threadId: string): Record<string, unknown> | null {
-    const events = this.getThreadEvents(threadId);
+  getThreadState(
+    threadId: string,
+    scope?: LocalThreadEndpointScope,
+  ): Record<string, unknown> | null {
+    const events = this.getThreadEvents(threadId, scope);
     // Walk backwards — the last snapshot wins.
     for (let i = events.length - 1; i >= 0; i--) {
       const event = events[i]!;
@@ -1079,7 +1332,9 @@ export class InMemoryAgentRunner extends AgentRunner {
   }
 
   /**
-   * Clears all in-memory thread history.
+   * Clears the in-memory history of `scope`'s threads (without a scope, the
+   * server owner's). A thread with a run still active or finalizing is kept;
+   * see {@link ɵBoundedThreadStore.clear}.
    *
    * Powers the local-dev fallback for `POST /threads/clear`, letting consumers
    * (e.g. the demo's Clear button) reset to an empty thread list without
@@ -1087,7 +1342,27 @@ export class InMemoryAgentRunner extends AgentRunner {
    * platform path: there, thread history lives in a real database and must
    * not be wiped this way.
    */
-  clearThreads(): void {
-    sharedStore.clear();
+  clearThreads(scope?: LocalThreadEndpointScope): void {
+    sharedStore.clear({ ownerId: scopeOwner(scope) });
+  }
+
+  /**
+   * False when the thread id is held by an owner other than `scope`'s: a
+   * live thread, or the retained owner of an evicted or cleared one.
+   */
+  isThreadAccessible(
+    threadId: string,
+    scope: LocalThreadEndpointScope,
+  ): boolean {
+    return sharedStore.canClaim(threadId, scopeOwner(scope));
+  }
+
+  /** The thread's store, or `undefined` when unknown or not visible to `scope`. */
+  private peekVisible(
+    threadId: string,
+    scope: LocalThreadEndpointScope | undefined,
+  ): InMemoryEventStore | undefined {
+    const store = sharedStore.peek(threadId);
+    return store && isVisibleTo(store, scopeOwner(scope)) ? store : undefined;
   }
 }

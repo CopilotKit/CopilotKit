@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { useGenerativeUIAccessibility } from "../accessibility";
 import { createGenerativeUI } from "../catalog";
-import { createGenerativeUIDispatcher } from "../dispatcher";
+import { createGenerativeUIDispatcher } from "@copilotkit/core/generative-ui";
 import { renderSurface } from "../standard/__tests__/render";
 
 function Text({ text }: { text: string | number }) {
@@ -74,7 +74,7 @@ const ui = createGenerativeUI({
 });
 
 const setData = (path: string, value: unknown) => ({
-  version: "v1.0" as const,
+  version: "1.0" as const,
   updateDataModel: { surfaceId: "surface", path, value },
 });
 
@@ -260,7 +260,7 @@ describe("dynamic values in props", () => {
     );
     expect((await v.findByTestId("text")).textContent).toBe("from a");
     v.update({
-      version: "v1.0",
+      version: "1.0",
       updateComponents: {
         surfaceId: "surface",
         components: [

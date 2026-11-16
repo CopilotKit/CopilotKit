@@ -139,6 +139,11 @@ interface UseAgentUnscopedProps {
 export type UseAgentProps = UseAgentPropsBase &
   (UseAgentThreadScopedProps | UseAgentUnscopedProps);
 
+/**
+ * Returns the selected agent and its readiness, subscribing to agent updates.
+ * Uses a shared agent by default, or a private proxy when `agentId`,
+ * `runtimeAgentId`, and `threadId` are supplied together.
+ */
 export function useAgent({
   agentId,
   threadId,
@@ -366,7 +371,7 @@ export function useAgent({
     copilotkit.runtimeUrl,
     copilotkit.runtimeTransport,
     copilotkit.credentials,
-    JSON.stringify(copilotkit.headers),
+    copilotkit.ɵheadersGeneration,
   ]);
 
   useEffect(() => {
@@ -440,7 +445,7 @@ export function useAgent({
       agent.credentials = copilotkit.credentials;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agent, JSON.stringify(copilotkit.headers), copilotkit.credentials]);
+  }, [agent, copilotkit.ɵheadersGeneration, copilotkit.credentials]);
 
   // Propagate the caller-supplied threadId onto the agent. AbstractAgent's
   // constructor auto-mints a UUID when no threadId is passed, so without this

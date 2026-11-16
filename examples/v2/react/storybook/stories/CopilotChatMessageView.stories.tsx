@@ -1,7 +1,12 @@
+import React from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
+import { ProxiedCopilotRuntimeAgent } from "@copilotkit/core";
 import {
+  CopilotChatConfigurationProvider,
   CopilotChatMessageView,
+  CopilotChatView,
+  CopilotKitProvider,
   WildcardToolCallRender,
 } from "@copilotkit/react-core/v2";
 import {
@@ -78,4 +83,70 @@ export const DefaultToolRendererDarkTheme: Story = {
     messages: defaultRendererConversation,
   },
   decorators: [withDefaultToolRenderer],
+};
+
+const resizeMessages = Array.from({ length: 100 }, (_, index) => ({
+  id: `resize-${index}`,
+  role: "user" as const,
+  content: `Message ${index}: ${"Long messages wrap differently when the chat panel changes width. ".repeat(30)}`,
+}));
+
+function VirtualizedResizeExample() {
+  const [width, setWidth] = React.useState(650);
+  const [pinned, setPinned] = React.useState(false);
+  const [agents] = React.useState(() => ({
+    default: new ProxiedCopilotRuntimeAgent({ agentId: "default" }),
+  }));
+
+  return (
+    <CopilotKitProvider agents__unsafe_dev_only={agents} showDevConsole={false}>
+      <CopilotChatConfigurationProvider threadId="virtualized-resize">
+        <p>
+          Scroll into the history, then change the width. The reading position
+          should stay fixed.
+        </p>
+        <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
+          <button onClick={() => setWidth(330)}>Narrow</button>
+          <button onClick={() => setWidth(650)}>Wide</button>
+          <label>
+            <input
+              type="checkbox"
+              checked={pinned}
+              onChange={(event) => setPinned(event.target.checked)}
+            />
+            Pin to bottom
+          </label>
+        </div>
+        <div
+          style={{
+            width,
+            maxWidth: "100%",
+            height: 520,
+            display: "flex",
+            flexDirection: "column",
+          }}
+        >
+          <CopilotChatView.ScrollView
+            key={String(pinned)}
+            autoScroll={pinned ? "pin-to-bottom" : "none"}
+          >
+            <CopilotChatMessageView messages={resizeMessages} />
+          </CopilotChatView.ScrollView>
+        </div>
+      </CopilotChatConfigurationProvider>
+    </CopilotKitProvider>
+  );
+}
+
+export const VirtualizedResize: Story = {
+  parameters: {
+    copilotkit: false,
+    docs: {
+      description: {
+        story:
+          "Resize a virtualized conversation while reading history, or enable bottom pinning and resize in both directions. Neither case should jump to a different message.",
+      },
+    },
+  },
+  render: () => <VirtualizedResizeExample />,
 };

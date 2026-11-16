@@ -24,7 +24,8 @@
  * config.configurable.copilotkit_forwarded_headers.
  */
 
-import { ChatOpenAI, type ChatOpenAIFields } from "@langchain/openai";
+import { ChatOpenAI } from "@langchain/openai";
+import type { ChatOpenAIFields } from "@langchain/openai";
 import type { RunnableConfig } from "@langchain/core/runnables";
 
 const CVDIAG_COMPONENT = "backend-langgraph-ts";
@@ -93,6 +94,12 @@ export function makeChatOpenAI(
   config: RunnableConfig | undefined,
   opts: ChatOpenAIFields = {},
 ): ChatOpenAI {
+  if (opts.model === "gpt-6-luna" && !opts.useResponsesApi) {
+    opts = {
+      ...opts,
+      modelKwargs: { ...opts.modelKwargs, reasoning_effort: "none" },
+    };
+  }
   const forwarded = extractForwardedHeaders(config);
   const existing = opts.configuration?.defaultHeaders ?? {};
   const merged: Record<string, string> = {
@@ -129,7 +136,7 @@ export function makeChatOpenAI(
   return new ChatOpenAI({
     ...opts,
     configuration: {
-      ...(opts.configuration ?? {}),
+      ...opts.configuration,
       defaultHeaders: merged,
     },
   });

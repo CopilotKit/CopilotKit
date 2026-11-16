@@ -1,41 +1,16 @@
 import { EventType, HttpAgent } from "@copilotkit/react-core/v2";
 import type { CatalogSample } from "./samples";
+import {
+  sampleOperations,
+  sampleSurfaceId,
+} from "../../../../../showcase/shared/generative-ui-catalog/operations";
+export {
+  sampleOperations,
+  sampleSurfaceId,
+} from "../../../../../showcase/shared/generative-ui-catalog/operations";
 
 /** The activity type of a generative UI surface on the AG-UI wire. */
 const SURFACE_ACTIVITY_TYPE = "generative-ui-surface";
-/** The A2UI version of every operation. Generative UI accepts only "v1.0". */
-const A2UI_VERSION = "v1.0";
-
-/** The target and surface id of the sample at `index`. */
-export function sampleSurfaceId(index: number) {
-  return `sample-${index}`;
-}
-
-/** The operations that render `sample`: create, data model, components. */
-export function sampleOperations(
-  sample: CatalogSample,
-  surfaceId: string,
-  catalogId: string,
-) {
-  const create = {
-    version: A2UI_VERSION,
-    createSurface: { surfaceId, catalogId },
-  };
-  const data =
-    sample.data === undefined
-      ? []
-      : [
-          {
-            version: A2UI_VERSION,
-            updateDataModel: { surfaceId, path: "/", value: sample.data },
-          },
-        ];
-  const update = {
-    version: A2UI_VERSION,
-    updateComponents: { surfaceId, components: sample.components },
-  };
-  return [create, ...data, update];
-}
 
 /** The thread and run ids of the run request, read from its JSON body. */
 function runIdsOf(body: BodyInit | null | undefined) {

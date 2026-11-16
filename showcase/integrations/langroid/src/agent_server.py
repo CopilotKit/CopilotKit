@@ -96,15 +96,8 @@ async def run_agent(request: Request):
     return await handle_run(request)
 
 
-# Reasoning-aware sub-app. Langroid's stock unified adapter calls OpenAI
-# non-streaming and reads only message.content / message.tool_calls — it
-# drops the model's reasoning_content channel, so the reasoning-default /
-# reasoning-custom cells can never light up CopilotKit's reasoning slot via
-# the unified agent. This custom sub-app streams the chat-completions call
-# directly, captures delta.reasoning_content, and emits REASONING_MESSAGE_*
-# events. The HttpAgent posts to /reasoning/; the outer Mount strips
-# /reasoning and the inner Mount at "/" resolves ReasoningEndpoint. Mirrors
-# ag2's /reasoning mount.
+# Dedicated Responses endpoints expose public summaries for the reasoning
+# demos and tool-chain demo. Ordinary chat keeps the chat-completions path.
 app.mount("/reasoning", reasoning_app)
 
 
@@ -156,7 +149,7 @@ async def run_subagents(request: Request):
 
 @app.post("/multimodal")
 async def run_multimodal(request: Request):
-    """Multimodal demo endpoint — vision-capable (gpt-4o).
+    """Multimodal demo endpoint — vision-capable (gpt-6-luna).
 
     Forwards image attachments to the model natively; flattens PDFs to
     text via pypdf so the model can read them without needing file-part

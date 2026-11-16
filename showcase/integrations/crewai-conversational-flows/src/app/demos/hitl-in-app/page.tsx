@@ -87,7 +87,7 @@ function Layout() {
   };
 
   return (
-    <div className="h-screen bg-gray-50">
+    <div className="h-screen bg-gray-50 dark:bg-background">
       <TicketsPanel />
       <CopilotPopup
         agentId="hitl-in-app"
