@@ -119,8 +119,26 @@ test("preserves a remote agent across a same-target same-transport refresh", asy
   const runtimeUrl = "https://runtime.example";
   const { core, fetchMock, teardown } = setupCore(
     runtimeUrl,
-    runtimeInfoResponse(runtimeInfo("1.0.0", retryableRuntimeEntitlements)),
-    runtimeInfoResponse(runtimeInfo("2.0.0", readyRuntimeEntitlements)),
+    runtimeInfoResponse({
+      ...runtimeInfo("1.0.0", retryableRuntimeEntitlements),
+      agents: {
+        default: {
+          name: "Research Assistant",
+          className: "HttpAgent",
+          description: "assistant",
+        },
+      },
+    }),
+    runtimeInfoResponse({
+      ...runtimeInfo("2.0.0", readyRuntimeEntitlements),
+      agents: {
+        default: {
+          name: "Updated Research Assistant",
+          className: "HttpAgent",
+          description: "assistant",
+        },
+      },
+    }),
   );
 
   try {
@@ -128,6 +146,10 @@ test("preserves a remote agent across a same-target same-transport refresh", asy
       expect(core.getAgent("default")).toBeDefined();
     });
     const firstInstance = core.getAgent("default");
+    expect(firstInstance?.agentId).toBe("default");
+    expect((firstInstance as ProxiedCopilotRuntimeAgent).name).toBe(
+      "Research Assistant",
+    );
     if (!firstInstance) {
       throw new Error("Expected the Runtime to advertise the default agent");
     }
@@ -148,6 +170,10 @@ test("preserves a remote agent across a same-target same-transport refresh", asy
     const secondInstance = core.getAgent("default");
 
     expect(secondInstance).toBe(firstInstance);
+    expect(secondInstance?.agentId).toBe("default");
+    expect((secondInstance as ProxiedCopilotRuntimeAgent).name).toBe(
+      "Updated Research Assistant",
+    );
     expect(secondInstance?.messages).toHaveLength(1);
     expect(secondInstance?.messages[0]?.id).toBe("assistant-1");
     expect(secondInstance?.threadId).toBe("thread-run-1");
