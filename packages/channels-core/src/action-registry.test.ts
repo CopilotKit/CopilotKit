@@ -37,6 +37,14 @@ function Confirm(props: { action: string }): ChannelNode {
   };
 }
 
+function deferred() {
+  let resolve!: () => void;
+  const promise = new Promise<void>((r) => {
+    resolve = r;
+  });
+  return { promise, resolve };
+}
+
 const ctx = {} as InteractionContext;
 
 describe("ActionRegistry", () => {
@@ -339,6 +347,136 @@ describe("ActionRegistry", () => {
       await expect(
         reg.claimContinuation(second, continuation),
       ).rejects.toBeInstanceOf(ActionAlreadyClaimedError);
+    });
+
+    it.each(["older", "newer"])(
+      "joins the current gate when the %s write completes first",
+      async (firstToComplete) => {
+        vi.useFakeTimers();
+        const writes = [0, 1].map(() => ({
+          started: deferred(),
+          released: deferred(),
+        }));
+        const binds: Promise<string>[] = [];
+        try {
+          const store = kvActionStore(new MemoryStore());
+          const put = store.put.bind(store);
+          let gateWrites = 0;
+          vi.spyOn(store, "put").mockImplementation(async (key, snap, ttl) => {
+            if (key.startsWith("resume:") && gateWrites < writes.length) {
+              const write = writes[gateWrites++]!;
+              write.started.resolve();
+              await write.released.promise;
+            }
+            await put(key, snap, ttl);
+          });
+          const reg = new ActionRegistry({ store, retentionMs: 100 });
+          reg.registerComponent("Confirm", Confirm as never);
+          const chain = { ...continuation };
+          const bind = async () =>
+            firstActionId(
+              await reg.bindTree(
+                "Confirm",
+                { action: "approve" },
+                "conv1",
+                chain,
+              ),
+            );
+          const older = bind();
+          binds.push(older);
+          let olderPublished = false;
+          void older.then(() => {
+            olderPublished = true;
+          });
+          await writes[0]!.started.promise;
+          vi.advanceTimersByTime(100);
+          const newer = bind();
+          binds.push(newer);
+          await writes[1]!.started.promise;
+
+          if (firstToComplete === "older") {
+            writes[0]!.released.resolve();
+            await vi.advanceTimersByTimeAsync(0);
+            expect(olderPublished).toBe(false);
+          }
+          writes[1]!.released.resolve();
+          const currentId = await newer;
+          await reg.claimContinuation(currentId, continuation);
+          writes[0]!.released.resolve();
+          const oldId = await older;
+          const siblingId = await bind();
+          reg.clearHotCache();
+
+          await expect(
+            reg.claimContinuation(oldId, continuation),
+          ).rejects.toBeInstanceOf(ActionAlreadyClaimedError);
+          await expect(
+            reg.claimContinuation(siblingId, continuation),
+          ).rejects.toBeInstanceOf(ActionAlreadyClaimedError);
+        } finally {
+          for (const write of writes) write.released.resolve();
+          await Promise.allSettled(binds);
+          vi.useRealTimers();
+        }
+      },
+    );
+
+    it("retries the current gate when a superseding write failed", async () => {
+      vi.useFakeTimers();
+      let release!: () => void;
+      let started!: () => void;
+      const pending = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const reached = new Promise<void>((resolve) => {
+        started = resolve;
+      });
+      let older: Promise<string> | undefined;
+      try {
+        const store = kvActionStore(new MemoryStore());
+        const put = store.put.bind(store);
+        let gateWrites = 0;
+        vi.spyOn(store, "put").mockImplementation(async (key, snap, ttl) => {
+          if (key.startsWith("resume:")) {
+            gateWrites++;
+            if (gateWrites === 1) {
+              started();
+              await pending;
+            } else if (gateWrites === 2) {
+              throw new Error("store unavailable");
+            }
+          }
+          await put(key, snap, ttl);
+        });
+        const reg = new ActionRegistry({ store, retentionMs: 100 });
+        reg.registerComponent("Confirm", Confirm as never);
+        const chain = { ...continuation };
+        const bind = async () =>
+          firstActionId(
+            await reg.bindTree(
+              "Confirm",
+              { action: "approve" },
+              "conv1",
+              chain,
+            ),
+          );
+        older = bind();
+        await reached;
+        vi.advanceTimersByTime(100);
+        await expect(bind()).rejects.toThrow("store unavailable");
+        release();
+        const oldId = await older;
+        const currentId = await bind();
+
+        await reg.claimContinuation(oldId, continuation);
+        await expect(
+          reg.claimContinuation(currentId, continuation),
+        ).rejects.toBeInstanceOf(ActionAlreadyClaimedError);
+      } finally {
+        release();
+        await older?.catch(() => {});
+        vi.useRealTimers();
+      }
     });
 
     it.each([

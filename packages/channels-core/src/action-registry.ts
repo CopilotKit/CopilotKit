@@ -837,6 +837,11 @@ export class ActionRegistry {
         this.resumeGateTtl(),
       )
       .then(() => {
+        // A newer open may have superseded this write while it was pending.
+        // Its completion must gate this bind too, before it takes a snapshot.
+        if (this.resumeGates.get(continuation) !== gate) {
+          return this.ensureResumeGate(continuation);
+        }
         continuation.resumeGateId = id;
         continuation.resumeGateDeadline = openedAt + this.retentionMs * 2;
       });
