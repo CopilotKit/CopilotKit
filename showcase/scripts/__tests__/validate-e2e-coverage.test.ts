@@ -2,6 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { spawnSync } from "node:child_process";
 import {
   afterEach,
   beforeAll,
@@ -234,8 +235,26 @@ describe("shared D6 inventory", () => {
             context === "mixed" ? [...altered, ...data.fixtures] : altered,
         }),
       );
-      expect((await check()).exitCode).toBe(context === "mixed" ? 0 : 1);
+      expect((await check()).exitCode).toBe(1);
+      expect(await errors()).toMatch(/fixture 0.*exact context 'omnara'/);
     },
+  );
+});
+it("runs the CLI when its entry file is a symlink", () => {
+  const entry = file("validate-e2e-coverage.ts");
+  fs.symlinkSync(
+    path.join(showcase, "scripts/validate-e2e-coverage.ts"),
+    entry,
+  );
+  const result = spawnSync(
+    process.execPath,
+    [fileURLToPath(import.meta.resolve("tsx/cli")), entry],
+    { encoding: "utf8", timeout: 20_000 },
+  );
+  expect(result.error).toBeUndefined();
+  expect(result.status, result.stderr).toBe(0);
+  expect(result.stdout).toContain(
+    "ok: omnara has structural shared-d6 coverage",
   );
 });
 it("validates actual Omnara schema and rejects unsupported modes", () => {

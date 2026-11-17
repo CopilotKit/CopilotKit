@@ -5,6 +5,15 @@ export const DEFAULT_PROFILE = "copilotkit-assistant";
 /** Hosted Omnara. A self-hosted deployment serves its API at /api/v1. */
 export const DEFAULT_API_URL = "https://api.omnara.com/v1";
 
+export class OmnaraConfigurationError extends Error {
+  constructor(keys: string[]) {
+    super(
+      `Omnara setup is incomplete. Check ${keys.join(", ")} in the server environment (.env.local for Next.js; showcase/.env for Docker Compose). See README.md for profile setup.`,
+    );
+    this.name = "OmnaraConfigurationError";
+  }
+}
+
 /** Read the server-side Omnara settings, or explain what setup is missing. */
 export function omnaraConfig(
   env: Readonly<Record<string, string | undefined>>,
@@ -24,9 +33,7 @@ export function omnaraConfig(
     });
   if (!config.success) {
     const keys = [...new Set(config.error.issues.map((i) => i.path[0]))];
-    throw new Error(
-      `Omnara setup is incomplete. Check ${keys.join(", ")} in .env.local. See README.md for profile setup.`,
-    );
+    throw new OmnaraConfigurationError(keys.map(String));
   }
   const data = config.data;
   return {

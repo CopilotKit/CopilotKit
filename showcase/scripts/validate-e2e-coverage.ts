@@ -65,8 +65,11 @@ function sharedCoverage(manifest: Manifest, root: string): string[] {
             );
           }
         }
-        if (!fixtures.some((fixture) => fixture.match.context === slug)) {
-          errors.push(`${label}: no fixture with exact context '${slug}'`);
+        for (const [index, fixture] of fixtures.entries()) {
+          if (fixture.match.context !== slug)
+            errors.push(
+              `${label}: fixture ${index} must have exact context '${slug}'`,
+            );
         }
       } catch (error) {
         errors.push(`${label}: ${message(error)}`);
@@ -212,7 +215,9 @@ export async function validateE2eCoverage({
 
 if (
   process.argv[1] &&
-  path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+  fs.existsSync(process.argv[1]) &&
+  fs.realpathSync(process.argv[1]) ===
+    fs.realpathSync(fileURLToPath(import.meta.url))
 ) {
   const showcaseRoot = path.resolve(
     path.dirname(fileURLToPath(import.meta.url)),

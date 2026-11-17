@@ -4,7 +4,7 @@ import {
   createCopilotRuntimeHandler,
 } from "@copilotkit/runtime/v2";
 import { createAgents } from "@/lib/agents";
-import { omnaraConfig } from "@/lib/omnara-config";
+import { omnaraConfig, OmnaraConfigurationError } from "@/lib/omnara-config";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -27,13 +27,14 @@ let cached: ReturnType<typeof createHandler> | undefined;
 function handler(request: Request) {
   try {
     cached ??= createHandler();
-  } catch {
+  } catch (error) {
+    if (error instanceof OmnaraConfigurationError)
+      return Response.json({ error: error.message }, { status: 503 });
+    // SDK error messages can contain credentials; log no configuration or payloads.
+    console.error("[omnara] Runtime initialization failed.");
     return Response.json(
-      {
-        error:
-          "Omnara setup is incomplete. Configure OMNARA_API_KEY, OMNARA_ORG_ID, OMNARA_PROJECT_ID and OMNARA_PROFILE on the server. See the integration README.",
-      },
-      { status: 503 },
+      { error: "Omnara runtime initialization failed." },
+      { status: 500 },
     );
   }
   return cached(request);

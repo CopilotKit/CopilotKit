@@ -53,6 +53,14 @@ bin/showcase test omnara:tool-rendering-default-catchall --d6 --direct
 ```
 
 They require the local Docker infrastructure and a configured Omnara project.
+For these D6 checks, explicitly set `OMNARA_PROFILE` in `showcase/.env`
+(`.env.local` when running Next.js directly) to
+the isolated `copilotkit-showcase-aimock-pni773` profile in the test project.
+Confirm its provider is `copilotkit-aimock` / `aimock`, with fixed
+`X-AIMock-Context: omnara` and `X-AIMock-Strict: true` headers. Do not use the
+interactive demo's default profile unless it has been independently configured
+for that strict aimock provider. A real-model profile can incur model charges.
+Run the checks serially: the provider cannot yet forward per-run test IDs.
 Omnara runs model calls on its hosted service: the local container's
 `OPENAI_BASE_URL`/aimock headers do not configure the remote model provider.
 PNI-773 must establish public hosted aimock protocol support, strict misses,

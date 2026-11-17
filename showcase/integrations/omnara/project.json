@@ -17,7 +17,8 @@
         "!{projectRoot}/node_modules/**/*",
         "!{projectRoot}/.next/**/*",
         "!{projectRoot}/**/*.tsbuildinfo",
-        "!{projectRoot}/.env*"
+        "!{projectRoot}/.env*",
+        "{workspaceRoot}/showcase/integrations/_shared/ts/theme.ts"
       ],
       "cache": true,
       "outputs": ["{projectRoot}/.next"]
@@ -34,7 +35,8 @@
         "!{projectRoot}/node_modules/**/*",
         "!{projectRoot}/.next/**/*",
         "!{projectRoot}/**/*.tsbuildinfo",
-        "!{projectRoot}/.env*"
+        "!{projectRoot}/.env*",
+        "{workspaceRoot}/showcase/integrations/_shared/ts/theme.ts"
       ],
       "cache": true
     },

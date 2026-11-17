@@ -70,3 +70,37 @@ test("an unconfigured runtime returns a redacted setup error", async (t) => {
   assert.equal(response.status, 503);
   assert.match((await response.json()).error, /Omnara setup is incomplete/);
 });
+
+test("setup errors identify invalid fields without exposing values", async (t) => {
+  const values = {
+    ...env,
+    OMNARA_PROFILE: "",
+    OMNARA_API_URL: "https://api.omnara.com/v1",
+  };
+  const original = Object.keys(values).map(
+    (key) => [key, process.env[key]] as const,
+  );
+  t.after(() => {
+    for (const [key, value] of original) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  });
+  const { GET } = await import("../src/app/api/copilotkit/[[...slug]]/route");
+  for (const [key, value] of [
+    ["OMNARA_ORG_ID", "invalid-org-private-value"],
+    ["OMNARA_API_URL", "invalid-url-private-value"],
+  ]) {
+    Object.assign(process.env, values, { [key]: value });
+    const response = await GET(
+      new Request("http://localhost/api/copilotkit/info"),
+    );
+    assert.equal(response.status, 503);
+    const body = JSON.stringify(await response.json());
+    assert.ok(body.includes(key), body);
+    assert.ok(!body.includes(value));
+    assert.ok(!body.includes(env.OMNARA_API_KEY));
+    assert.ok(!body.includes("OMNARA_PROFILE"), body);
+    assert.ok(body.includes("showcase/.env"), body);
+  }
+});
