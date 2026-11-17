@@ -190,9 +190,10 @@ jobs:
         id: select
         # PR/push → only packages affected since the base. workflow_dispatch
         # (manual / nightly-style full run) → every package with tests.
-        # `--projects` scopes to packages/** in `nx show projects` (it does NOT
-        # in the `nx affected` run form, which also pulls in downstream
-        # examples/storybook — hence the show-projects → run-many split).
+        # `--projects` scopes to packages/** and codemods/** in `nx show
+        # projects` (it does NOT in the `nx affected` run form, which also pulls
+        # in downstream examples/storybook — hence the show-projects → run-many
+        # split). codemods/** adds the v2-migration codemod's fixture tests.
         env:
           EVENT_NAME: ${{ github.event_name }}
           # The workflow sets NX_VERBOSE_LOGGING=true, which makes `nx show
@@ -213,9 +214,9 @@ jobs:
             echo "test_unit.yml changed in range → running ALL packages."
           fi
           if [ "$FULL" = "true" ]; then
-            PROJECTS=$(npx nx show projects --projects='packages/**' --exclude=runtime-python,runtime-go,runtime-ruby,runtime-dotnet,intelligence-delivery-python-core,intelligence-langgraph-python,intelligence-adk-python,intelligence-agent-framework-dotnet -t test --json)
+            PROJECTS=$(npx nx show projects --projects='packages/**,codemods/**' --exclude=runtime-python,runtime-go,runtime-ruby,runtime-dotnet,intelligence-delivery-python-core,intelligence-langgraph-python,intelligence-adk-python,intelligence-agent-framework-dotnet -t test --json)
           else
-            PROJECTS=$(npx nx show projects --affected --base="$NX_BASE" --head="$NX_HEAD" --projects='packages/**' --exclude=runtime-python,runtime-go,runtime-ruby,runtime-dotnet,intelligence-delivery-python-core,intelligence-langgraph-python,intelligence-adk-python,intelligence-agent-framework-dotnet -t test --json)
+            PROJECTS=$(npx nx show projects --affected --base="$NX_BASE" --head="$NX_HEAD" --projects='packages/**,codemods/**' --exclude=runtime-python,runtime-go,runtime-ruby,runtime-dotnet,intelligence-delivery-python-core,intelligence-langgraph-python,intelligence-adk-python,intelligence-agent-framework-dotnet -t test --json)
           fi
           LIST=$(printf '%s' "$PROJECTS" | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>process.stdout.write(JSON.parse(d).join(',')))")
           echo "projects=$LIST" >> "$GITHUB_OUTPUT"
