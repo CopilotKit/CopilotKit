@@ -46,8 +46,14 @@
  */
 
 import type { ReactNode, SetStateAction } from "react";
-import React, { createContext, useCallback, useContext, useState } from "react";
-import { randomUUID } from "@copilotkit/shared";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useId,
+  useState,
+} from "react";
+import { mintRenderThreadId } from "../../v2/lib/render-thread-id";
 
 export interface ThreadsContextValue {
   threadId: string;
@@ -73,8 +79,9 @@ export function ThreadsProvider({
   children,
   threadId: explicitThreadId,
 }: ThreadsProviderProps) {
+  const serverThreadId = useId();
   const [internalThreadId, setInternalThreadId] = useState<string>(() =>
-    randomUUID(),
+    mintRenderThreadId(serverThreadId),
   );
   const [internalIsExplicit, setInternalIsExplicit] = useState<boolean>(false);
 

@@ -160,11 +160,13 @@ export class TrajectoryConnection {
   // Core-scoped high water mark prevents collisions after reconnect or stop/start.
   // Gateway drops a seq it already stored for the Trajectory yet acknowledges it
   // as accepted, and a reload or second tab can reuse the id. Starting at the
-  // creation time in microseconds keeps later Cores above earlier ones and
-  // stays a safe integer until about 2255. Seqs can still collide only if two
-  // Cores start the same Trajectory in one millisecond, or if a Core averages
-  // more than 1000 events per millisecond, or if the clock goes back.
-  private nextSeq = Math.floor(Date.now()) * 1000;
+  // time of the first send in microseconds keeps later Cores above earlier ones
+  // and stays a safe integer until about 2255. Seqs can still collide only if
+  // two Cores first send to the same Trajectory in one millisecond, or if a Core
+  // averages more than 1000 events per millisecond, or if the clock goes back.
+  // Seeded lazily, not in a field initializer: the Core is constructed during
+  // React render, and Next.js `cacheComponents` rejects `Date.now()` there.
+  private nextSeq: number | undefined;
 
   constructor(
     private readonly core: CopilotKitCore,
@@ -658,6 +660,7 @@ export class TrajectoryConnection {
       this.fail(session, connection, "CONNECTION_LOST");
       return;
     }
+    this.nextSeq ??= Math.floor(Date.now()) * 1000;
     if (!Number.isSafeInteger(this.nextSeq)) {
       this.addDropped(session, 1);
       this.report(session, "SEQUENCE_EXHAUSTED");

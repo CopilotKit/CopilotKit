@@ -28,6 +28,7 @@ import type { ɵThreadRuntimeContext, ɵThreadStore } from "@copilotkit/core";
 import React, {
   useCallback,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -38,6 +39,7 @@ import {
   useLicenseContext,
 } from "../../context";
 import { InlineFeatureWarning } from "../../components/license-warning-banner";
+import { mintRenderThreadId } from "../../lib/render-thread-id";
 import type { AbstractAgent } from "@ag-ui/client";
 import type { SlotValue } from "../../lib/slots";
 import { renderSlot, useShallowStableRef } from "../../lib/slots";
@@ -152,9 +154,10 @@ export function CopilotChat({
   const resolvedAgentId =
     agentId ?? existingConfig?.agentId ?? providerAgentId ?? DEFAULT_AGENT_ID;
   const providedThreadId = threadId ?? existingConfig?.threadId;
+  const serverThreadId = useId();
   const baseThreadId = useMemo(
-    () => providedThreadId ?? randomUUID(),
-    [providedThreadId],
+    () => providedThreadId ?? mintRenderThreadId(serverThreadId),
+    [providedThreadId, serverThreadId],
   );
   // "Explicit" means a caller actually picked this thread — via the
   // `threadId` prop on CopilotChat or a wrapping provider that marked its

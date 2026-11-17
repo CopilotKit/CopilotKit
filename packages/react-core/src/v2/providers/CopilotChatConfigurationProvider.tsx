@@ -4,6 +4,7 @@ import React, {
   useCallback,
   useContext,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -14,6 +15,7 @@ import { CopilotKitContext, useDefaultAgentId } from "../context";
 // Import from the tailwind-free leaf module (not ../lib/slots, which pulls
 // tailwind-merge) so this provider stays lean in the headless entry (issue #4893).
 import { useShallowStableRef } from "../lib/shallow-stable-ref";
+import { mintRenderThreadId } from "../lib/render-thread-id";
 
 // Default labels
 export const CopilotChatDefaultLabels = {
@@ -255,6 +257,7 @@ export const CopilotChatConfigurationProvider: React.FC<
     explicit: boolean;
   } | null>(null);
 
+  const serverThreadId = useId();
   const resolvedThreadId = useMemo(() => {
     // An authoritative (caller-chosen) threadId prop always wins.
     if (threadIdPropIsAuthoritative) {
@@ -272,12 +275,13 @@ export const CopilotChatConfigurationProvider: React.FC<
     if (threadId) {
       return threadId;
     }
-    return randomUUID();
+    return mintRenderThreadId(serverThreadId);
   }, [
     threadIdPropIsAuthoritative,
     threadId,
     parentConfig?.threadId,
     activeThreadOverride,
+    serverThreadId,
   ]);
 
   // Tell Core which Thread this view shows, so captured interactions can link
