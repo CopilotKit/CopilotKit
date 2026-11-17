@@ -14,5 +14,14 @@
     "@codemod.com/jssg-types": "1.6.3",
     "codemod": "1.18.6",
     "typescript": "^5.9.3"
+  },
+  "nx": {
+    "targets": {
+      "test": {
+        "inputs": [
+          "default"
+        ]
+      }
+    }
   }
 }
