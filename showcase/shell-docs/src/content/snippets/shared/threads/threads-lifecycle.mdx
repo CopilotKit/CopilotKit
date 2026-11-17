@@ -48,7 +48,7 @@ History is restored in one of two ways:
   Durable replay requires a **server-side store to replay from**: CopilotKit Intelligence, or a persisting `AgentRunner` (for example, the SQLite runner). The default in-memory runner replays history only while the same runtime process runs. After a restart, or on another server instance, `connectAgent()` returns an empty stream and the conversation starts blank. If history isn't restoring, check that a store is configured, not the client code. The [Persistence Architecture](/intelligence/threads-explained) page covers how replay works server-side.
 </Callout>
 
-For a *fresh* (non-explicit) thread, e.g. after `startNewThread()`, there's nothing to replay, so `connect` is skipped and the message view is cleared.
+For a *fresh* (non-explicit) thread, for example after `startNewThread()`, there's nothing to replay, so `connect` is skipped and the message view is cleared.
 
 **2. Manual hydration.** If you're managing messages yourself (for non-platform or custom cases), read them from the agent and set them directly:
 
@@ -155,16 +155,16 @@ function ThreadControls() {
 - `startNewThread()`: resets to a freshly minted, non-explicit id. Also available from `useThreads()` for thread-sidebar UIs. See [Headless Threads](/headless-threads) for the full `useThreads` API.
 
 <Callout type="warn">
-  Both setters **no-op and log a warning when the `threadId` is prop-controlled** (i.e. you passed an authoritative `threadId` prop). If you drive threads imperatively with these setters, don't also pass a `threadId` prop. Pick one source of truth.
+  Both setters **no-op and log a warning when the `threadId` is prop-controlled** (that is, you passed an authoritative `threadId` prop). If you drive threads imperatively with these setters, don't also pass a `threadId` prop. Pick one source of truth.
 </Callout>
 
 ## Creating a thread with your own API on the first message
 
-A common ask: intercept the user's first message to mint a thread via your own backend (e.g. create a DB row and get its id) before the conversation starts.
+A common ask: intercept the user's first message to mint a thread via your own backend (for example, create a DB row and get its id) before the conversation starts.
 
 **On the built-in `<CopilotChat>` this cannot be done through `onSubmitMessage`**: the component sets its own submit handler internally and discards any you pass. Instead, use one of these approaches.
 
-**Recommended: mint up front and drive the id.** Create your thread when the user starts a new conversation (e.g. on a "New chat" action, or lazily just before you render the chat), then hand the id to CopilotKit:
+**Recommended: mint up front and drive the id.** Create your thread when the user starts a new conversation (for example, on a "New chat" action, or lazily right before you render the chat), then hand the id to CopilotKit:
 
 ```tsx title="Mint your thread, then drive it"
 async function startConversation() {
@@ -206,9 +206,9 @@ These are **two different layers**, correlated only by the shared `threadId`:
 | Layer | What it stores | Managed by |
 | --- | --- | --- |
 | **CopilotKit threads** | Conversation list + full AG-UI event history (messages, tool calls, state), with realtime sync | CopilotKit Intelligence, via `useThreads` |
-| **Framework-native persistence** | Framework-internal state/checkpoints | Your agent, e.g. a LangGraph `AsyncPostgresSaver` |
+| **Framework-native persistence** | Framework-internal state/checkpoints | Your agent, for example a LangGraph `AsyncPostgresSaver` |
 
-A LangGraph checkpointer (an `AsyncPostgresSaver` + `compile(checkpointer=...)`) creates LangGraph's own **checkpoint tables**. It does *not* create a CopilotKit "threads" table, and you won't see a threads table appear just from configuring a checkpointer. Conversely, `useThreads` rename/archive/delete operate on CopilotKit threads and do **not** reach into LangGraph (or ADK, etc.) stores unless your backend explicitly bridges them.
+A LangGraph checkpointer (an `AsyncPostgresSaver` + `compile(checkpointer=...)`) creates LangGraph's own **checkpoint tables**. It does *not* create a CopilotKit "threads" table, and you won't see a threads table appear only from configuring a checkpointer. Conversely, `useThreads` rename/archive/delete operate on CopilotKit threads and do **not** reach into LangGraph, ADK, or other framework stores unless your backend explicitly bridges them.
 
 The bridge between the two is the `threadId`: when you pass an explicit CopilotKit `threadId`, it's forwarded to the backend as the AG-UI `threadId`, which your framework can use directly as (or map to) its own checkpoint/thread id.
 

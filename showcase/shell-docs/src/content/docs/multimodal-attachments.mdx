@@ -52,7 +52,7 @@ Attachments are categorized by modality based on their MIME type:
 
 | Modality | MIME types | Preview | AI support |
 | --- | --- | --- | --- |
-| **Image** | `image/*` | Thumbnail with lightbox | Supported by most vision-capable models (GPT-4o, Claude, etc.) |
+| **Image** | `image/*` | Thumbnail with lightbox | Supported by most vision-capable models, such as GPT-4o and Claude |
 | **Audio** | `audio/*` | Audio player | Model-dependent |
 | **Video** | `video/*` | Thumbnail with play button + lightbox | Model-dependent |
 | **Document** | Everything else | File icon + name; PDF and text get lightbox preview | Sent as file content. Model support varies |
@@ -63,7 +63,7 @@ Attachments are categorized by modality based on their MIME type:
 
 ## Custom upload handler
 
-By default, files are read as base64 and sent inline. For large files or production apps, you'll want to upload to your own storage and pass a URL instead.
+By default, files are read as base64 and sent inline. For large files or production apps, upload the files to your own storage and pass a URL instead.
 
 `onUpload` returns an `AttachmentUploadResult`, a discriminated union with two variants:
 
@@ -152,7 +152,7 @@ Set `maxConcurrentUploads` to upload several together. Raise it when your upload
 
 The limit covers every upload in flight, not each batch: if a paste lands while a dropped selection is still uploading, both share the same slots. `Infinity` lifts the limit entirely.
 
-Above `1`, your `onUpload` handler may be called concurrently, so it must not rely on the previous file having finished.
+Above `1`, your `onUpload` handler can run concurrently, so it must not rely on the previous file having finished.
 
 ## Handling upload errors
 
@@ -180,7 +180,7 @@ Use `onUploadFailed` to react when a file is rejected or an upload fails, for ex
 | `file-too-large` | File exceeds `maxSize`. |
 | `upload-failed` | The `onUpload` handler threw, or the default base64 reader failed. |
 
-For errors that happen _after_ the message is sent (e.g., the model doesn't support the file type), use the `onError` callback on `CopilotChat`:
+For errors that happen _after_ the message is sent (for example, the model doesn't support the file type), use the `onError` callback on `CopilotChat`:
 
 ```tsx
 <CopilotChat
@@ -200,4 +200,4 @@ When a user attaches files and sends a message, CopilotKit:
 3. Adds the message to the agent with `content: [{ type: "text", ... }, { type: "image", source: ... }, ...]`
 4. The agent receives the multimodal content via the AG-UI protocol and forwards it to the model
 
-The attachments are part of the standard AG-UI `InputContent` schema, so any AG-UI-compatible agent (BuiltInAgent, LangGraph, custom) can receive them.
+The attachments are part of the standard AG-UI `InputContent` schema, so any AG-UI-compatible agent (Built-in Agent, LangGraph, custom) can receive them.

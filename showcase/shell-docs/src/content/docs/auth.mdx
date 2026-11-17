@@ -12,9 +12,9 @@ You have a chat surface or a hook driving an agent and you want every agent run 
 ## When to use this
 
 - **Multi-tenant apps** where the agent reads or writes per-user data.
-- **Tool gating** where some tools should only run for authorised users.
+- **Tool gating** where some tools should only run for authorized users.
 - **Audit and billing** where every run needs an identity to attribute it to.
-- **Session-aware UX** where the agent's behaviour depends on the user's role or permissions.
+- **Session-aware UX** where the agent's behavior depends on the user's role or permissions.
 
 If you run the TypeScript runtime without Intelligence and do not need any of those, your agent can run anonymously. Intelligence runtimes require a trusted application-user identity for protected web requests.
 
@@ -212,7 +212,7 @@ async def my_agent_node(state: AgentState, config: RunnableConfig):
 ```
 
 <Callout type="info" title="If you only need the 401 gate">
-When nodes don't need the identity (you just want unauthenticated traffic rejected), keep `add_langgraph_fastapi_endpoint` and hang the dependency off the app: `FastAPI(dependencies=[Depends(current_user)])`. The gate applies, but nothing lands on the run config, so `config["configurable"]` stays empty of user context.
+When nodes don't need the identity (you only want unauthenticated traffic rejected), keep `add_langgraph_fastapi_endpoint` and hang the dependency off the app: `FastAPI(dependencies=[Depends(current_user)])`. The gate applies, but nothing lands on the run config, so `config["configurable"]` stays empty of user context.
 </Callout>
 
 </Tab>
@@ -292,7 +292,7 @@ async def run_agent(
     )
 ```
 
-Once the token is validated, AG2's tools can request the user identity with the `Inject` annotation. This is how you make individual tool calls aware of who's asking, without having to thread the user object manually through every helper, and without exposing it to the LLM or the client:
+Once the token is validated, AG2's tools can request the user identity with the `Inject` annotation. Each tool call then knows who is asking. You do not pass the user object through every helper, and the LLM and the client never see it:
 
 ```python title="backend/tools.py"
 from typing import Annotated
