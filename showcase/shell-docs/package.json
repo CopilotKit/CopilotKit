@@ -14,7 +14,8 @@
     "check-redirects": "node scripts/check-redirects.mjs",
     "check-live-mdx": "node scripts/check-live-mdx.mjs",
     "check-live-pages": "node scripts/check-live-pages.mjs",
-    "check-page-inventory": "node scripts/check-page-inventory.mjs"
+    "check-page-inventory": "node scripts/check-page-inventory.mjs",
+    "check-search": "node scripts/check-search.mjs"
   },
   "dependencies": {
     "@ai-sdk/mcp": "^1.0.99",

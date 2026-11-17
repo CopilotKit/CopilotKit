@@ -87,7 +87,8 @@ jobs:
 
       # next build prerenders only a few pages; the docs pages render on
       # request. So serve the production build, then request the legacy URLs
-      # check-redirects samples and every docs and reference page.
+      # check-redirects samples and every docs and reference page, then check
+      # that search still finds the pages readers ask for most.
       - name: Build shell-docs
         working-directory: showcase/shell-docs
         run: node_modules/.bin/next build
@@ -109,6 +110,7 @@ jobs:
           npm run check-redirects || status=1
           npm run check-live-pages || status=1
           npm run check-page-inventory || status=1
+          npm run check-search || status=1
           if [ "$status" -ne 0 ]; then
             echo "::group::next start log"
             cat "$log"
