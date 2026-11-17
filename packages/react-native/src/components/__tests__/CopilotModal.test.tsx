@@ -1,6 +1,8 @@
 import React, { createRef } from "react";
+import type { ReactNode } from "react";
 import { render, act } from "@testing-library/react";
 import { describe, it, expect, beforeEach, vi } from "vitest";
+import type { BottomSheetProps } from "@gorhom/bottom-sheet";
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -13,16 +15,14 @@ const hoisted = vi.hoisted(() => {
   return {
     snapToIndex,
     close,
-    lastOnClose: null as (() => void) | null,
-    lastSnapPoints: null as (string | number)[] | null,
-    lastIndex: null as number | null,
+    lastSheetProps: null as BottomSheetProps | null,
   };
 });
 
 // Mock react-native primitives used in CopilotModal
 vi.mock("react-native", () => ({
   StyleSheet: {
-    create: (s: Record<string, unknown>) => s,
+    create: <T,>(styles: T) => styles,
   },
   View: "View",
 }));
@@ -33,17 +33,15 @@ vi.mock("@gorhom/bottom-sheet", () => {
 
   // BottomSheet stores its ref and captures props for assertions
   const BottomSheet = React.forwardRef(function MockBottomSheet(
-    props: any,
-    ref: any,
+    props: BottomSheetProps,
+    ref: React.Ref<{ snapToIndex: () => void; close: () => void }>,
   ) {
     React.useImperativeHandle(ref, () => ({
       snapToIndex: hoisted.snapToIndex,
       close: hoisted.close,
     }));
 
-    hoisted.lastOnClose = props.onClose ?? null;
-    hoisted.lastSnapPoints = props.snapPoints ?? null;
-    hoisted.lastIndex = props.index ?? null;
+    hoisted.lastSheetProps = props;
 
     return React.createElement(
       "mock-bottom-sheet",
@@ -52,17 +50,16 @@ vi.mock("@gorhom/bottom-sheet", () => {
     );
   });
 
-  const BottomSheetView = (props: any) =>
+  const BottomSheetView = (props: { children?: ReactNode }) =>
     React.createElement(
       "mock-bottom-sheet-view",
       { "data-testid": "bottom-sheet-view" },
       props.children,
     );
 
-  const BottomSheetBackdrop = (props: any) =>
-    React.createElement("mock-backdrop", props);
+  const BottomSheetBackdrop = () => React.createElement("mock-backdrop");
 
-  const BottomSheetFlatList = (props: any) =>
+  const BottomSheetFlatList = (props: { children?: ReactNode }) =>
     React.createElement(
       "mock-bottom-sheet-flatlist",
       { "data-testid": "bottom-sheet-flatlist" },
@@ -81,7 +78,7 @@ vi.mock("@gorhom/bottom-sheet", () => {
 // Mock CopilotChat (B4's component — may not exist yet in this worktree)
 vi.mock("../CopilotChat", () => {
   const React = require("react");
-  const CopilotChat = (props: any) =>
+  const CopilotChat = (props: Record<string, unknown>) =>
     React.createElement("mock-copilot-chat", {
       "data-testid": "copilot-chat",
       ...props,
@@ -101,30 +98,36 @@ describe("CopilotModal", () => {
   beforeEach(() => {
     hoisted.snapToIndex.mockClear();
     hoisted.close.mockClear();
-    hoisted.lastOnClose = null;
-    hoisted.lastSnapPoints = null;
-    hoisted.lastIndex = null;
+    hoisted.lastSheetProps = null;
   });
 
   // ── Rendering ───────────────────────────────────────────────────────────
 
   describe("rendering", () => {
-    it("renders the bottom sheet with default snap points", () => {
+    it("opens to one snap point at 90% by default", () => {
       render(<CopilotModal />);
 
-      expect(hoisted.lastSnapPoints).toEqual(["50%", "90%"]);
+      expect(hoisted.lastSheetProps?.snapPoints).toEqual(["90%"]);
+    });
+
+    it("sizes the sheet from its snap points, not from the chat content", () => {
+      render(<CopilotModal />);
+
+      expect(hoisted.lastSheetProps?.enableDynamicSizing).toBe(false);
     });
 
     it("starts closed (index -1)", () => {
       render(<CopilotModal />);
 
-      expect(hoisted.lastIndex).toBe(-1);
+      expect(hoisted.lastSheetProps?.index).toBe(-1);
     });
 
-    it("embeds CopilotChat inside the sheet", () => {
+    it("puts CopilotChat in a flex: 1 view, not in BottomSheetView", () => {
       const { getByTestId } = render(<CopilotModal />);
 
-      expect(getByTestId("copilot-chat")).toBeTruthy();
+      const chat = getByTestId("copilot-chat");
+      expect(chat.closest("mock-bottom-sheet-view")).toBeNull();
+      expect(chat.parentElement?.style.flexGrow).toBe("1");
     });
   });
 
@@ -159,7 +162,7 @@ describe("CopilotModal", () => {
 
       // Simulate bottom-sheet calling onClose
       act(() => {
-        hoisted.lastOnClose?.();
+        hoisted.lastSheetProps?.onClose?.();
       });
 
       expect(onDismiss).toHaveBeenCalledTimes(1);
@@ -172,7 +175,7 @@ describe("CopilotModal", () => {
       );
 
       act(() => {
-        hoisted.lastOnClose?.();
+        hoisted.lastSheetProps?.onClose?.();
       });
 
       expect(onDismiss).not.toHaveBeenCalled();
@@ -185,7 +188,11 @@ describe("CopilotModal", () => {
     it("uses provided snap points", () => {
       render(<CopilotModal snapPoints={["25%", "75%", "100%"]} />);
 
-      expect(hoisted.lastSnapPoints).toEqual(["25%", "75%", "100%"]);
+      expect(hoisted.lastSheetProps?.snapPoints).toEqual([
+        "25%",
+        "75%",
+        "100%",
+      ]);
     });
 
     it("opens at the specified initialSnapIndex", () => {

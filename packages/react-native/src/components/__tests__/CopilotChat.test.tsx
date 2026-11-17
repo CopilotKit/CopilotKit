@@ -1,17 +1,27 @@
 import React from "react";
+import type { ChangeEvent, KeyboardEvent, ReactNode } from "react";
 import { render, fireEvent, act } from "@testing-library/react";
 import { describe, it, expect, beforeEach, vi } from "vitest";
+import type { Message } from "@ag-ui/client";
+import type {
+  FlatListProps,
+  PlatformOSType,
+  TextInputProps,
+  TouchableOpacityProps,
+} from "react-native";
 
 // ─── Hoisted state ─────────────────────────────────────────────────────────────
 
 const hoisted = vi.hoisted(() => {
   return {
     mockAgent: {
-      messages: [] as any[],
+      messages: [] as Message[],
       isRunning: false,
       addMessage: vi.fn(),
     },
     mockRunAgent: vi.fn().mockResolvedValue(undefined),
+    // Tests set OS to render CopilotChat as it renders on that platform.
+    platform: { OS: "ios" as PlatformOSType },
   };
 });
 
@@ -39,7 +49,13 @@ vi.mock("@copilotkit/react-core/context", () => ({
 
 // Mock sub-components that B2 builds
 vi.mock("../messages/AssistantMessage", () => ({
-  AssistantMessage: ({ content, isLoading }: any) => {
+  AssistantMessage: ({
+    content,
+    isLoading,
+  }: {
+    content: string;
+    isLoading?: boolean;
+  }) => {
     const React = require("react");
     return React.createElement(
       "div",
@@ -50,7 +66,7 @@ vi.mock("../messages/AssistantMessage", () => ({
 }));
 
 vi.mock("../messages/UserMessage", () => ({
-  UserMessage: ({ content }: any) => {
+  UserMessage: ({ content }: { content: string }) => {
     const React = require("react");
     return React.createElement(
       "div",
@@ -64,7 +80,12 @@ vi.mock("../messages/UserMessage", () => ({
 vi.mock("react-native", () => {
   const React = require("react");
   return {
-    FlatList: ({ data, renderItem, ListEmptyComponent, keyExtractor }: any) => {
+    FlatList: ({
+      data,
+      renderItem,
+      ListEmptyComponent,
+      keyExtractor,
+    }: FlatListProps<Message>) => {
       if (!data || data.length === 0) {
         return React.createElement(
           "div",
@@ -75,48 +96,70 @@ vi.mock("react-native", () => {
       return React.createElement(
         "div",
         { "data-testid": "flatlist" },
-        data.map((item: any, index: number) =>
+        Array.from(data, (item, index) =>
           React.createElement(
             "div",
             { key: keyExtractor?.(item, index) ?? index },
-            renderItem({ item, index }),
+            renderItem?.({
+              item,
+              index,
+              separators: {
+                highlight: () => {},
+                unhighlight: () => {},
+                updateProps: () => {},
+              },
+            }),
           ),
         ),
       );
     },
-    KeyboardAvoidingView: ({ children }: any) =>
+    KeyboardAvoidingView: ({ children }: { children?: ReactNode }) =>
       React.createElement("div", { "data-testid": "keyboard-view" }, children),
-    Platform: { OS: "ios" },
-    Pressable: ({ children, onPress, ...props }: any) =>
+    Platform: hoisted.platform,
+    Pressable: ({
+      children,
+      onPress,
+      ...props
+    }: {
+      children?: ReactNode;
+      onPress?: () => void;
+    }) =>
       React.createElement(
         "button",
         { onClick: onPress, "data-testid": "pressable", ...props },
         children,
       ),
     StyleSheet: {
-      create: (styles: any) => styles,
+      create: <T,>(styles: T) => styles,
       hairlineWidth: 1,
     },
-    Text: ({ children, ...props }: any) =>
+    Text: ({ children, ...props }: { children?: ReactNode }) =>
       React.createElement("span", props, children),
+    // Like react-native-web: a multiline input is a <textarea> whose rows
+    // come from numberOfLines.
     TextInput: ({
       value,
       onChangeText,
       onSubmitEditing,
       multiline,
+      numberOfLines,
       submitBehavior,
       blurOnSubmit,
-      numberOfLines: _numberOfLines,
       returnKeyType: _returnKeyType,
       placeholderTextColor: _placeholderTextColor,
       ...props
-    }: any) =>
-      React.createElement("input", {
+    }: Omit<TextInputProps, "onSubmitEditing"> & {
+      // The mock submits with no native event. CopilotChat reads none.
+      onSubmitEditing?: () => void;
+    }) =>
+      React.createElement(multiline ? "textarea" : "input", {
         value,
-        onChange: (e: any) => onChangeText?.(e.target.value),
+        rows: multiline ? numberOfLines : undefined,
+        onChange: (e: ChangeEvent<HTMLInputElement>) =>
+          onChangeText?.(e.target.value),
         // Like React Native: Return in a multiline input inserts a newline
         // unless submitBehavior or blurOnSubmit asks it to submit.
-        onKeyDown: (e: any) => {
+        onKeyDown: (e: KeyboardEvent) => {
           const submits =
             !multiline || submitBehavior === "submit" || blurOnSubmit === true;
           if (e.key === "Enter" && !e.shiftKey && submits) onSubmitEditing?.();
@@ -133,7 +176,7 @@ vi.mock("react-native", () => {
       accessibilityLabel,
       accessibilityState: _accessibilityState,
       ...props
-    }: any) =>
+    }: TouchableOpacityProps) =>
       // react-native-web maps the accessibility props to role and aria-label.
       React.createElement(
         accessibilityRole === "button" ? "button" : "div",
@@ -146,7 +189,7 @@ vi.mock("react-native", () => {
         },
         children,
       ),
-    View: ({ children, ...props }: any) =>
+    View: ({ children, ...props }: { children?: ReactNode }) =>
       React.createElement("div", props, children),
   };
 });
@@ -163,6 +206,7 @@ describe("CopilotChat", () => {
     hoisted.mockAgent.isRunning = false;
     hoisted.mockAgent.addMessage = vi.fn();
     hoisted.mockRunAgent.mockResolvedValue(undefined);
+    hoisted.platform.OS = "ios";
   });
 
   it("renders empty state when there are no messages", () => {
@@ -391,5 +435,27 @@ describe("CopilotChat", () => {
     ]);
     expect(calls[0][0].id).toEqual(expect.any(String));
     expect(calls[0][0].id).not.toBe(calls[1][0].id);
+  });
+
+  describe("message input height", () => {
+    // Without rows, a browser draws a <textarea> two lines tall.
+    it("starts one line tall on the web", () => {
+      hoisted.platform.OS = "web";
+      const { getByTestId } = render(<CopilotChat />);
+
+      expect(getByTestId("text-input").getAttribute("rows")).toBe("1");
+    });
+
+    // Android pins a multiline input to numberOfLines, so a fixed count stops
+    // the input from growing up to its maxHeight.
+    it.each(["android", "ios"] as const)(
+      "sets no fixed line count on %s",
+      (os) => {
+        hoisted.platform.OS = os;
+        const { getByTestId } = render(<CopilotChat />);
+
+        expect(getByTestId("text-input").getAttribute("rows")).toBeNull();
+      },
+    );
   });
 });

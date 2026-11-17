@@ -68,8 +68,11 @@ import { CopilotModal, type CopilotModalRef } from "@copilotkit/react-native/com
   Called when the sheet is dismissed (backdrop tap, swipe-down, or `close()`).
 </PropertyReference>
 
-<PropertyReference name="snapPoints" type="(string | number)[]" default="['50%', '90%']">
-  Bottom-sheet snap points, passed through to `@gorhom/bottom-sheet`.
+<PropertyReference name="snapPoints" type="(string | number)[]" default="['90%']">
+  Bottom-sheet snap points, passed through to `@gorhom/bottom-sheet`. The
+  message input is at the bottom of the chat, and the chat fills the sheet at
+  its highest snap point. At a lower snap point, the input is below the screen.
+  The default has one snap point for this reason.
 </PropertyReference>
 
 <PropertyReference name="initialSnapIndex" type="number" default="0">
@@ -124,7 +127,6 @@ export function ChatScreen() {
         ref={modalRef}
         agentName="default"
         headerTitle="Assistant"
-        snapPoints={["50%", "90%"]}
       />
     </View>
   );
