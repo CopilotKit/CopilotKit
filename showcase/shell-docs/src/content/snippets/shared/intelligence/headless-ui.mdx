@@ -128,7 +128,7 @@ export default function Home() {
         {messages.map((message) => (
           <div key={message.id}>
             <strong>{message.role === "user" ? "You" : "Assistant"}:</strong>
-            <p>{message.content}</p>
+            <p>{typeof message.content === "string" ? message.content : null}</p>
           </div>
         ))}
         {isLoading && <p>Assistant is typing...</p>}
@@ -200,7 +200,7 @@ export const Chat = () => {
       {messages.map((message) => (
         <div key={message.id}>
           {message.role === "user" ? "User: " : "Assistant: "}
-          {message.content}
+          {typeof message.content === "string" ? message.content : null}
           {message.role === "assistant" && message.generativeUI?.()}
         </div>
       ))}
@@ -366,7 +366,7 @@ export const Chat = () => {
       {messages.map((message) => (
         <div key={message.id}>
           {message.role === "user" ? "User: " : "Assistant: "}
-          {message.content}
+          {typeof message.content === "string" ? message.content : null}
           {message.role === "assistant" && message.generativeUI?.()}
         </div>
       ))}
