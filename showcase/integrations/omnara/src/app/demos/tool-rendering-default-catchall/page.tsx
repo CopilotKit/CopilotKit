@@ -31,7 +31,7 @@ export default function ToolRenderingDefaultCatchallDemo() {
       agent="tool-rendering-default-catchall"
     >
       <div className="flex justify-center items-center h-full w-full">
-        <div className="h-full w-full max-w-4xl">
+        <div className="h-full w-full max-w-4xl px-6">
           <Chat />
         </div>
       </div>

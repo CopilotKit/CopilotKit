@@ -18,7 +18,11 @@ export default function AgenticChatDemo() {
 function Chat() {
   useAgenticChatSuggestions();
   // @region[render-chat]
-  return <CopilotChat agentId="agentic_chat" />;
+  return (
+    <div className="h-full px-6">
+      <CopilotChat agentId="agentic_chat" />
+    </div>
+  );
   // @endregion[render-chat]
 }
 // @endregion[chat-component]
