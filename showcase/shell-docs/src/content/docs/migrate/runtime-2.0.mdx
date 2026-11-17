@@ -121,21 +121,25 @@ the Fetch handler validates the endpoint path and single-route envelope.
 
 ## Renamed runtime exports
 
-The 2.0 release candidates named some runtime exports without "Kit". The old
-names still work, but they are deprecated. The codemod renames them.
+The 2.0 release candidates named some runtime exports without "Kit". 2.0
+removed these old names, so an import of an old name fails the build. The
+codemod renames them. To rename one by hand, use this table:
 
-| Deprecated name               | Name to use                      |
+| Old name                      | New name                         |
 | ----------------------------- | -------------------------------- |
 | `CopilotRuntime`              | `CopilotKitRuntime`              |
 | `createCopilotRuntimeHandler` | `createCopilotKitRuntimeHandler` |
 | `createCopilotNodeListener`   | `createCopilotKitNodeListener`   |
 | `createCopilotNodeHandler`    | `createCopilotKitNodeHandler`    |
 | `CopilotSseRuntime`           | `CopilotKitSseRuntime`           |
+| `CopilotIntelligenceRuntime`  | `CopilotKitIntelligenceRuntime`  |
+| `NodeCopilotListener`         | `NodeCopilotKitListener`         |
 
-The same rule applies to the other runtime exports named `Copilot...`, for
-example `CopilotRuntimeOptions` (`CopilotKitRuntimeOptions`),
-`CopilotRuntimeFetchHandler` (`CopilotKitRuntimeFetchHandler`), and
-`NodeCopilotListener` (`NodeCopilotKitListener`).
+Every other old name changes the same way: add "Kit" after "Copilot". For
+example, `CopilotRuntimeOptions` becomes `CopilotKitRuntimeOptions`.
+
+If your code re-exports an old name, the codemod exports the new name under
+the old one. The code that imports that name from your module does not change.
 
 ## CORS and lifecycle
 

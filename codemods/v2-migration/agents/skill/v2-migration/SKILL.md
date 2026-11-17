@@ -40,6 +40,7 @@ The codemod already did the mechanical part: `/v2` import paths now point at the
    - remove `streamdown`, `streamdown-vue`, `react-native-streamdown`, and `katex` if the code no longer imports them;
    - add each package the code imports that only 1.x installed for it. The 1.x packages brought some in as their own dependencies (for example `lucide-react`); 2.0 does not. The build shows them as "Cannot find module".
 4. Install, then run the typecheck and the build. Fix what they report.
+   - 2.0 removed the old runtime names that the "Runtime names" section of `references/mappings.md` lists. If the build reports one of them, rename it as that section shows.
    - The TanStack AI packages (`@tanstack/ai*`) are ESM only. A CommonJS server (no `"type": "module"`, or `"module": "commonjs"` in `tsconfig.json`) cannot `import` them statically: move the server to ESM, or load the adapter with `await import("@tanstack/ai-openai")`.
 5. Report to the user: what changed, each v1 feature that has no 2.0 equivalent, and anything you could not verify.
 

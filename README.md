@@ -91,7 +91,7 @@ OPENAI_API_KEY=your_openai_api_key
 // app/api/copilotkit/[[...slug]]/route.ts
 import {
   CopilotKitRuntime,
-  createCopilotRuntimeHandler,
+  createCopilotKitRuntimeHandler,
 } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
@@ -100,7 +100,7 @@ const runtime = new CopilotKitRuntime({
   agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
 });
 
-const handler = createCopilotRuntimeHandler({
+const handler = createCopilotKitRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
 });
@@ -110,8 +110,7 @@ export { handler as GET, handler as POST, handler as PATCH, handler as DELETE };
 ```tsx
 // app/page.tsx
 "use client";
-import { CopilotKitProvider, CopilotSidebar } from "@copilotkit/react-core/v2";
-import "@copilotkit/react-core/v2/styles.css";
+import { CopilotKitProvider, CopilotSidebar } from "@copilotkit/react-core";
 
 export default function Page() {
   return (
@@ -158,7 +157,7 @@ https://github.com/user-attachments/assets/72b7b4f3-b6e7-460c-a932-5746fe3c8db3
 Every component is built on hooks you can use directly. `useAgent` sits right on top of AG-UI and gives you programmatic control of the agent connection.
 
 ```tsx
-import { useAgent } from "@copilotkit/react-core/v2";
+import { useAgent } from "@copilotkit/react-core";
 
 function CityPicker() {
   const { agent } = useAgent({ agentId: "my_agent" });

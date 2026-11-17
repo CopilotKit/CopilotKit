@@ -10,8 +10,8 @@ Generated: 2026-08-01
   `await listener.channels.ready()`, and `listener.channels.stop()` on shutdown.
 - `examples/templates/slack/app/index.ts` and `examples/templates/teams/app/index.tsx`: the self-hosted adapter
   variants, read to state the managed-versus-OSS boundary accurately.
-- `packages/runtime/src/runtime/core/runtime.ts`: `CopilotIntelligenceRuntimeOptions`
-  (`intelligence`, `identifyUser`, `channels?: Channel[]`) and `CopilotSseRuntimeOptions`
+- `packages/runtime/src/runtime/core/runtime.ts`: `CopilotKitIntelligenceRuntimeOptions`
+  (`intelligence`, `identifyUser`, `channels?: Channel[]`) and `CopilotKitSseRuntimeOptions`
   (`channels?: undefined`), which is what makes "Channels require the Intelligence runtime"
   a type-level fact rather than a convention.
 - `packages/runtime/src/runtime/intelligence-platform/client.ts`:
