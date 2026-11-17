@@ -60,7 +60,7 @@ Register `useInterrupt` in a descendant component. With the default `renderInCha
 
 ```vue title="src/components/MeetingChat.vue"
 <script setup lang="ts">
-import { CopilotChat, useInterrupt } from "@copilotkit/vue/v2";
+import { CopilotChat, useInterrupt } from "@copilotkit/vue";
 
 type MeetingPayload = { topic?: string; attendee?: string };
 
@@ -111,7 +111,7 @@ Ask the agent to book a call. The picker appears in the chat. Click **Tomorrow a
 ```vue title="src/components/MeetingTool.vue"
 <script setup lang="ts">
 import { z } from "zod";
-import { CopilotChat, useHumanInTheLoop } from "@copilotkit/vue/v2";
+import { CopilotChat, useHumanInTheLoop } from "@copilotkit/vue";
 import MeetingPicker from "./MeetingPicker.vue";
 
 useHumanInTheLoop({
@@ -188,7 +188,7 @@ export function readValue(value: unknown): Record<string, unknown> {
 
 ```ts
 // Inside <script setup lang="ts">
-import { useInterrupt } from "@copilotkit/vue/v2";
+import { useInterrupt } from "@copilotkit/vue";
 import { readValue } from "./read-value";
 
 useInterrupt({
@@ -208,7 +208,7 @@ For cases where the interrupt can sometimes be resolved _without_ user input, pa
 
 ```ts
 // Inside <script setup lang="ts">
-import { useInterrupt } from "@copilotkit/vue/v2";
+import { useInterrupt } from "@copilotkit/vue";
 import { lookupUserDepartment } from "./directory";
 import { readValue } from "./read-value";
 
@@ -263,7 +263,7 @@ If both signals appear on the same run, the standard flow wins.
 
 ```vue title="src/components/ApprovalPanel.vue"
 <script setup lang="ts">
-import { useInterrupt } from "@copilotkit/vue/v2";
+import { useInterrupt } from "@copilotkit/vue";
 
 const { slotProps } = useInterrupt({ renderInChat: false });
 </script>
@@ -309,7 +309,7 @@ The component calling `useInterrupt` must be a descendant of `CopilotKitProvider
 
 ```vue title="src/App.vue"
 <script setup lang="ts">
-import { CopilotKitProvider } from "@copilotkit/vue/v2";
+import { CopilotKitProvider } from "@copilotkit/vue";
 import MeetingChat from "./components/MeetingChat.vue";
 </script>
 
@@ -330,7 +330,7 @@ The component calling `useHumanInTheLoop` must be a descendant of `CopilotKitPro
 
 ```vue title="src/App.vue"
 <script setup lang="ts">
-import { CopilotKitProvider } from "@copilotkit/vue/v2";
+import { CopilotKitProvider } from "@copilotkit/vue";
 import MeetingTool from "./components/MeetingTool.vue";
 </script>
 

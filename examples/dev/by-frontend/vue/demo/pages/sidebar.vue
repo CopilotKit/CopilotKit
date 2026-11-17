@@ -6,7 +6,7 @@ import {
   CopilotSidebar,
   useConfigureSuggestions,
   useFrontendTool,
-} from "@copilotkit/vue/v2";
+} from "@copilotkit/vue";
 
 const projectCards = Array.from({ length: 4 }, (_unused, index) => index + 1);
 

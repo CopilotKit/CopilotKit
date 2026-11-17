@@ -1,0 +1,50 @@
+<script setup lang="ts">
+import { h } from "vue";
+import {
+  CopilotKit,
+  useCopilotAction,
+  useCopilotReadable,
+  useFrontendTool,
+} from "@copilotkit/vue";
+import ConfirmDelete from "./ConfirmDelete.vue";
+import { useTodos } from "./todos";
+
+const { todos } = useTodos();
+
+useCopilotReadable({ description: "The todo list", value: todos });
+
+useCopilotAction({
+  name: "addTodo",
+  parameters: [{ name: "title", type: "string" }],
+  handler: ({ title }) => {
+    todos.value.push(title);
+  },
+});
+
+useCopilotAction({
+  name: "confirmDelete",
+  parameters: [{ name: "title", type: "string" }],
+  renderAndWaitForResponse: ConfirmDelete,
+});
+
+useCopilotAction({
+  name: "showProgress",
+  available: "frontend",
+  parameters: [{ name: "percent", type: "number" }],
+  render: ({ args }) => h("progress", { value: args.percent }),
+});
+
+useFrontendTool({
+  name: "clearTodos",
+  parameters: [{ name: "confirm", type: "boolean" }],
+  handler: () => {
+    todos.value = [];
+  },
+});
+</script>
+
+<template>
+  <CopilotKit runtime-url="/api/copilotkit">
+    <slot />
+  </CopilotKit>
+</template>

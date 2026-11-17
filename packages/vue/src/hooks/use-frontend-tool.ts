@@ -1,86 +1,61 @@
-/**
- * V1 compatibility wrapper for useFrontendTool.
- *
- * Accepts the legacy Parameter[] format and converts to Zod via getZodParameters,
- * then delegates to the v2 composable.
- */
+import { watch } from "vue";
+import { ɵregisterFrontendTools } from "@copilotkit/core";
 import type { WatchSource } from "vue";
-import type { WebMCPToolConfig } from "@copilotkit/core";
-import { parseJson } from "@copilotkit/shared";
-import type { Parameter, MappedParameterTypes } from "@copilotkit/shared";
-import { getZodParameters } from "./zod-parameters";
-import { useFrontendTool as useFrontendToolV2 } from "../v2/hooks/use-frontend-tool";
-import type { VueFrontendTool } from "../v2/types";
+import { useCopilotKit } from "../providers/useCopilotKit";
+import type { VueFrontendTool } from "../types";
+import type { VueToolCallRenderer } from "../types";
 
-export interface UseFrontendToolArgs<T extends Parameter[] | [] = []> {
-  name: string;
-  description?: string;
-  parameters?: T;
-  handler?: (args: MappedParameterTypes<T>) => unknown | Promise<unknown>;
-  followUp?: boolean;
-  available?: "disabled" | "enabled";
-  render?: VueFrontendTool<MappedParameterTypes<T>>["render"];
-  agentId?: string;
-  /**
-   * Also expose this tool to browser agents through the WebMCP API
-   * (`document.modelContext`). `true` uses default annotations;
-   * `{ annotations }` provides WebMCP annotations.
-   */
-  webmcp?: boolean | WebMCPToolConfig;
-}
+const EMPTY_DEPS: WatchSource<unknown>[] = [];
 
-export function useFrontendTool<const T extends Parameter[] = []>(
-  tool: UseFrontendToolArgs<T>,
+/**
+ * Registers a frontend tool and optional renderer with CopilotKit core.
+ *
+ * The tool registration is reactive to provided dependencies and is cleaned up
+ * automatically when the current scope is disposed.
+ *
+ * A tool with the same name and `agentId` as a tool that is already
+ * registered (for example a provider `frontendTools` entry) takes its place
+ * while this scope is active, with a console warning. When the scope is
+ * disposed, the earlier tool is active again.
+ *
+ * @example
+ * ```ts
+ * useFrontendTool({
+ *   name: "sayHello",
+ *   parameters: z.object({ name: z.string() }),
+ *   handler: async ({ name }) => `Hello ${name}`,
+ * });
+ * ```
+ */
+export function useFrontendTool<T extends Record<string, unknown>>(
+  tool: VueFrontendTool<T>,
   deps?: WatchSource<unknown>[],
 ) {
-  const {
-    name,
-    description,
-    parameters,
-    handler,
-    followUp,
-    available,
-    render,
-    agentId,
-  } = tool;
-  const zodParameters = getZodParameters(parameters);
+  const { copilotkit } = useCopilotKit();
+  const extraDeps = deps ?? EMPTY_DEPS;
 
-  // Wrap the v1 handler (single-arg) to match v2's (args, context) => Promise<unknown> signature
-  const normalizedHandler = handler
-    ? (args: MappedParameterTypes<T>) => Promise.resolve(handler(args))
-    : undefined;
-
-  // Wrap render to parse JSON-string results before passing them to the
-  // user's render function — matches the v1 React behavior. If render is a
-  // Component rather than a function, leave it unchanged.
-  const normalizedRender =
-    typeof render === "function"
-      ? (props: { result?: unknown }) => {
-          const renderProps =
-            typeof props.result === "string"
-              ? { ...props, result: parseJson(props.result, props.result) }
-              : props;
-          return (render as (p: unknown) => unknown)(renderProps);
-        }
-      : render;
-
-  useFrontendToolV2<MappedParameterTypes<T>>(
-    {
-      name,
-      description,
-      parameters: zodParameters,
-      handler: normalizedHandler,
-      followUp,
-      render: normalizedRender,
-      available: available === undefined ? undefined : available !== "disabled",
-      agentId,
-      // Read webmcp at watch time: the v1 args may expose it as a getter over
-      // reactive state, and capturing the initial value here would re-register
-      // a stale configuration.
-      get webmcp() {
-        return tool.webmcp;
-      },
+  watch(
+    [
+      () => tool.name,
+      () => tool.available,
+      // webmcp is commonly an object literal, so compare it by value to avoid
+      // re-registering on identity churn while still reacting to real changes.
+      () => JSON.stringify(tool.webmcp ?? null),
+      () => extraDeps.length,
+      ...extraDeps,
+    ],
+    (_newValues, _old, onCleanup) => {
+      const core = copilotkit.value;
+      // Registrations stack in core: this one shadows an earlier tool with the
+      // same name and agentId (a provider tool, or another component's), and
+      // unregistering it brings that tool back. The renderer stays registered
+      // so past calls still render in the chat history.
+      onCleanup(
+        ɵregisterFrontendTools(core, [tool], (renderer) =>
+          core.addHookRenderToolCall(renderer as VueToolCallRenderer),
+        ),
+      );
     },
-    deps,
+    { immediate: true },
   );
 }

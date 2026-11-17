@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { CopilotKitProvider, CopilotSidebar } from "@copilotkit/vue/v2";
+import { CopilotKitProvider, CopilotSidebar } from "@copilotkit/vue";
 
 const demoCards = Array.from({ length: 4 }, (_unused, index) => index + 1);
 const mcpServerSetup = `git clone https://github.com/modelcontextprotocol/ext-apps

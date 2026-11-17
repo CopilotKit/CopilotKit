@@ -1,0 +1,12 @@
+<template>
+  <p class="status">Čeka odgovor 👋</p>
+</template>
+
+<script setup lang="ts">
+// Čeka odgovor 👋: the agent has not answered yet.
+import { OpenGenerativeUIContentSchema } from "@copilotkit/vue";
+
+const props = defineProps<{ value: unknown }>();
+// TODO(copilotkit-2.0): `OpenGenerativeUIContentSchema` is a Standard Schema in 2.0, not a zod schema, so `.parse()` does not exist. Use `OpenGenerativeUIContentSchema["~standard"].validate(value)`: it returns `{ value }` or `{ issues }` and does not throw. See https://docs.copilotkit.ai/migrate/generative-ui-2.0
+const content = OpenGenerativeUIContentSchema.parse(props.value);
+</script>

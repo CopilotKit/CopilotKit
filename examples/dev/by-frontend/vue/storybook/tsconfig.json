@@ -8,6 +8,12 @@
     "baseUrl": ".",
     "paths": {
       "@copilotkit/vue": ["../../../../../packages/vue/src/index.ts"],
+      "@copilotkit/vue/generative-ui/chart": [
+        "../../../../../packages/vue/src/generative-ui-chart/index.ts"
+      ],
+      "@copilotkit/vue/generative-ui/map": [
+        "../../../../../packages/vue/src/generative-ui-map/index.ts"
+      ],
       "@copilotkit/vue/*": ["../../../../../packages/vue/src/*"],
       "@copilotkit/core": [
         "../../../../../packages/core/dist/index.d.cts",

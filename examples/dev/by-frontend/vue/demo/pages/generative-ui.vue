@@ -7,13 +7,13 @@ import {
   useAgentContext,
   useConfigureSuggestions,
   useFrontendTool,
-} from "@copilotkit/vue/v2";
+} from "@copilotkit/vue";
 import {
   GenerativeUISurface,
   useGenerativeUIFunction,
   useGenerativeUIState,
-} from "@copilotkit/vue/v2/generative-ui";
-import type { GenerativeUIConfig } from "@copilotkit/vue/v2/generative-ui";
+} from "@copilotkit/vue/generative-ui";
+import type { GenerativeUIConfig } from "@copilotkit/vue/generative-ui";
 import { useCart } from "~/generative-ui/cart";
 import { storeUI } from "~/generative-ui/catalog";
 import { PRODUCTS } from "~/generative-ui/products";

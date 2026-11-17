@@ -15,7 +15,7 @@ The package requires Vue 3.3 or newer. Your app also needs a Copilot Runtime end
 ```vue
 <!-- App.vue -->
 <script setup lang="ts">
-import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue/v2";
+import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue";
 </script>
 
 <template>
@@ -29,19 +29,29 @@ import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue/v2";
 
 `CopilotChat` adds its own CSS, so you don't import a stylesheet. `CopilotChat` uses the provider's default agent when `agent-id` is omitted. The chat fills its parent, so give that container a height.
 
-## Imports and compatibility
+## Imports and Vue templates
 
-Use the `/v2` subpath for new code:
+Import the provider, the chat components, and the composables from the package root:
 
 ```ts
 import {
   CopilotChat,
   CopilotKitProvider,
   useFrontendTool,
-} from "@copilotkit/vue/v2";
+} from "@copilotkit/vue";
 ```
 
-The root import, `@copilotkit/vue`, re-exports the v2 API and keeps compatibility wrappers for `CopilotKit`, `useCopilotAction`, `useFrontendTool`, and `useCopilotReadable`. The legacy tool wrappers accept `Parameter[]` definitions. Use `/v2` for the current Standard Schema tool APIs, including Zod, Valibot, and ArkType schemas.
+Generative UI has three more entry points:
+
+- `@copilotkit/vue/generative-ui`: `standardUI`, `createGenerativeUI`, and the other generative UI exports.
+- `@copilotkit/vue/generative-ui/chart`: the `GenerativeUIChart` plugin.
+- `@copilotkit/vue/generative-ui/map`: the `GenerativeUIMap` plugin.
+
+The [Generative UI](#generative-ui) section shows how to use them.
+
+The tool composables, such as `useFrontendTool`, take a Standard Schema for the tool parameters. You can use a Zod, Valibot, or ArkType schema.
+
+`CopilotKit` is an alias of `CopilotKitProvider`, and `CopilotKitProps` is an alias of `CopilotKitProviderProps`. Prefer the `Provider` names.
 
 In Vue templates, camelCase props become kebab-case attributes. For example, `runtimeUrl` is written as `runtime-url`, and boolean or object props use `:` bindings such as `:enable-inspector="false"`. Vue rendering customization uses named and scoped slots where React uses render props.
 
@@ -52,8 +62,8 @@ A text answer is often the wrong answer. With generative UI, the agent renders c
 ```vue
 <!-- App.vue -->
 <script setup lang="ts">
-import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue/v2";
-import { standardUI } from "@copilotkit/vue/v2/generative-ui";
+import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue";
+import { standardUI } from "@copilotkit/vue/generative-ui";
 </script>
 
 <template>
@@ -79,8 +89,8 @@ Charts and maps use optional libraries. Without them, a chart shows a table and 
 
 ```ts
 import { createApp } from "vue";
-import { GenerativeUIChart } from "@copilotkit/vue/v2/generative-ui/chart";
-import { GenerativeUIMap } from "@copilotkit/vue/v2/generative-ui/map";
+import { GenerativeUIChart } from "@copilotkit/vue/generative-ui/chart";
+import { GenerativeUIMap } from "@copilotkit/vue/generative-ui/map";
 import App from "./App.vue";
 
 createApp(App).use(GenerativeUIChart).use(GenerativeUIMap).mount("#app");

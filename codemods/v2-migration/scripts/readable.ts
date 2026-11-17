@@ -8,6 +8,7 @@ import {
 } from "./ast-helpers.ts";
 import type { Node } from "./ast-helpers.ts";
 import { migrateV1Calls } from "./v1-calls.ts";
+import type { CallContext } from "./v1-calls.ts";
 
 const READABLE_KEYS = new Set([
   "description",
@@ -18,9 +19,21 @@ const READABLE_KEYS = new Set([
   "categories",
 ]);
 
+/** What differs between the React and the Vue `useCopilotReadable`. */
+interface ReadableDialect {
+  /** The package the v1 hook came from. `useAgentContext` comes from it too. */
+  source: string;
+  /**
+   * Whether `useAgentContext` keeps the context current without the v1 deps.
+   * React's does: it runs on every render.
+   */
+  dropsDeps: boolean;
+}
+
 /**
- * Rewrites `useCopilotReadable({ description, value }, deps?)` to
- * `useAgentContext({ description, value })`, as v1 last behaved:
+ * Rewrites `useCopilotReadable({ description, value }, deps?)` from
+ * `@copilotkit/react-core` to `useAgentContext({ description, value })`, as
+ * v1 last behaved:
  *
  * - `parentId` and `categories` are dropped: v1 already ignored them;
  * - `available: "enabled"` is dropped (the default);
@@ -31,12 +44,33 @@ const READABLE_KEYS = new Set([
  * A call whose returned id is used, `available: "disabled"`, or a config
  * that is not an object literal keeps the TODO.
  */
-export function migrateReadables(rootNode: Node): string | null {
-  return migrateV1Calls(rootNode, "useCopilotReadable", (call, { source }) => {
+export function migrateReadables(rootNode: Node) {
+  return migrateReadableCalls(rootNode, {
+    source: "@copilotkit/react-core",
+    dropsDeps: true,
+  });
+}
+
+/**
+ * Rewrites `useCopilotReadable` from `@copilotkit/vue` the same way, except
+ * for a call with deps, which keeps the TODO. The Vue `useAgentContext` takes
+ * no deps: it follows `value` only when that is a ref, a getter or a reactive
+ * object, and the codemod cannot tell what the deps kept current.
+ */
+export function migrateVueReadables(rootNode: Node) {
+  return migrateReadableCalls(rootNode, {
+    source: "@copilotkit/vue",
+    dropsDeps: false,
+  });
+}
+
+function migrateReadableCalls(rootNode: Node, dialect: ReadableDialect) {
+  const toAgentContext = (call: Node, { source }: CallContext) => {
     if (call.parent()?.kind() !== "expression_statement") return null;
     const args = argumentNodes(call);
     const [config, deps] = args;
     if (config?.kind() !== "object" || args.length > 2) return null;
+    if (deps && !dialect.dropsDeps) return null;
     const entries = new Map<string, Node>();
     for (const entry of config.children()) {
       if (["{", "}", ",", "comment"].includes(entry.kind())) continue;
@@ -89,5 +123,8 @@ export function migrateReadables(rootNode: Node): string | null {
     if (!callee) return null;
     edits.push(callee.replace("useAgentContext"));
     return { edits, hooks: ["useAgentContext"] };
+  };
+  return migrateV1Calls(rootNode, "useCopilotReadable", toAgentContext, {
+    source: dialect.source,
   });
 }

@@ -36,6 +36,17 @@ nodes:
             - "**/*.mjs"
             - "**/*.cjs"
           exclude: *exclude
+      # The html grammar finds the `<script>` blocks of a Vue single-file
+      # component. Their code is migrated like a `.ts` or `.js` file; the
+      # template is not changed.
+      - name: Migrate .vue files
+        js-ast-grep:
+          js_file: scripts/vue-sfc.ts
+          base_path: "."
+          language: "html"
+          include:
+            - "**/*.vue"
+          exclude: *exclude
 
   - id: install-package-skill
     name: Install the skill that finishes the migration

@@ -38,6 +38,7 @@ In 2.0, both schemas are [Standard Schemas](https://standardschema.dev). They ha
 
 1. Replace each `.parse` call with `["~standard"].validate`, and throw if the result has `issues`:
 
+   {/* kiira: ignore, shows the v1 code this guide migrates away from */}
    ```ts ignore title="Before"
    import { OpenGenerativeUIContentSchema } from "@copilotkit/vue/v2";
 
@@ -45,8 +46,8 @@ In 2.0, both schemas are [Standard Schemas](https://standardschema.dev). They ha
    ```
 
    ```ts title="After"
-   import { OpenGenerativeUIContentSchema } from "@copilotkit/vue/v2";
-   import type { OpenGenerativeUIContent } from "@copilotkit/vue/v2";
+   import { OpenGenerativeUIContentSchema } from "@copilotkit/vue";
+   import type { OpenGenerativeUIContent } from "@copilotkit/vue";
 
    export function readContent(value: unknown): OpenGenerativeUIContent {
      const result = OpenGenerativeUIContentSchema["~standard"].validate(value);

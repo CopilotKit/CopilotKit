@@ -1,7 +1,7 @@
 ```vue title="src/components/RestoreHistory.vue"
 <script setup lang="ts">
 import { watch } from "vue";
-import { useAgent } from "@copilotkit/vue/v2";
+import { useAgent } from "@copilotkit/vue";
 
 const props = defineProps<{ threadId: string }>();
 const { agent } = useAgent({ agentId: "my-agent" });

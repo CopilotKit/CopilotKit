@@ -4,7 +4,7 @@ description: "The Vue 3 provider component that wraps your application and suppl
 ---
 
 <Callout type="info">
-  This is the Vue 3 provider component. Import it from `@copilotkit/vue/v2`.
+  This is the Vue 3 provider component. Import it from `@copilotkit/vue`.
 </Callout>
 
 `CopilotKitProvider` typically wraps your entire application (or a sub-tree where you want a copilot). It creates the CopilotKit core instance and provides the copilot context to all descendant components and composables (such as [`useCopilotKit`](/reference/vue/hooks/useCopilotKit) and [`useAgent`](/reference/vue/hooks/useAgent)).
@@ -15,7 +15,7 @@ The wrapped application is rendered through the component's [default slot](#slot
 
 ```vue
 <script setup lang="ts">
-import { CopilotKitProvider } from "@copilotkit/vue/v2";
+import { CopilotKitProvider } from "@copilotkit/vue";
 </script>
 
 <template>
@@ -29,7 +29,7 @@ Connect to Copilot Cloud with a public API key instead of a self-hosted runtime:
 
 ```vue
 <script setup lang="ts">
-import { CopilotKitProvider } from "@copilotkit/vue/v2";
+import { CopilotKitProvider } from "@copilotkit/vue";
 </script>
 
 <template>
@@ -150,7 +150,7 @@ Don't have it yet? Go to https://dashboard.operations.copilotkit.ai and get one 
   Custom properties sent with each request. Can include `threadMetadata` for thread creation and `authorization` for LangGraph Platform authentication.
 
 ```ts
-import type { CopilotKitProviderProps } from "@copilotkit/vue/v2";
+import type { CopilotKitProviderProps } from "@copilotkit/vue";
 
 // Pass as `:properties="properties"` on <CopilotKitProvider>.
 const properties: CopilotKitProviderProps["properties"] = {
@@ -216,7 +216,7 @@ const properties: CopilotKitProviderProps["properties"] = {
 
 ```vue
 <script setup lang="ts">
-import { CopilotKitProvider } from "@copilotkit/vue/v2";
+import { CopilotKitProvider } from "@copilotkit/vue";
 
 function handleError(event: {
   error: Error;
@@ -237,13 +237,13 @@ function handleError(event: {
 </PropertyReference>
 
 <PropertyReference name="generativeUI" type="GenerativeUIConfig">
-  Turns on native generative UI. The agent renders your Vue components in the chat, or in a [`GenerativeUISurface`](/reference/vue/components/GenerativeUISurface) on the page. Import the types from `@copilotkit/vue/v2/generative-ui`. When you leave it out and the runtime has generative UI on, the provider uses the standard catalog (`standardUI`).
+  Turns on native generative UI. The agent renders your Vue components in the chat, or in a [`GenerativeUISurface`](/reference/vue/components/GenerativeUISurface) on the page. Import the types from `@copilotkit/vue/generative-ui`. When you leave it out and the runtime has generative UI on, the provider uses the standard catalog (`standardUI`).
 
 Bind it in camelCase, as `:generativeUI`. Vue reads the kebab-case `:generative-ui` as a different prop (`generativeUi`), so the config does not reach the provider.
 
 ```vue
 <script setup lang="ts">
-import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue/v2";
+import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue";
 import { shopUI } from "./shop-ui";
 </script>
 

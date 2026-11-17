@@ -6,10 +6,11 @@ type Node = SgNode<TS | TSX>;
 
 /**
  * Some names exist at the same import path in v1 and in 2.0, with a different
- * API: `useFrontendTool` from `@copilotkit/react-core` took a `Parameter[]` in
- * v1 and takes a schema in 2.0. A v1 app imports the v1 one from the package
- * root and the 2.0 one from `/v2`. After the codemod both come from the root,
- * so a second run cannot tell them apart by the import.
+ * API: `useFrontendTool` from `@copilotkit/react-core` or `@copilotkit/vue`
+ * took a `Parameter[]` in v1 and takes a schema in 2.0. A v1 app imports the
+ * v1 one from the package root and the 2.0 one from `/v2`. After the codemod
+ * both come from the root, so a second run cannot tell them apart by the
+ * import.
  *
  * For these names the TODO depends on how the file uses them: only a use in
  * the v1 shape gets one. A second run then changes nothing, and a file that
@@ -28,6 +29,9 @@ export const V1_SHAPES: Record<
     // v1 registered a renderer from a config; the 2.0 hook takes no argument.
     useRenderToolCall: (root, local) =>
       callsOf(root, local).some((call) => argumentsOf(call).length > 0),
+  },
+  "@copilotkit/vue": {
+    useFrontendTool: passesParameterArray,
   },
   "@copilotkit/runtime": {
     CopilotRuntime: constructsV1Runtime,

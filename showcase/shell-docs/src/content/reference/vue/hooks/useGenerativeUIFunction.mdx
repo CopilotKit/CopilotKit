@@ -20,7 +20,7 @@ For a full walkthrough, see [State and actions](/generative-ui/components/state-
 ## Import
 
 ```ts
-import { useGenerativeUIFunction } from "@copilotkit/vue/v2/generative-ui";
+import { useGenerativeUIFunction } from "@copilotkit/vue/generative-ui";
 ```
 
 ## Signature
@@ -31,7 +31,7 @@ import {
   type GenerativeUI,
   type GenerativeUIFunctionArgs,
   type GenerativeUIFunctionName,
-} from "@copilotkit/vue/v2/generative-ui";
+} from "@copilotkit/vue/generative-ui";
 
 useGenerativeUIFunction satisfies <
   UI extends GenerativeUI,
@@ -67,7 +67,7 @@ None. The handler stays mounted until the effect scope is disposed.
 
 ```ts title="shop-ui.ts"
 import { z } from "zod";
-import { createGenerativeUI } from "@copilotkit/vue/v2/generative-ui";
+import { createGenerativeUI } from "@copilotkit/vue/generative-ui";
 
 export const shopUI = createGenerativeUI({
   id: "acme/shop@1",
@@ -87,7 +87,7 @@ Mount the handler from a component:
 
 ```vue title="CartActions.vue"
 <script setup lang="ts">
-import { useGenerativeUIFunction } from "@copilotkit/vue/v2/generative-ui";
+import { useGenerativeUIFunction } from "@copilotkit/vue/generative-ui";
 import { useCartStore } from "./cart-store";
 import { shopUI } from "./shop-ui";
 

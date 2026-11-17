@@ -1,0 +1,14 @@
+<script>
+import { useAgent, useKatexStyles } from "@copilotkit/vue";
+
+export default {
+  setup() {
+    useKatexStyles();
+    return { agent: useAgent().agent };
+  },
+};
+</script>
+
+<template>
+  <p>{{ agent.agentId }}</p>
+</template>

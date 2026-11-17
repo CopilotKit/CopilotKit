@@ -22,7 +22,7 @@ Because the parameters accept `MaybeRefOrGetter`, you can pass plain values, ref
 import {
   useAgentContext,
   type AgentContextInput,
-} from "@copilotkit/vue/v2";
+} from "@copilotkit/vue";
 
 useAgentContext satisfies (context: AgentContextInput) => void;
 ```
@@ -57,7 +57,7 @@ Provide simple, static application state as context for the agent.
 
 ```vue
 <script setup lang="ts">
-import { useAgentContext } from "@copilotkit/vue/v2";
+import { useAgentContext } from "@copilotkit/vue";
 
 useAgentContext({
   description: "Current workspace",
@@ -77,7 +77,7 @@ Pass refs or getters so the context updates automatically whenever the underlyin
 ```vue
 <script setup lang="ts">
 import { ref } from "vue";
-import { useAgentContext } from "@copilotkit/vue/v2";
+import { useAgentContext } from "@copilotkit/vue";
 
 const selectedCategory = ref("electronics");
 const priceRange = ref({ min: 0, max: 500 });
@@ -108,7 +108,7 @@ A `computed` ref works anywhere a `MaybeRefOrGetter` is accepted, including the 
 ```vue
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import { useAgentContext } from "@copilotkit/vue/v2";
+import { useAgentContext } from "@copilotkit/vue";
 
 const props = defineProps<{
   user: { name: string; role: string };
@@ -137,7 +137,7 @@ Each component can register its own context. All registered contexts are visible
 ```vue
 <script setup lang="ts">
 import { ref } from "vue";
-import { useAgentContext } from "@copilotkit/vue/v2";
+import { useAgentContext } from "@copilotkit/vue";
 
 const collapsed = ref(false);
 
@@ -167,7 +167,7 @@ Registering this:
 
 ```vue
 <script setup lang="ts">
-import { useAgentContext } from "@copilotkit/vue/v2";
+import { useAgentContext } from "@copilotkit/vue";
 
 useAgentContext({
   description: "Incident dashboard records",

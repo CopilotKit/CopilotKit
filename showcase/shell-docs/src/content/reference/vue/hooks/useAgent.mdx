@@ -16,7 +16,7 @@ The composable returns `{ agent }`, where `agent` is typed as a Vue `shallowRef<
 ## Signature
 
 ```ts
-import { useAgent, type UseAgentUpdate } from "@copilotkit/vue/v2";
+import { useAgent, type UseAgentUpdate } from "@copilotkit/vue";
 import type { MaybeRefOrGetter, ShallowRef } from "vue";
 import type { AbstractAgent } from "@ag-ui/client";
 
@@ -107,7 +107,7 @@ Reactive props accept `MaybeRefOrGetter`, so you can pass a plain value, a `ref`
 
       **Example:**
       ```ts
-      import { useAgent, useCopilotKit } from "@copilotkit/vue/v2";
+      import { useAgent, useCopilotKit } from "@copilotkit/vue";
 
       export function useRefreshAgent() {
         const { agent } = useAgent();
@@ -137,7 +137,7 @@ Reactive props accept `MaybeRefOrGetter`, so you can pass a plain value, a `ref`
 
 ```vue
 <script setup lang="ts">
-import { useAgent } from "@copilotkit/vue/v2";
+import { useAgent } from "@copilotkit/vue";
 
 const { agent } = useAgent();
 </script>
@@ -155,7 +155,7 @@ const { agent } = useAgent();
 
 ```vue
 <script setup lang="ts">
-import { useAgent } from "@copilotkit/vue/v2";
+import { useAgent } from "@copilotkit/vue";
 
 const { agent } = useAgent();
 
@@ -178,7 +178,7 @@ function updateState() {
 ```vue
 <script setup lang="ts">
 import { watchEffect } from "vue";
-import { useAgent } from "@copilotkit/vue/v2";
+import { useAgent } from "@copilotkit/vue";
 
 const { agent } = useAgent();
 
@@ -202,7 +202,7 @@ watchEffect((onCleanup) => {
 
 ```vue
 <script setup lang="ts">
-import { useAgent } from "@copilotkit/vue/v2";
+import { useAgent } from "@copilotkit/vue";
 
 const { agent: primary } = useAgent({ agentId: "primary" });
 const { agent: support } = useAgent({ agentId: "support" });
@@ -221,7 +221,7 @@ const { agent: support } = useAgent({ agentId: "support" });
 ```vue
 <script setup lang="ts">
 import { ref } from "vue";
-import { useAgent } from "@copilotkit/vue/v2";
+import { useAgent } from "@copilotkit/vue";
 
 const threadId = ref("thread-1");
 
@@ -242,7 +242,7 @@ const { agent } = useAgent({
 
 ```vue
 <script setup lang="ts">
-import { useAgent, UseAgentUpdate } from "@copilotkit/vue/v2";
+import { useAgent, UseAgentUpdate } from "@copilotkit/vue";
 
 // Only update when messages change.
 const { agent } = useAgent({
@@ -258,7 +258,7 @@ const { agent } = useAgent({
 ### Throttling High-Frequency Updates
 
 ```ts
-import { useAgent } from "@copilotkit/vue/v2";
+import { useAgent } from "@copilotkit/vue";
 
 // Coalesce streaming message and state updates into at most one update
 // per 100ms. Run lifecycle callbacks still fire immediately.

@@ -31,7 +31,7 @@ It supports both `v-model` (via `modelValue` / `update:modelValue`) and uncontro
 
 ```vue
 <script setup lang="ts">
-import { CopilotChatInput } from "@copilotkit/vue/v2";
+import { CopilotChatInput } from "@copilotkit/vue";
 </script>
 ```
 
@@ -40,7 +40,7 @@ import { CopilotChatInput } from "@copilotkit/vue/v2";
 ```vue
 <script setup lang="ts">
 import { ref } from "vue";
-import { CopilotChatInput } from "@copilotkit/vue/v2";
+import { CopilotChatInput } from "@copilotkit/vue";
 
 const value = ref("");
 
@@ -288,7 +288,7 @@ Use the string `"-"` as an array entry to render a visual separator between menu
 items:
 
 ```ts
-import type { ToolsMenuItem } from "@copilotkit/vue/v2";
+import type { ToolsMenuItem } from "@copilotkit/vue";
 import { openSettings, search } from "./actions";
 
 const toolsMenu: (ToolsMenuItem | "-")[] = [
@@ -306,7 +306,7 @@ or Space on it. The left arrow key closes it. Escape closes the menu and moves
 focus back to the add button.
 
 ```ts
-import type { ToolsMenuItem } from "@copilotkit/vue/v2";
+import type { ToolsMenuItem } from "@copilotkit/vue";
 import { exportCSV, exportPDF, printDoc } from "./actions";
 
 const toolsMenu: (ToolsMenuItem | "-")[] = [
@@ -332,7 +332,7 @@ imperative API via a template `ref`.
 
 ```vue
 <script setup lang="ts">
-import { CopilotChatAudioRecorder } from "@copilotkit/vue/v2";
+import { CopilotChatAudioRecorder } from "@copilotkit/vue";
 </script>
 ```
 
@@ -365,7 +365,7 @@ below.
 ```vue
 <script setup lang="ts">
 import { ref } from "vue";
-import { CopilotChatAudioRecorder } from "@copilotkit/vue/v2";
+import { CopilotChatAudioRecorder } from "@copilotkit/vue";
 
 // The component exposes `start()` / `stop()` via its instance type.
 const recorder = ref<InstanceType<typeof CopilotChatAudioRecorder> | null>(null);
@@ -385,7 +385,7 @@ const recorder = ref<InstanceType<typeof CopilotChatAudioRecorder> | null>(null)
 ```vue
 <script setup lang="ts">
 import { ref } from "vue";
-import { CopilotChatInput } from "@copilotkit/vue/v2";
+import { CopilotChatInput } from "@copilotkit/vue";
 
 const value = ref("");
 const mode = ref<"input" | "transcribe">("input");
@@ -412,7 +412,7 @@ async function handleFinishWithAudio(blob: Blob) {
 
 ```vue
 <script setup lang="ts">
-import { CopilotChatInput, type ToolsMenuItem } from "@copilotkit/vue/v2";
+import { CopilotChatInput, type ToolsMenuItem } from "@copilotkit/vue";
 
 const toolsMenu: (ToolsMenuItem | "-")[] = [
   { label: "Search the web", action: () => triggerSearch() },
@@ -442,7 +442,7 @@ This sample reads the running state from [`useAgent`](/reference/vue/hooks/useAg
 
 ```vue
 <script setup lang="ts">
-import { CopilotChatInput, useAgent, useCopilotKit } from "@copilotkit/vue/v2";
+import { CopilotChatInput, useAgent, useCopilotKit } from "@copilotkit/vue";
 
 const { agent } = useAgent();
 const { copilotkit } = useCopilotKit();
@@ -479,7 +479,7 @@ function handleStop() {
 
 ```vue
 <script setup lang="ts">
-import { CopilotChatInput } from "@copilotkit/vue/v2";
+import { CopilotChatInput } from "@copilotkit/vue";
 </script>
 
 <template>

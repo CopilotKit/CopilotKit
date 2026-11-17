@@ -20,7 +20,7 @@ description: "Low-level Vue 3 composable for accessing the CopilotKit context"
 import {
   useCopilotKit,
   type CopilotKitContextValue,
-} from "@copilotkit/vue/v2";
+} from "@copilotkit/vue";
 
 useCopilotKit satisfies () => CopilotKitContextValue;
 ```
@@ -55,7 +55,7 @@ The composable returns the `CopilotKitContextValue` object. Every member is a Vu
 ```vue
 <script setup lang="ts">
 import { computed } from "vue";
-import { useCopilotKit } from "@copilotkit/vue/v2";
+import { useCopilotKit } from "@copilotkit/vue";
 
 const { copilotkit } = useCopilotKit();
 
@@ -79,7 +79,7 @@ Subscribe in `onMounted` and tear the subscription down in `onUnmounted`.
 ```vue
 <script setup lang="ts">
 import { onMounted, onUnmounted } from "vue";
-import { useCopilotKit } from "@copilotkit/vue/v2";
+import { useCopilotKit } from "@copilotkit/vue";
 
 const { copilotkit } = useCopilotKit();
 
@@ -106,7 +106,7 @@ onUnmounted(() => {
 ```vue
 <script setup lang="ts">
 import { z } from "zod";
-import { useCopilotKit, useFrontendTool } from "@copilotkit/vue/v2";
+import { useCopilotKit, useFrontendTool } from "@copilotkit/vue";
 
 const { copilotkit } = useCopilotKit();
 
@@ -194,7 +194,7 @@ Because `executingToolCallIds` is a ref, drive UI off it with a `computed` or re
 ```vue
 <script setup lang="ts">
 import { computed } from "vue";
-import { useCopilotKit } from "@copilotkit/vue/v2";
+import { useCopilotKit } from "@copilotkit/vue";
 
 const { executingToolCallIds } = useCopilotKit();
 

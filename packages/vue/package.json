@@ -26,17 +26,14 @@
   "types": "./dist/index.d.cts",
   "typesVersions": {
     "*": {
-      "v2": [
-        "./dist/v2/index.d.cts"
+      "generative-ui": [
+        "./dist/generative-ui/index.d.cts"
       ],
-      "v2/generative-ui": [
-        "./dist/v2/generative-ui/index.d.cts"
+      "generative-ui/chart": [
+        "./dist/generative-ui-chart/index.d.cts"
       ],
-      "v2/generative-ui/chart": [
-        "./dist/v2/generative-ui-chart/index.d.cts"
-      ],
-      "v2/generative-ui/map": [
-        "./dist/v2/generative-ui-map/index.d.cts"
+      "generative-ui/map": [
+        "./dist/generative-ui-map/index.d.cts"
       ]
     }
   },
@@ -51,44 +48,34 @@
         "default": "./dist/index.cjs"
       }
     },
-    "./v2": {
+    "./generative-ui": {
       "import": {
-        "types": "./dist/v2/index.d.mts",
-        "default": "./dist/v2/index.mjs"
+        "types": "./dist/generative-ui/index.d.mts",
+        "default": "./dist/generative-ui/index.mjs"
       },
       "require": {
-        "types": "./dist/v2/index.d.cts",
-        "default": "./dist/v2/index.cjs"
+        "types": "./dist/generative-ui/index.d.cts",
+        "default": "./dist/generative-ui/index.cjs"
       }
     },
-    "./v2/generative-ui": {
+    "./generative-ui/chart": {
       "import": {
-        "types": "./dist/v2/generative-ui/index.d.mts",
-        "default": "./dist/v2/generative-ui/index.mjs"
+        "types": "./dist/generative-ui-chart/index.d.mts",
+        "default": "./dist/generative-ui-chart/index.mjs"
       },
       "require": {
-        "types": "./dist/v2/generative-ui/index.d.cts",
-        "default": "./dist/v2/generative-ui/index.cjs"
+        "types": "./dist/generative-ui-chart/index.d.cts",
+        "default": "./dist/generative-ui-chart/index.cjs"
       }
     },
-    "./v2/generative-ui/chart": {
+    "./generative-ui/map": {
       "import": {
-        "types": "./dist/v2/generative-ui-chart/index.d.mts",
-        "default": "./dist/v2/generative-ui/chart.mjs"
+        "types": "./dist/generative-ui-map/index.d.mts",
+        "default": "./dist/generative-ui-map/index.mjs"
       },
       "require": {
-        "types": "./dist/v2/generative-ui-chart/index.d.cts",
-        "default": "./dist/v2/generative-ui/chart.cjs"
-      }
-    },
-    "./v2/generative-ui/map": {
-      "import": {
-        "types": "./dist/v2/generative-ui-map/index.d.mts",
-        "default": "./dist/v2/generative-ui/map.mjs"
-      },
-      "require": {
-        "types": "./dist/v2/generative-ui-map/index.d.cts",
-        "default": "./dist/v2/generative-ui/map.cjs"
+        "types": "./dist/generative-ui-map/index.d.cts",
+        "default": "./dist/generative-ui-map/index.cjs"
       }
     },
     "./package.json": "./package.json"
@@ -98,7 +85,7 @@
   },
   "scripts": {
     "build": "vite build && pnpm build:types",
-    "build:types": "vue-tsc -p tsconfig.json --declaration --emitDeclarationOnly --outDir dist --skipLibCheck && node -e \"const fs=require('fs');for(const d of ['index','v2/index','v2/generative-ui/index','v2/generative-ui-chart/index','v2/generative-ui-map/index']){const f='./dist/'+d;fs.cpSync(f+'.d.ts',f+'.d.mts');fs.cpSync(f+'.d.ts',f+'.d.cts')}\"",
+    "build:types": "vue-tsc -p tsconfig.json --declaration --emitDeclarationOnly --outDir dist --skipLibCheck && node -e \"const fs=require('fs');for(const d of ['index','generative-ui/index','generative-ui-chart/index','generative-ui-map/index']){const f='./dist/'+d;fs.cpSync(f+'.d.ts',f+'.d.mts');fs.cpSync(f+'.d.ts',f+'.d.cts')}\"",
     "dev": "vite build --watch",
     "test": "vitest run",
     "test:watch": "vitest",

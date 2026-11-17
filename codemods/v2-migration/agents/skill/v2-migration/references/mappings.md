@@ -30,6 +30,8 @@ If the app has no runtime, ask the user which runtime URL to use. See [Angular: 
 
 ## Hooks
 
+The examples in this section are React. For `@copilotkit/vue`, read "Vue" at the end of this file.
+
 ### `useCopilotReadable` → `useAgentContext`
 
 ```tsx
@@ -673,3 +675,138 @@ export class AuditedChatConfiguration extends CopilotChatConfiguration {
 ```
 
 `setActiveThreadId` and `startNewThread` now log a warning when the `threadId` option controls the thread. The call is still ignored.
+
+## Vue
+
+`@copilotkit/vue` serves the 2.0 API from its root. Docs: https://docs.copilotkit.ai/reference/vue
+
+The codemod migrated the `.ts` and `.js` files and the `<script>` blocks of `.vue` files. It did not change templates. It already did this:
+
+| v1                                                                                         | 2.0                                                                                                                                        |
+| ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `@copilotkit/vue/v2`                                                                       | `@copilotkit/vue`                                                                                                                          |
+| `@copilotkit/vue/v2/generative-ui` (and `/chart`, `/map`)                                  | `@copilotkit/vue/generative-ui` (and `/chart`, `/map`)                                                                                     |
+| `import "@copilotkit/vue/styles.css"`                                                      | Deleted. The components add their own styles.                                                                                              |
+| `CopilotKit`, `CopilotKitProps`                                                            | Not renamed. 2.0 keeps them as aliases of `CopilotKitProvider` and `CopilotKitProviderProps`, so `<CopilotKit>` in a template still works. |
+| `useCopilotAction` with `renderAndWaitForResponse` or `renderAndWait`                      | `useHumanInTheLoop`, with that key renamed to `render`                                                                                     |
+| `useCopilotAction` with `available: "frontend"` or `"disabled"`, `parameters` and `render` | `useRenderTool`. Its render gets the arguments as `parameters`.                                                                            |
+| Any other `useCopilotAction`, also one with a `render` and no `handler`                    | `useFrontendTool`. `available: "remote"` is `available: false`, and `available: "enabled"` is deleted.                                     |
+| A literal `Parameter[]` in `parameters`                                                    | `z.object({ ... })`, with `import { z } from "zod"`                                                                                        |
+| `useCopilotReadable` without deps                                                          | `useAgentContext({ description, value })`                                                                                                  |
+
+The 2.0 hooks take the same deps (Vue watch sources) as their second argument, so the converted `useCopilotAction` calls keep them.
+
+This v1 code has no TODO:
+
+- A `<script>` block in a language other than JavaScript or TypeScript. The codemod does not read it.
+- The `<script>` blocks after a template that has the text `<script>` in an expression. The codemod does not find them.
+- Code that imports a v1 name (`useCopilotAction`, `FrontendAction`, ...) through a file with `export * from "@copilotkit/vue"`.
+
+Search the `.vue` files for `@copilotkit/vue/v2`, `useCopilotAction` and `useCopilotReadable`. Fix what is left, and what the build reports, with this section.
+
+### `useCopilotAction` that is left
+
+```text
+TODO(copilotkit-2.0): `useCopilotAction` was removed in 2.0. Use `useFrontendTool` from "@copilotkit/vue" instead. Its API is different: https://docs.copilotkit.ai/reference/vue/hooks/useFrontendTool
+TODO(copilotkit-2.0): `useCopilotAction`: For `renderAndWaitForResponse`, use `useHumanInTheLoop`. For a render-only action (`available: "frontend"` or `"disabled"`) or a catch-all (`name: "*"`), use `useRenderTool`.
+```
+
+Rewrite each call that is left the way v1 Vue ran it:
+
+- **A catch-all** (`name: "*"`): `useRenderTool({ name: "*", render }, deps)`. It draws each tool call that has no renderer of its own.
+- **`renderAndWaitForResponse` with other keys** (`followUp`, `available`, `handler`, `render` or `webmcp`): v1 gave `useHumanInTheLoop` only `name`, `description`, `parameters`, the render and `agentId`. Write `useHumanInTheLoop` with those keys. Delete the other keys: v1 did not use them. If the call also has `render`, v1 used `render`.
+- **A render-only call with a `handler`**: v1 drew it with `useRenderTool` and never ran the handler. Write `useRenderTool` without the handler. Tell the user that v1 never ran it.
+- **A render-only call without `parameters` or `render`**: v1 registered nothing and logged a warning. Ask the user whether to delete the call or to finish it as `useRenderTool`.
+- **A spread, or `parameters` that are not a literal array**: Pick the hook from the table above. Write `parameters` as a Zod schema.
+
+```vue
+<script setup lang="ts">
+import { h } from "vue";
+import { useHumanInTheLoop, useRenderTool } from "@copilotkit/vue";
+
+// v1: renderAndWaitForResponse with followUp: false, which v1 ignored.
+useHumanInTheLoop({
+  name: "approve",
+  render: ({ respond }) =>
+    h("button", { onClick: () => respond?.("ok") }, "Approve"),
+});
+
+// v1: a catch-all (name: "*").
+useRenderTool({
+  name: "*",
+  render: ({ name, status }) => h("span", `${name}: ${status}`),
+});
+</script>
+```
+
+A render that reads `result` gets one more TODO. 2.0 passes `result` as a string, and v1 parsed it as JSON first. Parse it with `JSON.parse` where the render reads it as an object.
+
+### `useCopilotReadable` that is left
+
+```text
+TODO(copilotkit-2.0): `useCopilotReadable` was removed in 2.0. Use `useAgentContext` from "@copilotkit/vue" instead. Its API is different: https://docs.copilotkit.ai/reference/vue/hooks/useAgentContext
+TODO(copilotkit-2.0): `useCopilotReadable`: `useAgentContext` takes no deps and returns no id. To keep the context current, pass a ref, a getter or a reactive object as `value`.
+```
+
+The Vue `useAgentContext` takes no deps. It updates the context by itself when `value` is a ref, a getter or a reactive object. For a call with deps, pass a getter that reads the state that the deps watched. Then delete the deps:
+
+```vue
+<script setup lang="ts">
+import { ref } from "vue";
+import { useAgentContext } from "@copilotkit/vue";
+
+const todos = ref<string[]>([]);
+
+// v1: useCopilotReadable({ description: "Todo count", value: todos.value.length }, [todos]);
+useAgentContext({
+  description: "Todo count",
+  value: () => todos.value.length,
+});
+</script>
+```
+
+If the call has `convert`, call it in the getter: `value: () => convert("Todo count", todos.value)`.
+
+Two more cases keep this TODO:
+
+- **The returned id is used.** `useAgentContext` returns nothing, and it removes the context when the component unmounts. To control the context by id, get `copilotkit` from `useCopilotKit()`. Then `copilotkit.value.addContext({ description, value })` returns the id, and `copilotkit.value.removeContext(id)` removes the context. There, `value` is a string, so use `JSON.stringify` for an object.
+- **`available: "disabled"`.** v1 added no context for this call. Delete the call. Tell the user. If `available` changes at run time, move the call into a small component that the template shows with `v-if`.
+
+### Removed Vue types
+
+```text
+TODO(copilotkit-2.0): `FrontendAction` was removed in 2.0. Use `VueFrontendTool` from "@copilotkit/vue" instead. Its API is different: https://docs.copilotkit.ai/reference/vue/hooks/useFrontendTool
+```
+
+| v1 Vue                                        | 2.0                                                                                                                                                              |
+| --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `FrontendAction<T>`, `UseFrontendToolArgs<T>` | `VueFrontendTool<Args>`, where `Args` is the type of the arguments object (`{ title: string }`). Its `parameters` is a Zod schema, and `available` is a boolean. |
+| `UseCopilotReadableOptions`                   | `AgentContextInput`: `{ description, value }`. It has no `available` or `convert`.                                                                               |
+| `CatchAllFrontendAction`                      | No type. Register the renderer with `useRenderTool({ name: "*", render })`.                                                                                      |
+
+### `useFrontendTool` with a `Parameter[]` list
+
+```text
+TODO(copilotkit-2.0): `useFrontendTool`: The v2 API uses a Zod schema instead of the v1 Parameter[] shape. https://docs.copilotkit.ai/reference/vue/hooks/useFrontendTool
+```
+
+The v1 Vue `useFrontendTool` took a `Parameter[]` list. Write `parameters` as a Zod schema, as in the calls that the codemod converted. Change `available: "disabled"` to `available: false`. Delete `available: "enabled"`. If the render reads `result`, parse it as above.
+
+```vue
+<script setup lang="ts">
+import { ref } from "vue";
+import { useFrontendTool } from "@copilotkit/vue";
+import { z } from "zod";
+
+const todos = ref<string[]>([]);
+
+useFrontendTool({
+  name: "clearTodos",
+  description: "Delete every todo",
+  parameters: z.object({ confirm: z.boolean() }),
+  handler: ({ confirm }) => {
+    if (confirm) todos.value = [];
+  },
+});
+</script>
+```

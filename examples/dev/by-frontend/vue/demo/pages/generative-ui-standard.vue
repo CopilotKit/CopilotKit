@@ -4,8 +4,8 @@ import {
   CopilotChat,
   CopilotKitProvider,
   useConfigureSuggestions,
-} from "@copilotkit/vue/v2";
-import { standardUI } from "@copilotkit/vue/v2/generative-ui";
+} from "@copilotkit/vue";
+import { standardUI } from "@copilotkit/vue/generative-ui";
 
 // The suggestions need the provider, so they are set in a child of
 // `CopilotKitProvider`.

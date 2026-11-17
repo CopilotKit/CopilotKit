@@ -17,7 +17,10 @@ export interface CallConversion {
 }
 
 export interface V1CallOptions {
-  /** The module the v1 name is imported from. */
+  /**
+   * The module the v1 name is imported from, `@copilotkit/react-core` by
+   * default. The 2.0 names the calls use are imported from it too.
+   */
   source?: string;
   /** Parses changed source: needed to drop imports that end up unused. */
   reparse?: (text: string) => Node;
@@ -32,7 +35,7 @@ export interface CallContext {
 }
 
 /**
- * Rewrites the calls of one v1 hook from `@copilotkit/react-core`:
+ * Rewrites the calls of one v1 hook from `options.source`:
  * `convert` turns a call into 2.0 code, or returns `null` to leave it (the
  * import pass then marks it with a TODO). The import of the v1 hook is
  * replaced by the 2.0 names the calls use, and keeps the v1 name while a

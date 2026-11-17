@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from "vue";
-import type { GenerativeUIInvokeResult } from "@copilotkit/vue/v2/generative-ui";
+import type { GenerativeUIInvokeResult } from "@copilotkit/vue/generative-ui";
 
 // The props come from `storeUI` in ./catalog.ts. A component cannot take
 // its types from the UI that lists it (a circular type), so they are

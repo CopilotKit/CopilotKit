@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { VueHostConfiguration } from "../host-configuration";
 import AgenticChatFeature from "./AgenticChatFeature.vue";
 
-vi.mock("@copilotkit/vue/v2", () => ({
+vi.mock("@copilotkit/vue", () => ({
   CopilotKitProvider: defineComponent({
     props: {
       runtimeUrl: { type: String, required: true },
@@ -50,9 +50,9 @@ describe("Vue agentic-chat feature", () => {
     const provider = wrapper.get('[data-testid="copilot-provider"]');
     const chat = wrapper.get('[data-testid="copilot-chat"]');
 
-    expect(
-      wrapper.get('[data-testid="vue-agentic-chat"]').attributes("data-testid"),
-    ).toBe("vue-agentic-chat");
+    expect(wrapper.find('[data-testid="vue-agentic-chat"]').exists()).toBe(
+      true,
+    );
     expect(wrapper.get('[data-testid="showcase-cell-id"]').text()).toBe(
       configuration.cellId,
     );

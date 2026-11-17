@@ -225,7 +225,7 @@ Angular use - so the renderer is a thin adapter: it owns the iframe
 
 ## Architectural decision: Native generative UI
 
-`@copilotkit/vue/v2/generative-ui` is the Vue framework layer of native
+`@copilotkit/vue/generative-ui` is the Vue framework layer of native
 generative UI. The engine is framework-free, and React, Angular and Vue share it:
 
 - `@copilotkit/core/generative-ui`: the surface manager, the dispatcher, the
@@ -276,9 +276,9 @@ wiring and the standard components as Vue SFCs.
 ### Optional libraries
 
 - Chart and Map follow the Angular model. They are opt-in Vue plugins with their
-  own entries: `GenerativeUIChart` (`/v2/generative-ui/chart`, plus
+  own entries: `GenerativeUIChart` (`/generative-ui/chart`, plus
   `provideGenerativeUIChart` for one subtree) and `GenerativeUIMap`
-  (`/v2/generative-ui/map`). `chart.js` and `maplibre-gl` are optional peers.
+  (`/generative-ui/map`). `chart.js` and `maplibre-gl` are optional peers.
 - Without a plugin, Chart shows its data as a table and Map shows its markers as
   a list. The tests use these fallbacks where React mocks the library.
 - Icons follow the React model: Icon loads `lucide-vue-next` with a lazy
@@ -512,7 +512,7 @@ They are in the MCP Apps area and in the generative UI area.
 | `renderActivityMessages` / `useRenderActivityMessage`                                                                                            | `#activity-<type>` and `#activity-message` slots                                   | intentional-divergence | Slot translation, behavior parity required.                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | `renderCustomMessages` / `useRenderCustomMessages`                                                                                               | `#message-before` and `#message-after` slots, plus provider `renderCustomMessages` | intentional-divergence | Slots remain primary; provider registration is the approved secondary parity surface for ordered/agent-scoped custom message renderers.                                                                                                                                                                                                                                                                                                                                           |
 | `useRenderTool`, `useDefaultRenderTool`, `useComponent`                                                                                          | Same-named Vue composables in `src/hooks`                                          | matched                | Secondary programmatic APIs now exist with dedicated parity tests, including SFC/component renderer support and React-matching `toolCallId` threading through render-tool prop unions and `CopilotChatToolCallsView` core render props; slots remain the primary customization surface.                                                                                                                                                                                           |
-| `createGenerativeUI`, `child`, `childList` (`/v2/generative-ui`)                                                                                 | Same names from `@copilotkit/vue/v2/generative-ui`                                 | intentional-divergence | Same catalog builder. Generated components get the Vue prop mapping: explicit props, `update:x` emits, named slots. See "Architectural decision: Native generative UI".                                                                                                                                                                                                                                                                                                           |
+| `createGenerativeUI`, `child`, `childList` (`/generative-ui`)                                                                                    | Same names from `@copilotkit/vue/generative-ui`                                    | intentional-divergence | Same catalog builder. Generated components get the Vue prop mapping: explicit props, `update:x` emits, named slots. See "Architectural decision: Native generative UI".                                                                                                                                                                                                                                                                                                           |
 | `CopilotKitProvider` `generativeUI` prop                                                                                                         | `CopilotKitProvider` `generativeUI` prop                                           | matched                | Same config type. Bind it in camelCase (`:generativeUI`).                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `CopilotChat` / `CopilotPopup` / `CopilotSidebar` `generativeUISurface` prop                                                                     | `#generative-ui-surface` scoped slot                                               | intentional-divergence | Slot-first rule. Slot props: `{ surfaceId, isStreaming, error, rejected, children }`.                                                                                                                                                                                                                                                                                                                                                                                             |
 | `GenerativeUISurface`                                                                                                                            | `GenerativeUISurface`                                                              | intentional-divergence | `fallback` is the default slot. `components` without `ui` is not a type error.                                                                                                                                                                                                                                                                                                                                                                                                    |
@@ -609,9 +609,9 @@ They are in the MCP Apps area and in the generative UI area.
 
 ### Generative UI
 
-React anchors are in `packages/react-core/src/v2/generative-ui/`. Angular anchors
+React anchors are in `packages/react-core/src/generative-ui/`. Angular anchors
 are in `packages/angular/src/generative-ui/lib/`. Vue paths are relative to
-`src/v2/generative-ui/`. Where Angular has the only counterpart (most standard
+`src/generative-ui/`. Where Angular has the only counterpart (most standard
 components), Vue ports Angular's spec cases.
 
 Engine, chat and wiring:

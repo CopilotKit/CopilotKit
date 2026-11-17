@@ -13,7 +13,7 @@ import RestoreHistory from "@/snippets/vue/threads/restore-history.mdx";
 Every CopilotKit conversation is scoped to a **thread**, identified by a `threadId`.
 
 <Callout type="info">
-  This page describes the current Vue v2 composables and components imported from `@copilotkit/vue/v2`.
+  This page describes the current Vue composables and components imported from `@copilotkit/vue`.
 </Callout>
 
 ## The lifecycle at a glance
@@ -100,7 +100,7 @@ Set the active thread to restore its history, or start a fresh conversation:
 
 ```vue title="src/components/ThreadControls.vue"
 <script setup lang="ts">
-import { useCopilotChatConfiguration } from "@copilotkit/vue/v2";
+import { useCopilotChatConfiguration } from "@copilotkit/vue";
 
 const { existingId } = defineProps<{ existingId: string }>();
 const config = useCopilotChatConfiguration();
@@ -133,7 +133,7 @@ A common ask is to intercept the first message, create a row through your own ba
 
 ```ts
 // Inside <script setup lang="ts">
-import { useCopilotChatConfiguration } from "@copilotkit/vue/v2";
+import { useCopilotChatConfiguration } from "@copilotkit/vue";
 import { myApi } from "./api";
 
 const config = useCopilotChatConfiguration();
@@ -148,7 +148,7 @@ async function startConversation() {
 
 ```ts
 // Inside <script setup lang="ts">
-import { useAgent, useCopilotKit } from "@copilotkit/vue/v2";
+import { useAgent, useCopilotKit } from "@copilotkit/vue";
 import { myApi } from "./api";
 
 const { agent } = useAgent();

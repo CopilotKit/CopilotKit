@@ -19,7 +19,7 @@ This composable only handles rendering. It does not register a frontend handler.
 ## Import
 
 ```ts
-import { useRenderTool } from "@copilotkit/vue/v2";
+import { useRenderTool } from "@copilotkit/vue";
 ```
 
 ## Signature
@@ -27,7 +27,7 @@ import { useRenderTool } from "@copilotkit/vue/v2";
 ### Wildcard overload
 
 ```ts
-import { useRenderTool } from "@copilotkit/vue/v2";
+import { useRenderTool } from "@copilotkit/vue";
 import type { Component, VNodeChild, WatchSource } from "vue";
 
 useRenderTool satisfies (
@@ -46,12 +46,12 @@ useRenderTool satisfies (
 
 In this signature, `RenderToolProps<S>` is the discriminated union described
 under [Render Props](#render-props). It is not exported from
-`@copilotkit/vue/v2`, so the block below spells it out. In your own code, let the
+`@copilotkit/vue`, so the block below spells it out. In your own code, let the
 `render` callback infer its props from the schema, as shown in the examples
 below.
 
 ```ts
-import { useRenderTool } from "@copilotkit/vue/v2";
+import { useRenderTool } from "@copilotkit/vue";
 import type { InferSchemaOutput, StandardSchemaV1 } from "@copilotkit/shared";
 import type { Component, VNodeChild, WatchSource } from "vue";
 
@@ -155,7 +155,7 @@ The three states are:
 
 ## Behavior
 
-- Builds a renderer entry with `defineToolCallRenderer` (exported from `@copilotkit/vue/v2`) and registers it on the active CopilotKit instance via `addHookRenderToolCall`.
+- Builds a renderer entry with `defineToolCallRenderer` (exported from `@copilotkit/vue`) and registers it on the active CopilotKit instance via `addHookRenderToolCall`.
 - Maps the internal `args` prop onto `parameters` before calling `render`, so your render function always sees `parameters`.
 - Deduplicates by `agentId:name` key (latest registration wins).
 - Intentionally does not remove the renderer on cleanup, so previous chat history can still render.
@@ -169,7 +169,7 @@ The three states are:
 <script setup lang="ts">
 import { h } from "vue";
 import { z } from "zod";
-import { useRenderTool } from "@copilotkit/vue/v2";
+import { useRenderTool } from "@copilotkit/vue";
 
 useRenderTool({
   name: "searchDocs",
@@ -218,7 +218,7 @@ defineProps<{
 <!-- App.vue -->
 <script setup lang="ts">
 import { z } from "zod";
-import { useRenderTool } from "@copilotkit/vue/v2";
+import { useRenderTool } from "@copilotkit/vue";
 import SearchDocsRenderer from "./SearchDocsRenderer.vue";
 
 useRenderTool({
@@ -240,7 +240,7 @@ Omit `parameters` and use `name: "*"` to provide a generic UI for any unhandled 
 ```vue
 <script setup lang="ts">
 import { h } from "vue";
-import { useRenderTool } from "@copilotkit/vue/v2";
+import { useRenderTool } from "@copilotkit/vue";
 
 useRenderTool({
   name: "*",
@@ -262,7 +262,7 @@ useRenderTool({
 <script setup lang="ts">
 import { h, ref } from "vue";
 import { z } from "zod";
-import { useRenderTool } from "@copilotkit/vue/v2";
+import { useRenderTool } from "@copilotkit/vue";
 
 const locale = ref("en");
 
