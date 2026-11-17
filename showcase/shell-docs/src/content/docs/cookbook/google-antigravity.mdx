@@ -719,8 +719,8 @@ const AgentState = z.object({
 Each field comes from one place:
 
 - `clone_repo` writes `repo`, and `install_dependencies` writes `install`.
-- `testRuns` gets a row from each `run_tests`, and `checks` one from each `run_check`
-- `approvals` gets each of your decisions
+- `testRuns` gets a row from each `run_tests`, and `checks` one from each `run_check`.
+- `approvals` gets each of your decisions.
 - `git_push` writes `push`.
 
 [`useAgent`](/reference/hooks/useAgent) gives the browser that state. One provider reads it once and shares it with
