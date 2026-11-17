@@ -49,6 +49,8 @@ Generative UI has three more entry points:
 
 The [Generative UI](#generative-ui) section shows how to use them.
 
+The `/v2` subpaths of 1.x (`@copilotkit/vue/v2`, `@copilotkit/vue/v2/generative-ui`, and more) still resolve, as deprecated aliases of these entry points. Move each import to the package root or to its entry point above.
+
 The tool composables, such as `useFrontendTool`, take a Standard Schema for the tool parameters. You can use a Zod, Valibot, or ArkType schema.
 
 `CopilotKit` is an alias of `CopilotKitProvider`, and `CopilotKitProps` is an alias of `CopilotKitProviderProps`. Prefer the `Provider` names.
@@ -79,6 +81,8 @@ import { standardUI } from "@copilotkit/vue/generative-ui";
 ```
 
 Write the binding in camelCase: `:generativeUI`. Vue reads `:generative-ui` as a different prop, so the provider does not get the catalog.
+
+The `a2ui` prop of 1.x is a deprecated alias: `:a2ui="{ catalog, theme }"` works as `:generativeUI="{ ui: catalog, theme }"`. When both props set the same option, `generativeUI` wins.
 
 `standardUI` is the standard catalog. To let the agent render your own components, build a catalog with `createGenerativeUI`.
 
