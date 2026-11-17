@@ -4,8 +4,8 @@ This package registers the published `@ag-ui/omnara` adapter with three
 standalone Showcase demos. The canonical standalone starter is
 [`examples/integrations/omnara`](../../../examples/integrations/omnara/README.md).
 Read [PARITY_NOTES.md](./PARITY_NOTES.md) before interpreting feature coverage.
-The integration is undeployed and hidden from product docs while hosted proof
-and shared session configuration remain open.
+The integration is undeployed and hidden from product docs pending staging and
+public-surface verification in PNI-775.
 
 ## Run locally
 
@@ -31,9 +31,23 @@ Open:
 
 `GET /api/health` only reports process liveness. A missing runtime configuration
 returns HTTP 503 without revealing credentials. Builds need no credentials.
-This local registration uses an in-memory runner and an anonymous demo identity;
-public deployment must first supply the verified visitor/session policy and
-shared Intelligence wiring tracked in PNI-774.
+
+## Visitor sessions
+
+Each demo opens one native Omnara thread for its browser session. The runtime
+issues a signed credential scoped to that demo and thread. It checks ownership
+before run, reconnect, and stop, and uses the verified identity for Omnara.
+The browser sends the credential on same-origin requests from the demo, including
+when Showcase or Dojo embeds it. Browser session storage preserves the same
+thread across reloads while the backend process is running. A browser that
+blocks session storage can still run a chat for the life of the page.
+
+Run the demo on one backend process. The runner replays retained messages on
+reload. When its bounded cache evicts the transcript, the pinned Omnara
+adapter restores the native message snapshot on the next run. A process restart
+ends the browser session. The visitor can explicitly start a new chat after
+a failed turn or a reload. Shared Intelligence, cross-device history, and
+recovery across backend restarts are outside the launch scope.
 
 ## Verify
 
