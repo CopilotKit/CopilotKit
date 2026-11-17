@@ -84,7 +84,7 @@ describe("permanent fleet lifecycle isolation", () => {
       appendSummary: () => {},
     });
     expect(result.exitCode).toBe(0);
-    expect(result.attempted).toBe(42);
+    expect(result.attempted).toBe(43);
     expect(redeploy).toHaveBeenCalledWith(
       SERVICES["harness-workers"].serviceId,
       STAGING_ENV_ID,
@@ -146,7 +146,7 @@ describe("permanent fleet lifecycle isolation", () => {
       log: () => {},
     });
     expect(reconcileExitCode(result)).toBe(0);
-    expect(result.checked).toBe(42);
+    expect(result.checked).toBe(43);
     expect(result.lagging).toEqual(["harness"]);
     expect(redeploy.mock.calls).toEqual([
       [SERVICES.harness.serviceId, STAGING_ENV_ID],
@@ -207,10 +207,10 @@ describe("permanent fleet lifecycle isolation", () => {
       fetchEnvConfig,
     });
     expect(stagingResult).toEqual({
-      checked: 43,
+      checked: 44,
       skipped: 0,
       violations: [],
-      perEnv: { staging: { expected: 43, checked: 43, skipped: 0 } },
+      perEnv: { staging: { expected: 44, checked: 44, skipped: 0 } },
     });
     expect(summarizeAutoUpdatesFailures(stagingResult).shouldFail).toBe(false);
     expect(fetchEnvConfig).toHaveBeenCalledExactlyOnceWith(STAGING_ENV_ID);
@@ -268,7 +268,7 @@ describe("permanent fleet lifecycle isolation", () => {
         appendSummary: () => {},
       });
       expect(result.exitCode).toBe(0);
-      expect(result.attempted).toBe(42);
+      expect(result.attempted).toBe(43);
       expect(redeploy).not.toHaveBeenCalledWith(TEMP_ID, expect.anything());
       redeploy.mockClear();
       await expect(
@@ -283,12 +283,12 @@ describe("permanent fleet lifecycle isolation", () => {
       expect(computePromoteClosure(Object.keys(SERVICES))).toEqual(
         emitted.closure,
       );
-      expect(Object.keys(SERVICES)).toHaveLength(51);
+      expect(Object.keys(SERVICES)).toHaveLength(52);
     },
   );
 
   it("keeps static staging-only identities and the emitted permanent closure unchanged", () => {
-    expect(Object.keys(SERVICES)).toHaveLength(51);
+    expect(Object.keys(SERVICES)).toHaveLength(52);
     expect(Object.hasOwn(SERVICES, TEMP_NAME)).toBe(false);
     expect(DISPOSABLE_LIFECYCLE_POLICY.approvedImages).not.toContain(IMAGE);
     for (const [name, id] of Object.entries(STAGING_ONLY_IDS)) {

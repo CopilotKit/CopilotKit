@@ -9,10 +9,10 @@ description: "Low-level Vue 3 composable for accessing the CopilotKit context"
 
 <Callout type="info">
   `useCopilotKit` is a low-level composable. Most applications should use
-  higher-level composables like `useAgent` or `useFrontendTool` instead.
+  higher-level composables like [`useAgent`](/reference/vue/hooks/useAgent) or [`useFrontendTool`](/reference/vue/hooks/useFrontendTool) instead.
 </Callout>
 
-**Throws an error** if called outside of a `CopilotKitProvider`. The composable injects the provider context, so it must run within a component tree that has `CopilotKitProvider` as an ancestor.
+**Throws an error** if called outside of a [`CopilotKitProvider`](/reference/vue/components/CopilotKitProvider). The composable injects the provider context, so it must run within a component tree that has `CopilotKitProvider` as an ancestor.
 
 ## Signature
 
@@ -42,7 +42,7 @@ The composable returns the `CopilotKitContextValue` object. Every member is a Vu
 </PropertyReference>
 
 <PropertyReference name="executingToolCallIds" type="Ref<ReadonlySet<string>>">
-  A ref to the set of tool call IDs currently being executed. This is tracked at the provider level so that tool execution events are captured even before child components mount, which matters for scenarios like human-in-the-loop reconnection where pending tool calls may already exist when the component tree mounts.
+  A ref to the set of tool call IDs currently being executed. The provider tracks this set, so it catches tool calls that start before your components mount. This matters when a human-in-the-loop run reconnects with tool calls already pending.
 </PropertyReference>
 
 <PropertyReference name="a2uiTheme" type="ComputedRef<A2UITheme | undefined>">
@@ -196,7 +196,7 @@ async function handleExport() {
 </PropertyReference>
 
   <PropertyReference name="error" type="string | undefined">
-    Error message if the handler threw. The tool result message will contain `"Error: ..."`. Note that `runTool` itself **rejects** (throws) when the tool or its agent cannot be found — those lookup failures surface as a rejected promise, not via this field — so wrap the call in `try`/`catch` as well as checking `error`.
+    Error message if the handler threw. The tool result message will contain `"Error: ..."`. `runTool` rejects when it cannot find the tool or its agent. This field does not report that failure. Wrap the call in `try`/`catch`, and also check `error`.
   </PropertyReference>
 </PropertyReference>
 
@@ -227,9 +227,3 @@ const executingCount = computed(() => executingToolCallIds.value.size);
 - **Refs, not plain values**: Every returned member is a Vue ref or computed ref. Read `copilotkit.value` to reach the core instance and `executingToolCallIds.value` to reach the live set. Keep usage reactive with `computed`, `watch`, or template bindings.
 - **Stable core reference**: The `copilotkit` ref is a `shallowRef` created once per provider and remains stable for the provider's lifetime. Only `executingToolCallIds` changes as tool calls begin and complete.
 - **Provider-level tool tracking**: `executingToolCallIds` is tracked at the provider level rather than in individual components, so tool execution start events fired before child components mount are not lost.
-
-## Related
-
-- [`useAgent`](/reference/vue/hooks/useAgent) -- High-level composable for accessing agent instances
-- [`useFrontendTool`](/reference/vue/hooks/useFrontendTool) -- Register frontend tools that `runTool()` can execute
-- [`CopilotKitProvider`](/reference/vue/components/CopilotKitProvider) -- The provider component that creates the context

@@ -121,7 +121,7 @@ export const ACTIVITIES = [
       margin: 0;
     }
     header > p:first-child {
-      color: #1d4ed8;
+      color: light-dark(#1d4ed8, #60a5fa);
       font-size: 0.7rem;
       font-weight: 700;
       letter-spacing: 0.1em;
@@ -133,15 +133,15 @@ export const ACTIVITIES = [
     }
     header > p:last-child {
       margin-top: 0.5rem;
-      color: #52637a;
+      color: light-dark(#52637a, #adadb2);
     }
     article {
       display: grid;
       align-content: start;
       gap: 0.7rem;
       padding: 1rem;
-      border: 1px solid #dbe3eb;
-      background: #fff;
+      border: 1px solid light-dark(#dbe3eb, #303136);
+      background: light-dark(#fff, #191a1e);
     }
     h3 {
       display: flex;
@@ -152,12 +152,12 @@ export const ACTIVITIES = [
       font-size: 0.95rem;
     }
     h3 span {
-      color: #52637a;
+      color: light-dark(#52637a, #adadb2);
       font-size: 0.67rem;
       font-weight: 600;
     }
     article > label {
-      color: #31465e;
+      color: light-dark(#31465e, #fafafa);
       font-size: 0.76rem;
       font-weight: 700;
     }
@@ -165,9 +165,9 @@ export const ACTIVITIES = [
     article > select {
       min-height: 2.5rem;
       padding: 0.55rem 0.7rem;
-      border: 1px solid #9fb3c8;
+      border: 1px solid light-dark(#9fb3c8, #303136);
       border-radius: 0.35rem;
-      background: #fff;
+      background: light-dark(#fff, #191a1e);
       font: inherit;
     }
     :is(input, select):focus-visible {
@@ -180,7 +180,7 @@ export const ACTIVITIES = [
       gap: 0.7rem;
       margin-top: 0.5rem;
       padding: 0.8rem;
-      background: #f8fafc;
+      background: light-dark(#f8fafc, #242529);
     }
     .identity > span {
       display: grid;
@@ -188,8 +188,8 @@ export const ACTIVITIES = [
       height: 3rem;
       place-items: center;
       border-radius: 50%;
-      color: #1e40af;
-      background: #dbeafe;
+      color: light-dark(#1e40af, #93c5fd);
+      background: light-dark(#dbeafe, rgb(23 37 84 / 40%));
       font-size: 1.25rem;
       font-weight: 700;
     }
@@ -198,7 +198,7 @@ export const ACTIVITIES = [
       gap: 0.2rem;
     }
     .identity small {
-      color: #64748b;
+      color: light-dark(#64748b, #adadb2);
     }
     .activity-grid {
       display: grid;
@@ -210,19 +210,19 @@ export const ACTIVITIES = [
       align-items: start;
       gap: 0.55rem;
       padding: 0.7rem;
-      border: 1px solid #e2e8f0;
+      border: 1px solid light-dark(#e2e8f0, #303136);
       cursor: pointer;
     }
     .activity-grid label.selected {
-      border-color: #93c5fd;
-      background: #eff6ff;
+      border-color: light-dark(#93c5fd, #1e40af);
+      background: light-dark(#eff6ff, rgb(23 37 84 / 40%));
     }
     .activity-grid label > span {
       display: grid;
       gap: 0.2rem;
     }
     .activity-grid small {
-      color: #64748b;
+      color: light-dark(#64748b, #adadb2);
     }
     pre {
       margin: 0;

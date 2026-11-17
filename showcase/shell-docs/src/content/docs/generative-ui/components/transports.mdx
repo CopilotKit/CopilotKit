@@ -6,19 +6,19 @@ description: "Choose how the agent sends generated UI: with the render_ui tool, 
 
 ## What is this?
 
-The agent must send the UI to the browser somehow. Some agents are good at tool calls. Others only stream text, or you build their prompt yourself. A **transport** is the way the UI travels:
+The agent must send the UI to the app somehow: the browser, or a React Native app. Some agents are good at tool calls. Others only stream text, or you build their prompt yourself. A **transport** is the way the UI travels:
 
 - **Tool** (the default): the agent calls a `render_ui` tool.
 - **Markdown**: the agent writes the UI in `a2ui` code blocks inside its reply.
 
-Both transports use the same catalogs, surfaces, and components. Only the path between the agent and the browser changes.
+Both transports use the same catalogs, surfaces, and components. Only the path between the agent and the app changes.
 
 ## Which one to use
 
 | | Tool | Markdown |
 | --- | --- | --- |
 | The agent writes UI | as `render_ui` tool calls | in `a2ui` code blocks in its reply |
-| Checked before the browser gets it | yes, by the runtime, and again in the browser | in the browser |
+| Checked before the app gets it | yes, by the runtime, and again in the app | in the app |
 | Text around the UI | a separate message | the same reply, before and after the UI |
 | Works with | agents that use the run's tools and context | any agent that streams text |
 
@@ -28,9 +28,11 @@ Start with the tool transport. If your agent cannot call client tools, or you wa
 
 This is the default, so the provider needs only the catalog:
 
-<Tabs groupId="frontend_framework" items={["React", "Angular"]} persist>
+<Tabs groupId="frontend_framework" items={["React", "Angular", "React Native", "Vue"]} persist>
   <Tab value="React">
     ```tsx
+    import { standardUI } from "@copilotkit/react-core/v2/generative-ui";
+
     <CopilotKitProvider runtimeUrl="/api/copilotkit" generativeUI={{ ui: standardUI }}>
     ```
   </Tab>
@@ -39,9 +41,21 @@ This is the default, so the provider needs only the catalog:
     provideGenerativeUI({ ui: standardUI }),
     ```
   </Tab>
+  <Tab value="React Native">
+    ```tsx
+    <GenerativeUIProvider ui={shopUI}>
+    ```
+
+    React Native always uses the tool transport. It has no `standardUI`, so `shopUI` stands for a catalog of your own native components.
+  </Tab>
+  <Tab value="Vue">
+    ```vue
+    <CopilotKitProvider runtime-url="/api/copilotkit" :generativeUI="{ ui: standardUI }">
+    ```
+  </Tab>
 </Tabs>
 
-When a run carries the catalog, the runtime adds the `render_ui` tool and a short guide on how to call it. The runtime checks every operation while it streams, and the browser renders the valid ones at once.
+When a run carries the catalog, the runtime adds the `render_ui` tool and a short guide on how to call it. The runtime checks every operation while it streams, and the browser (on React Native, the app) renders the valid ones at once.
 
 The runtime option `generativeUI` controls when the tool is added:
 
@@ -63,7 +77,7 @@ Your agent must use the tools and the context entries of the run. The built-in a
 
 Set `transport: "markdown"`:
 
-<Tabs groupId="frontend_framework" items={["React", "Angular"]} persist>
+<Tabs groupId="frontend_framework" items={["React", "Angular", "React Native", "Vue"]} persist>
   <Tab value="React">
     ```tsx
     <CopilotKitProvider runtimeUrl="/api/copilotkit" generativeUI={{ ui: standardUI, transport: "markdown" }}>
@@ -74,6 +88,14 @@ Set `transport: "markdown"`:
     provideGenerativeUI({ ui: standardUI, transport: "markdown" }),
     ```
   </Tab>
+  <Tab value="React Native">
+    Not available on React Native yet. `GenerativeUIProvider` always uses the tool transport, and `transport: "markdown"` is a type error there. A transport passed from JavaScript, or through a cast, is dropped, with a warning in development.
+  </Tab>
+  <Tab value="Vue">
+    ```vue
+    <CopilotKitProvider runtime-url="/api/copilotkit" :generativeUI="{ ui: standardUI, transport: 'markdown' }">
+    ```
+  </Tab>
 </Tabs>
 
 The provider sends the component schemas and a writing guide as context, and the agent writes the UI in its reply. See [Markdown mode](/generative-ui/components/markdown-mode) for what the agent writes, how it streams, and how to build your own prompt.
@@ -82,7 +104,7 @@ The provider sends the component schemas and a writing guide as context, and the
 
 By default every agent gets generative UI. To give it only to some of them, list their ids:
 
-<Tabs groupId="frontend_framework" items={["React", "Angular"]} persist>
+<Tabs groupId="frontend_framework" items={["React", "Angular", "React Native", "Vue"]} persist>
   <Tab value="React">
     ```tsx
     <CopilotKitProvider
@@ -94,6 +116,19 @@ By default every agent gets generative UI. To give it only to some of them, list
   <Tab value="Angular">
     ```ts
     provideGenerativeUI({ ui: standardUI, agentIds: ["shop"] }),
+    ```
+  </Tab>
+  <Tab value="React Native">
+    ```tsx
+    <GenerativeUIProvider ui={shopUI} agentIds={["shop"]}>
+    ```
+  </Tab>
+  <Tab value="Vue">
+    ```vue
+    <CopilotKitProvider
+      runtime-url="/api/copilotkit"
+      :generativeUI="{ ui: standardUI, agentIds: ['shop'] }"
+    >
     ```
   </Tab>
 </Tabs>

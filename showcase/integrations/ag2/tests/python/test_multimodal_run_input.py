@@ -1,12 +1,11 @@
 """The multimodal sub-app relies on AG2 1.x's own run-input parsing.
 
-The ``multimodal`` showcase cell sends user messages whose ``content`` mixes
-modern AG-UI parts (``image`` / ``document``) with a legacy ``binary`` mirror
-appended by the frontend's legacy-converter shim
-(``src/app/demos/multimodal/legacy-converter-shim.tsx``). ``RunAgentInput`` no
-longer models ``binary``, but AG2's ``read_run_input`` strips unrecognised
-parts (with a warning) instead of refusing the run — so the modern part the
-mirror duplicates is all the agent needs, and no custom normalizer is mounted.
+The ``multimodal`` showcase cell sends modern AG-UI parts (``image`` /
+``document``). An older client may also append a legacy ``binary`` mirror.
+``RunAgentInput`` no longer models ``binary``, but AG2's ``read_run_input``
+strips unrecognised parts (with a warning) instead of refusing the run — so
+the modern part the mirror duplicates is all the agent needs, and no custom
+normalizer is mounted.
 
 These tests pin that contract against AG2's real parser: if a future AG2
 refuses the legacy part, the multimodal cell breaks and this fails first.

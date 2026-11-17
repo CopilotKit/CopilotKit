@@ -6,6 +6,7 @@ import claudeSdkTypescript from "./claude-sdk-typescript";
 import googleAdk from "./google-adk";
 import googleAntigravity from "./google-antigravity";
 import langgraphPython from "./langgraph-python";
+import openaiAgentsPython from "./openai-agents-python";
 import strands from "./strands";
 
 /**
@@ -42,6 +43,7 @@ export const frameworkOverviews: Record<string, FrameworkOverviewData> = {
   // via SLUG_RENAMES; framework-aware link rewriting is a follow-up.
   "langgraph-typescript": langgraphPython,
   "langgraph-fastapi": langgraphPython,
+  "openai-agents-python": openaiAgentsPython,
   strands,
   // strands-typescript shares the aws-strands/ content folder with the
   // Python strands integration; intro content is framework-agnostic

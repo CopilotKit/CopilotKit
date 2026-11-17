@@ -16,6 +16,11 @@ export type NonEmptyRecord<T> =
  * Type representing an agent's basic information
  */
 export interface AgentDescription {
+  /**
+   * Display name of the agent. This is a label, not an identifier: the key
+   * of the `agents` map in the runtime info is the agent ID. When the agent
+   * has no non-blank `name` property, this is the agent ID.
+   */
   name: string;
   className: string;
   description: string;

@@ -69,6 +69,73 @@ describe("extractCallees", () => {
     expect(out[0].call_sites).toEqual(["z.ts:2"]);
   });
 
+  it("follows a payload through local consts, spreads and conditional spreads", () => {
+    const out = extractCallees(
+      [
+        f(
+          "a.ts",
+          `const EVENTS = { copied: "copied" } as const;
+           function onCopy(action: string, location?: string) {
+             const properties = { surface: "s", ...(location ? { location } : {}) };
+             trackEvent(EVENTS.copied, { ...properties, action });
+           }`,
+        ),
+      ],
+      { calleeNames: ["trackEvent"] },
+    );
+    expect(out).toEqual([
+      {
+        event: "copied",
+        call_sites: ["a.ts"],
+        properties_seen: ["action", "location", "surface"],
+      },
+    ]);
+  });
+
+  it("reads a component's event prop from its default and from every usage", () => {
+    const out = extractCallees(
+      [
+        f(
+          "link.tsx",
+          `export function TrackedLink({ event = "link_clicked", properties }: Props) {
+             return <a onClick={() => trackEvent(event, properties)} />;
+           }`,
+        ),
+        f(
+          "page.tsx",
+          `const base = { from_path: "/" };
+           export const Page = () => (
+             <TrackedLink event="journey_continued" properties={{ ...base, to: "/x" }} />
+           );`,
+        ),
+      ],
+      { calleeNames: ["trackEvent"] },
+    );
+    expect(out).toEqual([
+      {
+        event: "journey_continued",
+        call_sites: ["link.tsx", "page.tsx"],
+        properties_seen: ["from_path", "to"],
+      },
+      {
+        event: "link_clicked",
+        call_sites: ["link.tsx"],
+        properties_seen: ["from_path", "to"],
+      },
+    ]);
+  });
+
+  it("does not guess at a plain parameter, even when a const shares its name", () => {
+    const out = extractCallees(
+      [
+        f("a.ts", `const name = "not_this";`),
+        f("b.ts", `function track(name: string) { capture(name, {}); }`),
+      ],
+      { calleeNames: ["capture"] },
+    );
+    expect(out).toEqual([]);
+  });
+
   it("throws loudly on a parse error rather than silently under-reporting", () => {
     expect(() =>
       extractCallees([f("bad.ts", `function (`)], { calleeNames: ["capture"] }),

@@ -1,0 +1,75 @@
+---
+title: "CopilotKit Intelligence architecture"
+nav_title: "Architecture"
+description: "How a CopilotKit runtime connects to Intelligence, and how cloud-hosted differs from self-hosted."
+icon: "lucide/Server"
+doc_type: explanation
+---
+
+## Overview
+
+You want to see how your app, your runtime, and Intelligence fit together, and which deployment to run. This page is that map. It applies to [cloud-hosted Intelligence](/intelligence/managed-intelligence-platform) and to [self-hosted Intelligence](/intelligence/self-hosting).
+
+To connect a runtime, follow the [quickstart](/intelligence/quickstart). For the Kubernetes install, go to [self-host on Kubernetes](/intelligence/self-hosting). For AWS ECS/Fargate, go to [self-host on AWS ECS](/intelligence/self-hosting-ecs).
+
+<OpsPlatformCTA
+  variant="inline"
+  title="Start with cloud-hosted Intelligence"
+  body="Create a project, get a project API key, and inspect the first thread before you decide to self-host."
+  ctaLabel="Start cloud-hosted setup"
+  href="https://intelligence.copilotkit.ai/"
+  surface="docs_intelligence_architecture_intro"
+/>
+
+## Runtime and Intelligence roles
+
+A CopilotKit app has three layers:
+
+- **Frontend.** Your application uses the CopilotKit frontend SDK to render chat, generative UI, tools, and thread controls.
+- **Runtime.** Your application server hosts the CopilotKit runtime and connects to your agent framework through AG-UI.
+- **CopilotKit Intelligence.** The service that stores threads, serves project APIs, and powers the web app.
+
+The runtime is the bridge. It receives requests from your app, streams AG-UI events to and from your agent, and uses CopilotKit Intelligence when a capability needs durable state.
+
+## Project boundaries
+
+Intelligence scopes data through three concepts:
+
+- **Organization.** The billing and workspace boundary.
+- **Project.** One application or environment inside an organization, such as production, staging, or a demo.
+- **User.** The signed-in person from your application.
+
+Project API keys are issued per project. Threads, events, and dashboard history are visible only inside the project that owns them, so production and staging can share the same Intelligence deployment without sharing conversation data.
+
+## Threads
+
+A thread is the saved conversation for one user in one project. Read [AG-UI Streams](/AG-UI-Streams) for the product. Read [how a thread is saved](/intelligence/threads-explained) for replay and sync.
+
+## Realtime sync
+
+Realtime sync keeps thread metadata and active conversation state aligned across clients. Clients subscribe to updates from Intelligence, so changes such as renames, archives, and active-run status appear without a page reload. Cloud-hosted needs no setting. For self-hosted, set `wsUrl` on `CopilotKitIntelligence` together with `apiUrl`.
+
+## Inspection
+
+Open a stored thread in the [cloud-hosted project](/intelligence/managed-intelligence-platform#get-started). API keys and plans live on [Cloud-hosted](/intelligence/managed-intelligence-platform) and [Plans](/intelligence/plans).
+
+## Hosting model
+
+Cloud-hosted and self-hosted CopilotKit Intelligence share the same application contract:
+
+| Deployment | What changes | What stays the same |
+|---|---|---|
+| Cloud-hosted | CopilotKit runs Intelligence, the database, the web app, project API keys, and plan management. | Your frontend APIs, runtime APIs, AG-UI agent connection, and thread APIs. |
+| Self-hosted | You run Intelligence in your own infrastructure, on Kubernetes or AWS ECS/Fargate, and own its infrastructure dependencies. | Your frontend APIs, runtime APIs, AG-UI agent connection, and thread APIs. |
+
+Self-hosted changes who operates Intelligence. The frontend integration stays the same. Moving from cloud-hosted to self-hosted is available on the Team Self-hosted plan or the Enterprise plan. See [Plans](/intelligence/plans).
+
+## Error handling model
+
+Intelligence features are networked features. If the Intelligence endpoint is unavailable or credentials are invalid, thread operations surface as runtime errors rather than silently falling back to local-only state.
+
+Common problems:
+
+- **Thread calls fail for every user.** The runtime uses the wrong URL or an invalid API key. For self-hosted, set `apiUrl` on `CopilotKitIntelligence` to your deployment. Use a runtime API key or license that is valid for the project or self-hosted environment.
+- **The thread list is empty.** `identifyUser` returns a different ID than the one that created the threads, or the runtime key belongs to another project. Return the same stable ID for each person. Use the key of the project that owns the threads.
+- **Self-hosted: renames and archives do not appear in other tabs or devices.** `wsUrl` does not point at the same deployment as `apiUrl`. Set `wsUrl` to the realtime URL of that deployment.

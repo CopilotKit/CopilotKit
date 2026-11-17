@@ -14,6 +14,7 @@ Options:
   --d6             Run D6 (e2e-full) probes only (via fleet control-plane)
   --d5             Run D5 (e2e-deep) probes only (via fleet control-plane)
   --d4             Run D4 probes only
+  --format <format> Assert A2UI server format (express|direct_json)
   --direct         Legacy/debug: run d5/d6 via the in-process driver
                    instead of the fleet control-plane (producer->queue->worker)
   --smoke          Run smoke probes only
@@ -119,6 +120,11 @@ cmd_test() {
         else
           isolate_name="$iso_val"
         fi
+        shift
+        ;;
+      --format)
+        shift
+        harness_args+=(--format "${1:?--format requires express or direct_json}")
         shift
         ;;
       --repeat)

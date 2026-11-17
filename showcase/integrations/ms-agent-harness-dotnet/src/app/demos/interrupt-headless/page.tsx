@@ -126,9 +126,9 @@ function Layout() {
   };
 
   return (
-    <div className="grid h-screen grid-cols-[1fr_420px] bg-[#FAFAFC]">
+    <div className="grid h-screen grid-cols-[1fr_420px] bg-[#FAFAFC] dark:bg-background">
       <AppSurface pending={pending} resolve={resolve} />
-      <div className="border-l border-[#DBDBE5] bg-white">
+      <div className="border-l border-[#DBDBE5] bg-white dark:border-border dark:bg-background">
         <CopilotChat agentId="interrupt-headless" className="h-full" />
       </div>
     </div>
@@ -146,11 +146,13 @@ function AppSurface({ pending, resolve }: AppSurfaceProps) {
       data-testid="interrupt-headless-app-surface"
       className="relative flex h-full flex-col overflow-hidden"
     >
-      <header className="border-b border-[#DBDBE5] bg-white px-8 py-5">
-        <div className="text-[10px] font-medium uppercase tracking-[0.14em] text-[#57575B]">
+      <header className="border-b border-[#DBDBE5] bg-white px-8 py-5 dark:border-border dark:bg-card">
+        <div className="text-[10px] font-medium uppercase tracking-[0.14em] text-[#57575B] dark:text-muted-foreground">
           Headless interrupt
         </div>
-        <h1 className="text-xl font-semibold text-[#010507]">Scheduling</h1>
+        <h1 className="text-xl font-semibold text-[#010507] dark:text-foreground">
+          Scheduling
+        </h1>
       </header>
 
       <div className="relative flex flex-1 items-center justify-center p-8">
@@ -176,7 +178,7 @@ function EmptyState() {
       data-testid="interrupt-headless-empty"
       className="max-w-sm text-center"
     >
-      <div className="mx-auto mb-4 flex h-10 w-10 items-center justify-center rounded-full border border-[#DBDBE5] bg-white text-[#85ECCE]">
+      <div className="mx-auto mb-4 flex h-10 w-10 items-center justify-center rounded-full border border-[#DBDBE5] bg-white text-[#85ECCE] dark:border-border dark:bg-card">
         <svg
           xmlns="http://www.w3.org/2000/svg"
           width="18"
@@ -192,10 +194,10 @@ function EmptyState() {
           <path d="M16 2v4M8 2v4M3 10h18" />
         </svg>
       </div>
-      <div className="text-sm font-medium text-[#010507]">
+      <div className="text-sm font-medium text-[#010507] dark:text-foreground">
         Nothing scheduled yet
       </div>
-      <p className="mt-1 text-sm text-[#57575B]">
+      <p className="mt-1 text-sm text-[#57575B] dark:text-muted-foreground">
         Ask the assistant to book something. When it needs your input, a picker
         will appear right here.
       </p>
@@ -215,21 +217,23 @@ function TimeSlotPopup({ payload, onPick, onCancel }: TimeSlotPopupProps) {
       role="dialog"
       aria-modal="false"
       data-testid="interrupt-headless-popup"
-      className="w-full max-w-md rounded-2xl border border-[#DBDBE5] bg-white p-6 shadow-[0_20px_40px_-20px_rgba(1,5,7,0.25)]"
+      className="w-full max-w-md rounded-2xl border border-[#DBDBE5] bg-white p-6 shadow-[0_20px_40px_-20px_rgba(1,5,7,0.25)] dark:border-border dark:bg-card"
     >
       <div className="mb-2 flex items-center gap-2">
         <span className="inline-flex h-1.5 w-1.5 animate-pulse rounded-full bg-[#85ECCE]" />
-        <span className="text-[10px] font-medium uppercase tracking-[0.14em] text-[#57575B]">
+        <span className="text-[10px] font-medium uppercase tracking-[0.14em] text-[#57575B] dark:text-muted-foreground">
           Pick a time
         </span>
       </div>
-      <h2 className="mb-1 text-lg font-semibold text-[#010507]">
+      <h2 className="mb-1 text-lg font-semibold text-[#010507] dark:text-foreground">
         {payload.topic ?? "Meeting"}
       </h2>
       {payload.attendee ? (
-        <p className="mb-5 text-sm text-[#57575B]">
+        <p className="mb-5 text-sm text-[#57575B] dark:text-muted-foreground">
           with{" "}
-          <span className="font-medium text-[#010507]">{payload.attendee}</span>
+          <span className="font-medium text-[#010507] dark:text-foreground">
+            {payload.attendee}
+          </span>
         </p>
       ) : (
         <div className="mb-5" />
@@ -242,7 +246,7 @@ function TimeSlotPopup({ payload, onPick, onCancel }: TimeSlotPopupProps) {
             type="button"
             data-testid={`interrupt-headless-slot-${slot.iso}`}
             onClick={() => onPick(slot)}
-            className="rounded-xl border border-[#DBDBE5] bg-white px-3 py-3 text-sm font-medium text-[#010507] transition-colors hover:border-[#BEC2FF] hover:bg-[#BEC2FF1A]"
+            className="rounded-xl border border-[#DBDBE5] bg-white px-3 py-3 text-sm font-medium text-[#010507] transition-colors hover:border-[#BEC2FF] hover:bg-[#BEC2FF1A] dark:border-border dark:bg-card dark:text-foreground dark:hover:border-[#BEC2FF] dark:hover:bg-[#BEC2FF1A]"
           >
             {slot.label}
           </button>
@@ -253,7 +257,7 @@ function TimeSlotPopup({ payload, onPick, onCancel }: TimeSlotPopupProps) {
         type="button"
         data-testid="interrupt-headless-cancel"
         onClick={onCancel}
-        className="mt-4 w-full rounded-xl border border-[#DBDBE5] bg-white px-3 py-2 text-xs font-medium uppercase tracking-[0.12em] text-[#57575B] transition-colors hover:bg-[#FAFAFC]"
+        className="mt-4 w-full rounded-xl border border-[#DBDBE5] bg-white px-3 py-2 text-xs font-medium uppercase tracking-[0.12em] text-[#57575B] transition-colors hover:bg-[#FAFAFC] dark:border-border dark:bg-card dark:text-muted-foreground dark:hover:bg-muted"
       >
         Cancel
       </button>

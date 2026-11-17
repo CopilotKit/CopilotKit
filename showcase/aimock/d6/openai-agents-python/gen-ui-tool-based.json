@@ -1,0 +1,111 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for openai-agents-python / gen-ui-tool-based",
+    "created": "2026-11-03",
+    "copiedFrom": "ms-agent-python",
+    "_note": "The Calculator and Ping pills of open-gen-ui-advanced live in gen-ui-open-advanced.json only."
+  },
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "How a neural network works",
+        "toolCallId": "call_d5_open_gen_ui_neural_001",
+        "context": "openai-agents-python"
+      },
+      "response": {
+        "content": "Generated. The sandboxed UI is rendered above."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "How a neural network works",
+        "hasToolResult": false,
+        "context": "openai-agents-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_open_gen_ui_neural_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\":480,\"placeholderMessages\":[\"Composing neural network forward pass…\"],\"css\":\"body{margin:0;font-family:system-ui;background:#0f172a;color:#e2e8f0}.wrap{padding:16px}h1{font-size:14px;margin:0 0 8px}svg{display:block;background:#1e293b;border-radius:8px}circle{fill:#6366f1}\",\"html\":\"<div class=\\\"wrap\\\"><h1>Forward pass: input → hidden → output</h1><svg width=\\\"320\\\" height=\\\"220\\\" data-testid=\\\"ogui-neural-net\\\"><g><circle cx=\\\"40\\\" cy=\\\"40\\\" r=\\\"8\\\"/><circle cx=\\\"40\\\" cy=\\\"90\\\" r=\\\"8\\\"/><circle cx=\\\"40\\\" cy=\\\"140\\\" r=\\\"8\\\"/><circle cx=\\\"40\\\" cy=\\\"190\\\" r=\\\"8\\\"/></g><g fill=\\\"#a78bfa\\\"><circle cx=\\\"160\\\" cy=\\\"30\\\" r=\\\"8\\\"/><circle cx=\\\"160\\\" cy=\\\"75\\\" r=\\\"8\\\"/><circle cx=\\\"160\\\" cy=\\\"115\\\" r=\\\"8\\\"/><circle cx=\\\"160\\\" cy=\\\"155\\\" r=\\\"8\\\"/><circle cx=\\\"160\\\" cy=\\\"195\\\" r=\\\"8\\\"/></g><g fill=\\\"#10b981\\\"><circle cx=\\\"280\\\" cy=\\\"80\\\" r=\\\"8\\\"/><circle cx=\\\"280\\\" cy=\\\"140\\\" r=\\\"8\\\"/></g></svg></div>\"}"
+          }
+        ]
+      },
+      "_comment": "Keyed on hasToolResult:false, not turnIndex:0: aimock's relaxed turnIndex (non-strict requests) lets an earlier turnIndex beat the toolCallId follow-up leg, which re-issued this call on every later request."
+    },
+    {
+      "match": {
+        "userMessage": "Quicksort visualization",
+        "toolCallId": "call_d5_open_gen_ui_quicksort_001",
+        "context": "openai-agents-python"
+      },
+      "response": {
+        "content": "Generated. The sandboxed UI is rendered above."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Quicksort visualization",
+        "hasToolResult": false,
+        "context": "openai-agents-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_open_gen_ui_quicksort_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\":480,\"placeholderMessages\":[\"Composing quicksort animation…\"],\"css\":\"body{margin:0;font-family:system-ui;background:#0f172a;color:#e2e8f0}.wrap{padding:16px}h1{font-size:14px;margin:0 0 8px}svg{display:block;background:#1e293b;border-radius:8px}rect{fill:#64748b}\",\"html\":\"<div class=\\\"wrap\\\"><h1>Quicksort: partition around pivot</h1><svg width=\\\"320\\\" height=\\\"220\\\" data-testid=\\\"ogui-quicksort\\\"><rect x=\\\"10\\\"  y=\\\"170\\\" width=\\\"24\\\" height=\\\"40\\\"/><rect x=\\\"40\\\"  y=\\\"130\\\" width=\\\"24\\\" height=\\\"80\\\"/><rect x=\\\"70\\\"  y=\\\"100\\\" width=\\\"24\\\" height=\\\"110\\\"/><rect x=\\\"100\\\" y=\\\"60\\\"  width=\\\"24\\\" height=\\\"150\\\" fill=\\\"#f59e0b\\\"/><rect x=\\\"130\\\" y=\\\"80\\\"  width=\\\"24\\\" height=\\\"130\\\" fill=\\\"#6366f1\\\"/><rect x=\\\"160\\\" y=\\\"110\\\" width=\\\"24\\\" height=\\\"100\\\"/><rect x=\\\"190\\\" y=\\\"50\\\"  width=\\\"24\\\" height=\\\"160\\\"/><rect x=\\\"220\\\" y=\\\"90\\\"  width=\\\"24\\\" height=\\\"120\\\"/><rect x=\\\"250\\\" y=\\\"140\\\" width=\\\"24\\\" height=\\\"70\\\"/><rect x=\\\"280\\\" y=\\\"160\\\" width=\\\"24\\\" height=\\\"50\\\"/></svg></div>\"}"
+          }
+        ]
+      },
+      "_comment": "Keyed on hasToolResult:false, not turnIndex:0: aimock's relaxed turnIndex (non-strict requests) lets an earlier turnIndex beat the toolCallId follow-up leg, which re-issued this call on every later request."
+    },
+    {
+      "match": {
+        "userMessage": "Fourier: square wave from sines",
+        "toolCallId": "call_d5_open_gen_ui_fourier_001",
+        "context": "openai-agents-python"
+      },
+      "response": {
+        "content": "Generated. The sandboxed UI is rendered above."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Fourier: square wave from sines",
+        "hasToolResult": false,
+        "context": "openai-agents-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_open_gen_ui_fourier_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\":480,\"placeholderMessages\":[\"Composing Fourier series animation…\"],\"css\":\"body{margin:0;font-family:system-ui;background:#0f172a;color:#e2e8f0}.wrap{padding:16px}h1{font-size:14px;margin:0 0 8px}svg{display:block;background:#1e293b;border-radius:8px}\",\"html\":\"<div class=\\\"wrap\\\"><h1>Fourier series: square wave</h1><svg width=\\\"320\\\" height=\\\"220\\\" viewBox=\\\"0 -60 320 120\\\" data-testid=\\\"ogui-fourier\\\"><circle cx=\\\"60\\\" cy=\\\"0\\\" r=\\\"40\\\" stroke=\\\"#6366f1\\\" fill=\\\"none\\\"/><circle cx=\\\"60\\\" cy=\\\"0\\\" r=\\\"13\\\" stroke=\\\"#a78bfa\\\" fill=\\\"none\\\"/><circle cx=\\\"60\\\" cy=\\\"0\\\" r=\\\"8\\\"  stroke=\\\"#c4b5fd\\\" fill=\\\"none\\\"/><path d=\\\"M120 0 L300 0\\\" stroke=\\\"#10b981\\\" fill=\\\"none\\\"/></svg></div>\"}"
+          }
+        ]
+      },
+      "_comment": "Keyed on hasToolResult:false, not turnIndex:0: aimock's relaxed turnIndex (non-strict requests) lets an earlier turnIndex beat the toolCallId follow-up leg, which re-issued this call on every later request."
+    },
+    {
+      "match": {
+        "userMessage": "request the gen-ui interrupt",
+        "turnIndex": 0,
+        "context": "openai-agents-python"
+      },
+      "response": {
+        "content": "The agent paused at a gen-UI interrupt and rendered a choice component for the user. Choose to continue."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "confirm the gen-ui choice",
+        "turnIndex": 0,
+        "context": "openai-agents-python"
+      },
+      "response": {
+        "content": "Gen-UI interrupt resolved. The agent received the user's choice and resumed, completing the workflow."
+      }
+    }
+  ]
+}

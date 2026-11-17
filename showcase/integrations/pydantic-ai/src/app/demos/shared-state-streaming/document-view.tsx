@@ -27,11 +27,13 @@ export function DocumentView({ content, isStreaming }: DocumentViewProps) {
   return (
     <div
       data-testid="document-view"
-      className="w-full h-full flex flex-col bg-white rounded-2xl shadow-sm border border-[#DBDBE5] overflow-hidden"
+      className="w-full h-full flex flex-col bg-white rounded-2xl shadow-sm border border-[#DBDBE5] overflow-hidden dark:bg-card dark:border-border"
     >
-      <div className="flex items-center justify-between px-6 py-3 border-b border-[#E9E9EF] bg-[#FAFAFC]">
+      <div className="flex items-center justify-between px-6 py-3 border-b border-[#E9E9EF] bg-[#FAFAFC] dark:border-border dark:bg-muted">
         <div className="flex items-center gap-3">
-          <span className="text-lg font-semibold text-[#010507]">Document</span>
+          <span className="text-lg font-semibold text-[#010507] dark:text-foreground">
+            Document
+          </span>
           {isStreaming && (
             <span
               data-testid="document-live-badge"
@@ -44,7 +46,7 @@ export function DocumentView({ content, isStreaming }: DocumentViewProps) {
         </div>
         <span
           data-testid="document-char-count"
-          className="text-xs text-[#838389] font-mono"
+          className="text-xs text-[#838389] font-mono dark:text-muted-foreground"
         >
           {charCount} chars
         </span>
@@ -52,18 +54,18 @@ export function DocumentView({ content, isStreaming }: DocumentViewProps) {
 
       <div className="flex-1 overflow-y-auto p-6">
         {content.length === 0 && !isStreaming ? (
-          <p className="text-[#838389] italic">
+          <p className="text-[#838389] italic dark:text-muted-foreground">
             Ask the agent to write something — its output will stream here token
             by token.
           </p>
         ) : (
           <div
             data-testid="document-content"
-            className="whitespace-pre-wrap text-[#010507] leading-relaxed font-serif"
+            className="whitespace-pre-wrap text-[#010507] leading-relaxed font-serif dark:text-foreground"
           >
             {content}
             {isStreaming && (
-              <span className="inline-block w-2 h-5 bg-[#010507] ml-0.5 align-text-bottom animate-pulse" />
+              <span className="inline-block w-2 h-5 bg-[#010507] ml-0.5 align-text-bottom animate-pulse dark:bg-foreground" />
             )}
           </div>
         )}

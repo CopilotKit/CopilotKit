@@ -212,7 +212,11 @@ export namespace CopilotChatReasoningMessage {
         aria-expanded={isExpandable ? isOpen : undefined}
         {...headerProps}
       >
-        <span className="cpk:font-medium">{label}</span>
+        <span
+          className={twMerge("cpk:font-medium", isStreaming && "cpk-shimmer")}
+        >
+          {label}
+        </span>
         {isStreaming && !hasContent && (
           <span className="cpk:inline-flex cpk:items-center cpk:ml-1">
             <span className="cpk:w-1.5 cpk:h-1.5 cpk:rounded-full cpk:bg-muted-foreground cpk:animate-pulse" />

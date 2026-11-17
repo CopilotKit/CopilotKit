@@ -70,7 +70,7 @@ async function extractPdfText(base64: string): Promise<string> {
 /**
  * Flatten PDF `document` parts on user messages to text parts the OpenAI text
  * adapter can consume. Images and every non-PDF part pass through untouched.
- * Duplicate PDF parts (the frontend shim appends a legacy `binary` mirror that
+ * Duplicate PDF parts (an older client may send a legacy `binary` mirror that
  * also converts to a `document` part) are de-duplicated by their base64 value
  * so the model sees each document once.
  */

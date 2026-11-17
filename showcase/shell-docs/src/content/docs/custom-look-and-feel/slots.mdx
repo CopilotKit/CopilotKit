@@ -11,16 +11,16 @@ snippet_cell: chat-slots
 
 Every CopilotKit chat component is built from composable **slots**, named sub-components you can override individually. The slot system gives you three levels of customization without needing to rebuild the entire UI:
 
-1. **Tailwind classes** — pass a string to add/override CSS classes
-2. **Props override** — pass an object to override specific props on the default component
-3. **Custom component** — pass your own React component to fully replace a slot
+1. **Tailwind classes**: pass a string to add/override CSS classes
+2. **Props override**: pass an object to override specific props on the default component
+3. **Custom component**: pass your own React component to fully replace a slot
 
 Slots are recursive: you can drill into nested sub-components at any depth.
 
 ## What it looks like in code
 
-The `chat-slots` cell above overrides three slots on a single `<CopilotChat>` —
-the welcome screen, the assistant message card, and the input's disclaimer.
+The demo above overrides many slots on `<CopilotChat>` and outlines each one.
+The three examples below show the welcome screen, the assistant message, and the input disclaimer.
 Each slot is just a prop; the demo extracts them into locals so the override
 points are easy to see.
 
@@ -35,7 +35,7 @@ default input and suggestions:
 ### Assistant message slot
 
 Drill into `messageView={{ assistantMessage: ... }}` to wrap every assistant
-response. The cell wraps the default component with a tinted card and a small
+response. The demo wraps the default component with a tinted card and a small
 "slot" badge so you can see the override is active during the message flow:
 
 <Snippet region="register-assistant-message-slot" title="frontend/src/app/page.tsx — assistantMessage slot" />
@@ -43,15 +43,14 @@ response. The cell wraps the default component with a tinted card and a small
 ### Disclaimer slot
 
 The `input={{ disclaimer: ... }}` sub-slot lets you replace the small text
-shown below the input. The demo uses it to display a visibly tagged disclaimer
-so reviewers can tell the override is still in effect once the welcome screen
-is gone:
+shown below the input. The demo tags its disclaimer, so you can see that the
+override stays after the first message:
 
 <Snippet region="register-disclaimer-slot" title="frontend/src/app/page.tsx — disclaimer slot" />
 
 ## Tailwind Classes
 
-The simplest way to customize a slot. Pass a Tailwind class string and it will be merged with the default component's classes.
+Pass a Tailwind class string. CopilotKit merges it with the classes of the default component.
 
 ```tsx title="page.tsx"
 import { CopilotChat } from "@copilotkit/react-core/v2";
@@ -65,6 +64,8 @@ export function Chat() {
   );
 }
 ```
+
+Reload the page. The message list has a gray background and the input has a blue border.
 
 ## Props Override
 
@@ -82,16 +83,20 @@ Pass an object to override specific props on the default component. This is usef
 
 ## Custom Components
 
-For full control, pass your own React component. It receives all the same props as the default component.
+For full control, pass your own React component. It receives all the same props as the default component. The slot type is the default component, so cast your component to that type.
 
 ```tsx title="page.tsx"
-import { CopilotChat } from "@copilotkit/react-core/v2";
+import {
+  CopilotChat,
+  CopilotChatMessageView,
+  type CopilotChatMessageViewProps,
+} from "@copilotkit/react-core/v2";
 
-const CustomMessageView = ({ messages, isRunning }) => (
+const CustomMessageView = ({ messages, isRunning }: CopilotChatMessageViewProps) => (
   <div className="space-y-4 p-6">
     {messages?.map((msg) => (
       <div key={msg.id} className={msg.role === "user" ? "text-right" : "text-left"}>
-        {msg.content}
+        {typeof msg.content === "string" ? msg.content : null}
       </div>
     ))}
     {isRunning && <div className="animate-pulse">Thinking...</div>}
@@ -99,7 +104,7 @@ const CustomMessageView = ({ messages, isRunning }) => (
 );
 
 export function Chat() {
-  return <CopilotChat messageView={CustomMessageView} />;
+  return <CopilotChat messageView={CustomMessageView as typeof CopilotChatMessageView} />;
 }
 ```
 
@@ -123,7 +128,7 @@ Override the assistant message's toolbar within the message view:
 />
 ```
 
-### Three levels deep
+### One toolbar button
 
 Override a specific button inside the assistant message toolbar:
 

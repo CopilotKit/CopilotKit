@@ -1,0 +1,97 @@
+---
+title: State Rendering
+icon: "lucide/Bot"
+description: Render your agent's state with your own React Native components in real time.
+---
+
+## What is this?
+
+State rendering lets you build UI that reflects your agent's state in real time. As your agent works and writes to its state, your app renders those changes: progress, drafts, or intermediate results.
+
+## When should I use this?
+
+Use state rendering when you want to:
+
+- Show real-time progress (for example, "Researching... 2/5 complete")
+- Display drafts that update as the agent works
+- Build dashboards that reflect agent state
+- Render structured output outside the chat
+
+## How it works in code
+
+<FrameworkSetup concept="shared-state-setup" />
+
+1. On the backend, write the value to a key in the [agent state](/shared-state). To stream a tool argument into a state key token by token, see [State Streaming](/shared-state/streaming).
+2. On the frontend, subscribe to the agent's state with `useAgent`. Each time the state changes, your component renders again with the latest value.
+3. Read the keys from `agent.state` and render them.
+
+```tsx title="src/ResearchProgress.tsx"
+import { Text, View } from "react-native";
+import { useAgent, UseAgentUpdate } from "@copilotkit/react-native/headless";
+
+type ResearchState = {
+  status?: string;
+  draft?: string;
+  completed?: number;
+  total?: number;
+};
+
+export function ResearchProgress() {
+  const { agent } = useAgent({ // [!code highlight:4]
+    agentId: "researcher",
+    updates: [UseAgentUpdate.OnStateChanged, UseAgentUpdate.OnRunStatusChanged],
+  });
+  const state = (agent.state ?? {}) as ResearchState;
+
+  return (
+    <View style={{ padding: 16, gap: 8 }} accessibilityLiveRegion="polite">
+      <Text style={{ fontWeight: "600" }}>
+        {state.status ?? (agent.isRunning ? "Working..." : "Idle")}
+      </Text>
+      <Text>
+        {state.completed ?? 0} of {state.total ?? "?"} complete
+      </Text>
+      {state.draft ? <Text>{state.draft}</Text> : null}
+    </View>
+  );
+}
+```
+
+`updates` picks which changes re-render the component. `OnStateChanged` fires on state changes, and `OnRunStatusChanged` fires when a run starts or ends, so `agent.isRunning` stays current. Leave `updates` out to re-render on messages too.
+
+Render it next to your chat, under the same provider. The chat and `ResearchProgress` share one agent:
+
+```tsx title="App.tsx"
+import { View } from "react-native";
+import { CopilotKitProvider } from "@copilotkit/react-native/headless";
+import { CopilotChat } from "@copilotkit/react-native/components";
+import { ResearchProgress } from "./src/ResearchProgress";
+
+const runtimeUrl = "http://localhost:8200/api/copilotkit";
+
+export default function App() {
+  return (
+    <CopilotKitProvider runtimeUrl={runtimeUrl}>
+      <View style={{ flex: 1 }}>
+        <ResearchProgress />
+        <CopilotChat agentName="researcher" />
+      </View>
+    </CopilotKitProvider>
+  );
+}
+```
+
+To check it, ask the researcher agent to write a report. The status line and the counter change while the agent runs, and the draft grows as the agent updates `draft` in its state.
+
+## Inside the chat
+
+The rendered `CopilotChat` has no slot for extra content between messages. To show state inside the conversation, build your own chat and add a row for it to your `FlatList` data. See [Headless UI](/custom-look-and-feel/headless-ui).
+
+## Treat state as untrusted
+
+Treat agent state as external data. Validate it before you use it for a privileged action, and don't put secrets in state that is streamed to the device.
+
+<IntegrationGrid
+  path="generative-ui/state-rendering"
+  exclude={["agno", "agent-spec"]}
+/>

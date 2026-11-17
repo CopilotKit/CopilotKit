@@ -35,7 +35,7 @@ export function InputBar({
 
   return (
     <form
-      className="border-t border-[#E9E9EF] p-3 flex gap-2 items-end bg-white"
+      className="border-t border-[#E9E9EF] p-3 flex gap-2 items-end bg-white dark:border-border dark:bg-card"
       onSubmit={(e) => {
         e.preventDefault();
         onSubmit();
@@ -49,7 +49,7 @@ export function InputBar({
         onKeyDown={handleKeyDown}
         placeholder={isRunning ? "Agent is working..." : "Type a message..."}
         disabled={isRunning}
-        className="flex-1 resize-none rounded-2xl border border-[#DBDBE5] bg-white px-4 py-2 text-sm leading-6 text-[#010507] focus:border-[#BEC2FF] focus:outline-none focus:ring-2 focus:ring-[#BEC2FF33] disabled:bg-[#FAFAFC] disabled:text-[#AFAFB7]"
+        className="flex-1 resize-none rounded-2xl border border-[#DBDBE5] bg-white px-4 py-2 text-sm leading-6 text-[#010507] focus:border-[#BEC2FF] focus:outline-none focus:ring-2 focus:ring-[#BEC2FF33] disabled:bg-[#FAFAFC] disabled:text-[#AFAFB7] dark:border-border dark:bg-card dark:text-foreground dark:disabled:bg-muted dark:disabled:text-muted-foreground"
       />
       {canStop ? (
         <button
@@ -63,7 +63,7 @@ export function InputBar({
         <button
           type="submit"
           disabled={isRunning || value.trim().length === 0}
-          className="rounded-full px-4 py-2 text-sm font-medium bg-[#010507] text-white hover:bg-[#2B2B2B] disabled:bg-[#DBDBE5] disabled:cursor-not-allowed transition-colors"
+          className="rounded-full px-4 py-2 text-sm font-medium bg-[#010507] text-white hover:bg-[#2B2B2B] disabled:bg-[#DBDBE5] disabled:cursor-not-allowed transition-colors dark:bg-primary dark:text-primary-foreground dark:hover:bg-primary/90 dark:disabled:bg-accent dark:disabled:text-muted-foreground"
         >
           Send
         </button>

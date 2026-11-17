@@ -1,4 +1,5 @@
 import { functionCallers } from "./basic-functions";
+import { cloneValue } from "./clone-value";
 import {
   buildCompactGenerativeUISchema,
   compactProps,
@@ -323,7 +324,7 @@ export function applyDescriptionOverrides<
   manifest: M,
   overrides: Record<string, string>,
 ): { manifest: M; unknown: string[] } {
-  const components = structuredClone(manifest.components);
+  const components = cloneValue(manifest.components);
   const unknown: string[] = [];
   for (const [key, description] of Object.entries(overrides)) {
     const [name, prop, ...rest] = key.split(".");

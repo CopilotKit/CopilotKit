@@ -159,7 +159,7 @@ The adapter forwards inline `image`/`document`/`audio`/`video` parts to Gemini
 as inline media; a remote URL becomes a text note for the model. The
 `multimodal` cell has its own route (`/api/copilotkit-multimodal`) and agent
 (`multimodal-demo`). Unlike langgraph-python it ships no
-`legacy-converter-shim.tsx`: the shim appends legacy `binary` parts, which
+`legacy-converter-shim.tsx`: the shim used to append legacy `binary` parts, which
 AG-UI 1.0 rejects at `RunAgentInput` validation. PDFs reach the model as
 documents, not flattened text. aimock matches on the prompt text only, so
 fixture selection does not prove the attachment arrived; a capturing proxy saw

@@ -15,7 +15,12 @@
       "outputs": ["{projectRoot}/dist/**"]
     },
     "test": {
-      "inputs": ["test", "{projectRoot}/scripts/**"]
+      "inputs": [
+        "test",
+        "{projectRoot}/scripts/**",
+        "^production",
+        { "dependentTasksOutputFiles": "**/*", "transitive": true }
+      ]
     }
   }
 }

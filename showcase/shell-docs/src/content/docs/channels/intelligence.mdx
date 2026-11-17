@@ -74,7 +74,7 @@ for both Slack and Microsoft Teams.
 
     The Code is part of the runtime contract:
 
-    - 3–64 characters
+    - 3 to 64 characters
     - starts with a lowercase letter
     - lowercase letters and numbers separated by single hyphens
     - project-unique
@@ -87,11 +87,13 @@ for both Slack and Microsoft Teams.
     import { makeAgent } from "./agent.js";
 
     const channel = createChannel({
-      name: "support",
+      name: process.env.CHANNEL_CODE,
       identifyUser: "platform",
       agent: makeAgent,
     });
     ```
+
+    `CHANNEL_CODE` holds the exact Code from this Channel.
 
     A mismatch leaves the Channel at **Waiting for runtime**.
 
@@ -135,9 +137,9 @@ for both Slack and Microsoft Teams.
     1. Copy the generated manifest, open Slack's app-creation flow, and create
        the app **From a manifest** using the YAML.
     2. In **OAuth & Permissions**, click **Install to Workspace**. Approve the
-       complete scope set from the current manifest, reinstall after any scope
-       update, and paste the current `xoxb-…` **Bot User OAuth Token** into
-       **Bot token**. Slack can issue a new token after reinstall.
+       complete scope set from the current manifest. Copy the `xoxb-…` **Bot
+       User OAuth Token** into **Bot token**. If you change scopes later,
+       reinstall the app and copy the new token.
     3. In **Basic Information → App Credentials**, copy the
        **Signing Secret** into Intelligence.
     4. Invite the app to a channel with `/invite @<app-handle>`, or open a
@@ -169,24 +171,23 @@ for both Slack and Microsoft Teams.
     the project and channel ids that bind the Microsoft app it creates to this
     exact Channel; retyping them is the most common way this goes wrong.
 
-    The command signs you in to Microsoft, creates a Teams bot in your own
-    tenant, and points it at the Intelligence messaging endpoint. You are not
-    asked for a client ID, tenant ID, or secret: the command reads them from
-    the bot it just created and stores them write-only in Intelligence. You
-    never edit `manifest.json`.
+    1. Run the command. It signs you in to Microsoft, creates a Teams bot in
+       your own tenant, and points it at the Intelligence messaging endpoint.
+       It reads the client ID, tenant ID, and secret from that bot and stores
+       them write-only in Intelligence. You never edit `manifest.json`.
+    2. When the command writes `<channel-name>-teams-app.zip` next to where
+       you ran it, upload that file from the **target team → … → Manage team →
+       Apps**. Microsoft exposes no install API, so this upload is yours. The
+       command prints this step with your package path filled in.
+    3. Press Enter. The command verifies the installation before it finishes.
 
-    It then writes `<channel-name>-teams-app.zip` next to where you ran it and
-    stops to hand that file to you. Microsoft exposes no install API, so
-    producing the package is as far as any tool can take you — the upload is
-    yours. Upload it from the **target team → … → Manage team → Apps**, not
-    from your personal Apps section: a personal-scope upload gives you a
-    working DM, no Team installation, and no way to promote it afterwards. The
-    command prints these steps with your package path filled in, then waits for
-    you to press Enter, and verifies the installation before it finishes.
+    Upload to the team, not to your personal Apps section. A personal-scope
+    upload gives you a working DM, no Team installation, and no way to promote
+    it afterwards.
 
     If Teams offers no upload option, the tenant disallows custom apps and an
     administrator has to add the package for you. Stop with Ctrl-C and run the
-    same command again once it is installed — it resumes rather than creating a
+    same command again once it is installed. It resumes rather than creating a
     second app.
 
     You need a Microsoft account that is allowed to upload a custom app to the
@@ -197,22 +198,21 @@ for both Slack and Microsoft Teams.
     Run it from the folder holding that download. The CLI validates the file,
     builds the app from it, and deletes the local copy; an invalid or
     mistargeted path is rejected before anything is removed. This does not
-    replace the Team upload above — it only decides how the app looks.
+    replace the Team upload above. It only decides how the app looks.
 
     #### The two permissions
 
     Reading messages in a Team channel uses `ChannelMessage.Read.Group`, granted
-    by a Team owner as the app is added. This one is required — without it the
+    by a Team owner as the app is added. This one is required. Without it, the
     app is installed but deaf in channels.
 
     Reading a file someone uploads to a Team channel additionally needs the
     `Files.Read.All` application permission, which a Microsoft administrator
-    must consent to. The command asks and defaults to skipping it. It is
-    genuinely optional: skip it and everything works except attachments
-    uploaded to a Team channel — files shared in a 1:1 chat and images pasted
-    into a channel are unaffected, and the message still arrives, just without
-    that attachment. It reads only; the app never creates, updates, or deletes.
-    You can grant it later.
+    must consent to. The command asks and defaults to skipping it.
+    `Files.Read.All` is optional. Without it, files uploaded to a Team channel
+    do not reach the agent, but the message still arrives. Files in a 1:1 chat
+    and images pasted into a channel still work. The permission reads only; the
+    app never creates, updates, or deletes. You can grant it later.
 
     Teams settles app permissions only while the app is being added, so
     changing your mind later means removing the app from the Team and adding it
@@ -224,7 +224,7 @@ for both Slack and Microsoft Teams.
     complete setup. Intelligence then reports **Created and installed**, which
     means the bot exists, the credentials were accepted, and a Team
     installation was recorded. It does not claim your runtime is online or that
-    a real message was ever delivered — that is the next guide.
+    a real message was ever delivered. That is the next guide.
 
     Do not replace the messaging endpoint with your Channels runner URL.
     Intelligence owns the public Teams edge, and the runner takes no inbound
@@ -261,21 +261,21 @@ for both Slack and Microsoft Teams.
   <Step>
     ### Configure the runtime handoff
 
-    On the new Channel page, open **Connect a runtime**. The **Environment file
-    (.env)** block names the Intelligence variables with blank values.
+    1. On the new Channel page, open **Connect a runtime**. The **Environment
+       file (.env)** block names the Intelligence variables with blank values.
+    2. In the directory of your Channels process, sign in and select the
+       project. `project select` writes `CPK_INTELLIGENCE_API_KEY`:
 
-    From the directory of your Channels process, sign in and select the project.
-    `project select` writes `CPK_INTELLIGENCE_API_KEY`.
+       ```bash title="Terminal"
+       npx copilotkit@latest login
+       npx copilotkit@latest project select
+       ```
 
-    ```bash title="Terminal"
-    npx copilotkit@latest login
-    npx copilotkit@latest project select
-    ```
+    3. Set `CHANNEL_CODE` to the Code of this Channel.
 
-    Set `CHANNEL_CODE` to the Code from this Channel. If the process does not
-    load that `.env` file, store the key in your secret manager. The project
-    **API Keys** page is the other way to copy a key. Configure the process
-    with:
+    If the process does not load that `.env` file, store the key in your secret
+    manager. The project **API Keys** page is the other way to copy a key.
+    Configure the process with:
 
     ```dotenv title=".env"
     CPK_INTELLIGENCE_API_KEY=<project-api-key>
@@ -292,9 +292,6 @@ for both Slack and Microsoft Teams.
     the WebSocket URL by changing the API URL's scheme. Pass bare base URLs:
     the client appends `/api/...`, `/runner`, `/client`, or `/channels` itself.
     Do not append `/api`, `/socket`, `/runner`, `/client`, or `/channels`.
-
-    Open **API Keys** in the project sidebar to create and copy the
-    project-scoped runtime key.
 
     You choose `CHANNEL_CODE` from the exact Code above, and the selected agent
     framework adds its own backend variables. The SDK receives the Intelligence

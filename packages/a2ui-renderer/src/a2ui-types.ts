@@ -1,5 +1,5 @@
 /**
- * v0.9 A2UI type definitions for CopilotKit integration.
+ * A2UI type definitions for CopilotKit integration.
  */
 
 /** Theme type - v0.9 themes are passed via createSurface message */
@@ -17,6 +17,9 @@ export interface A2UIClientEventMessage {
     context?: Record<string, unknown>;
     timestamp?: string;
     dataContextPath?: string;
+    catalogId?: string;
+    userMessage?: string;
+    metadata?: { extensions?: Record<string, unknown> };
   };
 }
 

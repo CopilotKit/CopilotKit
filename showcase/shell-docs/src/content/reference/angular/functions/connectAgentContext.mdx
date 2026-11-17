@@ -12,7 +12,7 @@ The registration is wrapped in an Angular `effect`, so the context is cleaned up
 For a template-driven alternative, use the [`CopilotKitAgentContext`](/reference/angular/directives/CopilotKitAgentContext) directive.
 
 <Callout type="warn">
-  Call this from an Angular injection context, such as a constructor or field initializer. The current implementation resolves the ambient injector before it reads the config, so passing `config.injector` does not make an outside-context call valid.
+  Call this from an Angular injection context, such as a constructor or field initializer. To call it from other code, pass `{ injector }` as the second argument.
 </Callout>
 
 ## Signature
@@ -47,7 +47,7 @@ function connectAgentContext(
 </PropertyReference>
 
 <PropertyReference name="config" type="ConnectAgentContextConfig">
-  Optional configuration. You must still call the function from an injection context.
+  Optional configuration.
 
   <PropertyReference name="injector" type="Injector">
     Injector used to resolve `CopilotKit` and own the reactive effect. When
@@ -112,27 +112,4 @@ export class CartComponent {
 
 - **Reactive updates.** When an accessor reads signals, the context is removed and re-added whenever one of those signals changes.
 - **Automatic cleanup.** Registration runs inside an Angular `effect`; the context is removed when the effect is torn down, which happens when the owning component, service, or injector is destroyed.
-- **Injection context required.** Angular throws `NG0203` when you call the function outside an injection context.
-
-## Related
-
-<Cards>
-  <Card
-    title="CopilotKitAgentContext directive"
-    description="Share context with the agent from a template instead of a function."
-    href="/reference/angular/directives/CopilotKitAgentContext"
-    icon={<LinkIcon />}
-  />
-  <Card
-    title="injectAgentStore"
-    description="Subscribe to an agent and read its messages, state, and run status."
-    href="/reference/angular/functions/injectAgentStore"
-    icon={<LinkIcon />}
-  />
-  <Card
-    title="CopilotKit service"
-    description="The central handle on agents, tools, and the runtime connection."
-    href="/reference/angular/services/CopilotKit"
-    icon={<LinkIcon />}
-  />
-</Cards>
+- **Injection context.** Without `config.injector`, Angular throws `NG0203` when you call the function outside an injection context.

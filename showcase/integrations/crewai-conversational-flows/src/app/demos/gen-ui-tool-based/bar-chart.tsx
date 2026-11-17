@@ -37,11 +37,11 @@ export function BarChart({ title, description, data }: BarChartProps) {
   ];
 
   const TOOLTIP_STYLE = {
-    backgroundColor: "#ffffff",
-    border: "1px solid #DBDBE5",
+    backgroundColor: "light-dark(#ffffff, var(--card))",
+    border: "1px solid light-dark(#DBDBE5, var(--border))",
     borderRadius: "12px",
     padding: "10px 14px",
-    color: "#010507",
+    color: "light-dark(#010507, var(--foreground))",
     fontSize: "13px",
     boxShadow: "0 4px 12px rgba(1,5,7,0.06)",
   };
@@ -56,10 +56,14 @@ export function BarChart({ title, description, data }: BarChartProps) {
 
   if (!data || !Array.isArray(data) || data.length === 0) {
     return (
-      <div className="max-w-2xl mx-auto my-4 rounded-2xl border border-[#DBDBE5] bg-white p-6 shadow-sm">
-        <div className="font-semibold text-[#010507]">{title}</div>
-        <div className="text-sm text-[#57575B]">{description}</div>
-        <p className="text-[#AFAFB7] text-center py-8 text-sm">
+      <div className="max-w-2xl mx-auto my-4 rounded-2xl border border-[#DBDBE5] bg-white dark:border-border dark:bg-card p-6 shadow-sm">
+        <div className="font-semibold text-[#010507] dark:text-foreground">
+          {title}
+        </div>
+        <div className="text-sm text-[#57575B] dark:text-muted-foreground">
+          {description}
+        </div>
+        <p className="text-[#AFAFB7] text-center py-8 text-sm dark:text-muted-foreground">
           No data available
         </p>
       </div>
@@ -67,7 +71,7 @@ export function BarChart({ title, description, data }: BarChartProps) {
   }
 
   return (
-    <div className="max-w-2xl mx-auto my-4 overflow-hidden rounded-2xl border border-[#DBDBE5] bg-white shadow-sm">
+    <div className="max-w-2xl mx-auto my-4 overflow-hidden rounded-2xl border border-[#DBDBE5] bg-white dark:border-border dark:bg-card shadow-sm">
       <style>{`
         @keyframes barSlideIn {
           from { transform: translateY(40px); opacity: 0; }
@@ -76,8 +80,12 @@ export function BarChart({ title, description, data }: BarChartProps) {
         }
       `}</style>
       <div className="p-4 pb-2">
-        <div className="font-semibold text-[#010507]">{title}</div>
-        <div className="text-sm text-[#57575B]">{description}</div>
+        <div className="font-semibold text-[#010507] dark:text-foreground">
+          {title}
+        </div>
+        <div className="text-sm text-[#57575B] dark:text-muted-foreground">
+          {description}
+        </div>
       </div>
       <div className="px-4 pb-4">
         <ResponsiveContainer width="100%" height={280}>
@@ -87,25 +95,35 @@ export function BarChart({ title, description, data }: BarChartProps) {
           >
             <CartesianGrid
               strokeDasharray="3 3"
-              stroke="#E9E9EF"
+              stroke="light-dark(#E9E9EF, var(--border))"
               vertical={false}
             />
             <XAxis
               dataKey="label"
-              tick={{ fontSize: 12, fill: "#838389" }}
-              stroke="#E9E9EF"
+              tick={{
+                fontSize: 12,
+                fill: "light-dark(#838389, var(--muted-foreground))",
+              }}
+              stroke="light-dark(#E9E9EF, var(--border))"
               tickLine={false}
               axisLine={false}
             />
             <YAxis
-              tick={{ fontSize: 12, fill: "#838389" }}
-              stroke="#E9E9EF"
+              tick={{
+                fontSize: 12,
+                fill: "light-dark(#838389, var(--muted-foreground))",
+              }}
+              stroke="light-dark(#E9E9EF, var(--border))"
               tickLine={false}
               axisLine={false}
             />
             <Tooltip
               contentStyle={TOOLTIP_STYLE}
-              cursor={{ fill: "#F0F0F4", opacity: 0.5 }}
+              itemStyle={{ color: "light-dark(#000, var(--foreground))" }}
+              cursor={{
+                fill: "light-dark(#F0F0F4, var(--accent))",
+                opacity: 0.5,
+              }}
             />
             <Bar
               isAnimationActive={false}

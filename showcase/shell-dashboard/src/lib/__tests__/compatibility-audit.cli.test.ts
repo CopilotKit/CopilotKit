@@ -5,6 +5,10 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { main, runAudit } from "../../../scripts/audit-compatibility";
 import { collectAudit } from "../../../scripts/compatibility-audit/collect";
+import {
+  CaptureError,
+  createLiveHttpClient,
+} from "../../../scripts/compatibility-audit/http";
 import type { CollectAdapters } from "../../../scripts/compatibility-audit/collect";
 import { COMPATIBILITY_MAPPING } from "../../../scripts/compatibility-audit/mapping";
 import type {
@@ -239,6 +243,137 @@ async function fixture() {
 }
 
 describe("manual compatibility audit", () => {
+  it.each([
+    ["HTTP 503", "service index", NUGET_SERVICE],
+    [
+      "timeout",
+      "registration index",
+      `${NUGET_BASE}microsoft.agents.ai/index.json`,
+    ],
+    [
+      "invalid JSON",
+      "registration page",
+      `${NUGET_BASE}microsoft.agents.ai/page.json`,
+    ],
+  ])(
+    "preserves safe NuGet %s diagnostics through the audit boundary",
+    async (failure, stage, endpoint) => {
+      const f = await fixture();
+      const fetch = vi
+        .fn<typeof globalThis.fetch>()
+        .mockImplementation(async (url) => {
+          if (String(url) === endpoint) {
+            if (failure === "timeout") return new Promise<Response>(() => {});
+            return new Response("private-response-body", {
+              status: failure === "HTTP 503" ? 503 : 200,
+            });
+          }
+          return new Response(f.responses.get(String(url))!.body);
+        });
+      const error = await collectAudit(
+        { ...f.options, writeSnapshot: true },
+        {
+          ...f.adapters,
+          httpClient: createLiveHttpClient({ fetch, timeoutMs: 20 }),
+        },
+      ).catch((value: unknown) => value);
+      expect((error as Error).message).toContain(
+        "Registry collection failed for nuget/Microsoft.Agents.AI:",
+      );
+      expect((error as Error).message).toContain(stage);
+      expect((error as Error).message).toContain(
+        failure === "timeout"
+          ? "Registry request timed out."
+          : failure === "invalid JSON"
+            ? "NuGet response is not valid JSON."
+            : "Registry request returned HTTP 503.",
+      );
+      if (stage === "service index")
+        expect((error as Error).message).toContain(NUGET_SERVICE);
+      expect(String(error)).not.toContain("private-response-body");
+      expect(await readFile(f.snapshotPath, "utf8")).toBe(ORIGINAL_SNAPSHOT);
+      await expect(readFile(f.options.out)).rejects.toMatchObject({
+        code: "ENOENT",
+      });
+    },
+  );
+
+  it("does not append arbitrary registry exceptions containing credentials", async () => {
+    const f = await fixture();
+    f.get.mockRejectedValueOnce(
+      new Error(
+        "https://private-user:private-token@api.nuget.org/private?secret=private-token",
+      ),
+    );
+    const error = await collectAudit(f.options, f.adapters).catch(
+      (value: unknown) => value,
+    );
+    expect((error as Error).message).toBe(
+      "Registry collection failed for pypi/ag2",
+    );
+    expect(String(error)).not.toContain("private-");
+    expect((error as Error).cause).toBeUndefined();
+  });
+
+  it("does not expose arbitrary NuGet transport errors", async () => {
+    const f = await fixture();
+    const get = f.get.getMockImplementation()!;
+    f.get.mockImplementation(async (url) => {
+      if (url === NUGET_SERVICE)
+        throw new Error(
+          "Authorization: Bearer private-token https://private-user:private-password@api.nuget.org/?secret=private-token",
+        );
+      return get(url);
+    });
+    const error = await collectAudit(f.options, f.adapters).catch(
+      (value: unknown) => value,
+    );
+    expect((error as Error).message).toContain(
+      "Registry collection failed for nuget/Microsoft.Agents.AI",
+    );
+    expect(String(error)).not.toContain("private-");
+    expect(String(error)).not.toContain("Authorization");
+    expect((error as Error).cause).toBeUndefined();
+  });
+
+  it.each(["direct", "NuGet", "mutated"])(
+    "does not expose forged CaptureError text through %s capture",
+    async (boundary) => {
+      const f = await fixture();
+      const injected =
+        boundary === "mutated"
+          ? await createLiveHttpClient({
+              fetch: async () => new Response("private-body", { status: 503 }),
+            })
+              .get(NUGET_SERVICE)
+              .then(
+                () => {
+                  throw new Error("Expected the HTTP request to fail");
+                },
+                (error: unknown) => error as CaptureError,
+              )
+          : new CaptureError("Registry request timed out.");
+      injected.message +=
+        " Authorization: Bearer private-token https://private-user:private-password@api.nuget.org/?secret=private-token";
+      const get = f.get.getMockImplementation()!;
+      f.get.mockImplementation(async (url) => {
+        if (boundary !== "NuGet" || url === NUGET_SERVICE) throw injected;
+        return get(url);
+      });
+      const error = await collectAudit(f.options, f.adapters).catch(
+        (value: unknown) => value,
+      );
+      expect((error as Error).message).toContain(
+        boundary === "NuGet"
+          ? "Registry collection failed for nuget/Microsoft.Agents.AI"
+          : "Registry collection failed for pypi/ag2",
+      );
+      expect(String(error)).not.toContain("private-");
+      expect(String(error)).not.toContain("Authorization");
+      expect((error as Error).cause).toBeUndefined();
+    },
+  );
+
   it("deduplicates registry requests and writes one report with source provenance", async () => {
     const f = await fixture();
     const result = await collectAudit(f.options, f.adapters);
@@ -249,7 +384,7 @@ describe("manual compatibility audit", () => {
       asOf: AS_OF,
       snapshot: result.snapshot,
     });
-    expect(result.packages).toHaveLength(34);
+    expect(result.packages).toHaveLength(35);
     for (const slug of ["ms-agent-dotnet", "ms-agent-harness-dotnet"]) {
       const row = result.snapshot.rows.find((item) => item.slug === slug)!;
       expect(row.status).toBe("not_verified");

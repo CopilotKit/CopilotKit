@@ -15,6 +15,7 @@ import type {
   VueToolCallRenderer,
 } from "../types";
 import type { Component } from "vue";
+import type { GenerativeUIConfig } from "../generative-ui/runtime-context";
 
 export interface CopilotKitProviderProps {
   runtimeUrl?: string;
@@ -107,6 +108,24 @@ export interface CopilotKitProviderProps {
      */
     includeSchema?: boolean;
   };
+  /**
+   * Experimental. Native generative UI. Pass `ui` from `createGenerativeUI`,
+   * and the agent renders your Vue components in the chat or in a
+   * `<GenerativeUISurface id>` on the page. The library binds the props that
+   * match the declared state and the events that match the declared
+   * functions. The model does not see them.
+   *
+   * Bind it in camelCase, as `:generativeUI`. Vue reads the kebab-case
+   * `:generative-ui` as a different prop (`generativeUi`).
+   *
+   * @example
+   * ```vue
+   * <CopilotKitProvider runtime-url="/api/copilotkit" :generativeUI="{ ui }">
+   *   <CopilotChat />
+   * </CopilotKitProvider>
+   * ```
+   */
+  generativeUI?: GenerativeUIConfig;
   /** Configuration for the built-in MCP Apps renderer. */
   mcpApps?: {
     /**
@@ -118,6 +137,16 @@ export interface CopilotKitProviderProps {
      * `IndexedDB` or cookies. By default widgets get an opaque origin.
      */
     allowSameOriginFallback?: boolean;
+    /**
+     * Let MCP Apps report their state to the model through
+     * `ui/update-model-context`. Default `false`.
+     *
+     * **Security.** The reported state goes with every later run of the
+     * conversation, and the built-in agent puts it in the system prompt. The
+     * user does not see it. With this on, the widget of any MCP server your
+     * agent uses can write there. Only enable it for MCP servers you trust.
+     */
+    modelContext?: boolean;
   };
   /**
    * Enable debug logging for the client-side event pipeline.

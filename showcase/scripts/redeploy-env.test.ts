@@ -14,6 +14,7 @@ import {
   STAGING_ENV_ID,
 } from "./railway-envs";
 import * as docsVerification from "./verify-docs-deployment";
+import * as imageVerification from "./verify-image-deployment";
 
 describe("runRedeploy", () => {
   let consoleErrSpy: ReturnType<typeof vi.spyOn>;
@@ -49,6 +50,44 @@ describe("runRedeploy", () => {
   const appendSummary = (s: string) => {
     summary += s + "\n";
   };
+
+  it("counts superseded skips separately and keeps mixed errors blocking", async () => {
+    const result = await runRedeploy({
+      env: "staging",
+      services: ["docs", "showcase-mastra", "showcase-ag2"],
+      appendSummary,
+      redeploy: async (serviceId) =>
+        serviceId === SERVICES.docs.serviceId
+          ? {
+              ok: false,
+              skipped: true,
+              reason: "superseded",
+              supersededBy: "e".repeat(40),
+              supersedingImageDigest: `sha256:${"e".repeat(64)}`,
+              deploymentId: "fresh-docs",
+            }
+          : serviceId === SERVICES["showcase-ag2"].serviceId
+            ? { ok: false, error: "broken" }
+            : { ok: true },
+    });
+    expect(result).toMatchObject({
+      attempted: 3,
+      succeeded: 1,
+      skipped: 1,
+      failed: 1,
+      exitCode: 1,
+    });
+    expect(result.records.map((r) => [r.service, r.status])).toEqual([
+      ["docs", "skipped"],
+      ["showcase-ag2", "error"],
+      ["showcase-mastra", "ok"],
+    ]);
+    expect(result.records[0]).not.toHaveProperty("verified");
+    expect(result.records[0]).not.toHaveProperty("error");
+    expect(summary).toContain("- skipped: **1**");
+    expect(summary).toContain("SKIP");
+    expect(stdoutWriteSpy.mock.calls.flat().join("")).toContain("SKIP");
+  });
 
   it("retains the verified docs deployment receipt in the artifact records", async () => {
     const result = await runRedeploy({
@@ -90,7 +129,7 @@ describe("runRedeploy", () => {
     expect(result.succeeded).toBe(1);
   });
 
-  it("default staging scope = 41 CI-built services + their imageOf consumers (harness-workers)", async () => {
+  it("default staging scope = 42 CI-built services + their imageOf consumers (harness-workers)", async () => {
     const seenNames: string[] = [];
     const redeploy = vi.fn(async (serviceId: string) => {
       // Reverse-lookup the SSOT name from serviceId so the test can
@@ -110,13 +149,14 @@ describe("runRedeploy", () => {
     });
 
     expect(result.exitCode).toBe(0);
-    // 41 CI-built (29 showcase/infra incl. conversational flows and
-    // google-antigravity, + 12 starters) + harness-workers
-    // (imageOf consumer of showcase-harness) = 42. All 41 declare staging, so
-    // the env-aware default scope keeps every one of them.
-    expect(result.attempted).toBe(42);
-    expect(result.succeeded).toBe(42);
-    expect(redeploy).toHaveBeenCalledTimes(42);
+    // 42 CI-built (30 showcase/infra incl. conversational flows,
+    // google-antigravity and openai-agents-python, + 12
+    // starters) + harness-workers (imageOf consumer of showcase-harness) = 43.
+    // All 42 declare staging, so the env-aware default scope keeps every one
+    // of them.
+    expect(result.attempted).toBe(43);
+    expect(result.succeeded).toBe(43);
+    expect(redeploy).toHaveBeenCalledTimes(43);
     // pocketbase is now CI-built, so it IS in the default redeploy scope.
     expect(seenNames).toContain("pocketbase");
     // The TypeScript Strands integration declares staging, so it IS in the
@@ -185,15 +225,16 @@ describe("runRedeploy", () => {
     ]);
   });
 
-  it("default prod scope includes the dual-env worker, Strands TS, and CrewAI conversational flows", async () => {
+  it("default prod scope includes the dual-env worker, Strands TS, CrewAI conversational flows, and OpenAI Agents Python", async () => {
     // The default scope is env-aware: a service joins the prod scope when it
     // declares a prod env. harness-workers is now dual-env (the prod worker was
     // backfilled into the SSOT), so the env-aware imageOf expansion pulls it
     // into the prod scope as a showcase-harness consumer. showcase-strands-typescript
     // is also dual-env and joins. CrewAI Conversational Flows now has a prod
-    // instance and joins too, as does google-antigravity. The prod default =
-    // the 42 services that declare prod (29 CI-built showcase/infra + 12
-    // starters + the imageOf-consumer harness-workers).
+    // instance and joins too, as do google-antigravity and
+    // openai-agents-python. The prod default = the 43 services that declare
+    // prod (30 CI-built showcase/infra + 12 starters + the imageOf-consumer
+    // harness-workers).
     const seenNames: string[] = [];
     const redeploy = vi.fn(async (serviceId: string) => {
       const name = Object.entries(SERVICES).find(
@@ -207,7 +248,7 @@ describe("runRedeploy", () => {
       redeploy,
       appendSummary,
     });
-    expect(result.attempted).toBe(42);
+    expect(result.attempted).toBe(43);
     // harness-workers is now dual-env, so a prod redeploy of its showcase-harness
     // image bounces the prod worker too (it used to be silently skipped).
     expect(seenNames).toContain("harness-workers");
@@ -217,6 +258,8 @@ describe("runRedeploy", () => {
     expect(seenNames).toContain("showcase-crewai-conversational-flows");
     // google-antigravity is now dual-env, so it joins the prod scope.
     expect(seenNames).toContain("showcase-google-antigravity");
+    // openai-agents-python is now dual-env, so it joins the prod scope.
+    expect(seenNames).toContain("showcase-openai-agents-python");
     // S2: starters ARE in the default prod scope (CI-built, dual-env).
     expect(seenNames).toContain("starter-adk");
   });
@@ -339,7 +382,7 @@ describe("runRedeploy", () => {
     }
   });
 
-  it("treats per-service failures as non-fatal and exits 0", async () => {
+  it("fails staging on a per-service verification failure", async () => {
     // Deterministic: fail on a specific named service so the test does
     // not depend on the size of the default scope.
     const failTarget = SERVICES["showcase-mastra"].serviceId;
@@ -356,7 +399,7 @@ describe("runRedeploy", () => {
       appendSummary,
     });
 
-    expect(result.exitCode).toBe(0);
+    expect(result.exitCode).toBe(1);
     expect(result.failed).toBe(1);
     expect(result.succeeded + result.failed).toBe(result.attempted);
     // Failure must be visible in the summary.
@@ -381,7 +424,7 @@ describe("runRedeploy", () => {
       appendSummary,
     });
 
-    expect(result.exitCode).toBe(0);
+    expect(result.exitCode).toBe(1);
     expect(result.failed).toBe(1);
     expect(summary).toMatch(/FAIL/);
   });
@@ -404,10 +447,7 @@ describe("runRedeploy", () => {
   });
 
   it("a registered NON-staging third env gets fail-loud semantics (exit 1 on per-service failure)", async () => {
-    // Exit-code policy is fail-loud by DEFAULT: staging is the single
-    // documented carve-out (non-fatal; verify-deploy is its gate). A future
-    // "preview" env must inherit prod-style fatal semantics without anyone
-    // remembering to extend an env allowlist.
+    // New environments inherit fail-loud semantics without an allowlist.
     ENV_ID_BY_NAME.preview = "preview-env-id-000";
     try {
       const redeploy = vi.fn(async () => ({
@@ -422,15 +462,14 @@ describe("runRedeploy", () => {
       });
       expect(result.failed).toBe(1);
       expect(result.exitCode).toBe(1);
-      // The "non-fatal" summary note is staging-only — a fatal env must
-      // not claim its failures are non-fatal.
+      // No failed deployment should be described as non-fatal.
       expect(summary).not.toMatch(/non-fatal/);
     } finally {
       delete ENV_ID_BY_NAME.preview;
     }
   });
 
-  it("staging keeps the non-fatal note in the failure summary (the documented carve-out)", async () => {
+  it("staging describes failed verification as release-blocking", async () => {
     const redeploy = vi.fn(async () => ({
       ok: false as const,
       error: "boom",
@@ -441,8 +480,8 @@ describe("runRedeploy", () => {
       appendSummary,
       services: ["showcase-mastra"],
     });
-    expect(result.exitCode).toBe(0);
-    expect(summary).toMatch(/non-fatal/);
+    expect(result.exitCode).toBe(1);
+    expect(summary).toMatch(/verification failed/);
   });
 
   it("sanitizes per-service THROWN error messages through sanitizeErrorBody", async () => {
@@ -525,6 +564,32 @@ describe("runRedeploy", () => {
     } finally {
       stderrSpy.mockRestore();
     }
+  });
+
+  it("bounds staging deployment verification concurrency and keeps every receipt", async () => {
+    let active = 0;
+    let peak = 0;
+    const result = await runRedeploy({
+      env: "staging",
+      appendSummary,
+      concurrency: 3,
+      services: [
+        "showcase-mastra",
+        "showcase-ag2",
+        "showcase-agno",
+        "showcase-llamaindex",
+      ],
+      redeploy: async () => {
+        active++;
+        peak = Math.max(peak, active);
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        active--;
+        return { ok: true };
+      },
+    });
+    expect(peak).toBe(3);
+    expect(result.records).toHaveLength(4);
+    expect(result.exitCode).toBe(0);
   });
 
   it("env=prod returns exitCode 0 when all services succeed", async () => {
@@ -674,11 +739,12 @@ describe("resolveTargetServices", () => {
 
   it("returns the CI_BUILT_SERVICES set sorted when given undefined", () => {
     const resolved = resolveTargetServices(undefined);
-    // 29 showcase/infra CI-built (incl. conversational flows and
-    // google-antigravity) + 12 starters = 41.
+    // 30 showcase/infra CI-built (incl. conversational flows,
+    // google-antigravity and openai-agents-python) + 12
+    // starters = 42.
     // resolveTargetServices returns the FULL CI_BUILT set;
     // the env-aware narrowing happens later in runRedeploy, not here.
-    expect(resolved.length).toBe(41);
+    expect(resolved.length).toBe(42);
     // pocketbase is now CI-built and part of the default scope.
     expect(resolved).toContain("pocketbase");
     expect(resolved).toContain("showcase-crewai-conversational-flows");
@@ -702,6 +768,12 @@ describe("resolveTargetServices", () => {
 });
 
 describe("makeLiveRedeploy", () => {
+  const digest = `sha256:${"a".repeat(64)}`;
+  beforeEach(() => {
+    vi.spyOn(imageVerification, "readExpectedImage").mockResolvedValue({
+      digests: [digest],
+    });
+  });
   afterEach(() => {
     // restoreAllMocks does NOT undo stubGlobal — unstub explicitly or the
     // fetch stub leaks into other files under fork reuse.
@@ -717,8 +789,199 @@ describe("makeLiveRedeploy", () => {
     return fetchMock;
   }
 
+  it.each(["showcase-mastra", "harness-workers", "docs"])(
+    "returns a typed preflight skip without mutations for %s",
+    async (name) => {
+      const error = new imageVerification.SupersededImageError(
+        "e".repeat(40),
+        digest,
+      );
+      vi.mocked(imageVerification.readExpectedImage).mockRejectedValue(error);
+      vi.spyOn(docsVerification, "readExpectedDocsImage").mockRejectedValue(
+        error,
+      );
+      const fetchMock = stubFetch(async () => {
+        throw new Error("must not mutate");
+      });
+      await expect(
+        makeLiveRedeploy("token", {
+          expectedImageTag: "d".repeat(40),
+          ...(name === "docs" ? { docsExpectedImage: "built" } : {}),
+        })(SERVICES[name].serviceId, STAGING_ENV_ID),
+      ).resolves.toEqual({
+        ok: false,
+        skipped: true,
+        reason: "superseded",
+        supersededBy: "e".repeat(40),
+        supersedingImageDigest: digest,
+      });
+      expect(fetchMock).not.toHaveBeenCalled();
+    },
+  );
+  it("retains the exact deployment id on a superseded race without marking it verified", async () => {
+    vi.spyOn(imageVerification, "verifyImageDeployment").mockRejectedValue(
+      new imageVerification.SupersededImageError("e".repeat(40), digest),
+    );
+    stubFetch(
+      async () =>
+        new Response(
+          JSON.stringify({ data: { serviceInstanceDeployV2: "fresh-race" } }),
+        ),
+    );
+    await expect(
+      makeLiveRedeploy("token")(
+        SERVICES["showcase-mastra"].serviceId,
+        STAGING_ENV_ID,
+      ),
+    ).resolves.toEqual({
+      ok: false,
+      skipped: true,
+      reason: "superseded",
+      supersededBy: "e".repeat(40),
+      supersedingImageDigest: digest,
+      deploymentId: "fresh-race",
+    });
+  });
+
+  it.each(
+    Object.entries(SERVICES).filter(
+      ([, entry]) => entry.autoUpdates.staging === "unmanaged",
+    ),
+  )(
+    "preserves the configured pinned image when explicitly redeploying unmanaged %s",
+    async (_name, entry) => {
+      const fetchMock = stubFetch(
+        async () =>
+          new Response(
+            JSON.stringify({ data: { serviceInstanceRedeploy: true } }),
+          ),
+      );
+      await expect(
+        makeLiveRedeploy("test-token", { expectedImageTag: "d".repeat(40) })(
+          entry.serviceId,
+          STAGING_ENV_ID,
+        ),
+      ).resolves.toEqual({ ok: true });
+      expect(imageVerification.readExpectedImage).not.toHaveBeenCalled();
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      const request = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
+      expect(request.query).toContain("serviceInstanceRedeploy(");
+      expect(request.query).not.toContain("serviceInstanceDeployV2");
+      expect(request.variables).toEqual({
+        serviceId: entry.serviceId,
+        environmentId: STAGING_ENV_ID,
+      });
+    },
+  );
+
+  it.each(["showcase-crewai-conversational-flows", "starter-adk"])(
+    "creates a fresh staging deployment for %s instead of replaying its snapshot",
+    async (name) => {
+      const fetchMock = stubFetch(async (_url, init) => {
+        const { query } = JSON.parse(String(init?.body));
+        return new Response(
+          JSON.stringify({
+            data: query.includes("serviceInstanceDeployV2")
+              ? { serviceInstanceDeployV2: "fresh-image" }
+              : {
+                  deployment: {
+                    id: "fresh-image",
+                    serviceId: SERVICES[name].serviceId,
+                    environmentId: STAGING_ENV_ID,
+                    status: "SUCCESS",
+                    meta: { imageDigest: digest },
+                  },
+                },
+          }),
+        );
+      });
+      const result = await makeLiveRedeploy("test-token")(
+        SERVICES[name].serviceId,
+        STAGING_ENV_ID,
+      );
+      expect(result).toEqual({
+        ok: true,
+        deploymentId: "fresh-image",
+        imageDigest: digest,
+        verified: true,
+      });
+      expect(
+        JSON.parse(String(fetchMock.mock.calls[0][1]?.body)).query,
+      ).toContain("serviceInstanceDeployV2");
+      expect(
+        JSON.parse(String(fetchMock.mock.calls[0][1]?.body)).query,
+      ).not.toContain("serviceInstanceRedeploy");
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    },
+  );
+
+  it("records a staging agent failure when SUCCESS still serves the previous image", async () => {
+    stubFetch(async (_url, init) => {
+      const { query } = JSON.parse(String(init?.body));
+      return new Response(
+        JSON.stringify({
+          data: query.includes("serviceInstanceDeployV2")
+            ? { serviceInstanceDeployV2: "fresh-agent" }
+            : {
+                deployment: {
+                  id: "fresh-agent",
+                  serviceId: SERVICES["showcase-mastra"].serviceId,
+                  environmentId: STAGING_ENV_ID,
+                  status: "SUCCESS",
+                  meta: { imageDigest: `sha256:${"b".repeat(64)}` },
+                },
+              },
+        }),
+      );
+    });
+    await expect(
+      makeLiveRedeploy("test-token")(
+        SERVICES["showcase-mastra"].serviceId,
+        STAGING_ENV_ID,
+      ),
+    ).resolves.toMatchObject({
+      ok: false,
+      deploymentId: "fresh-agent",
+      error: expect.stringMatching(/image digest/),
+    });
+  });
+
+  it.each(["showcase-mastra", "starter-adk", "harness-workers", "webhooks"])(
+    "selects this build for %s or latest for its out-of-band image",
+    async (name) => {
+      const read = vi
+        .mocked(imageVerification.readExpectedImage)
+        .mockImplementation(() => {
+          throw new Error("stop before mutation");
+        });
+      const fetchMock = stubFetch(async () => {
+        throw new Error("must not mutate");
+      });
+      await expect(
+        makeLiveRedeploy("test-token", { expectedImageTag: "d".repeat(40) })(
+          SERVICES[name].serviceId,
+          STAGING_ENV_ID,
+        ),
+      ).rejects.toThrow("stop before mutation");
+      const repo =
+        name === "harness-workers"
+          ? "showcase-harness"
+          : name === "webhooks"
+            ? "showcase-eval-webhook"
+            : name;
+      expect(read).toHaveBeenCalledWith(
+        `ghcr.io/copilotkit/${repo}:${name === "webhooks" ? "latest" : "d".repeat(40)}`,
+        expect.objectContaining({
+          requireCommit: name !== "webhooks",
+          checkLatest: name !== "webhooks",
+        }),
+      );
+      expect(fetchMock).not.toHaveBeenCalled();
+    },
+  );
+
   it("records the fresh deployment ID when CI verification rejects an old image", async () => {
-    vi.spyOn(docsVerification, "readExpectedDocsImage").mockReturnValue({
+    vi.spyOn(docsVerification, "readExpectedDocsImage").mockResolvedValue({
       digests: [`sha256:${"a".repeat(64)}`],
     });
     const fetchMock = stubFetch(async (_url, init) => {
@@ -751,6 +1014,9 @@ describe("makeLiveRedeploy", () => {
   });
 
   it("creates a fresh staging docs deployment instead of replaying an old pinned image", async () => {
+    vi.spyOn(docsVerification, "verifyDocsDeployment").mockResolvedValue({
+      imageDigest: digest,
+    });
     const fetchMock = stubFetch(async () => ({
       ok: true,
       json: async () => ({
@@ -769,6 +1035,8 @@ describe("makeLiveRedeploy", () => {
     expect(outcome).toEqual({
       ok: true,
       deploymentId: "fresh-docs-deployment",
+      imageDigest: digest,
+      verified: true,
     });
     const request = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
     expect(request.query).toContain("serviceInstanceDeployV2");
@@ -837,7 +1105,19 @@ describe("makeLiveRedeploy", () => {
           }),
         };
       }
-      throw new Error("unexpected Railway mutation");
+      return new Response(
+        JSON.stringify({
+          data: {
+            deployment: {
+              id: "deployment-id",
+              serviceId: SERVICES["harness-workers"].serviceId,
+              environmentId: STAGING_ENV_ID,
+              status: "SUCCESS",
+              meta: { imageDigest: digest },
+            },
+          },
+        }),
+      );
     });
 
     const outcome = await makeLiveRedeploy("test-token")(
@@ -845,8 +1125,13 @@ describe("makeLiveRedeploy", () => {
       STAGING_ENV_ID,
     );
 
-    expect(outcome).toEqual({ ok: true });
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(outcome).toEqual({
+      ok: true,
+      deploymentId: "deployment-id",
+      imageDigest: digest,
+      verified: true,
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
     const requests = fetchMock.mock.calls.map(([, init]) =>
       JSON.parse(String(init?.body)),
     );
@@ -903,7 +1188,8 @@ describe("makeLiveRedeploy", () => {
     const redeploy = makeLiveRedeploy("test-token");
     const outcome = await redeploy("svc-id", "env-id");
     expect(outcome.ok).toBe(false);
-    if (!outcome.ok) {
+    expect(outcome).toHaveProperty("error");
+    if ("error" in outcome) {
       expect(outcome.error).toBe(`boom scriptline2; ${"x".repeat(200)}…`);
     }
   });
@@ -920,7 +1206,8 @@ describe("makeLiveRedeploy", () => {
     const redeploy = makeLiveRedeploy("test-token");
     const outcome = await redeploy("svc-id", "env-id");
     expect(outcome.ok).toBe(false);
-    if (!outcome.ok) {
+    expect(outcome).toHaveProperty("error");
+    if ("error" in outcome) {
       expect(outcome.error).toMatch(/^HTTP 503: /);
       expect(outcome.error).not.toMatch(/[<>\n]/);
       expect(outcome.error).toMatch(/…$/);

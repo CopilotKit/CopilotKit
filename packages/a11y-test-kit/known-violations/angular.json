@@ -1,0 +1,85 @@
+{
+  "modal-closed": [],
+  "modal-open": [
+    "dom:{\"rule\":\"click-focusable\",\"target\":\"div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)\",\"detail\":\"Click target cannot take focus\"}",
+    "dom:{\"rule\":\"click-role\",\"target\":\"div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2)\",\"detail\":\"Click target has no interactive role\"}",
+    "dom:{\"rule\":\"click-role\",\"target\":\"div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)\",\"detail\":\"Click target has no interactive role\"}",
+    "dom:{\"rule\":\"hidden-focus\",\"target\":\"div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)\",\"detail\":\"Focusable content inside aria-hidden\"}",
+    "dom:{\"rule\":\"hidden-focus\",\"target\":\"div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(3)\",\"detail\":\"Focusable content inside aria-hidden\"}",
+    "dom:{\"rule\":\"interactive-name\",\"target\":\"div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2)\",\"detail\":\"Unnamed dialog\"}",
+    "pattern:{\"rule\":\"dialog\",\"target\":\":scope\",\"detail\":\"div: after Tab, focus is inside aria-hidden or inert content, where a screen reader can't follow it.\"}",
+    "pattern:{\"rule\":\"dialog\",\"target\":\":scope\",\"detail\":\"div[role=dialog]: has no accessible name; give it aria-label or aria-labelledby (APG dialog (modal)).\"}",
+    "pattern:{\"rule\":\"dialog\",\"target\":\":scope\",\"detail\":\"div[role=dialog]: is modal, but Tab moved focus out of it, to div; it wraps inside (APG dialog (modal)).\"}"
+  ],
+  "tabs": [
+    "dom:{\"rule\":\"id-reference\",\"target\":\"div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > button:nth-of-type(2)\",\"detail\":\"Unresolved aria-controls\"}",
+    "dom:{\"rule\":\"id-reference\",\"target\":\"div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > button:nth-of-type(3)\",\"detail\":\"Unresolved aria-controls\"}",
+    "dom:{\"rule\":\"interactive-name\",\"target\":\"div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1)\",\"detail\":\"Unnamed tablist\"}",
+    "pattern:{\"rule\":\"tabs\",\"target\":\":scope\",\"detail\":\"button#<id:2>[role=tab]: ArrowLeft should move focus to the previous tab, wrapping around, button#<id:6>[role=tab], but focus stayed (APG tabs).\"}",
+    "pattern:{\"rule\":\"tabs\",\"target\":\":scope\",\"detail\":\"button#<id:2>[role=tab]: ArrowRight should move focus to the next tab, button#<id:4>[role=tab], but focus stayed (APG tabs).\"}",
+    "pattern:{\"rule\":\"tabs\",\"target\":\":scope\",\"detail\":\"button#<id:2>[role=tab]: End should move focus to the last tab, button#<id:6>[role=tab], but focus stayed (APG tabs).\"}",
+    "pattern:{\"rule\":\"tabs\",\"target\":\":scope\",\"detail\":\"button#<id:4>[role=tab]: aria-controls points at \\\"<id:5>\\\", which isn't in the page; every id reference names a real element (ARIA).\"}",
+    "pattern:{\"rule\":\"tabs\",\"target\":\":scope\",\"detail\":\"button#<id:6>[role=tab]: aria-controls points at \\\"<id:7>\\\", which isn't in the page; every id reference names a real element (ARIA).\"}",
+    "pattern:{\"rule\":\"tabs\",\"target\":\":scope\",\"detail\":\"div[role=tablist]: has no accessible name; give it aria-label or aria-labelledby (APG tabs).\"}"
+  ],
+  "image-closed": [
+    "dom:{\"rule\":\"click-focusable\",\"target\":\"div:nth-of-type(2) > div:nth-of-type(1) > img:nth-of-type(1)\",\"detail\":\"Click target cannot take focus\"}",
+    "dom:{\"rule\":\"click-role\",\"target\":\"div:nth-of-type(2) > div:nth-of-type(1) > img:nth-of-type(1)\",\"detail\":\"Click target has no interactive role\"}"
+  ],
+  "image-open": [
+    "dom:{\"rule\":\"click-focusable\",\"target\":\"div:nth-of-type(2) > div:nth-of-type(1) > img:nth-of-type(1)\",\"detail\":\"Click target cannot take focus\"}",
+    "dom:{\"rule\":\"click-focusable\",\"target\":\"div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(1) > copilot-generative-ui-lightbox:nth-of-type(1)\",\"detail\":\"Click target cannot take focus\"}",
+    "dom:{\"rule\":\"click-role\",\"target\":\"div:nth-of-type(2) > div:nth-of-type(1) > img:nth-of-type(1)\",\"detail\":\"Click target has no interactive role\"}",
+    "dom:{\"rule\":\"click-role\",\"target\":\"div:nth-of-type(3) > div:nth-of-type(1) > div:nth-of-type(1) > copilot-generative-ui-lightbox:nth-of-type(1)\",\"detail\":\"Click target has no interactive role\"}",
+    "pattern:{\"rule\":\"dialog\",\"target\":\":scope\",\"detail\":\"copilot-generative-ui-lightbox[role=dialog]: is open, but focus is on body; opening a dialog moves focus into it (APG dialog (modal)).\"}"
+  ],
+  "entity-card": [],
+  "icon-button": [
+    "axe:{\"rule\":\"button-name\",\"target\":\"div:nth-of-type(3) > button:nth-of-type(1)\",\"detail\":\"Buttons must have discernible text\"}",
+    "dom:{\"rule\":\"interactive-name\",\"target\":\"div:nth-of-type(3) > button:nth-of-type(1)\",\"detail\":\"Unnamed button\"}"
+  ],
+  "failed-field": [
+    "dom:{\"rule\":\"error-reference\",\"target\":\"div:nth-of-type(3) > div:nth-of-type(1) > input:nth-of-type(1)\",\"detail\":\"Invalid field has no referenced error message\"}"
+  ],
+  "hidden-button": [
+    "dom:{\"rule\":\"hidden-focus\",\"target\":\"div:nth-of-type(3) > div:nth-of-type(1) > button:nth-of-type(1)\",\"detail\":\"Focusable content inside aria-hidden\"}"
+  ],
+  "hidden-image-open": [
+    "dom:{\"rule\":\"hidden-focus\",\"target\":\"div:nth-of-type(4) > div:nth-of-type(1) > div:nth-of-type(1) > copilot-generative-ui-lightbox:nth-of-type(1) > button:nth-of-type(1)\",\"detail\":\"Focusable content inside aria-hidden\"}",
+    "pattern:{\"rule\":\"dialog\",\"target\":\":scope\",\"detail\":\"copilot-generative-ui-lightbox[role=dialog]: is open, but focus is on body; opening a dialog moves focus into it (APG dialog (modal)).\"}"
+  ],
+  "chat-popup": [
+    "dom:{\"rule\":\"hidden-focus\",\"target\":\"div:nth-of-type(5) > div:nth-of-type(2)\",\"detail\":\"Focusable content inside aria-hidden\"}",
+    "dom:{\"rule\":\"hidden-focus\",\"target\":\"div:nth-of-type(5) > div:nth-of-type(3)\",\"detail\":\"Focusable content inside aria-hidden\"}",
+    "pattern:{\"rule\":\"dialog\",\"target\":\":scope\",\"detail\":\"div: after Tab, focus is inside aria-hidden or inert content, where a screen reader can't follow it.\"}",
+    "pattern:{\"rule\":\"dialog\",\"target\":\":scope\",\"detail\":\"section#<id:2>[role=dialog]: is modal, but Tab moved focus out of it, to div; it wraps inside (APG dialog (modal)).\"}",
+    "pattern:{\"rule\":\"dialog\",\"target\":\":scope\",\"detail\":\"section#<id:2>[role=dialog]: opened with Enter, but focus stayed on button \\\"×\\\"; it moves into the dialog (APG dialog (modal)).\"}"
+  ],
+  "chat-sidebar": [
+    "dom:{\"rule\":\"hidden-focus\",\"target\":\"div:nth-of-type(5) > div:nth-of-type(2)\",\"detail\":\"Focusable content inside aria-hidden\"}",
+    "dom:{\"rule\":\"hidden-focus\",\"target\":\"div:nth-of-type(5) > div:nth-of-type(3)\",\"detail\":\"Focusable content inside aria-hidden\"}",
+    "pattern:{\"rule\":\"dialog\",\"target\":\":scope\",\"detail\":\"div: after Tab, focus is inside aria-hidden or inert content, where a screen reader can't follow it.\"}",
+    "pattern:{\"rule\":\"dialog\",\"target\":\":scope\",\"detail\":\"section#<id:2>[role=dialog]: is modal, but Tab moved focus out of it, to div; it wraps inside (APG dialog (modal)).\"}",
+    "pattern:{\"rule\":\"dialog\",\"target\":\":scope\",\"detail\":\"section#<id:2>[role=dialog]: opened with Enter, but focus stayed on button \\\"×\\\"; it moves into the dialog (APG dialog (modal)).\"}"
+  ],
+  "named-modal-open": [
+    "dom:{\"rule\":\"click-focusable\",\"target\":\"div:nth-of-type(5) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)\",\"detail\":\"Click target cannot take focus\"}",
+    "dom:{\"rule\":\"click-role\",\"target\":\"div:nth-of-type(5) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2)\",\"detail\":\"Click target has no interactive role\"}",
+    "dom:{\"rule\":\"click-role\",\"target\":\"div:nth-of-type(5) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)\",\"detail\":\"Click target has no interactive role\"}",
+    "dom:{\"rule\":\"hidden-focus\",\"target\":\"div:nth-of-type(5) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)\",\"detail\":\"Focusable content inside aria-hidden\"}",
+    "dom:{\"rule\":\"hidden-focus\",\"target\":\"div:nth-of-type(5) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(3)\",\"detail\":\"Focusable content inside aria-hidden\"}",
+    "pattern:{\"rule\":\"dialog\",\"target\":\":scope\",\"detail\":\"div: after Tab, focus is inside aria-hidden or inert content, where a screen reader can't follow it.\"}",
+    "pattern:{\"rule\":\"dialog\",\"target\":\":scope\",\"detail\":\"div[role=dialog]: is modal, but Tab moved focus out of it, to div; it wraps inside (APG dialog (modal)).\"}"
+  ],
+  "tabs-rtl": [
+    "dom:{\"rule\":\"id-reference\",\"target\":\"div:nth-of-type(5) > div:nth-of-type(1) > div:nth-of-type(1) > button:nth-of-type(2)\",\"detail\":\"Unresolved aria-controls\"}",
+    "dom:{\"rule\":\"id-reference\",\"target\":\"div:nth-of-type(5) > div:nth-of-type(1) > div:nth-of-type(1) > button:nth-of-type(3)\",\"detail\":\"Unresolved aria-controls\"}",
+    "dom:{\"rule\":\"interactive-name\",\"target\":\"div:nth-of-type(5) > div:nth-of-type(1) > div:nth-of-type(1)\",\"detail\":\"Unnamed tablist\"}",
+    "pattern:{\"rule\":\"tabs\",\"target\":\":scope\",\"detail\":\"button#<id:2>[role=tab]: ArrowLeft should move focus to the next tab, button#<id:4>[role=tab], but focus stayed (APG tabs).\"}",
+    "pattern:{\"rule\":\"tabs\",\"target\":\":scope\",\"detail\":\"button#<id:2>[role=tab]: ArrowRight should move focus to the previous tab, wrapping around, button#<id:6>[role=tab], but focus stayed (APG tabs).\"}",
+    "pattern:{\"rule\":\"tabs\",\"target\":\":scope\",\"detail\":\"button#<id:2>[role=tab]: End should move focus to the last tab, button#<id:6>[role=tab], but focus stayed (APG tabs).\"}",
+    "pattern:{\"rule\":\"tabs\",\"target\":\":scope\",\"detail\":\"button#<id:4>[role=tab]: aria-controls points at \\\"<id:5>\\\", which isn't in the page; every id reference names a real element (ARIA).\"}",
+    "pattern:{\"rule\":\"tabs\",\"target\":\":scope\",\"detail\":\"button#<id:6>[role=tab]: aria-controls points at \\\"<id:7>\\\", which isn't in the page; every id reference names a real element (ARIA).\"}",
+    "pattern:{\"rule\":\"tabs\",\"target\":\":scope\",\"detail\":\"div[role=tablist]: has no accessible name; give it aria-label or aria-labelledby (APG tabs).\"}"
+  ]
+}
