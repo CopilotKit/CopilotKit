@@ -109,7 +109,7 @@ Your own `onThumbsUp` and `onThumbsDown` handlers still run when the user gives 
 
 To change the rating UI:
 
-- Tooltips, comment placeholder, and send button label: set the [chat labels](/reference/hooks/useCopilotChatConfiguration#copilotchatlabels).
+- Tooltips, comment placeholder, and send button label: set the [chat labels](/reference/v2/hooks/useCopilotChatConfiguration#copilotchatlabels).
 - Comment field: restyle or replace it with the assistant message's `feedbackComment` slot.
 
 The comment popover is marked `data-copilotkit-ignore`, so capture records the saved comment, not each keystroke. Clicks on the thumbs are still captured as `click` events.
