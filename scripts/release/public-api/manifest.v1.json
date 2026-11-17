@@ -3318,6 +3318,7 @@
       {
         "type": "aisdk",
         "configurationKeys": [
+          "name",
           "learnedSkills",
           "type",
           "factory"
@@ -3338,6 +3339,7 @@
       {
         "type": "tanstack",
         "configurationKeys": [
+          "name",
           "learnedSkills",
           "type",
           "factory"
@@ -3358,6 +3360,7 @@
       {
         "type": "custom",
         "configurationKeys": [
+          "name",
           "learnedSkills",
           "type",
           "factory"
