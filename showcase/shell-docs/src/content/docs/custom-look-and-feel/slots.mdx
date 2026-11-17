@@ -21,7 +21,7 @@ Slots are recursive: you can drill into nested sub-components at any depth.
 
 The demo above overrides many slots on `<CopilotChat>` and outlines each one.
 The three examples below show the welcome screen, the assistant message, and the input disclaimer.
-Each slot is just a prop; the demo extracts them into locals so the override
+Each slot is a prop. The demo extracts them into locals so the override
 points are easy to see.
 
 ### Welcome screen slot
@@ -30,7 +30,7 @@ The `welcomeScreen` prop replaces the empty-state view shown before the first
 message is sent. The demo swaps in a gradient card that still renders the
 default input and suggestions:
 
-<Snippet region="register-welcome-slot" title="frontend/src/app/page.tsx — welcomeScreen slot" />
+<Snippet region="register-welcome-slot" title="frontend/src/app/page.tsx: welcomeScreen slot" />
 
 ### Assistant message slot
 
@@ -38,7 +38,7 @@ Drill into `messageView={{ assistantMessage: ... }}` to wrap every assistant
 response. The demo wraps the default component with a tinted card and a small
 "slot" badge so you can see the override is active during the message flow:
 
-<Snippet region="register-assistant-message-slot" title="frontend/src/app/page.tsx — assistantMessage slot" />
+<Snippet region="register-assistant-message-slot" title="frontend/src/app/page.tsx: assistantMessage slot" />
 
 ### Disclaimer slot
 
@@ -46,7 +46,7 @@ The `input={{ disclaimer: ... }}` sub-slot lets you replace the small text
 shown below the input. The demo tags its disclaimer, so you can see that the
 override stays after the first message:
 
-<Snippet region="register-disclaimer-slot" title="frontend/src/app/page.tsx — disclaimer slot" />
+<Snippet region="register-disclaimer-slot" title="frontend/src/app/page.tsx: disclaimer slot" />
 
 ## Tailwind Classes
 
