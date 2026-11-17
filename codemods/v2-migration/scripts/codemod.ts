@@ -109,7 +109,9 @@ const RENAMES: Record<string, Record<string, string>> = {
 };
 
 const LANGGRAPH_EVENTS_NOTE =
-  "`@ag-ui/langgraph` does not handle CopilotKit's LangGraph events (`copilotkit_emit_message`, `copilotkit_emit_state`, `copilotkit_emit_tool_call`, `copilotkit_exit` from the Python SDK). Check that your agent does not rely on them.";
+  "It does not convert the events that the CopilotKit SDK emit helpers send (`copilotkit_emit_message`, `copilotkit_emit_state`, `copilotkit_emit_tool_call`, `copilotkit_exit`), so the chat does not show them. Send the 2.0 event names, or serve a Python graph with `LangGraphAGUIAgent` and use `LangGraphHttpAgent`.";
+const LANGGRAPH_HTTP_EVENTS_NOTE =
+  "The events that the CopilotKit SDK emit helpers send (`copilotkit_emit_message`, `copilotkit_emit_state`, `copilotkit_emit_tool_call`, `copilotkit_exit`) show in the chat only when the Python server serves the graph with `LangGraphAGUIAgent`, which converts them.";
 const PROPS_CHANGED_NOTE =
   "Its props changed in 2.0. Check each prop against the docs.";
 
@@ -122,11 +124,37 @@ const MCP_GUIDE =
 const MCP_NOTE =
   'Create each MCP client with `await createMCPClient({ transport: { type: "http", url } })` from "@tanstack/ai-mcp". Then pass the clients as `mcp: { clients: [client] }`.';
 const BUILT_IN_AGENT = builtInAgentOverrides();
+/** How to move each v1 agent setup to 2.0, one section per setup. */
+const AGENTS_GUIDE = "https://docs.copilotkit.ai/migrate/agents-2.0";
+/**
+ * v1 runtime setups that the codemod does not rewrite: remote endpoints and
+ * server-side `actions`. Their TODOs link the agents guide. A runtime with
+ * `remoteEndpoints` or `actions` is v1-shaped (see `V1_SHAPES`), so the
+ * `CopilotRuntime` TODO names the sections for both.
+ */
+const V1_AGENT_SETUPS = {
+  copilotKitEndpoint: { docs: `${AGENTS_GUIDE}#python-sdk-endpoint` },
+  langGraphPlatformEndpoint: { docs: `${AGENTS_GUIDE}#langgraph-platform` },
+  CopilotRuntime: {
+    replacement: {
+      name: "CopilotRuntime",
+      importPath: "@copilotkit/runtime",
+      docs: AGENTS_GUIDE,
+      notes: [
+        "The 2.0 runtime takes no `remoteEndpoints` or `actions`. Register each agent under `agents`, and make each action a tool on an agent. See the Python SDK endpoint, LangGraph Platform and Server-side actions sections:",
+      ],
+    },
+  },
+};
 
 /** Decisions made for 2.0 that the v1 snapshot does not know about. */
 const OVERRIDES: Record<string, Record<string, V1Export>> = {
   "@copilotkit/runtime/langgraph": langGraphOverrides(),
-  "@copilotkit/runtime": { ...langGraphOverrides(), ...BUILT_IN_AGENT },
+  "@copilotkit/runtime": {
+    ...langGraphOverrides(),
+    ...BUILT_IN_AGENT,
+    ...V1_AGENT_SETUPS,
+  },
   "@copilotkit/react-ui": Object.fromEntries(
     [
       "CopilotChat",
@@ -148,18 +176,23 @@ const OVERRIDES: Record<string, Record<string, V1Export>> = {
   ),
 };
 
-function langGraphOverrides(): Record<string, V1Export> {
-  const docs = "https://docs.copilotkit.ai/agent-spec/langgraph";
-  const move = (name: string, notes: string[]): V1Export => ({
+function langGraphOverrides() {
+  const docs = `${AGENTS_GUIDE}#langgraph-agents`;
+  const move = (name: string, notes: string[]) => ({
     replacement: { name, importPath: "@ag-ui/langgraph", docs, notes },
   });
   return {
     LangGraphAgent: move("LangGraphAgent", [LANGGRAPH_EVENTS_NOTE]),
-    LangGraphHttpAgent: move("LangGraphHttpAgent", [LANGGRAPH_EVENTS_NOTE]),
+    LangGraphHttpAgent: move("LangGraphHttpAgent", [
+      LANGGRAPH_HTTP_EVENTS_NOTE,
+    ]),
     CustomEventNames: move("CustomEventNames", [
-      "The enum members are named differently in `@ag-ui/langgraph`.",
+      "The enum members and their string values differ in `@ag-ui/langgraph`.",
     ]),
     PredictStateTool: move("PredictStateTool", []),
+    // The snapshot has no replacement for these. Only the link changes.
+    TextMessageEvents: { typeOnly: true, docs },
+    ToolCallEvents: { typeOnly: true, docs },
   };
 }
 
