@@ -139,3 +139,22 @@ test("the style check passes a reset in a layer", async () => {
 test("the style check reports null without the stylesheet", async () => {
   assert.equal(await detectStyleOverrides([nextReset]), null);
 });
+
+// The create-vite React starter centers all text in `#root`, which wraps the
+// chat. The chat keeps its own alignment.
+test("the chat does not inherit the page's text alignment", async () => {
+  const page = await browser.newPage();
+  await page.setContent(`<!doctype html><html><head>
+    <style>${stylesheet}</style>
+    <style>#app { text-align: center; }</style>
+    </head><body>
+      <div id="app">
+        <div data-copilotkit id="chat"><p id="message">ANANAB</p></div>
+      </div>
+    </body></html>`);
+  const alignment = await page.evaluate(
+    () => getComputedStyle(document.getElementById("message")).textAlign,
+  );
+  await page.close();
+  assert.equal(alignment, "start");
+});

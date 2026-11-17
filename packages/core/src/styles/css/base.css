@@ -30,6 +30,9 @@
   font-feature-settings: normal;
   font-variation-settings: normal;
   -webkit-tap-highlight-color: transparent;
+  /* A page can center the text of a wrapper around the chat (the create-vite
+     starter does this on #root). The chat sets its own alignment. */
+  text-align: start;
 }
 :where([data-copilotkit] hr) {
   height: 0;
