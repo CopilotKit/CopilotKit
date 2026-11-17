@@ -10,6 +10,7 @@ import {
 } from "@copilotkit/shared";
 import { STANDARD_CATALOG_ID } from "@copilotkit/shared/generative-ui";
 import { CopilotKitProvider } from "../../providers/CopilotKitProvider";
+import type { CopilotKitProviderProps } from "../../providers/CopilotKitProvider";
 import { CopilotChatConfigurationProvider } from "../../providers/CopilotChatConfigurationProvider";
 import { CopilotChat } from "../../components/chat/CopilotChat";
 import {
@@ -19,10 +20,7 @@ import {
 } from "../../__tests__/utils/test-helpers";
 import { stubWindowLocation } from "../../test-helpers/stub-window-location";
 import { useGenerativeUIRuntime } from "../runtime-context";
-import type {
-  GenerativeUIConfig,
-  GenerativeUIRuntime,
-} from "../runtime-context";
+import type { GenerativeUIRuntime } from "../runtime-context";
 import { createGenerativeUI } from "../catalog";
 import { standardUI } from "../standard";
 
@@ -83,7 +81,10 @@ function mockInfo(generativeUI: { enabled: boolean; agents?: string[] }) {
   });
 }
 
-function setup(generativeUI?: GenerativeUIConfig) {
+function setup({
+  generativeUI,
+  a2ui,
+}: Pick<CopilotKitProviderProps, "generativeUI" | "a2ui"> = {}) {
   CapturingAgent.inputs = [];
   const agent = new CapturingAgent();
   const captured: { runtime?: GenerativeUIRuntime | null } = {};
@@ -96,6 +97,7 @@ function setup(generativeUI?: GenerativeUIConfig) {
       runtimeUrl="http://localhost:3000/api"
       agents__unsafe_dev_only={{ default: agent }}
       generativeUI={generativeUI}
+      a2ui={a2ui}
     >
       <Probe />
       <CopilotChatConfigurationProvider agentId="default" threadId={T}>
@@ -176,7 +178,7 @@ describe("CopilotKitProvider: the standard UI for the runtime's generative UI", 
       id: "app",
       components: { Box: { component: () => null } },
     });
-    const { captured } = setup({ ui });
+    const { captured } = setup({ generativeUI: { ui } });
 
     await waitFor(() => expect(captured.runtime?.ui).toBe(ui));
     await send("show me");
@@ -187,7 +189,9 @@ describe("CopilotKitProvider: the standard UI for the runtime's generative UI", 
   it("keeps the other options of a generativeUI without ui, such as the map loader", async () => {
     mockInfo({ enabled: true, agents: ["other"] });
     const map = vi.fn(async () => ({}));
-    const { captured } = setup({ map, agentIds: ["default"] });
+    const { captured } = setup({
+      generativeUI: { map, agentIds: ["default"] },
+    });
 
     await waitFor(() => expect(captured.runtime?.ui).toBe(standardUI));
     expect(captured.runtime?.config.map).toBe(map);
@@ -197,7 +201,9 @@ describe("CopilotKitProvider: the standard UI for the runtime's generative UI", 
 
   it("does nothing for a generativeUI without ui when the runtime has generative UI off", async () => {
     mockInfo({ enabled: false });
-    const { captured } = setup({ map: vi.fn(async () => ({})) });
+    const { captured } = setup({
+      generativeUI: { map: vi.fn(async () => ({})) },
+    });
 
     await send("show me");
     expect(captured.runtime).toBeNull();
@@ -214,5 +220,56 @@ describe("CopilotKitProvider: the standard UI for the runtime's generative UI", 
     expect(
       readCopilotKitUIEnvelope(CapturingAgent.inputs[0]?.forwardedProps),
     ).toBeUndefined();
+  });
+});
+
+describe("CopilotKitProvider: the deprecated a2ui prop", () => {
+  const originalFetch = global.fetch;
+  let restoreLocation: () => void = () => {};
+  const appUI = createGenerativeUI({
+    id: "app",
+    components: { Box: { component: () => null } },
+  });
+  const theme = { "--a2ui-color-panel": "#101010" };
+
+  beforeEach(() => {
+    restoreLocation = stubWindowLocation();
+  });
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+    restoreLocation();
+  });
+
+  it("renders with a2ui.catalog as the ui of generativeUI, also when the runtime has generative UI off", async () => {
+    mockInfo({ enabled: false });
+    const { captured } = setup({ a2ui: { catalog: appUI } });
+
+    await waitFor(() => expect(captured.runtime?.ui).toBe(appUI));
+    await send("show me");
+    expect(manifestOf(CapturingAgent.inputs[0])?.catalogId).toBe("app");
+  });
+
+  it("gives a2ui.theme to the standard UI of the runtime", async () => {
+    mockInfo({ enabled: true });
+    const { captured } = setup({ a2ui: { theme } });
+
+    await waitFor(() => expect(captured.runtime?.ui).toBe(standardUI));
+    expect(captured.runtime?.theme).toEqual(theme);
+  });
+
+  it("keeps the options of generativeUI over a2ui and adds the ones it leaves out", async () => {
+    mockInfo({ enabled: false });
+    const otherUI = createGenerativeUI({
+      id: "other",
+      components: { Box: { component: () => null } },
+    });
+    const { captured } = setup({
+      generativeUI: { ui: appUI },
+      a2ui: { catalog: otherUI, theme },
+    });
+
+    await waitFor(() => expect(captured.runtime?.ui).toBe(appUI));
+    expect(captured.runtime?.theme).toEqual(theme);
   });
 });

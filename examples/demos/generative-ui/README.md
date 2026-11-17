@@ -160,23 +160,20 @@ return LlmAgent(
 )
 ```
 
-Final step: on the frontend, pass `createA2UIMessageRenderer(...)` into `renderActivityMessages` so CopilotKit renders streamed A2UI output as UI and forwards UI actions back to the agent.
+Final step: render the surfaces on the frontend. The provider renders streamed A2UI output as UI and sends UI actions back to the agent. When the runtime turns generative UI on (an agent that writes A2UI v0.9 needs `generativeUI: { a2uiVersion: "0.9" }`), the provider uses the standard catalog. To render your own components, pass `generativeUI={{ ui }}` with a UI from `createGenerativeUI`.
 
-```typescript
-import { CopilotKitProvider, CopilotSidebar } from "@copilotkit/react-core/v2";
-import { createA2UIMessageRenderer } from "@copilotkit/a2ui-renderer";
-import { a2uiTheme } from "../theme";
-
-const A2UIRenderer = createA2UIMessageRenderer({ theme: a2uiTheme });
+```tsx
+import { CopilotKitProvider, CopilotSidebar } from "@copilotkit/react-core";
 
 export function A2UIPage({ children }: { children: React.ReactNode }) {
   return (
-    <CopilotKitProvider
-      runtimeUrl="/api/copilotkit-a2ui"
-      renderActivityMessages={[A2UIRenderer]}   // ← hook in the A2UI renderer
-    >
+    // The provider renders A2UI surfaces when the runtime turns generative UI on.
+    <CopilotKitProvider runtimeUrl="/api/copilotkit-a2ui">
       {children}
-      <CopilotSidebar defaultOpen labels={{ modalHeaderTitle: "A2UI Assistant" }} />
+      <CopilotSidebar
+        defaultOpen
+        labels={{ modalHeaderTitle: "A2UI Assistant" }}
+      />
     </CopilotKitProvider>
   );
 }
@@ -220,26 +217,30 @@ Open-ended Generative UI is when the agent returns a complete UI surface (often 
 
 The trade-offs are higher: security/performance concerns when rendering arbitrary content, inconsistent styling, and reduced portability outside the web.
 
-This pattern is commonly used for MCP Apps. In CopilotKit, MCP Apps support is enabled by attaching `MCPAppsMiddleware` to your agent, which allows the runtime to connect to one or more MCP Apps servers.
+This pattern is commonly used for MCP Apps. In CopilotKit, add your MCP Apps servers to the `mcpApps` option of the runtime. The runtime adds the MCP Apps middleware to each agent, so the agents can connect to one or more MCP Apps servers.
 
 ```typescript
-import { BuiltInAgent } from "@copilotkit/runtime/v2";
-import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
+import { CopilotKitRuntime } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
 
-const agent = new BuiltInAgent({
-  model: "openai/gpt-6-luna",
-  prompt: "You are a helpful assistant.",
-}).use(
-  new MCPAppsMiddleware({
-    mcpServers: [
+const runtime = new CopilotKitRuntime({
+  agents: {
+    default: new BuiltInAgent({
+      model: openaiText("gpt-6-luna"),
+      prompt: "You are a helpful assistant.",
+    }),
+  },
+  mcpApps: {
+    servers: [
       {
         type: "http",
         url: "http://localhost:3108/mcp",
         serverId: "my-server", // Recommended: stable identifier
       },
     ],
-  }),
-);
+  },
+});
 ```
 
 - Docs: [docs.copilotkit.ai/generative-ui](https://docs.copilotkit.ai/generative-ui)

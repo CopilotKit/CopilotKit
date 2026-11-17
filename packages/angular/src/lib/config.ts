@@ -1,5 +1,10 @@
-import type { Provider } from "@angular/core";
-import { inject, InjectionToken } from "@angular/core";
+import type {
+  EnvironmentProviders,
+  Provider,
+  Signal,
+  Type,
+} from "@angular/core";
+import { inject, InjectionToken, isDevMode } from "@angular/core";
 import type { AbstractAgent } from "@ag-ui/client";
 import type {
   ClientTool,
@@ -18,6 +23,11 @@ import type {
   ɵCopilotKitLearningOptions,
   ɵCopilotKitProviderBaseOptions,
 } from "@copilotkit/core";
+import type {
+  GenerativeUI,
+  GenerativeUIDefinitions,
+  GenerativeUITheme,
+} from "@copilotkit/shared/generative-ui";
 import type { OpenGenerativeUIConfig } from "./open-generative-ui";
 
 /**
@@ -88,6 +98,28 @@ export interface CopilotKitConfig extends Pick<
    * @default true
    */
   injectStyles?: boolean;
+  /**
+   * @deprecated Use `provideGenerativeUI` from
+   * `@copilotkit/angular/generative-ui`. `provideCopilotKit` passes `a2ui` on
+   * to generative UI: `a2ui: { catalog, theme }` works as
+   * `provideGenerativeUI({ ui: catalog, theme })`. When the app also calls
+   * `provideGenerativeUI`, its options win. The other v0.9 options
+   * (`onAction`, `loadingComponent`, `recovery`, `includeSchema`) have no 2.0
+   * equivalent. See https://docs.copilotkit.ai/generative-ui/components/from-a2ui
+   */
+  a2ui?: {
+    /**
+     * A UI from `createGenerativeUI` of `@copilotkit/angular/generative-ui`.
+     * It is the `ui` of `provideGenerativeUI`. Without it, generative UI
+     * stays off, unless the app calls `provideGenerativeUI`.
+     */
+    catalog?: GenerativeUI<GenerativeUIDefinitions, Type<unknown>>;
+    /**
+     * Values for the `--a2ui-*` CSS variables, or a signal of them. It is the
+     * `theme` of `provideGenerativeUI`.
+     */
+    theme?: GenerativeUITheme | Signal<GenerativeUITheme | undefined>;
+  };
 }
 
 export const COPILOT_KIT_CONFIG = new InjectionToken<CopilotKitConfig>(
@@ -98,9 +130,54 @@ export function injectCopilotKitConfig(): CopilotKitConfig {
   return inject(COPILOT_KIT_CONFIG);
 }
 
+/**
+ * @internal The deprecated `a2ui` option of `provideCopilotKit`.
+ * `@copilotkit/angular/generative-ui` reads it to pass its options to
+ * generative UI.
+ */
+export const ɵCOPILOTKIT_A2UI_CONFIG = new InjectionToken<
+  NonNullable<CopilotKitConfig["a2ui"]>
+>("COPILOTKIT_A2UI_CONFIG");
+
+/**
+ * The generative UI providers for the catalog of the deprecated `a2ui`
+ * option. `@copilotkit/angular/generative-ui` sets them when it loads: this
+ * entry cannot import that one, not even lazily (ng-packagr rejects the
+ * cycle). An app that passes a catalog has loaded it, because the catalog
+ * comes from its `createGenerativeUI`.
+ */
+let a2uiGenerativeUIProviders: (() => EnvironmentProviders) | undefined;
+
+/**
+ * @internal Called by `@copilotkit/angular/generative-ui` when it loads, with
+ * the providers that turn generative UI on for the deprecated `a2ui` option.
+ */
+export function ɵsetA2UIGenerativeUIProviders(
+  providers: () => EnvironmentProviders,
+) {
+  a2uiGenerativeUIProviders = providers;
+}
+
+/** The generative UI providers for the catalog of the deprecated `a2ui` option. */
+function a2uiCatalogProviders() {
+  if (a2uiGenerativeUIProviders) return [a2uiGenerativeUIProviders()];
+  if (isDevMode()) {
+    console.warn(
+      "[CopilotKit] The `a2ui.catalog` of `provideCopilotKit` renders with `@copilotkit/angular/generative-ui`, which the app did not load. " +
+        "Create the catalog with `createGenerativeUI` from `@copilotkit/angular/generative-ui`, or add `provideGenerativeUI({ ui })` to the application providers.",
+    );
+  }
+  return [];
+}
+
 export function provideCopilotKit(config: CopilotKitConfig = {}): Provider {
-  return {
-    provide: COPILOT_KIT_CONFIG,
-    useValue: config,
-  };
+  const provider: Provider = { provide: COPILOT_KIT_CONFIG, useValue: config };
+  const { a2ui } = config;
+  if (!a2ui) return provider;
+  // The deprecated `a2ui` option goes to generative UI.
+  return [
+    provider,
+    { provide: ɵCOPILOTKIT_A2UI_CONFIG, useValue: a2ui },
+    ...(a2ui.catalog ? a2uiCatalogProviders() : []),
+  ];
 }

@@ -212,3 +212,41 @@ describe("CopilotKitRuntime logger option", () => {
     });
   });
 });
+
+/** The warnings about `a2ui` that the app logger got. */
+function a2uiWarnings(calls: LogCall[]) {
+  return calls.filter(({ level, args: [message] }) => {
+    const isText = typeof message === "string";
+    return level === "warn" && isText && message.includes("a2ui");
+  });
+}
+
+describe("the deprecated a2ui option", () => {
+  it("warns on the app logger that the runtime ignores a2ui next to generativeUI", () => {
+    const { logger, calls } = createRecordingLogger();
+    const runtime = new CopilotKitRuntime({
+      agents: {},
+      logger,
+      generativeUI: true,
+      a2ui: { injectA2UITool: true },
+    });
+
+    expect(runtime.generativeUI).toBe(true);
+    expect(a2uiWarnings(calls)).toHaveLength(1);
+  });
+
+  it("does not warn when a2ui is the only generative UI option", () => {
+    const { logger, calls } = createRecordingLogger();
+    const runtime = new CopilotKitRuntime({
+      agents: {},
+      logger,
+      a2ui: { injectA2UITool: true },
+    });
+
+    expect(runtime.generativeUI).toEqual({
+      injectA2UITool: true,
+      a2uiVersion: "0.9",
+    });
+    expect(a2uiWarnings(calls)).toEqual([]);
+  });
+});

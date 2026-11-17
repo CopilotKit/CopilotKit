@@ -303,6 +303,14 @@ for widgets you trust that need `localStorage`, `IndexedDB` or cookies. See
   See [Components and surfaces](/generative-ui/components).
 </PropertyReference>
 
+<PropertyReference name="a2ui" type="{ catalog?: GenerativeUI; theme?: GenerativeUITheme }" deprecated>
+  **Deprecated.** Use `generativeUI`. The provider passes `a2ui` on to
+  `generativeUI`: `a2ui={{ catalog, theme }}` works as
+  `generativeUI={{ ui: catalog, theme }}`. When both props set the same
+  option, `generativeUI` wins. See
+  [Adopt from A2UI](/generative-ui/components/from-a2ui).
+</PropertyReference>
+
 <PropertyReference name="defaultThrottleMs" type="number">
   Default throttle interval, in milliseconds, for `useAgent` re-renders caused
   by message and state updates. Individual `useAgent` calls and prebuilt chat

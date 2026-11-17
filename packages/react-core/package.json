@@ -50,6 +50,21 @@
       ],
       "headless": [
         "./dist/headless.d.cts"
+      ],
+      "v2": [
+        "./dist/v2/index.d.cts"
+      ],
+      "v2/generative-ui": [
+        "./dist/v2/generative-ui.d.cts"
+      ],
+      "v2/generative-ui/native": [
+        "./dist/v2/generative-ui/native.d.cts"
+      ],
+      "v2/context": [
+        "./dist/v2/context.d.cts"
+      ],
+      "v2/headless": [
+        "./dist/v2/headless.d.cts"
       ]
     }
   },
@@ -78,13 +93,64 @@
     "./headless": {
       "import": "./dist/headless.mjs",
       "require": "./dist/headless.cjs"
-    }
+    },
+    "./v2": {
+      "import": {
+        "types": "./dist/v2/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/v2/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./v2/generative-ui": {
+      "import": {
+        "types": "./dist/v2/generative-ui.d.mts",
+        "default": "./dist/generative-ui.mjs"
+      },
+      "require": {
+        "types": "./dist/v2/generative-ui.d.cts",
+        "default": "./dist/generative-ui.cjs"
+      }
+    },
+    "./v2/generative-ui/native": {
+      "import": {
+        "types": "./dist/v2/generative-ui/native.d.mts",
+        "default": "./dist/generative-ui/native.mjs"
+      },
+      "require": {
+        "types": "./dist/v2/generative-ui/native.d.cts",
+        "default": "./dist/generative-ui/native.cjs"
+      }
+    },
+    "./v2/context": {
+      "import": {
+        "types": "./dist/v2/context.d.mts",
+        "default": "./dist/context.mjs"
+      },
+      "require": {
+        "types": "./dist/v2/context.d.cts",
+        "default": "./dist/context.cjs"
+      }
+    },
+    "./v2/headless": {
+      "import": {
+        "types": "./dist/v2/headless.d.mts",
+        "default": "./dist/headless.mjs"
+      },
+      "require": {
+        "types": "./dist/v2/headless.d.cts",
+        "default": "./dist/headless.cjs"
+      }
+    },
+    "./v2/styles.css": "./dist/v2/styles.css"
   },
   "publishConfig": {
     "access": "public"
   },
   "scripts": {
-    "build": "node scripts/generate-external-reexports.mjs --check && tsdown && node scripts/context-singleton-preflight.mjs && node scripts/assert-dist-context-types.mjs",
+    "build": "node scripts/generate-external-reexports.mjs --check && tsdown && tsx ../../scripts/deprecations/v2-subpath-aliases.mts && node scripts/context-singleton-preflight.mjs && node scripts/assert-dist-context-types.mjs",
     "size": "size-limit",
     "size:headline": "node scripts/measure-copilotchat.mjs",
     "size:assert-headless": "node scripts/assert-headless-purity.mjs",
@@ -98,7 +164,7 @@
     "link:global": "pnpm link --global",
     "unlink:global": "pnpm unlink --global",
     "publint": "publint .",
-    "attw": "attw --pack . --profile node16",
+    "attw": "attw --pack . --profile node16 --exclude-entrypoints ./v2/styles.css",
     "generate:external-reexports": "node scripts/generate-external-reexports.mjs",
     "test:browser-scroll": "node --test browser-tests/hidden-chat-scroll.test.mjs browser-tests/stylesheet-layers.test.mjs",
     "test:browser": "playwright test --config browser/playwright.config.ts"

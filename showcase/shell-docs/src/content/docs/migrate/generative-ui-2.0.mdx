@@ -20,7 +20,7 @@ For the API changes, the codemod adds a `TODO(copilotkit-2.0)` comment above eac
 
 ## A2UI v0.9 renderer
 
-The `a2ui` provider option, the `a2ui` option of Angular's `provideCopilotKit`, `@copilotkit/angular/a2ui` and `@copilotkit/a2ui-renderer` are removed, with `filterCatalog`, `CopilotA2UIRecovery` and the other v0.9 renderer exports. A2UI renders with [components and surfaces](/generative-ui/components). The runtime option `a2ui` is now `generativeUI`, and an agent that writes A2UI v0.9 needs `generativeUI: { a2uiVersion: "0.9" }`.
+`@copilotkit/angular/a2ui` and `@copilotkit/a2ui-renderer` are removed, with `filterCatalog`, `CopilotA2UIRecovery` and the other v0.9 renderer exports. A2UI renders with [components and surfaces](/generative-ui/components). The `a2ui` provider option and the `a2ui` option of Angular's `provideCopilotKit` are deprecated: they pass `catalog` and `theme` on to generative UI. The runtime option `a2ui` is deprecated too. It works as `generativeUI: { a2uiVersion: "0.9" }`, which an agent that writes A2UI v0.9 needs.
 
 See [Adopt from A2UI](/generative-ui/components/from-a2ui) for the steps.
 

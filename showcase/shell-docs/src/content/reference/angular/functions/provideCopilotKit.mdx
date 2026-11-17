@@ -212,11 +212,21 @@ passing the key explicitly as `undefined`.
     </PropertyReference>
 
   </PropertyReference>
+
+  <PropertyReference name="a2ui" type="{ catalog?: GenerativeUI; theme?: GenerativeUITheme | Signal<GenerativeUITheme | undefined> }" deprecated>
+    **Deprecated.** Use
+    [`provideGenerativeUI`](/generative-ui/components/from-a2ui#before-and-after)
+    from `@copilotkit/angular/generative-ui`. `provideCopilotKit` passes `a2ui`
+    on to generative UI: `a2ui: { catalog, theme }` works as
+    `provideGenerativeUI({ ui: catalog, theme })`. Without a `catalog`,
+    generative UI stays off. When the app also calls `provideGenerativeUI`, its
+    options win.
+  </PropertyReference>
 </PropertyReference>
 
 ## Return Value
 
-Returns an Angular `Provider` that binds your config, unchanged, to the `COPILOT_KIT_CONFIG` injection token. Add it to the application providers. The root `CopilotKit` service adds the license-key header when it sends requests.
+Returns an Angular `Provider` that binds your config, unchanged, to the `COPILOT_KIT_CONFIG` injection token. Add it to the application providers. The root `CopilotKit` service adds the license-key header when it sends requests. With the deprecated `a2ui` option, the provider also turns on generative UI for its catalog.
 
 ## Usage
 

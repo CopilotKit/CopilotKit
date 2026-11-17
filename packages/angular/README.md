@@ -122,6 +122,8 @@ export interface CopilotKitConfig {
   humanInTheLoop?: HumanInTheLoopConfig[];
   defaultToolRendering?: boolean;
   openGenerativeUI?: OpenGenerativeUIConfig;
+  /** @deprecated Use `provideGenerativeUI`. */
+  a2ui?: { catalog?: GenerativeUI; theme?: GenerativeUITheme };
 }
 ```
 
@@ -142,6 +144,10 @@ export interface CopilotKitConfig {
   It is disabled by default so missing renderers remain visible integration
   errors rather than silently changing the experience.
 - `openGenerativeUI`: Sandboxed UI functions and optional design guidance.
+- `a2ui`: Deprecated. Use `provideGenerativeUI` from
+  `@copilotkit/angular/generative-ui`. `a2ui: { catalog, theme }` works as
+  `provideGenerativeUI({ ui: catalog, theme })`. When the app also calls
+  `provideGenerativeUI`, its options win.
 
 ### Injection helpers
 

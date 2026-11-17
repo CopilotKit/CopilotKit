@@ -1,6 +1,7 @@
 import { defineConfig } from "tsdown";
 import fs from "node:fs";
 import path from "node:path";
+import { v2AliasExports } from "../../scripts/deprecations/v2-subpath-aliases.mts";
 
 const { version } = JSON.parse(
   fs.readFileSync(path.resolve("package.json"), "utf8"),
@@ -26,5 +27,14 @@ export default defineConfig({
     __COPILOTKIT_RUNTIME_VERSION__: JSON.stringify(version),
   },
   external: ["@whatwg-node/fetch", "@whatwg-node/server", "rxjs"],
-  exports: true,
+  exports: {
+    // The `/v2` subpaths of 1.x are deprecated aliases of the 2.0 entries:
+    // the same files, with declarations that mark each name deprecated
+    // (written after the build by scripts/deprecations/v2-subpath-aliases.mts).
+    customExports: (exports) =>
+      v2AliasExports(exports, {
+        entries: { "./v2": ".", "./v2/node": "./node" },
+        stylesheets: [],
+      }),
+  },
 });

@@ -381,9 +381,9 @@ platform"), and the prebuilt `CopilotChat` does not draw surfaces yet. See the
 
 ## API Surface
 
-The root import (`@copilotkit/react-native`) IS the v2 API.
-Unlike the web SDK which has `/v2` subpath, React Native exports
-the v2 API directly from the package root.
+The root import (`@copilotkit/react-native`) is the 2.0 API, as in the web
+SDK. React Native has no `/v2` subpath. The web packages keep their 1.x `/v2`
+subpaths only as deprecated aliases of the package roots.
 
 The root also re-exports the chat components and `useAttachments`, which
 imports `expo-document-picker` and `expo-file-system`; Metro resolves them at

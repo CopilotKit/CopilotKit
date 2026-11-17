@@ -1,6 +1,6 @@
 ## Overview
 
-CopilotKit 2.0 consolidates the React frontend into a single package. Both hooks and UI components are exported from `@copilotkit/react-core`. The `@copilotkit/react-ui` package is deleted, and 2.0 has no `/v2` subpaths for React or the runtime.
+CopilotKit 2.0 consolidates the React frontend into a single package. Both hooks and UI components are exported from `@copilotkit/react-core`. The `@copilotkit/react-ui` package is deleted. The `/v2` subpaths of React and the runtime are deprecated aliases of the package roots, so import from the roots.
 
 Run the codemod first. It migrates most imports and the provider for you:
 

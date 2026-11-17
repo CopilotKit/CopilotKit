@@ -292,6 +292,10 @@ For a full walkthrough, see [Surfaces](/generative-ui/components/surfaces) and [
 
 </PropertyReference>
 
+<PropertyReference name="a2ui" type="{ catalog?: GenerativeUI; theme?: GenerativeUITheme }" deprecated>
+  **Deprecated.** Use `generativeUI`. The provider passes `a2ui` on to `generativeUI`: `:a2ui="{ catalog, theme }"` works as `:generativeUI="{ ui: catalog, theme }"`. When both props set the same option, `generativeUI` wins. See [Adopt from A2UI](/generative-ui/components/from-a2ui).
+</PropertyReference>
+
 <PropertyReference name="mcpApps" type="{ allowSameOriginFallback?: boolean }">
   Configuration for the built-in MCP Apps renderer. `allowSameOriginFallback` restores `allow-same-origin` on the MCP App sandbox; by default widgets get an opaque origin. **Unsafe:** with it set, a widget runs with your page's origin and can read your cookies, storage and DOM. Only use it for widgets you trust that need `localStorage`, `IndexedDB` or cookies. See [Sandbox and widget storage](/vue/generative-ui/mcp-apps#sandbox-and-widget-storage).
 </PropertyReference>

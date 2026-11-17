@@ -1,6 +1,6 @@
 # v1 to 2.0 mappings
 
-Every example imports from the 2.0 package roots. There is no `/v2` subpath in 2.0.
+Every example imports from the 2.0 package roots. In 2.0, the `/v2` subpaths of React, Vue and the runtime are deprecated aliases of the package roots. Move every `/v2` import to the root.
 
 ## Provider
 
@@ -298,7 +298,7 @@ The Open Generative UI placeholder element (test id `open-generative-ui-placehol
 
 Docs: https://docs.copilotkit.ai/generative-ui/components/from-a2ui
 
-2.0 has no A2UI v0.9 client: the `a2ui` provider option, `@copilotkit/a2ui-renderer` and `@copilotkit/angular/a2ui` are gone. Generative UI (A2UI 1.0) replaces them. The codemod already did the mechanical part:
+2.0 has no A2UI v0.9 client: `@copilotkit/a2ui-renderer` and `@copilotkit/angular/a2ui` are gone, and the `a2ui` provider option is deprecated. Generative UI (A2UI 1.0) replaces them. The codemod already did the mechanical part:
 
 | v0.9                                                                           | 2.0                                                                                                               |
 | ------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
@@ -449,13 +449,13 @@ A definitions file that imports neither package (plain zod, with its own `z.unio
 ### Provider
 
 ```text
-TODO(copilotkit-2.0): The `a2ui` option was removed in 2.0. Pass `generativeUI={{ ui }}` with a UI from `createGenerativeUI`, or delete it to use the standard catalog. See https://docs.copilotkit.ai/generative-ui/components/from-a2ui#before-and-after
+TODO(copilotkit-2.0): The `a2ui` option is deprecated in 2.0. Pass `generativeUI={{ ui }}` with a UI from `createGenerativeUI`, or delete it to use the standard catalog. See https://docs.copilotkit.ai/generative-ui/components/from-a2ui#before-and-after
 ```
 
 The `a2ui` value is a variable, or the provider already has `generativeUI`. Find the catalog in the value and pass it as `generativeUI={{ ui: catalog }}` (merge it into the existing `generativeUI`). If it had no catalog, or `basicCatalog` / `vueBasicCatalog`, delete `a2ui`.
 
 ```text
-TODO(copilotkit-2.0): The `a2ui` option was removed in 2.0, and these options have no 1:1 equivalent: `theme` becomes the `theme` of the generative UI config (CSS variables), `onAction` becomes events or functions on the components, and `loadingComponent`, `recovery` and `includeSchema` are gone. Move what you need, then delete `a2ui`. See https://docs.copilotkit.ai/generative-ui/components/from-a2ui
+TODO(copilotkit-2.0): The `a2ui` option is deprecated in 2.0, and these options have no 1:1 equivalent: `theme` becomes the `theme` of the generative UI config (CSS variables), `onAction` becomes events or functions on the components, and `loadingComponent`, `recovery` and `includeSchema` are gone. Move what you need, then delete `a2ui`. See https://docs.copilotkit.ai/generative-ui/components/from-a2ui
 ```
 
 The codemod left the options it could not move in `a2ui`, so the type check points at them:
@@ -471,7 +471,7 @@ The codemod left the options it could not move in `a2ui`, so the type check poin
 Then delete `a2ui`. In a `.vue` template, the codemod did not change `:a2ui`. Replace it with `:generativeUI="{ ui: appUI }"` by hand.
 
 ```text
-TODO(copilotkit-2.0): The `a2ui` option was removed in 2.0. Add `provideGenerativeUI({ ui })` from "@copilotkit/angular/generative-ui" next to `provideCopilotKit`, with a UI from `createGenerativeUI`, and delete `a2ui`. See https://docs.copilotkit.ai/generative-ui/components/from-a2ui#before-and-after
+TODO(copilotkit-2.0): The `a2ui` option is deprecated in 2.0. Add `provideGenerativeUI({ ui })` from "@copilotkit/angular/generative-ui" next to `provideCopilotKit`, with a UI from `createGenerativeUI`, and delete `a2ui`. See https://docs.copilotkit.ai/generative-ui/components/from-a2ui#before-and-after
 ```
 
 The `provideCopilotKit` call is not in a providers array, or `a2ui` is not an object literal. Add `provideGenerativeUI({ ui: appUI })` next to `provideCopilotKit` wherever the app collects its providers:
