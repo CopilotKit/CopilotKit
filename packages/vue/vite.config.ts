@@ -13,18 +13,16 @@ export default defineConfig({
     lib: {
       entry: {
         index: resolve(__dirname, "src/index.ts"),
-        "v2/index": resolve(__dirname, "src/v2/index.ts"),
-        "v2/generative-ui/index": resolve(
+        // Each entry is named after its source path, so the JS lands next to
+        // the declarations vue-tsc emits for it.
+        "generative-ui/index": resolve(__dirname, "src/generative-ui/index.ts"),
+        "generative-ui-chart/index": resolve(
           __dirname,
-          "src/v2/generative-ui/index.ts",
+          "src/generative-ui-chart/index.ts",
         ),
-        "v2/generative-ui/chart": resolve(
+        "generative-ui-map/index": resolve(
           __dirname,
-          "src/v2/generative-ui-chart/index.ts",
-        ),
-        "v2/generative-ui/map": resolve(
-          __dirname,
-          "src/v2/generative-ui-map/index.ts",
+          "src/generative-ui-map/index.ts",
         ),
       },
       name: "CopilotKitVue",
