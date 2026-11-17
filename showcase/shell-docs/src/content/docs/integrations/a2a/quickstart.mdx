@@ -36,25 +36,32 @@ Before you begin, you'll need the following:
     <Step>
         ### Clone the A2A starter template
 
+        The starter lives in the CopilotKit repository at `examples/integrations/a2a-a2ui`. Copy only that folder, then connect it to Intelligence:
+
         ```bash
-        git clone https://github.com/copilotkit/with-a2a-a2ui.git
-        cd with-a2a-a2ui
+        git clone --depth 1 --filter=blob:none --sparse https://github.com/CopilotKit/CopilotKit.git
+        cd CopilotKit
+        git sparse-checkout set examples/integrations/a2a-a2ui
+        cp -r examples/integrations/a2a-a2ui ../my-a2a-app
+        cd ../my-a2a-app
         npx copilotkit@latest project select
         ```
 
-        `project select` creates or selects an Intelligence project and writes its server-side API key to `.env` as `CPK_INTELLIGENCE_API_KEY`.
+        `project select` creates or selects an Intelligence project and writes its server-side API key to `.env` as `CPK_INTELLIGENCE_API_KEY`. The runtime route reads it from there. Without the key, the starter runs with an in-memory runner instead.
     </Step>
     <Step>
         ### Install dependencies
 
+        ```bash
+        npm install
         ```
-        pnpm install
-        ```
+
+        `npm install` also runs `uv sync` in `agent/`, so `uv` must be on your `PATH`.
     </Step>
     <Step>
         ### Configure your environment
 
-        Create a `.env` file in your agent directory and add your Google API key:
+        Create a `.env` file in the `agent` directory and add your Gemini API key:
 
         ```plaintext title="agent/.env"
         GEMINI_API_KEY=your_gemini_api_key
@@ -103,9 +110,9 @@ Before you begin, you'll need the following:
 
         <Accordions className="mb-4">
             <Accordion title="Troubleshooting">
-                - If you're having connection issues, try using `0.0.0.0` or `127.0.0.1` instead of `localhost`
+                - If you're having connection issues, use `127.0.0.1` instead of `localhost` in the agent URL
                 - Make sure your agent is running on port 10002
-                - Check that your Google API key is correctly set
+                - Check that `GEMINI_API_KEY` is set in `agent/.env`
             </Accordion>
         </Accordions>
 

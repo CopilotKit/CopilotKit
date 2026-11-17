@@ -50,17 +50,20 @@ Before you begin, you'll need the following:
         description="Scaffold the canonical Google Antigravity starter."
       >
         <Step>
-          ### Run the CLI
+          ### Copy the starter
+
+          The starter lives in the CopilotKit repository at `examples/integrations/antigravity`. Copy only that folder:
 
           ```bash
-          npx copilotkit@latest init --framework antigravity
+          git clone --depth 1 --filter=blob:none --sparse https://github.com/CopilotKit/CopilotKit.git
+          cd CopilotKit
+          git sparse-checkout set examples/integrations/antigravity
+          cp -r examples/integrations/antigravity ../my-antigravity-app
+          cd ../my-antigravity-app
           ```
 
-          <Callout type="info" title="If the CLI does not list Google Antigravity yet">
-            Until the CLI catalog gains this entry, clone the CopilotKit
-            repository and copy `examples/integrations/antigravity` — it is a
-            complete Next.js app plus Python agent server with the same
-            layout the CLI scaffolds.
+          <Callout type="info" title="Why not the CLI?">
+            The CopilotKit CLI does not offer this starter yet. `npx copilotkit@latest init --framework antigravity` stops with `Unsupported framework`.
           </Callout>
 
           The starter contains three pieces:

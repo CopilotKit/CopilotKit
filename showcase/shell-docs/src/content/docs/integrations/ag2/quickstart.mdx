@@ -52,21 +52,14 @@ Before you begin, you'll need the following:
 
 <Steps>
     <Step>
-        ### Set up CopilotKit Intelligence
-
-        <SignupLink surface="docs_ag2_quickstart_step1">Sign in to cloud-hosted Intelligence</SignupLink>. Cloud-hosted setup uses a server-side project API key and does not issue `COPILOTKIT_LICENSE_TOKEN`. You will connect the app after you clone it below.
-    </Step>
-
-    <Step>
         ### Clone the AG2 Samples Repository
 
         ```bash
         git clone https://github.com/ag2ai/ag2-samples.git
         cd ag2-samples
-        npx copilotkit@latest project select
         ```
 
-        `project select` creates or selects an Intelligence project and writes its server-side API key to `.env` as `CPK_INTELLIGENCE_API_KEY`.
+        The sample's runtime route (`ui/app/api/copilotkit/route.ts`) runs without CopilotKit Intelligence. To add durable threads later, follow [Connect your runtime to Intelligence](/intelligence/quickstart).
     </Step>
     <Step>
         ### Set Up the AG2 Backend

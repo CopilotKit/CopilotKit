@@ -50,28 +50,19 @@ The CLI starter also needs:
     >
     <TailoredContentOption
         id="cli"
-        title="Use the CopilotKit CLI (NextJS only)"
-        description="I have a Next.js application and want to get started quickly."
+        title="Use the CopilotKit CLI"
+        description="Scaffold a new Next.js app with a CrewAI Flow agent."
         icon={<SquareTerminal />}
     >
         <Step>
             ### Run the CLI
-            Run the following command in your Next.js application:
-
-            <Accordions>
-                <Accordion title="Don't have a Next.js application?">
-                    No problem. Just use `create-next-app` to make one quickly.
-                    ```bash
-                    npx create-next-app@latest
-                    ```
-                </Accordion>
-            </Accordions>
+            Run the following command in the folder where you want the new project:
 
             ```bash
             npx copilotkit@latest init --framework flows
             ```
 
-            The starter uses a regular CrewAI Flow.
+            The CLI asks for a project name and creates the app in a new folder with that name. It does not change an existing app. The starter uses a regular CrewAI Flow.
         </Step>
         <Step>
             ### Start the app
@@ -285,7 +276,7 @@ The CLI starter also needs:
 
             <Accordions className="mb-4">
                 <Accordion title="Having trouble?">
-                    - Try changing the host from `localhost` to `0.0.0.0` or `127.0.0.1`.
+                    - Use `127.0.0.1` instead of `localhost` in the agent URL.
                 </Accordion>
             </Accordions>
         </Step>
