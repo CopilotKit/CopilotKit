@@ -11,8 +11,8 @@ Wire an Agent Spec agent backed by LangGraph to CopilotKit’s UI via the AG‑U
 Key pieces:
 
 - Backend endpoint: `ag-ui/integrations/agent-spec/python/ag_ui_agentspec/endpoint.py`
-- Example server: `ag-ui/integrations/agent-spec/python/examples/server.py`
-- Template UI: `npx copilotkit@latest create`
+- Example server: `ag-ui/integrations/agent-spec/python/examples/server`
+- Template UI: the [Agent Spec starter](https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/agent-spec)
 
 ## When should I use this?
 
@@ -20,24 +20,24 @@ Use this integration when you already have a LangGraph-based agent described by 
 
 ## Prerequisites
 
-- Python 3.10 to 3.14
+- Python 3.10 to 3.13
 - Node.js 20+
 - An Agent Spec config JSON/YAML file (or Python code via `pyagentspec`)
 
 ## Install the Agent Spec AG-UI integration
 
-From the AG‑UI repo’s Agent Spec integration package:
+Install the published package with the `langgraph` extra, plus `uvicorn` to serve it:
+
+```bash
+pip install "ag-ui-agent-spec[langgraph]" uvicorn
+```
+
+This installs the Agent Spec AG-UI integration (`ag_ui_agentspec`). To install it from source instead, use the AG-UI repository:
 
 ```bash
 git clone https://github.com/ag-ui-protocol/ag-ui.git
 cd ag-ui/integrations/agent-spec/python
 uv pip install -e .[langgraph]
-```
-
-This installs the Agent Spec AG-UI integration (`ag_ui_agentspec`) from source. To install the published package instead, run:
-
-```bash
-pip install "ag-ui-agent-spec[langgraph]"
 ```
 
 ## Steps
@@ -75,7 +75,7 @@ uvicorn backend.app:app --reload --port 8000
 <Step>
 ### 2. Scaffold and connect the UI
 
-Create the UI with `npx copilotkit@latest create`, or copy the [Agent Spec starter](https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/agent-spec).
+Copy the [Agent Spec starter](https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/agent-spec) for the UI. The CopilotKit CLI has no Agent Spec template.
 
 <RunAndConnect />
 

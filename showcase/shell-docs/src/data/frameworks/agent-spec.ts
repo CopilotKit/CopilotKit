@@ -15,7 +15,10 @@ const data: FrameworkOverviewData = {
   subheader:
     "Open Agent Spec describes your agent. CopilotKit gives it a surface your users can see, interrupt and steer.",
   guideLink: "/agent-spec/quickstart",
-  initCommand: "npx copilotkit@latest init",
+  // The CLI has no Agent Spec template, so the landing points at the
+  // monorepo starter instead of `copilotkit init`.
+  initCommand:
+    "git clone --depth 1 https://github.com/CopilotKit/CopilotKit.git && cd CopilotKit/examples/integrations/agent-spec",
   featuresLink:
     "https://feature-viewer.copilotkit.ai/agent-spec/feature/agentic_chat",
 
