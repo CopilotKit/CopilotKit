@@ -96,9 +96,20 @@ function replayFailureReason(payload: unknown): string {
   return typeof reason === "string" && reason !== "" ? reason : "unknown";
 }
 
+/**
+ * Whether loading the history again can succeed. The gateway says so on
+ * `replay_failed`; one that does not say is taken to mean it can.
+ */
+function replayFailureRetryable(payload: unknown): boolean {
+  return (payload as { retryable?: unknown } | null)?.retryable !== false;
+}
+
 /** The gateway reported that a connect's history failed to load. */
 class ReplayFailedError extends Error {
-  constructor(reason: string) {
+  constructor(
+    reason: string,
+    readonly retryable: boolean,
+  ) {
     super(`Thread history failed to load (${reason}).`);
     this.name = "ReplayFailedError";
   }
@@ -781,6 +792,11 @@ export class IntelligenceAgent extends AbstractAgent {
           // cursor is back where the join started. Load the history again,
           // and fail the connect if it keeps failing.
           if (error instanceof ReplayFailedError) {
+            // A failure the gateway calls permanent (a thread over a history
+            // limit, say) fails the same way on every attempt.
+            if (!error.retryable) {
+              return throwError(() => new Error(error.message));
+            }
             const failedReplays = previousFailedReplays + 1;
             if (failedReplays > MAX_REPLAY_RETRIES) {
               return throwError(
@@ -1005,7 +1021,11 @@ export class IntelligenceAgent extends AbstractAgent {
         mergeMap((payload) =>
           options.streamMode === "connect"
             ? throwError(
-                () => new ReplayFailedError(replayFailureReason(payload)),
+                () =>
+                  new ReplayFailedError(
+                    replayFailureReason(payload),
+                    replayFailureRetryable(payload),
+                  ),
               )
             : EMPTY,
         ),

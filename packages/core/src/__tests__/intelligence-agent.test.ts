@@ -2510,6 +2510,34 @@ describe("IntelligenceAgent", () => {
       ]);
     });
 
+    it("does not load the history again when the gateway says the failure is permanent", async () => {
+      mockFetch.mockImplementation(() => jsonResponse(runtimeCredentials()));
+
+      const agent = createAgent();
+      setThreadIdForTest(agent, "thread-1");
+
+      const outcome = agent.connectAgent({ runId: "run-1" }).then(
+        () => null,
+        (error: unknown) => error,
+      );
+      await waitForConnection(agent);
+      const channel = getChannel(agent)!;
+      channel.triggerJoin("ok");
+      pushHistory(channel, "history-event");
+      channel.serverPush("replay_failed", {
+        reason: "history_event_limit",
+        retryable: false,
+      });
+
+      const error = await outcome;
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      expect(error).toBeInstanceOf(Error);
+      expect((error as Error).message).toBe(
+        "Thread history failed to load (history_event_limit).",
+      );
+      expect(agent.messages).toEqual([]);
+    });
+
     it("keeps the replay_complete cursor when the released history ends earlier", async () => {
       mockFetch
         .mockResolvedValueOnce(await jsonResponse(runtimeCredentials()))
