@@ -25,10 +25,10 @@ Use this prompt to connect your agent to Slack, start the runner, and verify a r
 
 ## Before you start
 
-- Node.js 22 or later; the managed launcher requires the global `WebSocket`
-  available in Node.js 22+
-- A long-running Node host or container; serverless request handlers cannot own
-  the persistent gateway connection
+- Node.js 22 or later. The managed launcher requires the global `WebSocket`
+  that Node.js 22+ provides.
+- A long-running Node host or container. Serverless request handlers cannot own
+  the persistent gateway connection.
 
 ## Build and run your Channel
 
@@ -73,7 +73,7 @@ Use this prompt to connect your agent to Slack, start the runner, and verify a r
 
     The runner can use any supported backend. The selector's
     **Agent backend** controls the setup below. It must export a fresh
-    `makeAgent(threadId)` result for each Slack conversation; do not share one
+    `makeAgent(threadId)` result for each Slack conversation. Do not share one
     stateful agent instance across threads.
 
     <FrameworkSetup concept="channels-agent-setup" />
@@ -234,10 +234,10 @@ Use this prompt to connect your agent to Slack, start the runner, and verify a r
     | **Setup incomplete** | Finish the selected provider's required setup fields before starting the runtime. |
     | **Setup failed** | Reopen platform setup and correct the rejected credentials or configuration. |
     | **Waiting for runtime** | Start the process, and match its Code and provider to this Channel. |
-    | **Conflict** | Compare every replica's complete Channel declaration set. Identical replicas should elect one active owner and connected standbys; different but overlapping sets are unsafe. |
+    | **Conflict** | Compare every replica's complete Channel declaration set. Identical replicas should elect one active owner and connected standbys. Different but overlapping sets are unsafe. |
     | **Offline** | Check the runner process, network, and Intelligence gateway connection. |
     | **Delivery failing** | Check platform credentials, app permissions, and the provider response. |
-    | **Online** | The runtime is connected; send a real provider message to verify the full path. |
+    | **Online** | The runtime is connected. Send a real provider message to verify the full path. |
 
   </Step>
 

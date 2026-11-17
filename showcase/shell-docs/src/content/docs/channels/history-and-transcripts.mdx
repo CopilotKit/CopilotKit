@@ -26,8 +26,9 @@ On each delivered turn, Intelligence fetches recent messages for that native
 conversation and seeds a fresh agent instance. The default history limit in the
 managed adapter is 20 messages.
 
-The managed conversation history already holds the current turn, with its text and hydrated
-attachments. Call `runAgent()` without a `prompt` to answer it:
+The managed conversation history already holds the current turn, with its
+text and hydrated attachments. Call `runAgent()` without a `prompt` to answer
+it:
 
 ```ts title="channel.ts"
 channel.onMessage(async ({ thread }) => {
@@ -35,9 +36,9 @@ channel.onMessage(async ({ thread }) => {
 });
 ```
 
-Create a fresh agent for every `conversationKey`; the managed adapter assigns
-the managed conversation history to that instance. Sharing one mutable agent between
-threads can leak or overwrite history.
+Create a fresh agent for every `conversationKey`. The managed adapter assigns
+the managed conversation history to that instance. Sharing one mutable agent
+between threads can leak or overwrite history.
 
 ## Read the current provider thread
 
@@ -52,9 +53,11 @@ const transcript = messages
 ```
 
 On the managed path, `getMessages()` throws when the history fetch fails. Catch
-the error if the turn must continue without history. The method is text-oriented: binary image, audio, and video content is
-available to the agent through multimodal history, but is not reproduced as
-binary data in `ThreadMessage`.
+the error if the turn must continue without history.
+
+The method is text-oriented. Binary image, audio, and video content is
+available to the agent through multimodal history, but `ThreadMessage` does not
+carry it as binary data.
 
 ## Add cross-platform SDK transcripts
 
@@ -151,7 +154,7 @@ channel.onMessage(async ({ thread, message }) => {
 ```
 
 Do not also call `channel.transcripts.append()` for the same user and assistant
-turns. `runAgent({ transcript: ... })` owns that bridge and manual appends would
+turns. `runAgent({ transcript: ... })` owns that bridge, so manual appends
 duplicate the record.
 
 ## Query and delete the application record
@@ -171,11 +174,11 @@ const { deleted } = await channel.transcripts.delete({
 
 `list()` returns entries oldest-first. You can filter by platform, thread id, or
 role. Managed entries use the native `"slack"` or `"teams"` provider. Resolve
-cross-provider identity through the application `userId`; use the platform
+cross-provider identity through the application `userId`. Use the platform
 filter only when you intentionally want one provider's entries.
 
-`delete()` removes the SDK-owned transcript for that user; provider history and
-any separate Intelligence retention policy remain independent.
+`delete()` removes the SDK-owned transcript for that user. Provider history and
+any separate Intelligence retention policy stay independent.
 
 See the [`Transcripts` reference](/reference/channels/classes/Transcripts) and
 [persistence guide](/channels/persistence-and-scaling) before enabling this in

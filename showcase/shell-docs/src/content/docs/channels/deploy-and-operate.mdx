@@ -50,7 +50,7 @@ if (initial.overall !== "online") {
 }
 ```
 
-`ready()` can resolve in `setup_required`; it means activation settled, not
+`ready()` can resolve in `setup_required`. That means activation settled, not
 that delivery is healthy. Treat only `status().overall === "online"` as a
 healthy connected activation.
 
@@ -80,6 +80,8 @@ operator-facing states such as **Waiting for runtime**, **Conflict**,
 - Liveness answers whether the Node process and event loop are running.
 - Readiness answers whether `channels.status().overall` is `online`.
 
+Then act on the status:
+
 - Do not restart for a short `reconnecting` episode. The gateway connection
   reconnects by itself.
 - Alert on `error`.
@@ -87,12 +89,12 @@ operator-facing states such as **Waiting for runtime**, **Conflict**,
 - Restart when activation failed before the Channel was ever online.
 
 Poll `status()` from your health endpoint or monitoring loop. Do not cache the
-startup result forever because an online session can later become reconnecting
-or error.
+startup result forever. An online session can later become `reconnecting` or
+`error`.
 
 ## Shut down cleanly
 
-Register signal handlers before **creating the listener**, not just before
+Register signal handlers before **creating the listener**, not only before
 `ready()`. Creating it begins activation, so a signal that arrives during the
 connect window must already have somewhere to land. Otherwise it hits Node's
 default handler and leaves a live gateway session behind:
@@ -152,8 +154,8 @@ claim different deliveries at the same time.
 Run the same build and Channel declarations on every replica. The managed
 listener bounds active and pending delivery work internally. A full Runtime
 declines an invitation before it claims the delivery, which leaves another
-eligible replica free to claim it. That capacity is not currently exposed as a
-public Channel configuration option.
+eligible replica free to claim it. That capacity is not a public Channel
+configuration option.
 
 ## Observe the full delivery path
 
