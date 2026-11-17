@@ -1,6 +1,6 @@
-// TODO(copilotkit-2.0): `LangGraphAgent`: `@ag-ui/langgraph` does not handle CopilotKit's LangGraph events (`copilotkit_emit_message`, `copilotkit_emit_state`, `copilotkit_emit_tool_call`, `copilotkit_exit` from the Python SDK). Check that your agent does not rely on them. https://docs.copilotkit.ai/agent-spec/langgraph
+// TODO(copilotkit-2.0): `LangGraphAgent`: It does not convert the events that the CopilotKit SDK emit helpers send (`copilotkit_emit_message`, `copilotkit_emit_state`, `copilotkit_emit_tool_call`, `copilotkit_exit`), so the chat does not show them. Send the 2.0 event names, or serve a Python graph with `LangGraphAGUIAgent` and use `LangGraphHttpAgent`. https://docs.copilotkit.ai/migrate/agents-2.0#langgraph-agents
 import { LangGraphAgent } from "@ag-ui/langgraph";
-// TODO(copilotkit-2.0): `LangGraphHttpAgent`: `@ag-ui/langgraph` does not handle CopilotKit's LangGraph events (`copilotkit_emit_message`, `copilotkit_emit_state`, `copilotkit_emit_tool_call`, `copilotkit_exit` from the Python SDK). Check that your agent does not rely on them. https://docs.copilotkit.ai/agent-spec/langgraph
+// TODO(copilotkit-2.0): `LangGraphHttpAgent`: The events that the CopilotKit SDK emit helpers send (`copilotkit_emit_message`, `copilotkit_emit_state`, `copilotkit_emit_tool_call`, `copilotkit_exit`) show in the chat only when the Python server serves the graph with `LangGraphAGUIAgent`, which converts them. https://docs.copilotkit.ai/migrate/agents-2.0#langgraph-agents
 import { CopilotKitRuntime } from "@copilotkit/runtime";
 import { LangGraphHttpAgent } from "@ag-ui/langgraph";
 
