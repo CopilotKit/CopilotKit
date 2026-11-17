@@ -250,13 +250,16 @@ Import these symbols from `@copilotkit/angular`.
 ### Internal extension points
 
 The following exports exist only for CopilotKit-maintained code. They are
-Angular DI tokens that hook Inspector development mode and built-in
-renderers. Applications must not depend on these exports. The `ɵ` prefix and
-TSDoc mark them internal.
+Angular DI tokens and hooks for Inspector development mode, the built-in
+renderers, and the deprecated `a2ui` option of `provideCopilotKit`.
+Applications must not depend on these exports. The `ɵ` prefix and TSDoc mark
+them internal.
 
+- `ɵCOPILOTKIT_A2UI_CONFIG`
 - `ɵCOPILOTKIT_ASSISTANT_MARKDOWN_RENDERER`
 - `ɵCOPILOTKIT_BUILT_IN_ACTIVITY_RENDERERS`
 - `ɵCOPILOTKIT_INSPECTOR_DEVELOPMENT_MODE`
+- `ɵsetA2UIGenerativeUIProviders`
 <!-- public-api:root:end -->
 
 ## Generative UI entry point

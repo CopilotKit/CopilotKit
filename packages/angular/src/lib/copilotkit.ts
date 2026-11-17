@@ -84,9 +84,12 @@ function toProviderConfigInput(config: CopilotKitConfig): ɵProviderConfigInput 
 @Injectable({ providedIn: "root" })
 export class CopilotKit {
   readonly #config = injectCopilotKitConfig();
-  readonly #extensionActivityMessageRenderers = inject(
-    ɵCOPILOTKIT_BUILT_IN_ACTIVITY_RENDERERS,
-  );
+  // A renderer is listed once even when two providers add it: the deprecated
+  // `a2ui` option of `provideCopilotKit` and `provideGenerativeUI` both add
+  // the generative UI renderers.
+  readonly #extensionActivityMessageRenderers = [
+    ...new Set(inject(ɵCOPILOTKIT_BUILT_IN_ACTIVITY_RENDERERS)),
+  ];
   readonly #rootInjector = inject(Injector);
   readonly #inspector = inject(CopilotInspector);
   /** Whether unknown tools may use the built-in text-only fallback renderer. */
