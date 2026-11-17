@@ -6,11 +6,12 @@ import {
   inject,
   onActivated,
   onDeactivated,
+  onMounted,
   onUnmounted,
   shallowRef,
 } from "vue";
 import type { AppContext, ShallowRef } from "vue";
-import { stylesheet } from "@copilotkit/core/styles";
+import { stylesheet, ɵwarnIfStylesOverridden } from "@copilotkit/core/styles";
 import { CopilotStyleOptionsKey } from "../providers/keys";
 import type { CopilotStyleOptions } from "../providers/keys";
 
@@ -38,6 +39,9 @@ const instancesByApp = new WeakMap<
  * up instances in the same order, so hydration matches.
  *
  * Renders nothing when `CopilotKitProvider` has `:inject-styles="false"`.
+ *
+ * In development, it warns in the console when the app's CSS overrides these
+ * styles, such as a global reset outside a cascade layer.
  */
 export const CopilotKitStyles = defineComponent({
   name: "CopilotKitStyles",
@@ -70,6 +74,15 @@ export const CopilotKitStyles = defineComponent({
     // hold the tag.
     onDeactivated(remove);
     onActivated(add);
+
+    // Mounted hooks run only in the browser, after the tag is in the page.
+    onMounted(() => {
+      const checksOverrides =
+        options.value.inject && process.env.NODE_ENV !== "production";
+      if (checksOverrides) {
+        ɵwarnIfStylesOverridden(document);
+      }
+    });
 
     const rendersTag = computed(
       () => list.value.find((instance) => instance.enabled()) === self,

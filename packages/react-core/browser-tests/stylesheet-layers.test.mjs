@@ -11,6 +11,7 @@ import { chromium } from "playwright";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 let stylesheet;
+let stylesModule;
 let browser;
 
 // The parts of a Tailwind v4 build that meet CopilotKit's CSS: the layer
@@ -34,6 +35,11 @@ beforeAll(async () => {
     "utf8",
   );
   stylesheet = JSON.parse(source.match(/= (".*");/s)[1]);
+  // The built `@copilotkit/core/styles`, which has no imports.
+  stylesModule = await readFile(
+    path.join(here, "../../core/dist/styles.mjs"),
+    "utf8",
+  );
   browser = await chromium.launch({
     headless: true,
     ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
@@ -88,3 +94,48 @@ for (const [order, styles] of [
     assert.equal(result.radius, "3px");
   });
 }
+
+// The style override check that the framework packages run in development.
+async function detectStyleOverrides(styles) {
+  const page = await browser.newPage();
+  await page.setContent(`<!doctype html><html><head>
+    ${styles.map((css) => `<style>${css}</style>`).join("\n")}
+    </head><body></body></html>`);
+  await page.addScriptTag({
+    type: "module",
+    content: `${stylesModule}\nwindow.detect = ɵdetectStyleOverrides;`,
+  });
+  await page.waitForFunction(() => "detect" in window);
+  const result = await page.evaluate(() => window.detect(document));
+  await page.close();
+  return result;
+}
+
+// The reset in the create-next-app starter's globals.css.
+const nextReset = `* { box-sizing: border-box; padding: 0; margin: 0; }`;
+
+test("the style check finds an unlayered reset", async () => {
+  assert.deepEqual(await detectStyleOverrides([stylesheet, nextReset]), [
+    "padding",
+    "margin",
+  ]);
+  assert.deepEqual(
+    await detectStyleOverrides([
+      `*, *::before, *::after { margin: 0; }`,
+      stylesheet,
+    ]),
+    ["margin"],
+  );
+});
+
+test("the style check passes a reset in a layer", async () => {
+  assert.deepEqual(
+    await detectStyleOverrides([stylesheet, `@layer base { ${nextReset} }`]),
+    [],
+  );
+  assert.deepEqual(await detectStyleOverrides([stylesheet, tailwindApp]), []);
+});
+
+test("the style check reports null without the stylesheet", async () => {
+  assert.equal(await detectStyleOverrides([nextReset]), null);
+});
