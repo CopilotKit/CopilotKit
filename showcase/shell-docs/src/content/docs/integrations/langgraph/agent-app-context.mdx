@@ -72,6 +72,7 @@ Your agent can answer only about data it can see. The signed-in user and the row
                         # It inherits from the CopilotKitState properties from CopilotKit.
                         class AgentState(CopilotKitState):
                             # ... Your defined state properties
+                            pass
                         ```
                     </Tab>
                     <Tab value="TypeScript">
@@ -111,6 +112,7 @@ Your agent can answer only about data it can see. The signed-in user and the row
                         # add the agent state definition from the previous step
                         class AgentState(CopilotKitState):
                             # ... Your defined state properties
+                            pass
 
                         def chat_node(state: AgentState, config: RunnableConfig):
                             # Extract the colleagues from CopilotKit context
