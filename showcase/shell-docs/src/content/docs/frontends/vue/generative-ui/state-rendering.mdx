@@ -20,7 +20,7 @@ Use state rendering when you want to:
 
 ## How it works in code
 
-On the frontend, subscribe to the agent's state. Each time the backend forwards a fresh value, your component re-renders with the latest partial output. `useAgent` returns an `agent` ref; read `agent.value?.state` in script or let templates unwrap the ref. Keep the provider in an ancestor SFC.
+On the frontend, subscribe to the agent's state. Each time the backend forwards a fresh value, your component re-renders with the latest partial output. `useAgent` returns an `agent` ref. Read `agent.value?.state` in script, or let templates unwrap the ref. Keep the provider in an ancestor SFC.
 
 ```vue title="src/components/ResearchProgress.vue"
 <script setup lang="ts">
@@ -64,7 +64,7 @@ On the backend, a state-streaming mapping forwards a tool argument into a state 
 
 <FrameworkSetup concept="state-streaming-setup" />
 
-<Snippet region="state-streaming-middleware" title="backend — state streaming mapping" />
+<Snippet region="state-streaming-middleware" title="backend: state streaming mapping" />
 
 Ask the researcher agent to write a report. The status line and the progress bar change while the agent runs, and the draft text grows as the tokens arrive.
 
