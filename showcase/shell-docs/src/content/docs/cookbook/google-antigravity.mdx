@@ -74,7 +74,7 @@ The side panel keeps track of the repository, the check, every test run and ever
 
 <Image
   src="/images/cookbook/antigravity-repo-doctor-architecture.webp"
-  alt="Repo Doctor architecture: in the browser, the CopilotKit chat, approval card, diff card, test results and side panel talk to the CopilotKit runtime on Cloud Run; the runtime streams AG-UI events to the Python agent, whose Antigravity harness calls Gemini, edits the per-conversation workspace and runs the CI tools against GitHub; the runtime sends threads and analytics to CopilotKit Intelligence; workspaces are snapshotted to Cloud Storage and keys come from Secret Manager."
+  alt="Repo Doctor architecture: in the browser, the CopilotKit chat, approval card, diff card, test results and side panel talk to the Copilot Runtime on Cloud Run; the runtime streams AG-UI events to the Python agent, whose Antigravity harness calls Gemini, edits the per-conversation workspace and runs the CI tools against GitHub; the runtime sends threads and analytics to CopilotKit Intelligence; workspaces are snapshotted to Cloud Storage and keys come from Secret Manager."
   width={1858}
   height={1720}
   className="w-full rounded-xl border border-[var(--border)]"
@@ -112,7 +112,7 @@ file it lives in, so you can open the full file next to the page. A `# ...` or `
 
 ### Create the web app
 
-Repo Doctor is two processes: a Next.js app with the chat and the CopilotKit runtime, and a Python agent next to it
+Repo Doctor is two processes: a Next.js app with the chat and the Copilot Runtime, and a Python agent next to it
 in `agent/`. Start with the Next.js app and the CopilotKit packages, at the versions the example uses:
 
 ```bash

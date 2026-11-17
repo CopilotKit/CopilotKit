@@ -45,7 +45,7 @@ the current conversation.
 
 <iframe
   src="https://showcase-oracle-agent-memory-production.up.railway.app"
-  title="Oracle Agent Spec memory live demo"
+  title="Oracle Agent Spec and Agent Memory live demo"
   className="w-full h-[480px] sm:h-[600px] block rounded-xl border border-[var(--border)]"
 />
 
@@ -103,12 +103,12 @@ Open `http://localhost:3000`.
 **Book it:** select a flight from the cards (or ask *"Book me flight AMS-001 to Amsterdam"*), then click **Confirm &amp; book** on the confirmation card to receive the boarding pass. `book_flight` is an Agent Spec **ClientTool** that the frontend handles with `useHumanInTheLoop`, so the confirm-and-book step resolves within a single agent run. Follow-up messages in the same thread work too: search, pick, confirm, and keep chatting (see [Going further](#going-further)).
 
 <Callout type="info" title="Recall is eventually consistent">
-Memory is written and indexed asynchronously, so a new fact becomes recallable after a brief delay (typically seconds). In a normal "come back later" session that delay is invisible. Only a teach-then-ask within the same few seconds can outrun indexing.
+Memory is written and indexed asynchronously, so a fact you just taught becomes recallable after a brief delay (typically seconds). In a normal "come back later" session that delay is invisible. Only a teach-then-ask within the same few seconds can outrun indexing.
 </Callout>
 
 ## The key pieces, in code
 
-Memory recall is exposed as an Agent Spec `ServerTool`, so the portable spec itself declares the capability. `book_flight` is an Agent Spec `ClientTool` (from `pyagentspec.tools`). The frontend renders its confirmation card with `useHumanInTheLoop`, and the entire flow completes in a single agent run:
+Memory recall is exposed as an Agent Spec `ServerTool`, so the portable spec itself declares the capability. `book_flight` is an Agent Spec `ClientTool` (from `pyagentspec.tools`), so the frontend renders its confirmation card with `useHumanInTheLoop`. The entire flow completes in a single agent run:
 
 ```python title="agent/concierge/tools.py"
 book_flight_tool = ClientTool(

@@ -58,7 +58,7 @@ Walk me through it step by step, starting with the agent and its governed tools.
 
 ## How it works
 
-- OpenBox wraps the CopilotKit runtime and the LangGraph agent with a governance adapter, so it intercepts every tool call on both sides. Both create a `createOpenBoxCopilotKitAdapter` with the same `selfGovernedToolNames` and `clientName`, but different `agentWorkflowType`/`taskQueue`. The runtime uses `"CopilotKitRuntime"`/`"copilotkit-runtime"`, and the agent uses `"CopilotKitLangGraphAgent"`/`"copilotkit-langgraph"`.
+- OpenBox wraps the Copilot Runtime and the LangGraph agent with a governance adapter, so it intercepts every tool call on both sides. Both create a `createOpenBoxCopilotKitAdapter` with the same `selfGovernedToolNames` and `clientName`, but different `agentWorkflowType`/`taskQueue`. The runtime uses `"CopilotKitRuntime"`/`"copilotkit-runtime"`, and the agent uses `"CopilotKitLangGraphAgent"`/`"copilotkit-langgraph"`.
 - For each governed tool, OpenBox Core evaluates the input and output against your policies and returns a verdict: **allow**, **redact**, **approval required**, **block**, or **halt**. Money movement is routed to a human, goal-drifting exports are blocked, and a critical payment-control change halts the whole session before the tool body runs.
 - An **approval route** (`/api/openbox/approvals/decide`) lets the UI post an Approve/Reject decision back to OpenBox Core, which resumes (or halts) the paused tool run.
 - Every decision is appended to an immutable audit trail in OpenBox Core, and each verdict streams to CopilotKit as a **generative UI** governance card alongside the chat.
@@ -81,7 +81,7 @@ Run the demo yourself by following the steps below (`agent/` on port 8123 and `f
 
 - **Node.js ≥ 20** and npm
 - An **OpenAI-compatible API key** (`OPENAI_API_KEY`) and a chat model in `OPENAI_MODEL`. The demo uses `gpt-6-luna`. `OPENAI_MODEL` is required: the agent has no built-in default and throws if it is unset. The governed business results are LLM-generated, so a working model key is required, not optional.
-- An **OpenBox account with a test API key**. Sign up at [openbox.ai](https://openbox.ai) to get the agent runtime key `OPENBOX_API_KEY` (starts with `obx_test_`), `OPENBOX_CORE_URL`, `OPENBOX_AGENT_ID`, `OPENBOX_AGENT_DID`, and `OPENBOX_AGENT_PRIVATE_KEY`
+- An **OpenBox account with a test API key**. Sign up at [openbox.ai](https://openbox.ai) to get the agent runtime key `OPENBOX_API_KEY` (starts with `obx_test_`), `OPENBOX_CORE_URL`, `OPENBOX_AGENT_ID`, `OPENBOX_AGENT_DID`, and `OPENBOX_AGENT_PRIVATE_KEY`.
 - The **OpenBox Admin API**, required by the provisioning and verification scripts: `OPENBOX_API_URL` (the Admin API base URL, e.g. `https://api.openbox.ai`) and `OPENBOX_BACKEND_API_KEY`, the org/backend key that starts with `obx_key_`. This is a different key from the `obx_test_` runtime key above. Keep it server-only and never prefix it with `NEXT_PUBLIC_`.
 
 <Callout type="warning" title="This demo calls live OpenBox Core">
@@ -108,7 +108,7 @@ npm run dev
 The agent starts on `http://localhost:8123`. All three scripts run from `agent/`.
 
 <Callout type="warning" title="Run the provisioning script first">
-A fresh OpenBox agent allows everything. `npm run openbox:admin:setup` installs the policy, guardrails, and behavior rules behind the allow/approve/block/halt outcomes. It is idempotent, so re-running it refreshes them. It needs `OPENBOX_API_URL` and the `obx_key_…` `OPENBOX_BACKEND_API_KEY` from [Prerequisites](#prerequisites). Run `npm run openbox:verify` any time to confirm the policy is live.
+A fresh OpenBox agent allows everything. `npm run openbox:admin:setup` installs the policy, guardrails, and behavior rules behind the allow/approve/block/halt outcomes. It is idempotent, so re-running it only refreshes them. It needs `OPENBOX_API_URL` and the `obx_key_…` `OPENBOX_BACKEND_API_KEY` from [Prerequisites](#prerequisites). Run `npm run openbox:verify` any time to confirm the policy is live.
 </Callout>
 
 ## Run the frontend
@@ -192,7 +192,7 @@ When you click **Approve** on the service credit, the UI posts to `/api/openbox/
 
 ## The key pieces, in code
 
-The frontend's `/api/copilotkit` route hosts the CopilotKit V2 runtime and wraps it with `createOpenBoxCopilotRuntime`, so every agent run is governed at the runtime boundary:
+The frontend's `/api/copilotkit` route hosts the V2 Copilot Runtime and wraps it with `createOpenBoxCopilotRuntime`, so every agent run is governed at the runtime boundary:
 
 ```ts title="frontend/src/app/api/copilotkit/[[...slug]]/route.ts"
 const runtime = new CopilotRuntime({
