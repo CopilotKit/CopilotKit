@@ -16,6 +16,7 @@ import {
 } from "@copilotkit/shared";
 import { STANDARD_CATALOG_ID } from "@copilotkit/shared/generative-ui";
 import CopilotKitProvider from "../../providers/CopilotKitProvider.vue";
+import type { CopilotKitProviderProps } from "../../providers/CopilotKitProvider.types";
 import CopilotChatConfigurationProvider from "../../providers/CopilotChatConfigurationProvider.vue";
 import CopilotChat from "../../components/chat/CopilotChat.vue";
 import { useCopilotKit } from "../../providers/useCopilotKit";
@@ -26,6 +27,9 @@ import {
   runStartedEvent,
 } from "../../__tests__/utils/test-helpers";
 import { CapturingAgent } from "./helpers/capturing-agent";
+import { createGenerativeUI } from "../catalog";
+import { useGenerativeUIRuntime } from "../runtime-context";
+import { standardUI } from "../standard";
 
 // The provider falls back to `standardUI` when it has no `generativeUI` UI
 // and the runtime `/info` turns generative UI on. The standard UI loads with
@@ -60,13 +64,18 @@ function stubRuntimeInfo(generativeUI?: {
   vi.stubGlobal("fetch", fetchMock);
 }
 
-function setup() {
+function setup({
+  generativeUI,
+  a2ui,
+}: Pick<CopilotKitProviderProps, "generativeUI" | "a2ui"> = {}) {
   CapturingAgent.inputs = [];
   const agent = new CapturingAgent();
   const core = shallowRef<CopilotKitCoreVue>();
+  const runtime = shallowRef<ReturnType<typeof useGenerativeUIRuntime>>();
   const Probe = defineComponent({
     setup() {
       core.value = useCopilotKit().copilotkit.value;
+      runtime.value = useGenerativeUIRuntime();
       return () => null;
     },
   });
@@ -77,11 +86,13 @@ function setup() {
       CopilotChat,
       Probe,
     },
-    setup: () => ({ agent, T }),
+    setup: () => ({ agent, T, generativeUI, a2ui }),
     template: `
       <CopilotKitProvider
         runtime-url="/api/copilotkit"
         :agents__unsafe_dev_only="{ default: agent }"
+        :generativeUI="generativeUI"
+        :a2ui="a2ui"
       >
         <Probe />
         <CopilotChatConfigurationProvider agent-id="default" :thread-id="T">
@@ -105,7 +116,9 @@ function setup() {
     !!core.value?.renderActivityMessages.some(
       (renderer) => renderer.activityType === GENERATIVE_UI_ACTIVITY_TYPE,
     );
-  return { agent, connected, rendersSurfaces };
+  /** The generative UI runtime that the provider gives its children. */
+  const generativeUIRuntime = () => runtime.value?.value;
+  return { agent, connected, rendersSurfaces, generativeUIRuntime };
 }
 
 /** Sends `text` from the chat input, and waits until the run has started. */
@@ -211,5 +224,48 @@ describe("generative UI default from the runtime", { timeout: 30_000 }, () => {
     agent.emit(runFinishedEvent({ threadId: T, runId: "r1" }));
 
     expect(manifestOf(CapturingAgent.inputs[0])).toBeUndefined();
+  });
+});
+
+describe("the deprecated a2ui prop", { timeout: 30_000 }, () => {
+  const appUI = createGenerativeUI({
+    id: "app",
+    components: { Box: { component: () => null } },
+  });
+  const theme = { "--a2ui-color-panel": "#101010" };
+
+  it("renders with a2ui.catalog as the ui of generativeUI, also when the runtime has generative UI off", async () => {
+    stubRuntimeInfo();
+    const { generativeUIRuntime } = setup({ a2ui: { catalog: appUI } });
+    await waitFor(() => expect(generativeUIRuntime()?.ui).toBe(appUI));
+
+    await send("show it");
+    expect(manifestOf(CapturingAgent.inputs[0])?.catalogId).toBe("app");
+  });
+
+  it("gives a2ui.theme to the standard UI of the runtime", async () => {
+    stubRuntimeInfo({ enabled: true });
+    const { generativeUIRuntime } = setup({ a2ui: { theme } });
+
+    await waitFor(
+      () => expect(generativeUIRuntime()?.ui).toBe(standardUI),
+      LOAD_WAIT,
+    );
+    expect(generativeUIRuntime()?.theme).toEqual(theme);
+  });
+
+  it("keeps the options of generativeUI over a2ui and adds the ones it leaves out", async () => {
+    stubRuntimeInfo();
+    const otherUI = createGenerativeUI({
+      id: "other",
+      components: { Box: { component: () => null } },
+    });
+    const { generativeUIRuntime } = setup({
+      generativeUI: { ui: appUI },
+      a2ui: { catalog: otherUI, theme },
+    });
+
+    await waitFor(() => expect(generativeUIRuntime()?.ui).toBe(appUI));
+    expect(generativeUIRuntime()?.theme).toEqual(theme);
   });
 });

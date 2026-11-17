@@ -194,6 +194,38 @@ export interface CopilotKitProviderProps extends ɵCopilotKitProviderBaseOptions
    * components load on demand, the first time the runtime turns it on.
    */
   generativeUI?: GenerativeUIConfig;
+  /**
+   * @deprecated Use `generativeUI`. The provider passes `a2ui` on to
+   * `generativeUI`: `a2ui={{ catalog, theme }}` works as
+   * `generativeUI={{ ui: catalog, theme }}`. When both props set the same
+   * option, `generativeUI` wins. The other v0.9 options (`onAction`,
+   * `loadingComponent`, `recovery`, `includeSchema`) have no 2.0 equivalent.
+   * See https://docs.copilotkit.ai/generative-ui/components/from-a2ui
+   */
+  a2ui?: {
+    /** A UI from `createGenerativeUI`. It is the `ui` of `generativeUI`. */
+    catalog?: GenerativeUIConfig["ui"];
+    /** Values for the `--a2ui-*` CSS variables. It is the `theme` of `generativeUI`. */
+    theme?: GenerativeUIConfig["theme"];
+  };
+}
+
+/**
+ * The `generativeUI` prop with the options of the deprecated `a2ui` prop:
+ * `a2ui.catalog` is the `ui` and `a2ui.theme` the `theme`, unless
+ * `generativeUI` sets them.
+ */
+function withA2UIOptions(
+  generativeUI: GenerativeUIConfig | undefined,
+  a2ui: NonNullable<CopilotKitProviderProps["a2ui"]>,
+) {
+  const hasA2UIOptions = a2ui.catalog !== undefined || a2ui.theme !== undefined;
+  if (!hasA2UIOptions) return generativeUI;
+  return {
+    ...generativeUI,
+    ui: generativeUI?.ui ?? a2ui.catalog,
+    theme: generativeUI?.theme ?? a2ui.theme,
+  };
 }
 
 // Normalize an array prop to a stable reference, and warn (rule from core)
@@ -241,6 +273,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   useSingleEndpoint,
   onError,
   generativeUI,
+  a2ui,
   mcpApps,
   defaultThrottleMs,
   debug,
@@ -277,9 +310,21 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     runtimeEnabled: runtimeOpenGenUIEnabled,
     configured: !!openGenerativeUI,
   });
+  // The deprecated `a2ui` prop goes to `generativeUI`, which wins for an
+  // option that both set.
+  const a2uiCatalog = a2ui?.catalog;
+  const a2uiTheme = a2ui?.theme;
+  const generativeUIProp = useMemo(
+    () =>
+      withA2UIOptions(generativeUI, { catalog: a2uiCatalog, theme: a2uiTheme }),
+    [generativeUI, a2uiCatalog, a2uiTheme],
+  );
   // The app's `generativeUI`, or the standard UI when the runtime turns
   // generative UI on and the app has none (loaded on demand).
-  const generativeUIConfig = useStandardUIFallback(generativeUI, runtimeInfo);
+  const generativeUIConfig = useStandardUIFallback(
+    generativeUIProp,
+    runtimeInfo,
+  );
   const generativeUIActive = !!generativeUIConfig?.ui;
   const runtimeLicenseStatus = runtimeInfo?.licenseStatus;
   const runtimeEntitlements = runtimeInfo?.runtimeEntitlements;

@@ -63,6 +63,20 @@ export interface CopilotKitProviderProps extends ɵCopilotKitProviderBaseOptions
    */
   generativeUI?: GenerativeUIConfig;
   /**
+   * @deprecated Use `generativeUI`. The provider passes `a2ui` on to
+   * `generativeUI`: `:a2ui="{ catalog, theme }"` works as
+   * `:generativeUI="{ ui: catalog, theme }"`. When both props set the same
+   * option, `generativeUI` wins. The other v0.9 options (`onAction`,
+   * `loadingComponent`, `recovery`, `includeSchema`) have no 2.0 equivalent.
+   * See https://docs.copilotkit.ai/generative-ui/components/from-a2ui
+   */
+  a2ui?: {
+    /** A UI from `createGenerativeUI`. It is the `ui` of `generativeUI`. */
+    catalog?: GenerativeUIConfig["ui"];
+    /** Values for the `--a2ui-*` CSS variables. It is the `theme` of `generativeUI`. */
+    theme?: GenerativeUIConfig["theme"];
+  };
+  /**
    * Global markdown renderer for assistant/reasoning messages. Either a Vue
    * component (escape hatch — receives `{ content: string; isStreaming?: boolean }`)
    * or a `DefaultMarkdownRendererProps` config object (e.g.

@@ -101,6 +101,7 @@ const props = withDefaults(defineProps<CopilotKitProviderProps>(), {
   openGenerativeUI: undefined,
   useSingleEndpoint: undefined,
   generativeUI: undefined,
+  a2ui: undefined,
   mcpApps: undefined,
   enableInspector: undefined,
   nonce: undefined,
@@ -298,13 +299,22 @@ const openGenerativeUIActive = computed(() =>
     configured: !!props.openGenerativeUI,
   }),
 );
+// The deprecated `a2ui` prop goes to `generativeUI`, which wins for an
+// option that both set. Without a `ui` from either prop, `a2ui.theme` goes to
+// the standard UI below.
+const generativeUIProp = computed<GenerativeUIConfig | undefined>(() => {
+  const { generativeUI, a2ui } = props;
+  const ui = generativeUI?.ui ?? a2ui?.catalog;
+  if (!a2ui || !ui) return generativeUI;
+  return { ...generativeUI, ui, theme: generativeUI?.theme ?? a2ui.theme };
+});
 // Without a `generativeUI` UI of the app, the provider falls back to the
 // standard UI when the runtime turns generative UI on (rule from core).
 const generativeUIDefault = computed(() =>
   ɵresolveGenerativeUIDefault({
     runtimeEnabled: runtimeInfo.value?.generativeUIEnabled ?? false,
     runtimeAgents: runtimeInfo.value?.generativeUIAgents,
-    hasUI: !!props.generativeUI?.ui,
+    hasUI: !!generativeUIProp.value?.ui,
   }),
 );
 // The standard UI is loaded only for the fallback, so an app that does not
@@ -328,10 +338,14 @@ watch(
   { immediate: true },
 );
 const generativeUIConfig = computed<GenerativeUIConfig | undefined>(() => {
-  if (props.generativeUI) return props.generativeUI;
+  if (generativeUIProp.value) return generativeUIProp.value;
   const fallback = generativeUIDefault.value;
   if (!fallback.active || !standardUI.value) return undefined;
-  return { ui: standardUI.value, agentIds: fallback.agentIds };
+  return {
+    ui: standardUI.value,
+    agentIds: fallback.agentIds,
+    theme: props.a2ui?.theme,
+  };
 });
 const generativeUIActive = computed(() => !!generativeUIConfig.value?.ui);
 const resolvedProperties = computed(() => resolvedConfig.value.properties);
