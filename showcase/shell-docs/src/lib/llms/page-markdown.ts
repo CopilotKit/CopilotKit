@@ -22,7 +22,11 @@ import { isV1Reference, V1_DEPRECATION_MARKDOWN } from "@/lib/v1-deprecation";
 // "@/snippets/....mdx"`, then `<X />`) is inlined: many pages are nothing but
 // one. The showcase components (`<Snippet>`, `<FrameworkSetup>`, the
 // framework and frontend gates) resolve as the page renders them, in
-// `showcase-markdown.ts`; other components stay as tags.
+// `showcase-markdown.ts`. `<Content partial>` deploy guides are inlined too,
+// and components that only draw UI (cards grids, sign-up buttons, icons,
+// copy-prompt pills) are dropped or reduced to their text
+// (`textOnlyComponents`); components that wrap prose (`<Callout>`,
+// `<Steps>`, `<Tabs>`) stay as tags, which agents read as structure.
 
 /**
  * Render a resolved live page as Markdown.
@@ -47,9 +51,14 @@ export async function renderLivePageMarkdown(
   };
   const imports = snippetImports(raw, SNIPPETS_DIR);
   // A framework's setup MDX can use shared snippets of its own.
-  const mdx = inlineSnippets(
-    expandFrameworkSetups(inlineSnippets(processed, imports), showcase),
-    imports,
+  const mdx = textOnlyComponents(
+    inlineSnippets(
+      expandFrameworkSetups(
+        inlineSnippets(inlinePartials(processed), imports),
+        showcase,
+      ),
+      imports,
+    ),
   );
   const body = [
     missingDemoNote(showcase, url),
@@ -135,6 +144,63 @@ function readSnippet(file: string, depth: number): string | null {
     .replace(SNIPPET_IMPORT, "")
     .trim();
   return inlineSnippets(body, imports, depth + 1);
+}
+
+/** The deploy guides `<Content partial>` renders (`snippets.tsx`). */
+const DEFAULT_PARTIAL = "integrations/agentcore/index.mdx";
+const CONTENT_TAG = /<Content\b([^>]*?)\/>/g;
+
+/**
+ * `<Content partial="..." framework="..." />` as the partial's text, its
+ * `framework={framework}` props given the page's framework, as the page
+ * renders it. Some pages are nothing but this tag.
+ */
+function inlinePartials(body: string): string {
+  return outsideFences(body, (text) =>
+    text.replace(CONTENT_TAG, (match, attrs: string) => {
+      const partial =
+        attrs.match(/\bpartial="([^"]+)"/)?.[1] ?? DEFAULT_PARTIAL;
+      const framework = attrs.match(/\bframework="([^"]+)"/)?.[1];
+      const source = readSnippet(join(SNIPPETS_DIR, partial), 0);
+      if (source === null) return match;
+      return framework
+        ? source.replace(/=\{framework\}/g, `="${framework}"`)
+        : source;
+    }),
+  );
+}
+
+/** Components that draw UI and say nothing an agent can use. */
+const UI_ONLY = ["IntegrationGrid", "OpsPlatformCTA", "PageAgentPrompt"];
+
+/**
+ * Components reduced to what they say: UI-only ones dropped, icons (alone or
+ * as an `icon={...}` prop) dropped, `<SignupLink>` to its label, and
+ * `<ImageZoom>` to a Markdown image.
+ */
+function textOnlyComponents(body: string): string {
+  return outsideFences(body, (text) => {
+    if (!text.includes("<")) return text;
+    for (const name of UI_ONLY) {
+      text = text.replace(
+        new RegExp(
+          `<${name}\\b(?:[^>{]|\\{[^}]*\\})*?(?:/>|>[\\s\\S]*?</${name}>)\\n?`,
+          "g",
+        ),
+        "",
+      );
+    }
+    return text
+      .replace(/\s+icon=\{<[A-Z]\w*(?:\s[^>]*)?\/>\}/g, "")
+      .replace(/<[A-Z]\w*Icon\b[^>]*\/>/g, "")
+      .replace(/<SignupLink\b[^>]*>([\s\S]*?)<\/SignupLink>/g, "$1")
+      .replace(/<ImageZoom\b([^>]*?)\/>/g, (match, attrs: string) => {
+        const src = attrs.match(/\bsrc="([^"]+)"/)?.[1];
+        if (!src) return match;
+        const alt = attrs.match(/\balt="([^"]*)"/)?.[1] ?? "";
+        return `![${alt}](${src})`;
+      });
+  });
 }
 
 /** Apply `fn` to the text between fenced code blocks. */
