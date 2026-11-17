@@ -138,6 +138,8 @@ You have an app and you want a working chat in it. `scaffold` adds one with a si
     - The provider around your app.
     - A chat UI. The default is a popup.
     - A runtime with the built-in agent.
+
+    If a stylesheet resets padding or margin on every element (`* { ... }`) outside a CSS layer, `scaffold` moves that rule into `@layer base`. Otherwise the reset removes the chat's spacing. The plan shows this change before it writes.
   </Step>
 
   <Step>
@@ -285,8 +287,8 @@ npx copilotkit@latest doctor
 - The framework and the CopilotKit packages. The packages must be installed and on matching versions.
 - The provider, the chat UI, and the runtime. The runtime path in the provider must match the runtime.
 - The model key. The key must be set, and it must not be in an env var that the browser can read.
-- The TypeScript module resolution.
-- CORS on the separate runtime server.
+- The TypeScript module resolution, and CORS on the separate runtime server.
+- What your framework needs for the chat UI. On the web, no CSS reset such as `* { padding: 0 }` may sit outside a CSS layer, or it removes the chat's spacing. In React Native, `GestureHandlerRootView` must wrap the app, or the chat sheet cannot open.
 
 The checks look at how your framework runs CopilotKit, not at the files that `scaffold` writes. A setup that you wrote by hand also passes.
 
