@@ -32,6 +32,7 @@ const LEGACY_INTEGRATIONS: Record<string, string> = {
   "aws-strands-typescript": "strands-typescript",
   "claude-agent-sdk-python": "claude-sdk-python",
   "claude-agent-sdk-typescript": "claude-sdk-typescript",
+  "openai-agents-python": "openai-agents-python",
   langroid: "langroid",
   builtin: "built-in-agent",
   "builtin-a2ui": "built-in-agent",

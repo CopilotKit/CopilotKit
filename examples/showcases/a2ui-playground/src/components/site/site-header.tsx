@@ -7,6 +7,8 @@ import type { SyntheticEvent } from "react";
 import { Dialog as DialogPrimitive } from "radix-ui";
 import {
   BookOpen,
+  ChevronDown,
+  LayoutGrid,
   Maximize2,
   MessagesSquare,
   Menu,
@@ -21,15 +23,23 @@ import { setTheme, useTheme } from "@/lib/theme";
 import { cn, focusRing } from "@/lib/utils";
 import { SOURCE_URL } from "@/components/start/links";
 import { A2UIMark, CopilotKitKite } from "./brand";
+import { GROUPS } from "@/components/docs/catalog-index";
+import { useStandardNames } from "@/components/docs/use-standard-names";
 
-type Active = "playground" | "build" | "evals" | "start";
+type Active = "playground" | "build" | "components" | "evals" | "start";
 /** `icon`: shown beside the label in the menu sheet only. */
 type Item = { id: Active; label: string; href: string; icon: LucideIcon };
 
-/** The workbench is the home page, then the way into your own app. */
+/** The workbench is the home page, then the way into your own app, then the component catalog. */
 const NAV: Item[] = [
   { id: "playground", label: "Playground", href: "/", icon: MessagesSquare },
   { id: "start", label: "Get started", href: "/start", icon: BookOpen },
+  {
+    id: "components",
+    label: "Components",
+    href: "/components",
+    icon: LayoutGrid,
+  },
 ];
 
 const BAR = "site-header sticky top-0 z-40 w-full border-b border-border";
@@ -238,6 +248,18 @@ function MenuSheet({ active }: { active?: Active }) {
     "text-muted-foreground hover:bg-black/[0.03] hover:text-foreground dark:hover:bg-white/[0.04]";
   const iconCls = "size-[18px] flex-none transition-colors";
   const iconOff = "text-muted-foreground/70 group-hover:text-foreground";
+  // On the Components pages the catalog list starts open, so every component is one tap away. Elsewhere it starts
+  // shut, so the theme and the source stay a few tab stops from the top instead of 120 links down.
+  const pathname = usePathname();
+  const current = catalogEntry(pathname);
+  const [catalogOpen, setCatalogOpen] = useState(active === "components");
+  const standard = useStandardNames(open && catalogOpen);
+  const catalog: Array<{ label: string; items: string[] }> = [
+    ...GROUPS.map((g) => ({ label: g.cat, items: g.items })),
+    ...(standard.length
+      ? [{ label: "Gen UI 2.0 standard", items: standard }]
+      : []),
+  ];
   return (
     <DialogPrimitive.Root open={open} onOpenChange={setOpen}>
       <DialogPrimitive.Trigger
@@ -267,7 +289,7 @@ function MenuSheet({ active }: { active?: Active }) {
 
           <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pb-4 pt-4">
             <nav aria-label="Main" className="flex flex-none flex-col gap-0.5">
-              {NAV.map((n) => {
+              {NAV.filter((n) => n.id !== "components").map((n) => {
                 const on = active === n.id;
                 return (
                   <Link
@@ -286,6 +308,77 @@ function MenuSheet({ active }: { active?: Active }) {
                   </Link>
                 );
               })}
+              {/* Components last, as a disclosure: open, it lists the whole catalog. */}
+              <button
+                type="button"
+                aria-expanded={catalogOpen}
+                aria-controls="menu-catalog"
+                onClick={() => setCatalogOpen((v) => !v)}
+                className={cn(
+                  row,
+                  "w-full text-left",
+                  active === "components" ? rowOn : rowOff,
+                  focusRing,
+                )}
+              >
+                <LayoutGrid
+                  className={cn(
+                    iconCls,
+                    active === "components" ? "text-foreground" : iconOff,
+                  )}
+                  strokeWidth={1.75}
+                  aria-hidden
+                />
+                <span className="flex-1">Components</span>
+                <ChevronDown
+                  className={cn(
+                    "size-4 text-muted-foreground transition-transform duration-200",
+                    catalogOpen && "rotate-180",
+                  )}
+                  aria-hidden
+                />
+              </button>
+              {catalogOpen ? (
+                <div
+                  id="menu-catalog"
+                  className="ml-[21px] border-l border-border pb-2 pl-3"
+                >
+                  <CatalogLink
+                    href="/components"
+                    on={pathname === "/components"}
+                    onPick={close}
+                  >
+                    Overview
+                  </CatalogLink>
+                  <CatalogLink
+                    href="/components/macros"
+                    on={current === "macros"}
+                    onPick={close}
+                  >
+                    Macros
+                  </CatalogLink>
+                  {catalog.map((g) => (
+                    <div key={g.label} className="mt-5 first:mt-4">
+                      <div className="mb-1 flex h-7 items-center justify-between rounded-[6px] bg-black/[0.035] px-2 text-[11.5px] font-semibold uppercase tracking-[0.06em] text-foreground/75 dark:bg-white/[0.05]">
+                        <span>{g.label}</span>
+                        <span className="font-mono text-[11px] tabular-nums text-muted-foreground/60">
+                          {g.items.length}
+                        </span>
+                      </div>
+                      {g.items.map((name) => (
+                        <CatalogLink
+                          key={name}
+                          href={`/components/${name}`}
+                          on={current === name}
+                          onPick={close}
+                        >
+                          {name}
+                        </CatalogLink>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              ) : null}
             </nav>
           </div>
 
@@ -297,6 +390,50 @@ function MenuSheet({ active }: { active?: Active }) {
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>
     </DialogPrimitive.Root>
+  );
+}
+
+/**
+ * The page a /components/<name> address names, for marking it in the menu's catalog list; "" anywhere else. Every
+ * page renders this header, the 404 included, so an address with a malformed escape must not throw here.
+ */
+function catalogEntry(pathname: string): string {
+  const segment = /^\/components\/([^/]+)/.exec(pathname)?.[1];
+  if (!segment) return "";
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    return "";
+  }
+}
+
+/** A component in the menu's catalog list. */
+function CatalogLink({
+  href,
+  on,
+  onPick,
+  children,
+}: {
+  href: string;
+  on: boolean;
+  onPick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <Link
+      href={href}
+      onClick={onPick}
+      aria-current={on ? "page" : undefined}
+      className={cn(
+        "flex h-9 items-center rounded-[8px] px-2 text-[14px] font-medium transition-colors",
+        on
+          ? "bg-black/[0.05] text-foreground dark:bg-white/[0.07]"
+          : "text-foreground/65 hover:bg-black/[0.03] hover:text-foreground dark:hover:bg-white/[0.04]",
+        focusRing,
+      )}
+    >
+      {children}
+    </Link>
   );
 }
 

@@ -93,7 +93,7 @@
     "size:headless": "node scripts/measure-headless.mjs"
   },
   "dependencies": {
-    "@ag-ui/client": "1.0.2",
+    "@ag-ui/client": "1.0.4",
     "@copilotkit/core": "workspace:*",
     "@copilotkit/react-core": "workspace:*",
     "@copilotkit/shared": "workspace:*",
