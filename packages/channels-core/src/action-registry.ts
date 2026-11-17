@@ -83,6 +83,20 @@ export interface ActionDispatchScope {
   platform: string;
 }
 
+/** The resume gate one bind's actions share, as resolved for that bind. */
+type ResumeGate = Required<
+  Pick<ActionContinuationContext, "resumeGateId" | "resumeGateDeadline">
+>;
+
+/**
+ * Per-bind state: the resume gate the bind's first action resolved. Every
+ * later action of the same bind (siblings, descendants, and further event
+ * props) reuses it, so one bind never spans two gates.
+ */
+interface BindState {
+  gate?: Promise<ResumeGate>;
+}
+
 /**
  * Where an action or reaction handler was bound. `platform` is absent from
  * snapshots written before actions were scoped by platform; such a snapshot
@@ -187,7 +201,7 @@ export class ActionRegistry {
   // every bind of that leg waits on, so binds running together share one gate.
   private resumeGates = new WeakMap<
     ActionContinuationContext,
-    { openedAt: number; opened: Promise<void> }
+    { openedAt: number; opened: Promise<ResumeGate> }
   >();
 
   /** TTL of every stored snapshot and of every in-process cache entry. */
@@ -367,6 +381,7 @@ export class ActionRegistry {
       registered?.requireKeys ?? false,
       renderContext.platform,
       interactiveKeys,
+      {},
     );
     return root;
   }
@@ -464,6 +479,7 @@ export class ActionRegistry {
         false,
         renderContext.platform,
         new Set(),
+        {},
       );
     }
     const onReaction = takeMessageReaction(root);
@@ -487,6 +503,7 @@ export class ActionRegistry {
     requireKeys: boolean,
     platform: string,
     interactiveKeys: Set<string | number>,
+    bind: BindState,
     exactPath?: (string | number)[],
   ): Promise<void> {
     for (let i = 0; i < nodes.length; i++) {
@@ -519,7 +536,11 @@ export class ActionRegistry {
             requireKeys && node.key !== undefined
               ? { key: node.key, eventProp: ep }
               : undefined;
-          if (continuation) await this.ensureResumeGate(continuation);
+          // Resolve the gate once per bind: a later action asking again could
+          // roll a stale bind over to a fresh, unclaimed gate.
+          const gate = continuation
+            ? await (bind.gate ??= this.ensureResumeGate(continuation))
+            : undefined;
           // Every id is random and bound to its conversation: a content-derived
           // id would collide across conversations rendering the same card.
           // Continuation ids use the same format; the snapshot's
@@ -544,7 +565,7 @@ export class ActionRegistry {
               conversationKey: conv,
               boundArgs: isBound(handler) ? getBoundArgs(handler) : undefined,
               ...(continuation
-                ? { continuation: { ...continuation, actionId: id } }
+                ? { continuation: { ...continuation, ...gate, actionId: id } }
                 : {}),
             },
             this.retentionMs,
@@ -564,6 +585,7 @@ export class ActionRegistry {
           requireKeys,
           platform,
           interactiveKeys,
+          bind,
         );
       }
     }
@@ -580,6 +602,7 @@ export class ActionRegistry {
     requireKeys: boolean,
     platform: string,
     interactiveKeys: Set<string | number>,
+    bind: BindState,
   ): Promise<void> {
     if (isChannelNode(value)) {
       await this.walkNode(
@@ -592,6 +615,7 @@ export class ActionRegistry {
         requireKeys,
         platform,
         interactiveKeys,
+        bind,
       );
       return;
     }
@@ -607,6 +631,7 @@ export class ActionRegistry {
         requireKeys,
         platform,
         interactiveKeys,
+        bind,
       );
     }
   }
@@ -622,6 +647,7 @@ export class ActionRegistry {
     requireKeys: boolean,
     platform: string,
     interactiveKeys: Set<string | number>,
+    bind: BindState,
   ): Promise<void> {
     await this.walk(
       [node],
@@ -633,6 +659,7 @@ export class ActionRegistry {
       requireKeys,
       platform,
       interactiveKeys,
+      bind,
       path,
     );
   }
@@ -934,18 +961,19 @@ export class ActionRegistry {
    * finds it. A leg rendering past `retentionMs` gets a new gate rather than a
    * renewed one: a `put` could bring back a consumed gate. A failed write
    * leaves the continuation untouched: the bind rejects, so nothing is
-   * published, and the next bind opens the gate again.
+   * published, and the next bind opens the gate again. Resolves to the gate
+   * joined. A bind resolves it once and stamps it on every action it binds.
    */
   private ensureResumeGate(
     continuation: ActionContinuationContext,
-  ): Promise<void> {
+  ): Promise<ResumeGate> {
     const current = this.resumeGates.get(continuation);
     if (current && Date.now() - current.openedAt < this.retentionMs) {
       return current.opened;
     }
     const openedAt = Date.now();
     const id = mintActionId();
-    const opened: Promise<void> = this.store
+    const opened: Promise<ResumeGate> = this.store
       .put(
         resumeGateKey(id),
         { path: [], conversationKey: "" },
@@ -959,8 +987,12 @@ export class ActionRegistry {
           if (!latest) throw new ActionExpiredError(id);
           return latest.opened;
         }
-        continuation.resumeGateId = id;
-        continuation.resumeGateDeadline = openedAt + this.retentionMs * 2;
+        const resolved: ResumeGate = {
+          resumeGateId: id,
+          resumeGateDeadline: openedAt + this.retentionMs * 2,
+        };
+        Object.assign(continuation, resolved);
+        return resolved;
       });
     const gate = { openedAt, opened };
     this.resumeGates.set(continuation, gate);
