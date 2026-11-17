@@ -194,7 +194,7 @@ function useTurns(
 }
 
 const ROW_EASE =
-  "transition-[translate,scale,opacity,background-color,border-color] duration-[640ms] ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none";
+  "transition-[translate,scale,opacity,background-color,border-color,color] duration-[640ms] ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none";
 
 function Tile({
   x,
@@ -231,7 +231,11 @@ function Tile({
       tabIndex={hidden ? -1 : undefined}
       className={cn(
         "absolute flex -translate-x-1/2 -translate-y-1/2 items-center justify-center overflow-hidden rounded-[24%] border-2 shadow-[0_14px_26px_rgb(31_38_36/0.12)]",
-        selected ? "border-white bg-white" : "border-stage-rim bg-stage-tile",
+        // Marks drawn in currentColor take plum ink on the white tile, and white
+        // on the dark glass tiles at night, instead of the page's text color.
+        selected
+          ? "border-white bg-white text-brand-plum"
+          : "border-stage-rim bg-stage-tile text-brand-plum dark:text-white",
         className,
       )}
       style={{
