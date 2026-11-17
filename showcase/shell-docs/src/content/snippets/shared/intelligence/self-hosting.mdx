@@ -3,7 +3,7 @@
   Follow [Self-host Intelligence on AWS ECS/Fargate](/intelligence/self-hosting-ecs) for the versioned CloudFormation bundle, configuration, deployment, and verification steps. This page covers Kubernetes and Helm.
 </Callout>
 
-<Callout type="info" title="Just evaluating?">
+<Callout type="info" title="Want to evaluate first?">
   To try Intelligence on your own Mac first, [evaluate it locally](/intelligence/self-hosting-local) (preview). The CLI runs it in Docker Desktop; you do not need a cluster.
 </Callout>
 
@@ -42,7 +42,7 @@ Before starting, make sure the following are in place. [CopilotKit Intelligence 
 
 - A valid CopilotKit Intelligence license key (contact your CopilotKit account team if you do not have one)
 - Read access to the chart OCI registry at `oci://ghcr.io/copilotkit/charts/intelligence` (anonymous pulls are allowed for the released chart)
-- The latest released chart version. Check the [chart releases](https://github.com/CopilotKit/Intelligence/pkgs/container/charts%2Fintelligence) on GHCR; substitute the value into the `<chart-version>` placeholder used throughout this guide (e.g. `0.1.0-rc.16`).
+- The latest released chart version. Check the [chart releases](https://github.com/CopilotKit/Intelligence/pkgs/container/charts%2Fintelligence) on GHCR; substitute the value into the `<chart-version>` placeholder used throughout this guide (for example, `0.1.0-rc.16`).
 
 **Cluster and tooling:**
 
@@ -70,7 +70,7 @@ Before starting, make sure the following are in place. [CopilotKit Intelligence 
 <OpsPlatformCTA
   variant="inline"
   title="Planning a self-hosted CopilotKit Intelligence deployment?"
-  body="Self-hosting is available on the Team self-hosted plan or a custom Enterprise plan for VPC, on-prem, and data-residency deployments."
+  body="Self-hosting is available on the Team Self-hosted plan or a custom Enterprise plan for VPC, on-prem, and data-residency deployments."
   ctaLabel="Talk to an engineer"
   surface="docs_intelligence_self_hosting_intro"
   href="https://copilotkit.ai/talk-to-an-engineer"
@@ -208,7 +208,7 @@ Before starting, make sure the following are in place. [CopilotKit Intelligence 
     - `migrations.enabled: true`: **required for first install**; defaults to `false`. Without it the database schema is never applied and `app-api` will crashloop. (The eval overlay `values-quickstart-local.yaml` sets this for you when you layer on top of it.)
 
     <Callout type="warn" title="OIDC issuer URL: trailing slash matters">
-      Some providers (Auth0 in particular) only accept the issuer URL with a trailing slash (e.g. `https://your-tenant.auth0.com/`). A missing or extra slash produces an opaque "issuer mismatch" failure at login time. Match the value exactly to what your provider's discovery endpoint advertises.
+      Some providers (Auth0 in particular) only accept the issuer URL with a trailing slash (for example, `https://your-tenant.auth0.com/`). A missing or extra slash produces an opaque "issuer mismatch" failure at login time. Match the value exactly to what your provider's discovery endpoint advertises.
     </Callout>
 
     See the [Configuration reference](#configuration-reference) section for the full set of values.
@@ -222,7 +222,7 @@ Before starting, make sure the following are in place. [CopilotKit Intelligence 
 
     **Path A: External Secrets Operator (recommended for production)**
 
-    1. Make sure that your secret backend (AWS Secrets Manager, Vault, etc.) has entries for the database URL, Redis URL, and auth credentials.
+    1. Make sure that your secret backend (such as AWS Secrets Manager or Vault) has entries for the database URL, Redis URL, and auth credentials.
     2. Create a `ClusterSecretStore` (or `SecretStore`) that references that backend.
     3. In `my-values.yaml`, set `externalSecrets.enabled: true`, `externalSecrets.store.kind`, and `externalSecrets.store.name` to match. The chart then generates `ExternalSecret` resources that sync those entries into Kubernetes Secrets at the names `app-api` expects.
 
@@ -479,7 +479,7 @@ The tables below summarize the most common values. For every option, see `values
 | `<svc>.autoscaling.minReplicas`    | HPA minimum                                                                  | `2` for all three                                                                                          |
 | `<svc>.autoscaling.maxReplicas`    | HPA maximum                                                                  | appApi: `10`<br />appFrontend: `4`<br />realtimeGateway: `10`                                              |
 | `<svc>.serviceAccount.annotations` | Annotations on the ServiceAccount (IRSA, workload identity)                  | `{}` for all three                                                                                         |
-| `<svc>.podAnnotations`             | Pod template annotations (e.g. for Stakater Reloader on ESO secret rotation) | appApi: `{}`<br />appFrontend: n/a<br />realtimeGateway: `{}`                                              |
+| `<svc>.podAnnotations`             | Pod template annotations (for example, for Stakater Reloader on ESO secret rotation) | appApi: `{}`<br />appFrontend: n/a<br />realtimeGateway: `{}`                                              |
 
 The published chart fully qualifies the image repositories to `ghcr.io/copilotkit/intelligence/<svc>`.
 
@@ -534,7 +534,7 @@ Enabling the realtime gateway requires that either `realtimeGateway.existingSecr
 | `objectStorage.enabled`        | Persist AG-UI events from the realtime gateway to S3-compatible storage | `false`     |
 | `objectStorage.bucket`         | Bucket name                                                             | `""`        |
 | `objectStorage.region`         | Bucket region                                                           | `us-east-1` |
-| `objectStorage.endpoint`       | S3-compatible endpoint override (e.g. for MinIO)                        | `""`        |
+| `objectStorage.endpoint`       | S3-compatible endpoint override (for example, for MinIO)                | `""`        |
 | `objectStorage.forcePathStyle` | Force path-style addressing (required for MinIO)                        | `false`     |
 | `objectStorage.existingSecret` | Secret with static access keys (optional if using IRSA)                 | `""`        |
 

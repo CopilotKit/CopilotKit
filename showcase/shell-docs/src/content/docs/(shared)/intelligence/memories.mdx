@@ -112,7 +112,7 @@ created with a new `id`. The change set you supply is the complete definition of
 the new memory.
 
 <Callout type="warn">
-Omitting `sourceThreadIds` on an update does not preserve the previous value, it
+Omitting `sourceThreadIds` on an update does not preserve the previous value. It
 resets the new memory's source threads to empty. Re-send `content`, `kind`, and
 any `sourceThreadIds` you want to keep.
 </Callout>
@@ -145,7 +145,7 @@ or a dependency outage all deny memory rather than allowing it.
 This section is for operators who run [self-hosted Intelligence](/intelligence/self-hosting). On cloud-hosted Intelligence, skip to [Cloud-hosted](#cloud-hosted).
 
 The signed deployment license is the authority. Memory is available when that
-license carries the `memory` feature, which today ships in the enterprise plan.
+license carries the `memory` feature, which the Enterprise plan includes.
 If your license does not include it, no amount of configuration will mount the
 surfaces, and the correct next step is to talk to us about the license rather
 than to keep editing values files.
@@ -275,7 +275,7 @@ A missing return is treated as a broken policy rather than a restrictive one,
 so a branch that forgets to `return` fails loudly instead of quietly switching
 memory off.
 
-A grant that allows one scope and not the other is honoured exactly: a
+A grant that allows one scope and not the other is honored exactly: a
 `{ user: "read", project: "none" }` grant registers `recall_memory` alone,
 scoped to user memory, and leaves `save_memory` and `forget_memory` unregistered
 so the agent never sees a tool it may not call.
@@ -293,9 +293,9 @@ Configuring `memory` turns on `/memories`, `/memories/recall`,
 they did not exist, so an un-opted-in deployment reveals nothing about memory
 even when Intelligence is configured.
 
-The older `exposeMemoryRoutes: true` flag did the mounting without the policy
-and is deprecated. `memory.access` replaces it: one option that both exposes
-the surfaces and bounds what they may do.
+The deprecated `exposeMemoryRoutes: true` flag mounts the routes without a
+policy. Use `memory.access` instead: one option that both exposes the surfaces
+and bounds what they can do.
 
 ### Channels grant memory per run instead
 
