@@ -69,7 +69,7 @@ Before you begin, you'll need the following:
           The starter contains three pieces:
 
           - `agent/main.py` - the FastAPI app built with the adapter's `create_antigravity_app`, mounting one `AntigravityAgent` with a weather tool
-          - `src/app/api/copilotkit/[[...slug]]/route.ts` - the CopilotKit runtime route that proxies to the agent with `HttpAgent`
+          - `src/app/api/copilotkit/[[...slug]]/route.ts` - the Copilot Runtime route that proxies to the agent with `HttpAgent`
           - `src/app/page.tsx` - a page demonstrating a frontend tool, a rendered backend tool, and a human-in-the-loop picker
         </Step>
 
@@ -93,9 +93,9 @@ Before you begin, you'll need the following:
           ```
 
           `npm install` also runs the agent's `uv sync` (postinstall), so the
-          Python side — including the Antigravity SDK, whose wheel bundles
-          the Go harness binary — is installed too. Make sure `uv` is on your
-          `PATH` before running it.
+          Python side is installed too. That includes the Antigravity SDK, whose
+          wheel bundles the Go harness binary. Make sure that `uv` is on your
+          `PATH` before you run it.
         </Step>
 
         <Step>
@@ -138,7 +138,7 @@ Before you begin, you'll need the following:
         <Step>
           ### Expose Google Antigravity over AG-UI
 
-          CopilotKit talks to agents over AG-UI. The adapter's `create_antigravity_app` builds a FastAPI app that streams AG-UI events straight from the harness — you don't hand-roll the event loop yourself.
+          CopilotKit talks to agents over AG-UI. The adapter's `create_antigravity_app` builds a FastAPI app that streams AG-UI events straight from the harness, so you do not write the event loop yourself.
 
           ```python title="main.py"
           import os
@@ -200,7 +200,7 @@ Before you begin, you'll need the following:
         </Step>
 
         <Step>
-          ### Add the CopilotKit runtime route
+          ### Add the Copilot Runtime route
 
           Create `app/api/copilotkit/route.ts` in your Next.js app. It registers your Antigravity agent as an AG-UI `HttpAgent`.
 
@@ -307,7 +307,7 @@ Before you begin, you'll need the following:
         - If the runtime cannot reach the agent, check that the FastAPI server is running on `http://localhost:8000` or set `AGENT_URL` in the frontend.
         - If the agent refuses to start or every chat turn fails with "a Gemini API key is required", set `GEMINI_API_KEY`. `GOOGLE_API_KEY` is not read.
         - If a tool call looks like it's hanging, check whether it's a frontend tool: those park as an awaited coroutine across HTTP runs until the browser resolves them, so nothing happens server-side until your UI responds.
-        - If a run fails mid-tool-call with a vague "invalid tool call" error, check your `workspaces` path length. A long, high-entropy path (like a generated temp directory) makes the model reproduce it wrongly and causes intermittent failures — use something short and stable instead.
+        - If a run fails mid-tool-call with a vague "invalid tool call" error, check your `workspaces` path length. A long, high-entropy path (like a generated temp directory) makes the model reproduce it wrongly and causes intermittent failures. Use something short and stable instead.
       </Accordion>
     </Accordions>
   </Step>

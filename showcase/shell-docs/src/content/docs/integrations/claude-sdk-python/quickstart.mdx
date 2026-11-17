@@ -52,7 +52,7 @@ Before you begin, you'll need the following:
 
           - `agent/main.py` - the FastAPI server that serves the agent over AG-UI
           - `agent/src/agent.py` - the agent: its backend tools and the `ClaudeAgentAdapter`
-          - `src/app/api/copilotkit/[[...slug]]/route.ts` - the CopilotKit runtime route that proxies to the agent
+          - `src/app/api/copilotkit/[[...slug]]/route.ts` - the Copilot Runtime route that proxies to the agent
         </Step>
 
         <Step>
@@ -242,7 +242,7 @@ Before you begin, you'll need the following:
         </Step>
 
         <Step>
-          ### Add the CopilotKit runtime route
+          ### Add the Copilot Runtime route
 
           Create `app/api/copilotkit/route.ts` in your Next.js app. It registers the Python agent server as an AG-UI `HttpAgent`.
 
