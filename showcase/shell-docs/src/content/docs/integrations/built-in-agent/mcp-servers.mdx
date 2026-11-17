@@ -146,7 +146,7 @@ const builtInAgent = new BuiltInAgent({
 
 ## User-managed MCP clients
 
-The `mcpServers` approach creates a fresh MCP connection on every agent run. For latency-sensitive setups (or when you need persistent connections, dynamic auth, or tool caching), use `mcpClients` instead. You create and manage the MCP client yourself; the agent just calls `.tools()` to get tool definitions.
+The `mcpServers` approach creates a fresh MCP connection on every agent run. For latency-sensitive setups (or when you need persistent connections, dynamic auth, or tool caching), use `mcpClients` instead. You create and manage the MCP client yourself; the agent calls `.tools()` to get tool definitions.
 
 The Built-in Agent runs on AI SDK 6, so install `@ai-sdk/mcp` from its `ai-v6` release line:
 
