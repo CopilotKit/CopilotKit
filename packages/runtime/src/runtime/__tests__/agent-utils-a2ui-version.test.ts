@@ -163,16 +163,22 @@ class ScriptedAgent extends AbstractAgent {
   }
 }
 
+/** The generative UI options of a runtime. */
+type GenerativeUIRuntimeOptions = Pick<
+  CopilotKitRuntimeOptions,
+  "generativeUI" | "a2ui"
+>;
+
 function runtimeWith(
-  generativeUI: CopilotKitRuntimeOptions["generativeUI"],
+  options: GenerativeUIRuntimeOptions,
   agent: AbstractAgent,
 ) {
-  return new CopilotKitRuntime({ agents: { default: agent }, generativeUI });
+  return new CopilotKitRuntime({ agents: { default: agent }, ...options });
 }
 
 /** Configures `agent` for one "tool" run and runs it. */
 async function runConfigured(
-  generativeUI: CopilotKitRuntimeOptions["generativeUI"],
+  options: GenerativeUIRuntimeOptions,
   script: BaseEvent[],
   messages: Message[] = [],
   forwardedProps: Record<string, unknown> = {
@@ -182,7 +188,7 @@ async function runConfigured(
   const agent = new ScriptedAgent();
   agent.script = script;
   configureAgentForRequest({
-    runtime: runtimeWith(generativeUI, agent),
+    runtime: runtimeWith(options, agent),
     request: new Request("http://localhost/run"),
     agentId: "default",
     agent,
@@ -233,7 +239,10 @@ describe("resolveA2UIVersion", () => {
 
 describe("configureAgentForRequest with a2uiVersion", () => {
   it("gives a v0.9 agent render_a2ui and the v0.9 catalog, and no render_ui", async () => {
-    const { input } = await runConfigured({ a2uiVersion: "0.9" }, emptyRun);
+    const { input } = await runConfigured(
+      { generativeUI: { a2uiVersion: "0.9" } },
+      emptyRun,
+    );
 
     const toolNames = input.tools.map((tool) => tool.name);
     expect(toolNames).toContain(RENDER_A2UI_TOOL_NAME);
@@ -256,7 +265,7 @@ describe("configureAgentForRequest with a2uiVersion", () => {
   it("replaces a stale catalog entry instead of adding a second one", async () => {
     const agent = new ScriptedAgent();
     configureAgentForRequest({
-      runtime: runtimeWith({ a2uiVersion: "0.9" }, agent),
+      runtime: runtimeWith({ generativeUI: { a2uiVersion: "0.9" } }, agent),
       request: new Request("http://localhost/run"),
       agentId: "default",
       agent,
@@ -277,7 +286,7 @@ describe("configureAgentForRequest with a2uiVersion", () => {
 
   it("gives a 1.0 agent render_ui and no v0.9 tool or prompt", async () => {
     const { input } = await runConfigured(
-      { a2uiVersion: { legacy: "0.9" } },
+      { generativeUI: { a2uiVersion: { legacy: "0.9" } } },
       emptyRun,
     );
 
@@ -296,7 +305,7 @@ describe("configureAgentForRequest with a2uiVersion", () => {
   ])(
     "converts the v0.9 operations of a tool result to a 1.0 surface for %s",
     async (_name, generativeUI) => {
-      const { events } = await runConfigured(generativeUI, toolResultRun);
+      const { events } = await runConfigured({ generativeUI }, toolResultRun);
 
       const snapshots = activitySnapshots(events);
       expect(snapshots).toEqual([
@@ -317,7 +326,7 @@ describe("configureAgentForRequest with a2uiVersion", () => {
 
   it("converts the streamed render_a2ui surface of a v0.9 agent", async () => {
     const { events } = await runConfigured(
-      { a2uiVersion: "0.9" },
+      { generativeUI: { a2uiVersion: "0.9" } },
       renderA2UIRun,
     );
 
@@ -337,6 +346,43 @@ describe("configureAgentForRequest with a2uiVersion", () => {
   });
 });
 
+describe("the deprecated a2ui option", () => {
+  it("gives the agents of a2ui the v0.9 tool and catalog, as a2uiVersion 0.9 does", async () => {
+    const { input } = await runConfigured(
+      { a2ui: { injectA2UITool: true } },
+      emptyRun,
+    );
+
+    const toolNames = input.tools.map((tool) => tool.name);
+    expect(toolNames).toContain(RENDER_A2UI_TOOL_NAME);
+    expect(toolNames).not.toContain(GENERATIVE_UI_RENDER_TOOL);
+    const descriptions = input.context.map((entry) => entry.description);
+    expect(descriptions).toContain(A2UI_SCHEMA_CONTEXT_DESCRIPTION);
+  });
+
+  it("leaves the agents on 1.0 when a2ui is turned off", async () => {
+    const { input } = await runConfigured(
+      { a2ui: { enabled: false, injectA2UITool: true } },
+      emptyRun,
+    );
+
+    const toolNames = input.tools.map((tool) => tool.name);
+    expect(toolNames).toContain(GENERATIVE_UI_RENDER_TOOL);
+    expect(toolNames).not.toContain(RENDER_A2UI_TOOL_NAME);
+  });
+
+  it("uses generativeUI over a2ui when both are set", async () => {
+    const { input } = await runConfigured(
+      { generativeUI: true, a2ui: { injectA2UITool: true } },
+      emptyRun,
+    );
+
+    const toolNames = input.tools.map((tool) => tool.name);
+    expect(toolNames).toContain(GENERATIVE_UI_RENDER_TOOL);
+    expect(toolNames).not.toContain(RENDER_A2UI_TOOL_NAME);
+  });
+});
+
 describe("a click on a converted surface", () => {
   const firstTurn: Message[] = [
     { id: "u1", role: "user", content: "Which plans are there?" },
@@ -350,7 +396,7 @@ describe("a click on a converted surface", () => {
 
   it("reaches a v0.9 agent once, as the private A2UI action message", async () => {
     const { input } = await runConfigured(
-      { a2uiVersion: "0.9" },
+      { generativeUI: { a2uiVersion: "0.9" } },
       emptyRun,
       [...firstTurn, clickMessage],
       { copilotkit: { ui: envelope(action) } },
@@ -383,7 +429,7 @@ describe("a click on a converted surface", () => {
 
   it("reaches a 1.0 agent as the visible user message", async () => {
     const { input } = await runConfigured(
-      undefined,
+      {},
       emptyRun,
       [...firstTurn, clickMessage],
       { copilotkit: { ui: envelope(action) } },
@@ -397,7 +443,10 @@ describe("a click on a converted surface", () => {
     // The in-memory store is shared by every runner in the process.
     const threadId = `a2ui-click-${crypto.randomUUID()}`;
     const agent = new ScriptedAgent();
-    const runtime = runtimeWith({ a2uiVersion: "0.9" }, agent);
+    const runtime = runtimeWith(
+      { generativeUI: { a2uiVersion: "0.9" } },
+      agent,
+    );
     const response = await handleRunAgent({
       runtime,
       agentId: "default",

@@ -199,6 +199,36 @@ interface CopilotRuntimeMiddlewares {
    * the UI in a2ui code fences, and the client renders them.
    */
   generativeUI?: boolean | GenerativeUIOptions;
+  /**
+   * @deprecated Use `generativeUI`. The runtime passes `a2ui` on to
+   * `generativeUI` with `a2uiVersion: "0.9"`, which keeps the v0.9 behavior
+   * for the agents: `a2ui: { agents, injectA2UITool }` works as
+   * `generativeUI: { a2uiVersion: "0.9", agents, injectA2UITool }`. When
+   * `generativeUI` is set too, the runtime uses `generativeUI` and ignores
+   * `a2ui`. See https://docs.copilotkit.ai/generative-ui/components/from-a2ui
+   */
+  a2ui?: Omit<GenerativeUIOptions, "a2uiVersion"> & {
+    /**
+     * `false` turns A2UI off and keeps the other options in place. Omitted
+     * or `true`: on.
+     */
+    enabled?: boolean;
+  };
+}
+
+/**
+ * The `generativeUI` option that the deprecated `a2ui` option stands for: its
+ * options with `a2uiVersion: "0.9"`. `undefined` when `a2ui` is turned off,
+ * or left out (the default).
+ */
+function generativeUIFromA2UI(
+  {
+    enabled = true,
+    ...options
+  }: NonNullable<CopilotRuntimeMiddlewares["a2ui"]> = { enabled: false },
+) {
+  if (!enabled) return undefined;
+  return { ...options, a2uiVersion: "0.9" } satisfies GenerativeUIOptions;
 }
 
 /**
@@ -603,8 +633,12 @@ abstract class BaseCopilotRuntime implements CopilotKitRuntimeLike {
       afterRequestMiddleware,
       mcpApps,
       openGenerativeUI,
-      generativeUI,
+      a2ui,
     } = options;
+    // The deprecated `a2ui` option stands for a `generativeUI`. When the app
+    // sets both, `generativeUI` wins.
+    const generativeUIOfA2UI = generativeUIFromA2UI(a2ui);
+    const { generativeUI = generativeUIOfA2UI } = options;
 
     this.agents = agents;
     this.transcriptionService = transcriptionService;
@@ -613,6 +647,12 @@ abstract class BaseCopilotRuntime implements CopilotKitRuntimeLike {
     this.mcpApps = mcpApps;
     this.openGenerativeUI = openGenerativeUI;
     this.generativeUI = generativeUI;
+    // oxlint-disable-next-line typescript/no-unnecessary-condition -- the package compiles without strictNullChecks, so the type leaves out undefined
+    if (generativeUIOfA2UI && generativeUI !== generativeUIOfA2UI) {
+      this.logger.warn(
+        '[CopilotKit] The runtime has both `generativeUI` and the deprecated `a2ui` option, so it ignores `a2ui`. Move its options into `generativeUI`, with `a2uiVersion: "0.9"` for the agents that write A2UI v0.9. See https://docs.copilotkit.ai/generative-ui/components/from-a2ui',
+      );
+    }
     this.runner = runner;
 
     // Resolve the license token once (matching the license-verifier's env

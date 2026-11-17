@@ -693,6 +693,14 @@ describe("handleGetRuntimeInfo", () => {
       ).toEqual({ enabled: true, agents: ["legacy"] });
     });
 
+    it("reports the agents of the deprecated a2ui option", async () => {
+      expect(
+        await getGenerativeUI(
+          new CopilotKitRuntime({ agents: {}, a2ui: { agents: ["legacy"] } }),
+        ),
+      ).toEqual({ enabled: true, agents: ["legacy"] });
+    });
+
     it("reports generative UI off when generativeUI is false", async () => {
       expect(
         await getGenerativeUI(
