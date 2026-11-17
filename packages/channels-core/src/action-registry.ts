@@ -945,7 +945,7 @@ export class ActionRegistry {
     }
     const openedAt = Date.now();
     const id = mintActionId();
-    const opened = this.store
+    const opened: Promise<void> = this.store
       .put(
         resumeGateKey(id),
         { path: [], conversationKey: "" },
@@ -953,9 +953,11 @@ export class ActionRegistry {
       )
       .then(() => {
         // A newer open may have superseded this write while it was pending.
-        // Its completion must gate this bind too, before it takes a snapshot.
-        if (this.resumeGates.get(continuation) !== gate) {
-          return this.ensureResumeGate(continuation);
+        // Join that open without rolling over to a fresh, unclaimed gate.
+        const latest = this.resumeGates.get(continuation);
+        if (latest !== gate) {
+          if (!latest) throw new ActionExpiredError(id);
+          return latest.opened;
         }
         continuation.resumeGateId = id;
         continuation.resumeGateDeadline = openedAt + this.retentionMs * 2;

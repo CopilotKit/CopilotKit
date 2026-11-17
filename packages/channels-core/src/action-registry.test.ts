@@ -349,9 +349,13 @@ describe("ActionRegistry", () => {
       ).rejects.toBeInstanceOf(ActionAlreadyClaimedError);
     });
 
-    it.each(["older", "newer"])(
-      "joins the current gate when the %s write completes first",
-      async (firstToComplete) => {
+    it.each([
+      ["older", 0],
+      ["newer", 0],
+      ["newer", 100],
+    ] as const)(
+      "joins the current gate when the %s write completes first with %i ms extra delay",
+      async (firstToComplete, extraDelay) => {
         vi.useFakeTimers();
         const writes = [0, 1].map(() => ({
           started: deferred(),
@@ -363,10 +367,12 @@ describe("ActionRegistry", () => {
           const put = store.put.bind(store);
           let gateWrites = 0;
           vi.spyOn(store, "put").mockImplementation(async (key, snap, ttl) => {
-            if (key.startsWith("resume:") && gateWrites < writes.length) {
-              const write = writes[gateWrites++]!;
-              write.started.resolve();
-              await write.released.promise;
+            if (key.startsWith("resume:") && !key.startsWith("resume:spent:")) {
+              const write = writes[gateWrites++];
+              if (write) {
+                write.started.resolve();
+                await write.released.promise;
+              }
             }
             await put(key, snap, ttl);
           });
@@ -402,11 +408,13 @@ describe("ActionRegistry", () => {
           writes[1]!.released.resolve();
           const currentId = await newer;
           await reg.claimContinuation(currentId, continuation);
+          const siblingId = await bind();
+          vi.advanceTimersByTime(extraDelay);
           writes[0]!.released.resolve();
           const oldId = await older;
-          const siblingId = await bind();
           reg.clearHotCache();
 
+          expect.soft(gateWrites).toBe(2);
           await expect(
             reg.claimContinuation(oldId, continuation),
           ).rejects.toBeInstanceOf(ActionAlreadyClaimedError);
@@ -421,7 +429,7 @@ describe("ActionRegistry", () => {
       },
     );
 
-    it("retries the current gate when a superseding write failed", async () => {
+    it("rejects a superseded bind after failure but lets a fresh bind retry", async () => {
       vi.useFakeTimers();
       let release!: () => void;
       let started!: () => void;
@@ -464,13 +472,18 @@ describe("ActionRegistry", () => {
         await reached;
         vi.advanceTimersByTime(100);
         await expect(bind()).rejects.toThrow("store unavailable");
+        const refused =
+          expect(older).rejects.toBeInstanceOf(ActionExpiredError);
         release();
-        const oldId = await older;
+        await refused;
+        expect(gateWrites).toBe(2);
         const currentId = await bind();
+        const siblingId = await bind();
+        expect(gateWrites).toBe(3);
 
-        await reg.claimContinuation(oldId, continuation);
+        await reg.claimContinuation(currentId, continuation);
         await expect(
-          reg.claimContinuation(currentId, continuation),
+          reg.claimContinuation(siblingId, continuation),
         ).rejects.toBeInstanceOf(ActionAlreadyClaimedError);
       } finally {
         release();
