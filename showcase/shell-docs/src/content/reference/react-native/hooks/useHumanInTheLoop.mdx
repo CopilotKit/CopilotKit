@@ -60,7 +60,7 @@ function useHumanInTheLoop<T extends Record<string, unknown>>(
 
     **When `status` is `ToolCallStatus.Complete`:**
     - `args: T`: the original arguments
-    - `respond: undefined`: no longer available
+    - `respond: undefined`: not available, because the user already responded
     - `result: string`: the serialized result
 
   </PropertyReference>

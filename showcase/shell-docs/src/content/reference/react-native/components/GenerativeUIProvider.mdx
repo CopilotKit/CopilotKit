@@ -73,11 +73,14 @@ import { GenerativeUIProvider } from "@copilotkit/react-native/generative-ui";
     goes back to the model as the result of the call.
 
     Some failures only warn in development and reach neither `onError` nor a
-    `Wrapper`, so a release build shows nothing for them: malformed activity
-    content (the provider skips it), a `GenerativeUIActivity` that renders
-    nothing for a missing provider, `ui`, `agent` or `threadId`, and a
-    `GenerativeUISurface` under a provider without `ui`. An error that
-    `onGenerationStart` throws is only logged with `console.error`.
+    `Wrapper`, so a release build shows nothing for them:
+
+    - Malformed activity content. The provider skips it.
+    - A `GenerativeUIActivity` that renders nothing for a missing provider,
+      `ui`, `agent` or `threadId`.
+    - A `GenerativeUISurface` under a provider without `ui`.
+
+    An error that `onGenerationStart` throws is only logged with `console.error`.
   </PropertyReference>
 
   <PropertyReference name="fallback" type="(props: { error: Error; retry: () => void; surfaceId: string; componentId: string }) => ReactNode">

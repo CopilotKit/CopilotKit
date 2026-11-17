@@ -98,7 +98,18 @@ function useFrontendTool<T extends Record<string, unknown>>(
   </PropertyReference>
 
   <PropertyReference name="reconnectBehavior" type='"passive" | "resume-pending"' default='"passive"'>
-    What happens to a call of this tool that is still unanswered when the thread's history is restored, for example after the app reloads. With `"passive"`, the call is shown but the handler does not run. With `"resume-pending"`, the handler runs for that call with `isReplay: true` in its context, and the run then continues as usual. Opt in only for a handler that is safe to run more than once. A call does not start twice at the same time in one app. A call can run again after a stop or a thread switch, if its result never reached the agent. Two devices that restore the same thread can each run the call. If the agent calls this tool together with a tool that stays passive, the follow-up run sends the passive call without a result, which some model providers reject.
+    What happens to a call of this tool that is still unanswered when the thread's history is restored, for example after the app reloads:
+
+    - `"passive"`: the call is shown, but the handler does not run.
+    - `"resume-pending"`: the handler runs for that call with `isReplay: true` in its context. Then the run continues as usual.
+
+    Opt in only for a handler that is safe to run more than once. With `"resume-pending"`:
+
+    - A call does not start twice at the same time in one app.
+    - A call can run again after a stop or a thread switch, if its result never reached the agent.
+    - Two devices that restore the same thread can each run the call.
+
+    If the agent calls this tool together with a tool that stays passive, the follow-up run sends the passive call without a result. Some model providers reject that.
   </PropertyReference>
 </PropertyReference>
 
