@@ -13,8 +13,8 @@ export const blockFeedback = z.object({
 export const pageFeedback = z.object({
   opinion: z.enum(["good", "bad"]),
   /** full URL of page where fired */
-  url: z.string(),
-  message: z.string(),
+  url: z.string().check(z.maxLength(500)),
+  message: z.string().check(z.maxLength(2_000)),
 });
 
 export const actionResponse = z.object({

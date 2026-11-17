@@ -3,6 +3,7 @@ import { registerSearchTool } from "fumadocs-core/mcp";
 import { z } from "zod";
 import { liveSearch } from "@/lib/llms/live-search";
 import { getPageMarkdown, listPages } from "@/lib/llms/page-tools";
+import { clientKey, createRateLimit } from "@/lib/rate-limit";
 
 // The docs' MCP server for outside agents (Claude Code, Cursor, ...):
 // `list_pages`, `get_page`, and `search`, the tools Fumadocs' own
@@ -43,12 +44,27 @@ const handler = createMcpHandler(() => {
   return mcp;
 });
 
+// Calls per client. Every page read renders the page's Markdown, so a busy
+// agent can read the site at a good clip, but one client can't keep the
+// server rendering for everyone else.
+const perMinute = createRateLimit({ limit: 120, windowMs: 60_000 });
+
+function limited(request: Request): Response | null {
+  const result = perMinute(clientKey(request));
+  return result.ok
+    ? null
+    : Response.json(
+        { error: "Too many requests. Try again in a moment." },
+        { status: 429, headers: { "Retry-After": String(result.retryAfter) } },
+      );
+}
+
 export async function GET(request: Request) {
-  return handler.fetch(request);
+  return limited(request) ?? handler.fetch(request);
 }
 
 export async function POST(request: Request) {
-  return handler.fetch(request);
+  return limited(request) ?? handler.fetch(request);
 }
 
 export async function DELETE(request: Request) {

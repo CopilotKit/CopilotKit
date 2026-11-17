@@ -7,6 +7,21 @@ const withMDX = createMDX();
 /** @type {import('next').NextConfig} */
 const config = {
   reactStrictMode: true,
+  poweredByHeader: false,
+
+  // Baseline response headers. No frame or CSP rules: the docs embed live
+  // demos and are embedded in turn, so those need their own review.
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+        ],
+      },
+    ];
+  },
 
   // The standard catalog imports its samples from ../shared. The Docker build
   // (Dockerfile) has no monorepo lockfile for Turbopack to infer a root from,
