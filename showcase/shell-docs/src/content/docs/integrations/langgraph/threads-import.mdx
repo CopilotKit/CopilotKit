@@ -17,7 +17,7 @@ Keep your LangGraph agent and its durable storage connected so you can continue 
 
 ## Include earlier conversations (optional)
 
-To let users reopen conversations recorded before Intelligence was connected, use the importer below to copy supported historical content. Importing does not enable live delivery or establish ongoing database replication, and it cannot recover history the source no longer exposes.
+To let users reopen conversations recorded before Intelligence was connected, use the importer below to copy supported historical content. Importing does not enable live delivery or establish ongoing database replication, and it cannot recover history that is missing from the source.
 
 The LangGraph importer reads saved conversations from LangGraph Server / LangSmith deployments (Python or TypeScript) and Python FastAPI apps with durable persistence. It brings over saved messages, rich tool results, attachments, and agent state where available. Some interactive content, such as MCP app views, may not have been saved in the original history.
 
@@ -116,7 +116,7 @@ Start with a preview. This reads the source, discovers graph IDs, counts convers
 
 ## Map graph IDs to CopilotKit agent IDs
 
-Map each source graph ID to the `agentId` your live CopilotKit runtime uses. For LangSmith, use the discovered `graph_id`. For FastAPI, use the `graph_id` you supplied when exporting.
+Map each source graph ID to the `agentId` your live Copilot Runtime uses. For LangSmith, use the discovered `graph_id`. For FastAPI, use the `graph_id` you supplied when exporting.
 
 ```json title="agent-map.json"
 {
