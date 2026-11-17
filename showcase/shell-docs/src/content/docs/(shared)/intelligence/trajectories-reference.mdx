@@ -10,7 +10,7 @@ search: false
 
 ## Overview
 
-This page lists the `learning` prop, the Core methods, and the `CopilotKitIntelligence` options that control Trajectory capture. To set up capture, see [Capture interactions](/intelligence/capture-interactions); for the fields in each event, see [Captured data](/intelligence/captured-data).
+Use this reference when you set up or debug Trajectory capture. It lists the `learning` prop, the Core methods, the error codes, and the `CopilotKitIntelligence` options. To set up capture, see [Capture interactions](/intelligence/capture-interactions); for the fields in each event, see [Captured data](/intelligence/captured-data).
 
 ## `learning` prop on `CopilotKitProvider`
 
@@ -84,7 +84,7 @@ This page lists the `learning` prop, the Core methods, and the `CopilotKitIntell
   </PropertyReference>
 
   <PropertyReference name="appVersion" type="string">
-    Your app's version, such as a release tag or commit. Capture sends it as `appVersion` in the `page` event at start, so Learning can tell app releases apart. Values longer than 200 characters are cut.
+    Your app's version, such as a release tag or commit. Capture sends it as `appVersion` in the `page` event at start, so Automatic Learning can tell app releases apart. Values longer than 200 characters are cut.
   </PropertyReference>
 
   <PropertyReference name="onError" type="(error: { code: string; message: string }) => void">
