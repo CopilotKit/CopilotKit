@@ -105,7 +105,7 @@ npx copilotkit create -f mcp-apps
     ```
 
     <Callout type="info" title="Server ID">
-      Always provide a `serverId` for production deployments. Without it, CopilotKit generates a hash from the server URL. If your URL changes (for example, between environments), MCP Apps stored in earlier conversation history do not load correctly.
+      Always provide a `serverId` for production deployments. Without it, CopilotKit generates a hash from the server URL. If your URL changes (for example, between environments), MCP Apps already saved in conversation history do not load correctly.
     </Callout>
 
     Alternatively, if you want to scope MCP Apps to specific agents, you can use `MCPAppsMiddleware` directly on the agent via `.use()`:
@@ -286,7 +286,7 @@ MCP Apps integrate fully with CopilotKit's threading system:
 
 - **Persistence**: when you save a thread, MCP Apps are stored as part of the conversation history.
 - **Restoration**: loading a thread restores all MCP Apps with their original state.
-- **Server ID stability**: with consistent `serverId` values, MCP Apps load correctly across sessions
+- **Server ID stability**: with consistent `serverId` values, MCP Apps load correctly across sessions.
 
 ## Example MCP Servers
 
