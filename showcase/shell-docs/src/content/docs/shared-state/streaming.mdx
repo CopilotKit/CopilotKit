@@ -13,7 +13,7 @@ snippet_cell: shared-state-streaming
 By default, agent state only updates *between* backend checkpoints, so
 a long-running tool call (writing a full document, drafting an email)
 appears to the UI as one big burst at the end. For agent-native apps,
-that feels broken: users expect to watch the output materialise.
+that feels broken: users expect to watch the output materialize.
 
 **State streaming** copies one tool argument into an agent state key
 while the model writes the argument.
@@ -48,7 +48,7 @@ to one shared-state key. Each framework does this in its own way:
 When the LLM streams that argument, CopilotKit writes every partial value
 into shared state before the tool even finishes executing.
 
-<Snippet region="state-streaming-middleware" title="backend — streaming state mapping" />
+<Snippet region="state-streaming-middleware" title="backend: streaming state mapping" />
 
 A few things to note:
 
@@ -66,9 +66,9 @@ The UI side is the same as any other [shared-state](/shared-state) subscription:
 `useAgent` with `OnStateChanged` gives you a reactive `agent.state`.
 Add `OnRunStatusChanged` if you want a "LIVE" / "done" indicator.
 
-<Snippet region="frontend-use-coagent-state" title="frontend/src/app/page.tsx — useAgent subscription" />
+<Snippet region="frontend-use-coagent-state" title="frontend/src/app/page.tsx: useAgent subscription" />
 
-From there, `agent.state.document` is just a string that grows on every
+From there, `agent.state.document` is a string that grows on every
 token, and `agent.isRunning` tells you whether to show a streaming
 indicator.
 

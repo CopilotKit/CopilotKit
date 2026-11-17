@@ -49,7 +49,7 @@ re-renders with the new values.
 
 <Snippet region="use-agent-read" cell="shared-state-read-write" title="frontend/src/app/page.tsx: useAgent subscription" />
 
-The returned `agent.state` is just a plain object. Read it like any other
+The returned `agent.state` is a plain object. Read it like any other
 piece of React state and render the parts you care about: agent-written
 notes, structured outputs, progress indicators, anything the agent has put
 there.
@@ -96,7 +96,7 @@ small card component and feeds user edits back through `setState`.
 
 Nothing about this is chat-specific: `useAgent` works in any component under
 `<CopilotKit>`, so you can render `agent.state` in your main view or canvas,
-not just inside the chat panel. See
+not only inside the chat panel. See
 **[Render agent state in your app](/shared-state/rendering-in-app)** for the
 full main-view pattern.
 
