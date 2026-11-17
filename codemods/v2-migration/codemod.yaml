@@ -9,11 +9,11 @@ repository: "https://github.com/CopilotKit/CopilotKit"
 
 targets:
   # Keep this aligned with the files matched in workflow.yaml.
-  languages: ["typescript", "tsx"]
+  languages: ["typescript", "tsx", "html"]
 
 category: "migration"
 
-keywords: ["migration", "copilotkit", "react", "v2"]
+keywords: ["migration", "copilotkit", "react", "vue", "v2"]
 
 registry:
   access: "public"

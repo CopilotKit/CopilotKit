@@ -1,0 +1,18 @@
+<script lang="ts">
+import type { StreamingMarkdownAstNode } from "@copilotkit/markdown";
+
+export function nodeLabel(node: StreamingMarkdownAstNode) {
+  return node.type;
+}
+</script>
+
+<script setup lang="ts">
+import { useAgent, useKatexStyles } from "@copilotkit/vue";
+
+useKatexStyles();
+const { agent } = useAgent();
+</script>
+
+<template>
+  <p>{{ agent.agentId }}</p>
+</template>

@@ -6,9 +6,12 @@ import { migrateDeprecatedApis, migrateKitNames } from "./deprecated-apis.ts";
 import { migrateGenerativeUI } from "./generative-ui.ts";
 import { migrateA2UI } from "./a2ui-to-generative-ui.ts";
 import { migrateRuntimeAdapters } from "./runtime-adapters.ts";
-import { migrateCopilotActions } from "./copilot-action.ts";
+import {
+  migrateCopilotActions,
+  migrateVueCopilotActions,
+} from "./copilot-action.ts";
 import { migrateChatComponents } from "./chat-components.ts";
-import { migrateReadables } from "./readable.ts";
+import { migrateReadables, migrateVueReadables } from "./readable.ts";
 import { migrateCoAgents } from "./coagent.ts";
 import { migrateChatHooks } from "./chat-hook.ts";
 import { migrateGqlMessages } from "./gql-messages.ts";
@@ -39,6 +42,11 @@ const PATHS: Record<string, string> = {
   "@copilotkit/react-core/v2/context": "@copilotkit/react-core/context",
   "@copilotkit/react-core/v2/generative-ui":
     "@copilotkit/react-core/generative-ui",
+  "@copilotkit/vue/v2": "@copilotkit/vue",
+  "@copilotkit/vue/v2/generative-ui": "@copilotkit/vue/generative-ui",
+  "@copilotkit/vue/v2/generative-ui/chart":
+    "@copilotkit/vue/generative-ui/chart",
+  "@copilotkit/vue/v2/generative-ui/map": "@copilotkit/vue/generative-ui/map",
   "@copilotkit/runtime/v2": "@copilotkit/runtime",
   "@copilotkit/runtime/v2/node": "@copilotkit/runtime/node",
   "@copilotkit/shared/event-transforms": "@copilotkit/runtime",
@@ -54,6 +62,7 @@ const STYLESHEETS = new Set([
   "@copilotkit/react-ui/v2/styles.css",
   "@copilotkit/react-ui/styles.css",
   "@copilotkit/react-core/styles.css",
+  "@copilotkit/vue/styles.css",
 ]);
 
 /** Framework adapters were removed, not renamed: calls need manual migration. */
@@ -123,10 +132,14 @@ const MCP_NOTE =
   'Create each MCP client with `await createMCPClient({ transport: { type: "http", url } })` from "@tanstack/ai-mcp". Then pass the clients as `mcp: { clients: [client] }`.';
 const BUILT_IN_AGENT = builtInAgentOverrides();
 
-/** Decisions made for 2.0 that the v1 snapshot does not know about. */
+/**
+ * Decisions made for 2.0 that the v1 snapshot does not know about. A source
+ * that is not in the snapshot serves 2.0 too: only its names here are v1.
+ */
 const OVERRIDES: Record<string, Record<string, V1Export>> = {
   "@copilotkit/runtime/langgraph": langGraphOverrides(),
   "@copilotkit/runtime": { ...langGraphOverrides(), ...BUILT_IN_AGENT },
+  "@copilotkit/vue": vueV1Overrides(),
   "@copilotkit/react-ui": Object.fromEntries(
     [
       "CopilotChat",
@@ -160,6 +173,45 @@ function langGraphOverrides(): Record<string, V1Export> {
       "The enum members are named differently in `@ag-ui/langgraph`.",
     ]),
     PredictStateTool: move("PredictStateTool", []),
+  };
+}
+
+/**
+ * In 1.x, the `@copilotkit/vue` root served the 2.0 API next to v1 wrappers
+ * that 2.0 removed. These are the names of those wrappers. Every other name
+ * the root exports is a 2.0 name, so it needs no change.
+ */
+function vueV1Overrides() {
+  const docs = "https://docs.copilotkit.ai/reference/vue/hooks";
+  const use = (name: string, hook: string, notes: string[] = []) => ({
+    replacement: {
+      name,
+      importPath: "@copilotkit/vue",
+      docs: `${docs}/${hook}`,
+      notes,
+    },
+  });
+  return {
+    useCopilotAction: use("useFrontendTool", "useFrontendTool", [
+      'For `renderAndWaitForResponse`, use `useHumanInTheLoop`. For a render-only action (`available: "frontend"` or `"disabled"`) or a catch-all (`name: "*"`), use `useRenderTool`.',
+    ]),
+    useCopilotReadable: use("useAgentContext", "useAgentContext", [
+      "`useAgentContext` takes no deps and returns no id. To keep the context current, pass a ref, a getter or a reactive object as `value`.",
+    ]),
+    // Same name: only a use in the v1 shape gets this (see V1_SHAPES).
+    useFrontendTool: use("useFrontendTool", "useFrontendTool", [
+      "The v2 API uses a Zod schema instead of the v1 Parameter[] shape.",
+    ]),
+    FrontendAction: use("VueFrontendTool", "useFrontendTool"),
+    UseFrontendToolArgs: use("VueFrontendTool", "useFrontendTool"),
+    UseCopilotReadableOptions: use("AgentContextInput", "useAgentContext"),
+    CatchAllFrontendAction: {
+      typeOnly: true,
+      docs: `${docs}/useRenderTool`,
+      notes: [
+        'To draw every tool call, use `useRenderTool({ name: "*", render })`.',
+      ],
+    },
   };
 }
 
@@ -370,11 +422,15 @@ interface Specifier {
   text: string;
 }
 
-function specifiersOf(statement: Node): Specifier[] | null {
+/**
+ * The named specifiers of an import or re-export, or `null` when the
+ * statement names no single export: a default or namespace import, a
+ * side-effect import (`import "…";`), or `export * from`.
+ */
+function specifiersOf(statement: Node) {
   const list =
     statement.find({ rule: { kind: "named_imports" } }) ??
     statement.find({ rule: { kind: "export_clause" } });
-  // Default and namespace imports name no single export.
   const clause = statement.find({ rule: { kind: "import_clause" } });
   if (
     clause &&
@@ -382,7 +438,7 @@ function specifiersOf(statement: Node): Specifier[] | null {
   ) {
     return null;
   }
-  if (!list) return [];
+  if (!list) return null;
   return list
     .children()
     .filter((child) =>
@@ -459,12 +515,30 @@ function todoLines(name: string, entry: V1Export | undefined): string[] {
   );
 }
 
+/** What `migrateSource` needs to know about the code it migrates. */
+interface MigrateSourceOptions {
+  /**
+   * The ast-grep grammar: "typescript" for TypeScript, "tsx" for TSX and
+   * JavaScript. In "tsx", `<T>value` parses as JSX.
+   */
+  language: string;
+  /** The file the code is in. A2UI reads the modules it imports from there. */
+  filename: string;
+  /**
+   * Whether the code can have JSX. Must be `false` for "typescript": that
+   * grammar has no JSX node kinds, and a rule that names one throws.
+   */
+  jsx: boolean;
+}
+
 /**
- * Migrates one file:
+ * Migrates the code of one module:
  *
  * - `/v2` import paths become the package roots;
  * - imports of v1 APIs move to their 2.0 home when it has the same name and
  *   API, and get a TODO comment otherwise;
+ * - calls of the v1 `useCopilotAction` and `useCopilotReadable` of React and
+ *   Vue become the 2.0 hooks when every part of them converts;
  * - `BuiltInAgent` imports move to `@copilotkit/runtime/agent` (also from
  *   `/v2`), model strings become TanStack AI adapter calls, and the keys and
  *   exports that changed in 2.0 are marked;
@@ -480,31 +554,45 @@ function todoLines(name: string, entry: V1Export | undefined): string[] {
  *   `setActiveThreadId` instead of the removed `_setOverride`;
  * - generative UI APIs that changed in 2.0 are rewritten or marked (see
  *   `generative-ui.ts`).
+ *
+ * Returns the new code, or `null` when nothing changed. Whitespace before the
+ * code is kept.
+ *
+ * ```ts
+ * migrateSource(code, { language: "typescript", filename, jsx: false });
+ * ```
  */
-const codemod: Codemod<Lang> = async (root, options) => {
+export function migrateSource(code: string, options: MigrateSourceOptions) {
+  // ast-grep's root node starts after leading whitespace, but node offsets
+  // count it, and the passes read the root's text at node offsets. So the
+  // passes get the code without it, and the result gets it back.
+  const trimmed = code.trimStart();
+  const leading = code.slice(0, code.length - trimmed.length);
+  const reparse = (text: string) => parse<Lang>(options.language, text).root();
   // Passes that rewrite v1 code while the imports still say it is v1. Each
   // one returns the new source, or `null` when it changed nothing.
-  const jsxFile = !/\.[mc]?ts$/.test(root.filename());
   const prePasses: ((node: Node) => string | null)[] = [
     migrateRuntimeAdapters,
     migrateCopilotActions,
+    migrateVueCopilotActions,
     migrateReadables,
+    migrateVueReadables,
     migrateCoAgents,
     migrateChatHooks,
     migrateGqlMessages,
-    (node) =>
-      migrateV1Endpoints(node, (text) =>
-        parse<Lang>(options.language, text).root(),
-      ),
-    (node) => migrateChatComponents(node, jsxFile),
+    (node) => migrateV1Endpoints(node, reparse),
+    (node) => migrateChatComponents(node, options.jsx),
+    // Before the import pass: it edits the same Vue import when that import
+    // moves from `/v2` to the root, and two edits of one statement conflict.
+    migrateKatexStyles,
   ];
-  let rootNode = root.root();
+  let rootNode = reparse(trimmed);
   let migrated: string | null = null;
   for (const pass of prePasses) {
     const next = pass(rootNode);
     if (next === null) continue;
     migrated = next;
-    rootNode = parse<Lang>(options.language, next).root();
+    rootNode = reparse(next);
   }
   const source = rootNode.text();
   const edits: Edit[] = [];
@@ -614,7 +702,11 @@ const codemod: Codemod<Lang> = async (root, options) => {
     }
 
     const to = own(PATHS, from);
-    if (to === undefined && own(V1_API, from) === undefined) continue;
+    // Every name of a v1 entry point is v1. A source only in OVERRIDES
+    // serves 2.0 too: only its names there are v1.
+    const isV1Entry = own(V1_API, from) !== undefined;
+    const hasV1Names = isV1Entry || own(OVERRIDES, from) !== undefined;
+    if (to === undefined && !hasV1Names) continue;
     collectProviderNames(specifiers, from, providerNames);
     /** The source with its moved path: the 2.0 home of what did not move. */
     const home = to ?? from;
@@ -623,7 +715,7 @@ const codemod: Codemod<Lang> = async (root, options) => {
       .replace(sourceNode.text(), requote(sourceNode, home));
 
     if (specifiers === null) {
-      if (to === undefined) {
+      if (to === undefined && isV1Entry) {
         todos.push(
           `This import of "${from}" can't be migrated automatically. Import the 2.0 APIs by name: ${GUIDE}`,
         );
@@ -742,10 +834,7 @@ const codemod: Codemod<Lang> = async (root, options) => {
   }
 
   edits.push(...providerPropEdits(rootNode, providerNames, source));
-  // `.ts` files use the typescript grammar, which has no JSX node kinds.
-  const jsx = !/\.[mc]?ts$/.test(root.filename());
-  edits.push(...markdownRendererEdits(rootNode, source, jsx));
-  edits.push(...katexEdits(rootNode, source));
+  edits.push(...markdownRendererEdits(rootNode, source, options.jsx));
   edits.push(...markdownAstEdits(rootNode, source));
   edits.push(...licenseCheckerEdits(rootNode, source));
   edits.push(...chatApiEdits(rootNode, source));
@@ -756,44 +845,47 @@ const codemod: Codemod<Lang> = async (root, options) => {
   const migratedPaths =
     edits.length === 0 ? migrated : rootNode.commitEdits(edits);
   const deprecated = migrateDeprecatedApis(
-    migratedPaths === null
-      ? rootNode
-      : parse<Lang>(options.language, migratedPaths).root(),
-    jsx,
+    migratedPaths === null ? rootNode : reparse(migratedPaths),
+    options.jsx,
   );
   const latest = deprecated ?? migratedPaths;
   const generativeUI = migrateGenerativeUI(
-    latest === null ? rootNode : parse<Lang>(options.language, latest).root(),
+    latest === null ? rootNode : reparse(latest),
   );
   const afterGenerativeUI = generativeUI ?? latest;
   const angular = migrateAngularChatConfiguration(
-    afterGenerativeUI === null
-      ? rootNode
-      : parse<Lang>(options.language, afterGenerativeUI).root(),
+    afterGenerativeUI === null ? rootNode : reparse(afterGenerativeUI),
   );
   const afterAngular = angular ?? afterGenerativeUI;
   const a2ui = migrateA2UI(
-    afterAngular === null
-      ? rootNode
-      : parse<Lang>(options.language, afterAngular).root(),
-    (text) => parse<Lang>(options.language, text).root(),
-    root.filename(),
+    afterAngular === null ? rootNode : reparse(afterAngular),
+    reparse,
+    options.filename,
   );
   const afterA2UI = a2ui ?? afterAngular;
   const kitNames = migrateKitNames(
-    afterA2UI === null
-      ? rootNode
-      : parse<Lang>(options.language, afterA2UI).root(),
+    afterA2UI === null ? rootNode : reparse(afterA2UI),
   );
   const afterKitNames = kitNames ?? afterA2UI;
   // Last: merge the CopilotKit imports the earlier steps added.
   const merged = mergeCopilotKitImports(
-    afterKitNames === null
-      ? rootNode
-      : parse<Lang>(options.language, afterKitNames).root(),
+    afterKitNames === null ? rootNode : reparse(afterKitNames),
   );
-  return merged ?? afterKitNames;
-};
+  const result = merged ?? afterKitNames;
+  return result === null ? null : leading + result;
+}
+
+/**
+ * The codemod entry for `.ts`, `.tsx` and JavaScript files: migrates the whole
+ * file with `migrateSource`.
+ */
+const codemod: Codemod<Lang> = async (root, options) =>
+  migrateSource(root.root().text(), {
+    language: options.language,
+    filename: root.filename(),
+    // `.ts` files use the typescript grammar, which has no JSX node kinds.
+    jsx: !/\.[mc]?ts$/.test(root.filename()),
+  });
 
 function collectProviderNames(
   specifiers: Specifier[] | null,
@@ -961,9 +1053,13 @@ function markdownRendererEdits(
   return edits;
 }
 
-/** Deletes the import and the calls of the Vue `useKatexStyles`. */
-function katexEdits(rootNode: Node, source: string): Edit[] {
-  if (!source.includes("useKatexStyles")) return [];
+/**
+ * Deletes the import and the calls of the Vue `useKatexStyles`. Returns the
+ * new source, or `null` when the file does not use it.
+ */
+function migrateKatexStyles(rootNode: Node) {
+  const source = rootNode.text();
+  if (!source.includes("useKatexStyles")) return null;
   const edits: Edit[] = [];
   const localNames = new Set<string>();
   const imports = rootNode.findAll({ rule: { kind: "import_statement" } });
@@ -989,7 +1085,7 @@ function katexEdits(rootNode: Node, source: string): Edit[] {
           ),
     );
   }
-  if (localNames.size === 0) return edits;
+  if (localNames.size === 0) return null;
   const calls = rootNode.findAll({
     rule: {
       kind: "expression_statement",
@@ -1004,7 +1100,7 @@ function katexEdits(rootNode: Node, source: string): Edit[] {
     if (callee !== undefined && localNames.has(callee))
       edits.push(deleteLine(call, source));
   }
-  return edits;
+  return rootNode.commitEdits(edits);
 }
 
 const MARKDOWN_AST_SOURCES = [
