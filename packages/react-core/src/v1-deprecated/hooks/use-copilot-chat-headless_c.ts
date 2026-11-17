@@ -65,7 +65,9 @@
  *
  *   return (
  *     <div>
- *       {messages.map(msg => <div key={msg.id}>{msg.content}</div>)}
+ *       {messages.map(msg => (
+ *         <div key={msg.id}>{typeof msg.content === "string" ? msg.content : null}</div>
+ *       ))}
  *       <button onClick={handleSendMessage} disabled={isLoading}>
  *         Send Message
  *       </button>
