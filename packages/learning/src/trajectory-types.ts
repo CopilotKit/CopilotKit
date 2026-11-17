@@ -41,6 +41,8 @@ export interface TrajectoryCaptureOptions {
   beforeSend?: (event: TrajectoryEvent) => TrajectoryEvent | null;
   /** Reports rejected events or delivery failures without interrupting the app. */
   onError?: (error: TrajectoryError) => void;
+  /** Your app's version, sent as `appVersion` in the `page` event at start. */
+  appVersion?: string;
 }
 
 export interface TrajectoryCollector {

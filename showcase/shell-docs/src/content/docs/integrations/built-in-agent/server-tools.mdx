@@ -15,8 +15,8 @@ Server tools are functions that run on your backend that the Built-in Agent can 
 - The tool logic requires server-side secrets or resources
 
 <Callout type="warn" title="The tool runs on the server; the UI still runs in the browser">
-`execute` runs on your server, so it can reach secrets, a database, or an internal service —
-and it cannot touch the DOM, component state, or anything else in the page. When the *action*
+`execute` runs on your server, so it can reach secrets, a database, or an internal service.
+It cannot touch the DOM, component state, or anything else in the page. When the *action*
 itself belongs in the browser, register it as a [frontend tool](/frontend-tools) instead.
 
 Rendering is separate from executing. A server tool's call still streams to the browser, so
@@ -60,8 +60,10 @@ const builtInAgent = new BuiltInAgent({
 });
 ```
 
+Ask the agent: "What is the weather in Paris?" The agent calls `getWeather` and replies that it is 72 degrees and sunny.
+
 <Callout type="warn" title="`parameters` takes a schema validator, not JSON Schema">
-`parameters` must be a Standard Schema v1 validator — Zod, Valibot, ArkType and others
+`parameters` must be a Standard Schema v1 validator. Zod, Valibot, ArkType and others
 qualify. Handing it a plain JSON Schema object throws while the tool's schema is being
 converted. The validator is also what gives `execute` its inferred argument type, so a
 hand-written JSON Schema loses that too.
@@ -73,17 +75,7 @@ Tools can return any JSON-serializable value. The agent uses the response to con
 
 ## Multiple tools
 
-Pass an array of tools — the agent chooses which to call based on the user's request:
-
-<Callout type="warn" title="Two names to avoid">
-`AGUISendStateSnapshot` and `AGUISendStateDelta` are injected for you whenever the Built-in
-Agent makes the model call itself. Defining your own tool under either name replaces the
-built-in one and breaks shared state.
-
-A server tool also wins any name collision with a frontend tool: define `getWeather` on both
-sides and the model only ever sees the server one, so the frontend handler never fires. Give
-each side a distinct name when both need their own.
-</Callout>
+Pass an array of tools. The agent chooses which to call based on the user's request:
 
 ```typescript title="src/copilotkit.ts"
 const searchDocs = defineTool({
@@ -119,6 +111,16 @@ const builtInAgent = new BuiltInAgent({
 });
 ```
 
+<Callout type="warn" title="Two names to avoid">
+`AGUISendStateSnapshot` and `AGUISendStateDelta` are injected for you whenever the Built-in
+Agent makes the model call itself. If you define a tool with either name, the built-in tool
+replaces it, and your `execute` never runs.
+
+A server tool also wins any name collision with a frontend tool: define `getWeather` on both
+sides and the model only ever sees the server one, so the frontend handler never fires. Give
+each side a distinct name when both need their own.
+</Callout>
+
 ## Complex Zod schemas
 
 Use nested objects, arrays, enums, and optional fields for sophisticated tool parameters:
@@ -150,7 +152,7 @@ const bookFlight = defineTool({
 
 ## Error handling
 
-Throw errors or return error objects from your tool — the agent will see the error and can inform the user or try a different approach:
+Throw errors or return error objects from your tool. The agent will see the error and can inform the user or try a different approach:
 
 ```typescript
 const getUser = defineTool({
@@ -172,7 +174,7 @@ const getUser = defineTool({
 <Callout type="warn" title="Return plain data">
 Whatever a tool returns is serialized before the model sees it. A class instance, a circular
 reference, or anything else `JSON.stringify` refuses is replaced by a placeholder string
-naming the tool, and the model reasons over that instead of your data. Return plain objects, arrays and primitives — including for error shapes.
+naming the tool, and the model reasons over that instead of your data. Return plain objects, arrays and primitives, including for error shapes.
 </Callout>
 
 ## Multi-step tool calling
@@ -199,12 +201,9 @@ See [Advanced Configuration](/advanced-configuration) for more options like `too
 
 <Callout type="warn" title="A factory ignores the `tools` array">
 Everything on this page describes a Built-in Agent constructed with `model` and `tools`. If
-you build one from a `factory` instead, the `tools` array is not read — the factory owns the
+you build one from a `factory` instead, the `tools` array is not read. The factory owns the
 model call, so it has to pass the tools itself. Convert them with
 `convertToolDefinitionsToVercelAITools` for an AI SDK factory, or the equivalent converter for
-your runner, and pass the result into the call the factory makes.
-</Callout>
-
-<Callout type="info" title="Using a custom backend?">
-  If you're using the [Custom Agent](/backend/custom-agent) instead of `BuiltInAgent`, see the "With Tools" examples for how to wire tools with AI SDK, TanStack AI, or custom backends.
+your runner, and pass the result into the call the factory makes. For factory samples with tools,
+see [Custom Agent](/backend/custom-agent#with-tools).
 </Callout>

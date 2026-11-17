@@ -66,9 +66,14 @@ const {
     private joinPush = new MockPhoenixPush();
     private nextRef = 1;
 
-    constructor(topic: string, params: Record<string, unknown>) {
+    constructor(
+      topic: string,
+      params: Record<string, unknown> | (() => Record<string, unknown>),
+    ) {
       this.topic = topic;
-      this.params = params;
+      // phoenix.js accepts a params function and evaluates it per join; keep
+      // what the first join sends.
+      this.params = typeof params === "function" ? params() : params;
     }
 
     on(event: string, callback: (payload: unknown) => void): number {
@@ -133,7 +138,7 @@ const {
 
     channel(
       topic: string,
-      params: Record<string, unknown>,
+      params: Record<string, unknown> | (() => Record<string, unknown>),
     ): MockPhoenixChannel {
       const channel = new MockPhoenixChannel(topic, params);
       this.channels.push(channel);

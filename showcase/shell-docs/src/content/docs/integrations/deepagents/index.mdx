@@ -16,7 +16,7 @@ hidePageActions: true
   subheader="Deep Agents runs your agent. CopilotKit gives it a surface your users can see, interrupt and steer."
   guideLink="/deepagents/quickstart"
   initCommand="npx copilotkit@latest init"
-  lede="Deep Agents gives you a planning agent on LangGraph: subagents, a task list and the state they share. What it does not give you is the surface. Somewhere for the conversation to happen, a way to show the plan while it is worked through, and a moment for a person to step in. Each capability below builds on something your agent already does."
+  lede="Deep Agents gives you a planning agent on LangGraph: subagents, a task list and the state they share. What it does not give you is the surface. Your users need a place to talk to the agent, a view of the plan as it runs, and a way to step in. Each capability below builds on something your agent already does."
   supportedFeatures={[
     {
       title: "Generative UI",
@@ -36,7 +36,7 @@ hidePageActions: true
       title: "Shared state",
       iconKey: "repeat",
       description:
-        "The graph carries one state object between subagents. CopilotKit mirrors it into your app and back, so a user edit and an agent write land in the same place.",
+        "The graph carries one state object between subagents. CopilotKit mirrors it into your app and back, so user changes and agent changes go to the same state.",
       documentationLink: "/deepagents/shared-state"
     }
   ]}

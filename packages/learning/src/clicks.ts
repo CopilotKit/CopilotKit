@@ -276,7 +276,7 @@ function contentText(element: Element) {
 }
 
 /** Removes invisible characters, credentials, emails, URLs, and tokens, then caps the length. */
-function cleanLabel(raw: string, redact: Redactor) {
+export function cleanText(raw: string, redact: Redactor, max: number) {
   const chars = Array.from(
     // Scrub again after collapsing, also for remembered values that differ
     // in whitespace or invisible characters.
@@ -290,9 +290,9 @@ function cleanLabel(raw: string, redact: Redactor) {
       .replace(JWT, `$1${REDACTED}`)
       .replace(TOKEN_RUN, (run) => (/\d/.test(run) ? REDACTED : run)),
   );
-  return chars.length > MAX_LABEL_LENGTH
+  return chars.length > max
     ? `${chars
-        .slice(0, MAX_LABEL_LENGTH - 1)
+        .slice(0, max - 1)
         .join("")
         .trimEnd()}…`
     : chars.join("");
@@ -300,7 +300,7 @@ function cleanLabel(raw: string, redact: Redactor) {
 
 function firstLabel(sources: (() => string | null)[], redact: Redactor) {
   for (const source of sources) {
-    const label = cleanLabel(source() ?? "", redact);
+    const label = cleanText(source() ?? "", redact, MAX_LABEL_LENGTH);
     if (label) return label;
   }
   return undefined;
@@ -356,6 +356,50 @@ function clickLabel(element: Element, redact: Redactor): string | undefined {
     ],
     redact,
   );
+}
+
+/** A `<label>`'s own text: fields inside it, and their values and options, are left out. */
+function captionText(label: HTMLLabelElement) {
+  if (label.closest("[data-copilotkit-ignore]") !== null) return "";
+  const copy = label.cloneNode(true) as Element;
+  for (const field of Array.from(copy.querySelectorAll(EDITABLE)))
+    field.remove();
+  return safeText(copy, false);
+}
+
+/**
+ * A short name for an edited field, from the first source that yields one:
+ * `aria-labelledby`, `aria-label`, then the field's `<label>` elements. Never
+ * the value, the placeholder, `title`, or the field's own text. For a select,
+ * the visible text of the chosen options follows the name, as in
+ * `Stage: negotiation`.
+ */
+export function fieldLabel(
+  element: Element,
+  redact: Redactor,
+): string | undefined {
+  const labels =
+    "labels" in element && element.labels instanceof NodeList
+      ? Array.from(element.labels as NodeListOf<HTMLLabelElement>)
+      : [];
+  const caption = firstLabel(
+    [
+      () => labelledBy(element),
+      () => element.getAttribute("aria-label"),
+      () => labels.map(captionText).join(" "),
+    ],
+    redact,
+  );
+  if (!(element instanceof HTMLSelectElement)) return caption;
+  const chosen = cleanText(
+    Array.from(element.selectedOptions, (option) => option.label).join(", "),
+    redact,
+    MAX_LABEL_LENGTH,
+  );
+  if (!chosen) return caption;
+  return caption
+    ? cleanText(`${caption}: ${chosen}`, redact, MAX_LABEL_LENGTH)
+    : chosen;
 }
 
 /** Snapshot live control properties; HTML attributes do not reflect edited values. */

@@ -9,8 +9,8 @@ import type { GenerativeUITheme } from "@copilotkit/react-core/v2/generative-ui"
 import { playgroundTheme } from "@/a2ui/catalog/catalog";
 import type { DesignSystemId } from "./registry";
 
-/** shadcn/ui's neutral palettes and chart colors (light and dark), the base ChatCN's components share. */
-const chatcnTheme: GenerativeUITheme = {
+/** shadcn/ui's neutral palettes and chart colors (light and dark). */
+const shadcnTheme: GenerativeUITheme = {
   "--a2ui-font-family":
     "var(--font-sans), ui-sans-serif, system-ui, sans-serif",
   "--a2ui-color-surface": "oklch(1 0 0)",
@@ -321,7 +321,7 @@ const materialTheme: GenerativeUITheme = {
 
 export const DESIGN_SYSTEM_THEMES: Record<DesignSystemId, GenerativeUITheme> = {
   copilotkit: playgroundTheme,
-  chatcn: chatcnTheme,
+  shadcn: shadcnTheme,
   material: materialTheme,
   byoc: byocTheme,
 };

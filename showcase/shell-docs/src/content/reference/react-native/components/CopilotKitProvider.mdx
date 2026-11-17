@@ -5,12 +5,12 @@ description: "The React Native provider that configures the CopilotKit runtime c
 
 ## Overview
 
-`CopilotKitProvider` is the React Native provider for CopilotKit. Wrap your app (or the sub-tree that needs a copilot) with it to configure the runtime connection. Every hook and component below it reads the configured client from context.
+`CopilotKitProvider` is the React Native provider for CopilotKit. Wrap your app (or the sub-tree that needs a copilot) with it to configure the runtime connection. Every hook and component below it, for example [`useCopilotKit`](/reference/react-native/hooks/useCopilotKit) and [`useAgent`](/reference/react-native/hooks/useAgent), reads the configured client from context.
 
 Importing the package auto-installs the [polyfills](/reference/react-native#polyfills) CopilotKit needs on Hermes, so you do not have to import them manually before using the provider. One thing it cannot do for you: its `crypto.getRandomValues` falls back to `Math.random`, which is not cryptographically secure. For a secure one, import `react-native-get-random-values` on the first line of your entry point, before any CopilotKit import; once a CopilotKit module has loaded, the fallback stays and the secure import does nothing. See [Polyfills](/react-native#polyfills) in the guide.
 
 <Callout type="info">
-  Cloud features (`publicLicenseKey` / license-gated functionality) are not yet
+  Cloud features (`publicLicenseKey` and other license-gated features) are not yet
   supported on React Native. Point `runtimeUrl` at a self-hosted runtime.
 </Callout>
 
@@ -41,11 +41,11 @@ import { CopilotKitProvider } from "@copilotkit/react-native";
 <PropertyReference name="headers" type="Record<string, string> | (() => Record<string, string>)" default="{}">
   Custom headers sent with every runtime request. Pass a function to compute
   headers lazily (e.g. to attach a fresh auth token). The function is called
-  when the provider renders, not per request — see
+  when the provider renders, not per request. See
   [Frontends: React Native](/frontends/react-native#provider-options) for the
   rotating-token pattern.
 
-  The web provider's builder now runs at send time and also accepts an async
+  The web provider's builder runs at send time and also accepts an async
   function. Neither is supported here yet: only a sync function, evaluated at
   render, works on React Native.
 </PropertyReference>
@@ -58,10 +58,11 @@ import { CopilotKitProvider } from "@copilotkit/react-native";
 <PropertyReference name="messageFilter" type="(messages: Message[], context: { agentId: string }) => Message[]">
   Rewrites the message list sent to the agent on every run.
 
-CopilotKit sends the whole thread with each request. When your agent already
-stores the conversation — a LangGraph checkpointer, a Mastra memory store, a
-Strands `SessionManager` — most of that payload is waste, and an agent that
-merges the inbound list with its own store can show the model every turn twice.
+CopilotKit sends the whole thread with each request. Your agent can already
+store the conversation, for example in a LangGraph checkpointer, a Mastra memory
+store, or a Strands `SessionManager`. If it does, most of that payload is waste.
+An agent that merges the inbound list with its own store can also show the model
+every turn twice.
 On a mobile connection the payload cost is felt sooner.
 
 Return the messages to send:
@@ -114,8 +115,9 @@ and suggestion runs are never filtered.
 </PropertyReference>
 
 <PropertyReference name="debug" type="DebugConfig">
-  Enable debug logging for the client-side event pipeline. When `true`, the
-  core instance emits verbose logs.
+  Enable debug logging for the client-side event pipeline. Pass `true` to log
+  event and lifecycle summaries. Pass `{ verbose: true }` to log full event
+  payloads.
 </PropertyReference>
 
 <PropertyReference name="defaultThrottleMs" type="number">
@@ -147,10 +149,3 @@ export default function App() {
 - **Auto-polyfills**: importing the package installs the Web API polyfills CopilotKit relies on (`ReadableStream`, `TextEncoder`, `crypto.getRandomValues`, `DOMException`, `location`) before any CopilotKit code runs. Each polyfill installs only when its global is missing, so a secure `crypto.getRandomValues` from `react-native-get-random-values` must be imported first, on the first line of the entry point.
 - **Shared render-tool registry**: the provider instantiates the CopilotKit client whose renderer registry is shared with the rest of CopilotKit. Render functions registered by [`useRenderTool`](/reference/react-native/hooks/useRenderTool), [`useFrontendTool`](/reference/react-native/hooks/useFrontendTool) or [`useComponent`](/reference/react-native/hooks/useComponent) write into that one registry, so they and [`useRenderToolCall`](/reference/react-native/hooks/useRenderTool#rendering-a-tool-call-outside-the-chat) work anywhere below the provider. There is no second registry and no extra provider to mount for rendering.
 - **Stable references**: header functions and `properties` are memoized internally to avoid effect churn on re-render.
-
-## Related
-
-- [`useCopilotKit`](/reference/react-native/hooks/useCopilotKit): access the configured client from any descendant
-- [`useAgent`](/reference/react-native/hooks/useAgent): connect to an agent and read its state
-- [Polyfills](/reference/react-native#polyfills): what gets installed and how to bring your own
-- [`GenerativeUIProvider`](/reference/react-native/components/GenerativeUIProvider): goes inside this provider to let the agent render your native components

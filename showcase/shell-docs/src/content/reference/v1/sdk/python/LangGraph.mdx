@@ -1,6 +1,6 @@
 ---
 title: "LangGraph SDK"
-description: "The CopilotKit LangGraph SDK for Python allows you to build and run LangGraph workflows with CopilotKit."
+description: "Use the CopilotKit LangGraph SDK for Python to build and run LangGraph workflows with CopilotKit."
 ---
 
 {
@@ -88,7 +88,7 @@ Exits the current agent after the run completes. Calling copilotkit_exit() will
     ```python
     from copilotkit.langgraph import copilotkit_exit
 
-    def my_node(state: Any):
+    async def my_node(state: Any, config: RunnableConfig):
         await copilotkit_exit(config)
         return state
     ```
@@ -207,4 +207,33 @@ Optional tool call ID. If not provided, a random UUID is generated. When provide
 <PropertyReference name="returns" type="str">
 The tool call ID used for the emitted tool call.
 </PropertyReference>
+
+## copilotkit_interrupt
+
+Interrupts the graph to ask the user through CopilotKit, and returns the answer.
+
+### Parameters
+
+<PropertyReference name="message" type="Optional[str]" > 
+A message to show the user. Pass either `message` or `action`.
+</PropertyReference>
+
+<PropertyReference name="action" type="Optional[str]" > 
+The name of a frontend action to call.
+</PropertyReference>
+
+<PropertyReference name="args" type="Optional[Dict[str, Any]]" > 
+The arguments for `action`.
+</PropertyReference>
+
+### Returns
+
+<PropertyReference name="returns" type="Tuple[str, Any]">
+The answer as a string, and the raw response.
+</PropertyReference>
+
+## CopilotKitState
+
+LangGraph state with a `copilotkit` key that holds the frontend actions and
+    context from CopilotKit.
 

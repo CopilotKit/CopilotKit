@@ -1,0 +1,322 @@
+---
+title: Pausing the Agent for Input
+icon: "lucide/CirclePause"
+description: Pause an agent run, hand control to a React Native component, and resume with the user's answer.
+snippet_framework: built-in-agent
+---
+
+## What is this?
+
+Some agent steps need a person's answer before the run can continue, such as approving a payment or picking a meeting time. `useInterrupt` pauses the run, shows your React Native component, and resumes the run with the answer. How the pause works depends on your agent framework.
+
+<WhenFrameworkHas flag="interrupt_pattern" equals="native">
+
+Your agent framework has a native pause primitive, such as LangGraph's [`interrupt()`](https://docs.langchain.com/oss/python/langgraph/interrupts). A running step suspends itself and hands control to the app. The run stays frozen on the server until the app answers with a payload. Then the step resumes as if `interrupt()` had returned that payload.
+
+CopilotKit's `useInterrupt` is the frontend half of that contract: it receives the paused run, renders your UI, and resumes the agent with the user's answer.
+
+</WhenFrameworkHas>
+
+<WhenFrameworkHas flag="interrupt_pattern" equals="promise-based">
+
+Some agent frameworks can't pause a run mid-tool the way LangGraph's `interrupt()` does. Use `useHumanInTheLoop` for the Promise-based frontend-tool path instead: the agent calls the tool, the app holds the request open, and the Promise resolves once the user answers. The user sees the same flow: the agent pauses, the user answers, and the agent continues. Only the mechanism is different.
+
+</WhenFrameworkHas>
+
+<WhenFrameworkHas flag="interrupt_pattern" absent>
+
+> **Use `useHumanInTheLoop` on this framework.** `useInterrupt` needs an agent that emits an AG-UI interrupt (`RUN_FINISHED` with `outcome.type === "interrupt"`) or an `on_interrupt` custom event, and a working resume path. On the Built-in Agent, interrupts are temporarily unavailable. [`useHumanInTheLoop`](/human-in-the-loop) pauses on a tool call instead. It works on every framework that supports frontend tools.
+
+</WhenFrameworkHas>
+
+## When should I use this?
+
+Use `useInterrupt` when the pause is a **checkpoint in your agent code**, where the code path _must_ stop and wait for a human. It is not for a tool call the model decides to make. Typical cases:
+
+- A sensitive action (payments, irreversible writes) must be approved
+- A required value isn't known and only the user can give it
+- The agent reaches an approval step in a longer workflow
+- You want the server-side contract to be an interrupt that resumes with a payload
+
+When the model decides on the fly to ask the user, use [`useHumanInTheLoop`](/human-in-the-loop) instead.
+
+<WhenFrameworkHas flag="interrupt_pattern" equals="native">
+
+## The backend: pause the run in your agent
+
+<FrameworkSetup concept="human-in-the-loop-setup" />
+
+In the tool or step that needs the user's answer, call your framework's interrupt primitive with the data your UI needs: `interrupt()` in LangGraph, `suspend()` in Mastra, or a `@human_feedback` step in a CrewAI Flow. This agent does it in its `schedule_meeting` tool:
+
+<Snippet region="backend-interrupt-tool" cell="gen-ui-interrupt" title="backend: schedule_meeting interrupt tool" />
+
+The run stops here until the app resolves the interrupt. The resolve payload comes back to the agent as the answer: the return value of `interrupt()` in LangGraph, `resumeData` in Mastra, or the `HumanFeedbackResult` that the next step of a CrewAI Flow receives.
+
+Two things to note:
+
+- The payload (`{ "topic": topic, "attendee": attendee }`) is what the app reads from the interrupt. Keep it a plain, serializable object with the context your UI needs.
+- The answer's shape (`{ chosen_label, chosen_time }` or `{ cancelled: true }`) is up to you. The app can send any serializable payload, and the tool gives it meaning. Validate it in the tool before any side effect.
+
+## The frontend: `useInterrupt` in the rendered chat
+
+Register `useInterrupt` in a component under `CopilotKitProvider`. When the paused run arrives, `render` receives the `event`, the `interrupt`, and `resolve(...)`, which resumes the run. Your agent framework decides where the payload is:
+
+- Custom-event interrupt (`on_interrupt`): in `event.value`. The LangGraph adapter sends it as a JSON string.
+- Standard AG-UI interrupt: in `interrupt.metadata`, or as a JSON string in `interrupt.message`.
+
+```tsx title="src/MeetingChat.tsx"
+import { Pressable, Text, View } from "react-native";
+import { useInterrupt, type Interrupt } from "@copilotkit/react-native/headless";
+import { CopilotChat } from "@copilotkit/react-native/components";
+
+type MeetingPayload = { topic?: string; attendee?: string };
+
+// Read the payload from either interrupt shape. JSON strings are parsed.
+function readPayload(eventValue: unknown, interrupt: Interrupt | null): MeetingPayload {
+  const raw = interrupt ? (interrupt.metadata ?? interrupt.message) : eventValue;
+  if (typeof raw !== "string") return (raw ?? {}) as MeetingPayload;
+  try {
+    return JSON.parse(raw) as MeetingPayload;
+  } catch {
+    return {};
+  }
+}
+
+export function MeetingChat() {
+  useInterrupt({ // [!code highlight:16]
+    agentId: "gen-ui-interrupt",
+    render: ({ event, interrupt, resolve }) => (
+      <View style={{ padding: 12, borderRadius: 12, backgroundColor: "#f4f4f8", gap: 8 }}>
+        <Text style={{ fontWeight: "600" }}>
+          Pick a time for {readPayload(event.value, interrupt).topic ?? "a call"}
+        </Text>
+        <Pressable
+          onPress={() => resolve({ chosen_label: "Tomorrow", chosen_time: "2026-11-11T09:00:00Z" })}
+        >
+          <Text>Tomorrow at 09:00</Text>
+        </Pressable>
+        <Pressable onPress={() => resolve({ cancelled: true })}>
+          <Text>Cancel</Text>
+        </Pressable>
+      </View>
+    ),
+  });
+
+  return <CopilotChat agentName="gen-ui-interrupt" />;
+}
+```
+
+The rendered `CopilotChat` and `CopilotModal` from `/components` draw the element after the last message. Whatever you pass to `resolve` goes back to the agent as the answer to the matching interrupt.
+
+<Callout type="warn" title="Match the agent on both sides">
+  The rendered chat picks its agent with `agentName`, and it doesn't pass that agent to the hooks around it. Without an `agentId`, `useInterrupt` listens to the agent named `"default"`. Give `useInterrupt` the same agent as the chat, or the interrupt never appears.
+</Callout>
+
+Ask the agent to book a call. The picker appears in the chat. Tap **Tomorrow at 09:00**, and the agent confirms the time.
+
+</WhenFrameworkHas>
+
+<WhenFrameworkHas flag="interrupt_pattern" equals="promise-based">
+
+## The frontend: `useHumanInTheLoop` renders the picker
+
+`useHumanInTheLoop` registers `schedule_meeting` as a frontend tool and renders the picker in the chat. When the user picks a slot or cancels, `respond(...)` sends the choice back as the tool result. This is the frontend-tool equivalent of the `event` and `resolve` pair in `useInterrupt`.
+
+```tsx title="src/MeetingChat.tsx"
+import { Pressable, Text, View } from "react-native";
+import { useHumanInTheLoop } from "@copilotkit/react-native/headless";
+import { CopilotChat } from "@copilotkit/react-native/components";
+import { z } from "zod";
+
+export function MeetingChat() {
+  useHumanInTheLoop({
+    name: "schedule_meeting",
+    description: "Ask the user to pick a meeting time.",
+    parameters: z.object({ topic: z.string() }),
+    render: ({ args, respond }) => (
+      <View style={{ padding: 12, borderRadius: 12, backgroundColor: "#f4f4f8", gap: 8 }}>
+        <Text style={{ fontWeight: "600" }}>Pick a time for {args.topic ?? "a call"}</Text>
+        <Pressable disabled={!respond} onPress={() => respond?.({ chosen_time: "09:00" })}>
+          <Text>Tomorrow at 09:00</Text>
+        </Pressable>
+        <Pressable disabled={!respond} onPress={() => respond?.({ cancelled: true })}>
+          <Text>Cancel</Text>
+        </Pressable>
+      </View>
+    ),
+  });
+
+  return <CopilotChat />;
+}
+```
+
+`respond` is set only while the tool call is running.
+
+## The backend: agent instructed to call the frontend tool
+
+The agent has no local `schedule_meeting` implementation. The tool is registered entirely in your app. The backend's only job is to tell the model to call `schedule_meeting` when the user wants to book a meeting. AG-UI routes the tool call to the app, where the Promise-returning handler takes over:
+
+<Snippet region="backend-tool-call" cell="gen-ui-interrupt" title="backend — agent instructed to call schedule_meeting" />
+
+Ask the agent to book a call. The picker appears in the chat. Tap **Tomorrow at 09:00**, and the agent continues with your choice.
+
+</WhenFrameworkHas>
+
+<WhenFrameworkHas flag="interrupt_pattern" equals="native">
+
+### Key props
+
+- **`agentId`**: must match a runtime-registered agent. If you leave it out, the hook uses the agent of the surrounding chat configuration, then `"default"`. The root `CopilotChat` sets that configuration for its children. The rendered chat from `/components` doesn't. A mismatch means the interrupt never appears.
+- **`render`**: receives `{ event, interrupt, interrupts, result, resolve, cancel }` and returns a React Native element.
+- **`renderInChat`**: `true` by default, which hands the element to the rendered chat. Set it to `false` to get the element back from the hook and place it yourself. See [Headless Interrupts](/human-in-the-loop/headless).
+- **`handler`**: runs before `render`. It can resolve the interrupt early, or return a value that `render` receives as `result`.
+- **`enabled`**: filters which interrupts this hook handles.
+
+## Multiple interrupts? Add a type and gate with `enabled`
+
+If your agent issues more than one kind of interrupt, tag each payload with a `type` field and install one `useInterrupt` per shape, each gated by `enabled`:
+
+```tsx
+// The LangGraph adapter sends `event.value` as a JSON string.
+const readValue = (value: unknown): { type?: string; content?: string } =>
+  typeof value === "string" ? JSON.parse(value) : (value ?? {});
+
+useInterrupt({
+  agentId: "gen-ui-interrupt",
+  enabled: (event) => readValue(event.value).type === "ask",
+  render: ({ event, resolve }) => (
+    <AskCard question={readValue(event.value).content} onAnswer={resolve} />
+  ),
+});
+
+useInterrupt({
+  agentId: "gen-ui-interrupt",
+  enabled: (event) => readValue(event.value).type === "approval",
+  render: ({ event, resolve }) => (
+    <ApproveCard content={readValue(event.value).content} onAnswer={resolve} />
+  ),
+});
+```
+
+`AskCard` and `ApproveCard` are your own components. For a standard interrupt, `event.value` is the primary `Interrupt` object, so read your tag from its `metadata` instead.
+
+## Preprocess with `handler`
+
+When an interrupt can sometimes be answered without the user (for example, the current user already has permission), pass a `handler`. It runs before `render`. It can call `resolve(...)` to resume the agent early, or return a value that `render` receives as `result`:
+
+```tsx
+useInterrupt({
+  agentId: "gen-ui-interrupt",
+  handler: async ({ event, resolve }) => {
+    const value = typeof event.value === "string" ? JSON.parse(event.value) : event.value;
+    const department = await lookupUserDepartment(); // your own lookup
+    if (value.accessDepartment === department || department === "admin") {
+      await resolve({ code: "AUTH_BY_DEPARTMENT" });
+      return;
+    }
+    return { department };
+  },
+  render: ({ result, resolve }) => (
+    <RequestAccessCard
+      department={result?.department}
+      onRequest={() => resolve({ code: "REQUEST_AUTH" })}
+      onCancel={() => resolve({ code: "CANCEL" })}
+    />
+  ),
+});
+```
+
+</WhenFrameworkHas>
+
+## AG-UI standard interrupt flow vs. custom-event flow
+
+This section is a reference for developers who write `render` code for their own agent. The [`useInterrupt` reference](/reference/react-native/hooks/useInterrupt) lists every option. `useInterrupt` handles two kinds of interrupt, and your agent framework decides which kind it sends.
+
+### Standard flow (`RUN_FINISHED` with `outcome.type === "interrupt"`)
+
+An agent that follows the AG-UI protocol signals an interrupt with a `RUN_FINISHED` event whose outcome carries the interrupts:
+
+```text
+outcome.type === "interrupt"
+outcome.interrupts  // Interrupt[]
+```
+
+The hook shows the interrupts after the run finalizes. `render` receives:
+
+- **`interrupt`**: the primary `Interrupt` (`interrupts[0]`), with shape `{ id, reason, message?, toolCallId?, responseSchema?, expiresAt?, metadata? }`.
+- **`interrupts`**: every open interrupt.
+- **`resolve(payload?, interruptId?)`**: records an answer for the targeted interrupt. The run resumes once every open interrupt has an answer.
+- **`cancel(interruptId?)`**: records a cancellation for the targeted interrupt. The run also resumes once every open interrupt is addressed.
+
+### Custom-event flow (`on_interrupt`)
+
+Agents can emit a custom `on_interrupt` event. The LangGraph adapter does this by default. `render` gets its payload in `event.value`, with `interrupt` set to `null` and `interrupts` to `[]`. `resolve(payload)` resumes the run right away, through `forwardedProps.command`. `cancel()` only dismisses the interrupt without resuming, because this flow has no cancel answer.
+
+If both signals arrive on the same run, the standard flow wins.
+
+### Approve / Cancel example
+
+```tsx
+import { Button, Text, View } from "react-native";
+import { useInterrupt } from "@copilotkit/react-native/headless";
+
+function ApprovalPanel() {
+  const element = useInterrupt({
+    renderInChat: false,
+    render: ({ interrupt, resolve, cancel }) => (
+      <View style={{ padding: 12, gap: 8 }}>
+        <Text>{interrupt?.message ?? "Approve this action?"}</Text>
+        <Button title="Approve" onPress={() => resolve({ approved: true })} />
+        <Button title="Cancel" onPress={() => cancel()} />
+      </View>
+    ),
+  });
+
+  return element;
+}
+```
+
+Both methods return the run result once the run restarts, or nothing while other open interrupts still wait for an answer.
+
+### More than one open interrupt
+
+Some agents issue more than one interrupt in a single run. Each has its own `id`, so answer them one by one:
+
+```tsx
+render: ({ interrupts, resolve, cancel }) => (
+  <View>
+    {interrupts.map((item) => (
+      <View key={item.id} style={{ flexDirection: "row", gap: 8 }}>
+        <Text>{item.message}</Text>
+        <Button title="Approve" onPress={() => resolve({ ok: true }, item.id)} />
+        <Button title="Cancel" onPress={() => cancel(item.id)} />
+      </View>
+    ))}
+  </View>
+),
+```
+
+The run resumes only after **every** open interrupt is addressed. If you leave out `interruptId`, the primary interrupt is targeted, and the hook logs a warning when several are open.
+
+### `responseSchema` is not validated
+
+An `Interrupt` can carry a `responseSchema`, a JSON Schema that describes the answer the agent expects. `useInterrupt` passes it to `render` as `interrupt.responseSchema`, but it does **not** check your `resolve` payload against it. The agent validates the answer when it resumes.
+
+## Provider setup
+
+The component that calls `useInterrupt` or `useHumanInTheLoop` must be under `CopilotKitProvider`:
+
+```tsx title="App.tsx"
+import { CopilotKitProvider } from "@copilotkit/react-native/headless";
+import { MeetingChat } from "./src/MeetingChat";
+
+const runtimeUrl = "http://localhost:8200/api/copilotkit";
+
+export default function App() {
+  return (
+    <CopilotKitProvider runtimeUrl={runtimeUrl}>
+      <MeetingChat />
+    </CopilotKitProvider>
+  );
+}
+```

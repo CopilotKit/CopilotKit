@@ -48,6 +48,7 @@ function generateMessageId(): string {
 }
 
 export function Chat() {
+  // @region[use-agent-simple]
   const { agent } = useAgent({ agentId: "headless-simple" });
   const { copilotkit } = useCopilotKit();
   const [input, setInput] = useState("");
@@ -63,6 +64,7 @@ export function Chat() {
     setInput("");
     void copilotkit.runAgent({ agent }).catch(() => {});
   };
+  // @endregion[use-agent-simple]
 
   // Render only plain user/assistant text — Simple skips tool/system/etc.
   const visible = agent.messages.flatMap((m) => {
@@ -101,6 +103,7 @@ export function Chat() {
           ) : (
             <ScrollArea className="min-h-0 flex-1">
               <div className="flex flex-col gap-4 px-4 py-4 sm:px-6">
+                {/* @region[message-list-simple] */}
                 {visible.map((m) =>
                   m.role === "user" ? (
                     <UserBubble key={m.id} content={m.content} />
@@ -108,6 +111,7 @@ export function Chat() {
                     <AssistantBubble key={m.id} content={m.content} />
                   ),
                 )}
+                {/* @endregion[message-list-simple] */}
                 {showTyping && <TypingIndicator />}
               </div>
             </ScrollArea>

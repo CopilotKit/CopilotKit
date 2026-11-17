@@ -18,8 +18,12 @@ for (const w of widthsArg.split(",").map(Number)) {
   await p.setViewport({ width: w, height: 1200 });
   const names = await componentNames(p, filter?.split(","));
   const issues = [];
+  const noSample = [];
   for (const n of names) {
-    await openComponent(p, n, 1500);
+    if (!(await openComponent(p, n, 1500))) {
+      noSample.push(n);
+      continue;
+    }
     issues.push(
       ...(await p.evaluate(() => {
         const out = [];
@@ -50,7 +54,7 @@ for (const w of widthsArg.split(",").map(Number)) {
               cs.overflowX === "visible" &&
               el.scrollWidth > el.clientWidth + 2 &&
               el.clientWidth > 0 &&
-              !el.closest("svg,canvas,.maplibregl-map")
+              !el.closest("svg,canvas,.maplibregl-map,.katex-mathml")
             ) {
               if (
                 (el.textContent || "").trim() &&
@@ -66,8 +70,15 @@ for (const w of widthsArg.split(",").map(Number)) {
       })),
     );
   }
+  if (noSample.length === names.length)
+    throw new Error(`No preview to check among ${names.join(", ")}`);
   total += issues.length;
-  console.log(`width ${w}: ${issues.length} issue(s)`);
+  console.log(
+    `width ${w}: ${issues.length} issue(s) in ${names.length - noSample.length} previews` +
+      (noSample.length
+        ? `; ${noSample.length} with no sample, not checked (${noSample.join(", ")})`
+        : ""),
+  );
   for (const i of issues.slice(0, 40)) console.log("  " + i);
   await p.close();
 }

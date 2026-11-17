@@ -3,15 +3,16 @@ title: Pausing the Agent for Input
 icon: "lucide/CirclePause"
 description: Pause an agent run, hand control to a custom Vue component, and resume with the user's answer.
 hideTOC: true
+snippet_framework: built-in-agent
 ---
 
 ## What is this?
 
-`useInterrupt` lets your agent pause mid-run, hand control to the user through custom Vue UI, and resume with whatever the user returns. How that pause is implemented depends on the framework's runtime.
+Some agent steps need a person's answer before the run can continue, such as approving a payment or picking a meeting time. `useInterrupt` pauses the run, shows your Vue component, and resumes the run with the answer. How the pause works depends on your agent framework.
 
 <WhenFrameworkHas flag="interrupt_pattern" equals="native">
 
-LangGraph ships a first-class [`interrupt()`](https://docs.langchain.com/oss/python/langgraph/interrupts) primitive that lets a running node suspend itself and hand control to the client. The run is frozen server-side until the client resolves the interrupt with a payload, at which point the node resumes as if `interrupt()` had simply returned that payload.
+LangGraph ships a first-class [`interrupt()`](https://docs.langchain.com/oss/python/langgraph/interrupts) primitive that lets a running node suspend itself and hand control to the client. The run is frozen server-side until the client resolves the interrupt with a payload, at which point the node resumes as if `interrupt()` had returned that payload.
 
 CopilotKit's `useInterrupt` is the frontend half of that contract: it subscribes to the paused run, exposes reactive interrupt state, and resumes the agent with the user's answer.
 
@@ -19,13 +20,13 @@ CopilotKit's `useInterrupt` is the frontend half of that contract: it subscribes
 
 <WhenFrameworkHas flag="interrupt_pattern" equals="promise-based">
 
-Some runtimes cannot pause a run mid-tool the way LangGraph's `interrupt()` does. Use `useHumanInTheLoop` for the Promise-based frontend-tool path instead: the agent calls the tool, the client holds the request open, and the Promise resolves once the user answers. Same UX — agent pauses, user answers, agent resumes — different mechanism underneath.
+Some agent frameworks cannot pause a run mid-tool the way LangGraph's `interrupt()` does. Use `useHumanInTheLoop` for the Promise-based frontend-tool path instead: the agent calls the tool, the client holds the request open, and the Promise resolves once the user answers. The user sees the same flow: the agent pauses, the user answers, and the agent continues. Only the mechanism is different.
 
 </WhenFrameworkHas>
 
 <WhenFrameworkHas flag="interrupt_pattern" absent>
 
-> **Not available on this framework.** `useInterrupt` is only meaningful when the underlying runtime exposes a native interrupt primitive. For other integrations, use [`useHumanInTheLoop`](../human-in-the-loop) instead — it is the standard hook for tool-call-based pause/resume flows and works on every framework that supports frontend tools.
+> **Use `useHumanInTheLoop` on this framework.** `useInterrupt` needs an agent that emits an AG-UI interrupt (`RUN_FINISHED` with `outcome.type === "interrupt"`) or an `on_interrupt` custom event, and a working resume path. On the Built-in Agent, interrupts are temporarily unavailable. [`useHumanInTheLoop`](/vue/human-in-the-loop) pauses on a tool call instead. It works on every framework that supports frontend tools.
 
 </WhenFrameworkHas>
 
@@ -46,11 +47,11 @@ For LLM-initiated pauses where the model decides on the fly to ask the user, pre
 
 <FrameworkSetup concept="human-in-the-loop-setup" />
 
-The agent can expose a `schedule_meeting` tool that issues an interrupt with the meeting context. The run freezes until the client resolves it; the resolution becomes the return value of `interrupt()`, which the tool then interprets for the model.
+The agent can expose a `schedule_meeting` tool that issues an interrupt with the meeting context. The run stops until the client resolves the interrupt. The resolve payload becomes the return value of `interrupt()`. The tool turns that value into a result for the model.
 
 Two things to note:
 
-- The payload, for example `{ "topic": topic, "attendee": attendee }`, is what the Vue frontend receives as `event.value`. Keep it a plain, serializable object containing the pause-time context the UI needs.
+- The payload, for example `{ "topic": topic, "attendee": attendee }`, is what the Vue frontend receives as `event.value`. The LangGraph adapter sends it as a JSON string, so parse it before you read fields. Keep it a plain, serializable object containing the pause-time context the UI needs.
 - The return-side contract, such as `{ chosen_label, chosen_time }` or `{ cancelled: true }`, is entirely yours. The client can send any serializable resolve payload; the tool gives it meaning and must validate it before a side effect.
 
 ## The frontend: `useInterrupt` and the chat slot
@@ -61,7 +62,19 @@ Register `useInterrupt` in a descendant component. With the default `renderInCha
 <script setup lang="ts">
 import { CopilotChat, useInterrupt } from "@copilotkit/vue/v2";
 
-useInterrupt<{ topic: string; attendee: string }>({
+type MeetingPayload = { topic?: string; attendee?: string };
+
+// The LangGraph adapter sends the interrupt value as a JSON string.
+function readValue(value: unknown): MeetingPayload {
+  if (typeof value !== "string") return (value ?? {}) as MeetingPayload;
+  try {
+    return JSON.parse(value) as MeetingPayload;
+  } catch {
+    return {};
+  }
+}
+
+useInterrupt({
   agentId: "gen-ui-interrupt",
 });
 </script>
@@ -70,7 +83,7 @@ useInterrupt<{ topic: string; attendee: string }>({
   <CopilotChat agent-id="gen-ui-interrupt">
     <template #interrupt="{ event, resolve }">
       <section>
-        <p>Pick a time for {{ (event.value as { topic: string }).topic }}</p>
+        <p>Pick a time for {{ readValue(event.value).topic ?? "a call" }}</p>
         <button
           @click="resolve({ chosen_label: 'Tomorrow', chosen_time: '2026-09-01T09:00:00Z' })"
         >
@@ -85,6 +98,8 @@ useInterrupt<{ topic: string; attendee: string }>({
 
 Whatever you pass to `resolve` is round-tripped back to the agent as the return value of the matching interrupt.
 
+Ask the agent to book a call. The picker appears in the chat. Click **Tomorrow at 09:00**, and the agent confirms the booked time.
+
 </WhenFrameworkHas>
 
 <WhenFrameworkHas flag="interrupt_pattern" equals="promise-based">
@@ -92,6 +107,51 @@ Whatever you pass to `resolve` is round-tripped back to the agent as the return 
 ## The frontend: `useHumanInTheLoop` with a Promise-resolving handler
 
 `useHumanInTheLoop` registers a frontend tool whose handler stays pending until the rendered Vue component calls `respond(...)`. This is the frontend-tool equivalent of `useInterrupt`'s `event` / `resolve` pair.
+
+```vue title="src/components/MeetingTool.vue"
+<script setup lang="ts">
+import { z } from "zod";
+import { CopilotChat, useHumanInTheLoop } from "@copilotkit/vue/v2";
+import MeetingPicker from "./MeetingPicker.vue";
+
+useHumanInTheLoop({
+  name: "schedule_meeting",
+  description: "Ask the user to pick a meeting time.",
+  parameters: z.object({ topic: z.string() }),
+  render: MeetingPicker,
+});
+</script>
+
+<template>
+  <CopilotChat />
+</template>
+```
+
+The picker receives the tool arguments and a `respond` callback. `respond` is defined only while the tool call is executing:
+
+```vue title="src/components/MeetingPicker.vue"
+<script setup lang="ts">
+const props = defineProps<{
+  args: { topic?: string };
+  respond?: (result: unknown) => Promise<void>;
+}>();
+</script>
+
+<template>
+  <section>
+    <p>Pick a time for {{ props.args.topic ?? "a call" }}</p>
+    <button
+      :disabled="!props.respond"
+      @click="props.respond?.({ chosen_time: '09:00' })"
+    >
+      Tomorrow at 09:00
+    </button>
+    <button :disabled="!props.respond" @click="props.respond?.({ cancelled: true })">
+      Cancel
+    </button>
+  </section>
+</template>
+```
 
 ## The backend: agent instructed to call the frontend tool
 
@@ -103,26 +163,36 @@ The agent has no local implementation for the approval tool. The backend instruc
 
 ### Key props
 
-- **`agentId`** — must match a runtime-registered agent. If omitted, the composable assumes the default agent. A mismatch means the interrupt never appears.
-- **`renderInChat`** — when `true`, `slotProps` are published to the chat's `#interrupt` slot. Set it to `false` when your own component renders the returned refs elsewhere.
-- **`handler`** — optionally preprocesses the interrupt, can resolve it early, and exposes its return value as `result`.
-- **`enabled`** — filters interrupt shapes before they are surfaced.
+- **`agentId`**: must match a runtime-registered agent. If omitted, the composable uses the agent of the surrounding chat configuration, then `"default"`. A mismatch means the interrupt never appears.
+- **`renderInChat`**: when `true`, `slotProps` are published to the chat's `#interrupt` slot. Set it to `false` when your own component renders the returned refs elsewhere. See [Headless interrupts](/vue/human-in-the-loop/headless).
+- **`handler`**: optionally preprocesses the interrupt, can resolve it early, and exposes its return value as `result`.
+- **`enabled`**: filters interrupt shapes before they are surfaced.
 
-The Vue `#interrupt` slot receives `{ event, result, resolve }`. For the complete standard-interrupt surface — including `interrupt`, `interrupts`, and `cancel` — use the composable's returned `slotProps` with `renderInChat: false`.
+The Vue `#interrupt` slot receives `{ event, result, resolve }`. For the complete standard-interrupt surface (including `interrupt`, `interrupts`, and `cancel`), use the composable's returned `slotProps` with `renderInChat: false`.
 
 ## Multiple interrupts? Add a type and gate with `enabled`
 
 If your graph issues more than one kind of interrupt, tag each payload with a `type` field and install one `useInterrupt` per shape, each gated by `enabled`:
 
 ```ts
+// The LangGraph adapter sends the interrupt value as a JSON string.
+function readValue(value: unknown): Record<string, unknown> {
+  if (typeof value !== "string") return (value ?? {}) as Record<string, unknown>;
+  try {
+    return JSON.parse(value) as Record<string, unknown>;
+  } catch {
+    return {};
+  }
+}
+
 useInterrupt({
   agentId: "gen-ui-interrupt",
-  enabled: (event) => (event.value as { type?: string }).type === "ask",
+  enabled: (event) => readValue(event.value).type === "ask",
 });
 
 useInterrupt({
   agentId: "gen-ui-interrupt",
-  enabled: (event) => (event.value as { type?: string }).type === "approval",
+  enabled: (event) => readValue(event.value).type === "approval",
 });
 ```
 
@@ -136,8 +206,8 @@ const { slotProps } = useInterrupt({
   renderInChat: false,
   handler: async ({ event, resolve }) => {
     const department = await lookupUserDepartment();
-    const required = (event.value as { accessDepartment: string })
-      .accessDepartment;
+    // readValue is the helper from the previous sample.
+    const required = readValue(event.value).accessDepartment;
 
     if (required === department || department === "admin") {
       await resolve({ code: "AUTH_BY_DEPARTMENT" });
@@ -153,7 +223,7 @@ const { slotProps } = useInterrupt({
 
 ## AG-UI standard interrupt flow vs. legacy
 
-`useInterrupt` supports two interrupt transports. Understanding which one your agent uses helps you write the right UI.
+This section is a reference for developers who write interrupt UI for their own agent. The [Vue `useInterrupt` reference](/reference/vue/hooks/useInterrupt) lists every option. `useInterrupt` handles two kinds of interrupt, and your agent framework decides which kind it sends.
 
 ### Standard flow (`RUN_FINISHED` with `outcome.type === "interrupt"`)
 
@@ -166,14 +236,14 @@ outcome.interrupts  // Interrupt[]
 
 The composable detects this on `onRunFinishedEvent` and exposes the interrupts after `onRunFinalized` fires. `slotProps.value` contains:
 
-- **`interrupt`** — the primary `Interrupt` (`interrupts[0]`), with shape `{ id, reason, message?, toolCallId?, responseSchema?, expiresAt?, metadata? }`.
-- **`interrupts`** — the full open set.
-- **`resolve(payload?, interruptId?)`** — records a resolved response for the targeted interrupt. The run resumes once every open interrupt has a response.
-- **`cancel(interruptId?)`** — records a cancelled response for the targeted interrupt. The same accumulate-then-submit logic applies.
+- **`interrupt`**: the primary `Interrupt` (`interrupts[0]`), with shape `{ id, reason, message?, toolCallId?, responseSchema?, expiresAt?, metadata? }`.
+- **`interrupts`**: the full open set.
+- **`resolve(payload?, interruptId?)`**: records a resolved response for the targeted interrupt. The run resumes once every open interrupt has a response.
+- **`cancel(interruptId?)`**: records a cancelled response for the targeted interrupt. The same accumulate-then-submit logic applies.
 
 ### Legacy flow (`on_interrupt` custom event)
 
-Older agents may emit a custom `on_interrupt` event. The composable exposes its payload in `event.value`, with `interrupt` set to `null` and `interrupts` to `[]`. Calling `resolve(payload)` resumes via `forwardedProps.command`, the legacy mechanism. `cancel()` dismisses the interrupt without resuming because the legacy transport has no cancel response.
+Agents can emit a custom `on_interrupt` event. The LangGraph adapter does this by default. The composable exposes its payload in `event.value`, with `interrupt` set to `null` and `interrupts` to `[]`. Calling `resolve(payload)` resumes via `forwardedProps.command`. `cancel()` dismisses the interrupt without resuming because the custom-event flow has no cancel response.
 
 ### Priority
 
@@ -217,9 +287,11 @@ Some agents issue more than one interrupt in a single run. Each interrupt has it
 
 The agent run resumes only after **every** open interrupt has been addressed. If you omit `interruptId`, the primary interrupt is targeted; Vue warns when several are open.
 
-### `responseSchema` — surface only, no client-side validation
+### `responseSchema`: surface only, no client-side validation
 
 The `Interrupt` type exposes a `responseSchema` JSON Schema that the agent can use to describe the expected payload. `useInterrupt` surfaces it on `interrupt.responseSchema` for your UI to read, but it does **not** validate `resolve` payloads against it. Validation is the agent's responsibility on resume.
+
+<WhenFrameworkHas flag="interrupt_pattern" equals="native">
 
 ## Provider setup
 
@@ -238,7 +310,27 @@ import MeetingChat from "./components/MeetingChat.vue";
 </template>
 ```
 
-## Going further
+</WhenFrameworkHas>
 
-- [Tool-based HITL with `useHumanInTheLoop`](../human-in-the-loop) — for LLM-initiated pauses.
-- [Headless interrupts](./headless) — render and resolve interrupts outside a chat surface.
+<WhenFrameworkHas flag="interrupt_pattern" equals="promise-based">
+
+## Provider setup
+
+The component calling `useHumanInTheLoop` must be a descendant of `CopilotKitProvider`:
+
+```vue title="src/App.vue"
+<script setup lang="ts">
+import { CopilotKitProvider } from "@copilotkit/vue/v2";
+import MeetingTool from "./components/MeetingTool.vue";
+</script>
+
+<template>
+  <CopilotKitProvider runtime-url="/api/copilotkit">
+    <MeetingTool />
+  </CopilotKitProvider>
+</template>
+```
+
+Ask the agent to book a call. The picker appears in the chat. Click **Tomorrow at 09:00**, and the agent continues with your choice.
+
+</WhenFrameworkHas>

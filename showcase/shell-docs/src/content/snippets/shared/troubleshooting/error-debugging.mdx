@@ -1,6 +1,6 @@
 # How to Debug Errors
 
-CopilotKit provides visual error display for local development and debugging. This feature is completely free and requires no API keys.
+When a chat request fails, you need to see the error. In development, show it in the UI. In production, send it to your error tracker with `onError`.
 
 ## Quick Setup
 
@@ -19,28 +19,24 @@ export default function App() {
 }
 ```
 
+`showDevConsole` shows error banners and toasts only. To inspect AG-UI events, use the Inspector, which `enableInspector` controls.
+
 <Callout type="warning">
   Avoid showing the dev console in production as it exposes internal error details to end users.
 </Callout>
 
-## When to Use Development Debugging
-
-- **Local development** - See errors immediately in your UI
-- **Quick debugging** - No setup required, works out of the box
-- **Testing** - Verify error handling during development
-
 ## Programmatic Error Handling (v2)
 
-The v2 API provides an `onError` callback on both `CopilotKit` and `CopilotChat` for programmatic error handling. No `publicApiKey` is required.
+The v2 API provides an `onError` callback on both `CopilotKitProvider` and `CopilotChat` for programmatic error handling. No `publicApiKey` is required.
 
 ### Provider-Level Error Handling
 
 Catches all errors across the entire application:
 
 ```tsx
-import { CopilotKit } from "@copilotkit/react-core/v2";
+import { CopilotKitProvider } from "@copilotkit/react-core/v2";
 
-<CopilotKit
+<CopilotKitProvider
   runtimeUrl="/api/copilotkit"
   onError={(event) => {
     // event.code — error type (e.g. "runtime_info_fetch_failed", "agent_run_failed")
@@ -51,12 +47,12 @@ import { CopilotKit } from "@copilotkit/react-core/v2";
   }}
 >
   <App />
-</CopilotKit>
+</CopilotKitProvider>
 ```
 
 ### Chat-Level Error Handling
 
-Scoped to a specific chat's agent — fires in addition to the provider-level handler:
+This handler is scoped to a specific chat's agent and fires in addition to the provider-level handler:
 
 ```tsx
 import { CopilotChat } from "@copilotkit/react-core/v2";
@@ -67,6 +63,35 @@ import { CopilotChat } from "@copilotkit/react-core/v2";
     showToast(`Agent error: ${event.error.message}`);
   }}
 />
+```
+
+### Errors Replayed From Thread History
+
+Connecting to an existing thread replays its history, including a `RUN_ERROR` from an earlier run. `onError` receives that error with the code `agent_run_error_event`, like a live failure. `event.context.phase` tells them apart: `"live"` for a run happening now, `"replay"` for thread history, and `"unknown"` when the connection can't tell.
+
+If your handler shows a banner, skip only `"replay"`. Keep `"unknown"` visible, so a live failure is never hidden:
+
+```tsx
+import {
+  CopilotKitProvider,
+  CopilotKitCoreErrorCode,
+} from "@copilotkit/react-core/v2";
+
+<CopilotKitProvider
+  runtimeUrl="/api/copilotkit"
+  onError={(event) => {
+    errorTracker.capture(event); // Still record every error.
+    if (
+      event.code === CopilotKitCoreErrorCode.AGENT_RUN_ERROR_EVENT &&
+      event.context.phase === "replay"
+    ) {
+      return; // An earlier run's failure, replayed on connect.
+    }
+    showErrorBanner(event.error.message);
+  }}
+>
+  <App />
+</CopilotKitProvider>
 ```
 
 ### Error Codes
@@ -86,7 +111,7 @@ import { CopilotChat } from "@copilotkit/react-core/v2";
 </Callout>
 
 <Callout type="info">
-  Need to see the full event pipeline — what events your agent emits, whether they reach the client, and where they're dropped? See [Debug Mode](/troubleshooting/debug-mode) for detailed AG-UI event logging.
+  Need to see the full event pipeline (what events your agent emits, whether they reach the client, and where they're dropped)? See [Debug Mode](/troubleshooting/debug-mode) for detailed AG-UI event logging.
 </Callout>
 
 ## Troubleshooting
@@ -96,4 +121,4 @@ import { CopilotChat } from "@copilotkit/react-core/v2";
 - **Dev console not showing:**
   - Confirm `showDevConsole={true}`
   - Check for JavaScript errors in the browser console
-  - Ensure no CSS is hiding the error banner
+  - Make sure that no CSS is hiding the error banner

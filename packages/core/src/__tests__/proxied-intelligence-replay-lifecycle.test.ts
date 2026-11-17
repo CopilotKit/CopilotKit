@@ -17,6 +17,7 @@ vi.mock("phoenix", () => ({
 }));
 
 const { ProxiedCopilotRuntimeAgent } = await import("../agent");
+const { CopilotKitCore, CopilotKitCoreErrorCode } = await import("../core");
 
 function createReplayAgent(runtimeMode: "intelligence" | "pending") {
   return new ProxiedCopilotRuntimeAgent({
@@ -73,6 +74,49 @@ afterEach(() => vi.unstubAllGlobals());
 describe.each(["intelligence", "pending"] as const)(
   "%s Intelligence replay lifecycle",
   (runtimeMode) => {
+    it("tells a replayed RUN_ERROR apart from a live one in onError", async () => {
+      const agent = createReplayAgent(runtimeMode);
+      const core = new CopilotKitCore({});
+      const phases: unknown[] = [];
+      const subscription = core.subscribe({
+        onError: ({ code, context }) => {
+          if (code === CopilotKitCoreErrorCode.AGENT_RUN_ERROR_EVENT) {
+            phases.push(context.phase);
+          }
+        },
+      });
+      const connecting = core.connectAgent({ agent });
+      await vi.waitFor(() =>
+        expect(sockets[0]?.channels[0]?.joinCount).toBe(1),
+      );
+      const channel = sockets[0]!.channels[0]!;
+      channel.triggerJoin("ok");
+      channel.serverPush("ag_ui_event", {
+        type: EventType.RUN_STARTED,
+        threadId: "saved-thread",
+        runId: "old-run",
+      });
+      channel.serverPush("ag_ui_event", {
+        type: EventType.RUN_ERROR,
+        message: "Runner connection dropped",
+      });
+      channel.serverPush("replay_complete", {});
+      channel.serverPush("ag_ui_event", {
+        type: EventType.RUN_STARTED,
+        threadId: "saved-thread",
+        runId: "live-run",
+      });
+      channel.serverPush("ag_ui_event", {
+        type: EventType.RUN_ERROR,
+        message: "Live failure",
+      });
+      channel.serverPush("stream_idle", {});
+      await connecting;
+
+      await vi.waitFor(() => expect(phases).toEqual(["replay", "live"]));
+      subscription.unsubscribe();
+    });
+
     it.each([true, false])(
       "only logs idle diagnostics when debugging is enabled (%s)",
       async (debug) => {

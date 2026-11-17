@@ -589,49 +589,21 @@ export default config;
 `;
 }
 
+// Every integration shares one root stylesheet, so copy it rather than keep a
+// second version here. The demos need its `height: 100%` on <html> and <body>:
+// without it a full-page <CopilotChat> shrinks to the height of its welcome
+// screen and sits at the top of the page.
+const CANONICAL_GLOBALS_CSS_PATH = path.join(
+  ROOT,
+  "integrations",
+  "langgraph-python",
+  "src",
+  "app",
+  "globals.css",
+);
+
 function generateGlobalsCss(): string {
-  return `@import "tailwindcss";
-@import "@copilotkit/react-core/v2/styles.css";
-
-/* The layout's theme script puts \`class="dark"\` on <html>; \`dark:\` follows it. */
-@custom-variant dark (&:where(.dark, .dark *));
-
-:root {
-    color-scheme: light;
-    --copilot-kit-background-color: #f8f9fa;
-    --copilot-kit-primary-color: #0066ff;
-    --background: #ffffff;
-    --foreground: #1a1a18;
-    --border: #dbdbe5;
-}
-
-:root.dark {
-    color-scheme: dark;
-    --background: #0a0a0a;
-    --foreground: #fafafa;
-    --border: #303136;
-}
-
-/* In dark mode, a \`border\` without a color takes --border, not currentColor. */
-@layer base {
-    .dark *,
-    .dark ::before,
-    .dark ::after {
-        border-color: var(--border);
-    }
-}
-
-* {
-    box-sizing: border-box;
-}
-
-body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    min-height: 100vh;
-    background: var(--background);
-    color: var(--foreground);
-}
-`;
+  return fs.readFileSync(CANONICAL_GLOBALS_CSS_PATH, "utf-8");
 }
 
 function generateIndexPage(args: CLIArgs, features: Feature[]): string {

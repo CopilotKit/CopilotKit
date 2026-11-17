@@ -1,5 +1,5 @@
-Any LangGraph agent can be used with CopilotKit. However, creating deep agentic
-experiences with CopilotKit requires our LangGraph SDK.
+Any LangGraph agent works with CopilotKit. To use CopilotKit features inside the
+agent, such as frontend tools and emitted state, install the CopilotKit SDK:
 
 <Tabs
   groupId="language_langgraph_agent"
@@ -10,6 +10,10 @@ experiences with CopilotKit requires our LangGraph SDK.
     <InstallPythonSDK />
   </Tab>
   <Tab value="TypeScript">
-    ```npm npm install @copilotkit/sdk-js ```
+    ```npm
+    npm install @copilotkit/sdk-js zod@3
+    ```
+
+    The SDK needs Zod 3 (3.23.3 or later), so the command installs `zod@3`.
   </Tab>
 </Tabs>

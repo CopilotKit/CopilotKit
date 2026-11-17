@@ -4,8 +4,8 @@
 
     A Flow owns its own model call, so unlike a chat agent it has to hand the
     forwarded tools to the model itself. Type the Flow on `CopilotKitState` and
-    read `state.copilotkit.actions` — that is where a component registered with
-    `useComponent` arrives.
+    read `state.copilotkit.actions` — that is where a tool registered with
+    `useFrontendTool` or a component registered with `useComponent` arrives.
 
     ```python title="src/agents/chart_flow.py"
     from crewai.flow.flow import Flow, start

@@ -9,6 +9,7 @@ export const BUILT_IN_EVENT_NAMES = [
   "agent.run",
   "agent.message",
   "tool.call",
+  "page.error",
 ] as const;
 
 export type BuiltInEventName = (typeof BUILT_IN_EVENT_NAMES)[number];
@@ -50,9 +51,12 @@ export interface ClickTarget {
   action: string | null;
   text: string;
   /**
-   * Short, cleaned name of the clicked control (click events only). Comes from
+   * Short, cleaned name of the control. On a click, it comes from
    * `aria-labelledby`, `aria-label`, an input caption or `alt`, `title`, or a
-   * control's own text. Omitted when no safe name exists.
+   * control's own text. On an edit, it comes from `aria-labelledby`,
+   * `aria-label`, or the field's `<label>`, never from the value or
+   * placeholder; a select adds its chosen options (`Stage: negotiation`).
+   * Omitted when no safe name exists.
    */
   label?: string;
   attributes: Record<string, string>;
@@ -73,6 +77,14 @@ export interface CaptureOptions {
   navigation?: boolean;
   network?: boolean;
   inputs?: boolean;
+  /** Uncaught errors, unhandled rejections, failed resource loads, and form validation failures. */
+  errors?: boolean;
+  /**
+   * Text shown in `role="alert"` and `aria-live="assertive"` regions, as
+   * `page.error` events. Off by default: alert text is page content and can
+   * contain names. Needs `errors`.
+   */
+  alerts?: boolean;
 }
 
 export interface CollectorOptions {
@@ -81,11 +93,13 @@ export interface CollectorOptions {
   routes?: string[];
   /** URLs (prefix match on the absolute URL) or patterns that network capture skips. */
   ignoreUrls?: (string | RegExp)[];
-  /** Turns capture modules on or off. All are on by default. */
+  /** Turns capture modules on or off. All are on by default, except `alerts`. */
   capture?: CaptureOptions;
   /** Runs last, in the browser. Return the event to send, or `null` to drop it. */
   beforeSend?: (event: LearningEvent) => LearningEvent | null;
   enrich?: EnrichFn;
+  /** Your app's version, sent as `appVersion` in the `page` event at start. */
+  appVersion?: string;
 }
 
 export interface StartOptions {

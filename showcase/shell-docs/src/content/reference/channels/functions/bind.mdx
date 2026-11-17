@@ -40,5 +40,6 @@ For a one-off button, the `value` prop is usually clearer:
 ```
 
 Bound values and registered component props must be JSON-serializable if the
-callback must survive a restart. Register the named component and configure a
-durable `StateStore`.
+callback must survive a restart. Register the named component. The snapshot
+must be in a durable `StateStore`: the default managed store, or your own
+`store.adapter`.

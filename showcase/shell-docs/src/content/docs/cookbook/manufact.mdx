@@ -16,9 +16,8 @@ agentPrompt: |
   If I don't have a CopilotKit app yet, start from https://github.com/CopilotKit/CopilotKit/tree/main/examples/showcases/manufact-mcp-apps. Keep my existing model, provider, and runtime setup unchanged.
 ---
 
-[Manufact](https://manufact.com) builds [mcp-use](https://github.com/mcp-use/mcp-use), the
-open-source framework for MCP servers and MCP Apps, and **Manufact Cloud**, which hosts, monitors, and publishes
-them. An MCP App is an MCP tool that ships its own UI: when an agent calls the tool, the host renders that UI
+[Manufact](https://manufact.com) makes [mcp-use](https://github.com/mcp-use/mcp-use), an open-source framework for
+MCP servers and MCP Apps. **Manufact Cloud** hosts, monitors, and publishes them. An MCP App is an MCP tool that ships its own UI: when an agent calls the tool, the host renders that UI
 instead of returning raw JSON.
 
 This recipe builds a small MCP App with mcp-use: a `show-map` tool bound to a React map view. You connect it to
@@ -357,8 +356,14 @@ npm run dev -- --port 3001
 
 This also opens the **mcp-use Inspector** at
 [http://localhost:3001/mcp/inspector](http://localhost:3001/mcp/inspector). It's Manufact's tool for trying an MCP
-server by hand, with no agent involved. Go to **Tools**, pick `show-map`, and fill in its fields with these values
-(the Inspector gives each key its own field). Then click **Execute**:
+server by hand, with no agent involved.
+
+1. Go to **Tools**.
+2. Pick `show-map`.
+3. Fill in its fields with the values below. The Inspector gives each key its own field.
+4. Click **Execute**.
+
+The values:
 
 ```json
 {
@@ -548,8 +553,10 @@ Notice what's missing: there's no map code here and no custom renderer. CopilotK
 
 ### Try it
 
-Leave the MCP App running in its terminal. In the `web` terminal, run `npm run dev`, open
-[http://localhost:3000](http://localhost:3000), and ask:
+1. Keep the MCP App running in its terminal.
+2. In the `web` terminal, run `npm run dev`.
+3. Open [http://localhost:3000](http://localhost:3000).
+4. Ask:
 
 ```text
 Map my orders
@@ -584,7 +591,7 @@ The agent calls `show-map` again with just the delayed order, and a fresh map sh
 </Step>
 <Step>
 
-### Look under the hood with the CopilotKit Inspector
+### Watch the conversation in the CopilotKit Inspector
 
 See the kite button in the corner of your app? That's the [CopilotKit Inspector](/inspector). It shows up in
 development and watches the conversation between your app and the agent. It's a different tool from the mcp-use

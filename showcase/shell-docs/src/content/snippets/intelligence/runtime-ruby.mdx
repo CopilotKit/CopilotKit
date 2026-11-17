@@ -1,4 +1,4 @@
-This Rack example uses Ruby 3.1 or later and the [Ruby runtime gem](https://rubygems.org/gems/copilotkit-runtime). Add this `Gemfile`, then run `bundle install`:
+This Rack example uses Ruby 2.7 or later and the [Ruby runtime gem](https://rubygems.org/gems/copilotkit-runtime). Add this `Gemfile`, then run `bundle install`:
 
 ```ruby
 source 'https://rubygems.org'
@@ -56,6 +56,12 @@ Start a single-process server:
 bundle exec puma config.ru --bind tcp://127.0.0.1:8200 --workers 0
 ```
 
-The multi-route runtime URL is `http://localhost:8200/api/copilotkit`. Rack strips the mount prefix, so leave the runtime's `base_path` at its empty default. Send `Authorization: Bearer <APP_AUTH_TOKEN>` with frontend requests, and keep `CPK_INTELLIGENCE_API_KEY` on the server. Replace the allowed `http://localhost:3000` origin for your deployment.
+The multi-route runtime URL is `http://localhost:8200/api/copilotkit`. Rack strips the mount prefix, so leave the runtime's `base_path` at its empty default.
 
-The exit handler closes this single-process runtime. For a worker-based deployment, create one runtime after each worker forks and call `runtime.close(timeout: 10)` from its worker shutdown hook. `HttpAgent` accepts a `headers:` hash for server-owned agent credentials; it does not forward browser credentials.
+1. Send `Authorization: Bearer <APP_AUTH_TOKEN>` with each frontend request.
+2. Keep `CPK_INTELLIGENCE_API_KEY` on the server.
+3. Before you deploy, replace the allowed `http://localhost:3000` origin.
+
+The exit handler closes this single-process runtime. For a worker-based deployment, create one runtime after each worker forks. Call `runtime.close(timeout: 10)` from the worker shutdown hook.
+
+`HttpAgent` does not forward browser credentials. To send server-owned credentials to your agent, pass a `headers:` hash.
