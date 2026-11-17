@@ -23,7 +23,9 @@ import {
   SIBLING_TIMEOUT_MS,
   clickByJs,
   waitForTestId,
+  watchResumedRun,
 } from "./_genuine-shared.js";
+import type { RunLifecycle } from "./_genuine-shared.js";
 
 /** Pill prompts MUST mirror `gen-ui-interrupt/suggestions.ts`. */
 export const GEN_UI_INTERRUPT_PILLS = [
@@ -37,14 +39,10 @@ export const GEN_UI_INTERRUPT_PILLS = [
   },
 ] as const;
 
-interface AssistantContinuationState {
+interface AssistantContinuationState extends RunLifecycle {
   count: number;
   lastText: string;
   pickedTestid: boolean;
-  runningNow: boolean | null;
-  runStartCount: number;
-  lastStoppedAtMs: number;
-  runsFinished: number;
   sample: string;
 }
 
@@ -127,6 +125,7 @@ export function buildInterruptAssertion(
       );
     }
     const baseline = await readAssistantContinuationState(page);
+    const isResumedRunFinished = watchResumedRun(baseline);
     await clickByJs(page, slotSelector);
     // Step 3: require both a visible resolution and an authoritative run
     // completion. The card's local `time-picker-picked` state flips
@@ -138,7 +137,6 @@ export function buildInterruptAssertion(
     const deadline = Date.now() + 30_000;
     let lastSnap = "";
     let pickedObserved = false;
-    let sseCompletionObservedAt = 0;
     while (Date.now() < deadline) {
       const signal = await readAssistantContinuationState(page);
       const scheduledNarration =
@@ -148,21 +146,7 @@ export function buildInterruptAssertion(
       pickedObserved ||= signal.pickedTestid;
       const resolvedUiObserved =
         pickedObserved || (signal.count > baseline.count && scheduledNarration);
-      const resumedRunStopped =
-        signal.runStartCount > baseline.runStartCount &&
-        signal.runningNow === false &&
-        signal.lastStoppedAtMs > baseline.lastStoppedAtMs &&
-        Date.now() - signal.lastStoppedAtMs >= 500;
-      const sseCompletionObserved = signal.runsFinished > baseline.runsFinished;
-      if (sseCompletionObserved) {
-        sseCompletionObservedAt ||= Date.now();
-      } else {
-        sseCompletionObservedAt = 0;
-      }
-      const resumedRunFinished =
-        resumedRunStopped ||
-        (sseCompletionObservedAt > 0 &&
-          Date.now() - sseCompletionObservedAt >= 500);
+      const resumedRunFinished = isResumedRunFinished(signal);
       if (resolvedUiObserved && resumedRunFinished) {
         return;
       }

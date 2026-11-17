@@ -166,6 +166,83 @@ export async function waitForTestId(
 }
 
 /**
+ * The agent's run lifecycle, as a probe reads it from the page.
+ * `attachSseInterceptor` installs the window globals it comes from:
+ * `__hk_copilotRunning` records the `data-copilot-running` edges of the chat,
+ * and `__hk_runsFinished` counts the RUN_FINISHED events the page's fetch
+ * received.
+ */
+export interface RunLifecycle {
+  /** Whether a run is in flight; `null` before the chat renders the attribute. */
+  runningNow: boolean | null;
+  /** How many runs have started. */
+  runStartCount: number;
+  /** When the last run stopped, in wall-clock ms; `0` if none has. */
+  lastStoppedAtMs: number;
+  /** How many RUN_FINISHED events the page's fetch received. */
+  runsFinished: number;
+}
+
+/** How long a finished run must stay finished before a probe trusts it. */
+const RESUMED_RUN_SETTLE_MS = 500;
+
+/**
+ * Watch for the run that a click resumes, for example the run a time-slot pick
+ * resumes, to finish. Read the run lifecycle before the click and pass it as
+ * `baseline`. Then pass every later reading to the returned check. The check
+ * is true when the resumed run has finished, and that has held for 500 ms:
+ *
+ * - If the page has counted a RUN_FINISHED event before the click, the
+ *   resumed run is finished when a newer RUN_FINISHED event arrives. The
+ *   chat's stop is not enough: it can come before the run's stream ends. For
+ *   example, the chat stops about 650 ms early while a LangGraph resume still
+ *   streams.
+ * - Otherwise, the page does not count RUN_FINISHED events, so the resumed
+ *   run is finished when a run that started after the baseline has stopped.
+ *
+ * A UI change alone does not prove that the resumed run is done: a page can
+ * clear its picker when the resumed run starts. A probe that sends the next
+ * pill before this check is true races the resumed run, and the app can drop
+ * that pill.
+ *
+ * Call the check on every poll, also when the UI has not resolved yet, so the
+ * RUN_FINISHED timing starts at the first poll that sees the event.
+ *
+ * ```ts
+ * const isResumedRunFinished = watchResumedRun(await readState(page));
+ * await clickByJs(page, slotSelector);
+ * // In the poll loop:
+ * const state = await readState(page);
+ * const resumedRunFinished = isResumedRunFinished(state);
+ * if (uiResolved(state) && resumedRunFinished) return;
+ * ```
+ */
+export function watchResumedRun(baseline: RunLifecycle) {
+  const pageCountsRunFinished = baseline.runsFinished > 0;
+  let runFinishedSeenAtMs = 0;
+  return (current: RunLifecycle) => {
+    const now = Date.now();
+    if (current.runsFinished > baseline.runsFinished) {
+      runFinishedSeenAtMs ||= now;
+    } else {
+      runFinishedSeenAtMs = 0;
+    }
+    const runFinishedHeld =
+      runFinishedSeenAtMs > 0 &&
+      now - runFinishedSeenAtMs >= RESUMED_RUN_SETTLE_MS;
+    if (pageCountsRunFinished) {
+      return runFinishedHeld;
+    }
+    const resumedRunStopped =
+      current.runStartCount > baseline.runStartCount &&
+      current.runningNow === false &&
+      current.lastStoppedAtMs > baseline.lastStoppedAtMs &&
+      now - current.lastStoppedAtMs >= RESUMED_RUN_SETTLE_MS;
+    return resumedRunStopped || runFinishedHeld;
+  };
+}
+
+/**
  * Read text content concatenated across all elements matching a
  * selector. Lower-cased for case-insensitive substring assertions.
  */
