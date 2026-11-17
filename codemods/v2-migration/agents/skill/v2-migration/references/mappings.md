@@ -562,6 +562,31 @@ const status = (await runtime.getLicenseChecker())?.getStatus();
 
 `@copilotkit/runtime` requires Node.js `^20.19.3 || >=22.13.0`. If `engines.node`, `.nvmrc`, a Dockerfile, or CI pins an earlier Node.js version, tell the user. Do not change it without asking.
 
+### Runtime names
+
+2.0 removed the old runtime names. Each 2.0 name is the old name with "Kit" after "Copilot". The codemod renamed each use that it found. If the build still reports an old name, rename it:
+
+| Old name                      | 2.0 name                         |
+| ----------------------------- | -------------------------------- |
+| `CopilotRuntime`              | `CopilotKitRuntime`              |
+| `CopilotSseRuntime`           | `CopilotKitSseRuntime`           |
+| `CopilotIntelligenceRuntime`  | `CopilotKitIntelligenceRuntime`  |
+| `createCopilotRuntimeHandler` | `createCopilotKitRuntimeHandler` |
+| `createCopilotNodeListener`   | `createCopilotKitNodeListener`   |
+| `createCopilotNodeHandler`    | `createCopilotKitNodeHandler`    |
+| `NodeCopilotListener`         | `NodeCopilotKitListener`         |
+
+These types get "Kit" after "Copilot" too:
+
+- `CopilotRuntimeConstructor`, `CopilotRuntimeOptions`, `CopilotRuntimeLike`, `CopilotRuntimeMemoryConfig`, `CopilotRuntimeUser`, `CopilotRuntimeLearningConfig`, `CopilotRuntimeLearningContext`, `CopilotRuntimeLogger`
+- `CopilotRuntimeHandlerOptions`, `CopilotRuntimeFetchHandler`, `CopilotRuntimeFetchHandlerWithChannels`, `CopilotRuntimeHooks`, `CopilotCorsConfig`
+- `CopilotSseRuntimeOptions`, `CopilotSseRuntimeLike`, `CopilotIntelligenceRuntimeOptions`, `CopilotIntelligenceRuntimeLike`
+- `NodeCopilotListenerWithChannels`
+
+`createCopilotKitNodeListener`, `createCopilotKitNodeHandler`, `NodeCopilotKitListener`, and `NodeCopilotKitListenerWithChannels` import from `@copilotkit/runtime/node`. The other names import from `@copilotkit/runtime`.
+
+A re-export of an old name keeps that name: the codemod exports the 2.0 name under the old one. Keep it, because other modules can import the old name from that file.
+
 ## Built-in Agent
 
 `BuiltInAgent` imports from `@copilotkit/runtime/agent`, and it runs on TanStack AI. The codemod already moved the imports. The AI SDK helpers (`convertMessagesToVercelAISDKMessages`, `convertToolsToVercelAITools`, `createSafeUrlDownload`, ...) moved to `@copilotkit/runtime/agent/ai-sdk`.

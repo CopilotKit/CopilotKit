@@ -18,9 +18,9 @@ async function exercise() {
   };
   const entry = await entryFor("@copilotkit/runtime");
   const {
-    CopilotRuntime,
+    CopilotKitRuntime,
     CopilotKitIntelligence,
-    createCopilotRuntimeHandler,
+    createCopilotKitRuntimeHandler,
   } = await import(pathToFileURL(entry));
   const { BuiltInAgent } = await import(
     pathToFileURL(await entryFor("@copilotkit/runtime", "./agent"))
@@ -51,7 +51,7 @@ async function exercise() {
     apiKey: input.apiKey,
     enableEnterpriseLearning: false,
   });
-  const runtime = new CopilotRuntime({
+  const runtime = new CopilotKitRuntime({
     intelligence,
     agents: {
       smoke: new BuiltInAgent({
@@ -62,7 +62,7 @@ async function exercise() {
     identifyUser: () => ({ id: "smoke-user", name: "Smoke user" }),
     generateThreadNames: false,
   });
-  const handler = createCopilotRuntimeHandler({
+  const handler = createCopilotKitRuntimeHandler({
     runtime,
     basePath: "/api/copilotkit",
   });

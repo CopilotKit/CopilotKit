@@ -62,17 +62,6 @@ export function createCopilotKitNodeHandler(
 }
 
 /**
- * @deprecated Use createCopilotKitNodeHandler. This old name is an alias with
- * the same behavior.
- */
-export function createCopilotNodeHandler(
-  handler: CopilotKitRuntimeFetchHandler,
-  logger: CopilotKitRuntimeLogger = getRuntimeLogger(),
-): NodeFetchHandler {
-  return createCopilotKitNodeHandler(handler, logger);
-}
-
-/**
  * Build a Fetch Request from a Node IncomingMessage whose body stream has
  * already been consumed by a body parser.
  *

@@ -63,8 +63,8 @@ wiring:
 ```ts
 import { createServer } from "node:http";
 import { createChannel, HttpAgent } from "@copilotkit/channels";
-import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime/v2";
-import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
+import { CopilotKitRuntime, CopilotKitIntelligence } from "@copilotkit/runtime";
+import { createCopilotKitNodeListener } from "@copilotkit/runtime/node";
 import {
   slack,
   defaultSlackTools,
@@ -115,7 +115,7 @@ const intelligence = new CopilotKitIntelligence({
   // apiUrl/wsUrl default to cloud-hosted CopilotKit Intelligence.
   apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
 });
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: {}, // the Channel supplies its own agent
   intelligence,
   channels: [bot],
@@ -124,7 +124,7 @@ const runtime = new CopilotRuntime({
 // Mounting the listener starts the Channel (and its adapters) and exposes
 // `.channels` to observe or shut it down; `ready()` waits until it is live.
 // No bot.start()/bot.stop().
-const listener = createCopilotNodeListener({
+const listener = createCopilotKitNodeListener({
   runtime,
   basePath: "/api/copilotkit",
 });
@@ -255,7 +255,7 @@ isn't in the history the agent reconstructs).
 ### The agent (`runtime.ts`)
 
 A single CopilotKit `BuiltInAgent` (LLM + MCP) served over AG-UI by a
-`CopilotSseRuntime`. It connects to Linear (hosted MCP, raw API key as
+`CopilotKitSseRuntime`. It connects to Linear (hosted MCP, raw API key as
 bearer token) and Notion (the official MCP server run as a local
 Streamable-HTTP sidecar), discovering the available list/search/create tools
 from each server at runtime. A server is only wired up when its credentials
