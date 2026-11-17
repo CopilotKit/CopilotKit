@@ -739,7 +739,7 @@ If a test spies on `connectAgent` with an agent that does not implement `connect
 
 ## Interrupts and human-in-the-loop
 
-React, Vue, and Angular now share one implementation of interrupts and human-in-the-loop tools. The imports and types do not change. Some behavior changes. Find the changes that apply to your app below.
+React, Vue, and Angular now share one implementation of interrupts and human-in-the-loop tools. The names and types do not change. In Vue, import them from the package root, `@copilotkit/vue`. See [Update Vue imports](/migrate/v2#if-you-use-vue-update-vue-imports). Some behavior changes. Find the changes that apply to your app below.
 
 ### Human-in-the-loop tools
 
@@ -760,6 +760,7 @@ To update your code:
 1. If a Vue `"*"` render compares `name` with `"*"`, remove the comparison. Use `name` to show the tool that the agent called.
 2. If a `humanInTheLoop` prop tool sets `available`, `reconnectBehavior`, or `webmcp`, make sure that you want this value to apply.
 
+{/* kiira: ignore, shows the v1 code this guide migrates away from */}
 ```ts ignore title="Before"
 // Inside <script setup lang="ts">
 import { h } from "vue";
@@ -779,8 +780,8 @@ useHumanInTheLoop({
 ```ts title="After"
 // Inside <script setup lang="ts">
 import { h } from "vue";
-import { useHumanInTheLoop } from "@copilotkit/vue/v2";
-import type { VueHumanInTheLoopRenderProps } from "@copilotkit/vue/v2";
+import { useHumanInTheLoop } from "@copilotkit/vue";
+import type { VueHumanInTheLoopRenderProps } from "@copilotkit/vue";
 import ApprovalCard from "./ApprovalCard.vue";
 
 useHumanInTheLoop({
@@ -821,6 +822,7 @@ Two changes can affect your code:
 
 If `enabled` reads a value that can change while an interrupt shows, move that check out of `enabled`:
 
+{/* kiira: ignore, shows the v1 code this guide migrates away from */}
 ```ts ignore title="Before"
 // Inside <script setup lang="ts">
 import { ref } from "vue";
@@ -837,7 +839,7 @@ const { slotProps } = useInterrupt({
 ```ts title="After"
 // Inside <script setup lang="ts">
 import { computed, ref } from "vue";
-import { useInterrupt } from "@copilotkit/vue/v2";
+import { useInterrupt } from "@copilotkit/vue";
 
 const approvalsOn = ref(false);
 
