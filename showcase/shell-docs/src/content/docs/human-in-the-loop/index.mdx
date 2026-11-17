@@ -70,7 +70,7 @@ When the LLM calls that tool, CopilotKit routes the call through your
 with the user's answer. The agent sees the answer as the tool result and
 continues from there.
 
-<Snippet region="hitl-hook" title="frontend/src/app/page.tsx — useHumanInTheLoop" />
+<Snippet region="hitl-hook" title="frontend/src/app/page.tsx: useHumanInTheLoop" />
 
 The sample imports `TimePickerCard` from its own file. The card renders the
 slots and calls `onSubmit` with the user's choice. These are its props:
@@ -81,11 +81,11 @@ Each slot button calls `onSubmit({ chosen_time: s.iso, chosen_label: s.label })`
 The "None of these work" button calls `onSubmit({ cancelled: true })`. The full
 file is in the Code view of the demo at the top of this page.
 
-The picker UI is fed a static list of candidate slots. This is just
-data the demo page owns, so you can swap in real availability, a
+The picker UI is fed a static list of candidate slots. This is
+data that the demo page owns, so you can swap in real availability, a
 calendar API, or anything else:
 
-<Snippet region="time-slots" title="frontend/src/app/page.tsx — candidate slots" />
+<Snippet region="time-slots" title="frontend/src/app/page.tsx: candidate slots" />
 
 ## Pattern 2: `useInterrupt` (agent-paused)
 

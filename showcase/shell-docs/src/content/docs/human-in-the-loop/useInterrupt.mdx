@@ -110,7 +110,7 @@ framework decides where the payload sits:
 - Standard AG-UI interrupt: `interrupt.metadata`, or a JSON string in
   `interrupt.message`.
 
-<Snippet region="frontend-useinterrupt-render" title="frontend/src/app/page.tsx — useInterrupt" />
+<Snippet region="frontend-useinterrupt-render" title="frontend/src/app/page.tsx: useInterrupt" />
 
 Whatever you pass to `resolve` is sent back to the agent as the answer to
 the matching interrupt, for example the return value of `interrupt(...)` in
@@ -141,7 +141,7 @@ instruct the model to call `schedule_meeting` whenever the user wants
 to book a meeting. AG-UI routes the tool call to the client, where
 the Promise-returning handler takes over:
 
-<Snippet region="backend-tool-call" title="backend — agent instructed to call schedule_meeting" />
+<Snippet region="backend-tool-call" title="backend: agent instructed to call schedule_meeting" />
 
 Ask the agent to book a call. The time picker appears in the chat. Pick a
 slot, and the agent confirms the booked time.
@@ -164,7 +164,7 @@ slot, and the agent confirms the booked time.
 
 ## Multiple interrupts? Add a type and gate with `enabled`
 
-If your agent issues more than one kind of interrupt (e.g. `"ask"` vs
+If your agent issues more than one kind of interrupt (for example, `"ask"` vs
 `"approval"`), tag each with a `type` field on the payload and install
 one `useInterrupt` per shape, each gated by an `enabled` predicate:
 
@@ -193,7 +193,7 @@ useInterrupt({
 ## Preprocess with `handler`
 
 For cases where the interrupt can sometimes be resolved _without_ user
-input (e.g. the current user already has permission), pass a `handler`
+input (for example, the current user already has permission), pass a `handler`
 that runs before `render`. The handler can call `resolve(...)` itself
 to resume the agent early. The interrupt card unmounts when the resume
 run starts. Or return a value that `render` receives as `result`:
@@ -294,7 +294,7 @@ Both return the `RunAgentResult` once the run restarts.
 
 ### Multi-interrupt behavior
 
-Some agents issue more than one interrupt in a single run (e.g. two independent
+Some agents issue more than one interrupt in a single run (for example, two independent
 approvals). Each interrupt has its own `id`. Address them individually:
 
 ```tsx
@@ -324,5 +324,5 @@ is targeted.
 The `Interrupt` type exposes a `responseSchema` field (a JSON Schema object)
 that the agent can use to describe the expected payload shape. `useInterrupt`
 surfaces this field on `interrupt.responseSchema` for your UI to read
-(e.g. to drive a form), but it does **not** validate `resolve` payloads against
+(for example, to drive a form), but it does **not** validate `resolve` payloads against
 it. Validation is the agent's responsibility on resume.
