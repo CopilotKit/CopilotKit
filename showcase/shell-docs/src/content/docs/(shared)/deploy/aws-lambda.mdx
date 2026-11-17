@@ -218,7 +218,7 @@ provideCopilotKit({
 </FrontendOnly>
 
 <Callout type="info" title="Verify streaming actually works">
-  `curl -N` on the run endpoint prints SSE events as they arrive. If the whole body
+  When streaming works, `curl -N` on the run endpoint prints SSE events as they arrive. If the whole body
   arrives at once, streaming is not active. Check that the Function URL's invoke mode is
   `RESPONSE_STREAM`, and that nothing buffering (an HTTP API, an ALB, a CloudFront
   distribution without streaming configured) sits in front of it.
