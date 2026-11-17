@@ -4,14 +4,17 @@ type Variant = "default" | "outline" | "secondary" | "ghost" | "success";
 type Size = "default" | "sm" | "lg";
 
 const baseClasses =
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50";
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 focus-visible:ring-offset-2 dark:focus-visible:ring-ring dark:focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50";
 
 const variantClasses: Record<Variant, string> = {
-  default: "bg-neutral-900 text-neutral-50 shadow-sm hover:bg-neutral-900/90",
+  default:
+    "bg-neutral-900 text-neutral-50 shadow-sm hover:bg-neutral-900/90 dark:bg-primary dark:text-primary-foreground dark:hover:bg-primary/90",
   outline:
-    "border border-neutral-200 bg-white text-neutral-900 shadow-sm hover:bg-neutral-100 hover:text-neutral-900",
-  secondary: "bg-neutral-100 text-neutral-900 shadow-sm hover:bg-neutral-200",
-  ghost: "hover:bg-neutral-100 hover:text-neutral-900",
+    "border border-neutral-200 bg-white text-neutral-900 shadow-sm hover:bg-neutral-100 hover:text-neutral-900 dark:border-border dark:bg-card dark:text-foreground dark:hover:bg-muted dark:hover:text-foreground",
+  secondary:
+    "bg-neutral-100 text-neutral-900 shadow-sm hover:bg-neutral-200 dark:bg-muted dark:text-foreground dark:hover:bg-accent",
+  ghost:
+    "hover:bg-neutral-100 hover:text-neutral-900 dark:hover:bg-muted dark:hover:text-foreground",
   success: "bg-emerald-600 text-white shadow-sm hover:bg-emerald-600/90",
 };
 

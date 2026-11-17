@@ -1,0 +1,10 @@
+{
+  "name": "@copilotkit/a11y-test-kit",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "devDependencies": {
+    "axe-core": "4.11.1",
+    "@ui-sdk/core": "0.1.0-beta.5"
+  }
+}

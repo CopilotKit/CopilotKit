@@ -14,14 +14,27 @@ import type { GenerativeUITheme } from "@copilotkit/shared/generative-ui";
 export type { GenerativeUITheme };
 
 export interface GenerativeUIErrorBoundaryConfig {
-  /** Replaces the default per-component fallback. */
+  /**
+   * Replaces the host's fallback for a component that failed to render. It
+   * is not used for invalid props, unknown types, cyclic references or a
+   * failed surface: the host's `NodeFallback` shows those. If it throws,
+   * the host's fallback stands in and the error is reported. `error` is
+   * always an Error: a component that throws something else (a string,
+   * `undefined`) gets an Error that describes it, with the value as its
+   * `cause`.
+   */
   fallback?: (props: {
     error: Error;
     retry: () => void;
     surfaceId: string;
     componentId: string;
   }) => ReactNode;
-  /** Called for render, props, operation, function and event failures. */
+  /**
+   * Called for render, props, operation, function and event failures. A
+   * render or props failure that stays the same across new revisions of the
+   * node or the surface is reported once, until the node or surface renders
+   * again. A failed function or event is reported on every call.
+   */
   onError?: (info: GenerativeUIErrorInfo) => void;
 }
 
@@ -37,9 +50,10 @@ interface GenerativeUIBaseConfig {
    */
   agentIds?: string[];
   /**
-   * Values for the `--a2ui-*` CSS variables and the map style. Top-level
-   * values apply in both modes. `dark` changes them in dark mode, which is
-   * on under a `.dark` class, like the CopilotKit chat.
+   * Web only. Values for the `--a2ui-*` CSS variables and the map style.
+   * Top-level values apply in both modes. `dark` changes them in dark mode,
+   * which is on under a `.dark` class, like the CopilotKit chat. React
+   * Native ignores it.
    */
   theme?: GenerativeUITheme;
   /** Fallback UI and error reporting for generated UI. */
@@ -101,7 +115,10 @@ export interface GenerativeUIRuntime {
   transport: "tool" | "markdown";
   /** The latest `generativeUI` config of the provider. */
   readonly config: GenerativeUIConfig;
-  /** The latest `theme`. Each surface root sets its CSS variables. */
+  /**
+   * The latest `theme`. The host's surface root gets it: on the web it sets
+   * the CSS variables; the React Native root ignores it.
+   */
   theme?: GenerativeUITheme;
   forwardEvent: (
     event: GenerativeUIUserEvent,
@@ -122,7 +139,7 @@ export function useRequiredGenerativeUIRuntime(): GenerativeUIRuntime {
   const runtime = useContext(GenerativeUIRuntimeContext);
   if (!runtime) {
     throw new Error(
-      "Generative UI components must be rendered inside <CopilotKitProvider generativeUI={{ ui }}>.",
+      "Generative UI components must be rendered inside a generative UI provider: <CopilotKitProvider generativeUI={{ ui }}> on the web, or <GenerativeUIProvider> from @copilotkit/react-native/generative-ui on React Native.",
     );
   }
   return runtime;

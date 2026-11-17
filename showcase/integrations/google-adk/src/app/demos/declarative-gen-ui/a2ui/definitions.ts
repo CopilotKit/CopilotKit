@@ -22,6 +22,11 @@ export const myDefinitions = {
     description:
       "Horizontal layout container. Children share the width evenly. Use `gap` (px) to space dashboard tiles.",
     props: z.object({
+      // Keep `children` first. A2UI Express maps positional arguments in
+      // property order, so `Row([...], gap=16)` must bind the list to it.
+      children: z
+        .array(z.string())
+        .describe("REF:common_types.json#/$defs/ChildList"),
       gap: z.number().optional(),
       // Enum mirrors the keys the renderer actually maps to CSS. Anything
       // outside this set silently falls back at render time, so we reject
@@ -30,7 +35,6 @@ export const myDefinitions = {
         .enum(["start", "center", "end", "stretch", "baseline"])
         .optional(),
       justify: z.enum(["start", "center", "end", "spaceBetween"]).optional(),
-      children: z.array(z.string()),
     }),
   },
 
@@ -38,11 +42,15 @@ export const myDefinitions = {
     description:
       "Vertical layout container. Use `gap` (px) to space stacked sections.",
     props: z.object({
+      // Keep `children` first. A2UI Express maps positional arguments in
+      // property order, so `Column([...], gap=16)` must bind the list to it.
+      children: z
+        .array(z.string())
+        .describe("REF:common_types.json#/$defs/ChildList"),
       gap: z.number().optional(),
       align: z
         .enum(["start", "center", "end", "stretch", "baseline"])
         .optional(),
-      children: z.array(z.string()),
     }),
   },
 
@@ -61,7 +69,10 @@ export const myDefinitions = {
     props: z.object({
       title: z.string(),
       subtitle: z.string().optional(),
-      child: z.string().optional(),
+      child: z
+        .string()
+        .describe("REF:common_types.json#/$defs/ComponentId")
+        .optional(),
     }),
   },
 

@@ -1,13 +1,14 @@
 import { containsDynamicValue } from "./resolve";
-import {
-  Catalog,
-  ComponentModel,
-  DataModel,
-  SurfaceModel,
-} from "@a2ui/web_core/v0_9";
+// From the `catalog` and `state` entries, not the `v0_9` barrel: the barrel
+// also exports the basic catalog's Lit elements, and lit-html reads
+// `document` when it loads, which throws outside a browser (React Native).
+// The classes are the same modules either way.
+import { Catalog } from "@a2ui/web_core/catalog";
+import { ComponentModel, DataModel, SurfaceModel } from "@a2ui/web_core/state";
 import { z } from "zod";
 import {
   A2UI_COMPONENT_ENVELOPE_KEYS,
+  cloneValue,
   GENERATIVE_UI_MAX_REJECTION_LENGTH,
   GENERATIVE_UI_MAX_SUMMARY_REJECTIONS,
   getOperationKind,
@@ -25,7 +26,7 @@ import type {
   GenerativeUISurfaceSummary,
   OperationKind,
 } from "@copilotkit/shared";
-import { catalogIdsOf } from "@copilotkit/shared/generative-ui";
+import { catalogIdsOf, hasOwnKey } from "@copilotkit/shared/generative-ui";
 import type { GenerativeUI } from "@copilotkit/shared/generative-ui";
 import {
   formatIssues,
@@ -112,6 +113,92 @@ function normalizePath(path: string) {
   return trimmed || "/";
 }
 
+/** A user-owned value, and what the agent is told about it. */
+interface OwnedValue {
+  /**
+   * A copy with structuredClone semantics, as the data model holds it. It is
+   * never changed or handed out (each read copies it), so linked surfaces
+   * share one.
+   */
+  value: unknown;
+  /**
+   * `JSON.stringify` of `value`, which the description of the surface
+   * parses, so every request gets a fresh copy. `undefined` when JSON
+   * refuses the value (a bigint or a cycle): the agent is not told it.
+   */
+  json: string | undefined;
+}
+
+/**
+ * What the agent is told about a user value: what `JSON.stringify` makes
+ * of it, as before generative UI ran on React Native. `NaN` and `Infinity`
+ * become `null`, a valid `Date` its ISO string (an invalid one `null`), a
+ * `Map` or a `Set` `{}`, and an `undefined` member is dropped. A value JSON refuses (a bigint or a cycle)
+ * would make building the request throw, so it is left out of the
+ * description instead, with a `console.warn`. It stays in the data model.
+ */
+/** The JSON of an operation, or undefined when JSON refuses it. */
+function fingerprint(operation: unknown): string | undefined {
+  try {
+    return JSON.stringify(operation);
+  } catch {
+    return undefined;
+  }
+}
+
+/** Whether two rejection lists hold the same entries in the same order. */
+function sameRejected(
+  a: readonly GenerativeUIRejectedOperation[],
+  b: readonly GenerativeUIRejectedOperation[],
+): boolean {
+  return (
+    a.length === b.length &&
+    a.every(
+      (entry, i) =>
+        entry.index === b[i]!.index && entry.reason === b[i]!.reason,
+    )
+  );
+}
+
+function agentJson(value: unknown, path: string): string | undefined {
+  try {
+    return JSON.stringify(value) ?? "null";
+  } catch (cause) {
+    const reason = cause instanceof Error ? cause.message : String(cause);
+    console.warn(
+      `[generativeUI] the value written to "${path}" is kept in the data model, but the agent is not told it, because JSON cannot hold it (${reason}). Write strings, numbers, booleans, null, arrays, plain objects or dates.`,
+    );
+    return undefined;
+  }
+}
+
+/**
+ * Defines `key` on `target` as a copy of what `read` gives, made the first
+ * time it is read and then kept, so a value nobody reads is never copied.
+ * The property is enumerable, and assigning it replaces the copy.
+ */
+function defineCopyOnRead(
+  target: object,
+  key: string,
+  read: () => unknown,
+): void {
+  const settle = (value: unknown) => {
+    Object.defineProperty(target, key, {
+      value,
+      enumerable: true,
+      configurable: true,
+      writable: true,
+    });
+    return value;
+  };
+  Object.defineProperty(target, key, {
+    enumerable: true,
+    configurable: true,
+    get: () => settle(cloneValue(read())),
+    set: settle,
+  });
+}
+
 /** True when `path` is `ancestor` or below it. */
 function isAtOrBelow(path: string, ancestor: string) {
   if (ancestor === "/") return true;
@@ -152,7 +239,7 @@ export class GenerativeUISurfaceManager {
    * User-owned data model values, by surface key, then by path. Kept when a
    * surface is rebuilt. Cleared when the surface is deleted.
    */
-  private readonly owned = new Map<string, Map<string, unknown>>();
+  private readonly owned = new Map<string, Map<string, OwnedValue>>();
   /**
    * Keys of the surfaces that a `deleteSurface` removed. A surface id is
    * unique for the life of the page, so a key stays here when its surface is
@@ -214,8 +301,25 @@ export class GenerativeUISurfaceManager {
     let surface = this.surfaces.get(key);
     let book = this.bookkeeping.get(key);
     let changed = false;
+    const extendsApplied =
+      !!surface && !!book && this.extendsApplied(book, operations);
+    // Check every operation this ingest would apply, before changing
+    // anything: content with an operation that JSON refuses (a bigint, a
+    // cycle) cannot come from the wire, and is skipped whole, so ingest
+    // never throws and never applies part of it. Only the new operations
+    // are checked; the applied ones passed when they were new. The last
+    // one is fingerprinted pristine, before it is applied.
+    const start = extendsApplied ? book!.appliedCount : 0;
+    for (let index = start; index < operations.length - 1; index++) {
+      if (fingerprint(operations[index]) === undefined) return;
+    }
+    const lastFingerprint =
+      operations.length > 0
+        ? fingerprint(operations[operations.length - 1])
+        : undefined;
+    if (operations.length > 0 && lastFingerprint === undefined) return;
 
-    if (surface && book && !this.extendsApplied(book, operations)) {
+    if (surface && book && !extendsApplied) {
       this.disposeSurface(key);
       surface = undefined;
       book = undefined;
@@ -244,8 +348,6 @@ export class GenerativeUISurfaceManager {
       changed = true;
     }
     if (operations.length > 0) {
-      // Fingerprint the pristine operation before applying it.
-      const lastFingerprint = JSON.stringify(operations[operations.length - 1]);
       // Content that also deletes the surface replays all of its life, for
       // example when the markdown source builds a surface again. Its
       // createSurface is not a new create.
@@ -263,7 +365,7 @@ export class GenerativeUISurfaceManager {
     if (
       surface.status !== content.status ||
       surface.target !== content.target ||
-      surface.serverRejected.length !== serverRejected.length
+      !sameRejected(surface.serverRejected, serverRejected)
     ) {
       surface.status = content.status;
       surface.target = content.target;
@@ -336,11 +438,15 @@ export class GenerativeUISurfaceManager {
         : surface.failed
           ? "failed"
           : undefined;
+      // What JSON.stringify makes of each user value, parsed, so the
+      // description is JSON and shares no object with the owned values.
+      const dataModel: Record<string, unknown> = {};
+      for (const [path, { json }] of owned ?? []) {
+        if (json !== undefined) dataModel[path] = JSON.parse(json);
+      }
       described[surface.surfaceId] = {
         target: surface.target,
-        ...(owned && owned.size > 0
-          ? { dataModel: Object.fromEntries(owned) }
-          : {}),
+        ...(Object.keys(dataModel).length > 0 ? { dataModel } : {}),
         ...(rejections.length > 0 && status !== "deleted"
           ? { rejected: summarizeRejections(rejections) }
           : {}),
@@ -350,31 +456,58 @@ export class GenerativeUISurfaceManager {
     return described;
   }
 
-  /** Every surface that is not deleted, oldest first, for the inspector. */
+  /**
+   * Every surface that is not deleted, oldest first, for the inspector. The
+   * data model and the user values are copies, so the inspector cannot
+   * change the surface through them. The inspector asks for this on every
+   * change of the manager, so each copy is made only the first time it is
+   * read (then kept): a snapshot that nobody opens copies nothing. The user
+   * values are those of the call; the data model is the one of the first
+   * read, which the inspector does while it renders the snapshot.
+   */
   debugSurfaces() {
     return [...this.surfaces.values()]
       .filter((surface) => !surface.deleted)
       .sort((a, b) => a.createdAt - b.createdAt)
-      .map((surface) => ({
-        surfaceId: surface.surfaceId,
-        threadId: surface.threadId,
-        agentId: surface.agentId,
-        target: surface.target,
-        status: surface.status,
-        operations: surface.operations,
-        dataModel: surface.model.dataModel.get("/"),
-        userValues: Object.fromEntries(this.owned.get(surface.key) ?? []),
-        rejected: [
-          ...surface.serverRejected.map((r) => ({
-            ...r,
-            source: "runtime" as const,
-          })),
-          ...surface.clientRejected.map((r) => ({
-            ...r,
-            source: "browser" as const,
-          })),
-        ],
-      }));
+      .map((surface) => {
+        const { model } = surface;
+        const owned = [...(this.owned.get(surface.key) ?? [])];
+        const entry = {
+          surfaceId: surface.surfaceId,
+          threadId: surface.threadId,
+          agentId: surface.agentId,
+          target: surface.target,
+          status: surface.status,
+          operations: surface.operations,
+          rejected: [
+            ...surface.serverRejected.map((r) => ({
+              ...r,
+              source: "runtime" as const,
+            })),
+            ...surface.clientRejected.map((r) => ({
+              ...r,
+              source: "browser" as const,
+            })),
+          ],
+        } as {
+          surfaceId: string;
+          threadId: string;
+          agentId: string | undefined;
+          target: string;
+          status: ManagedSurface["status"];
+          operations: ManagedSurface["operations"];
+          dataModel: unknown;
+          userValues: Record<string, unknown>;
+          rejected: Array<
+            GenerativeUIRejectedOperation & { source: "runtime" | "browser" }
+          >;
+        };
+        defineCopyOnRead(entry, "dataModel", () => model.dataModel.get("/"));
+        defineCopyOnRead(entry, "userValues", () =>
+          Object.fromEntries(owned.map(([path, { value }]) => [path, value])),
+        );
+        return entry;
+      });
   }
 
   /**
@@ -449,7 +582,7 @@ export class GenerativeUISurfaceManager {
   /** Sets one state key. Notifies only when the value changed. */
   setState(key: string, value: unknown) {
     const isUnchanged =
-      Object.hasOwn(this.state, key) && Object.is(this.state[key], value);
+      hasOwnKey(this.state, key) && Object.is(this.state[key], value);
     if (isUnchanged) return;
     this.state = { ...this.state, [key]: value };
     this.notify();
@@ -457,7 +590,7 @@ export class GenerativeUISurfaceManager {
 
   /** Removes one state key. Notifies only when the key was set. */
   removeState(key: string) {
-    if (!Object.hasOwn(this.state, key)) return;
+    if (!hasOwnKey(this.state, key)) return;
     const { [key]: _removed, ...rest } = this.state;
     this.state = rest;
     this.notify();
@@ -484,12 +617,27 @@ export class GenerativeUISurfaceManager {
    * Writes a user value into the data model of a surface, and marks `path`
    * as user-owned. Then agent writes to that path, or below it, are ignored.
    * An agent write above it keeps the user value. Ownership ends when the
-   * surface is deleted. Does nothing for an unknown or deleted surface. The
+   * surface is deleted. Does nothing for an unknown or deleted surface with
+   * no live linked surface, and then does not check `value` either. The
    * surfaces linked to it (see `linkSurfaces`) get the same write.
    *
    * @param key - The `key` of the surface.
    * @param path - An absolute JSON pointer, for example "/form/email".
-   * @param value - The new value. It is copied.
+   * @param value - The new value. It is copied with structuredClone
+   *   semantics, so the data model never shares an object with it, and it
+   *   keeps what structuredClone keeps: `NaN`, `Infinity`, `-0`, a `Date`,
+   *   a `Map`, a `Set`; a class instance becomes a plain object. The agent
+   *   reads it from the JSON request of the next run, so it is told what
+   *   `JSON.stringify` makes of it (`NaN` becomes `null`, a valid `Date`
+   *   its ISO string, an invalid one `null`, a `Map` `{}`). A value JSON refuses (a bigint, a cycle) is
+   *   written, but left out of what the agent is told, with a
+   *   `console.warn`. `null` or `undefined` removes the key, as an agent
+   *   `null` does; the path stays user-owned, and the agent is told `null`
+   *   for it, which the protocol reads as "removed".
+   * @throws An error named "DataCloneError" when structuredClone refuses
+   *   `value`: a function, a symbol, a `WeakMap`, a `Promise`... It is
+   *   checked before any surface is written, so nothing is written. The
+   *   framework setters report it with `reportError`.
    * @throws Error when a path segment is "__proto__", "constructor" or
    *   "prototype", or when the path does not fit the data (for example, a
    *   segment above it holds a string).
@@ -505,18 +653,33 @@ export class GenerativeUISurfaceManager {
         `[generativeUI] path segment "${forbidden}" is not allowed in "${path}".`,
       );
     }
-    for (const target of this.linked.get(key) ?? [key]) {
-      this.writeOwnedValue(target, normalized, value);
+    // `undefined` is stored as `null`: both remove the key, and the agent
+    // is told `null`. A value that cannot be cloned throws here, before
+    // any surface is written. This one copy is the owned value of every
+    // linked surface: it is never changed or handed out (each read copies
+    // it), so they can share it. Each data model gets a copy of its own,
+    // so 1 + N copies for N linked surfaces.
+    const targets = [...(this.linked.get(key) ?? [key])].filter((target) => {
+      const surface = this.surfaces.get(target);
+      return surface !== undefined && !surface.deleted;
+    });
+    if (targets.length === 0) return;
+    const owned = value === undefined ? null : cloneValue(value);
+    const json = agentJson(owned, normalized);
+    for (const target of targets) {
+      this.writeOwnedValue(target, normalized, { value: owned, json });
     }
   }
 
-  private writeOwnedValue(key: string, path: string, value: unknown) {
+  /** Writes `owned`, which `setOwnedValue` made, as a user-owned value. */
+  private writeOwnedValue(key: string, path: string, owned: OwnedValue) {
     const surface = this.surfaces.get(key);
     if (!surface || surface.deleted) return;
-    surface.model.dataModel.set(path, structuredClone(value));
-    const owned = this.owned.get(key) ?? new Map<string, unknown>();
-    owned.set(path, structuredClone(value));
-    this.owned.set(key, owned);
+    // A `null` removes the key (web_core's default, the v1.0 protocol).
+    surface.model.dataModel.set(path, cloneValue(owned.value));
+    const values = this.owned.get(key) ?? new Map<string, OwnedValue>();
+    values.set(path, owned);
+    this.owned.set(key, values);
   }
 
   /**
@@ -524,9 +687,9 @@ export class GenerativeUISurfaceManager {
    * surface. The agent operations are applied after it.
    */
   private restoreOwnedValues(surface: ManagedSurface) {
-    const owned = this.owned.get(surface.key) ?? new Map<string, unknown>();
-    for (const [path, value] of owned) {
-      surface.model.dataModel.set(path, structuredClone(value));
+    const owned = this.owned.get(surface.key) ?? new Map<string, OwnedValue>();
+    for (const [path, { value }] of owned) {
+      surface.model.dataModel.set(path, cloneValue(value));
     }
   }
 
@@ -537,7 +700,7 @@ export class GenerativeUISurfaceManager {
    * user value does not fit the new value.
    */
   private mergeOwnedValues(key: string, path: string, value: unknown) {
-    const merged = { value: structuredClone(value) };
+    const merged = { value: cloneValue(value) };
     const owned = this.owned.get(key);
     if (!owned) return merged;
     const ownedPaths = [...owned.keys()];
@@ -554,7 +717,7 @@ export class GenerativeUISurfaceManager {
     const prefix = path === "/" ? "" : path;
     for (const ownedPath of below) {
       const relative = ownedPath.slice(prefix.length);
-      scratch.set(`/value${relative}`, structuredClone(owned.get(ownedPath)));
+      scratch.set(`/value${relative}`, cloneValue(owned.get(ownedPath)!.value));
     }
     return { value: scratch.get("/value") };
   }
@@ -566,7 +729,7 @@ export class GenerativeUISurfaceManager {
     if (operations.length < book.appliedCount) return false;
     if (book.appliedCount === 0) return true;
     return (
-      JSON.stringify(operations[book.appliedCount - 1]) === book.lastFingerprint
+      fingerprint(operations[book.appliedCount - 1]) === book.lastFingerprint
     );
   }
 
@@ -657,8 +820,8 @@ export class GenerativeUISurfaceManager {
     return Object.fromEntries(
       Object.entries(node).filter(
         ([key]) =>
-          !Object.hasOwn(definition.selectors, key) &&
-          !Object.hasOwn(definition.eventFunctions, key),
+          !hasOwnKey(definition.selectors, key) &&
+          !hasOwnKey(definition.eventFunctions, key),
       ),
     );
   }
@@ -751,7 +914,9 @@ export class GenerativeUISurfaceManager {
     }
     if ("updateDataModel" in typed) {
       const { path = "/", value } = typed.updateDataModel;
-      // A `null` value deletes the key. web_core deletes it for `undefined`.
+      // A `null` value deletes the key (v1.0). web_core's `DataModel.set`
+      // removes the key for `null` too (`preserveNull` is false), and the
+      // merge treats both alike: mapping it to `undefined` only states it.
       const written = value === null ? undefined : value;
       const failure = this.writeAgentData(
         surface,
@@ -837,7 +1002,7 @@ export class GenerativeUISurfaceManager {
 
   private upsertNode(model: SurfaceModel<any>, node: A2UIComponentNode) {
     const { id, component, ...rest } = node;
-    const properties = structuredClone(rest);
+    const properties = cloneValue(rest);
     const existing = model.componentsModel.get(id);
     if (existing && existing.type === component) {
       existing.properties = properties;

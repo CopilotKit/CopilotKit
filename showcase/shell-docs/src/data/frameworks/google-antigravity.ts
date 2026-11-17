@@ -5,11 +5,7 @@ import type { FrameworkOverviewData } from "./types";
 const data: FrameworkOverviewData = {
   slug: "google-antigravity",
   frameworkName: "Google Antigravity",
-  // Placeholder: no Antigravity mark exists in the icon registry yet, so this
-  // reuses the ADK icon — the same placeholder treatment PARITY_NOTES.md
-  // records for `shell/public/logos/google-antigravity.svg` (a copy of
-  // `google-adk.svg` until a real, permissively-licensed mark is available).
-  iconKey: "adk",
+  iconKey: "antigravity",
   header: "Bring your Google Antigravity agents to your users",
   subheader:
     "Antigravity runs your agent in its own harness. CopilotKit gives it a surface your users can see, interrupt and steer.",

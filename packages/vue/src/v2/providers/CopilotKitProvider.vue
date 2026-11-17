@@ -43,6 +43,13 @@ import {
   MCPAppsActivityRenderer,
   MCPAppsActivityType,
 } from "../components/MCPAppsActivityRenderer";
+import {
+  createGenerativeUIActivityRenderer,
+  createGenerativeUIFunctionCallActivityRenderer,
+  registerGenerativeUIToolCallRenderer,
+} from "../generative-ui/chat";
+import { GenerativeUIRuntimeKey } from "../generative-ui/runtime-context";
+import { useGenerativeUIRoot } from "../generative-ui/use-generative-ui-root";
 import { CopilotKitKey, InspectorKey, SandboxFunctionsKey } from "./keys";
 import type { VueInspectorOpenRequest } from "./keys";
 import {
@@ -92,12 +99,30 @@ const DEFAULT_DESIGN_SKILL = `When generating UI with generateSandboxedUi, follo
 - Minimal transitions (150ms) for hover/focus states only. No decorative animations.
 - Keep the UI focused and dense — avoid excessive padding. Use compact spacing (8–12px gaps, 10–14px padding in controls).`;
 
-/** The MCP Apps renderer with `mcpApps.allowSameOriginFallback` applied. */
-const SameOriginMCPAppsActivityRenderer: FunctionalComponent = (_, { attrs }) =>
-  h(MCPAppsActivityRenderer as Component, {
-    ...attrs,
-    allowSameOriginFallback: true,
-  });
+/**
+ * The MCP Apps renderer with `mcpApps.allowSameOriginFallback` and
+ * `mcpApps.modelContext` applied. Built once per combination, so a new
+ * `mcpApps` object with the same flags does not remount every widget.
+ */
+const configuredMCPAppsRenderers = new Map<string, FunctionalComponent>();
+function mcpAppsRendererFor(
+  allowSameOriginFallback: boolean,
+  modelContext: boolean,
+): Component {
+  if (!allowSameOriginFallback && !modelContext) return MCPAppsActivityRenderer;
+  const key = `${allowSameOriginFallback}:${modelContext}`;
+  let renderer = configuredMCPAppsRenderers.get(key);
+  if (!renderer) {
+    renderer = (_, { attrs }) =>
+      h(MCPAppsActivityRenderer as Component, {
+        ...attrs,
+        allowSameOriginFallback,
+        modelContext,
+      });
+    configuredMCPAppsRenderers.set(key, renderer);
+  }
+  return renderer;
+}
 
 const props = withDefaults(defineProps<CopilotKitProviderProps>(), {
   headers: () => ({}),
@@ -111,6 +136,7 @@ const props = withDefaults(defineProps<CopilotKitProviderProps>(), {
   openGenerativeUI: undefined,
   useSingleEndpoint: undefined,
   a2ui: undefined,
+  generativeUI: undefined,
   mcpApps: undefined,
   enableInspector: undefined,
 });
@@ -405,6 +431,7 @@ const a2uiCatalogProvided = computed(() => !!props.a2ui?.catalog);
 const a2uiActive = computed(
   () => runtimeA2UIEnabled.value || a2uiCatalogProvided.value,
 );
+const generativeUIActive = computed(() => !!props.generativeUI?.ui);
 // Forward a per-run signal when the provider has an A2UI catalog so the
 // runtime can turn A2UI on (and inject the render tool) without a separate
 // `a2ui.injectA2UITool` flag on the runtime.
@@ -449,9 +476,10 @@ const builtInActivityRenderers = computed<
     {
       activityType: MCPAppsActivityType,
       content: MCPAppsActivityContentSchema as unknown as z.ZodSchema<unknown>,
-      render: (props.mcpApps?.allowSameOriginFallback
-        ? SameOriginMCPAppsActivityRenderer
-        : MCPAppsActivityRenderer) as unknown as VueActivityMessageRenderer<unknown>["render"],
+      render: mcpAppsRendererFor(
+        props.mcpApps?.allowSameOriginFallback === true,
+        props.mcpApps?.modelContext === true,
+      ) as unknown as VueActivityMessageRenderer<unknown>["render"],
     },
   ];
 
@@ -471,6 +499,13 @@ const builtInActivityRenderers = computed<
         catalog: props.a2ui?.catalog,
         loadingComponent: props.a2ui?.loadingComponent,
       }),
+    );
+  }
+
+  if (generativeUIActive.value) {
+    renderers.push(
+      createGenerativeUIActivityRenderer(),
+      createGenerativeUIFunctionCallActivityRenderer(),
     );
   }
 
@@ -711,6 +746,20 @@ registerA2UICatalogContext(copilotkit, {
   catalog: () => props.a2ui?.catalog,
   includeSchema: () => props.a2ui?.includeSchema ?? true,
 });
+
+// Native generative UI: the surface manager, the envelope of each run, and
+// the `render_ui` renderer that keeps a wildcard tool renderer from showing
+// the raw arguments. The envelope goes in as scoped properties, so
+// `setProperties` in `syncRuntimeConfig` does not replace it.
+const generativeUIRuntime = useGenerativeUIRoot(
+  copilotkit,
+  () => props.generativeUI,
+);
+provide(GenerativeUIRuntimeKey, generativeUIRuntime);
+registerGenerativeUIToolCallRenderer(
+  copilotkit,
+  () => generativeUIActive.value,
+);
 
 const providerContextIds = ref<string[]>([]);
 watch(

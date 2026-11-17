@@ -1,0 +1,143 @@
+/*
+ * The guide reads as a docs page: the docs' type scale (DESIGN.md,
+ * Typography) on the standard catalog's own hooks. Its titles take their
+ * size from the host's heading styles, so this sets them; everything else
+ * keeps the catalog's look, in the docs' palette (GUIDE_THEME).
+ */
+
+.guide {
+  font-size: 1rem;
+  line-height: 1.75;
+  color: var(--foreground);
+}
+
+/* The guide's title: the docs' headline. */
+.guide
+  :is(
+    [data-a2ui-title="2xl"],
+    [data-a2ui-title="3xl"],
+    [data-a2ui-title="4xl"],
+    [data-a2ui-title="5xl"]
+  ) {
+  font-size: 2.25rem;
+  line-height: 1.1;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  text-wrap: balance;
+}
+
+@media (min-width: 48rem) {
+  .guide
+    :is(
+      [data-a2ui-title="2xl"],
+      [data-a2ui-title="3xl"],
+      [data-a2ui-title="4xl"],
+      [data-a2ui-title="5xl"]
+    ) {
+    font-size: 2.5rem;
+  }
+}
+
+/* The line under it: the docs' lead, close to the title it explains. */
+.guide
+  :is(
+    [data-a2ui-title="2xl"],
+    [data-a2ui-title="3xl"],
+    [data-a2ui-title="4xl"],
+    [data-a2ui-title="5xl"]
+  )
+  + [data-a2ui-text] {
+  margin-top: -0.75rem;
+  font-size: 1.125rem;
+  line-height: 1.56;
+  color: var(--muted-foreground);
+}
+
+/* Steps: the docs' section headings, with more room above than below. */
+.guide :is([data-a2ui-title="lg"], [data-a2ui-title="xl"]) {
+  font-size: 1.5rem;
+  line-height: 1.33;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  text-wrap: balance;
+}
+
+.guide [data-a2ui-title="md"] {
+  font-size: 1.25rem;
+  line-height: 1.6;
+  font-weight: 600;
+}
+
+.guide [data-a2ui-card-variant="section"] {
+  margin-top: 1.25rem;
+}
+
+/* Prose: the docs' measure, lists, and the lilac inline-code chip. */
+.guide :global(.a2ui-markdown) {
+  max-width: 42rem;
+}
+
+.guide :global(.a2ui-markdown) :is(ul, ol) {
+  padding-inline-start: 1.25rem;
+}
+
+.guide :global(.a2ui-markdown) ul {
+  list-style: disc;
+}
+
+.guide :global(.a2ui-markdown) ol {
+  list-style: decimal;
+}
+
+.guide :global(.a2ui-markdown) li + li {
+  margin-top: 0.25rem;
+}
+
+.guide :global(.a2ui-markdown) li::marker {
+  color: var(--muted-foreground);
+}
+
+.guide :global(.a2ui-markdown) :not(pre) > code {
+  border-radius: 0.375rem;
+  background: color-mix(in oklab, var(--primary) 10%, transparent);
+  padding: 0.0625rem 0.25rem;
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  color: var(--primary);
+}
+
+.guide :global(.a2ui-markdown) a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/*
+ * Sections arrive one at a time as the agent writes them (one operation
+ * each), and each settles in as it mounts: a short rise out of a soft blur.
+ * Sections that arrive together step 80ms apart (useSectionStagger in
+ * guide-panel.tsx).
+ * A section mounts once, so an update in place doesn't replay it.
+ */
+@keyframes section-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .guide :global(.a2ui-surface) > [data-a2ui-std] > * {
+    animation: section-in 640ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .next {
+    animation: section-in 640ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+}

@@ -190,7 +190,7 @@ describe("Catalog Generator", () => {
     }
   });
 
-  it("cross-join produces 1100 cells (50 features x 22 integrations); metadata.total_cells excludes docs-only", () => {
+  it("cross-join produces 1150 cells (50 features x 23 integrations); metadata.total_cells excludes docs-only", () => {
     runGenerator();
     const catalog = readCatalog();
 
@@ -204,7 +204,7 @@ describe("Catalog Generator", () => {
       (c: any) => c.manifestation === "starter",
     );
 
-    // 50 features × 22 integrations = 1100 cells. The catalog emits cells
+    // 50 features × 23 integrations = 1150 cells. The catalog emits cells
     // uniformly for all (integration × feature) pairs; deprecated-feature
     // visibility is controlled at the dashboard layer via the "Show
     // deprecated" toggle in feature-grid.tsx so the catalog stays
@@ -216,14 +216,14 @@ describe("Catalog Generator", () => {
     // and the 3 Mastra-only features (`background-agents`,
     // `observational-memory`, `browser-use`; unshipped for every other
     // integration).
-    expect(integrated.length).toBe(1100);
+    expect(integrated.length).toBe(1150);
     // Step 5 is gated by SHOWCASE_STARTER_CELLS, which is UNSET in CI — this
     // case pins the DEFAULT build. Its flag-on sibling is directly below.
     expect(starters.length).toBe(0);
-    expect(catalog.cells.length).toBe(1100);
-    // total_cells excludes docs-only features (currently 1 feature x 22 integrations = 22)
-    expect(catalog.metadata.total_cells).toBe(1078);
-    expect(catalog.metadata.docs_only).toBe(22);
+    expect(catalog.cells.length).toBe(1150);
+    // total_cells excludes docs-only features (currently 1 feature x 23 integrations = 23)
+    expect(catalog.metadata.total_cells).toBe(1127);
+    expect(catalog.metadata.docs_only).toBe(23);
   });
 
   // The flag-on sibling. Its ONLY job is the pairing: the starter cells appear
@@ -231,12 +231,12 @@ describe("Catalog Generator", () => {
   // the whole point of Step 6's starter exclusion — `total_cells` is the
   // single most-read number on the dashboard, and starter cells carry
   // `feature: null` + `status: "wired"`, so the docs-only predicate ADMITS
-  // them and would raise it by 22, unflagged.
+  // them and would raise it by 23, unflagged.
   //
   // MUTATION THAT REDS THIS CASE: drop `c.manifestation !== "starter"` from
   // `countableCells` in `catalog-flatten.ts` Step 6 — `total_cells` becomes
-  // 1100 and `wired` moves by the 17 non-`supported:false` columns.
-  it("with SHOWCASE_STARTER_CELLS=1: 22 starter cells appear and the rollups do NOT move", () => {
+  // 1150 and `wired` moves by the 18 non-`supported:false` columns.
+  it("with SHOWCASE_STARTER_CELLS=1: 23 starter cells appear and the rollups do NOT move", () => {
     runGenerator();
     const flagOff = readCatalog();
 
@@ -246,16 +246,16 @@ describe("Catalog Generator", () => {
     const starters = flagOn.cells.filter(
       (c: any) => c.manifestation === "starter",
     );
-    // One cell per column, all 22 — including the 5 `supported: false` ones,
+    // One cell per column, all 23 — including the 5 `supported: false` ones,
     // each of which mints exactly one "not supported" cell rather than nothing.
-    expect(starters.length).toBe(22);
-    expect(flagOn.cells.length).toBe(1122);
+    expect(starters.length).toBe(23);
+    expect(flagOn.cells.length).toBe(1173);
 
     // Status is DERIVED from the block, not hardcoded "wired".
     expect(starters.filter((c: any) => c.status === "unsupported").length).toBe(
       5,
     );
-    expect(starters.filter((c: any) => c.status === "wired").length).toBe(17);
+    expect(starters.filter((c: any) => c.status === "wired").length).toBe(18);
     // The axis's uniform ceiling, on every starter cell.
     expect(new Set(starters.map((c: any) => c.max_depth))).toEqual(
       new Set([3]),
@@ -273,11 +273,11 @@ describe("Catalog Generator", () => {
     expect(flagOn.metadata.docs_only).toBe(flagOff.metadata.docs_only);
     // And the same absolute numbers the flag-off case pins, restated so a
     // drift in BOTH modes cannot pass by moving together.
-    expect(flagOn.metadata.total_cells).toBe(1078);
-    expect(flagOn.metadata.docs_only).toBe(22);
+    expect(flagOn.metadata.total_cells).toBe(1127);
+    expect(flagOn.metadata.docs_only).toBe(23);
   });
 
-  it("LGP has 50 cells: 37 wired + 1 stub + 10 unshipped + 2 unsupported (deprecated features included; dashboard hides them by default)", () => {
+  it("LGP has 50 cells: 39 wired + 1 stub + 10 unshipped (deprecated features included; dashboard hides them by default)", () => {
     runGenerator();
     const catalog = readCatalog();
 
@@ -286,9 +286,8 @@ describe("Catalog Generator", () => {
         c.integration === "langgraph-python" &&
         c.manifestation === "integrated",
     );
-    // 46 = 37 LGP-declared features + 2 quarantined interrupt features
-    // (gen-ui-interrupt / interrupt-headless, now in
-    // `not_supported_features`) + 4 deprecated features + 2 legacy
+    // 46 = 39 LGP-declared features (gen-ui-interrupt / interrupt-headless
+    // among them since their quarantine lifted) + 4 deprecated features + 2 legacy
     // `byoc-*` aliases (LGP declares `declarative-{hashbrown,json-render}`
     // for the visible URL slugs while every other integration still
     // declares the legacy `byoc-*` IDs; the catalog emits cells for both
@@ -309,16 +308,15 @@ describe("Catalog Generator", () => {
     const unshipped = lgpCells.filter((c: any) => c.status === "unshipped");
     const unsupported = lgpCells.filter((c: any) => c.status === "unsupported");
 
-    // The interrupt-pill quarantine moved gen-ui-interrupt / interrupt-headless
-    // (both previously `wired`) into `not_supported_features`, so they now
-    // surface as `unsupported`: wired drops 38 -> 36, unsupported rises 0 -> 2.
-    // unshipped rises 6 -> 7 with threadid-frontend-tool-roundtrip. Then the
-    // a2ui-recovery demo shipped for LGP (wired), so wired rises 36 -> 37 and
-    // unshipped drops 8 -> 7.
-    expect(wired.length).toBe(37);
+    // unshipped rose 6 -> 7 with threadid-frontend-tool-roundtrip, then the
+    // a2ui-recovery demo shipped for LGP (wired) and unshipped dropped 8 -> 7.
+    // The react-core resume-path quarantine on gen-ui-interrupt /
+    // interrupt-headless is lifted (fixed in 1.62.1), so both are `wired`
+    // again: wired 37 -> 39, unsupported 2 -> 0.
+    expect(wired.length).toBe(39);
     expect(stub.length).toBe(1);
     expect(unshipped.length).toBe(10);
-    expect(unsupported.length).toBe(2);
+    expect(unsupported.length).toBe(0);
   });
 
   it("stub detection: LGP/cli-start has stub status (demo exists, no route)", () => {
@@ -387,7 +385,7 @@ describe("Catalog Generator", () => {
 
     expect(catalog.metadata).toBeDefined();
     // total_cells excludes docs-only features
-    expect(catalog.metadata.total_cells).toBe(1078);
+    expect(catalog.metadata.total_cells).toBe(1127);
 
     // Headline counts exclude docs-only cells; must sum to total_cells.
     expect(
@@ -406,7 +404,7 @@ describe("Catalog Generator", () => {
     ).toBe(catalog.cells.length);
     expect(catalog.metadata.wired).toBeGreaterThanOrEqual(490);
     expect(catalog.metadata.unsupported).toBeGreaterThanOrEqual(0);
-    expect(catalog.metadata.docs_only).toBe(22);
+    expect(catalog.metadata.docs_only).toBe(23);
   });
 
   it("max_depth: D4 for wired/stub cells, D0 for unshipped/unsupported", () => {

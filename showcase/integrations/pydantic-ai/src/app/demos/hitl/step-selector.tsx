@@ -45,7 +45,7 @@ export function StepSelector({
             {localSteps.map((step, i) => (
               <label
                 key={i}
-                className="flex items-center gap-3 rounded-md p-2 hover:bg-neutral-50 cursor-pointer transition-colors"
+                className="flex items-center gap-3 rounded-md p-2 hover:bg-neutral-50 dark:hover:bg-muted cursor-pointer transition-colors"
                 data-testid="step-item"
               >
                 <Checkbox
@@ -67,8 +67,8 @@ export function StepSelector({
                 <span
                   className={
                     step.status !== "enabled"
-                      ? "text-sm line-through text-neutral-400"
-                      : "text-sm text-neutral-800"
+                      ? "text-sm line-through text-neutral-400 dark:text-muted-foreground"
+                      : "text-sm text-neutral-800 dark:text-foreground"
                   }
                   data-testid="step-text"
                 >

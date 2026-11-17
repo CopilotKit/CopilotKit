@@ -1,0 +1,114 @@
+---
+title: "A2UI"
+description: Configure typed A2UI catalogs, Angular-owned styles, and incomplete-stream recovery.
+icon: "lucide/FileJson"
+doc_type: how-to
+---
+
+When your agent builds UI on the fly, you want it to use only components you
+approve. A2UI renders the agent's UI in Angular chat from a catalog that you
+define. The renderer creates only components that the catalog defines.
+
+## Choose a schema strategy
+
+Catalog component definitions use Zod schemas for their props. A broad catalog
+lets the agent compose several application primitives. A fixed catalog narrows
+the generated interface to a specific domain and set of shapes.
+
+The flight example keeps its component vocabulary deliberately small:
+
+<AngularSnippet region="a2ui-fixed-schema" />
+
+Give each catalog a stable `catalogId`. In an application config, pass the
+chosen catalog and lifecycle policy through the `a2ui` option of
+`provideCopilotKit`:
+
+```ts title="src/app/app.config.ts"
+provideCopilotKit({
+  runtimeUrl: "/api/copilotkit",
+  a2ui: {
+    catalog: productCatalog,
+    recovery: { showAfterMs: 2_000, showAfterAttempts: 2 },
+  },
+});
+```
+
+A catalog is required: without one, A2UI stays off even when the runtime
+enables it, and CopilotKit logs a warning.
+
+### Use existing web components
+
+A catalog entry can also be a Custom Element, such as a component from an
+existing design system. Pass `{ tagName, element }` instead of an Angular
+component, and mix both kinds freely:
+
+```ts title="src/app/a2ui-catalog.ts"
+import { ChildListSchema, createAngularCatalog } from "@copilotkit/angular/a2ui";
+import { z } from "zod";
+
+const catalog = createAngularCatalog(
+  {
+    Badge: { props: z.object({ label: z.string() }) },
+    Panel: { props: z.object({ children: ChildListSchema }) },
+  },
+  {
+    Badge: { tagName: "acme-badge", element: AcmeBadge },
+    Panel: PanelComponent,
+  },
+  { includeBasicCatalog: true },
+);
+```
+
+CopilotKit registers the element, renders it in place of the node, and assigns
+the node's A2UI `ComponentContext` to its `context` property on every update.
+The element reads its props and writes to the data model through that context,
+for example with web_core's `GenericBinder`. Elements render in the browser
+only, not during server rendering.
+
+By default, CopilotKit includes the catalog schema in agent context. Set
+`includeSchema: false` only when the server already supplies equivalent schema
+and generation instructions. Otherwise the agent cannot reliably know which
+components and props are valid. With `includeSchema: false`, the agent context
+lists only the catalog ID and the custom component names. A LangGraph A2UI
+subagent then gets only the component names. To give it more, pass a
+composition guide through the A2UI guidelines of the CopilotKit middleware.
+
+## Style rendered components
+
+Catalog components are Angular components with application-owned class
+names. Style those classes in the global stylesheet so generated surfaces and
+their nested elements receive the same rules:
+
+<AngularSnippet region="a2ui-styling" />
+
+Keep semantic state in explicit classes such as `a2ui-status-success` rather
+than asking the model to invent colors. You can also pass an A2UI `theme`
+through `provideCopilotKit` for renderer-level theme values; catalog CSS
+remains the right place for product-specific layout and visual states.
+
+## Recover incomplete streams
+
+An interrupted stream can leave an A2UI surface without a terminal lifecycle
+event. Configure `recovery.showAfterMs` to avoid flashing recovery UI during a
+normal pause and `recovery.showAfterAttempts` to wait through transient retry
+attempts. The provider sample above uses two seconds and two attempts.
+
+Use `recovery.debugExposure` only when users should see protocol diagnostics.
+Keep it hidden in consumer-facing chat, or choose a collapsed or verbose mode
+for internal debugging. Recovery thresholds affect client display; the server
+still owns activity lifecycle status and retry behavior.
+
+## Angular support boundaries
+
+- **Hashbrown is unsupported.** The stable Hashbrown Angular package does not support the Angular 22 policy.
+  Use A2UI with a typed catalog instead.
+- **JSON Renderer is not applicable.** JSON Renderer does not provide an Angular renderer; use A2UI for declarative Angular interfaces.
+
+## Check the result
+
+Ask the agent to show your data with one of your catalog components. The chat
+renders that component from your catalog.
+
+## Next steps
+
+- [Other generative UI paths](/angular/generative-ui)

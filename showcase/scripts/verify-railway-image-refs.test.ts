@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
   findMissingServices,
+  formatUnregisteredWarnings,
   runRailwayImageGate,
   validateImage,
 } from "./verify-railway-image-refs";
@@ -796,6 +797,257 @@ describe("image gate runner lifecycle orchestration", () => {
     } finally {
       delete entry.gateIgnore;
     }
+  });
+});
+
+describe("unregistered staging/prod services warn instead of failing", () => {
+  const NEW = "showcase-brand-new";
+  const NEW_ID = "fixture-brand-new";
+  const STAGING_IMAGE = "ghcr.io/copilotkit/showcase-brand-new:latest";
+
+  it.each(["staging", "prod"])(
+    "warns for an unregistered service created in %s ahead of SERVICES",
+    async (env) => {
+      const data = permanentInventory();
+      addService(data, NEW, NEW_ID, [ENV_ID_BY_NAME[env]], STAGING_IMAGE);
+      const result = await runRailwayImageGate({ data, now: NOW });
+
+      expect(result.summary.shouldFail).toBe(false);
+      expect(result.untracked).toEqual([]);
+      expect(result.lifecycle.failures).toEqual([]);
+      expect(result.violations).toEqual([]);
+      expect(result.unregistered).toEqual([
+        {
+          name: NEW,
+          serviceId: NEW_ID,
+          environmentIds: [ENV_ID_BY_NAME[env]],
+        },
+      ]);
+    },
+  );
+
+  it("also tolerates the copies a docs-preview environment makes of a staging service", async () => {
+    const data = permanentInventory();
+    addService(
+      data,
+      NEW,
+      NEW_ID,
+      [ENV_ID_BY_NAME.staging, "fixture-pr-preview"],
+      STAGING_IMAGE,
+    );
+    const result = await withRecords(data, []);
+
+    expect(result.summary.shouldFail).toBe(false);
+    expect(result.untracked).toEqual([]);
+    expect(result.lifecycle.failures).toEqual([]);
+    expect(result.unregistered).toEqual([
+      {
+        name: NEW,
+        serviceId: NEW_ID,
+        environmentIds: [ENV_ID_BY_NAME.staging, "fixture-pr-preview"],
+      },
+    ]);
+  });
+
+  it("does not apply image validation to an unregistered service", async () => {
+    const data = permanentInventory();
+    addService(data, NEW, NEW_ID, [ENV_ID_BY_NAME.prod], "not-a-pinned-image");
+    const result = await runRailwayImageGate({ data, now: NOW });
+    expect(result.summary.shouldFail).toBe(false);
+    expect(result.violations).toEqual([]);
+  });
+
+  it("still fails an unregistered service with no staging or prod instance", async () => {
+    const data = permanentInventory();
+    addService(data, NEW, NEW_ID, ["fixture-hand-made-env"], STAGING_IMAGE);
+    const result = await runRailwayImageGate({ data, now: NOW });
+    expect(result.summary.shouldFail).toBe(true);
+    expect(result.untracked).toEqual([NEW]);
+    expect(result.unregistered).toEqual([]);
+  });
+
+  it("still fails a registered name whose service ID differs", async () => {
+    const data = permanentInventory();
+    data.project!.services.edges.find(
+      ({ node }) => node.name === "showcase-mastra",
+    )!.node.id = "replacement";
+    const result = await runRailwayImageGate({ data, now: NOW });
+    expect(result.summary.shouldFail).toBe(true);
+    expect(result.untracked).toContain("showcase-mastra");
+    expect(result.unregistered).toEqual([]);
+  });
+
+  it("still fails a permanent service ID under a new name", async () => {
+    const data = permanentInventory();
+    const serviceId = SERVICES["showcase-intelligence-api"].serviceId;
+    addService(data, NEW, serviceId, [ENV_ID_BY_NAME.staging], STAGING_IMAGE);
+    const result = await runRailwayImageGate({ data, now: NOW });
+    expect(result.summary.shouldFail).toBe(true);
+    expect(result.untracked).toContain(NEW);
+    expect(result.unregistered).toEqual([]);
+  });
+
+  it("still fails when configured evidence is invalid", async () => {
+    const data = permanentInventory();
+    addService(data, NEW, NEW_ID, [ENV_ID_BY_NAME.staging], STAGING_IMAGE);
+    const result = await runRailwayImageGate({
+      data,
+      recordsFile: "/nonexistent/pni-785-records.json",
+      now: NOW,
+      policy: POLICY,
+    });
+    expect(result.summary.shouldFail).toBe(true);
+    expect(result.untracked).toContain(NEW);
+    expect(result.unregistered).toEqual([]);
+  });
+
+  it.each([
+    ["name", NEW, "other-id"],
+    ["service ID", "other-name", NEW_ID],
+  ])(
+    "still fails a staging service a disposable run claims by %s",
+    async (_label, claimedName, claimedId) => {
+      const data = permanentInventory();
+      addService(data, NEW, NEW_ID, [ENV_ID_BY_NAME.staging], STAGING_IMAGE);
+      const result = await withRecords(data, [
+        runRecord({
+          services: [
+            { name: claimedName, serviceId: claimedId, expectedImage: PIN },
+          ],
+        }),
+      ]);
+      expect(result.summary.shouldFail).toBe(true);
+      expect(result.untracked).toContain(NEW);
+      expect(result.unregistered).toEqual([]);
+    },
+  );
+
+  it("still fails its instance inside a recorded disposable environment", async () => {
+    const data = permanentInventory();
+    addService(
+      data,
+      NEW,
+      NEW_ID,
+      [ENV_ID_BY_NAME.staging, "fixture-env"],
+      STAGING_IMAGE,
+    );
+    const result = await withRecords(data, [
+      runRecord({ phase: "setup", services: [] }),
+    ]);
+    expect(result.summary.shouldFail).toBe(true);
+    expect(result.untracked).toEqual([NEW]);
+    expect(result.lifecycle.failures).toEqual([
+      expect.objectContaining({
+        code: "unknown-service",
+        serviceId: NEW_ID,
+        environmentId: "fixture-env",
+      }),
+    ]);
+  });
+
+  it("formats a prominent warning naming the service, its ID and the fix", () => {
+    const lines = formatUnregisteredWarnings([
+      {
+        name: NEW,
+        serviceId: NEW_ID,
+        environmentIds: [ENV_ID_BY_NAME.staging],
+      },
+    ]);
+    const text = lines.join("\n");
+    expect(text).toContain("WARN");
+    expect(text).toContain(`"${NEW}"`);
+    expect(text).toContain(NEW_ID);
+    expect(text).toContain("staging");
+    expect(text).toMatch(/SERVICES in showcase\/scripts\/railway-envs\.ts/);
+    expect(formatUnregisteredWarnings([])).toEqual([]);
+  });
+});
+
+describe("runner environments get no unregistered-service exception", () => {
+  const RICH_ENV = "fixture-rich-env";
+  function withEnvironments(data: ProjectServicesWithInstances) {
+    data.project!.environments = {
+      edges: [
+        { node: { id: ENV_ID_BY_NAME.staging, name: "staging" } },
+        { node: { id: ENV_ID_BY_NAME.prod, name: "production" } },
+        { node: { id: RICH_ENV, name: "rich-29fa2bf7831c268d19f" } },
+      ],
+    };
+    return data;
+  }
+
+  it("rejects an unregistered starter in a runner environment without registry evidence", async () => {
+    const data = withEnvironments(permanentInventory());
+    addService(data, "starter-stray", "stray-id", [RICH_ENV], OTHER_PIN);
+    const result = await runRailwayImageGate({ data, now: NOW });
+
+    expect(result.summary.shouldFail).toBe(true);
+    expect(result.untracked).toEqual(["starter-stray"]);
+    expect(result.lifecycle.failures).toContainEqual(
+      expect.objectContaining({
+        code: "unknown-service",
+        serviceId: "stray-id",
+        environmentId: RICH_ENV,
+      }),
+    );
+  });
+
+  it("rejects it with evidence that records no run for that environment", async () => {
+    const data = withEnvironments(permanentInventory());
+    addService(data, "starter-stray", "stray-id", [RICH_ENV], OTHER_PIN);
+    const result = await withRecords(data, []);
+    expect(result.summary.shouldFail).toBe(true);
+    expect(result.untracked).toEqual(["starter-stray"]);
+  });
+
+  it("rejects only the runner-environment instance of a tolerated staging starter", async () => {
+    const data = withEnvironments(permanentInventory());
+    addService(
+      data,
+      "starter-stray",
+      "stray-id",
+      [ENV_ID_BY_NAME.staging, RICH_ENV],
+      null,
+    );
+    const result = await runRailwayImageGate({ data, now: NOW });
+    expect(result.summary.shouldFail).toBe(true);
+    expect(result.lifecycle.failures).toEqual([
+      expect.objectContaining({
+        code: "unknown-service",
+        serviceId: "stray-id",
+        environmentId: RICH_ENV,
+      }),
+    ]);
+  });
+
+  it("keeps the starter exception outside runner environments", async () => {
+    const data = withEnvironments(permanentInventory());
+    addService(data, "starter-stray", "stray-id", [ENV_ID_BY_NAME.staging]);
+    const result = await runRailwayImageGate({ data, now: NOW });
+    expect(result.summary.shouldFail).toBe(false);
+    expect(result.untracked).toEqual([]);
+    expect(result.lifecycle.failures).toEqual([]);
+  });
+  it("rejects the runner-environment copy of an unregistered staging service", async () => {
+    const data = withEnvironments(permanentInventory());
+    addService(
+      data,
+      "showcase-brand-new",
+      "fixture-brand-new",
+      [ENV_ID_BY_NAME.staging, RICH_ENV],
+      "ghcr.io/copilotkit/showcase-brand-new:latest",
+    );
+    const result = await runRailwayImageGate({ data, now: NOW });
+    expect(result.summary.shouldFail).toBe(true);
+    expect(result.untracked).toEqual(["showcase-brand-new"]);
+    expect(result.unregistered).toEqual([]);
+    expect(result.lifecycle.failures).toEqual([
+      expect.objectContaining({
+        code: "unknown-service",
+        serviceId: "fixture-brand-new",
+        environmentId: RICH_ENV,
+      }),
+    ]);
   });
 });
 

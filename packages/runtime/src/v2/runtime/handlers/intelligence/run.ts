@@ -161,7 +161,6 @@ export async function handleIntelligenceRun({
     if (created && runtime.generateThreadNames && !thread.name?.trim()) {
       void generateThreadNameForNewThread({
         runtime,
-        request,
         agentId,
         sourceInput: input,
         thread,

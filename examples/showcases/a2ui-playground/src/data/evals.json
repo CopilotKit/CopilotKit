@@ -1,0 +1,1439 @@
+{
+ "ranAt": "2026-10-29T22:49:04.399Z",
+ "tasks": [
+  {
+   "id": "sales-dashboard",
+   "prompt": "Q3 sales by region as a dashboard",
+   "expect": [
+    [
+     "Stat",
+     "StatGroup"
+    ],
+    [
+     "BarChart",
+     "Chart",
+     "LineChart",
+     "AreaChart",
+     "PieChart"
+    ]
+   ]
+  },
+  {
+   "id": "headphones",
+   "prompt": "Compare three noise-cancelling headphones",
+   "expect": [
+    [
+     "ProductCard",
+     "ComparisonTable",
+     "EntityCard"
+    ]
+   ]
+  },
+  {
+   "id": "flights",
+   "prompt": "Show three flight options from SFO to JFK on Friday",
+   "expect": [
+    [
+     "FlightCard"
+    ]
+   ]
+  },
+  {
+   "id": "weather",
+   "prompt": "What's the weather in Lisbon this week?",
+   "expect": [
+    [
+     "WeatherReport",
+     "WeatherCard"
+    ]
+   ]
+  },
+  {
+   "id": "signup",
+   "prompt": "A signup form with name, email and a plan choice",
+   "expect": [
+    [
+     "TextField"
+    ],
+    [
+     "RadioGroup",
+     "Select",
+     "ChoicePicker",
+     "SegmentedControl",
+     "ChipSelect"
+    ],
+    [
+     "Button"
+    ]
+   ]
+  },
+  {
+   "id": "tokyo",
+   "prompt": "Plan a 3-day Tokyo trip with a map",
+   "expect": [
+    [
+     "MapView",
+     "Map",
+     "RouteMap",
+     "PlaceList"
+    ],
+    [
+     "Timeline",
+     "Agenda",
+     "Tabs",
+     "Accordion",
+     "PlaceList"
+    ]
+   ]
+  },
+  {
+   "id": "recipe",
+   "prompt": "A recipe for shakshuka for two",
+   "expect": [
+    [
+     "RecipeCard"
+    ]
+   ]
+  },
+  {
+   "id": "team",
+   "prompt": "Our 4-person design team with roles and locations",
+   "expect": [
+    [
+     "ProfileCard",
+     "Avatar",
+     "AvatarGroup",
+     "EntityCard"
+    ]
+   ]
+  },
+  {
+   "id": "receipt",
+   "prompt": "The receipt for my order of 3 items",
+   "expect": [
+    [
+     "ReceiptCard"
+    ]
+   ]
+  },
+  {
+   "id": "agenda",
+   "prompt": "A one-day conference agenda with 6 talks",
+   "expect": [
+    [
+     "Agenda",
+     "Timeline"
+    ]
+   ]
+  },
+  {
+   "id": "kpi",
+   "prompt": "Our NPS is 62, up 5 points. Show it.",
+   "expect": [
+    [
+     "Gauge",
+     "RadialProgress",
+     "Stat"
+    ]
+   ]
+  },
+  {
+   "id": "code",
+   "prompt": "Explain debounce in TypeScript with a code sample",
+   "expect": [
+    [
+     "CodeBlock",
+     "Code"
+    ]
+   ]
+  }
+ ],
+ "runs": [
+  {
+   "model": "gemini",
+   "label": "Gemini Flash",
+   "composer": "gemini-flash-latest",
+   "format": "express",
+   "tasks": [
+    {
+     "id": "sales-dashboard",
+     "valid": true,
+     "choice": 1,
+     "used": [
+      "Column",
+      "Heading",
+      "Grid",
+      "Stat",
+      "Section",
+      "BarChart",
+      "DataTable",
+      "Caption"
+     ],
+     "composeMs": 6900,
+     "firstTokenMs": 2012,
+     "outputChars": 2258,
+     "jsonChars": 2856,
+     "expressChars": 2152
+    },
+    {
+     "id": "headphones",
+     "valid": false,
+     "problem": "Validation failed for component 'ComparisonTable' (spec_table): highlight: Expected number, received string; highlight: Expected object, received string; highlight: Expected object, received string",
+     "choice": 0,
+     "used": [],
+     "composeMs": 0,
+     "firstTokenMs": null,
+     "outputChars": 0,
+     "jsonChars": 0,
+     "expressChars": 0
+    },
+    {
+     "id": "flights",
+     "valid": true,
+     "choice": 1,
+     "used": [
+      "Column",
+      "Heading",
+      "Grid",
+      "Stat",
+      "FlightCard",
+      "Caption"
+     ],
+     "composeMs": 5331,
+     "firstTokenMs": 1846,
+     "outputChars": 1386,
+     "jsonChars": 2358,
+     "expressChars": 1401
+    },
+    {
+     "id": "weather",
+     "valid": true,
+     "choice": 1,
+     "used": [
+      "Heading",
+      "WeatherReport",
+      "Column"
+     ],
+     "composeMs": 5360,
+     "firstTokenMs": 3066,
+     "outputChars": 213,
+     "jsonChars": 456,
+     "expressChars": 227
+    },
+    {
+     "id": "signup",
+     "valid": true,
+     "choice": 1,
+     "used": [
+      "Heading",
+      "TextField",
+      "Column",
+      "RadioGroup",
+      "CheckBox",
+      "Button",
+      "Caption",
+      "Card"
+     ],
+     "composeMs": 7863,
+     "firstTokenMs": 5581,
+     "outputChars": 1507,
+     "jsonChars": 2272,
+     "expressChars": 1506
+    },
+    {
+     "id": "tokyo",
+     "valid": true,
+     "choice": 1,
+     "used": [
+      "Column",
+      "Heading",
+      "Grid",
+      "Stat",
+      "Section",
+      "Agenda",
+      "MapView",
+      "Callout",
+      "Caption"
+     ],
+     "composeMs": 24138,
+     "firstTokenMs": 13087,
+     "outputChars": 3350,
+     "jsonChars": 4094,
+     "expressChars": 3390
+    },
+    {
+     "id": "recipe",
+     "valid": false,
+     "problem": "Validation failed for component 'RecipeCard' (recipe): servings: Expected number, received string; servings: Expected object, received string; servings: Expected object, received string",
+     "choice": 0,
+     "used": [],
+     "composeMs": 0,
+     "firstTokenMs": null,
+     "outputChars": 0,
+     "jsonChars": 0,
+     "expressChars": 0
+    },
+    {
+     "id": "team",
+     "valid": true,
+     "choice": 1,
+     "used": [
+      "Column",
+      "Heading",
+      "Grid",
+      "Stat",
+      "ProfileCard",
+      "Caption"
+     ],
+     "composeMs": 6513,
+     "firstTokenMs": 1712,
+     "outputChars": 2178,
+     "jsonChars": 2809,
+     "expressChars": 2079
+    },
+    {
+     "id": "receipt",
+     "valid": true,
+     "choice": 1,
+     "used": [
+      "Column",
+      "Heading",
+      "ReceiptCard",
+      "Section",
+      "KeyValueList",
+      "Callout"
+     ],
+     "composeMs": 4686,
+     "firstTokenMs": 1844,
+     "outputChars": 1089,
+     "jsonChars": 1542,
+     "expressChars": 1060
+    },
+    {
+     "id": "agenda",
+     "valid": false,
+     "problem": "Value 'null' is not a valid enum choice for property 'align' of component 'Grid'. Allowed values are: ['start', 'center', 'end', 'baseline', 'stretch'] - Help: Please correct the syntax error in your Express DSL.",
+     "choice": 0,
+     "used": [],
+     "composeMs": 0,
+     "firstTokenMs": null,
+     "outputChars": 0,
+     "jsonChars": 0,
+     "expressChars": 0
+    },
+    {
+     "id": "kpi",
+     "valid": true,
+     "choice": 1,
+     "used": [
+      "Column",
+      "Heading",
+      "Grid",
+      "Stat",
+      "Section",
+      "BarChart",
+      "Callout",
+      "Caption"
+     ],
+     "composeMs": 4675,
+     "firstTokenMs": 1330,
+     "outputChars": 1300,
+     "jsonChars": 2057,
+     "expressChars": 1308
+    },
+    {
+     "id": "code",
+     "valid": false,
+     "problem": "Validation failed for component 'ComparisonTable' (comparison): options.0: Either '@path' or 'path' must be provided., options.1: Either '@path' or 'path' must be provided., highlight: Expected number, received string; highlight: Expected object, received string; highlight: Expected object, received",
+     "choice": 0,
+     "used": [],
+     "composeMs": 0,
+     "firstTokenMs": null,
+     "outputChars": 0,
+     "jsonChars": 0,
+     "expressChars": 0
+    }
+   ],
+   "summary": {
+    "validRate": 0.6666666666666666,
+    "choice": 0.6666666666666666,
+    "medianMs": 6513,
+    "medianChars": 1507
+   }
+  },
+  {
+   "model": "gemini",
+   "label": "Gemini Flash",
+   "composer": "gemini-flash-latest",
+   "format": "json",
+   "tasks": [
+    {
+     "id": "sales-dashboard",
+     "valid": true,
+     "choice": 1,
+     "used": [
+      "Column",
+      "Heading",
+      "Grid",
+      "Stat",
+      "BarChart",
+      "PieChart",
+      "DataTable"
+     ],
+     "composeMs": 8629,
+     "firstTokenMs": 1868,
+     "outputChars": 3157,
+     "jsonChars": 3269,
+     "expressChars": 2603
+    },
+    {
+     "id": "headphones",
+     "valid": true,
+     "choice": 1,
+     "used": [
+      "Column",
+      "Heading",
+      "Grid",
+      "ProductCard",
+      "ComparisonTable",
+      "Callout"
+     ],
+     "composeMs": 10313,
+     "firstTokenMs": 1209,
+     "outputChars": 4502,
+     "jsonChars": 2961,
+     "expressChars": 0
+    },
+    {
+     "id": "flights",
+     "valid": true,
+     "choice": 1,
+     "used": [
+      "Column",
+      "Heading",
+      "Grid",
+      "Stat",
+      "FlightCard",
+      "Caption"
+     ],
+     "composeMs": 5242,
+     "firstTokenMs": 1342,
+     "outputChars": 2013,
+     "jsonChars": 2126,
+     "expressChars": 0
+    },
+    {
+     "id": "weather",
+     "valid": true,
+     "choice": 1,
+     "used": [
+      "Column",
+      "Heading",
+      "WeatherCard",
+      "Caption"
+     ],
+     "composeMs": 4050,
+     "firstTokenMs": 1573,
+     "outputChars": 1243,
+     "jsonChars": 1356,
+     "expressChars": 1025
+    },
+    {
+     "id": "signup",
+     "valid": true,
+     "choice": 1,
+     "used": [
+      "Column",
+      "Heading",
+      "Card",
+      "Form",
+      "TextField",
+      "RadioGroup",
+      "Button"
+     ],
+     "composeMs": 4981,
+     "firstTokenMs": 2329,
+     "outputChars": 1707,
+     "jsonChars": 1837,
+     "expressChars": 0
+    },
+    {
+     "id": "tokyo",
+     "valid": true,
+     "choice": 1,
+     "used": [
+      "Column",
+      "Heading",
+      "Grid",
+      "Stat",
+      "MapView",
+      "Section",
+      "Agenda",
+      "Callout"
+     ],
+     "composeMs": 13751,
+     "firstTokenMs": 1889,
+     "outputChars": 6536,
+     "jsonChars": 4419,
+     "expressChars": 0
+    },
+    {
+     "id": "recipe",
+     "valid": true,
+     "choice": 1,
+     "used": [
+      "Column",
+      "Heading",
+      "RecipeCard",
+      "Callout"
+     ],
+     "composeMs": 5942,
+     "firstTokenMs": 1659,
+     "outputChars": 2028,
+     "jsonChars": 2141,
+     "expressChars": 1857
+    },
+    {
+     "id": "team",
+     "valid": true,
+     "choice": 1,
+     "used": [
+      "Column",
+      "Heading",
+      "Grid",
+      "Stat",
+      "ProfileCard"
+     ],
+     "composeMs": 7295,
+     "firstTokenMs": 2944,
+     "outputChars": 2536,
+     "jsonChars": 2651,
+     "expressChars": 0
+    },
+    {
+     "id": "receipt",
+     "valid": true,
+     "choice": 1,
+     "used": [
+      "Column",
+      "Heading",
+      "ReceiptCard",
+      "Callout"
+     ],
+     "composeMs": 4446,
+     "firstTokenMs": 2068,
+     "outputChars": 974,
+     "jsonChars": 1087,
+     "expressChars": 748
+    },
+    {
+     "id": "agenda",
+     "valid": true,
+     "choice": 1,
+     "used": [
+      "Column",
+      "Heading",
+      "StatGroup",
+      "Agenda",
+      "Callout"
+     ],
+     "composeMs": 6477,
+     "firstTokenMs": 1558,
+     "outputChars": 2378,
+     "jsonChars": 2493,
+     "expressChars": 2187
+    },
+    {
+     "id": "kpi",
+     "valid": true,
+     "choice": 1,
+     "used": [
+      "Column",
+      "Heading",
+      "Grid",
+      "Stat",
+      "BarChart",
+      "Callout"
+     ],
+     "composeMs": 4804,
+     "firstTokenMs": 1897,
+     "outputChars": 1473,
+     "jsonChars": 1588,
+     "expressChars": 1057
+    },
+    {
+     "id": "code",
+     "valid": true,
+     "choice": 1,
+     "used": [
+      "Column",
+      "Heading",
+      "Callout",
+      "Section",
+      "CodeBlock",
+      "Grid",
+      "Stat",
+      "List",
+      "ListItem"
+     ],
+     "composeMs": 7489,
+     "firstTokenMs": 1723,
+     "outputChars": 3530,
+     "jsonChars": 3555,
+     "expressChars": 0
+    }
+   ],
+   "summary": {
+    "validRate": 1,
+    "choice": 1,
+    "medianMs": 6477,
+    "medianChars": 2378
+   }
+  },
+  {
+   "model": "gemma",
+   "label": "Gemma 4",
+   "composer": "gemma-4-26b-a4b-it",
+   "format": "express",
+   "tasks": [
+    {
+     "id": "sales-dashboard",
+     "valid": false,
+     "problem": "429 [{\"error\":{\"code\":429,\"message\":\"You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\n* Quota exceeded for ",
+     "choice": 0,
+     "used": [],
+     "composeMs": 0,
+     "firstTokenMs": null,
+     "outputChars": 0,
+     "jsonChars": 0,
+     "expressChars": 0
+    },
+    {
+     "id": "headphones",
+     "valid": false,
+     "problem": "429 [{\"error\":{\"code\":429,\"message\":\"You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\n* Quota exceeded for ",
+     "choice": 0,
+     "used": [],
+     "composeMs": 0,
+     "firstTokenMs": null,
+     "outputChars": 0,
+     "jsonChars": 0,
+     "expressChars": 0
+    },
+    {
+     "id": "flights",
+     "valid": true,
+     "choice": 1,
+     "used": [
+      "Column",
+      "Heading",
+      "FlightCard",
+      "Row",
+      "Button"
+     ],
+     "composeMs": 24339,
+     "firstTokenMs": 13523,
+     "outputChars": 1454,
+     "jsonChars": 2058,
+     "expressChars": 1181
+    },
+    {
+     "id": "weather",
+     "valid": false,
+     "problem": "429 [{\"error\":{\"code\":429,\"message\":\"You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\n* Quota exceeded for ",
+     "choice": 0,
+     "used": [],
+     "composeMs": 0,
+     "firstTokenMs": null,
+     "outputChars": 0,
+     "jsonChars": 0,
+     "expressChars": 0
+    },
+    {
+     "id": "signup",
+     "valid": true,
+     "choice": 1,
+     "used": [
+      "Heading",
+      "TextField",
+      "RadioGroup",
+      "Button",
+      "Card",
+      "Column",
+      "Divider"
+     ],
+     "composeMs": 7578,
+     "firstTokenMs": 1186,
+     "outputChars": 903,
+     "jsonChars": 1313,
+     "expressChars": 824
+    },
+    {
+     "id": "tokyo",
+     "valid": false,
+     "problem": "429 [{\"error\":{\"code\":429,\"message\":\"You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\n* Quota exceeded for ",
+     "choice": 0,
+     "used": [],
+     "composeMs": 0,
+     "firstTokenMs": null,
+     "outputChars": 0,
+     "jsonChars": 0,
+     "expressChars": 0
+    },
+    {
+     "id": "recipe",
+     "valid": true,
+     "choice": 1,
+     "used": [
+      "Heading",
+      "RecipeCard",
+      "Column"
+     ],
+     "composeMs": 21737,
+     "firstTokenMs": 13227,
+     "outputChars": 1300,
+     "jsonChars": 1417,
+     "expressChars": 1154
+    },
+    {
+     "id": "team",
+     "valid": false,
+     "problem": "429 [{\"error\":{\"code\":429,\"message\":\"You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\n* Quota exceeded for ",
+     "choice": 0,
+     "used": [],
+     "composeMs": 0,
+     "firstTokenMs": null,
+     "outputChars": 0,
+     "jsonChars": 0,
+     "expressChars": 0
+    },
+    {
+     "id": "receipt",
+     "valid": false,
+     "problem": "429 [{\"error\":{\"code\":429,\"message\":\"You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\n* Quota exceeded for ",
+     "choice": 0,
+     "used": [],
+     "composeMs": 0,
+     "firstTokenMs": null,
+     "outputChars": 0,
+     "jsonChars": 0,
+     "expressChars": 0
+    },
+    {
+     "id": "agenda",
+     "valid": false,
+     "problem": "Component 'Section' is missing required property 'children'. - Help: Please correct the syntax error in your Express DSL.",
+     "choice": 0,
+     "used": [],
+     "composeMs": 0,
+     "firstTokenMs": null,
+     "outputChars": 0,
+     "jsonChars": 0,
+     "expressChars": 0
+    },
+    {
+     "id": "kpi",
+     "valid": false,
+     "problem": "429 [{\"error\":{\"code\":429,\"message\":\"You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\n* Quota exceeded for ",
+     "choice": 0,
+     "used": [],
+     "composeMs": 0,
+     "firstTokenMs": null,
+     "outputChars": 0,
+     "jsonChars": 0,
+     "expressChars": 0
+    },
+    {
+     "id": "code",
+     "valid": false,
+     "problem": "429 [{\"error\":{\"code\":429,\"message\":\"You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\n* Quota exceeded for ",
+     "choice": 0,
+     "used": [],
+     "composeMs": 0,
+     "firstTokenMs": null,
+     "outputChars": 0,
+     "jsonChars": 0,
+     "expressChars": 0
+    }
+   ],
+   "summary": {
+    "validRate": 0.25,
+    "choice": 0.25,
+    "medianMs": 21737,
+    "medianChars": 1300
+   }
+  },
+  {
+   "model": "gemma",
+   "label": "Gemma 4",
+   "composer": "gemma-4-26b-a4b-it",
+   "format": "json",
+   "tasks": [
+    {
+     "id": "sales-dashboard",
+     "valid": true,
+     "choice": 1,
+     "used": [
+      "Column",
+      "Heading",
+      "Grid",
+      "Stat",
+      "Row",
+      "Section",
+      "AreaChart",
+      "PieChart"
+     ],
+     "composeMs": 22944,
+     "firstTokenMs": 1796,
+     "outputChars": 3010,
+     "jsonChars": 2186,
+     "expressChars": 1464
+    },
+    {
+     "id": "headphones",
+     "valid": true,
+     "choice": 1,
+     "used": [
+      "Column",
+      "Heading",
+      "Grid",
+      "Stat",
+      "Section",
+      "ComparisonTable",
+      "ProductCard",
+      "BarChart"
+     ],
+     "composeMs": 29398,
+     "firstTokenMs": 5308,
+     "outputChars": 3524,
+     "jsonChars": 3654,
+     "expressChars": 0
+    },
+    {
+     "id": "flights",
+     "valid": true,
+     "choice": 1,
+     "used": [
+      "Column",
+      "Heading",
+      "Grid",
+      "FlightCard",
+      "Caption"
+     ],
+     "composeMs": 12471,
+     "firstTokenMs": 1481,
+     "outputChars": 1625,
+     "jsonChars": 1755,
+     "expressChars": 0
+    },
+    {
+     "id": "weather",
+     "valid": true,
+     "choice": 1,
+     "used": [
+      "Column",
+      "Heading",
+      "WeatherReport",
+      "Section",
+      "Grid",
+      "Card",
+      "Icon",
+      "Text",
+      "Stat"
+     ],
+     "composeMs": 20901,
+     "firstTokenMs": 1215,
+     "outputChars": 3201,
+     "jsonChars": 3331,
+     "expressChars": 2152
+    },
+    {
+     "id": "signup",
+     "valid": true,
+     "choice": 0,
+     "used": [
+      "Column",
+      "Heading",
+      "Section",
+      "Card"
+     ],
+     "composeMs": 11426,
+     "firstTokenMs": 1295,
+     "outputChars": 2067,
+     "jsonChars": 634,
+     "expressChars": 362
+    },
+    {
+     "id": "tokyo",
+     "valid": true,
+     "choice": 1,
+     "used": [
+      "Column",
+      "Heading",
+      "Grid",
+      "Stat",
+      "Row",
+      "Card",
+      "Agenda",
+      "PlaceList"
+     ],
+     "composeMs": 35498,
+     "firstTokenMs": 1267,
+     "outputChars": 5230,
+     "jsonChars": 2017,
+     "expressChars": 1442
+    },
+    {
+     "id": "recipe",
+     "valid": true,
+     "choice": 1,
+     "used": [
+      "Column",
+      "Heading",
+      "RecipeCard",
+      "Grid",
+      "Stat",
+      "Section",
+      "List",
+      "Timeline",
+      "Callout"
+     ],
+     "composeMs": 17137,
+     "firstTokenMs": 1250,
+     "outputChars": 2990,
+     "jsonChars": 3118,
+     "expressChars": 2514
+    },
+    {
+     "id": "team",
+     "valid": true,
+     "choice": 1,
+     "used": [
+      "Column",
+      "Heading",
+      "Grid",
+      "Stat",
+      "ProfileCard"
+     ],
+     "composeMs": 26585,
+     "firstTokenMs": 1108,
+     "outputChars": 3592,
+     "jsonChars": 2569,
+     "expressChars": 1934
+    },
+    {
+     "id": "receipt",
+     "valid": true,
+     "choice": 1,
+     "used": [
+      "Column",
+      "Heading",
+      "Section",
+      "Grid",
+      "Stat",
+      "ReceiptCard",
+      "Row",
+      "Button",
+      "Callout"
+     ],
+     "composeMs": 14241,
+     "firstTokenMs": 1415,
+     "outputChars": 2232,
+     "jsonChars": 2015,
+     "expressChars": 0
+    },
+    {
+     "id": "agenda",
+     "valid": true,
+     "choice": 1,
+     "used": [
+      "Column",
+      "Heading",
+      "Grid",
+      "Stat",
+      "Section",
+      "Agenda"
+     ],
+     "composeMs": 21282,
+     "firstTokenMs": 983,
+     "outputChars": 3543,
+     "jsonChars": 1136,
+     "expressChars": 709
+    },
+    {
+     "id": "kpi",
+     "valid": true,
+     "choice": 0,
+     "used": [
+      "Column"
+     ],
+     "composeMs": 12081,
+     "firstTokenMs": 981,
+     "outputChars": 1935,
+     "jsonChars": 385,
+     "expressChars": 228
+    },
+    {
+     "id": "code",
+     "valid": true,
+     "choice": 1,
+     "used": [
+      "Column",
+      "Heading",
+      "Grid",
+      "Stat",
+      "Section",
+      "Card",
+      "CodeBlock",
+      "Title",
+      "List",
+      "Timeline"
+     ],
+     "composeMs": 16086,
+     "firstTokenMs": 1259,
+     "outputChars": 2936,
+     "jsonChars": 2996,
+     "expressChars": 0
+    }
+   ],
+   "summary": {
+    "validRate": 1.0,
+    "choice": 0.8333333333333334,
+    "medianMs": 20901,
+    "medianChars": 3010
+   }
+  },
+  {
+   "model": "gpt",
+   "label": "GPT-5.5",
+   "composer": "gpt-5.4-mini",
+   "format": "express",
+   "tasks": [
+    {
+     "id": "sales-dashboard",
+     "valid": true,
+     "choice": 1,
+     "used": [
+      "Column",
+      "Heading",
+      "Grid",
+      "Stat",
+      "BarChart",
+      "DataTable",
+      "Section",
+      "Caption",
+      "KeyValueList"
+     ],
+     "composeMs": 3971,
+     "firstTokenMs": 1232,
+     "outputChars": 1976,
+     "jsonChars": 2632,
+     "expressChars": 1851
+    },
+    {
+     "id": "headphones",
+     "valid": false,
+     "problem": "Validation failed for component 'ComparisonTable' (compare_table): rows.0: Either '@path' or 'path' must be provided., rows.1: Either '@path' or 'path' must be provided., rows.2: Either '@path' or 'path' must be provided., rows.3: Either '@path' or 'path' must be provided., rows.4: Either '@path' or",
+     "choice": 0,
+     "used": [],
+     "composeMs": 0,
+     "firstTokenMs": null,
+     "outputChars": 0,
+     "jsonChars": 0,
+     "expressChars": 0
+    },
+    {
+     "id": "flights",
+     "valid": true,
+     "choice": 1,
+     "used": [
+      "Column",
+      "Heading",
+      "FlightCard",
+      "Caption"
+     ],
+     "composeMs": 4434,
+     "firstTokenMs": 3376,
+     "outputChars": 959,
+     "jsonChars": 1647,
+     "expressChars": 891
+    },
+    {
+     "id": "weather",
+     "valid": true,
+     "choice": 1,
+     "used": [
+      "Column",
+      "Heading",
+      "WeatherReport",
+      "Caption"
+     ],
+     "composeMs": 2930,
+     "firstTokenMs": 969,
+     "outputChars": 276,
+     "jsonChars": 530,
+     "expressChars": 278
+    },
+    {
+     "id": "signup",
+     "valid": true,
+     "choice": 1,
+     "used": [
+      "Column",
+      "Heading",
+      "Card",
+      "Form",
+      "TextField",
+      "RadioGroup",
+      "Button",
+      "Caption"
+     ],
+     "composeMs": 2346,
+     "firstTokenMs": 1300,
+     "outputChars": 948,
+     "jsonChars": 1386,
+     "expressChars": 811
+    },
+    {
+     "id": "tokyo",
+     "valid": false,
+     "problem": "Validation failed for component 'Timeline' (day1): items.0: Unrecognized key(s) in object: 'date', items.1: Unrecognized key(s) in object: 'date', items.2: Either '@path' or 'path' must be provided.",
+     "choice": 0,
+     "used": [],
+     "composeMs": 0,
+     "firstTokenMs": null,
+     "outputChars": 0,
+     "jsonChars": 0,
+     "expressChars": 0
+    },
+    {
+     "id": "recipe",
+     "valid": true,
+     "choice": 1,
+     "used": [
+      "Column",
+      "Heading",
+      "RecipeCard",
+      "Markdown",
+      "Caption"
+     ],
+     "composeMs": 6205,
+     "firstTokenMs": 5048,
+     "outputChars": 1330,
+     "jsonChars": 1588,
+     "expressChars": 1273
+    },
+    {
+     "id": "team",
+     "valid": true,
+     "choice": 1,
+     "used": [
+      "Column",
+      "Heading",
+      "Grid",
+      "ProfileCard",
+      "Caption"
+     ],
+     "composeMs": 2434,
+     "firstTokenMs": 808,
+     "outputChars": 1233,
+     "jsonChars": 1616,
+     "expressChars": 1109
+    },
+    {
+     "id": "receipt",
+     "valid": true,
+     "choice": 1,
+     "used": [
+      "Column",
+      "Heading",
+      "ReceiptCard",
+      "KeyValueList",
+      "Caption"
+     ],
+     "composeMs": 3754,
+     "firstTokenMs": 2791,
+     "outputChars": 818,
+     "jsonChars": 1146,
+     "expressChars": 861
+    },
+    {
+     "id": "agenda",
+     "valid": true,
+     "choice": 1,
+     "used": [
+      "Column",
+      "Heading",
+      "Agenda",
+      "Caption"
+     ],
+     "composeMs": 5852,
+     "firstTokenMs": 5023,
+     "outputChars": 956,
+     "jsonChars": 1169,
+     "expressChars": 918
+    },
+    {
+     "id": "kpi",
+     "valid": true,
+     "choice": 1,
+     "used": [
+      "Column",
+      "Heading",
+      "RadialProgress",
+      "Caption"
+     ],
+     "composeMs": 1424,
+     "firstTokenMs": 941,
+     "outputChars": 257,
+     "jsonChars": 511,
+     "expressChars": 246
+    },
+    {
+     "id": "code",
+     "valid": true,
+     "choice": 1,
+     "used": [
+      "Column",
+      "Heading",
+      "Markdown",
+      "CodeBlock",
+      "KeyValueList",
+      "Section",
+      "Caption",
+      "List"
+     ],
+     "composeMs": 3092,
+     "firstTokenMs": 945,
+     "outputChars": 1856,
+     "jsonChars": 2240,
+     "expressChars": 1791
+    }
+   ],
+   "summary": {
+    "validRate": 0.8333333333333334,
+    "choice": 0.8333333333333334,
+    "medianMs": 3754,
+    "medianChars": 959
+   }
+  },
+  {
+   "model": "gpt",
+   "label": "GPT-5.5",
+   "composer": "gpt-5.4-mini",
+   "format": "json",
+   "tasks": [
+    {
+     "id": "sales-dashboard",
+     "valid": true,
+     "choice": 1,
+     "used": [
+      "Column",
+      "Heading",
+      "Grid",
+      "Stat",
+      "BarChart",
+      "DataTable",
+      "Caption"
+     ],
+     "composeMs": 3404,
+     "firstTokenMs": 734,
+     "outputChars": 2121,
+     "jsonChars": 2179,
+     "expressChars": 1595
+    },
+    {
+     "id": "headphones",
+     "valid": true,
+     "choice": 1,
+     "used": [
+      "Column",
+      "Heading",
+      "ComparisonTable",
+      "Caption"
+     ],
+     "composeMs": 2026,
+     "firstTokenMs": 975,
+     "outputChars": 963,
+     "jsonChars": 1078,
+     "expressChars": 824
+    },
+    {
+     "id": "flights",
+     "valid": true,
+     "choice": 1,
+     "used": [
+      "Column",
+      "Heading",
+      "Grid",
+      "FlightCard",
+      "Caption"
+     ],
+     "composeMs": 2491,
+     "firstTokenMs": 1046,
+     "outputChars": 1374,
+     "jsonChars": 1489,
+     "expressChars": 808
+    },
+    {
+     "id": "weather",
+     "valid": true,
+     "choice": 1,
+     "used": [
+      "Column",
+      "Heading",
+      "WeatherReport",
+      "Caption"
+     ],
+     "composeMs": 2528,
+     "firstTokenMs": 912,
+     "outputChars": 389,
+     "jsonChars": 504,
+     "expressChars": 246
+    },
+    {
+     "id": "signup",
+     "valid": true,
+     "choice": 1,
+     "used": [
+      "Column",
+      "Heading",
+      "Card",
+      "Form",
+      "TextField",
+      "RadioGroup",
+      "Row",
+      "Button"
+     ],
+     "composeMs": 2322,
+     "firstTokenMs": 815,
+     "outputChars": 1529,
+     "jsonChars": 1659,
+     "expressChars": 1034
+    },
+    {
+     "id": "tokyo",
+     "valid": true,
+     "choice": 1,
+     "used": [
+      "Column",
+      "Heading",
+      "Section",
+      "MapView",
+      "Agenda",
+      "KeyValueList",
+      "Caption"
+     ],
+     "composeMs": 8428,
+     "firstTokenMs": 828,
+     "outputChars": 7164,
+     "jsonChars": 7294,
+     "expressChars": 6712
+    },
+    {
+     "id": "recipe",
+     "valid": true,
+     "choice": 1,
+     "used": [
+      "Column",
+      "Heading",
+      "RecipeCard",
+      "Caption"
+     ],
+     "composeMs": 3618,
+     "firstTokenMs": 2246,
+     "outputChars": 1371,
+     "jsonChars": 1486,
+     "expressChars": 1210
+    },
+    {
+     "id": "team",
+     "valid": true,
+     "choice": 1,
+     "used": [
+      "Column",
+      "Heading",
+      "Grid",
+      "ProfileCard"
+     ],
+     "composeMs": 2508,
+     "firstTokenMs": 926,
+     "outputChars": 1702,
+     "jsonChars": 1817,
+     "expressChars": 1358
+    },
+    {
+     "id": "receipt",
+     "valid": true,
+     "choice": 1,
+     "used": [
+      "Column",
+      "Heading",
+      "ReceiptCard",
+      "KeyValueList",
+      "Caption"
+     ],
+     "composeMs": 2113,
+     "firstTokenMs": 1069,
+     "outputChars": 912,
+     "jsonChars": 1027,
+     "expressChars": 675
+    },
+    {
+     "id": "agenda",
+     "valid": true,
+     "choice": 1,
+     "used": [
+      "Column",
+      "Heading",
+      "Agenda"
+     ],
+     "composeMs": 2450,
+     "firstTokenMs": 1037,
+     "outputChars": 1375,
+     "jsonChars": 1490,
+     "expressChars": 1255
+    },
+    {
+     "id": "kpi",
+     "valid": true,
+     "choice": 1,
+     "used": [
+      "Column",
+      "Heading",
+      "RadialProgress"
+     ],
+     "composeMs": 1178,
+     "firstTokenMs": 790,
+     "outputChars": 315,
+     "jsonChars": 430,
+     "expressChars": 193
+    },
+    {
+     "id": "code",
+     "valid": true,
+     "choice": 1,
+     "used": [
+      "Column",
+      "Heading",
+      "Markdown",
+      "CodeBlock",
+      "Callout",
+      "Caption"
+     ],
+     "composeMs": 2982,
+     "firstTokenMs": 950,
+     "outputChars": 1651,
+     "jsonChars": 1716,
+     "expressChars": 1345
+    }
+   ],
+   "summary": {
+    "validRate": 1,
+    "choice": 1,
+    "medianMs": 2508,
+    "medianChars": 1375
+   }
+  }
+ ]
+}

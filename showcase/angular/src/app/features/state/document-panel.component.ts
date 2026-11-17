@@ -38,8 +38,8 @@ import { ChangeDetectionStrategy, Component, input } from "@angular/core";
       display: grid;
       min-height: 30rem;
       grid-template-rows: auto minmax(0, 1fr);
-      border: 1px solid #dbe3eb;
-      background: #fff;
+      border: 1px solid light-dark(#dbe3eb, #303136);
+      background: light-dark(#fff, #191a1e);
     }
     header {
       display: flex;
@@ -47,8 +47,8 @@ import { ChangeDetectionStrategy, Component, input } from "@angular/core";
       justify-content: space-between;
       gap: 1rem;
       padding: 0.8rem 1.2rem;
-      border-bottom: 1px solid #e2e8f0;
-      background: #f8fafc;
+      border-bottom: 1px solid light-dark(#e2e8f0, #303136);
+      background: light-dark(#f8fafc, #242529);
     }
     header > div {
       display: flex;
@@ -80,7 +80,7 @@ import { ChangeDetectionStrategy, Component, input } from "@angular/core";
       animation: pulse 1s ease-in-out infinite;
     }
     [data-testid="document-char-count"] {
-      color: #64748b;
+      color: light-dark(#64748b, #adadb2);
       font:
         0.75rem ui-monospace,
         monospace;
@@ -90,12 +90,12 @@ import { ChangeDetectionStrategy, Component, input } from "@angular/core";
       overflow: auto;
     }
     .document-body p {
-      color: #64748b;
+      color: light-dark(#64748b, #adadb2);
       font-style: italic;
     }
     [data-testid="document-content"] {
       white-space: pre-wrap;
-      color: #14213d;
+      color: light-dark(#14213d, #fafafa);
       font:
         1rem/1.7 Georgia,
         serif;
@@ -106,7 +106,7 @@ import { ChangeDetectionStrategy, Component, input } from "@angular/core";
       height: 1.1rem;
       margin-left: 0.15rem;
       vertical-align: text-bottom;
-      background: #14213d;
+      background: light-dark(#14213d, #fafafa);
       animation: pulse 1s ease-in-out infinite;
     }
     @keyframes pulse {

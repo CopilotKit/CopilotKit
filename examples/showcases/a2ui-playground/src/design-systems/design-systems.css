@@ -1,0 +1,997 @@
+/* ───────────────────────── Design systems ─────────────────────────
+   One catalog, four looks. Each design system scopes its tokens to the surfaces it draws: the shadcn
+   tokens and the playground's --a2-* tokens (the --a2ui-* ones come from the provider's theme). Light is
+   the default; the dark values sit under a `.dark` ancestor (the class on <html>, src/lib/theme.ts).
+   Specificity: a light rule, host class plus [data-ds] (0,2,0), outranks globals.css's light host tokens
+   (0,1,0); a dark rule, `.dark` plus both (0,3,0), outranks its dark ones (`.dark .a2-surface-host`, 0,2,0).
+   Every color a light rule sets, its dark rule sets again, so nothing light leaks into dark mode; the
+   rest (type, corners, padding) is the same in both. */
+
+/* shadcn/ui: v4's neutral palette, light and dark, with its chart colors. */
+.a2-surface-host[data-ds="shadcn"],
+.a2-static[data-ds="shadcn"] {
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --radius: 0.625rem;
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+  --ts-chart-1: oklch(0.646 0.222 41.116);
+  --ts-chart-2: oklch(0.6 0.118 184.704);
+  --ts-chart-3: oklch(0.398 0.07 227.392);
+  --ts-chart-4: oklch(0.828 0.189 84.429);
+  --ts-chart-5: oklch(0.769 0.188 70.08);
+  --ts-chart-6: oklch(0.556 0 0);
+  --a2-surface: oklch(1 0 0);
+  --a2-surface-2: oklch(0.97 0 0);
+  --a2-line: oklch(0.922 0 0);
+  --a2-line-strong: oklch(0.87 0 0);
+  --a2-radius: 12px;
+  --a2-accent: oklch(0.546 0.245 262.881);
+  --a2-positive: oklch(0.508 0.118 165.612);
+  --a2-negative: oklch(0.577 0.245 27.325);
+  --a2-warning: oklch(0.555 0.163 48.998);
+  --a2-info: oklch(0.546 0.245 262.881);
+}
+.dark :is(.a2-surface-host, .a2-static)[data-ds="shadcn"] {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --radius: 0.625rem;
+  --chart-1: oklch(0.488 0.243 264.376);
+  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-3: oklch(0.769 0.188 70.08);
+  --chart-4: oklch(0.627 0.265 303.9);
+  --chart-5: oklch(0.645 0.246 16.439);
+  --ts-chart-1: oklch(0.623 0.214 259.815);
+  --ts-chart-2: oklch(0.696 0.17 162.48);
+  --ts-chart-3: oklch(0.769 0.188 70.08);
+  --ts-chart-4: oklch(0.627 0.265 303.9);
+  --ts-chart-5: oklch(0.645 0.246 16.439);
+  --ts-chart-6: oklch(0.556 0 0);
+  --a2-surface: oklch(0.205 0 0);
+  --a2-surface-2: oklch(0.269 0 0);
+  --a2-line: oklch(1 0 0 / 10%);
+  --a2-line-strong: oklch(1 0 0 / 15%);
+  --a2-radius: 12px;
+  --a2-accent: oklch(0.623 0.214 259.815);
+  --a2-positive: oklch(0.696 0.17 162.48);
+  --a2-negative: oklch(0.704 0.191 22.216);
+  --a2-warning: oklch(0.769 0.188 70.08);
+  --a2-info: oklch(0.623 0.214 259.815);
+}
+/* shadcn's Card: its fill and its shadow-sm (a heavier shadow on the dark ground). */
+:is(.a2-surface-host, .a2-static)[data-ds="shadcn"] .a2-card {
+  background: var(--a2-surface);
+  box-shadow:
+    0 1px 3px 0 oklch(0 0 0 / 10%),
+    0 1px 2px -1px oklch(0 0 0 / 10%);
+}
+.dark :is(.a2-surface-host, .a2-static)[data-ds="shadcn"] .a2-card {
+  box-shadow: 0 1px 2px oklch(0 0 0 / 25%);
+}
+:is(.a2-surface-host, .a2-static)[data-ds="shadcn"] .a2-chart {
+  color: oklch(0.556 0 0);
+}
+.dark :is(.a2-surface-host, .a2-static)[data-ds="shadcn"] .a2-chart {
+  color: oklch(0.708 0 0);
+}
+
+/* Material: Material 3 Expressive in Google's own Material 3 color scheme, the one its products use (primary
+   #0b57d0, read from the --gm3-sys-color-* tokens on Google's sign-in page), light by default and dark under
+   `.dark`. Like the other systems it stands on the floor itself, with no canvas of its own: its outlined cards
+   carry the surface. The host also carries the library's .m3e-theme scope (HOST_CLASS in registry.ts): its
+   component tokens are declared there, so they resolve against these roles instead of the library's defaults
+   on :root. Material has no success or warning roles: success takes the scheme's green tertiary, and
+   --md-warning is a custom color harmonized to #0b57d0. The shadcn and --a2-* tokens name the same role in
+   both schemes, and the chart series are checked for color-vision separation on each mode's surface. */
+.a2-surface-host[data-ds="material"],
+.a2-static[data-ds="material"] {
+  --m3e-sys-color-background: #ffffff;
+  --m3e-sys-color-on-background: #1f1f1f;
+  --m3e-sys-color-surface: #ffffff;
+  --m3e-sys-color-surface-dim: #d3dbe5;
+  --m3e-sys-color-surface-bright: #ffffff;
+  --m3e-sys-color-surface-container-lowest: #ffffff;
+  --m3e-sys-color-surface-container-low: #f8fafd;
+  --m3e-sys-color-surface-container: #f0f4f9;
+  --m3e-sys-color-surface-container-high: #e9eef6;
+  --m3e-sys-color-surface-container-highest: #dde3ea;
+  --m3e-sys-color-on-surface: #1f1f1f;
+  --m3e-sys-color-surface-variant: #e1e3e1;
+  --m3e-sys-color-on-surface-variant: #444746;
+  --m3e-sys-color-inverse-surface: #303030;
+  --m3e-sys-color-inverse-on-surface: #f2f2f2;
+  --m3e-sys-color-outline: #747775;
+  --m3e-sys-color-outline-variant: #c4c7c5;
+  --m3e-sys-color-shadow: #000000;
+  --m3e-sys-color-scrim: #000000;
+  --m3e-sys-color-surface-tint: #0b57d0;
+  --m3e-sys-color-primary: #0b57d0;
+  --m3e-sys-color-on-primary: #ffffff;
+  --m3e-sys-color-primary-container: #d3e3fd;
+  --m3e-sys-color-on-primary-container: #0842a0;
+  --m3e-sys-color-inverse-primary: #a8c7fa;
+  --m3e-sys-color-secondary: #00639b;
+  --m3e-sys-color-on-secondary: #ffffff;
+  --m3e-sys-color-secondary-container: #c2e7ff;
+  --m3e-sys-color-on-secondary-container: #004a77;
+  --m3e-sys-color-tertiary: #146c2e;
+  --m3e-sys-color-on-tertiary: #ffffff;
+  --m3e-sys-color-tertiary-container: #c4eed0;
+  --m3e-sys-color-on-tertiary-container: #0f5223;
+  --m3e-sys-color-error: #b3261e;
+  --m3e-sys-color-on-error: #ffffff;
+  --m3e-sys-color-error-container: #f9dedc;
+  --m3e-sys-color-on-error-container: #8c1d18;
+  --m3e-sys-color-primary-fixed: #d3e3fd;
+  --m3e-sys-color-primary-fixed-dim: #a8c7fa;
+  --m3e-sys-color-on-primary-fixed: #041e49;
+  --m3e-sys-color-on-primary-fixed-variant: #0842a0;
+  --m3e-sys-color-secondary-fixed: #c2e7ff;
+  --m3e-sys-color-secondary-fixed-dim: #7fcfff;
+  --m3e-sys-color-on-secondary-fixed: #001d35;
+  --m3e-sys-color-on-secondary-fixed-variant: #004a77;
+  --m3e-sys-color-tertiary-fixed: #c4eed0;
+  --m3e-sys-color-tertiary-fixed-dim: #6dd58c;
+  --m3e-sys-color-on-tertiary-fixed: #072711;
+  --m3e-sys-color-on-tertiary-fixed-variant: #0f5223;
+  --md-success: #146c2e;
+  --md-on-success: #ffffff;
+  --md-success-container: #c4eed0;
+  --md-on-success-container: #0f5223;
+  --md-warning: #8d4f00;
+  --md-on-warning: #ffffff;
+  --md-warning-container: #ffdcc0;
+  --md-on-warning-container: #2d1600;
+  --font-material: "Roboto Flex Variable", Roboto, system-ui, sans-serif;
+  --m3e-ref-typeface-plain: var(--font-material);
+  --m3e-ref-typeface-brand: var(--font-material);
+  --font-sans: var(--font-material);
+  --background: #ffffff;
+  --foreground: #1f1f1f;
+  --card: #ffffff;
+  --card-foreground: #1f1f1f;
+  --popover: #f0f4f9;
+  --popover-foreground: #1f1f1f;
+  --primary: #0b57d0;
+  --primary-foreground: #ffffff;
+  --secondary: #c2e7ff;
+  --secondary-foreground: #004a77;
+  --muted: #f0f4f9;
+  --muted-foreground: #444746;
+  --accent: #e9eef6;
+  --accent-foreground: #1f1f1f;
+  --destructive: #b3261e;
+  --border: #c4c7c5;
+  --input: #747775;
+  --ring: #0b57d0;
+  --radius: 0.75rem;
+  --chart-1: #0b57d0;
+  --chart-2: #146c2e;
+  --chart-3: #a3428f;
+  --chart-4: #b06000;
+  --chart-5: #00639b;
+  --ts-chart-1: #0b57d0;
+  --ts-chart-2: #146c2e;
+  --ts-chart-3: #a3428f;
+  --ts-chart-4: #b06000;
+  --ts-chart-5: #00639b;
+  --ts-chart-6: #7f6a00;
+  --a2-surface: #ffffff;
+  --a2-surface-2: #f0f4f9;
+  --a2-line: #c4c7c5;
+  --a2-line-strong: #747775;
+  --a2-radius: 12px;
+  --a2-accent: #0b57d0;
+  --a2-positive: #146c2e;
+  --a2-negative: #b3261e;
+  --a2-warning: #8d4f00;
+  --a2-info: #0b57d0;
+  color: #1f1f1f;
+  font-family: var(--font-material);
+}
+.dark :is(.a2-surface-host, .a2-static)[data-ds="material"] {
+  --m3e-sys-color-background: #131314;
+  --m3e-sys-color-on-background: #e3e3e3;
+  --m3e-sys-color-surface: #131314;
+  --m3e-sys-color-surface-dim: #131314;
+  --m3e-sys-color-surface-bright: #37393b;
+  --m3e-sys-color-surface-container-lowest: #0e0e0e;
+  --m3e-sys-color-surface-container-low: #1b1b1b;
+  --m3e-sys-color-surface-container: #1e1f20;
+  --m3e-sys-color-surface-container-high: #282a2c;
+  --m3e-sys-color-surface-container-highest: #333537;
+  --m3e-sys-color-on-surface: #e3e3e3;
+  --m3e-sys-color-surface-variant: #444746;
+  --m3e-sys-color-on-surface-variant: #c4c7c5;
+  --m3e-sys-color-inverse-surface: #e3e3e3;
+  --m3e-sys-color-inverse-on-surface: #303030;
+  --m3e-sys-color-outline: #8e918f;
+  --m3e-sys-color-outline-variant: #444746;
+  --m3e-sys-color-shadow: #000000;
+  --m3e-sys-color-scrim: #000000;
+  --m3e-sys-color-surface-tint: #a8c7fa;
+  --m3e-sys-color-primary: #a8c7fa;
+  --m3e-sys-color-on-primary: #062e6f;
+  --m3e-sys-color-primary-container: #0842a0;
+  --m3e-sys-color-on-primary-container: #d3e3fd;
+  --m3e-sys-color-inverse-primary: #0b57d0;
+  --m3e-sys-color-secondary: #7fcfff;
+  --m3e-sys-color-on-secondary: #003355;
+  --m3e-sys-color-secondary-container: #004a77;
+  --m3e-sys-color-on-secondary-container: #c2e7ff;
+  --m3e-sys-color-tertiary: #6dd58c;
+  --m3e-sys-color-on-tertiary: #0a3818;
+  --m3e-sys-color-tertiary-container: #0f5223;
+  --m3e-sys-color-on-tertiary-container: #c4eed0;
+  --m3e-sys-color-error: #f2b8b5;
+  --m3e-sys-color-on-error: #601410;
+  --m3e-sys-color-error-container: #8c1d18;
+  --m3e-sys-color-on-error-container: #f9dedc;
+  --m3e-sys-color-primary-fixed: #d3e3fd;
+  --m3e-sys-color-primary-fixed-dim: #a8c7fa;
+  --m3e-sys-color-on-primary-fixed: #041e49;
+  --m3e-sys-color-on-primary-fixed-variant: #0842a0;
+  --m3e-sys-color-secondary-fixed: #c2e7ff;
+  --m3e-sys-color-secondary-fixed-dim: #7fcfff;
+  --m3e-sys-color-on-secondary-fixed: #001d35;
+  --m3e-sys-color-on-secondary-fixed-variant: #004a77;
+  --m3e-sys-color-tertiary-fixed: #c4eed0;
+  --m3e-sys-color-tertiary-fixed-dim: #6dd58c;
+  --m3e-sys-color-on-tertiary-fixed: #072711;
+  --m3e-sys-color-on-tertiary-fixed-variant: #0f5223;
+  --md-success: #6dd58c;
+  --md-on-success: #0a3818;
+  --md-success-container: #0f5223;
+  --md-on-success-container: #c4eed0;
+  --md-warning: #ffb875;
+  --md-on-warning: #4b2800;
+  --md-warning-container: #6b3b00;
+  --md-on-warning-container: #ffdcc0;
+  --background: #131314;
+  --foreground: #e3e3e3;
+  --card: #131314;
+  --card-foreground: #e3e3e3;
+  --popover: #1e1f20;
+  --popover-foreground: #e3e3e3;
+  --primary: #a8c7fa;
+  --primary-foreground: #062e6f;
+  --secondary: #004a77;
+  --secondary-foreground: #c2e7ff;
+  --muted: #1e1f20;
+  --muted-foreground: #c4c7c5;
+  --accent: #282a2c;
+  --accent-foreground: #e3e3e3;
+  --destructive: #f2b8b5;
+  --border: #444746;
+  --input: #8e918f;
+  --ring: #a8c7fa;
+  --chart-1: #4285f4;
+  --chart-2: #1e8e3e;
+  --chart-3: #c260b1;
+  --chart-4: #cc6b00;
+  --chart-5: #0096c7;
+  --ts-chart-1: #4285f4;
+  --ts-chart-2: #1e8e3e;
+  --ts-chart-3: #c260b1;
+  --ts-chart-4: #cc6b00;
+  --ts-chart-5: #0096c7;
+  --ts-chart-6: #a88a00;
+  --a2-surface: #131314;
+  --a2-surface-2: #1e1f20;
+  --a2-line: #444746;
+  --a2-line-strong: #8e918f;
+  --a2-accent: #a8c7fa;
+  --a2-positive: #6dd58c;
+  --a2-negative: #f2b8b5;
+  --a2-warning: #ffb875;
+  --a2-info: #a8c7fa;
+  color: #e3e3e3;
+}
+/* Every container card is Material's outlined card, as its own KeyValueList is: the surface color, an
+   outline-variant edge and the 12px medium corner. */
+:is(.a2-surface-host, .a2-static)[data-ds="material"] .a2-card {
+  background: var(--a2-surface);
+  border-color: var(--a2-line);
+  border-radius: 12px;
+  box-shadow: none;
+}
+:is(.a2-surface-host, .a2-static)[data-ds="material"] .a2-chart {
+  color: #444746;
+}
+.dark :is(.a2-surface-host, .a2-static)[data-ds="material"] .a2-chart {
+  color: #c4c7c5;
+}
+
+/* A danger button keeps its emphasis and takes the error roles. The library resolves its button colors at
+   the theme scope, so the component tokens themselves are replaced here, on the button. */
+.m3e-button[data-danger] {
+  --m3e-comp-button-filled-container-color: var(--m3e-sys-color-error);
+  --m3e-comp-button-filled-content-color: var(--m3e-sys-color-on-error);
+  --m3e-comp-button-tonal-container-color: var(--m3e-sys-color-error-container);
+  --m3e-comp-button-tonal-content-color: var(
+    --m3e-sys-color-on-error-container
+  );
+  --m3e-comp-button-outlined-content-color: var(--m3e-sys-color-error);
+  --m3e-comp-button-text-content-color: var(--m3e-sys-color-error);
+}
+.m3e-icon-button[data-danger] {
+  --m3e-comp-icon-button-filled-container-color: var(--m3e-sys-color-error);
+  --m3e-comp-icon-button-filled-content-color: var(--m3e-sys-color-on-error);
+  --m3e-comp-icon-button-tonal-container-color: var(
+    --m3e-sys-color-error-container
+  );
+  --m3e-comp-icon-button-tonal-content-color: var(
+    --m3e-sys-color-on-error-container
+  );
+  --m3e-comp-icon-button-outlined-content-color: var(--m3e-sys-color-error);
+  --m3e-comp-icon-button-standard-content-color: var(--m3e-sys-color-error);
+}
+
+/* A status label: Material text on the tonal container of its tone (Material's Badge is a count). */
+.md-label {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 10px;
+  border-radius: 8px;
+  white-space: nowrap;
+  background: var(--m3e-sys-color-surface-container-highest);
+  color: var(--m3e-sys-color-on-surface-variant);
+}
+.md-label:is([data-tone="info"]) {
+  background: var(--m3e-sys-color-primary-container);
+  color: var(--m3e-sys-color-on-primary-container);
+}
+.md-label:is([data-tone="discovery"]) {
+  background: var(--m3e-sys-color-tertiary-container);
+  color: var(--m3e-sys-color-on-tertiary-container);
+}
+.md-label:is([data-tone="success"]) {
+  background: var(--md-success-container);
+  color: var(--md-on-success-container);
+}
+.md-label:is([data-tone="warning"], [data-tone="caution"]) {
+  background: var(--md-warning-container);
+  color: var(--md-on-warning-container);
+}
+.md-label:is([data-tone="danger"]) {
+  background: var(--m3e-sys-color-error-container);
+  color: var(--m3e-sys-color-on-error-container);
+}
+.md-label[data-variant="solid"] {
+  background: var(--m3e-sys-color-inverse-surface);
+  color: var(--m3e-sys-color-inverse-on-surface);
+}
+.md-label[data-variant="solid"]:is([data-tone="info"]) {
+  background: var(--m3e-sys-color-primary);
+  color: var(--m3e-sys-color-on-primary);
+}
+.md-label[data-variant="solid"]:is([data-tone="discovery"]) {
+  background: var(--m3e-sys-color-tertiary);
+  color: var(--m3e-sys-color-on-tertiary);
+}
+.md-label[data-variant="solid"]:is([data-tone="success"]) {
+  background: var(--md-success);
+  color: var(--md-on-success);
+}
+.md-label[data-variant="solid"]:is(
+    [data-tone="warning"],
+    [data-tone="caution"]
+  ) {
+  background: var(--md-warning);
+  color: var(--md-on-warning);
+}
+.md-label[data-variant="solid"]:is([data-tone="danger"]) {
+  background: var(--m3e-sys-color-error);
+  color: var(--m3e-sys-color-on-error);
+}
+.md-label[data-variant="outline"] {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--m3e-sys-color-outline-variant);
+}
+
+.md-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+}
+/* A stat is a filled card a step lighter than the spec's highest container, so a row of them sits beside the
+   outlined cards without outweighing them. */
+.md-stat {
+  --m3e-comp-card-filled-container-color: var(
+    --m3e-sys-color-surface-container-high
+  );
+}
+.md-stat,
+.md-panel {
+  width: 100%;
+  min-width: 0;
+  padding: 16px;
+}
+/* Material's Card puts its children in a content wrapper, so the spacing goes there. */
+.md-stat > .m3e-card__content {
+  gap: 4px;
+}
+.md-panel > .m3e-card__content {
+  gap: 8px;
+}
+.md-value {
+  font-variant-numeric: tabular-nums;
+}
+.md-muted {
+  color: var(--m3e-sys-color-on-surface-variant);
+}
+.md-block {
+  display: block;
+}
+.md-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+.md-between {
+  flex-wrap: nowrap;
+  justify-content: space-between;
+}
+.md-between > :first-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.md-delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-variant-numeric: tabular-nums;
+}
+.md-delta[data-trend="up"] {
+  color: var(--md-success);
+}
+.md-delta[data-trend="down"] {
+  color: var(--m3e-sys-color-error);
+}
+.md-delta[data-trend="flat"] {
+  color: var(--m3e-sys-color-on-surface-variant);
+}
+.md-pairs {
+  display: flex;
+  flex-direction: column;
+}
+.md-pairs > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--m3e-sys-color-outline-variant);
+}
+.md-pairs > div:last-child {
+  border-bottom: 0;
+}
+.md-pairs dd {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.md-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.md-heading-line {
+  align-items: baseline;
+  gap: 2px 10px;
+}
+.md-banner {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  width: 100%;
+  padding: 16px;
+  border-radius: 16px;
+  background: var(--m3e-sys-color-surface-container-high);
+  color: var(--m3e-sys-color-on-surface);
+}
+.md-banner > .m3e-button {
+  margin-top: 8px;
+}
+.md-banner[data-tone="info"] {
+  background: var(--m3e-sys-color-primary-container);
+  color: var(--m3e-sys-color-on-primary-container);
+}
+.md-banner[data-tone="success"] {
+  background: var(--md-success-container);
+  color: var(--md-on-success-container);
+}
+.md-banner[data-tone="warning"] {
+  background: var(--md-warning-container);
+  color: var(--md-on-warning-container);
+}
+.md-banner[data-tone="error"] {
+  background: var(--m3e-sys-color-error-container);
+  color: var(--m3e-sys-color-on-error-container);
+}
+.md-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+}
+.md-progress[data-tone="positive"] {
+  --m3e-comp-linear-progress-active-indicator-color: var(--md-success);
+}
+.md-progress[data-tone="negative"] {
+  --m3e-comp-linear-progress-active-indicator-color: var(--m3e-sys-color-error);
+}
+.md-progress[data-tone="warning"] {
+  --m3e-comp-linear-progress-active-indicator-color: var(--md-warning);
+}
+
+/* Gen UI's standard scope resets every button inside a surface to `font: inherit; color: inherit`, unlayered,
+   which outranks a component library's layered styles: a shadcn button would lose its text color. A
+   swapped button takes its library's font and color back. Material's buttons inherit their type by
+   design, so they get Material's label-large role, the one its buttons use at these sizes. */
+:is(.a2-surface-host, .a2-static)[data-ds="shadcn"] [data-slot="button"],
+:is(.a2-surface-host, .a2-static)[data-ds="material"]
+  :is(.m3e-button, .m3e-icon-button) {
+  font: revert-layer;
+  color: revert-layer;
+}
+:is(.a2-surface-host, .a2-static)[data-ds="material"] .m3e-button {
+  font-family: var(--m3e-sys-typescale-baseline-label-large-font-family);
+  font-size: var(--m3e-sys-typescale-baseline-label-large-font-size);
+  font-weight: var(--m3e-sys-typescale-baseline-label-large-font-weight);
+  line-height: var(--m3e-sys-typescale-baseline-label-large-line-height);
+  letter-spacing: var(--m3e-sys-typescale-baseline-label-large-letter-spacing);
+}
+/* The containers keep the standard set's own text (a Section's title and subtitle, a card's title, a heading's
+   context), so inside Material it takes Material's type roles: weights of 400 and 500 only, no tracking
+   tighter than 0, a Section at title-large (22px), a card at title-medium (16px) and context at label-large.
+   Unlayered, to outrank the Tailwind classes they replace. The weight and tracking rules sit under the role
+   rules in specificity (`:where`), so a role's own weight, title-large's 400, wins over the blanket 500. */
+:is(.a2-surface-host, .a2-static)[data-ds="material"]
+  :where(.tracking-tight, .tracking-tighter) {
+  letter-spacing: 0;
+}
+:is(.a2-surface-host, .a2-static)[data-ds="material"]
+  :where(.font-semibold, .font-bold) {
+  font-weight: 500;
+}
+:is(.a2-surface-host, .a2-static)[data-ds="material"] section > header h3 {
+  font-family: var(--m3e-sys-typescale-baseline-title-large-font-family);
+  font-size: var(--m3e-sys-typescale-baseline-title-large-font-size);
+  font-weight: var(--m3e-sys-typescale-baseline-title-large-font-weight);
+  line-height: var(--m3e-sys-typescale-baseline-title-large-line-height);
+  letter-spacing: var(--m3e-sys-typescale-baseline-title-large-letter-spacing);
+}
+:is(.a2-surface-host, .a2-static)[data-ds="material"] section > header p {
+  font-size: var(--m3e-sys-typescale-baseline-body-medium-font-size);
+  line-height: var(--m3e-sys-typescale-baseline-body-medium-line-height);
+  letter-spacing: var(--m3e-sys-typescale-baseline-body-medium-letter-spacing);
+}
+:is(.a2-surface-host, .a2-static)[data-ds="material"]
+  :is(h3, figcaption .font-semibold):not(section > header h3, .m3e-text) {
+  font-family: var(--m3e-sys-typescale-baseline-title-medium-font-family);
+  font-size: var(--m3e-sys-typescale-baseline-title-medium-font-size);
+  font-weight: var(--m3e-sys-typescale-baseline-title-medium-font-weight);
+  line-height: var(--m3e-sys-typescale-baseline-title-medium-line-height);
+  letter-spacing: var(--m3e-sys-typescale-baseline-title-medium-letter-spacing);
+}
+:is(.a2-surface-host, .a2-static)[data-ds="material"] .a2-label {
+  font-size: var(--m3e-sys-typescale-baseline-label-large-font-size);
+  font-weight: var(--m3e-sys-typescale-baseline-label-large-font-weight);
+  line-height: var(--m3e-sys-typescale-baseline-label-large-line-height);
+  letter-spacing: var(--m3e-sys-typescale-baseline-label-large-letter-spacing);
+  color: var(--m3e-sys-color-on-surface-variant);
+}
+
+/* Bring your own: a light in-house system, light in dark mode too. The surface sits in its own app canvas,
+   so a light UI reads as itself on either page. The `.dark` selector repeats the rule so it outranks
+   globals.css's dark host tokens by specificity, not by load order. --ink draws the app's hairlines and
+   overlays in near-black whatever the page's mode, and --color-white flips Tailwind's translucent white
+   overlays (bg-white/5 and the like, written for a dark ground) into ink, their light-mode equivalent. A solid
+   white inside a surface is therefore written as a literal (#fff), not as Tailwind's white. */
+.a2-surface-host[data-ds="byoc"],
+.a2-static[data-ds="byoc"],
+.dark :is(.a2-surface-host, .a2-static)[data-ds="byoc"] {
+  --ink: 0.21 0.012 285;
+  --background: #f4f6f8;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
+  --primary: #0b5cff;
+  --primary-foreground: #ffffff;
+  --secondary: #eef2f6;
+  --secondary-foreground: #0f172a;
+  --muted: #eef2f6;
+  --muted-foreground: #5b6b7f;
+  --accent: #eef2f6;
+  --accent-foreground: #0f172a;
+  --destructive: #c62828;
+  --border: #d9dee5;
+  --input: #c9d1db;
+  --ring: #0b5cff;
+  --radius: 0.25rem;
+  --chart-1: #0b5cff;
+  --chart-2: #00a3a3;
+  --chart-3: #f5a524;
+  --chart-4: #7c3aed;
+  --chart-5: #e5484d;
+  --ts-chart-1: #0b5cff;
+  --ts-chart-2: #00a3a3;
+  --ts-chart-3: #f5a524;
+  --ts-chart-4: #7c3aed;
+  --ts-chart-5: #e5484d;
+  --ts-chart-6: #64748b;
+  --a2-surface: #ffffff;
+  --a2-surface-2: #f1f4f8;
+  --a2-line: #e1e6ec;
+  --a2-line-strong: #c9d1db;
+  --a2-radius: 4px;
+  --a2-accent: #0b5cff;
+  --a2-positive: #047857;
+  --a2-negative: #c62828;
+  --a2-warning: #a15c00;
+  --a2-info: #0b5cff;
+  --color-white: #0f172a;
+  --font-byoc: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-sans: var(--font-byoc);
+  --gen-line: #94a3b8;
+  --gen-field: rgb(15 23 42 / 14%);
+  color-scheme: light;
+  color: #0f172a;
+  font-family: var(--font-byoc);
+  background: #f4f6f8;
+  border: 1px solid #d9dee5;
+  border-radius: 6px;
+  padding: 16px;
+}
+:is(.a2-surface-host, .a2-static)[data-ds="byoc"] .a2-card {
+  background: #ffffff;
+  border-color: #d9dee5;
+  border-radius: 4px;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 5%);
+}
+:is(.a2-surface-host, .a2-static)[data-ds="byoc"] .a2-chart {
+  color: #475569;
+}
+.wb-floor :is(.a2-surface-host, .a2-static)[data-ds="byoc"] .a2-blueprint {
+  background-color: #f4f6f8;
+}
+
+.byoc-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+  padding: 16px;
+  background: #ffffff;
+  border: 1px solid #d9dee5;
+  border-radius: 4px;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 5%);
+}
+.byoc-panel-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #0f172a;
+}
+.byoc-tag {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 6px;
+  border: 1px solid #d9dee5;
+  border-radius: 2px;
+  background: #eef2f6;
+  color: #334155;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.byoc-tag:is([data-tone="success"]) {
+  background: #e7f6f0;
+  border-color: #8fd1bd;
+  color: #047857;
+}
+.byoc-tag:is([data-tone="danger"]) {
+  background: #fdecec;
+  border-color: #efa3a3;
+  color: #c62828;
+}
+.byoc-tag:is([data-tone="warning"], [data-tone="caution"]) {
+  background: #fdf4e5;
+  border-color: #e8c48a;
+  color: #a15c00;
+}
+.byoc-tag:is([data-tone="info"], [data-tone="discovery"]) {
+  background: #eaf1ff;
+  border-color: #9dbcff;
+  color: #0b5cff;
+}
+/* Doubled to outrank Gen UI's reset of every button to `font: inherit; color: inherit` (see above) without
+   needing a surface ancestor, so a button a Modal portals out of the surface keeps its look too. */
+.byoc-button.byoc-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 34px;
+  padding: 0 14px;
+  border: 1px solid #b8c1cc;
+  border-radius: 3px;
+  background: #ffffff;
+  color: #0f172a;
+  font:
+    500 13px/1 var(--font-byoc),
+    ui-sans-serif,
+    system-ui,
+    sans-serif;
+  cursor: pointer;
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease;
+}
+.byoc-button:hover:not(:disabled) {
+  background: #f1f4f8;
+}
+.byoc-button[data-kind="primary"] {
+  background: #0b5cff;
+  border-color: #0b5cff;
+  color: #ffffff;
+}
+.byoc-button[data-kind="primary"]:hover:not(:disabled) {
+  background: #0a4fd9;
+}
+.byoc-button[data-kind="quiet"] {
+  background: transparent;
+  border-color: transparent;
+  color: #0b5cff;
+}
+.byoc-button[data-kind="danger"] {
+  background: #c62828;
+  border-color: #c62828;
+  color: #ffffff;
+}
+.byoc-button svg {
+  width: 15px;
+  height: 15px;
+  margin-right: 6px;
+}
+.byoc-button[data-block] {
+  width: 100%;
+}
+.byoc-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.byoc-button:focus-visible {
+  outline: 2px solid #0b5cff;
+  outline-offset: 2px;
+}
+.byoc-rule {
+  width: 100%;
+  margin: 4px 0;
+  border: 0;
+  border-top: 1px solid #d9dee5;
+}
+.byoc-rule[data-axis="y"] {
+  width: 0;
+  margin: 0 4px;
+  border-top: 0;
+  border-left: 1px solid #d9dee5;
+  align-self: stretch;
+}
+.byoc-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+}
+.byoc-metric {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: 12px 14px;
+  background: #ffffff;
+  border: 1px solid #d9dee5;
+  border-left: 3px solid #0b5cff;
+  border-radius: 2px;
+}
+.byoc-metric-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+}
+.byoc-metric-value {
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.15;
+  color: #0f172a;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.byoc-delta {
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.byoc-delta[data-trend="up"] {
+  color: #047857;
+}
+.byoc-delta[data-trend="down"] {
+  color: #c62828;
+}
+.byoc-delta[data-trend="flat"] {
+  color: #64748b;
+}
+.byoc-delta[data-trend="up"]::before {
+  content: "▲ ";
+  font-size: 9px;
+}
+.byoc-delta[data-trend="down"]::before {
+  content: "▼ ";
+  font-size: 9px;
+}
+.byoc-note {
+  font-size: 12px;
+  color: #64748b;
+}
+.byoc-pairs {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+}
+.byoc-pairs > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 0;
+  border-bottom: 1px solid #e8ecf1;
+  font-size: 13px;
+}
+.byoc-pairs > div:last-child {
+  border-bottom: 0;
+}
+.byoc-pairs dt {
+  color: #475569;
+}
+.byoc-pairs dd {
+  margin: 0;
+  font-weight: 600;
+  text-align: right;
+  color: #0f172a;
+  font-variant-numeric: tabular-nums;
+}
+.byoc-pairs small {
+  display: block;
+  font-size: 11.5px;
+  font-weight: 400;
+  color: #64748b;
+}
+.byoc-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.byoc-heading h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: #0f172a;
+}
+.byoc-heading[data-level="1"] h2 {
+  font-size: 24px;
+}
+.byoc-heading[data-level="3"] h2 {
+  font-size: 16px;
+}
+.byoc-heading p {
+  margin: 0;
+  font-size: 13px;
+  color: #475569;
+}
+.byoc-eyebrow {
+  font-size: 12px;
+  font-weight: 600;
+  color: #0b5cff;
+}
+.byoc-banner {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #9dbcff;
+  border-left-width: 3px;
+  border-radius: 2px;
+  background: #f3f7ff;
+  color: #1e293b;
+  font-size: 13px;
+}
+.byoc-banner[data-tone="success"] {
+  border-color: #8fd1bd;
+  background: #f1faf6;
+}
+.byoc-banner[data-tone="warning"] {
+  border-color: #e8c48a;
+  background: #fdf8ee;
+}
+.byoc-banner[data-tone="error"] {
+  border-color: #efa3a3;
+  background: #fdf3f3;
+}
+.byoc-banner strong {
+  font-weight: 600;
+}
+.byoc-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+}
+.byoc-progress-head {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: #0f172a;
+}
+.byoc-progress-track {
+  height: 6px;
+  overflow: hidden;
+  background: #e5eaf0;
+  border-radius: 1px;
+}
+.byoc-progress-track > span {
+  display: block;
+  height: 100%;
+  background: #0b5cff;
+}

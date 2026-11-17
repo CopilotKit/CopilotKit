@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
-import { matchFixture } from "@copilotkit/aimock";
+import { Journal, loadFixtureFile, matchFixture } from "@copilotkit/aimock";
 import { describe, expect, it } from "vitest";
 
 /**
@@ -185,4 +185,49 @@ describe.each(FIXTURE_FILES)("%s", (file) => {
       expect(secondaryHit!.response).not.toHaveProperty("toolCalls");
     },
   );
+});
+
+describe("google-adk Express recovery replay", () => {
+  it("keeps serving Express after the scripted rejection and repair", () => {
+    const fixtures = loadFixtureFile(
+      path.resolve(
+        REPO_ROOT,
+        "showcase/aimock/d6/google-adk/a2ui-recovery.json",
+      ),
+    );
+    const journal = new Journal();
+    const req: Parameters<typeof matchFixture>[1] = {
+      model: "gemini",
+      _context: "google-adk",
+      messages: [
+        { role: "system", content: "# A2UI Express DSL Output Contract" },
+        {
+          role: "user",
+          content:
+            "Render my Q2 sales dashboard, recovering if the first attempt is malformed.",
+        },
+      ],
+    };
+    const next = () => {
+      const hit = matchFixture(
+        fixtures,
+        req,
+        journal.getFixtureMatchCountsForTest("repeat"),
+      );
+      if (hit) journal.incrementFixtureMatchCount(hit, fixtures, "repeat");
+      return hit;
+    };
+    expect(next()?.response).toHaveProperty(
+      "content",
+      expect.stringContaining("UnknownDashboard"),
+    );
+    const repaired = next();
+    expect(repaired?.response).toHaveProperty(
+      "content",
+      expect.stringContaining("Quarterly Revenue"),
+    );
+    journal.clearEntries();
+    expect(next()?.response).toEqual(repaired?.response);
+    expect(next()?.response).toEqual(repaired?.response);
+  });
 });

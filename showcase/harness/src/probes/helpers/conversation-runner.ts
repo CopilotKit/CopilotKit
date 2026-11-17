@@ -361,6 +361,8 @@ export interface ConversationTurn {
    * and assertion failures).
    */
   preFill?: (page: Page) => Promise<void>;
+  /** Restore document-local setup after a cold-start reload, before resending. */
+  afterReload?: (page: Page) => Promise<void>;
   /**
    * Optional assertion callback executed AFTER the assistant response
    * settles. Any throw from this function is captured as the turn's
@@ -611,6 +613,7 @@ export async function runConversation(
       let skipSendBaselineCount: number | null = null;
       let skipSendBaselineRunStartCount: number | null = null;
       let skipSendBaselineRunsFinished: number | null = null;
+      let skipSendBaselineBanner: ErrorBannerReadResult | null = null;
       if (turn.skipSend) {
         skipSendBaselineCount = await countAssistantMessages(
           page as unknown as PlaywrightPage,
@@ -618,6 +621,7 @@ export async function runConversation(
         skipSendBaselineRunStartCount = (await readCopilotRunning(page))
           .runStartCount;
         skipSendBaselineRunsFinished = await readRunsFinished(page);
+        skipSendBaselineBanner = await readErrorBanner(page);
       }
 
       if (turn.preFill) {
@@ -733,6 +737,14 @@ export async function runConversation(
         );
       }
 
+      // Snapshot before submission, including preFill-owned sends. A fast
+      // error from this attempt must not become its own "stale" baseline.
+      // Unchanged prior banners stay suppressed; unreadable means unknown.
+      const baselineBanner =
+        skipSendBaselineBanner ?? (await readErrorBanner(page));
+      const baselineBannerText =
+        baselineBanner.state === "visible" ? baselineBanner.text : null;
+
       await sendTurnMessage();
 
       console.debug(
@@ -772,21 +784,6 @@ export async function runConversation(
       // primitive throws `TurnNotCompleteError`. A banner observed at either
       // checkpoint is re-thrown as `AssistantErroredError` so #5142's fast-fail
       // semantics persist across the runner rewrite.
-      // Snapshot the baseline banner text BEFORE entering the settle
-      // wait. CopilotKit error banners persist across turns, so a banner
-      // already visible at this checkpoint is a stale leftover from a
-      // prior errored turn — NOT a fresh fast-fail signal for THIS turn.
-      // The settle loop's debounce keys on "differs from baseline" rather
-      // than mere visibility (see `baselineBannerText` in
-      // `WaitForTurnCompleteOpts`), so a stale same-text banner stays
-      // ignored and only a NEW or text-CHANGED banner re-arms the
-      // fast-fail. An `unreadable` baseline read collapses to `null`
-      // (treat-as-absent) — we don't know the baseline so any visible
-      // banner during settle is a candidate, preserving the historical
-      // "fresh banner ⇒ fast-fail" behaviour on a transient probe hiccup.
-      const baselineBanner = await readErrorBanner(page);
-      const baselineBannerText =
-        baselineBanner.state === "visible" ? baselineBanner.text : null;
       let settleResult: WaitForTurnCompleteResult;
       try {
         settleResult = await waitForTurnComplete({
@@ -881,6 +878,7 @@ export async function runConversation(
               page,
               opts.chatInputSelector,
             );
+            await turn.afterReload?.(page);
           }
           // Explicit narrowing guard. `chatInputSelector` is `string | null`;
           // TypeScript cannot narrow it to non-null across the optional
@@ -934,19 +932,14 @@ export async function runConversation(
               retryBaselineSurfaces,
             );
           }
-          await fillAndVerifySend(page, chatInputSelector, turn.input);
-          // Re-snapshot the post-reload baseline banner. The page DOM was
-          // torn down + repainted, so any banner now visible is the
-          // SECOND attempt's baseline (the cold-start banner may have
-          // re-painted, or a fresh banner may have appeared). The retry's
-          // fast-fail debounce keys on "differs from THIS retry's
-          // baseline" — a re-painted same-text banner is the steady state
-          // for the retry attempt and must not auto-fast-fail.
+          // Capture the reloaded document before resending, so an immediate
+          // failure on the retry is also recognized as a new error.
           const retryBaselineBanner = await readErrorBanner(page);
           const retryBaselineBannerText =
             retryBaselineBanner.state === "visible"
               ? retryBaselineBanner.text
               : null;
+          await fillAndVerifySend(page, chatInputSelector, turn.input);
           // Re-enter the settle wait, sharing the turn deadline (#71/FF20) so
           // the retry only ever consumes the time remaining in the turn budget
           // rather than a fresh full `turnTimeoutMs`. A banner that survives

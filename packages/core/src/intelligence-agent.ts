@@ -20,7 +20,11 @@ import {
   throwError,
   timer,
 } from "rxjs";
-import type { ObservableNotification, Observable } from "rxjs";
+import type {
+  MonoTypeOperatorFunction,
+  ObservableNotification,
+  Observable,
+} from "rxjs";
 import {
   catchError,
   delay,
@@ -102,7 +106,58 @@ class ReplayFailedError extends Error {
 
 interface IntelligenceAgentSharedState {
   lastSeenEventIds: Map<string, string>;
+  /**
+   * Per thread, the run and `cpki_event_seq` of the event that last moved the
+   * cursor. Keeps a replayed older event of the same run from moving it back.
+   */
+  lastSeenEventSeqs?: Map<string, EventSequencePosition>;
 }
+
+/** Where an event sits in its run: `cpki_event_seq` is ordered per run. */
+interface EventSequencePosition {
+  runId: string;
+  seq: number;
+}
+
+/**
+ * Cursor state for one thread session. It lives across same-socket rejoins
+ * (phoenix.js rejoins after `phx_error` or a socket reconnect without a new
+ * session), and is reset only when the pipeline builds a new session.
+ */
+interface ThreadSessionCursorState {
+  /**
+   * The newest durable cursor this session delivered or confirmed. A rejoin
+   * resumes from it rather than re-sending the first join's params.
+   */
+  latest: string | null;
+  /**
+   * What this session already delivered. A replay after a rejoin that still
+   * repeats an event is dropped before it can move the cursor or reach AG-UI
+   * verification.
+   */
+  delivered: DeliveredEvents;
+}
+
+/**
+ * Delivered events, kept small enough to hold for a whole long run.
+ *
+ * Numbered events are tracked per run as a contiguous range (every
+ * `cpki_event_seq` from `from` through `through`) plus the few numbers
+ * delivered above it, and any delivered below the first one seen. Events
+ * normally arrive in order, so both sets stay empty and a run of tens of
+ * thousands of events costs two numbers. Unnumbered durable events are rare
+ * (the gateway's own RUN_ERROR, runs that predate numbering) and are
+ * remembered by id, up to `MAX_DELIVERED_UNNUMBERED_IDS`.
+ */
+interface DeliveredEvents {
+  runs: Map<
+    string,
+    { from: number; through: number; above: Set<number>; below: Set<number> }
+  >;
+  unnumberedIds: Set<string>;
+}
+
+const MAX_DELIVERED_UNNUMBERED_IDS = 1_024;
 
 /** Control-frame cursor state for one channel join. */
 interface ControlCursorState {
@@ -148,6 +203,25 @@ export class AgentThreadLockedError extends Error {
   constructor(threadId?: string) {
     super(threadId ? `Thread ${threadId} is locked` : "Thread is locked");
     this.name = "AgentThreadLockedError";
+  }
+}
+
+/**
+ * The gateway could not replay a live run's events, so the client cannot
+ * verify the run it is following. The run itself may still be going on the
+ * server; reconnecting to the thread shows its real state.
+ */
+export class IntelligenceReplayFailedError extends Error {
+  readonly code = "INTELLIGENCE_REPLAY_FAILED";
+
+  constructor(
+    readonly threadId: string,
+    readonly runId: string | null,
+  ) {
+    super(
+      "The run's events could not be replayed. Reconnect to the thread to check the run's status.",
+    );
+    this.name = "IntelligenceReplayFailedError";
   }
 }
 
@@ -227,6 +301,7 @@ export class IntelligenceAgent extends AbstractAgent {
     config: IntelligenceAgentConfig,
     sharedState: IntelligenceAgentSharedState = {
       lastSeenEventIds: new Map<string, string>(),
+      lastSeenEventSeqs: new Map<string, EventSequencePosition>(),
     },
   ) {
     super();
@@ -825,11 +900,38 @@ export class IntelligenceAgent extends AbstractAgent {
         }),
         shareReplay({ bufferSize: 1, refCount: true }),
       );
-      const params = this.createThreadChannelParams(
+      const sessionCursor: ThreadSessionCursorState = {
+        latest: null,
+        delivered: { runs: new Map(), unnumberedIds: new Set<string>() },
+      };
+      let reconnectCursor = this.readDurableEventId(
+        options.replayCursor ?? this.getReconnectCursor(input),
+      );
+      const initialParams = this.createThreadChannelParams(
         input,
         options.channelMode ?? options.streamMode,
         options.replayCursor,
       );
+      // phoenix.js calls this on the first join and again on every rejoin of
+      // the same channel (after `phx_error`, or after the socket reconnects on
+      // its own). Re-sending the first join's params would ask the gateway to
+      // replay from where this session started: a run stream would get its
+      // RUN_STARTED again and fail AG-UI verification, and the replayed events
+      // would move the cursor back. Once this session holds a durable cursor,
+      // a rejoin resumes from it in connect mode, as the credential-refresh
+      // path does. Run mode cannot resume: the gateway ignores
+      // `last_seen_event_id` there and always replays the run from its start.
+      // Client-side run semantics follow `options.streamMode`, not the channel
+      // mode, so run completion, run errors and stop are unchanged.
+      const params = () => {
+        if (sessionCursor.latest === null) return initialParams;
+        reconnectCursor = sessionCursor.latest;
+        return this.createThreadChannelParams(
+          input,
+          "connect",
+          sessionCursor.latest,
+        );
+      };
       const channel$ = ɵphoenixChannel$({
         socket$,
         topic: credentials.realtime.topic,
@@ -841,11 +943,13 @@ export class IntelligenceAgent extends AbstractAgent {
         }),
         shareReplay({ bufferSize: 1, refCount: true }),
       );
-      const reconnectCursor = this.readDurableEventId(
-        options.replayCursor ?? this.getReconnectCursor(input),
-      );
       let latestObservedReplayCursor: string | null = null;
-      const threadEvents$ = this.observeThreadEvents$(channel$, options).pipe(
+      const threadEvents$ = this.observeThreadEvents$(
+        input.threadId,
+        channel$,
+        options,
+        sessionCursor,
+      ).pipe(
         tap((payload) => {
           latestObservedReplayCursor =
             this.readEventId(payload) ?? latestObservedReplayCursor;
@@ -879,8 +983,24 @@ export class IntelligenceAgent extends AbstractAgent {
         tap(() => {
           controlCursor.replayFailed = true;
           replayHold.discard();
-          if (options.streamMode !== "connect") return;
+          // Ending the stream here skips the replay_complete that would
+          // restore the join's checkpoint, so restore it now. Otherwise an
+          // event that advanced the cursor makes the next join skip the
+          // history this replay failed to deliver.
           this.resetLastSeenEventId(input.threadId, reconnectCursor);
+          // A live run cannot continue from an incomplete replay: the events
+          // after it would be verified against a lifecycle missing its start.
+          // Settle the client run without stopping the one on the server.
+          // Keyed on streamMode, because refreshed run credentials join with
+          // the connect channel mode while still following a live run.
+          if (options.streamMode === "run") {
+            // `input` carries the canonical identity: a run stream keeps its
+            // own run ID when refreshed credentials omit one.
+            throw new IntelligenceReplayFailedError(
+              input.threadId,
+              input.runId ?? null,
+            );
+          }
         }),
         mergeMap((payload) =>
           options.streamMode === "connect"
@@ -899,6 +1019,7 @@ export class IntelligenceAgent extends AbstractAgent {
         channel$,
         REPLAY_COMPLETE_EVENT,
         controlCursor,
+        sessionCursor,
         () => replayHold.release(),
       ).pipe(
         // Notify before idle completion can unsubscribe other observers.
@@ -914,6 +1035,7 @@ export class IntelligenceAgent extends AbstractAgent {
         channel$,
         STREAM_IDLE_EVENT,
         controlCursor,
+        sessionCursor,
         () => replayHold.release(),
       ).pipe(share());
       const replayRestart$ = merge(
@@ -922,6 +1044,7 @@ export class IntelligenceAgent extends AbstractAgent {
           channel$,
           "phx_error",
           controlCursor,
+          sessionCursor,
         ),
         ɵobservePhoenixSocketSignals$(socket$).pipe(
           filter((signal) => signal.type === "error"),
@@ -931,8 +1054,9 @@ export class IntelligenceAgent extends AbstractAgent {
           replayFinished = false;
           warnedAboutIdle = false;
           clearIdleWarning();
-          // Phoenix rejoins with the cursor this join started from, so the
-          // gateway sends the history held so far again. Drop the held copy.
+          // Phoenix rejoins from the last event passed on (see `params`), and
+          // nothing held has been, so the gateway sends the history held so
+          // far again. Drop the held copy.
           if (options.streamMode === "connect") {
             replayHold.discard();
             replayHold.hold();
@@ -996,11 +1120,13 @@ export class IntelligenceAgent extends AbstractAgent {
         // The reconnect cursor follows the events passed on, not the events
         // received: whatever the hold drops was never passed on, so the next
         // join asks for it again.
-        replayHold
-          .through(threadEvents$.pipe(takeUntil(streamIdleCompletion$)))
-          .pipe(
-            tap((event) => this.updateLastSeenEventId(input.threadId, event)),
-          ),
+        // A run stream is not held and tracks its events as they arrive
+        // (see observeThreadEvents$).
+        options.streamMode === "connect"
+          ? replayHold
+              .through(threadEvents$.pipe(takeUntil(streamIdleCompletion$)))
+              .pipe(this.trackDelivered(input.threadId, sessionCursor))
+          : threadEvents$.pipe(takeUntil(streamIdleCompletion$)),
         streamIdleCompletion$.pipe(
           ignoreElements(),
           takeUntil(threadCompleted$),
@@ -1037,14 +1163,60 @@ export class IntelligenceAgent extends AbstractAgent {
     );
   }
 
+  /**
+   * Drops durable events this session already passed on, and moves the
+   * thread's cursor and the session's to each event that is passed on.
+   *
+   * A durable event this session already delivered is a replay, for example
+   * from a gateway that replays after a rejoin. Delivering it again would
+   * duplicate content or fail verification (a second RUN_STARTED).
+   */
+  private trackDelivered(
+    threadId: string,
+    sessionCursor: ThreadSessionCursorState,
+  ): MonoTypeOperatorFunction<BaseEvent> {
+    return (events$) =>
+      events$.pipe(
+        filter((payload) => {
+          const eventId = this.readEventId(payload);
+          if (eventId === null) return true;
+          if (this.markDelivered(sessionCursor.delivered, eventId, payload)) {
+            return true;
+          }
+          this.debugLogger?.lifecycle(
+            "INTELLIGENCE",
+            "Dropping a replayed event this connection already delivered.",
+            { threadId, eventId, type: payload.type },
+          );
+          return false;
+        }),
+        tap((payload) => {
+          if (this.updateLastSeenEventId(threadId, payload)) {
+            sessionCursor.latest = this.readEventId(payload);
+          }
+        }),
+      );
+  }
+
+  /**
+   * A run stream tracks its events here, before a repeated RUN_FINISHED or
+   * RUN_ERROR could end it. A connect holds its replayed history first and
+   * tracks what the hold passes on (see observeThreadSession$): events the
+   * hold drops were never delivered, and the gateway must send them again.
+   */
   private observeThreadEvents$(
+    threadId: string,
     channel$: Observable<ɵPhoenixChannelSession>,
     options: { completeOnRunError: boolean; streamMode: "run" | "connect" },
+    sessionCursor: ThreadSessionCursorState,
   ): Observable<BaseEvent> {
     return channel$.pipe(
       switchMapOperator(({ channel }) =>
         this.observeChannelEvent$<BaseEvent>(channel, CLIENT_AG_UI_EVENT),
       ),
+      options.streamMode === "run"
+        ? this.trackDelivered(threadId, sessionCursor)
+        : (events$: Observable<BaseEvent>) => events$,
       // Only the run stream goes through AG-UI 1.0 enforcement, which would
       // strip these fields with a warning each. Replays stay as sent.
       map((payload) =>
@@ -1073,6 +1245,7 @@ export class IntelligenceAgent extends AbstractAgent {
     channel$: Observable<ɵPhoenixChannelSession>,
     eventName: string,
     controlCursor: ControlCursorState,
+    sessionCursor: ThreadSessionCursorState,
     beforeCursor?: () => void,
   ): Observable<unknown> {
     return channel$.pipe(
@@ -1081,7 +1254,12 @@ export class IntelligenceAgent extends AbstractAgent {
       ),
       tap((payload) => {
         beforeCursor?.();
-        this.updateLastSeenEventIdFromControl(threadId, payload, controlCursor);
+        const applied = this.updateLastSeenEventIdFromControl(
+          threadId,
+          payload,
+          controlCursor,
+        );
+        if (applied !== null) sessionCursor.latest = applied;
       }),
     );
   }
@@ -1171,25 +1349,54 @@ export class IntelligenceAgent extends AbstractAgent {
    */
   public clearReconnectCursor(threadId: string): void {
     this.sharedState.lastSeenEventIds.delete(threadId);
+    this.sharedState.lastSeenEventSeqs?.delete(threadId);
   }
 
-  private updateLastSeenEventId(threadId: string, payload: BaseEvent): void {
+  /**
+   * Move the thread's cursor to `payload`'s durable event id. Returns whether
+   * it moved.
+   *
+   * The cursor never moves back within a run: an event whose `cpki_event_seq`
+   * is at or below the one already recorded for the same run is a replay, and
+   * is ignored. `cpki_event_seq` is ordered per run only, so an event of
+   * another run, or one without a run id or sequence, cannot be compared and
+   * moves the cursor as before (the gateway delivers thread history in order).
+   */
+  private updateLastSeenEventId(threadId: string, payload: BaseEvent): boolean {
     const eventId = this.readEventId(payload);
     if (!eventId) {
-      return;
+      return false;
+    }
+
+    const position = this.readEventSequencePosition(payload);
+    const seqs = this.sharedState.lastSeenEventSeqs;
+    const previous = seqs?.get(threadId);
+    if (
+      position &&
+      previous &&
+      position.runId === previous.runId &&
+      position.seq <= previous.seq
+    ) {
+      return false;
     }
 
     this.advanceLastSeenEventId(threadId, eventId);
+    if (position) {
+      seqs?.set(threadId, position);
+    } else {
+      seqs?.delete(threadId);
+    }
+    return true;
   }
 
   private updateLastSeenEventIdFromControl(
     threadId: string,
     payload: unknown,
     controlCursor: ControlCursorState,
-  ): void {
+  ): string | null {
     const eventId = this.readControlEventId(payload);
     if (!eventId) {
-      return;
+      return null;
     }
 
     // An older gateway repeats the join's history checkpoint on every control
@@ -1198,21 +1405,30 @@ export class IntelligenceAgent extends AbstractAgent {
     // replays those live events again. After replay_failed the gateway repeats
     // the prior cursor on purpose, so the next join retries the failed history.
     if (eventId === controlCursor.applied && !controlCursor.replayFailed) {
-      return;
+      return null;
     }
 
     controlCursor.applied = eventId;
     this.advanceLastSeenEventId(threadId, eventId);
+    return eventId;
   }
 
   private advanceLastSeenEventId(threadId: string, eventId: string): void {
     this.sharedState.lastSeenEventIds.set(threadId, eventId);
   }
 
-  /** Put the reconnect cursor back to `eventId`, or to none. */
+  /**
+   * Put the reconnect cursor back to `eventId`, or to none. The sequence
+   * guard goes with it: it still holds the event that moved the cursor, and
+   * would ignore the same events when the next join replays them.
+   */
   private resetLastSeenEventId(threadId: string, eventId: string | null): void {
-    if (eventId === null) this.sharedState.lastSeenEventIds.delete(threadId);
-    else this.sharedState.lastSeenEventIds.set(threadId, eventId);
+    if (eventId === null) {
+      this.clearReconnectCursor(threadId);
+      return;
+    }
+    this.advanceLastSeenEventId(threadId, eventId);
+    this.sharedState.lastSeenEventSeqs?.delete(threadId);
   }
 
   private readEventId(payload: BaseEvent): string | null {
@@ -1223,6 +1439,80 @@ export class IntelligenceAgent extends AbstractAgent {
 
     const eventMetadata = metadata as { cpki_event_id?: unknown };
     return this.readDurableEventId(eventMetadata.cpki_event_id);
+  }
+
+  /**
+   * Record `payload` as delivered. Returns false if this session already
+   * delivered it, true if it is new.
+   */
+  private markDelivered(
+    delivered: DeliveredEvents,
+    eventId: string,
+    payload: BaseEvent,
+  ): boolean {
+    const position = this.readEventSequencePosition(payload);
+    if (position === null) {
+      if (delivered.unnumberedIds.has(eventId)) return false;
+      if (delivered.unnumberedIds.size >= MAX_DELIVERED_UNNUMBERED_IDS) {
+        const oldest = delivered.unnumberedIds.values().next().value;
+        if (oldest !== undefined) delivered.unnumberedIds.delete(oldest);
+      }
+      delivered.unnumberedIds.add(eventId);
+      return true;
+    }
+
+    let run = delivered.runs.get(position.runId);
+    if (!run) {
+      // A session can join mid-run, so the prefix starts at the first event it
+      // sees rather than at 1.
+      run = {
+        from: position.seq,
+        through: position.seq - 1,
+        above: new Set<number>(),
+        below: new Set<number>(),
+      };
+      delivered.runs.set(position.runId, run);
+    }
+    if (position.seq < run.from) {
+      // Older than anything this session saw first: new unless seen here.
+      if (run.below.has(position.seq)) return false;
+      run.below.add(position.seq);
+      return true;
+    }
+    if (position.seq <= run.through || run.above.has(position.seq)) {
+      return false;
+    }
+    run.above.add(position.seq);
+    while (run.above.delete(run.through + 1)) {
+      run.through += 1;
+    }
+    return true;
+  }
+
+  private readEventSequencePosition(
+    payload: BaseEvent,
+  ): EventSequencePosition | null {
+    const event = payload as BaseEvent & {
+      metadata?: unknown;
+      run_id?: unknown;
+      runId?: unknown;
+    };
+    const runId = event.run_id ?? event.runId;
+    const metadata = event.metadata;
+    const seq =
+      metadata && typeof metadata === "object"
+        ? (metadata as { cpki_event_seq?: unknown }).cpki_event_seq
+        : undefined;
+    if (
+      typeof runId !== "string" ||
+      runId === "" ||
+      typeof seq !== "number" ||
+      !Number.isFinite(seq)
+    ) {
+      return null;
+    }
+
+    return { runId, seq };
   }
 
   private readControlEventId(payload: unknown): string | null {

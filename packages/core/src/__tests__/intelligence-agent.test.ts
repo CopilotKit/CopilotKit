@@ -13,7 +13,8 @@ vi.mock("phoenix", () => ({
 }));
 
 // Must come after vi.mock so phoenix is mocked when the module is loaded.
-const { IntelligenceAgent } = await import("../intelligence-agent");
+const { IntelligenceAgent, IntelligenceReplayFailedError } =
+  await import("../intelligence-agent");
 const { ProxiedCopilotRuntimeAgent } = await import("../agent");
 type IntelligenceAgentInstance = InstanceType<typeof IntelligenceAgent>;
 
@@ -571,6 +572,153 @@ describe("IntelligenceAgent", () => {
       expect(result.events).toContainEqual(errorEvent);
     });
 
+    it("fails a live run with a typed error when its replay fails, without stopping it", async () => {
+      const agent = createAgent();
+      const promise = collectEvents(agent);
+      await waitForConnection(agent);
+
+      const socket = getSocket(agent)!;
+      const channel = getChannel(agent)!;
+      channel.triggerJoin("ok");
+      channel.serverPush("ag_ui_event", {
+        type: EventType.RUN_STARTED,
+        threadId: "thread-1",
+        runId: "run-1",
+      } as BaseEvent);
+      channel.serverPush("replay_failed", { reason: "timeout" });
+      // The gateway still sends replay_complete for clients that ignore the
+      // failure; the run must not resume from it.
+      channel.serverPush("replay_complete", { latestEventId: null });
+
+      const result = await promise;
+      expect(result.completed).toBe(false);
+      expect(result.error).toBeInstanceOf(IntelligenceReplayFailedError);
+      expect(result.error).toMatchObject({
+        code: "INTELLIGENCE_REPLAY_FAILED",
+        threadId: "thread-1",
+      });
+      expect(channel.pushLog.some((push) => push.event === "stop_run")).toBe(
+        false,
+      );
+      expect(channel.left).toBe(true);
+      expect(socket.disconnected).toBe(true);
+    });
+
+    it("restores the join's cursor when a live run's replay fails", async () => {
+      const agent = createAgent();
+      const promise = collectEvents(agent);
+      await waitForConnection(agent);
+
+      const runChannel = getChannel(agent)!;
+      runChannel.triggerJoin("ok");
+      runChannel.serverPush("ag_ui_event", {
+        type: EventType.RUN_STARTED,
+        threadId: "thread-1",
+        runId: "run-1",
+        metadata: { cpki_event_id: "event-1", cpki_event_seq: 1 },
+      } as BaseEvent);
+      runChannel.serverPush("replay_failed", { reason: "run_replay_gap" });
+      await promise;
+
+      // The failed replay never delivered the run whole, so the next connect
+      // must ask for that history again rather than resume after event-1.
+      mockFetch.mockResolvedValueOnce(await jsonResponse(runtimeCredentials()));
+      connectWithTestAccess(agent, defaultInput).subscribe({
+        next: () => {},
+        error: () => {},
+      });
+      await waitForConnection(agent);
+
+      expect(getChannel(agent)!.params).toEqual({
+        stream_mode: "connect",
+        last_seen_event_id: null,
+      });
+    });
+
+    it("lets the next connect move the cursor through the run again after a replay fails", async () => {
+      const agent = createAgent();
+      const connectOnce = async () => {
+        mockFetch.mockResolvedValueOnce(
+          await jsonResponse(runtimeCredentials()),
+        );
+        connectWithTestAccess(agent, defaultInput).subscribe({
+          next: () => {},
+          error: () => {},
+        });
+        await waitForConnection(agent);
+        const channel = getChannel(agent)!;
+        channel.triggerJoin("ok");
+        return channel;
+      };
+
+      // An earlier connect leaves the cursor at a previous run's event.
+      const first = await connectOnce();
+      first.serverPush("ag_ui_event", {
+        type: EventType.RUN_FINISHED,
+        threadId: "thread-1",
+        runId: "run-0",
+        metadata: { cpki_event_id: "event-0", cpki_event_seq: 9 },
+      } as BaseEvent);
+      // A connect holds its history until the replay ends; the cursor moves
+      // when the history is passed on.
+      first.serverPush("replay_complete", {});
+
+      // The run's replay gets as far as seq 2, then fails.
+      const promise = collectEvents(agent);
+      await waitForConnection(agent);
+      const runChannel = getChannel(agent)!;
+      runChannel.triggerJoin("ok");
+      for (const seq of [1, 2]) {
+        runChannel.serverPush("ag_ui_event", {
+          type: seq === 1 ? EventType.RUN_STARTED : EventType.STEP_STARTED,
+          threadId: "thread-1",
+          runId: "run-1",
+          stepName: "step",
+          metadata: { cpki_event_id: `event-${seq}`, cpki_event_seq: seq },
+        } as BaseEvent);
+      }
+      runChannel.serverPush("replay_failed", { reason: "run_replay_gap" });
+      await promise;
+
+      // The next connect resumes from event-0 and replays the run from seq 1;
+      // the cursor follows it rather than staying at event-0.
+      const third = await connectOnce();
+      expect(third.params).toEqual({
+        stream_mode: "connect",
+        last_seen_event_id: "event-0",
+      });
+      third.serverPush("ag_ui_event", {
+        type: EventType.RUN_STARTED,
+        threadId: "thread-1",
+        runId: "run-1",
+        metadata: { cpki_event_id: "event-1", cpki_event_seq: 1 },
+      } as BaseEvent);
+      third.serverPush("replay_complete", {});
+
+      const fourth = await connectOnce();
+      expect(fourth.params.last_seen_event_id).toBe("event-1");
+    });
+
+    it("names the client's run in the replay error when the credentials omit it", async () => {
+      mockFetch.mockResolvedValueOnce(
+        await jsonResponse(runtimeCredentials({ runId: null })),
+      );
+      const agent = createAgent();
+      const promise = collectEvents(agent);
+      await waitForConnection(agent);
+
+      const channel = getChannel(agent)!;
+      channel.triggerJoin("ok");
+      channel.serverPush("replay_failed", { reason: "run_replay_gap" });
+
+      const result = await promise;
+      expect(result.error).toMatchObject({
+        code: "INTELLIGENCE_REPLAY_FAILED",
+        threadId: "thread-1",
+        runId: "run-1",
+      });
+    });
+
     it("cleans up socket and channel on RUN_FINISHED", async () => {
       const agent = createAgent();
       const promise = collectEvents(agent);
@@ -795,6 +943,335 @@ describe("IntelligenceAgent", () => {
         socket.triggerError();
       }
       expect(error).toBeNull();
+    });
+  });
+
+  // phoenix.js rejoins the same channel after `phx_error` (and after its socket
+  // reconnects on its own), re-evaluating the join params each time. Re-sending
+  // the first join's run params made the gateway replay the run from
+  // RUN_STARTED, which failed verification and moved the cursor back.
+  describe("same-socket rejoin", () => {
+    function durableEvent(
+      type: EventType,
+      eventId: string,
+      seq: number,
+      extra: Record<string, unknown> = {},
+    ): BaseEvent {
+      return {
+        type,
+        run_id: "run-1",
+        metadata: { cpki_event_id: eventId, cpki_event_seq: seq },
+        ...extra,
+      } as unknown as BaseEvent;
+    }
+
+    async function nextConnectCursor(agent: IntelligenceAgentInstance) {
+      mockFetch.mockResolvedValueOnce(await jsonResponse(runtimeCredentials()));
+      connectWithTestAccess(agent, defaultInput).subscribe({
+        next: () => {},
+        error: () => {},
+      });
+      await waitForConnection(agent);
+      return getChannel(agent)!.params.last_seen_event_id;
+    }
+
+    it("joins a run with the original run params", async () => {
+      const agent = createAgent();
+      agent.run(defaultInput).subscribe({ next: () => {}, error: () => {} });
+      await waitForConnection(agent);
+
+      const channel = getChannel(agent)!;
+      expect(channel.params).toEqual({ stream_mode: "run", run_id: "run-1" });
+
+      // A rejoin before any durable event has nothing to resume from.
+      channel.triggerJoin("ok");
+      channel.serverPush("phx_error", {});
+      expect(channel.params).toEqual({ stream_mode: "run", run_id: "run-1" });
+    });
+
+    it("rejoins after phx_error in connect mode from the latest cursor", async () => {
+      const agent = createAgent();
+      agent.run(defaultInput).subscribe({ next: () => {}, error: () => {} });
+      await waitForConnection(agent);
+
+      const socket = getSocket(agent)!;
+      const channel = getChannel(agent)!;
+      channel.triggerJoin("ok");
+      channel.serverPush(
+        "ag_ui_event",
+        durableEvent(EventType.RUN_STARTED, "event-1", 1, {
+          threadId: "thread-1",
+          runId: "run-1",
+        }),
+      );
+      channel.serverPush(
+        "ag_ui_event",
+        durableEvent(EventType.TEXT_MESSAGE_START, "event-2", 2, {
+          messageId: "msg-1",
+          role: "assistant",
+        }),
+      );
+      channel.serverPush("phx_error", {});
+
+      // Same socket, same channel: phoenix.js re-sends whatever params are.
+      expect(socket.channels).toEqual([channel]);
+      expect(channel.params).toEqual({
+        stream_mode: "connect",
+        last_seen_event_id: "event-2",
+      });
+    });
+
+    it("rejoins from the latest cursor after the socket reconnects on its own", async () => {
+      const agent = createAgent();
+      agent.run(defaultInput).subscribe({ next: () => {}, error: () => {} });
+      await waitForConnection(agent);
+
+      const socket = getSocket(agent)!;
+      const channel = getChannel(agent)!;
+      channel.triggerJoin("ok");
+      channel.serverPush(
+        "ag_ui_event",
+        durableEvent(EventType.RUN_STARTED, "event-1", 1),
+      );
+      channel.serverPush("replay_complete", { latestEventId: "event-1" });
+      socket.triggerError(new Error("network blip"));
+      socket.triggerOpen();
+
+      expect(socket.channels).toEqual([channel]);
+      expect(channel.params).toEqual({
+        stream_mode: "connect",
+        last_seen_event_id: "event-1",
+      });
+    });
+
+    it("drops a replayed RUN_STARTED and keeps the cursor", async () => {
+      const agent = createAgent();
+      const events: BaseEvent[] = [];
+      agent.run(defaultInput).subscribe({
+        next: (event) => events.push(event),
+        error: () => {},
+      });
+      await waitForConnection(agent);
+
+      const channel = getChannel(agent)!;
+      channel.triggerJoin("ok");
+      const runStarted = durableEvent(EventType.RUN_STARTED, "event-1", 1, {
+        threadId: "thread-1",
+        runId: "run-1",
+      });
+      channel.serverPush("ag_ui_event", runStarted);
+      channel.serverPush(
+        "ag_ui_event",
+        durableEvent(EventType.TEXT_MESSAGE_START, "event-2", 2, {
+          messageId: "msg-1",
+          role: "assistant",
+        }),
+      );
+      channel.serverPush("phx_error", {});
+      // A gateway that still replays from the start after the rejoin.
+      channel.serverPush("ag_ui_event", runStarted);
+
+      expect(
+        events.filter((event) => event.type === EventType.RUN_STARTED),
+      ).toHaveLength(1);
+      expect(await nextConnectCursor(agent)).toBe("event-2");
+    });
+
+    it("remembers delivered events without holding every event id", () => {
+      const agent = createAgent() as unknown as {
+        markDelivered(
+          delivered: {
+            runs: Map<
+              string,
+              {
+                from: number;
+                through: number;
+                above: Set<number>;
+                below: Set<number>;
+              }
+            >;
+            unnumberedIds: Set<string>;
+          },
+          eventId: string,
+          payload: BaseEvent,
+        ): boolean;
+      };
+      const delivered = { runs: new Map(), unnumberedIds: new Set<string>() };
+      const mark = (seq: number) =>
+        agent.markDelivered(
+          delivered,
+          `event-${seq}`,
+          durableEvent(EventType.TEXT_MESSAGE_CONTENT, `event-${seq}`, seq),
+        );
+
+      // Joined mid-run at 500; a long in-order run stays two numbers.
+      for (let seq = 500; seq <= 30_000; seq += 1) {
+        expect(mark(seq)).toBe(true);
+      }
+      const run = delivered.runs.get("run-1")!;
+      expect(run).toMatchObject({ from: 500, through: 30_000 });
+      expect(run.above.size).toBe(0);
+      expect(run.below.size).toBe(0);
+      expect(delivered.unnumberedIds.size).toBe(0);
+
+      // A replay of anything already delivered is dropped.
+      expect(mark(500)).toBe(false);
+      expect(mark(29_999)).toBe(false);
+
+      // Out of order above the range: new once, then a duplicate, and the
+      // range closes when the hole fills.
+      expect(mark(30_002)).toBe(true);
+      expect(mark(30_002)).toBe(false);
+      expect(mark(30_001)).toBe(true);
+      expect(run.through).toBe(30_002);
+      expect(run.above.size).toBe(0);
+
+      // Older than the first event seen: new once, then a duplicate.
+      expect(mark(1)).toBe(true);
+      expect(mark(1)).toBe(false);
+
+      // Unnumbered (the gateway's RUN_ERROR) is remembered by id.
+      const gatewayError = {
+        type: EventType.RUN_ERROR,
+        metadata: { cpki_event_id: "cpki_gateway:drop" },
+      } as unknown as BaseEvent;
+      expect(
+        agent.markDelivered(delivered, "cpki_gateway:drop", gatewayError),
+      ).toBe(true);
+      expect(
+        agent.markDelivered(delivered, "cpki_gateway:drop", gatewayError),
+      ).toBe(false);
+    });
+
+    it("never moves the cursor back to an earlier event of the same run", async () => {
+      const agent = createAgent();
+      agent.run(defaultInput).subscribe({ next: () => {}, error: () => {} });
+      await waitForConnection(agent);
+
+      const channel = getChannel(agent)!;
+      channel.triggerJoin("ok");
+      channel.serverPush(
+        "ag_ui_event",
+        durableEvent(EventType.TEXT_MESSAGE_START, "event-3", 3, {
+          messageId: "msg-1",
+          role: "assistant",
+        }),
+      );
+      // Same run, lower sequence, under an id this connection has not seen.
+      channel.serverPush(
+        "ag_ui_event",
+        durableEvent(EventType.RUN_STARTED, "event-1-replayed", 1),
+      );
+
+      expect(await nextConnectCursor(agent)).toBe("event-3");
+    });
+
+    it("moves the cursor to the first event of a later run", async () => {
+      const agent = createAgent();
+      agent.run(defaultInput).subscribe({ next: () => {}, error: () => {} });
+      await waitForConnection(agent);
+
+      const channel = getChannel(agent)!;
+      channel.triggerJoin("ok");
+      channel.serverPush(
+        "ag_ui_event",
+        durableEvent(EventType.TEXT_MESSAGE_START, "event-3", 3, {
+          messageId: "msg-1",
+          role: "assistant",
+        }),
+      );
+      channel.serverPush("ag_ui_event", {
+        type: EventType.RUN_STARTED,
+        run_id: "run-2",
+        metadata: { cpki_event_id: "run-2-event-1", cpki_event_seq: 1 },
+      } as unknown as BaseEvent);
+
+      expect(await nextConnectCursor(agent)).toBe("run-2-event-1");
+    });
+
+    it("clearReconnectCursor() also resets the sequence guard", async () => {
+      const agent = createAgent();
+      agent.run(defaultInput).subscribe({ next: () => {}, error: () => {} });
+      await waitForConnection(agent);
+
+      const runChannel = getChannel(agent)!;
+      runChannel.triggerJoin("ok");
+      runChannel.serverPush(
+        "ag_ui_event",
+        durableEvent(EventType.TEXT_MESSAGE_START, "event-3", 3, {
+          messageId: "msg-1",
+          role: "assistant",
+        }),
+      );
+
+      agent.clearReconnectCursor("thread-1");
+
+      // A full replay after a thread switch restarts the run's history.
+      mockFetch.mockResolvedValueOnce(await jsonResponse(runtimeCredentials()));
+      connectWithTestAccess(agent, defaultInput).subscribe({
+        next: () => {},
+        error: () => {},
+      });
+      await waitForConnection(agent);
+      const replayChannel = getChannel(agent)!;
+      expect(replayChannel.params).toEqual({
+        stream_mode: "connect",
+        last_seen_event_id: null,
+      });
+      replayChannel.triggerJoin("ok");
+      replayChannel.serverPush(
+        "ag_ui_event",
+        durableEvent(EventType.RUN_STARTED, "event-1", 1),
+      );
+      // A connect holds its history until the replay ends; the cursor moves
+      // when the history is passed on.
+      replayChannel.serverPush("replay_complete", {});
+
+      expect(await nextConnectCursor(agent)).toBe("event-1");
+    });
+
+    it("finishes runAgent() when the gateway replays the run after a rejoin", async () => {
+      const agent = createAgent();
+      setThreadIdForTest(agent, "thread-1");
+      const resultPromise = agent.runAgent({ runId: "run-1" });
+      await waitForConnection(agent);
+
+      const channel = getChannel(agent)!;
+      channel.triggerJoin("ok");
+      const runStarted = durableEvent(EventType.RUN_STARTED, "event-1", 1, {
+        threadId: "thread-1",
+        runId: "run-1",
+      });
+      const textStart = durableEvent(
+        EventType.TEXT_MESSAGE_START,
+        "event-2",
+        2,
+        {
+          messageId: "msg-1",
+          role: "assistant",
+        },
+      );
+      channel.serverPush("ag_ui_event", runStarted);
+      channel.serverPush("ag_ui_event", textStart);
+      channel.serverPush("phx_error", {});
+      // What the gateway sent when the rejoin re-sent the run params.
+      channel.serverPush("ag_ui_event", runStarted);
+      channel.serverPush("ag_ui_event", textStart);
+      channel.serverPush(
+        "ag_ui_event",
+        durableEvent(EventType.TEXT_MESSAGE_END, "event-3", 3, {
+          messageId: "msg-1",
+        }),
+      );
+      channel.serverPush(
+        "ag_ui_event",
+        durableEvent(EventType.RUN_FINISHED, "event-4", 4, {
+          threadId: "thread-1",
+          runId: "run-1",
+        }),
+      );
+
+      await expect(resultPromise).resolves.toBeDefined();
     });
   });
 
@@ -1999,6 +2476,38 @@ describe("IntelligenceAgent", () => {
       } finally {
         vi.useRealTimers();
       }
+    });
+
+    it("asks for the held history again after a rejoin and applies it once", async () => {
+      mockFetch.mockResolvedValueOnce(await jsonResponse(runtimeCredentials()));
+
+      const agent = createAgent();
+      setThreadIdForTest(agent, "thread-1");
+
+      const connectPromise = agent.connectAgent({ runId: "run-1" });
+      await waitForConnection(agent);
+
+      const channel = getChannel(agent)!;
+      channel.triggerJoin("ok");
+      pushHistory(channel, "history-event");
+      channel.serverPush("phx_error", {});
+
+      // The held event was dropped and never passed on, so the rejoin does
+      // not resume after it.
+      expect(channel.params).toEqual({
+        stream_mode: "connect",
+        last_seen_event_id: null,
+      });
+
+      // The gateway sends it again. It is not a repeat of a delivered event.
+      pushHistory(channel, "history-event");
+      channel.serverPush("replay_complete", { latestEventId: "history-event" });
+      channel.serverPush("stream_idle", { latestEventId: "history-event" });
+      await connectPromise;
+
+      expect(agent.messages.map((message) => message.id)).toEqual([
+        "history-1",
+      ]);
     });
 
     it("keeps the replay_complete cursor when the released history ends earlier", async () => {

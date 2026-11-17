@@ -7,7 +7,6 @@ import { pathToFileURL } from "node:url";
 // Repo root is two directories above this test file
 // (showcase/scripts/__tests__/X -> showcase/scripts -> showcase -> <repo>).
 const REPO_ROOT = resolve(import.meta.dirname, "..", "..", "..");
-const CONFIG_PATH = join(REPO_ROOT, ".oxlintrc.json");
 const RULE_MODULE_PATH = join(
   REPO_ROOT,
   "packages",
@@ -66,9 +65,13 @@ interface LintOutcome {
   combined: string;
 }
 
+// No `-c`: oxlint then resolves configs the way `pnpm run lint` does, root
+// config plus any nested `.oxlintrc.json` (which replaces the root one for its
+// subtree, e.g. showcase/shell-docs). Passing `-c` would turn nested configs
+// off and hide a nested config that drops this rule.
 function runOxlint(target: string): LintOutcome {
   try {
-    const stdout = execSync(`npx oxlint -c ${CONFIG_PATH} ${target} --quiet`, {
+    const stdout = execSync(`npx oxlint ${target} --quiet`, {
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],
       cwd: REPO_ROOT,

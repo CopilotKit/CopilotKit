@@ -346,25 +346,14 @@ const MemoizedCustomMessage = React.memo(
 );
 
 /**
- * Deduplicates messages by ID. For assistant messages, merges occurrences:
- * recovers non-empty content from any earlier occurrence if the latest wiped it
- * (empty string means the streaming update cleared the field, not blank text),
- * and similarly recovers toolCalls from earlier occurrences if the latest is
- * undefined (an empty array [] is treated as intentional and kept as-is).
- * For all other roles, keeps the last entry.
- *
- * @internal Exported for unit testing only — not part of the public API.
- */
-/**
  * Collapse tool calls that share an id, keeping first-seen order.
  *
- * AG-UI's TOOL_CALL_START handler appends to the parent message's `toolCalls`
- * without checking whether that id is already present. So whenever a start
- * event is applied twice — which the human-in-the-loop flow triggers when the
- * run syncs after `respond()` — the message ends up carrying the same call
- * twice. The second copy has EMPTY `arguments`, because a start event carries
- * none; the args arrive later as TOOL_CALL_ARGS deltas addressed to the first
- * copy.
+ * Older AG-UI clients appended to the parent message's `toolCalls` without
+ * checking whether that id was already present. So whenever a start event was
+ * applied twice — which the human-in-the-loop flow triggers when the run syncs
+ * after `respond()` — the message ended up carrying the same call twice. The
+ * second copy has EMPTY `arguments`, because a start event carries none; the
+ * args arrive later as TOOL_CALL_ARGS deltas addressed to the first copy.
  *
  * Left alone that renders the same tool call twice: once populated and once
  * blank (an approval card with no transaction id, offering live buttons for an
@@ -391,6 +380,45 @@ function dedupeToolCalls(
   return byId.size === toolCalls.length ? toolCalls : [...byId.values()];
 }
 
+/**
+ * Unite the tool calls of two occurrences of the same assistant message,
+ * keeping first-seen order. Each occurrence can hold only some of the calls,
+ * so neither list may replace the other.
+ *
+ * For an id present in both, the later occurrence wins when it carries
+ * arguments: it is the newer streaming update. A blank later copy never
+ * replaces a populated one.
+ */
+function mergeToolCalls(
+  earlier: NonNullable<AssistantMessage["toolCalls"]>,
+  later: NonNullable<AssistantMessage["toolCalls"]>,
+): NonNullable<AssistantMessage["toolCalls"]> {
+  const byId = new Map(earlier.map((toolCall) => [toolCall.id, toolCall]));
+  for (const toolCall of later) {
+    const existing = byId.get(toolCall.id);
+    if (
+      !existing ||
+      toolCall.function?.arguments ||
+      !existing.function?.arguments
+    ) {
+      byId.set(toolCall.id, toolCall);
+    }
+  }
+  return [...byId.values()];
+}
+
+/**
+ * Deduplicates messages by ID. For assistant messages, merges occurrences:
+ * recovers non-empty content from any earlier occurrence if the latest wiped it
+ * (empty string means the streaming update cleared the field, not blank text).
+ * Tool calls from every occurrence are kept: a copy can hold only some of the
+ * calls, so when two occurrences both carry tool calls they are united by id.
+ * If the latest has undefined toolCalls they are recovered from earlier
+ * occurrences; an explicit empty array [] is treated as intentional and kept.
+ * For all other roles, keeps the last entry.
+ *
+ * @internal Exported for unit testing only — not part of the public API.
+ */
 export function deduplicateMessages(messages: Message[]): Message[] {
   const acc = new Map<string, Message>();
   for (const message of messages) {
@@ -404,9 +432,18 @@ export function deduplicateMessages(messages: Message[]): Message[] {
       // any non-empty content seen earlier. Use { ...existing, ...message } so
       // fields present only in an earlier occurrence are not silently dropped.
       const content = message.content || existing.content;
+      // Each occurrence may hold only some of the calls, so when both
+      // carry tool calls, unite them. Each list is collapsed on its own first,
+      // so duplicates within one occurrence keep the first populated copy.
       // undefined toolCalls means this chunk had no tool call activity — recover
       // from earlier occurrences. An explicit [] means all tool calls completed.
-      const toolCalls = message.toolCalls ?? existing.toolCalls;
+      const toolCalls =
+        message.toolCalls?.length && existing.toolCalls?.length
+          ? mergeToolCalls(
+              dedupeToolCalls(existing.toolCalls),
+              dedupeToolCalls(message.toolCalls),
+            )
+          : (message.toolCalls ?? existing.toolCalls);
       acc.set(message.id, {
         ...existing,
         ...message,
@@ -483,7 +520,10 @@ export function messageGroup<S>(
   return { type: "group", ...group } as unknown as MessageGroup;
 }
 
+// Row keys are shared by React, the virtualizer and the scroll anchor. Each row
+// type has its own prefix, so a message ID can never equal a group's key.
 const GROUP_ROW_KEY_PREFIX = "copilotkit-group:";
+const MESSAGE_ROW_KEY_PREFIX = "copilotkit-message:";
 
 export type CopilotChatMessageViewProps = Omit<
   WithSlots<
@@ -772,6 +812,17 @@ export function CopilotChatMessageView({
     return { workOpen: open, workTextOpen: textOpen };
   }, [turnWork, toggledTurns, isRunning, latestTurnKey]);
 
+  // Thinking is one live line while the agent works: the reply's latest
+  // thought, replacing the one before it. The earlier ones aren't dropped —
+  // they come back with the rest of the work when "Worked for 9s" is opened.
+  const supersededReasoning = useMemo(() => {
+    const ids = new Set<string>();
+    if (!isRunning) return ids;
+    const turn = turnWork?.get(latestTurnKey);
+    for (const id of turn?.reasoningIds.slice(0, -1) ?? []) ids.add(id);
+    return ids;
+  }, [turnWork, latestTurnKey, isRunning]);
+
   const toolCallDisplayContext = useMemo<ToolCallDisplayContextValue>(
     () => ({
       display: toolCallDisplay,
@@ -880,6 +931,33 @@ export function CopilotChatMessageView({
   // `rowRenderKeys`, so a backend renaming that message mid-stream neither
   // remounts the group nor loses its state.
   const stableGroupKey = (key: string): string => rowRenderKeys.get(key) ?? key;
+
+  const rowKey = (row: MessageRow): string =>
+    row.type === "group"
+      ? `${GROUP_ROW_KEY_PREFIX}${stableGroupKey(row.key)}`
+      : `${MESSAGE_ROW_KEY_PREFIX}${rowRenderKeys.get(row.message.id) ?? row.message.id}`;
+
+  // One stable key per row, shared by React and the virtualizer. Rows shift
+  // index constantly once messages are grouped or transformed — tool calls
+  // fold into one row mid-stream, a resume stand-in drops out — and a
+  // virtualizer keyed by index then hands every measured height after that
+  // point to the wrong row, so the total size jumps and the view moves.
+  //
+  // The array keeps its identity while the keys are unchanged. A new
+  // `getItemKey` makes the virtualizer rebuild every row offset, re-estimating
+  // the unmeasured rows above the viewport, and a parent that rebuilds its
+  // `messages` array on every render would otherwise move the reader each time.
+  const previousRowKeysRef = useRef<string[]>([]);
+  const rowKeys = useMemo(() => {
+    const next = rows.map(rowKey);
+    const previous = previousRowKeysRef.current;
+    return next.length === previous.length &&
+      next.every((key, index) => key === previous[index])
+      ? previous
+      : next;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- rowKey reads rowRenderKeys
+  }, [rows, rowRenderKeys]);
+  previousRowKeysRef.current = rowKeys;
 
   // State each group's wrapper keeps here rather than in itself, so it
   // survives the row being windowed out and the wrapper remounting. Cleared
@@ -1081,9 +1159,11 @@ export function CopilotChatMessageView({
   // jumped.
   const measuredRef = React.useRef({
     total: 0,
-    sizes: new Map<number, number>(),
-    estimates: new Map<number, number>(),
+    sizes: new Map<string, number>(),
+    estimates: new Map<string, number>(),
   });
+  const rowKeysRef = React.useRef(rowKeys);
+  rowKeysRef.current = rowKeys;
 
   const resizeAnchorRef = React.useRef<{
     index: number;
@@ -1177,16 +1257,46 @@ export function CopilotChatMessageView({
     measuredRef.current = { total: 0, sizes: new Map(), estimates: new Map() };
   }
 
+  // A row that left the list (messages folded into a group, a stand-in
+  // replaced) no longer says anything about this thread's row heights.
+  const measuredKeysRef = React.useRef(rowKeys);
+  if (measuredKeysRef.current !== rowKeys) {
+    measuredKeysRef.current = rowKeys;
+    const live = new Set(rowKeys);
+    const measured = measuredRef.current;
+    for (const [key, height] of measured.sizes) {
+      if (!live.has(key)) {
+        measured.sizes.delete(key);
+        measured.total -= height;
+      }
+    }
+    for (const key of measured.estimates.keys()) {
+      if (!live.has(key)) measured.estimates.delete(key);
+    }
+  }
+
+  // Kept per row key, like the sizes: a regroup moves rows to other indexes.
   const estimateRowSize = React.useCallback((index: number) => {
     const { total, sizes, estimates } = measuredRef.current;
-    let estimate = estimates.get(index);
+    const mean =
+      sizes.size > 0 ? Math.max(1, Math.round(total / sizes.size)) : 100;
+    const key = rowKeysRef.current[index];
+    if (key === undefined) return mean;
+    let estimate = estimates.get(key);
     if (estimate === undefined) {
-      estimate =
-        sizes.size > 0 ? Math.max(1, Math.round(total / sizes.size)) : 100;
-      estimates.set(index, estimate);
+      estimate = mean;
+      estimates.set(key, estimate);
     }
     return estimate;
   }, []);
+
+  // A new function whenever the keys change: the virtualizer only rebuilds
+  // its row layout when an option it depends on changes, and a regroup can
+  // keep the row count the same.
+  const getRowKey = React.useCallback(
+    (index: number) => rowKeys[index] ?? index,
+    [rowKeys],
+  );
 
   const isPinnedToBottomRef = React.useRef(isPinnedToBottom);
   const measuredWidthRef = React.useRef<number | null>(null);
@@ -1238,7 +1348,12 @@ export function CopilotChatMessageView({
       captureResizeAnchor(instance);
       const rect = el?.getBoundingClientRect();
       const height = rect?.height ?? 0;
+      // `data-index` is set on every virtual row below, and is what the
+      // virtualizer itself uses to identify a measured element.
       const index = Number((el as HTMLElement | null)?.dataset?.index);
+      const key = Number.isInteger(index)
+        ? rowKeysRef.current[index]
+        : undefined;
       // Whether the row starts above the viewport as it is drawn now. The
       // virtualizer's own offsets for later rows lag behind within a batch of
       // measurements, while the list offset already moved with each correction
@@ -1260,14 +1375,16 @@ export function CopilotChatMessageView({
       // its tool results. Treating those as hidden gave each one the 100 px
       // estimate, which left long blank stretches in tool-heavy threads.
       const hidden = !el?.isConnected || !instance.scrollElement?.clientHeight;
-      if ((height > 0 || !hidden) && Number.isInteger(index)) {
+      if ((height > 0 || !hidden) && key !== undefined) {
         const { total, sizes } = measuredRef.current;
-        measuredRef.current.total = total - (sizes.get(index) ?? 0) + height;
-        sizes.set(index, height);
+        measuredRef.current.total = total - (sizes.get(key) ?? 0) + height;
+        sizes.set(key, height);
       }
       return height > 0 || !hidden
         ? height
-        : (measuredRef.current.sizes.get(index) ?? 100);
+        : ((key === undefined
+            ? undefined
+            : measuredRef.current.sizes.get(key)) ?? 100);
     },
     [captureResizeAnchor],
   );
@@ -1475,6 +1592,7 @@ export function CopilotChatMessageView({
     observeElementOffset: observeListOffset,
     scrollToFn: scrollToListOffset,
     estimateSize: estimateRowSize,
+    getItemKey: getRowKey,
     overscan: 5,
     rangeExtractor,
     measureElement: measureRowElement,
@@ -1703,12 +1821,20 @@ export function CopilotChatMessageView({
           slotProps={reasoningSlotProps}
         />
       );
-      // Reasoning during a reply's working phase folds away with the work.
-      // Always wrapped in this display, so reasoning that turns into work
-      // keeps its node (and its "Thought for" timer) instead of remounting.
+      // Reasoning during a reply's working phase folds away with the work,
+      // and a thought the agent has already moved on from folds away while it
+      // works. Always wrapped in this display, so reasoning that turns into
+      // work keeps its node (and its "Thought for" timer) instead of
+      // remounting.
       elements.push(
         toolCallDisplay === "turn" ? (
-          <Collapsible key={rowKey} open={workOpen.get(message.id) ?? true}>
+          <Collapsible
+            key={rowKey}
+            open={
+              (workOpen.get(message.id) ?? true) &&
+              !supersededReasoning.has(message.id)
+            }
+          >
             {reasoning}
           </Collapsible>
         ) : (
@@ -1751,11 +1877,6 @@ export function CopilotChatMessageView({
     return elements.filter(Boolean) as React.ReactElement[];
   };
 
-  const rowKey = (row: MessageRow): string =>
-    row.type === "group"
-      ? `${GROUP_ROW_KEY_PREFIX}${stableGroupKey(row.key)}`
-      : (rowRenderKeys.get(row.message.id) ?? row.message.id);
-
   const renderRow = (row: MessageRow): React.ReactElement[] => {
     if (row.type === "message") return renderMessageBlock(row.message);
     const Wrapper = row.wrapper;
@@ -1773,8 +1894,6 @@ export function CopilotChatMessageView({
     ];
   };
 
-  const rowKeysRef = useRef<string[]>([]);
-  rowKeysRef.current = rows.map(rowKey);
   const virtualModeRef = useRef(shouldVirtualize);
   virtualModeRef.current = shouldVirtualize;
 

@@ -57,6 +57,8 @@ COPY --chown=app:app --from=frontend /app/public ./public
 # Agent code
 COPY --chown=app:app src/agent_server.py ./
 COPY --chown=app:app src/agents/ ./agents/
+# Generated from the frontend catalog definitions, never a hand-maintained copy.
+COPY --chown=app:app --from=frontend /app/src/agents/a2ui_schemas/flight_catalog.generated.json ./agents/a2ui_schemas/flight_catalog.generated.json
 
 # Shared Python tools (symlinked at tools -> ../../shared/python/tools)
 COPY --chown=app:app tools/ /app/tools/

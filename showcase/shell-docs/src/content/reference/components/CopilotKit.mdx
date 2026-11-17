@@ -7,10 +7,10 @@ description: "The CopilotKit provider component, wrapping your application."
   `<CopilotKit>` is the v1 provider. It is re-exported from
   `@copilotkit/react-core/v2` so that a v1 application keeps working after the
   import path changes, and it renders `<CopilotKitProvider>` internally. **The
-  v2 provider is `<CopilotKitProvider>`** — reach for that one in new v2 code.
+  v2 provider is `<CopilotKitProvider>`**. Reach for that one in new v2 code.
 </Callout>
 
-The two are not aliases: they name the agent with different props.
+`<CopilotKit>` and `<CopilotKitProvider>` use different props to name the agent:
 
 |                | v1 `<CopilotKit>`  | v2 `<CopilotKitProvider>` |
 | -------------- | ------------------ | ------------------------- |
@@ -22,14 +22,14 @@ of those override the provider-level default. See [Provider and handler
 pairs](/backend/runtime-endpoints#provider-and-handler-pairs).
 
 Both providers treat an omitted `useSingleEndpoint` the same way: the transport
-is negotiated from the Runtime info response. Versions before 1.70.2 pinned
+is negotiated from the Runtime info response. Versions before 1.69.0 pinned
 `<CopilotKit>` to the single-route transport.
 
 This component will typically wrap your entire application (or a sub-tree of your application where you want to have a copilot). It provides the copilot context to all other components and hooks.
 
 ## Example
 
-You can find more information about self-hosting CopilotKit [here](/direct-to-llm/guides/self-hosting).
+To host the runtime yourself, see [Copilot Runtime](/backend/copilot-runtime).
 
 ```tsx
 import { CopilotKit } from "@copilotkit/react-core/v2";
@@ -58,10 +58,7 @@ Don't have it yet? Go to https://dashboard.operations.copilotkit.ai and get one 
 </PropertyReference>
 
 <PropertyReference name="guardrails_c" type="{ validTopics?: string[]; invalidTopics?: string[]; }"  >
-Restrict input to specific topics using guardrails.
-  @remarks
-
-This feature is only available when using CopilotKit's cloud-hosted service. To use this feature, sign up at https://dashboard.operations.copilotkit.ai to get your publicApiKey. The feature allows restricting chat conversations to specific topics.
+This prop has no effect. It stays in the type only so that old code still compiles.
 
 </PropertyReference>
 
@@ -89,7 +86,7 @@ builder that calls the network every time adds one call per request.
 If the builder throws or rejects, that request is not sent and `onError` gets
 `header_resolution_failed`.
 
-The legacy v1 `CopilotTask` / GraphQL path doesn't await an async builder: it
+The v1 `CopilotTask` / GraphQL path doesn't await an async builder: it
 sends that request without the builder's headers, and logs a one-time dev
 warning. A sync builder and a plain object both reach `CopilotTask` as
 expected.
@@ -114,7 +111,8 @@ const { getToken } = useAuth();
 </PropertyReference>
 
 <PropertyReference name="children" type="ReactNode" required>
-  The children to be rendered within the CopilotKit.
+  The part of your app that uses CopilotKit hooks and components. This is
+  usually your whole app.
 </PropertyReference>
 
 <PropertyReference name="properties" type="Record<string, any>"  >
@@ -132,7 +130,7 @@ Custom properties to be sent with the request.
   }
   ```
 
-Note: The `authorization` property is automatically forwarded to LangGraph agents. See the LangGraph Agent Authentication Guide (see code examples above) for details.
+Note: The `authorization` property is automatically forwarded to LangGraph agents. See [Authentication](/auth) for details.
 
 </PropertyReference>
 
@@ -165,10 +163,11 @@ const handler = createCopilotRuntimeHandler({
 </PropertyReference>
 
 <PropertyReference name="showDevConsole" type="boolean"  >
-Whether to show the dev console.
+**Deprecated.** This prop controls only the error banners and toasts. To show
+or hide the Inspector, use `enableInspector`.
 
 Set to `true` to show error banners and toasts, `false` to hide all error UI.
-Defaults to `false` for production safety.
+Defaults to `true` on localhost and `false` on every other host.
 
 </PropertyReference>
 
@@ -193,10 +192,14 @@ status UI. Defaults to `true`.
 Configuration for the A2UI (Agent-to-UI) renderer.
 
 The built-in A2UI renderer is activated automatically when the runtime reports
-that `a2ui` is configured in `CopilotRuntime`. This prop is optional and only
-needed to override the theme, supply a custom component `catalog`, set a
-`loadingComponent`, toggle whether the schema is included (`includeSchema`), or
-tune the error-recovery status UI (`recovery`).
+that `a2ui` is configured in `CopilotRuntime`. This prop is optional. Use it to
+override:
+
+- `theme`: the A2UI viewer theme.
+- `catalog`: the component catalog. The default is the basic catalog.
+- `loadingComponent`: the component shown while a surface generates.
+- `includeSchema`: whether the catalog schemas go to the agent as context.
+- `recovery`: the error-recovery status UI.
 
 `includeSchema` defaults to `true`, which sends the catalog's component schemas
 and the A2UI generation and design guidelines to the agent as context. With
@@ -240,7 +243,7 @@ for widgets you trust that need `localStorage`, `IndexedDB` or cookies. See
 </PropertyReference>
 
 <PropertyReference name="agent" type="string">
-  The agent to talk to, named by its **key in the runtime's `agents` map** — not the
+  The agent to talk to, named by its **key in the runtime's `agents` map**, not the
   agent's own `name` or `id`. See [Which name identifies an
   agent](/backend/copilot-runtime#which-name-identifies-an-agent).
 </PropertyReference>
@@ -249,30 +252,28 @@ for widgets you trust that need `localStorage`, `IndexedDB` or cookies. See
   name="forwardedParameters"
   type="Pick<ForwardedParametersInput, 'temperature'>"
 >
-  The forwarded parameters to use for the task.
+  Model parameters (only `temperature`) that the provider puts in the
+  CopilotKit context. The built-in hooks do not read this value.
 </PropertyReference>
 
 <PropertyReference name="authConfig_c" type="{ SignInComponent: React.ComponentType<{ onSignInComplete: (authState: AuthState) => void; }>; }"  >
 The auth config to use for the CopilotKit.
-  @remarks
 
-This feature is only available when using CopilotKit's cloud-hosted service. To use this feature, sign up at https://dashboard.operations.copilotkit.ai to get your publicApiKey. The feature allows restricting chat conversations to specific topics.
+This feature is only available when using CopilotKit's cloud-hosted service. To use this feature, sign up at https://dashboard.operations.copilotkit.ai to get your publicApiKey. `SignInComponent` is the sign-in component that `useCopilotAuthenticatedAction_c` renders before it runs an action that needs the user to sign in.
 
 </PropertyReference>
 
 <PropertyReference name="threadId" type="string">
-  The thread id to use for the CopilotKit.
+  The ID of the thread to load and continue. Set it to resume a saved
+  conversation. While this prop is set, `setThreadId()` throws.
 </PropertyReference>
 
 <PropertyReference name="onError" type="CopilotErrorHandler"  >
-Optional error handler for comprehensive debugging and observability.
+Optional error handler for debugging and observability.
 
 Requires publicApiKey: Error handling only works when publicApiKey is provided.
-This is a CopilotKit Intelligence feature.
-
-@param errorEvent - Structured error event with rich debugging context
-
-@example
+This is a CopilotKit Intelligence feature. The handler receives a structured
+error event with debugging context.
 
 ```tsx
 <CopilotKit

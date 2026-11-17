@@ -54,6 +54,18 @@ export function buildCatalogContextValue(
   catalog?: Catalog<ComponentApi>,
   options?: { includeSchema?: boolean },
 ): string {
+  if (catalog?.protocolVersion === "1.0") {
+    if (options?.includeSchema === false) {
+      return [
+        "Available A2UI catalog (protocol 1.0):",
+        `- ${catalog.id}`,
+        ...Array.from(catalog.components.keys(), (name) => `  - ${name}`),
+      ].join("\n");
+    }
+    // Native catalogs carry function maps and local $defs. Sending these
+    // through the v0.9 serializer would change their wire semantics.
+    return `Available A2UI catalog:\n${JSON.stringify(catalog.toJson(), null, 2)}`;
+  }
   return buildA2UICatalogContextValue(
     catalog ?? basicCatalog,
     basicComponentNames,
@@ -73,18 +85,38 @@ export interface InlineCatalogSchema extends Omit<InlineCatalog, "components"> {
   "common_types.json"?: { $defs: Record<string, Record<string, unknown>> };
 }
 
+/** Native A2UI 1.0 catalog document, including function maps and local defs. */
+export interface NativeInlineCatalogSchema {
+  protocolVersion: "1.0";
+  catalogId: string;
+  components: Record<string, Record<string, unknown>>;
+  functions?: Record<string, Record<string, unknown>>;
+  $defs?: Record<string, Record<string, unknown>>;
+  theme?: never;
+  "common_types.json"?: never;
+  [key: string]: unknown;
+}
+
+export type A2UICatalogSchema = InlineCatalogSchema | NativeInlineCatalogSchema;
+
 /**
- * Extract component, function and theme schemas from a catalog in the A2UI
- * v0.9 inline catalog format. See `extractA2UICatalogSchemas` in
- * `@copilotkit/shared` for how this differs from `getClientCapabilities` in
- * `@a2ui/web_core`.
+ * Extract schemas in the selected catalog's protocol format. Native 1.0
+ * catalogs retain their function maps and local definitions. The existing
+ * v0.9 path uses `extractA2UICatalogSchemas` in `@copilotkit/shared`.
  *
  * When sent via `useAgentContext` with `A2UI_SCHEMA_CONTEXT_DESCRIPTION`,
  * the middleware can optionally overwrite it with a server-side schema.
  */
+export function extractCatalogComponentSchemas(): InlineCatalogSchema;
 export function extractCatalogComponentSchemas(
   catalog?: Catalog<ComponentApi>,
-): InlineCatalogSchema {
+): A2UICatalogSchema;
+export function extractCatalogComponentSchemas(
+  catalog?: Catalog<ComponentApi>,
+): A2UICatalogSchema {
+  if (catalog?.protocolVersion === "1.0") {
+    return catalog.toJson() as NativeInlineCatalogSchema;
+  }
   return extractA2UICatalogSchemas(
     catalog ?? basicCatalog,
   ) as InlineCatalogSchema;

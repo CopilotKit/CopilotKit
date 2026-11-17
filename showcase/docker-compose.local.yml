@@ -443,6 +443,17 @@ services:
     volumes:
       - ./integrations/google-antigravity/src:/app/src
 
+  openai-agents-python:
+    <<: *integration-defaults
+    build: ./integrations/openai-agents-python
+    image: showcase-openai-agents-python:local
+    container_name: showcase-openai-agents-python
+    ports:
+      - "3122:10000"
+    profiles: ["openai-agents-python", "all"]
+    volumes:
+      - ./integrations/openai-agents-python/src:/app/src
+
   mastra:
     <<: *integration-defaults
     build: ./integrations/mastra

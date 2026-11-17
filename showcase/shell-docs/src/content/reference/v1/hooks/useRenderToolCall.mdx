@@ -118,7 +118,7 @@ Optional array of parameter definitions. If provided, adds type safety to the ar
 - `type` (string): The parameter type (e.g., "string", "number", "boolean", "string[]", "object")
 - `description` (string): A description of what the parameter is for
 - `required` (boolean): Whether the parameter is required
-- `properties` (array, optional): For object types, define nested properties using the same schema
+- `attributes` (array, optional): For object types, define nested properties using the same schema
 
 Simple example: `[{ name: "datasetName", type: "string", description: "Name of the dataset", required: true }]`
 
@@ -131,7 +131,7 @@ Nested example:
     type: "object",
     description: "Configuration for the analysis",
     required: true,
-    properties: [
+    attributes: [
       {
         name: "method",
         type: "string",
@@ -151,13 +151,18 @@ Nested example:
 
 </PropertyReference>
 
-<PropertyReference name="render" type="FrontendAction<T>['render']">
-  A React component that renders the tool call UI. The component receives props
-  with `status`, `args`, `result`, `name`, and `description`.
+<PropertyReference name="render" type="(props: ActionRenderProps<T>) => React.ReactElement" required>
+  A function that returns the tool call UI. It receives props
+  with `status`, `args`, `result`, and `name`.
 </PropertyReference>
 
 <PropertyReference name="available" type="'disabled' | 'enabled'">
   Currently non-functional in this v1 hook. The value is accepted for API
   compatibility but ignored, so setting `"disabled"` does not prevent the
   renderer from being registered.
+</PropertyReference>
+
+<PropertyReference name="dependencies" type="any[]">
+  The second argument of the hook. When a value in it changes, the hook
+  registers the renderer again.
 </PropertyReference>

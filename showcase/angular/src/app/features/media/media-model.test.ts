@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import {
   createMultimodalMessage,
   dedupeUserMessageMedia,
-  rewriteMessagesForLegacyConverter,
   validateSampleBytes,
   VOICE_WEATHER_TOOL_NAMES,
 } from "./media-model";
@@ -60,7 +59,7 @@ describe("Angular media showcase model", () => {
     ).toThrow(/valid image\/png signature/);
   });
 
-  it("appends exactly one legacy binary mirror for LangGraph", () => {
+  it("builds a modern-only media message with no legacy binary part", () => {
     const message = createMultimodalMessage(
       {
         filename: "sample.png",
@@ -71,14 +70,12 @@ describe("Angular media showcase model", () => {
       7,
       "message-2",
     );
-    const rewritten = rewriteMessagesForLegacyConverter([message]);
-    expect(rewritten?.[0]?.content).toHaveLength(3);
-    expect(rewritten?.[0]?.content?.[2]).toEqual({
-      type: "binary",
-      mimeType: "image/png",
-      data: "aW1hZ2U=",
-    });
-    expect(rewriteMessagesForLegacyConverter(rewritten ?? [])).toBeNull();
+    expect(message.content).toHaveLength(2);
+    expect(
+      message.content?.some(
+        (part) => (part as { type?: string }).type === "binary",
+      ),
+    ).toBe(false);
   });
 
   it("deduplicates round-tripped media and restores PDF document type", () => {

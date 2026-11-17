@@ -1,0 +1,95 @@
+/*
+ * copilotkit.ai's pixel matrix (CopilotKit/website, home/redesign/pixel-texture),
+ * from the same seeded tile: public/images/pixel-matrix.png is the website's
+ * texture.png with its six strengths rescaled so the strongest square is solid,
+ * tiled at 400px so every square lands on a whole 4px with an 8px pitch.
+ * Its look is set once, in theme.css: --matrix-square colors the squares and
+ * --matrix-strength sets how strongly they show.
+ */
+/* In the components layer, so Tailwind utilities can size and place it. */
+@layer components {
+  .matrix {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    overflow: hidden;
+    border-radius: inherit;
+    pointer-events: none;
+  }
+
+  .field,
+  .glisten,
+  .pointer {
+    position: absolute;
+    inset: 0;
+    mask-image: url("/images/pixel-matrix.png");
+    mask-size: 400px 400px;
+    mask-repeat: repeat;
+    mask-position: 0 0;
+  }
+
+  .field {
+    background: var(--matrix-square);
+    opacity: var(--matrix-strength);
+  }
+
+  /* Two slow lights drift across the squares while the field is on screen. */
+  .glisten {
+    background:
+      radial-gradient(
+        ellipse at 22% 30%,
+        var(--matrix-square),
+        transparent 38%
+      ),
+      radial-gradient(ellipse at 78% 68%, var(--matrix-square), transparent 34%);
+    opacity: 0;
+    animation: glisten 6s ease-in-out infinite alternate;
+    animation-play-state: paused;
+  }
+
+  .matrix[data-running="true"] .glisten {
+    animation-play-state: running;
+  }
+
+  /* The squares under the pointer light up. Hidden at rest, not just clear. */
+  .pointer {
+    visibility: hidden;
+    background: radial-gradient(
+      130px circle at var(--pixel-x, -200px) var(--pixel-y, -200px),
+      var(--matrix-square),
+      transparent
+    );
+    opacity: 0;
+    transition:
+      opacity 450ms ease,
+      visibility 0s linear 450ms;
+  }
+
+  .matrix[data-hovered="true"] .pointer {
+    visibility: visible;
+    opacity: 0.9;
+    transition:
+      opacity 450ms ease,
+      visibility 0s linear 0s;
+  }
+
+  @keyframes glisten {
+    from {
+      opacity: 0.1;
+    }
+    to {
+      opacity: 0.55;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glisten {
+    animation: none;
+    opacity: 0;
+  }
+
+  .pointer {
+    display: none;
+  }
+}

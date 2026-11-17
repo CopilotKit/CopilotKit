@@ -12,10 +12,10 @@ import { DepthChip } from "@/components/depth-chip";
 export function RefDepthHeader() {
   return (
     <th
-      className="sticky left-[160px] top-0 z-30 px-1.5 py-1.5 text-left border-b border-r-2 border-r-[#c4b5fd] border-l border-[var(--border)] font-normal"
-      style={{ backgroundColor: "#f5f0ff" }}
+      className="sticky left-[160px] top-0 z-30 px-1.5 py-1.5 text-left border-b border-r-2 border-r-[#c4b5fd] dark:border-r-violet-800 border-l border-[var(--border)] font-normal"
+      style={{ backgroundColor: "light-dark(#f5f0ff, #211c35)" }}
     >
-      <div className="text-[9px] font-semibold uppercase tracking-wider text-[#7c3aed] leading-tight">
+      <div className="text-[9px] font-semibold uppercase tracking-wider text-[#7c3aed] dark:text-violet-300 leading-tight">
         <span>Ref</span>
         <br />
         <span>Depth</span>
@@ -38,8 +38,8 @@ export interface RefDepthCellProps {
 export function RefDepthCell({ depth, status, maxDepth }: RefDepthCellProps) {
   return (
     <td
-      className="sticky left-[160px] z-10 px-1.5 py-1 border-r-2 border-r-[#c4b5fd] border-l border-[var(--border)] align-top"
-      style={{ backgroundColor: "#f5f0ff" }}
+      className="sticky left-[160px] z-10 px-1.5 py-1 border-r-2 border-r-[#c4b5fd] dark:border-r-violet-800 border-l border-[var(--border)] align-top"
+      style={{ backgroundColor: "light-dark(#f5f0ff, #211c35)" }}
     >
       <DepthChip depth={depth} status={status} maxDepth={maxDepth} />
     </td>

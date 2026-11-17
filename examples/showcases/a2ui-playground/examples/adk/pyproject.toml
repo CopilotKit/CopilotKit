@@ -1,0 +1,10 @@
+[project]
+name = "a2ui-adk-agent"
+version = "0.1.0"
+description = "A Google ADK agent served over AG-UI, rendering A2UI 1.0 through CopilotKit"
+requires-python = ">=3.11"
+dependencies = [
+    "google-adk>=2.13.0,<3",
+    "ag-ui-adk>=0.11.0",
+    "uvicorn>=0.35.0",
+]

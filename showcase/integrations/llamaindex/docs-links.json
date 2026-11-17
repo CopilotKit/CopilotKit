@@ -14,23 +14,23 @@
       "shell_docs_path": "/generative-ui/tool-rendering"
     },
     "gen-ui-tool-based": {
-      "og_docs_url": "https://docs.copilotkit.ai/llamaindex/generative-ui/your-components/display-only",
-      "shell_docs_path": "/generative-ui/your-components/display-only"
+      "og_docs_url": "https://docs.copilotkit.ai/llamaindex/generative-ui/display",
+      "shell_docs_path": "/generative-ui/display"
     },
     "gen-ui-agent": {
       "og_docs_url": "https://docs.copilotkit.ai/llamaindex/generative-ui/state-rendering",
       "shell_docs_path": "/generative-ui/state-rendering"
     },
     "shared-state-read-write": {
-      "og_docs_url": "https://docs.copilotkit.ai/llamaindex/shared-state/in-app-agent-write",
+      "og_docs_url": "https://docs.copilotkit.ai/llamaindex/shared-state",
       "shell_docs_path": "/shared-state"
     },
     "shared-state-streaming": {
-      "og_docs_url": "https://docs.copilotkit.ai/llamaindex/shared-state/predictive-state-updates",
+      "og_docs_url": "https://docs.copilotkit.ai/llamaindex/shared-state",
       "shell_docs_path": "/shared-state"
     },
     "subagents": {
-      "og_docs_url": "https://docs.copilotkit.ai/llamaindex/multi-agent-flows",
+      "og_docs_url": "https://docs.copilotkit.ai/llamaindex/multi-agent/subagents",
       "shell_docs_path": "/multi-agent/subagents"
     }
   }

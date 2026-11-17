@@ -40,13 +40,13 @@ import { Button } from "../_components/button";
 // Neutral, slightly muted hues that pair with `bg-card` / `--border`
 // (zinc/slate-leaning, akin to ShadCN's chart-{1..5} palette).
 const CHART_COLORS = [
-  "#3F3F46", // zinc-700
+  "light-dark(#3F3F46, #D4D4D8)", // zinc-700 / dark: zinc-300
   "#71717A", // zinc-500
-  "#A1A1AA", // zinc-400
-  "#18181B", // zinc-900
-  "#52525B", // zinc-600
-  "#D4D4D8", // zinc-300
-  "#27272A", // zinc-800
+  "light-dark(#A1A1AA, #52525B)", // zinc-400 / dark: zinc-600
+  "light-dark(#18181B, #F4F4F5)", // zinc-900 / dark: zinc-100
+  "light-dark(#52525B, #A1A1AA)", // zinc-600 / dark: zinc-400
+  "light-dark(#D4D4D8, #3F3F46)", // zinc-300 / dark: zinc-700
+  "light-dark(#27272A, #E4E4E7)", // zinc-800 / dark: zinc-200
 ] as const;
 
 const CHART_TOOLTIP_STYLE: React.CSSProperties = {
@@ -192,9 +192,9 @@ export const myRenderers: CatalogRenderers<MyDefinitions> = {
     const arrow = trend === "up" ? "↑" : trend === "down" ? "↓" : "";
     const trendClass =
       trend === "up"
-        ? "text-emerald-600"
+        ? "text-emerald-600 dark:text-emerald-400"
         : trend === "down"
-          ? "text-rose-600"
+          ? "text-rose-600 dark:text-rose-400"
           : "text-[var(--foreground)]";
     return (
       // `flex-1 min-w-[120px]` lets a row of Metrics distribute evenly

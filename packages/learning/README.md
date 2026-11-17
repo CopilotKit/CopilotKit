@@ -19,14 +19,19 @@ Click events also include `target.label`, a short, cleaned name of the clicked c
 
 ```ts
 beforeSend: (event) => {
-  if (event.name === "click") delete (event.value.target as { label?: string }).label;
+  if (event.name === "click" || event.name === "input")
+    delete (event.value.target as { label?: string }).label;
   return event;
 },
 ```
 
 See [Click labels](https://docs.copilotkit.ai/intelligence/captured-data#click-labels) for the full rules.
 
+Input events also include `target.label`, a cleaned name of the edited field. It comes from the first of `aria-labelledby`, `aria-label`, and the field's `<label>` elements. Fields inside a `<label>`, and their values and options, are left out. The name never comes from the value, the placeholder, `title`, or the field's own text, and a `<label>` inside `data-copilotkit-ignore` is not used. For a select, the visible text of the chosen options follows the name, as in `Deal stage: Negotiation`. Cleaning follows the click label rules. See [Field labels](https://docs.copilotkit.ai/intelligence/captured-data#field-labels).
+
 Text edits are combined per field and recorded after a 300 ms pause. Committing or leaving the field, pressing Enter outside input-method composition, clicking, navigating, emitting a developer event, or stopping capture records the pending edit first. Paired `input` and `change` notifications for the same edit produce one record; a later user edit can record the same value again. Checkbox and select changes remain immediate. See [Form edit timing](https://docs.copilotkit.ai/intelligence/captured-data#form-edit-timing) for composition and delivery behavior.
+
+Error capture records `page.error` events with a `kind`: `uncaught` (errors that nothing catches), `rejection` (unhandled promise rejections), `resource` (failed image, script, stylesheet, media, or frame loads), `invalid` (native form validation failures, with the field label and the failed validity checks, never the value), and `alert` (text in `role="alert"` or `aria-live="assertive"` regions, only with `capture: { alerts: true }`, because alert text can contain names). Messages, validation messages, and alert text are cleaned like labels and capped. The cleanup removes emails, URLs, and credentials, not names, so keep personal data out of error messages or remove it in `beforeSend`. Stacks hold the cleaned message, have URL and credential redaction, and are capped at 1,000 characters. Each distinct error is sent at its 1st, 10th, 100th, … occurrence, with `count`, and a session sends at most 50. Set `capture: { errors: false }` to turn it off. See [Page errors](https://docs.copilotkit.ai/intelligence/captured-data#page-errors).
 
 ## Authenticated Trajectories
 
@@ -70,7 +75,7 @@ The selector accepts synchronous or asynchronous results. Return `[]` to request
 
 Assignment problems never stop capture. If a selected Space does not exist, the Runtime logs a warning with the Trajectory and Space IDs and connects without any assignments, including the Spaces that exist. The selector has a five-second deadline and receives an optional second `AbortSignal` argument for cancelling its work when the request ends or the deadline expires. A callback error, invalid result, or deadline expiry logs a server error, and the Trajectory connects without assignments. Processing assigned events requires an Intelligence backend with Trajectory inputs enabled for Automatic Learning.
 
-Capture includes page context, navigation, clicks, form edits, network requests, and developer events. Paths remain unchanged. When Runtime starts an agent run, Core sends `thread.linked` with the run's `threadId`, once for each Thread. Runtime creates the Thread before the run starts, so Intelligence can store the link. Click Thread context and agent events are deferred for this connection path.
+Capture includes page context, navigation, clicks, form edits, network requests, and developer events. Paths remain unchanged. The `page` event at start carries this package's version in `sdkVersion`, and your app's version in `appVersion` when you set the `appVersion` option. When Runtime starts an agent run, Core sends `thread.linked` with the run's `threadId`, once for each Thread. Runtime creates the Thread before the run starts, so Intelligence can store the link. Click Thread context and agent events are deferred for this connection path.
 
 Core sends Phoenix `events` messages with `{ events, dropped }`. It flushes after two seconds, at 50 events, or before the batch exceeds 64 KiB. Each event must fit within 16 KiB, including sequence metadata. Sizes use serialized UTF-8 JSON. The Gateway replies with `{ highestSeq, accepted, rejected }`. This receipt confirms Redis acceptance, not a Postgres commit. Postgres projection follows asynchronously. The receipt does not identify individual rejected events.
 

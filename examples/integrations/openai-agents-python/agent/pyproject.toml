@@ -1,0 +1,14 @@
+[project]
+name = "agent"
+version = "0.1.0"
+description = "CopilotKit starter agent built on the OpenAI Agents SDK"
+requires-python = ">=3.12"
+dependencies = [
+  "openai-agents==0.24.0",
+  "openai==3.45.0",
+  "ag-ui-openai-agents==0.1.0",
+  "ag-ui-protocol==1.0.0",
+  "fastapi==0.141.0",
+  "uvicorn[standard]==0.52.0",
+  "python-dotenv==1.0.1",
+]

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
-import { oneLight } from "react-syntax-highlighter/dist/esm/styles/prism";
+import { oneLightDark } from "@/lib/code-theme";
 import type { Integration } from "@/lib/registry";
 
 interface DemoFile {
@@ -279,7 +279,7 @@ export default function StandaloneCodePage() {
         {activeFile && (
           <SyntaxHighlighter
             language={activeFile.language}
-            style={oneLight}
+            style={oneLightDark}
             customStyle={{
               margin: 0,
               borderRadius: 0,

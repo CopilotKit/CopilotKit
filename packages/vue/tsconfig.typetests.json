@@ -1,0 +1,6 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "./tsconfig.json",
+  "include": ["src/**/__tests__/**/*.test-d.ts"],
+  "exclude": ["dist", "node_modules"]
+}
