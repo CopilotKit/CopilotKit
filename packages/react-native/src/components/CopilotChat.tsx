@@ -411,7 +411,10 @@ export function CopilotChat({
           placeholder={placeholder}
           placeholderTextColor="#999"
           multiline
-          numberOfLines={4}
+          // The input grows with its text up to maxHeight. react-native-web
+          // needs a row count, or the browser draws two rows, so start at one
+          // row there. On Android a row count pins the height, so set none.
+          numberOfLines={Platform.OS === "web" ? 1 : undefined}
           returnKeyType="send"
           // A multiline input inserts a newline on Return unless told to
           // submit. React Native 0.73+ reads submitBehavior; older versions and
