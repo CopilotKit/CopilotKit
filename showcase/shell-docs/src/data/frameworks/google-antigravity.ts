@@ -25,7 +25,7 @@ const data: FrameworkOverviewData = {
       iconKey: "paintbrush",
       description:
         "Your Python tools run inside the adapter, and their calls and results stream to the browser as they happen. CopilotKit renders each one as a React component instead of leaving the user with a spinner.",
-      documentationLink: "/google-antigravity/generative-ui",
+      documentationLink: "/google-antigravity/generative-ui/tool-rendering",
     },
     {
       title: "Human-in-the-loop",

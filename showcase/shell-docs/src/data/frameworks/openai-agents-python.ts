@@ -25,7 +25,7 @@ const data: FrameworkOverviewData = {
       iconKey: "paintbrush",
       description:
         "Your function tools run on the server, and their calls stream to the browser while the model writes them. CopilotKit renders each one as a React component instead of leaving the user with a spinner.",
-      documentationLink: "/openai-agents-python/generative-ui",
+      documentationLink: "/openai-agents-python/generative-ui/tool-rendering",
     },
     {
       title: "Human-in-the-loop",

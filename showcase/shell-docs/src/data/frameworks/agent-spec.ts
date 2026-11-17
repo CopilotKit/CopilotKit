@@ -29,7 +29,7 @@ const data: FrameworkOverviewData = {
       iconKey: "paintbrush",
       description:
         "Your agent's tool calls arrive as they happen. CopilotKit renders each one as a React component in your own app, instead of leaving the user with a spinner.",
-      documentationLink: "/agent-spec/generative-ui",
+      documentationLink: "/agent-spec/generative-ui/tool-rendering",
     },
     {
       title: "Human-in-the-loop",

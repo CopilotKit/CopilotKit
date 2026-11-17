@@ -28,7 +28,7 @@ const data: FrameworkOverviewData = {
       iconKey: "paintbrush",
       description:
         "Your agent calls tools and updates session state as it runs. CopilotKit streams both to the browser and renders them as React components your users watch update while the agent works.",
-      documentationLink: "/adk/generative-ui",
+      documentationLink: "/adk/generative-ui/tool-rendering",
     },
     {
       title: "Human-in-the-loop",

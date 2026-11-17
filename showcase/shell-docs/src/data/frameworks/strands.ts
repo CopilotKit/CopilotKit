@@ -28,7 +28,7 @@ const data: FrameworkOverviewData = {
       iconKey: "paintbrush",
       description:
         "Your agent calls tools and reports progress as it works. CopilotKit streams that to the browser and renders each step as a React component, instead of leaving the user with a spinner.",
-      documentationLink: "/aws-strands/generative-ui",
+      documentationLink: "/aws-strands/generative-ui/tool-rendering",
     },
     {
       title: "Human-in-the-loop",

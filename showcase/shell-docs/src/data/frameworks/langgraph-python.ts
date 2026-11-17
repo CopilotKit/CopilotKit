@@ -34,7 +34,7 @@ const data: FrameworkOverviewData = {
       iconKey: "paintbrush",
       description:
         "Your nodes return state updates and tool calls as they run. CopilotKit streams both to the browser by default and renders them as React components your users watch update while the graph works.",
-      documentationLink: "/langgraph/generative-ui",
+      documentationLink: "/langgraph/generative-ui/tool-rendering",
     },
     {
       title: "Human-in-the-loop",
