@@ -10,9 +10,7 @@ const data: FrameworkOverviewData = {
   subheader:
     "The Agents SDK runs your agent's loop: the model, its tools and its handoffs. CopilotKit gives that loop a surface your users can see, interrupt and steer.",
   guideLink: "/openai-agents-python/quickstart",
-  // No CLI starter exists for this framework yet; the quickstart's
-  // "use an existing agent" path is the way in.
-  initCommand: "npx copilotkit@latest init",
+  initCommand: "npx copilotkit@latest init --framework openai-agents-python",
   // Link to the integration source for its supported features.
   featuresLink:
     "https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/openai-agents-python",
@@ -75,6 +73,7 @@ const handler = createCopilotRuntimeHandler({
 
 export const POST = (req: NextRequest) => handler(req);`,
     guideLink: "/openai-agents-python/quickstart",
+    initCommand: "npx copilotkit@latest init --framework openai-agents-python",
   },
 
   liveDemos: [],
