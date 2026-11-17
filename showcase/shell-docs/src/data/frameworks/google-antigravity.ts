@@ -10,7 +10,10 @@ const data: FrameworkOverviewData = {
   subheader:
     "Antigravity runs your agent in its own harness. CopilotKit gives it a surface your users can see, interrupt and steer.",
   guideLink: "/google-antigravity/quickstart",
-  initCommand: "npx copilotkit@latest init --framework antigravity",
+  // The CLI has no Antigravity template (`--framework antigravity` is
+  // rejected), so the landing points at the monorepo starter instead.
+  initCommand:
+    "git clone --depth 1 https://github.com/CopilotKit/CopilotKit.git && cd CopilotKit/examples/integrations/antigravity",
   // Link to the integration source for its supported features.
   featuresLink:
     "https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/google-antigravity",
@@ -73,7 +76,6 @@ const handler = createCopilotRuntimeHandler({
 
 export const POST = (req: NextRequest) => handler(req);`,
     guideLink: "/google-antigravity/quickstart",
-    initCommand: "npx copilotkit@latest init --framework antigravity",
   },
 
   liveDemos: [],

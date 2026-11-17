@@ -16,7 +16,7 @@ Use this prompt to connect your Google Antigravity agent to CopilotKit and verif
 
 This quickstart gives you two working paths:
 
-- **Start from scratch** to scaffold the full Google Antigravity showcase.
+- **Start from scratch** to run the Google Antigravity starter app.
 - **Use an existing agent** to expose your own Google Antigravity agent over AG-UI and connect it to a React app.
 
 ## Prerequisites
@@ -47,7 +47,7 @@ Before you begin, you'll need the following:
       <TailoredContentOption
         id="starter"
         title="Start from scratch"
-        description="Scaffold the canonical Google Antigravity starter."
+        description="Copy the Google Antigravity starter app."
       >
         <Step>
           ### Copy the starter
@@ -76,7 +76,7 @@ Before you begin, you'll need the following:
         <Step>
           ### Configure your environment
 
-          Create a `.env` file in the generated project root:
+          Create a `.env` file in the starter's root:
 
           ```plaintext title=".env"
           GEMINI_API_KEY=your_gemini_api_key
@@ -88,28 +88,9 @@ Before you begin, you'll need the following:
         <Step>
           ### Install dependencies
 
-          <Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn', 'bun']}>
-            <Tab value="npm">
-              ```bash
-              npm install
-              ```
-            </Tab>
-            <Tab value="pnpm">
-              ```bash
-              pnpm install
-              ```
-            </Tab>
-            <Tab value="yarn">
-              ```bash
-              yarn install
-              ```
-            </Tab>
-            <Tab value="bun">
-              ```bash
-              bun install
-              ```
-            </Tab>
-          </Tabs>
+          ```bash
+          npm install
+          ```
 
           `npm install` also runs the agent's `uv sync` (postinstall), so the
           Python side — including the Antigravity SDK, whose wheel bundles
@@ -120,28 +101,9 @@ Before you begin, you'll need the following:
         <Step>
           ### Start the development server
 
-          <Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn', 'bun']}>
-            <Tab value="npm">
-              ```bash
-              npm run dev
-              ```
-            </Tab>
-            <Tab value="pnpm">
-              ```bash
-              pnpm dev
-              ```
-            </Tab>
-            <Tab value="yarn">
-              ```bash
-              yarn dev
-              ```
-            </Tab>
-            <Tab value="bun">
-              ```bash
-              bun dev
-              ```
-            </Tab>
-          </Tabs>
+          ```bash
+          npm run dev
+          ```
 
           This starts both the Next.js app and the Python agent server.
         </Step>
