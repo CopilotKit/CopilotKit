@@ -54,7 +54,7 @@ Start with a text-only message list and composer built from `useAgent` and
 ```vue title="HeadlessChat.vue"
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import { useAgent, useCopilotKit } from "@copilotkit/vue/v2";
+import { useAgent, useCopilotKit } from "@copilotkit/vue";
 
 const { agent } = useAgent({ agentId: "my-agent" });
 const { copilotkit } = useCopilotKit();
@@ -124,7 +124,7 @@ import {
   CopilotChatMessageView,
   CopilotChatUserMessage,
   useAgent,
-} from "@copilotkit/vue/v2";
+} from "@copilotkit/vue";
 
 const { agent } = useAgent({ agentId: "my-agent" });
 const messages = computed(() => agent.value?.messages ?? []);

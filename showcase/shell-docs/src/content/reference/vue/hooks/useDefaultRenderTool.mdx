@@ -22,7 +22,7 @@ In Vue, the renderer is a Vue render function or a Vue component (not JSX). It r
 ## Signature
 
 ```ts
-import { useDefaultRenderTool } from "@copilotkit/vue/v2";
+import { useDefaultRenderTool } from "@copilotkit/vue";
 import type { Component, VNodeChild, WatchSource } from "vue";
 
 type DefaultRenderProps = {
@@ -109,7 +109,7 @@ expandable tool-call card.
 
 ```vue
 <script setup lang="ts">
-import { useDefaultRenderTool } from "@copilotkit/vue/v2";
+import { useDefaultRenderTool } from "@copilotkit/vue";
 
 useDefaultRenderTool();
 </script>
@@ -127,7 +127,7 @@ Provide a `render` function. It receives `DefaultRenderProps` and returns a
 ```vue
 <script setup lang="ts">
 import { h } from "vue";
-import { useDefaultRenderTool } from "@copilotkit/vue/v2";
+import { useDefaultRenderTool } from "@copilotkit/vue";
 
 useDefaultRenderTool({
   render: ({ name, status, result }) =>
@@ -173,7 +173,7 @@ defineProps<{
 ```vue
 <!-- App.vue -->
 <script setup lang="ts">
-import { useDefaultRenderTool } from "@copilotkit/vue/v2";
+import { useDefaultRenderTool } from "@copilotkit/vue";
 import ToolCallCard from "./ToolCallCard.vue";
 
 useDefaultRenderTool({ render: ToolCallCard });
@@ -193,7 +193,7 @@ over can be listed here.
 ```vue
 <script setup lang="ts">
 import { h, ref } from "vue";
-import { useDefaultRenderTool } from "@copilotkit/vue/v2";
+import { useDefaultRenderTool } from "@copilotkit/vue";
 
 const compact = ref(false);
 

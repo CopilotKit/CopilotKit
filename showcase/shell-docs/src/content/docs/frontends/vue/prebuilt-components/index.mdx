@@ -7,7 +7,7 @@ hideTOC: true
 
 ## Prebuilt components for agentic chat
 
-`@copilotkit/vue/v2` ships three chat surfaces:
+`@copilotkit/vue` ships three chat surfaces:
 
 - **CopilotChat**: an inline pane that fills
   the container you give it.
@@ -44,7 +44,7 @@ provider's default slot. The chat surface includes its own CSS:
 
 ```vue title="App.vue"
 <script setup lang="ts">
-import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue/v2";
+import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue";
 </script>
 
 <template>
@@ -61,7 +61,7 @@ inside a child component of `CopilotKitProvider`. Its reactive configuration is
 then available to the nearest chat surface:
 
 ```ts
-import { useConfigureSuggestions } from "@copilotkit/vue/v2";
+import { useConfigureSuggestions } from "@copilotkit/vue";
 
 useConfigureSuggestions({
   suggestions: [{ title: "Summarize", message: "Summarize this page" }],

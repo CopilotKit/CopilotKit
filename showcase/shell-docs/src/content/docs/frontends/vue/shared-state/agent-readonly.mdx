@@ -32,7 +32,7 @@ Call `useAgentContext({ description, value })` once per value you want to publis
 ```vue title="src/components/WorkspaceContext.vue"
 <script setup lang="ts">
 import { ref } from "vue";
-import { useAgentContext } from "@copilotkit/vue/v2";
+import { useAgentContext } from "@copilotkit/vue";
 
 const workspaceId = ref("northstar");
 
@@ -55,7 +55,7 @@ The `description` is important: it is the human-readable label the agent sees al
 
 ```vue title="src/App.vue"
 <script setup lang="ts">
-import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue/v2";
+import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue";
 import WorkspaceContext from "./components/WorkspaceContext.vue";
 </script>
 

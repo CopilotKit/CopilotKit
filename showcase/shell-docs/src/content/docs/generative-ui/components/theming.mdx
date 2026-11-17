@@ -62,8 +62,8 @@ Every color, radius, shadow, and font of the standard components is a CSS variab
   <Tab value="Vue">
     ```vue
     <script setup lang="ts">
-    import { CopilotKitProvider } from "@copilotkit/vue/v2";
-    import { standardUI, type GenerativeUITheme } from "@copilotkit/vue/v2/generative-ui";
+    import { CopilotKitProvider } from "@copilotkit/vue";
+    import { standardUI, type GenerativeUITheme } from "@copilotkit/vue/generative-ui";
 
     const theme: GenerativeUITheme = {
       "--a2ui-color-accent": "#d97706",
@@ -119,7 +119,7 @@ Your editor lists all of them when you type a key in `theme`. To type a theme in
   </Tab>
   <Tab value="Vue">
     ```ts
-    import type { GenerativeUITheme } from "@copilotkit/vue/v2/generative-ui";
+    import type { GenerativeUITheme } from "@copilotkit/vue/generative-ui";
 
     export const theme: GenerativeUITheme = { "--a2ui-color-accent": "#d97706" };
     ```

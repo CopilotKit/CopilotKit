@@ -32,7 +32,7 @@ import {
   useThreads,
   type UseThreadsInput,
   type UseThreadsResult,
-} from "@copilotkit/vue/v2";
+} from "@copilotkit/vue";
 
 useThreads satisfies (input: UseThreadsInput) => UseThreadsResult;
 ```
@@ -141,7 +141,7 @@ useThreads satisfies (input: UseThreadsInput) => UseThreadsResult;
 ```vue
 <script setup lang="ts">
 import { computed } from "vue";
-import { useThreads } from "@copilotkit/vue/v2";
+import { useThreads } from "@copilotkit/vue";
 
 const { threads, isLoading, listError, refetchThreads } = useThreads({
   agentId: "support-agent",
@@ -159,7 +159,7 @@ const activeThreads = computed(() =>
 
 ```vue
 <script setup lang="ts">
-import { useThreads } from "@copilotkit/vue/v2";
+import { useThreads } from "@copilotkit/vue";
 
 const { hasMoreThreads, fetchMoreThreads, fetchMoreError } = useThreads({
   agentId: "support-agent",

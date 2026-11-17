@@ -11,7 +11,7 @@ It needs nothing on the agent side. The tool is declared by the frontend and for
 
 You call `registerComponent` inside an Angular injection context (a component or service constructor, or a field initializer). The registration happens immediately and is removed when the owning injector is destroyed.
 
-`registerComponent` is the Angular counterpart of `useComponent` in `@copilotkit/react-core` and `@copilotkit/vue/v2`. It builds the same model-facing tool description, so the tool reads identically to the model whichever frontend registered the component.
+`registerComponent` is the Angular counterpart of `useComponent` in `@copilotkit/react-core` and `@copilotkit/vue`. It builds the same model-facing tool description, so the tool reads identically to the model whichever frontend registered the component.
 
 <Callout type="info">
   Import from the package root, `@copilotkit/angular`. There is no `/v2`

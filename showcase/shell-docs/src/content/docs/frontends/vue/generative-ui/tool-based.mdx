@@ -43,7 +43,7 @@ Vue composables execute during component setup, so the component calling `useCom
 ```vue title="src/components/AgentExperience.vue"
 <script setup lang="ts">
 import { z } from "zod";
-import { CopilotChat, useComponent } from "@copilotkit/vue/v2";
+import { CopilotChat, useComponent } from "@copilotkit/vue";
 import WeatherCard from "./WeatherCard.vue";
 
 useComponent({
@@ -63,7 +63,7 @@ useComponent({
 
 ```vue title="src/App.vue"
 <script setup lang="ts">
-import { CopilotKitProvider } from "@copilotkit/vue/v2";
+import { CopilotKitProvider } from "@copilotkit/vue";
 import AgentExperience from "./components/AgentExperience.vue";
 </script>
 
