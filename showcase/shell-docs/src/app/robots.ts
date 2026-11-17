@@ -10,11 +10,14 @@ import { isIndexable } from "@/lib/seo/indexing";
 export default async function robots(): Promise<MetadataRoute.Robots> {
   // Read the environment per request, not once at build.
   await connection();
+  // The sitemap stays listed either way: it names docs.copilotkit.ai's
+  // URLs, and the deploy check (verify-deploy's docs driver) reads it.
+  const sitemap = absoluteUrl("/sitemap.xml");
   if (!isIndexable()) {
-    return { rules: [{ userAgent: "*", disallow: "/" }] };
+    return { rules: [{ userAgent: "*", disallow: "/" }], sitemap };
   }
   return {
     rules: [{ userAgent: "*", allow: "/", disallow: "/api/" }],
-    sitemap: absoluteUrl("/sitemap.xml"),
+    sitemap,
   };
 }
