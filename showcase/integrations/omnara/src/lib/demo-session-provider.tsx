@@ -1,6 +1,6 @@
 "use client";
 
-import { CopilotKit } from "@copilotkit/react-core/v2";
+import { CopilotKit, useCopilotKit } from "@copilotkit/react-core/v2";
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import type { DemoAgentId } from "./agents";
@@ -42,6 +42,45 @@ function requestSession(
     body: JSON.stringify({ agentId: agent }),
     signal,
   });
+}
+
+function SessionExpiryObserver({
+  agent,
+  token,
+  onExpiry,
+}: {
+  agent: DemoAgentId;
+  token: string;
+  onExpiry: () => void;
+}) {
+  const { copilotkit } = useCopilotKit();
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const subscription = copilotkit.subscribe({
+      onError({ code, context }) {
+        if (context?.runtimeStatus === 401) {
+          onExpiry();
+        } else if (code === "agent_run_failed") {
+          // A restarted runtime also rejects turns in an already open chat.
+          void requestSession(agent, token, controller.signal)
+            .then((response) => {
+              if (!controller.signal.aborted && response.status === 401) {
+                onExpiry();
+              }
+            })
+            .catch(() => {});
+        }
+      },
+    });
+
+    return () => {
+      controller.abort();
+      subscription.unsubscribe();
+    };
+  }, [agent, copilotkit, onExpiry, token]);
+
+  return null;
 }
 
 export function DemoSessionProvider({
@@ -98,19 +137,12 @@ export function DemoSessionProvider({
         agent={agent}
         threadId={threadId}
         headers={{ Authorization: `Bearer ${token}` }}
-        onError={({ code, context }) => {
-          if (context?.runtimeStatus === 401) {
-            endSession();
-          } else if (code === "agent_run_failed") {
-            // A restarted runtime also rejects turns in an already open chat.
-            void requestSession(agent, token)
-              .then((response) => {
-                if (response.status === 401) endSession();
-              })
-              .catch(() => {});
-          }
-        }}
       >
+        <SessionExpiryObserver
+          agent={agent}
+          token={token}
+          onExpiry={endSession}
+        />
         {children}
       </CopilotKit>
     );
