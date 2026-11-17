@@ -1,7 +1,7 @@
 import React from "react";
 import { render } from "@testing-library/react";
 import { stylesheet } from "@copilotkit/core/styles";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { CopilotChat } from "../../components/chat/CopilotChat";
 import {
   MockStepwiseAgent,
@@ -54,5 +54,65 @@ describe("CopilotKitStyles in the browser", () => {
     });
 
     expect(copilotKitStyles()).toHaveLength(1);
+  });
+});
+
+interface StyleProbe {
+  /** Whether CopilotKit's stylesheet was in the page when the probe ran. */
+  stylesheetInPage: boolean;
+}
+
+/**
+ * Records each time the page's style probe is read. The stub reports a probe
+ * without CopilotKit's styles, so core never marks the document as checked and
+ * every test sees its own reads. Core's tests cover what the probe reports.
+ */
+function recordStyleProbes() {
+  const probes: StyleProbe[] = [];
+  const realGetComputedStyle = window.getComputedStyle.bind(window);
+  vi.spyOn(window, "getComputedStyle").mockImplementation((element) => {
+    if (!element.matches("[data-copilotkit-style-probe]")) {
+      return realGetComputedStyle(element);
+    }
+    probes.push({ stylesheetInPage: copilotKitStyles().length > 0 });
+    return document.createElement("div").style;
+  });
+  return probes;
+}
+
+describe("CopilotKitStyles style override check", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
+  });
+
+  it("checks the page in development, after the stylesheet is in it", () => {
+    vi.stubEnv("NODE_ENV", "development");
+    const probes = recordStyleProbes();
+
+    render(<CopilotKitStyles />);
+
+    expect(probes).toEqual([{ stylesheetInPage: true }]);
+  });
+
+  it("does not check the page in production", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    const probes = recordStyleProbes();
+
+    render(<CopilotKitStyles />);
+
+    expect(probes).toEqual([]);
+  });
+
+  it("does not check the page when the app loads styles.css itself", () => {
+    vi.stubEnv("NODE_ENV", "development");
+    const probes = recordStyleProbes();
+
+    renderWithCopilotKit({
+      injectStyles: false,
+      children: <CopilotKitStyles />,
+    });
+
+    expect(probes).toEqual([]);
   });
 });

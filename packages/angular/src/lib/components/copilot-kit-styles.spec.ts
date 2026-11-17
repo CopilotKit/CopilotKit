@@ -1,11 +1,14 @@
 import { CSP_NONCE, Component, Injectable, signal } from "@angular/core";
 import type { Provider } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ChatState } from "../chat-state";
 import { provideCopilotKit } from "../config";
 import { CopilotChatView } from "./chat/copilot-chat-view";
-import { CopilotKitStyles } from "./copilot-kit-styles";
+import {
+  CopilotKitStyles,
+  ɵCOPILOTKIT_STYLES_DEVELOPMENT_MODE,
+} from "./copilot-kit-styles";
 import { CopilotPopup } from "./modal/copilot-popup";
 import { CopilotSidebar } from "./modal/copilot-sidebar";
 import { stylesheet } from "./stylesheet";
@@ -136,5 +139,75 @@ describe("CopilotKitStyles", () => {
 
     const [style] = stylesheetTags();
     expect(style?.getAttribute("nonce")).toBe("test-nonce");
+  });
+});
+
+interface StyleProbe {
+  /** Whether CopilotKit's stylesheet was in the page when the probe ran. */
+  stylesheetInPage: boolean;
+}
+
+/**
+ * Records each time the page's style probe is read. The stub reports a probe
+ * without CopilotKit's styles, so core never marks the document as checked and
+ * every test sees its own reads. Core's tests cover what the probe reports.
+ */
+function recordStyleProbes() {
+  const probes: StyleProbe[] = [];
+  const realGetComputedStyle = window.getComputedStyle.bind(window);
+  vi.spyOn(window, "getComputedStyle").mockImplementation((element) => {
+    if (!element.matches("[data-copilotkit-style-probe]")) {
+      return realGetComputedStyle(element);
+    }
+    probes.push({ stylesheetInPage: stylesheetTags().length > 0 });
+    return document.createElement("div").style;
+  });
+  return probes;
+}
+
+/** Renders a chat view, with or without development mode. */
+function renderChat(
+  config: Parameters<typeof provideCopilotKit>[0],
+  isDevelopment: boolean,
+) {
+  setup(config, [
+    { provide: ɵCOPILOTKIT_STYLES_DEVELOPMENT_MODE, useValue: isDevelopment },
+  ]);
+  const fixture = TestBed.createComponent(ChatOnlyHost);
+  fixture.detectChanges();
+}
+
+describe("CopilotKitStyles style override check", () => {
+  beforeEach(() => {
+    for (const style of stylesheetTags()) style.remove();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    TestBed.resetTestingModule();
+  });
+
+  it("checks the page in development, after the stylesheet is in it", () => {
+    const probes = recordStyleProbes();
+
+    renderChat({}, true);
+
+    expect(probes).toEqual([{ stylesheetInPage: true }]);
+  });
+
+  it("does not check the page in production", () => {
+    const probes = recordStyleProbes();
+
+    renderChat({}, false);
+
+    expect(probes).toEqual([]);
+  });
+
+  it("does not check the page with injectStyles: false", () => {
+    const probes = recordStyleProbes();
+
+    renderChat({ injectStyles: false }, true);
+
+    expect(probes).toEqual([]);
   });
 });

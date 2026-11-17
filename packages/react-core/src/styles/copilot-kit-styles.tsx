@@ -1,5 +1,5 @@
-import React, { createContext, useContext, version } from "react";
-import { stylesheet } from "@copilotkit/core/styles";
+import React, { createContext, useContext, useEffect, version } from "react";
+import { stylesheet, ɵwarnIfStylesOverridden } from "@copilotkit/core/styles";
 
 interface StyleOptions {
   /** CSP nonce for the `<style>` tag. */
@@ -31,9 +31,18 @@ export const CopilotStyleOptionsProvider = StyleOptionsContext.Provider;
  * passes a plain string, so a hoisted tag would be blocked.
  *
  * Renders nothing when `CopilotKitProvider` has `injectStyles={false}`.
+ *
+ * In development, it warns in the console when the app's CSS overrides these
+ * styles, such as a global reset outside a cascade layer.
  */
 export function CopilotKitStyles() {
   const { nonce, inject } = useContext(StyleOptionsContext);
+  useEffect(() => {
+    const checksOverrides = inject && process.env.NODE_ENV !== "production";
+    if (checksOverrides) {
+      ɵwarnIfStylesOverridden(document);
+    }
+  }, [inject]);
   if (!inject) {
     return null;
   }
