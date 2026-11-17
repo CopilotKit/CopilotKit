@@ -12,7 +12,7 @@ To hide, replace, or group the messages in the list, see [Reshaping the Message 
 
 ## Tailwind Classes
 
-The simplest way to customize a slot. Pass a Tailwind class string and it will be merged with the default component's classes.
+The simplest way to customize a slot. Pass a Tailwind class string and it will be merged with the default component's classes. With Tailwind v4, add `!` to each class, so that it overrides the CopilotKit CSS:
 
 ```tsx title="page.tsx"
 import { CopilotChat } from "@copilotkit/react-core";
@@ -21,8 +21,8 @@ export function Chat() {
   return (
     <CopilotChat
       // [!code highlight:2]
-      messageView="bg-gray-50 dark:bg-gray-900 p-4"
-      input="border-2 border-blue-400 rounded-xl"
+      messageView="bg-gray-50! dark:bg-gray-900! p-4!"
+      input="border-2! border-blue-400! rounded-xl!"
     />
   );
 }

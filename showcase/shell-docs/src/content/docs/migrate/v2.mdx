@@ -307,44 +307,6 @@ In an Angular app, add `angular.json` after `./src` so the codemod also updates 
 
 </Step>
 <Step>
-### If the chat has no padding, move your CSS reset into a layer
-
-After the upgrade, the chat has no padding and no margin. In development,
-the browser console also shows a `[CopilotKit]` warning that links to this step.
-
-The cause is a global CSS reset outside a cascade layer. Starter templates
-such as `create-next-app` and `create-vue` add one. CopilotKit puts its styles
-in cascade layers, and a rule outside a layer always wins over a rule in a layer.
-
-To correct this problem, put the reset in `@layer base`:
-
-#### Before
-
-```css title="app/globals.css"
-* {
-  box-sizing: border-box;
-  padding: 0;
-  margin: 0;
-}
-```
-
-#### After
-
-```css title="app/globals.css"
-@layer base {
-  * {
-    box-sizing: border-box;
-    padding: 0;
-    margin: 0;
-  }
-}
-```
-
-The reset still applies to the rest of your app. Reload the page. The chat
-has its spacing again, and the console warning is gone.
-
-</Step>
-<Step>
 ### Upgrade AG-UI client if using it directly
 
 If you import from `@ag-ui/client` directly, install the version that `@copilotkit/runtime` depends on:
