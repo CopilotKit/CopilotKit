@@ -16,7 +16,7 @@ const sampleMessages: Message[] = [
 
 /** Declarations of the stylesheet's `:where(<selector>)` rule, outside media queries. */
 function cssRule(selector: string): string {
-  const start = stylesheet.indexOf(`}:where(${selector}){`);
+  const start = stylesheet.indexOf(`}html body :where(${selector}){`);
   if (start === -1) throw new Error(`no rule for ${selector}`);
   const body = stylesheet.indexOf("{", start + 1) + 1;
   return stylesheet.slice(body, stylesheet.indexOf("}", body));

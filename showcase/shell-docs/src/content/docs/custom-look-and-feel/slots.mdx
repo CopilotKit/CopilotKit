@@ -51,6 +51,7 @@ override stays after the first message:
 ## Tailwind Classes
 
 Pass a Tailwind class string. CopilotKit merges it with the classes of the default component.
+With Tailwind v4, add `!` to each class, so that it overrides the CopilotKit CSS:
 
 ```tsx title="page.tsx"
 import { CopilotChat } from "@copilotkit/react-core";
@@ -58,8 +59,8 @@ import { CopilotChat } from "@copilotkit/react-core";
 export function Chat() {
   return (
     <CopilotChat
-      messageView="bg-gray-50 dark:bg-gray-900 p-4"
-      input="border-2 border-blue-400 rounded-xl"
+      messageView="bg-gray-50! dark:bg-gray-900! p-4!"
+      input="border-2! border-blue-400! rounded-xl!"
     />
   );
 }

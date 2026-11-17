@@ -94,11 +94,13 @@ matching dark-mode value under `.dark [data-copilotkit]`. The full set
 | `--sidebar-*` | The sidebar's own background/foreground/border/ring set |
 | `--radius` | Base corner radius. The other corner radii are calculated from it |
 
-<Callout type="info" title="Your styles always win">
-  The CopilotKit CSS is in the `base` and `utilities` cascade layers, and its
-  selectors have zero specificity. So your own CSS overrides it in any load
-  order: rules outside a layer always win, and so do Tailwind utility classes.
-  You don't need `!important`.
+<Callout type="info" title="Your class rules win">
+  A rule with a class selector overrides the CopilotKit CSS, in any load order.
+  The CopilotKit rules have the specificity of two element selectors, so a
+  global reset such as `* { padding: 0 }` does not change the chat.
+
+  A Tailwind v4 class is in a cascade layer. To change a style of a CopilotKit
+  element, add `!` to the class, for example `p-4!`.
 </Callout>
 
 <Callout type="info" title="oklch values">

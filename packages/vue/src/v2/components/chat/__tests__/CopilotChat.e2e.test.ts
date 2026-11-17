@@ -662,23 +662,27 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
         ),
       );
 
+      // The toolbar hides on the latest assistant message while the run is
+      // going, so finish the run first.
+      agent.emit(runFinishedEvent());
+
       await waitFor(() => {
         // The streaming renderer splits text across span segments; query by textContent instead.
-        const allMessages = screen.queryAllByText((_t, element) =>
-          (element?.textContent ?? "").includes(
-            "Here is some actual text content",
-          ),
+        expect(document.body.textContent).toContain(
+          "Here is some actual text content",
         );
-        expect(allMessages.length).toBeGreaterThan(0);
 
-        const toolbarButtons = screen.getAllByRole("button");
-        const copyButton = toolbarButtons.find((btn) =>
-          btn.getAttribute("aria-label")?.toLowerCase().includes("copy"),
+        // The message with content has a copy button.
+        const messageWithContent = document.querySelector(
+          `[data-testid="copilot-assistant-message"][data-message-id="${messageWithContentId}"]`,
         );
-        expect(copyButton).toBeDefined();
+        expect(
+          messageWithContent?.querySelector(
+            '[data-testid="copilot-copy-button"]',
+          ),
+        ).not.toBeNull();
       });
 
-      agent.emit(runFinishedEvent());
       agent.complete();
     });
 

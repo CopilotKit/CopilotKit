@@ -7,11 +7,3 @@
  * browsers to cache it as a file.
  */
 export { stylesheet } from "./stylesheet";
-
-// Names that start with `ɵ` are internal: the framework packages use them, and
-// they can change in any release.
-export {
-  ɵdetectStyleOverrides,
-  ɵwarnIfStylesOverridden,
-} from "./style-overrides";
-export type { ɵStyleOverride } from "./style-overrides";
