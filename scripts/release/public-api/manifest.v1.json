@@ -2603,6 +2603,86 @@
             "path": "packages/vue/package.json",
             "selector": "exports[\"./package.json\"]"
           }
+        },
+        {
+          "importPath": "@copilotkit/vue/v2",
+          "exportKey": "./v2",
+          "kind": "code",
+          "conditions": {
+            "import": {
+              "types": "./dist/v2/index.d.mts",
+              "default": "./dist/index.mjs"
+            },
+            "require": {
+              "types": "./dist/v2/index.d.cts",
+              "default": "./dist/index.cjs"
+            }
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/vue/package.json",
+            "selector": "exports[\"./v2\"]"
+          }
+        },
+        {
+          "importPath": "@copilotkit/vue/v2/generative-ui",
+          "exportKey": "./v2/generative-ui",
+          "kind": "code",
+          "conditions": {
+            "import": {
+              "types": "./dist/v2/generative-ui.d.mts",
+              "default": "./dist/generative-ui/index.mjs"
+            },
+            "require": {
+              "types": "./dist/v2/generative-ui.d.cts",
+              "default": "./dist/generative-ui/index.cjs"
+            }
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/vue/package.json",
+            "selector": "exports[\"./v2/generative-ui\"]"
+          }
+        },
+        {
+          "importPath": "@copilotkit/vue/v2/generative-ui/chart",
+          "exportKey": "./v2/generative-ui/chart",
+          "kind": "code",
+          "conditions": {
+            "import": {
+              "types": "./dist/v2/generative-ui/chart.d.mts",
+              "default": "./dist/generative-ui-chart/index.mjs"
+            },
+            "require": {
+              "types": "./dist/v2/generative-ui/chart.d.cts",
+              "default": "./dist/generative-ui-chart/index.cjs"
+            }
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/vue/package.json",
+            "selector": "exports[\"./v2/generative-ui/chart\"]"
+          }
+        },
+        {
+          "importPath": "@copilotkit/vue/v2/generative-ui/map",
+          "exportKey": "./v2/generative-ui/map",
+          "kind": "code",
+          "conditions": {
+            "import": {
+              "types": "./dist/v2/generative-ui/map.d.mts",
+              "default": "./dist/generative-ui-map/index.mjs"
+            },
+            "require": {
+              "types": "./dist/v2/generative-ui/map.d.cts",
+              "default": "./dist/generative-ui-map/index.cjs"
+            }
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/vue/package.json",
+            "selector": "exports[\"./v2/generative-ui/map\"]"
+          }
         }
       ],
       "compatibility": {

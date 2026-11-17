@@ -122,12 +122,11 @@ function check(
     },
     getCurrentDirectory: () => root,
     getCompilationSettings: () => compilerOptions,
-    getDefaultLibFileName: ts.getDefaultLibFilePath,
-    fileExists: ts.sys.fileExists,
-    readFile: ts.sys.readFile,
-    readDirectory: ts.sys.readDirectory,
-    directoryExists: ts.sys.directoryExists,
-    getDirectories: ts.sys.getDirectories,
+    getDefaultLibFileName: (settings) => ts.getDefaultLibFilePath(settings),
+    fileExists: (name) => ts.sys.fileExists(name),
+    readFile: (name) => ts.sys.readFile(name),
+    directoryExists: (name) => ts.sys.directoryExists(name),
+    getDirectories: (name) => ts.sys.getDirectories(name),
   });
   const errors = service
     .getSemanticDiagnostics(fileName)

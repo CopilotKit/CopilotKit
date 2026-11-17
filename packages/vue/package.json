@@ -34,6 +34,18 @@
       ],
       "generative-ui/map": [
         "./dist/generative-ui-map/index.d.cts"
+      ],
+      "v2": [
+        "./dist/v2/index.d.cts"
+      ],
+      "v2/generative-ui": [
+        "./dist/v2/generative-ui.d.cts"
+      ],
+      "v2/generative-ui/chart": [
+        "./dist/v2/generative-ui/chart.d.cts"
+      ],
+      "v2/generative-ui/map": [
+        "./dist/v2/generative-ui/map.d.cts"
       ]
     }
   },
@@ -78,13 +90,53 @@
         "default": "./dist/generative-ui-map/index.cjs"
       }
     },
+    "./v2": {
+      "import": {
+        "types": "./dist/v2/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/v2/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./v2/generative-ui": {
+      "import": {
+        "types": "./dist/v2/generative-ui.d.mts",
+        "default": "./dist/generative-ui/index.mjs"
+      },
+      "require": {
+        "types": "./dist/v2/generative-ui.d.cts",
+        "default": "./dist/generative-ui/index.cjs"
+      }
+    },
+    "./v2/generative-ui/chart": {
+      "import": {
+        "types": "./dist/v2/generative-ui/chart.d.mts",
+        "default": "./dist/generative-ui-chart/index.mjs"
+      },
+      "require": {
+        "types": "./dist/v2/generative-ui/chart.d.cts",
+        "default": "./dist/generative-ui-chart/index.cjs"
+      }
+    },
+    "./v2/generative-ui/map": {
+      "import": {
+        "types": "./dist/v2/generative-ui/map.d.mts",
+        "default": "./dist/generative-ui-map/index.mjs"
+      },
+      "require": {
+        "types": "./dist/v2/generative-ui/map.d.cts",
+        "default": "./dist/generative-ui-map/index.cjs"
+      }
+    },
     "./package.json": "./package.json"
   },
   "publishConfig": {
     "access": "public"
   },
   "scripts": {
-    "build": "vite build && pnpm build:types",
+    "build": "vite build && pnpm build:types && tsx ../../scripts/deprecations/v2-subpath-aliases.mts",
     "build:types": "vue-tsc -p tsconfig.json --declaration --emitDeclarationOnly --outDir dist --skipLibCheck && node -e \"const fs=require('fs');for(const d of ['index','generative-ui/index','generative-ui-chart/index','generative-ui-map/index']){const f='./dist/'+d;fs.cpSync(f+'.d.ts',f+'.d.mts');fs.cpSync(f+'.d.ts',f+'.d.cts')}\"",
     "dev": "vite build --watch",
     "test": "vitest run",

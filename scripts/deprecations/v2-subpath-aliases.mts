@@ -57,6 +57,11 @@ export interface V2Aliases {
   stylesheets: string[];
 }
 
+function isPackageJson(value: unknown): value is PackageJson {
+  if (typeof value !== "object" || value === null) return false;
+  return "name" in value && typeof value.name === "string";
+}
+
 function isBuiltEntry(value: unknown): value is BuiltEntry {
   if (typeof value !== "object" || value === null) return false;
   return (
@@ -120,29 +125,43 @@ export function v2AliasExports(
   return result;
 }
 
-/** The import path of the 2.0 entry whose `format` file is `file`. */
+/**
+ * The JavaScript and declaration files of one format of an `exports` entry:
+ * a file (tsdown writes the declarations next to it), or `{ types, default }`.
+ */
+function filesOf(target: unknown) {
+  if (typeof target === "string") {
+    return { file: target, types: target.replace(/\.(m|c)js$/, ".d.$1ts") };
+  }
+  return isAliasFiles(target)
+    ? { file: target.default, types: target.types }
+    : undefined;
+}
+
+/**
+ * The 2.0 entry whose `format` file is `file`: its import path, and its
+ * declaration file.
+ */
 function replacementOf(
   pkg: PackageJson,
   exports: Record<string, unknown>,
   file: string,
-  format: keyof BuiltEntry,
+  format: keyof AliasEntry,
 ) {
-  const match = Object.entries(exports).find(
-    ([subpath, target]) =>
-      !subpath.startsWith("./v2") &&
-      isBuiltEntry(target) &&
-      target[format] === file,
-  );
-  if (!match) {
-    throw new Error(`${pkg.name} exports no 2.0 entry with the file ${file}.`);
+  for (const [subpath, target] of Object.entries(exports)) {
+    const isEntry = typeof target === "object" && target !== null;
+    if (subpath.startsWith("./v2") || !isEntry || !(format in target)) {
+      continue;
+    }
+    const files = filesOf(Reflect.get(target, format));
+    if (files?.file !== file) continue;
+    return {
+      specifier:
+        subpath === "." ? pkg.name : `${pkg.name}/${subpath.slice(2)}`,
+      types: files.types,
+    };
   }
-  const [subpath] = match;
-  return subpath === "." ? pkg.name : `${pkg.name}/${subpath.slice(2)}`;
-}
-
-/** The declaration file of a built `.mjs` or `.cjs` file. */
-function declarationOf(file: string) {
-  return file.replace(/\.(m|c)js$/, ".d.$1ts");
+  throw new Error(`${pkg.name} exports no 2.0 entry with the file ${file}.`);
 }
 
 /** A relative import of `file` from the directory of `fromFile`. */
@@ -153,9 +172,11 @@ function relativeImport(fromFile: string, file: string) {
 
 /** The names that each declaration file of `files` exports, sorted. */
 function exportNamesOf(files: string[]) {
+  // Bundler resolution reads both the `.mjs` imports of tsdown and the
+  // extensionless imports that vue-tsc emits.
   const program = ts.createProgram(files, {
-    module: ts.ModuleKind.NodeNext,
-    moduleResolution: ts.ModuleResolutionKind.NodeNext,
+    module: ts.ModuleKind.ESNext,
+    moduleResolution: ts.ModuleResolutionKind.Bundler,
     noEmit: true,
     skipLibCheck: true,
     types: [],
@@ -219,9 +240,9 @@ export function renderAliasStylesheet(alias: string) {
  * the files it wrote, relative to `packageDir`.
  */
 export function writeV2Aliases(packageDir: string) {
-  const pkg = JSON.parse(
-    readFileSync(path.join(packageDir, "package.json"), "utf8"),
-  ) as PackageJson;
+  const manifest = path.join(packageDir, "package.json");
+  const pkg: unknown = JSON.parse(readFileSync(manifest, "utf8"));
+  if (!isPackageJson(pkg)) throw new Error(`${manifest} has no name.`);
   const exports = pkg.exports ?? {};
   const aliases = Object.entries(exports).filter(([subpath]) =>
     subpath.startsWith("./v2"),
@@ -249,14 +270,15 @@ export function writeV2Aliases(packageDir: string) {
         `${alias} is not a /v2 alias: run the build first, so that v2AliasExports writes it.`,
       );
     }
-    const formats: (keyof BuiltEntry)[] = ["import", "require"];
+    const formats: (keyof AliasEntry)[] = ["import", "require"];
     for (const format of formats) {
       const { types, default: file } = target[format];
+      const replacement = replacementOf(pkg, exports, file, format);
       declarations.push({
         file: types,
-        source: path.join(packageDir, declarationOf(file)),
+        source: path.join(packageDir, replacement.types),
         alias,
-        replacement: replacementOf(pkg, exports, file, format),
+        replacement: replacement.specifier,
         from: relativeImport(types, file),
       });
     }

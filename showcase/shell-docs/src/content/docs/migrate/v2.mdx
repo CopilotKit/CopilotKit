@@ -13,10 +13,9 @@ serves AG-UI agents from `@copilotkit/runtime`. The `@copilotkit/react-ui` and
 
 If your app already used the `/v2` subpaths that CopilotKit 1.x shipped
 (`@copilotkit/react-core/v2`, `@copilotkit/runtime/v2`, `@copilotkit/vue/v2`),
-the same APIs now import from the package root. In 2.0, the `/v2` subpaths of
-React and the runtime are deprecated aliases of the package roots. Your imports
-still work, and your editor marks them as deprecated. Move each import to the
-package root. `@copilotkit/react-core/v2/styles.css` is empty, because the 2.0
+the same APIs now import from the package root. In 2.0, these `/v2` subpaths
+are deprecated aliases of the package roots. Your imports still work, and your
+editor marks them as deprecated. Move each import to the package root. `@copilotkit/react-core/v2/styles.css` is empty, because the 2.0
 components add their own styles. Delete that import.
 
 This migration is not a global string replacement. Some exports kept their

@@ -1,6 +1,6 @@
 # v1 to 2.0 mappings
 
-Every example imports from the 2.0 package roots. In 2.0, the `/v2` subpaths of React and the runtime are deprecated aliases of the package roots. Move every `/v2` import to the root.
+Every example imports from the 2.0 package roots. In 2.0, the `/v2` subpaths of React, Vue and the runtime are deprecated aliases of the package roots. Move every `/v2` import to the root.
 
 ## Provider
 

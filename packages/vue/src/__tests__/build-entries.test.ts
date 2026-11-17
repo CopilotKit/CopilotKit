@@ -53,6 +53,28 @@ const packageExports = [
   },
 ] as const;
 
+// The `/v2` subpaths of 1.x, kept as deprecated aliases of the 2.0 entries:
+// the JavaScript of the entry, and declarations of their own that mark each
+// name deprecated (written by scripts/deprecations/v2-subpath-aliases.mts).
+const v2Aliases = [
+  { key: "./v2", entry: "index", types: "./dist/v2/index" },
+  {
+    key: "./v2/generative-ui",
+    entry: "generative-ui/index",
+    types: "./dist/v2/generative-ui",
+  },
+  {
+    key: "./v2/generative-ui/chart",
+    entry: "generative-ui-chart/index",
+    types: "./dist/v2/generative-ui/chart",
+  },
+  {
+    key: "./v2/generative-ui/map",
+    entry: "generative-ui-map/index",
+    types: "./dist/v2/generative-ui/map",
+  },
+] as const;
+
 // Loading the root entry transforms the whole package from source, which can
 // take longer than a test's timeout, so the entries load once, here.
 const builtEntries = new Map(
@@ -69,9 +91,23 @@ describe("library build entries", () => {
       packageExports.map(({ entry }) => entry).sort(),
     );
     expect(Object.keys(packageJson.exports).sort()).toEqual(
-      [...packageExports.map(({ key }) => key), "./package.json"].sort(),
+      [
+        ...packageExports.map(({ key }) => key),
+        ...v2Aliases.map(({ key }) => key),
+        "./package.json",
+      ].sort(),
     );
   });
+
+  it.each(v2Aliases)(
+    "keeps $key as a deprecated alias of dist/$entry",
+    ({ key, entry, types }) => {
+      expect(packageJson.exports[key]).toEqual({
+        import: { types: `${types}.d.mts`, default: `./dist/${entry}.mjs` },
+        require: { types: `${types}.d.cts`, default: `./dist/${entry}.cjs` },
+      });
+    },
+  );
 
   it.each(packageExports)(
     "ships $key from dist/$entry, with its types next to the JS",
