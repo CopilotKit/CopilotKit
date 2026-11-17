@@ -226,6 +226,22 @@ export function createSseEventResponse({
     // fields still win, since `collectExecutionInfo` writes over this.
     const executionInfo: AgentExecutionResponseInfo = { ...executionSeed };
 
+    // A failed run reaches us two ways: the runner errors the observable, or
+    // (the default in-memory runner) it streams a RUN_ERROR and completes.
+    // Both count as one `stream_errored`, so they share this guard. It resets
+    // on each RUN_STARTED because a stream can carry several runs.
+    let streamErrorCaptured = false;
+    const captureStreamErrored = () => {
+      if (!captureTelemetry || streamErrorCaptured) return;
+      streamErrorCaptured = true;
+      // Analytics gets the outcome, not the message: provider and tool
+      // errors can quote prompts, arguments or URLs. Same as Intelligence.
+      telemetry.capture("oss.runtime.agent_execution_stream_errored", {
+        ...executionInfo,
+        error: "AGENT_EXECUTION_FAILED",
+      });
+    };
+
     subscription = observable.subscribe({
       next: async (event) => {
         collectExecutionInfo(event, executionInfo);
@@ -235,6 +251,7 @@ export function createSseEventResponse({
           const e = event as { threadId?: string; runId?: string };
           debugThreadId = e.threadId ?? "";
           debugRunId = e.runId ?? "";
+          streamErrorCaptured = false;
         }
 
         if (event.type === "RUN_ERROR") {
@@ -253,6 +270,7 @@ export function createSseEventResponse({
             ),
             "sse.subscription",
           );
+          captureStreamErrored();
         }
 
         // Broadcast to debug listeners BEFORE the stream-closed gate below.
@@ -327,14 +345,7 @@ export function createSseEventResponse({
           return;
         }
         reportAgentError(error, "sse.subscription");
-        if (captureTelemetry) {
-          // Analytics gets the outcome, not the message: provider and tool
-          // errors can quote prompts, arguments or URLs. Same as Intelligence.
-          telemetry.capture("oss.runtime.agent_execution_stream_errored", {
-            ...executionInfo,
-            error: "AGENT_EXECUTION_FAILED",
-          });
-        }
+        captureStreamErrored();
         if (debug?.lifecycle) {
           debugLogger!.debug(
             { error: error instanceof Error ? error.message : String(error) },
