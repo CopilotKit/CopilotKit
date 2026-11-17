@@ -148,14 +148,13 @@ Before you begin, you'll need the following:
                 Create a new agent file in your Mastra project:
 
                 ```ts title="src/mastra/agents/index.ts"
-                import { openai } from "@ai-sdk/openai";
                 import { Agent } from "@mastra/core/agent";
 
                 export const myAgent = new Agent({
                   id: "my-agent",
                   name: "My Agent",
                   instructions: "You are a helpful assistant!",
-                  model: openai("gpt-6-luna"),
+                  model: "openai/gpt-6-luna",
                 });
                 ```
 
@@ -177,16 +176,18 @@ Before you begin, you'll need the following:
                 </Callout>
 
                 <Callout type="info" title="Running this agent on Anthropic instead">
-                  This example uses OpenAI's `gpt-6-luna`. For Claude, install
-                  `@ai-sdk/anthropic`, then swap the import and the `model` setting:
+                  This example uses OpenAI's `gpt-6-luna`. For Claude, change the `model`
+                  string. Mastra's model router needs no extra package:
 
                   ```ts title="src/mastra/agents/index.ts"
-                  import { anthropic } from "@ai-sdk/anthropic";
-                  // model: anthropic("claude-sonnet-4-6"),
+                  export const myAgent = new Agent({
+                    // ...
+                    model: "anthropic/claude-sonnet-4-6",
+                  });
                   ```
 
-                  The credential variable changes with the vendor. Anthropic's provider
-                  reads `ANTHROPIC_API_KEY`, so export that instead of
+                  The credential variable changes with the vendor. For Anthropic models,
+                  Mastra reads `ANTHROPIC_API_KEY`, so export that instead of
                   `OPENAI_API_KEY` in the next step.
 
                   <ApiKeyHint provider="anthropic" />
