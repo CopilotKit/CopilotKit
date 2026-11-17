@@ -61,9 +61,9 @@ function handleSubmit(value: string) {
   Controls how the view scrolls as new messages stream in. Accepts an
   `AutoScrollMode` string or a boolean:
 
-  - `"pin-to-bottom"` / `true` -- stick to the bottom while the user is at the bottom.
-  - `"pin-to-send"` -- anchor the latest user message near the top of the viewport while the assistant streams a response.
-  - `"none"` / `false` -- never auto-scroll.
+  - `"pin-to-bottom"` / `true`: stick to the bottom while the user is at the bottom.
+  - `"pin-to-send"`: anchor the latest user message near the top of the viewport while the assistant streams a response.
+  - `"none"` / `false`: never auto-scroll.
 
   A scroll-to-bottom button appears whenever the user has scrolled up.
 </PropertyReference>
@@ -83,7 +83,7 @@ function handleSubmit(value: string) {
 
 <PropertyReference name="suggestionLoadingIndexes" type="ReadonlyArray<number>" default="[]">
   Indexes of suggestions that are currently in a loading state (for example, the
-  user just clicked one and the agent is processing).
+  user clicked one and the agent is processing).
 </PropertyReference>
 
 <PropertyReference name="welcomeScreen" type="boolean" default="true">

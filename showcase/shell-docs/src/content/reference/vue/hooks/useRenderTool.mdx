@@ -115,9 +115,9 @@ useRenderTool<S>(
 
 The three states are:
 
-- `{ status: "inProgress", parameters: Partial<T>, result: undefined }` -- arguments are still being streamed.
-- `{ status: "executing", parameters: T, result: undefined }` -- arguments are fully resolved; the tool is executing.
-- `{ status: "complete", parameters: T, result: string }` -- execution finished and a result is available.
+- `{ status: "inProgress", parameters: Partial<T>, result: undefined }`: arguments are still being streamed.
+- `{ status: "executing", parameters: T, result: undefined }`: arguments are fully resolved; the tool is executing.
+- `{ status: "complete", parameters: T, result: string }`: execution finished and a result is available.
 
 ## Behavior
 

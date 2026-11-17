@@ -158,7 +158,7 @@ useAgentContext({
 
 ## What the agent receives
 
-Every registered entry reaches the agent as `{ description, value }`, and `value` is a **JSON string** - not the object or array you passed. The AG-UI protocol types it as a string, so this is not an implementation detail you can ignore when writing the agent.
+Every registered entry reaches the agent as `{ description, value }`, and `value` is a **JSON string**, not the object or array you passed. The AG-UI protocol types it as a string, so this is not an implementation detail you can ignore when writing the agent.
 
 Registering this:
 
@@ -204,7 +204,7 @@ const entry = context.find(
 const records = entry ? JSON.parse(entry.value) : undefined;
 ```
 
-Where that context list surfaces in your agent depends on your framework's AG-UI adapter - see your integration's guide for the field it populates.
+Where that context list surfaces in your agent depends on your framework's AG-UI adapter. See your integration's guide for the field it populates.
 
 <Callout type="warn">
   Do not type-check `value` against the shape you registered.
@@ -219,6 +219,6 @@ Where that context list surfaces in your agent depends on your framework's AG-UI
 
 - **Scope lifecycle**: The context is registered while the composable's reactive scope is active and is removed automatically on scope cleanup (component unmount). No manual cleanup is required.
 - **Reactive updates**: `description` and `value` are resolved with `toValue`, so refs, computeds, and getters are tracked. When a resolved value changes, the composable removes the old entry and registers the new value. The agent then sees the current value.
-- **Serialization**: String values are passed through as-is. Any other value is serialized with `JSON.stringify`, so it must conform to `JsonSerializable` (`string | number | boolean | null | JsonSerializable[] | { [key: string]: JsonSerializable }`). Non-serializable values such as functions, class instances, or symbols will not serialize correctly. The agent therefore always reads a string - see [What the agent receives](#what-the-agent-receives).
+- **Serialization**: String values are passed through as-is. Any other value is serialized with `JSON.stringify`, so it must conform to `JsonSerializable` (`string | number | boolean | null | JsonSerializable[] | { [key: string]: JsonSerializable }`). Non-serializable values such as functions, class instances, or symbols will not serialize correctly. The agent therefore always reads a string. See [What the agent receives](#what-the-agent-receives).
 - **Multiple contexts**: Multiple `useAgentContext` calls across your component tree are all visible to the agent concurrently. Each is identified internally by an ID returned from `addContext` and removed on cleanup.
 - **No return value**: The composable returns `void`.

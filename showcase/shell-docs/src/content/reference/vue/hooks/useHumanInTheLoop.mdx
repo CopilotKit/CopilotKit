@@ -55,26 +55,26 @@ function useHumanInTheLoop<T extends Record<string, unknown>>(
     A Vue component (or render function) that drives the human interaction. It receives the following props, whose shape depends on the current `status`:
 
     **Always present:**
-    - `name: string` -- the tool name
-    - `description: string` -- the tool description (an empty string when the tool defines none)
-    - `toolCallId: string` -- the unique id of this tool call
-    - `agentId?: string` -- the `agentId` of the tool, when the tool has one
-    - `status: ToolCallStatus` -- the current phase (`"inProgress"`, `"executing"`, or `"complete"`)
+    - `name: string`: the tool name
+    - `description: string`: the tool description (an empty string when the tool defines none)
+    - `toolCallId: string`: the unique id of this tool call
+    - `agentId?: string`: the `agentId` of the tool, when the tool has one
+    - `status: ToolCallStatus`: the current phase (`"inProgress"`, `"executing"`, or `"complete"`)
 
     **When `status` is `ToolCallStatus.InProgress` (`"inProgress"`):**
-    - `args: Partial<T>` -- partially streamed arguments
+    - `args: Partial<T>`: partially streamed arguments
     - `result: undefined`
-    - `respond: undefined` -- not yet available
+    - `respond: undefined`: not yet available
 
     **When `status` is `ToolCallStatus.Executing` (`"executing"`):**
-    - `args: T` -- fully resolved arguments
+    - `args: T`: fully resolved arguments
     - `result: undefined`
-    - `respond: (result: unknown) => Promise<void>` -- call this to send the user's response back to the agent and resume execution
+    - `respond: (result: unknown) => Promise<void>`: call this to send the user's response back to the agent and resume execution
 
     **When `status` is `ToolCallStatus.Complete` (`"complete"`):**
-    - `args: T` -- the original arguments
-    - `result: string` -- the serialized result
-    - `respond: undefined` -- no longer available
+    - `args: T`: the original arguments
+    - `result: string`: the serialized result
+    - `respond: undefined`: not available, because the user already responded
 
   </PropertyReference>
 
