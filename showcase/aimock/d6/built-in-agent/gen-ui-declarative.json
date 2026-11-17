@@ -158,6 +158,37 @@
       }
     },
     {
+      "_comment": "Shared e2e pill team-performance (turn 0) — outer agent emits generate_a2ui with a brief echoing the prompt, like the sales-dashboard hero. The e2e spec opens a fresh page per pill, so this pill is the first assistant action there; the turnIndex pair below serves the 4-pill D5/D6 conversation. Without this entry the tool-less secondary entry answered the outer call with A2UI JSON as plain text.",
+      "match": {
+        "userMessage": "How are our sales reps performing against quota?",
+        "toolName": "generate_a2ui",
+        "turnIndex": 0,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_decl_team_outer_bia_002",
+            "name": "generate_a2ui",
+            "arguments": "{\"brief\":\"How are our sales reps performing against quota?\"}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "Shared e2e pill team-performance (turn 0) — outer agent narration after tool result. turnIndex 1 = after the toolcall assistant turn.",
+      "match": {
+        "userMessage": "How are our sales reps performing against quota?",
+        "toolName": "generate_a2ui",
+        "turnIndex": 1,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Here's how the team is tracking against quota."
+      }
+    },
+    {
       "_comment": "D5/D6 PROBE pill team-performance (turn 2) — outer agent emits generate_a2ui. turnIndex 2 = even (outer toolcall).",
       "match": {
         "userMessage": "How are our sales reps performing against quota?",
@@ -189,6 +220,37 @@
       }
     },
     {
+      "_comment": "Shared e2e pill at-risk (turn 0) — outer agent emits generate_a2ui with a brief echoing the prompt, like the sales-dashboard hero. The e2e spec opens a fresh page per pill, so this pill is the first assistant action there; the turnIndex pair below serves the 4-pill D5/D6 conversation. Without this entry the tool-less secondary entry answered the outer call with A2UI JSON as plain text.",
+      "match": {
+        "userMessage": "Are any accounts or pipeline deals at risk this quarter?",
+        "toolName": "generate_a2ui",
+        "turnIndex": 0,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_decl_risk_outer_bia_002",
+            "name": "generate_a2ui",
+            "arguments": "{\"brief\":\"Are any accounts or pipeline deals at risk this quarter?\"}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "Shared e2e pill at-risk (turn 0) — outer agent narration after tool result. turnIndex 1 = after the toolcall assistant turn.",
+      "match": {
+        "userMessage": "Are any accounts or pipeline deals at risk this quarter?",
+        "toolName": "generate_a2ui",
+        "turnIndex": 1,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Three accounts need attention this quarter."
+      }
+    },
+    {
       "_comment": "D5/D6 PROBE pill at-risk (turn 3) — outer agent emits generate_a2ui. turnIndex 4 = even (outer toolcall).",
       "match": {
         "userMessage": "Are any accounts or pipeline deals at risk this quarter?",
@@ -217,6 +279,37 @@
       },
       "response": {
         "content": "Three accounts need attention this quarter."
+      }
+    },
+    {
+      "_comment": "Shared e2e pill top-account (turn 0) — outer agent emits generate_a2ui with a brief echoing the prompt, like the sales-dashboard hero. The e2e spec opens a fresh page per pill, so this pill is the first assistant action there; the turnIndex pair below serves the 4-pill D5/D6 conversation. Without this entry the tool-less secondary entry answered the outer call with A2UI JSON as plain text.",
+      "match": {
+        "userMessage": "Pull up the details on our biggest account.",
+        "toolName": "generate_a2ui",
+        "turnIndex": 0,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_decl_acct_outer_bia_002",
+            "name": "generate_a2ui",
+            "arguments": "{\"brief\":\"Pull up the details on our biggest account.\"}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "Shared e2e pill top-account (turn 0) — outer agent narration after tool result. turnIndex 1 = after the toolcall assistant turn.",
+      "match": {
+        "userMessage": "Pull up the details on our biggest account.",
+        "toolName": "generate_a2ui",
+        "turnIndex": 1,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Here's the rundown on Meridian Apparel Group."
       }
     },
     {

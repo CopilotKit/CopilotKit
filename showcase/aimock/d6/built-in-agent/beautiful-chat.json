@@ -109,6 +109,45 @@
       "response": {
         "content": "Theme toggled."
       }
+    },
+    {
+      "_comment": "beautiful-chat 'Pie Chart (Controlled Generative UI)' pill — narration after the pieChart tool returns. The leg-1 pieChart call is d4/built-in-agent/chat.json ('revenue distribution by category', hasToolResult:false), and its d4 narration is keyed on toolCallId call_fp_pie_chart_001, which built-in-agent rewrites to a generated `fc-…` id, so the follow-up matched no fixture. Keyed on the tool result in the current turn instead. Listed after the d5 probe entries above, which keep serving the probe's own prompt.",
+      "match": {
+        "userMessage": "revenue distribution by category",
+        "hasToolResult": true,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Pie chart rendered above — Electronics is the largest slice, followed by Clothing, Food, and Books."
+      }
+    },
+    {
+      "_comment": "beautiful-chat 'Search Flights (A2UI Fixed Schema)' pill — sends 'Find flights from SFO to JFK for next Tuesday.'. Mirrors langgraph-python/beautiful-chat.json: search_flights takes `flights: list[Flight]`, and the specs assert United Airlines + $349 + Delta + $289. 'for next Tuesday' keeps it scoped to this pill. hasToolResult:false gates it to the first leg.",
+      "match": {
+        "userMessage": "for next Tuesday",
+        "hasToolResult": false,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_bc_search_flights_001",
+            "name": "search_flights",
+            "arguments": "{\"flights\":[{\"airline\":\"United Airlines\",\"airlineLogo\":\"https://www.google.com/s2/favicons?domain=united.com&sz=128\",\"flightNumber\":\"UA231\",\"origin\":\"SFO\",\"destination\":\"JFK\",\"date\":\"Tue, May 6\",\"departureTime\":\"08:00\",\"arrivalTime\":\"16:30\",\"duration\":\"5h 30m\",\"status\":\"On Time\",\"statusColor\":\"#22c55e\",\"price\":\"$349\",\"currency\":\"USD\"},{\"airline\":\"Delta\",\"airlineLogo\":\"https://www.google.com/s2/favicons?domain=delta.com&sz=128\",\"flightNumber\":\"DL412\",\"origin\":\"SFO\",\"destination\":\"JFK\",\"date\":\"Tue, May 6\",\"departureTime\":\"10:15\",\"arrivalTime\":\"18:45\",\"duration\":\"5h 30m\",\"status\":\"On Time\",\"statusColor\":\"#22c55e\",\"price\":\"$289\",\"currency\":\"USD\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "beautiful-chat 'Search Flights' pill — narration after search_flights returns. Keyed on the tool result in the current turn, not on toolCallId, because built-in-agent rewrites tool_call ids (`fc-…`).",
+      "match": {
+        "userMessage": "for next Tuesday",
+        "hasToolResult": true,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Two flights shown above — United at $349 (08:00) and Delta at $289 (10:15), both on time."
+      }
     }
   ]
 }
