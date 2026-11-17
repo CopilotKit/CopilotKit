@@ -4,15 +4,15 @@ Tracking: [PNI-772](https://linear.app/copilotkit/issue/PNI-772).
 Manifest features identify implemented demo routes, not passing hosted probes.
 `deployed: false` and `docs_mode: hidden` remain in effect.
 
-| Area                | Adapter/starter evidence                                                                     | Shared Showcase status                                                                         |
-| ------------------- | -------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| Chat                | Published adapter emits text/reasoning and message snapshots; starter previously tested live | Shared three-turn chat/recall probe passed with hosted strict fixtures (November 9)            |
-| Frontend tools      | Adapter registers AG-UI tools and resumes their pending results                              | Shared three-gradient probe passed, including hosted frontend-tool continuation (November 9)   |
-| Backend tools       | Adapter accepts `backendTools` with server handlers                                          | Shared weather/default catch-all probe passed with real backend-tool continuation (November 9) |
-| Approvals/questions | Native `omnara:permission` / `omnara:question` interrupts; starter previously tested live    | Not declared as catalog HITL support; those cells use different tool/approval contracts        |
-| Attachments         | Adapter maps images/documents to native files; starter previously tested text attachments    | Shared multimodal cell unverified and not registered                                           |
-| State               | No state snapshot/delta support found in adapter 0.0.1                                       | Shared state read/write/streaming not registered                                               |
-| Persistence         | Native history snapshots and prior starter continuation checks                               | Shared Intelligence, visitor visibility and restart policy require PNI-774                     |
+| Area                | Adapter/starter evidence                                                                     | Shared Showcase status                                                                          |
+| ------------------- | -------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Chat                | Published adapter emits text/reasoning and message snapshots; starter previously tested live | Shared three-turn chat/recall probe passed with hosted strict fixtures (November 17)            |
+| Frontend tools      | Adapter registers AG-UI tools and resumes their pending results                              | Shared three-gradient probe passed, including hosted frontend-tool continuation (November 17)   |
+| Backend tools       | Adapter accepts `backendTools` with server handlers                                          | Shared weather/default catch-all probe passed with real backend-tool continuation (November 17) |
+| Approvals/questions | Native `omnara:permission` / `omnara:question` interrupts; starter previously tested live    | Not declared as catalog HITL support; those cells use different tool/approval contracts         |
+| Attachments         | Adapter maps images/documents to native files; starter previously tested text attachments    | Shared multimodal cell unverified and not registered                                            |
+| State               | No state snapshot/delta support found in adapter 0.0.1                                       | Shared state read/write/streaming not registered                                                |
+| Persistence         | Native history snapshots and prior starter continuation checks                               | Shared Intelligence, visitor visibility and restart policy require PNI-774                      |
 
 No unverified cell is listed in `not_supported_features` merely to remove it
 from parity counts. Other catalog features remain unregistered pending actual
@@ -89,3 +89,48 @@ Limits of this evidence:
   of concurrent isolation; PNI-773 must keep that limitation explicit.
 - Public visitor ownership, shared Intelligence, and cold process continuation
   remain PNI-774 work. `deployed: false` and `docs_mode: hidden` remain in effect.
+
+## Final-source hosted checkpoint — November 17, 2026
+
+The application source tested was
+`e1c5124d39ba230fa8c1ba0e3e301c809b2afdd3`, after source localization,
+styling, theme bootstrap and the bounded review fixes. The local production
+bundle served on port 3123; model execution used real hosted Omnara agents on
+the same isolated profile and strict aimock provider described above.
+
+The unchanged canonical `createE2eFullDriver` from
+`showcase/harness/src/probes/drivers/d6-all-pills.ts` ran each declared demo
+serially. All three cells were RED before the append. The failed conversations
+showed model-response errors; retained aimock journal receipts record HTTP 503
+strict fixture misses. After the authorized append of the 12 checked-in
+`omnara` fixtures, a fresh run of the same probes passed against the same
+application source:
+
+| Shared probe                    | Before append | After append | Completed turns |
+| ------------------------------- | ------------- | ------------ | --------------- |
+| agentic-chat                    | RED           | GREEN        | 3/3             |
+| frontend-tools                  | RED           | GREEN        | 3/3             |
+| tool-rendering-default-catchall | RED           | GREEN        | 1/1             |
+
+The passing run started each cell at 15:53:12, 15:53:22 and 15:53:35 UTC,
+respectively. Eleven final-run journal receipts returned HTTP 200 with matched
+`omnara` fixtures and the fixed context/strict headers. They include frontend
+`change_background` and backend `get_weather` tool-result continuation. The
+tool-rendering run was configured with the existing backend tool set, including the
+Zod-derived schemas; no schema conversion was needed for this provider path.
+
+The append increased the fixture bank from 9,486 to 9,498 entries without
+deleting or reordering existing fixtures. No application code, shared probe,
+provider configuration, image or deployment changed between the strict-miss
+and passing runs. An initial post-append chat attempt started before the local
+server was listening; the subsequent readiness-gated full run passed all three
+cells. That startup failure is separate from the earlier three-cell strict-miss
+RED evidence.
+
+These results establish final-source hosted behavior for the three declared
+cells. They do not establish a public Omnara deployment or concurrent isolation:
+the provider still cannot forward per-run IDs, and all runs were serial. The
+fixture append remains runtime-only. The existing wrapper Dockerfile already
+copies these checked-in fixtures; PNI-775 owns verifying their publication
+through staging and an explicitly approved production promotion. PNI-774's
+public visitor/session and shared Intelligence work remains open.
