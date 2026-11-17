@@ -156,7 +156,7 @@ export function MeetingChat() {
 
 The agent has no local `schedule_meeting` implementation. The tool is registered entirely in your app. The backend's only job is to tell the model to call `schedule_meeting` when the user wants to book a meeting. AG-UI routes the tool call to the app, where the Promise-returning handler takes over:
 
-<Snippet region="backend-tool-call" cell="gen-ui-interrupt" title="backend — agent instructed to call schedule_meeting" />
+<Snippet region="backend-tool-call" cell="gen-ui-interrupt" title="backend: agent instructed to call schedule_meeting" />
 
 Ask the agent to book a call. The picker appears in the chat. Tap **Tomorrow at 09:00**, and the agent continues with your choice.
 
