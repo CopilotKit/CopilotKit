@@ -71,7 +71,7 @@ wrapper around a specialized agent call that:
 
 If the excerpt uses a header-forwarding helper, such as `forwardingFetch` or `HeaderForwardingMiddleware`, leave it out of your app. The showcase uses it only to send request headers to its test server.
 
-This is where CopilotKit's shared-state channel earns its keep: the
+This is where CopilotKit's shared-state channel helps: the
 supervisor's tool calls mutate `delegations` as they happen, and the
 frontend renders every new entry live.
 
@@ -94,7 +94,7 @@ Subscribe with `useAgent({ updates:
 [UseAgentUpdate.OnStateChanged, UseAgentUpdate.OnRunStatusChanged] })`,
 read `agent.state.delegations`, and render one card per entry.
 
-<Snippet region="delegation-log-frontend" title="frontend/src/app/delegation-log.tsx — live log component" />
+<Snippet region="delegation-log-frontend" title="frontend/src/app/delegation-log.tsx (live log component)" />
 </FrontendOnly>
 
 <FrontendOnly frontend="angular">

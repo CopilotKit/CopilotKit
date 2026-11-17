@@ -12,7 +12,7 @@ To hide, replace, or group the messages in the list, see [Reshaping the Message 
 
 ## Tailwind Classes
 
-The simplest way to customize a slot. Pass a Tailwind class string and it will be merged with the default component's classes.
+The simplest way to customize a slot. Pass a Tailwind class string, and CopilotKit merges it with the default component's classes.
 
 ```tsx title="page.tsx"
 import { CopilotChat } from "@copilotkit/react-core/v2";
@@ -265,12 +265,12 @@ export function Chat() {
 }
 ```
 
-- **A group is one row.** Virtualization windows and measures it as a whole, and expanding it is just that row growing. The 50-message threshold still counts messages, so a long thread folded into a few groups stays virtualized.
-- **The wrapper's state outlives the row.** `state` and `setState` are kept by the chat under the group's `key`, so a block someone expanded is still expanded when they scroll back to it. They are dropped once the key no longer appears, and cleared when the thread changes. Key a group by the id of its first message. Some backends rename a message while it streams (some LangChain providers swap a temporary `lc_run--…` id for the final one). The chat then moves the group to the new id, so the group does not remount or lose its state. Any other key must stay the same while the thread streams.
+- **A group is one row.** Virtualization windows and measures it as a whole, and expanding it only makes that row taller. The 50-message threshold still counts messages, so a long thread folded into a few groups stays virtualized.
+- **The wrapper's state outlives the row.** `state` and `setState` are kept by the chat under the group's `key`, so a block someone expanded is still expanded when they scroll back to it. They are dropped when the key stops appearing, and cleared when the thread changes. Key a group by the id of its first message. Some backends rename a message while it streams (some LangChain providers swap a temporary `lc_run--…` id for the final one). The chat then moves the group to the new id, so the group does not remount or lose its state. Any other key must stay the same while the thread streams.
 - **`children` is the default rendering** of the group's messages. Wrap it, hide it, or render the messages yourself from `messages`.
 - **Each message goes in at most one row.** In development the chat warns when a message renders twice or two groups share a key.
 
-If you pass the message view a `children` render function to lay out the rendered messages yourself, virtualization turns off and every message is mounted. Prefer `transformMessages` and `groupMessages` for list-level changes; in development the chat warns when `children` is what turned virtualization off.
+If you pass the message view a `children` render function to lay out the rendered messages yourself, virtualization turns off and every message is mounted. Prefer `transformMessages` and `groupMessages` for list-level changes. In development, the chat warns when `children` is what turned virtualization off.
 
 ## Labels
 
