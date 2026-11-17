@@ -3,6 +3,7 @@ import { defineConfig } from "tsdown";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import { v2AliasExports } from "../../scripts/deprecations/v2-subpath-aliases.mts";
 
 // Resolved path to src/context.ts — used to redirect relative ../context
 // imports (in the headless build and in the main build, which includes the
@@ -162,17 +163,33 @@ export default defineConfig([
       /\.css$/,
     ],
     exports: {
-      customExports: (exports) => ({
-        ...exports,
-        "./context": {
-          import: "./dist/context.mjs",
-          require: "./dist/context.cjs",
-        },
-        "./headless": {
-          import: "./dist/headless.mjs",
-          require: "./dist/headless.cjs",
-        },
-      }),
+      // The `/v2` subpaths of 1.x are deprecated aliases of the 2.0 entries:
+      // the same files, with declarations that mark each name deprecated
+      // (written after the build by scripts/deprecations/v2-subpath-aliases.mts).
+      customExports: (exports) =>
+        v2AliasExports(
+          {
+            ...exports,
+            "./context": {
+              import: "./dist/context.mjs",
+              require: "./dist/context.cjs",
+            },
+            "./headless": {
+              import: "./dist/headless.mjs",
+              require: "./dist/headless.cjs",
+            },
+          },
+          {
+            entries: {
+              "./v2": ".",
+              "./v2/generative-ui": "./generative-ui",
+              "./v2/generative-ui/native": "./generative-ui/native",
+              "./v2/context": "./context",
+              "./v2/headless": "./headless",
+            },
+            stylesheets: ["./v2/styles.css"],
+          },
+        ),
     },
   },
   // context is built separately into dist/ so it produces a standalone

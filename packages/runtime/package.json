@@ -46,6 +46,12 @@
       ],
       "node": [
         "./dist/node.d.cts"
+      ],
+      "v2": [
+        "./dist/v2/index.d.cts"
+      ],
+      "v2/node": [
+        "./dist/v2/node.d.cts"
       ]
     }
   },
@@ -70,13 +76,33 @@
       "import": "./dist/node.mjs",
       "require": "./dist/node.cjs"
     },
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./v2": {
+      "import": {
+        "types": "./dist/v2/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/v2/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./v2/node": {
+      "import": {
+        "types": "./dist/v2/node.d.mts",
+        "default": "./dist/node.mjs"
+      },
+      "require": {
+        "types": "./dist/v2/node.d.cts",
+        "default": "./dist/node.cjs"
+      }
+    }
   },
   "publishConfig": {
     "access": "public"
   },
   "scripts": {
-    "build": "tsdown",
+    "build": "tsdown && tsx ../../scripts/deprecations/v2-subpath-aliases.mts",
     "dev": "tsdown --watch",
     "test": "vitest run",
     "test:watch": "vitest",
