@@ -1,0 +1,50 @@
+import { BuiltInAgent, convertInputToTanStackAI } from "@copilotkit/runtime/v2";
+import { chat, toolDefinition } from "@tanstack/ai";
+import { openaiText } from "../openai-text";
+// Custom fetch that injects ALS-bound inbound x-* headers (e.g.
+// x-aimock-context) onto every outbound OpenAI call. Required so aimock
+// can match fixtures by integration context. See ../header-forwarding.ts
+// for the full rationale; mirrors the Mastra precedent.
+import { forwardingFetch } from "../header-forwarding";
+import { jsonSchemaToZod } from "./tanstack-factory";
+import { DEMO_AGENT_LOOP_STRATEGY } from "./demo-stream";
+
+/**
+ * Built-in agent for the Open Generative UI demo.
+ *
+ * The runtime's `openGenerativeUI` flag (see `src/demo-runtime-options.ts`)
+ * makes `OpenGenerativeUIMiddleware` inject the `generateSandboxedUi` tool
+ * into `input.tools` at request time. We MUST declare those tools to
+ * `chat()`, or the model never sees `generateSandboxedUi` and emits the UI as
+ * a raw HTML code block instead of a tool call — so the sandboxed iframe never
+ * renders.
+ *
+ * Tools are declared via `toolDefinition()`, the same pattern as
+ * `tanstack-factory.ts`.
+ */
+export function createOguiAgent() {
+  return new BuiltInAgent({
+    type: "tanstack",
+    factory: ({ input, abortController }) => {
+      const { messages, systemPrompts } = convertInputToTanStackAI(input);
+      // Declaration-only (no executor): the model calls the tool and the
+      // OpenGenerativeUIMiddleware turns the tool-call stream into the
+      // sandboxed-iframe activity.
+      const tools = (input.tools ?? []).map((t) =>
+        toolDefinition({
+          name: t.name,
+          description: t.description ?? "",
+          inputSchema: jsonSchemaToZod(t.parameters),
+        }),
+      );
+      return chat({
+        adapter: openaiText("gpt-6-luna", { fetch: forwardingFetch }),
+        messages,
+        systemPrompts,
+        tools,
+        abortController,
+        agentLoopStrategy: DEMO_AGENT_LOOP_STRATEGY,
+      });
+    },
+  });
+}

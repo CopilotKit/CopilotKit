@@ -1,0 +1,113 @@
+"use client";
+
+// @region[frontend-tool]
+// @region[frontend-tool-registration]
+import { useState } from "react";
+import {
+  CopilotKit,
+  CopilotPopup,
+  useFrontendTool,
+} from "@copilotkit/react-core/v2";
+import { z } from "zod";
+import { useDemoRuntimeUrl } from "@/lib/demo-runtime";
+import type { PendingApproval } from "./approval-dialog";
+import { ApprovalDialog } from "./approval-dialog";
+import { TicketsPanel } from "./tickets-panel";
+import { useHitlInAppSuggestions } from "./suggestions";
+
+export default function HitlInAppDemo() {
+  return (
+    <CopilotKit
+      runtimeUrl={useDemoRuntimeUrl("hitl-in-app")}
+      agent="hitl-in-app"
+    >
+      <Layout />
+    </CopilotKit>
+  );
+}
+
+// @region[resolve-type]
+// Internal state shape: the args the agent passed plus the `resolve`
+// fn we captured from the Promise returned by the tool handler.
+type ApprovalResult = { approved: boolean; reason?: string };
+type ResolveFn = (value: ApprovalResult) => void;
+type DialogState =
+  | { open: false }
+  | { open: true; pending: PendingApproval; resolve: ResolveFn };
+// @endregion[resolve-type]
+
+function Layout() {
+  const [dialog, setDialog] = useState<DialogState>({ open: false });
+
+  useHitlInAppSuggestions();
+
+  useFrontendTool({
+    name: "request_user_approval",
+    description:
+      "Ask the operator to approve or reject an action before you take it. " +
+      "The operator will respond via an in-app modal dialog that appears " +
+      "OUTSIDE the chat surface. The tool returns an object of the shape " +
+      "{ approved: boolean, reason?: string }.",
+    parameters: z.object({
+      message: z
+        .string()
+        .describe(
+          "Short summary of the action needing approval (include concrete numbers / IDs).",
+        ),
+      context: z
+        .string()
+        .optional()
+        .describe(
+          "Optional extra context — e.g. the ticket ID or policy rule.",
+        ),
+    }),
+    // @region[frontend-tool-handler]
+    handler: async ({ message, context }) => {
+      // Return a Promise whose `resolve` we stash into state. The modal
+      // dialog calls `resolve(...)` when the user clicks Approve / Reject,
+      // which completes THIS handler and hands the value back to the
+      // agent as the tool result. The dialog shows one request at a time,
+      // so a second request that arrives while one is open is rejected
+      // instead of replacing it. Replacing it would leave the first call
+      // waiting forever.
+      return await new Promise<ApprovalResult>((resolve) => {
+        setDialog((current) => {
+          if (current.open) {
+            resolve({
+              approved: false,
+              reason: "Another approval request is already pending.",
+            });
+            return current;
+          }
+          return { open: true, pending: { message, context }, resolve };
+        });
+      });
+    },
+    // @endregion[frontend-tool-handler]
+  });
+  // @endregion[frontend-tool-registration]
+  // @endregion[frontend-tool]
+
+  const handleResolve = (result: ApprovalResult) => {
+    if (dialog.open) {
+      dialog.resolve(result);
+      setDialog({ open: false });
+    }
+  };
+
+  return (
+    <div className="h-screen bg-gray-50 dark:bg-background">
+      <TicketsPanel />
+      <CopilotPopup
+        agentId="hitl-in-app"
+        defaultOpen={true}
+        labels={{
+          chatInputPlaceholder: "Type a message",
+        }}
+      />
+      {dialog.open && (
+        <ApprovalDialog pending={dialog.pending} onResolve={handleResolve} />
+      )}
+    </div>
+  );
+}

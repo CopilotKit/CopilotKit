@@ -17,7 +17,8 @@
  *   2. Click the first slot button, which resolves with
  *      `{chosen_time, chosen_label}`; the run resumes, the popup unmounts back
  *      to `interrupt-headless-empty`, and the assistant confirmation lands in
- *      chat.
+ *      chat. The pill is done only when the resumed run has also finished, so
+ *      the next pill never races it.
  *
  * The "popup unmounts back to empty" + "assistant confirmation" pair is
  * the genuine downstream signal — it proves resolve() fired AND
@@ -34,6 +35,7 @@ import {
   SIBLING_TIMEOUT_MS,
   clickByJs,
   waitForTestId,
+  watchResumedRun,
 } from "./_genuine-shared.js";
 
 /** Chip prompts MUST mirror `interrupt-headless/page.tsx` lines 54-65
@@ -50,12 +52,81 @@ export const INTERRUPT_HEADLESS_PILLS = [
   },
 ] as const;
 
+/**
+ * Read, in one page round-trip, whether the pick has visibly resolved and the
+ * agent's run lifecycle.
+ */
+async function readPickState(page: Page) {
+  return page.evaluate(() => {
+    const win = globalThis as unknown as {
+      document: {
+        querySelector(sel: string): unknown;
+        querySelectorAll(
+          sel: string,
+        ): ArrayLike<{ textContent: string | null }>;
+        body: { textContent: string | null };
+      };
+      __hk_copilotRunning?: {
+        runningNow?: boolean | null;
+        runStartCount?: number;
+        lastStoppedAtMs?: number;
+      };
+      __hk_runsFinished?: number;
+    };
+    const emptyMounted = !!win.document.querySelector(
+      '[data-testid="interrupt-headless-empty"]',
+    );
+    const popupGone = !win.document.querySelector(
+      '[data-testid="interrupt-headless-popup"]',
+    );
+    // Scoped to assistant bubbles, never the whole page: this demo's own
+    // static copy contains "Nothing scheduled yet" and "the confirmed
+    // booking", so a body-wide search would be satisfied before the agent
+    // narrated anything.
+    const selectors = [
+      '[data-testid="copilot-assistant-message"]',
+      '[role="article"]:not([data-message-role="user"])',
+      '[data-message-role="assistant"]',
+    ];
+    let bubbles: ArrayLike<{ textContent: string | null }> = { length: 0 };
+    for (const selector of selectors) {
+      const found = win.document.querySelectorAll(selector);
+      if (found.length > 0) {
+        bubbles = found;
+        break;
+      }
+    }
+    let text = "";
+    for (let i = 0; i < bubbles.length; i += 1) {
+      text += " " + (bubbles[i]?.textContent ?? "");
+    }
+    text = text.toLowerCase();
+    const scheduledNarration =
+      text.includes("meeting scheduled") ||
+      text.includes("booked") ||
+      text.includes("confirmed for");
+    const sample = (win.document.body.textContent ?? "")
+      .slice(-200)
+      .replace(/\s+/g, " ")
+      .trim();
+    const running = win.__hk_copilotRunning;
+    return {
+      emptyMounted,
+      popupGone,
+      scheduledNarration,
+      sample,
+      runningNow: running?.runningNow ?? null,
+      runStartCount: running?.runStartCount ?? 0,
+      lastStoppedAtMs: running?.lastStoppedAtMs ?? 0,
+      runsFinished: win.__hk_runsFinished ?? 0,
+    };
+  });
+}
+
 /** Build the post-chip assertion that mirrors gen-ui-interrupt's flow
  *  but against this demo's app-surface testids. */
-export function buildInterruptHeadlessAssertion(
-  pillTag: string,
-): (page: Page) => Promise<void> {
-  return async (page: Page): Promise<void> => {
+export function buildInterruptHeadlessAssertion(pillTag: string) {
+  return async (page: Page) => {
     const tag = `interrupt-headless-${pillTag}`;
     // Step 1: wait for the popup to mount in the app-surface pane.
     await waitForTestId(
@@ -80,76 +151,36 @@ export function buildInterruptHeadlessAssertion(
         `${tag}: expected at least one [data-testid^="interrupt-headless-slot-"] within ${SIBLING_TIMEOUT_MS}ms`,
       );
     }
+    const isResumedRunFinished = watchResumedRun(await readPickState(page));
     await clickByJs(page, slotSelector);
-    // Step 3: wait for either:
-    //   a. `interrupt-headless-empty` to mount (popup unmounted →
-    //      resolve()/runAgent()/resume completed cleanly); OR
+    // Step 3: wait until the pick has visibly resolved AND the resumed run
+    // has finished. The visible signal is either:
+    //   a. `interrupt-headless-empty` mounted (the popup unmounted); OR
     //   b. an assistant continuation IN THE TRANSCRIPT naming the booking.
     // The text search is scoped to the transcript and to phrases the demo's
     // own static copy does not contain, so neither signal can be satisfied by
     // the page merely rendering.
+    // The visible signal alone is not enough: a page that clears its picker
+    // on RUN_STARTED re-mounts the empty state while the resumed run is still
+    // in flight. A pill sent then is lost: its run never reaches the LLM, and
+    // the resumed reply never renders.
     const deadline = Date.now() + 30_000;
     let lastSnap = "";
+    let resolvedUiObserved = false;
+    let resumedRunFinished = false;
     while (Date.now() < deadline) {
-      const signal = await page.evaluate(() => {
-        const win = globalThis as unknown as {
-          document: {
-            querySelector(sel: string): unknown;
-            querySelectorAll(
-              sel: string,
-            ): ArrayLike<{ textContent: string | null }>;
-            body: { textContent: string | null };
-          };
-        };
-        const emptyMounted = !!win.document.querySelector(
-          '[data-testid="interrupt-headless-empty"]',
-        );
-        const popupGone = !win.document.querySelector(
-          '[data-testid="interrupt-headless-popup"]',
-        );
-        // Scoped to assistant bubbles, never the whole page: this demo's own
-        // static copy contains "Nothing scheduled yet" and "the confirmed
-        // booking", so a body-wide search would be satisfied before the agent
-        // narrated anything.
-        const selectors = [
-          '[data-testid="copilot-assistant-message"]',
-          '[role="article"]:not([data-message-role="user"])',
-          '[data-message-role="assistant"]',
-        ];
-        let bubbles: ArrayLike<{ textContent: string | null }> = { length: 0 };
-        for (const selector of selectors) {
-          const found = win.document.querySelectorAll(selector);
-          if (found.length > 0) {
-            bubbles = found;
-            break;
-          }
-        }
-        let text = "";
-        for (let i = 0; i < bubbles.length; i += 1) {
-          text += " " + (bubbles[i]?.textContent ?? "");
-        }
-        text = text.toLowerCase();
-        const scheduledNarration =
-          text.includes("meeting scheduled") ||
-          text.includes("booked") ||
-          text.includes("confirmed for");
-        const sample = (win.document.body.textContent ?? "")
-          .slice(-200)
-          .replace(/\s+/g, " ")
-          .trim();
-        return { emptyMounted, popupGone, scheduledNarration, sample };
-      });
-      if (
-        signal.emptyMounted ||
-        (signal.popupGone && signal.scheduledNarration)
-      ) {
+      const signal = await readPickState(page);
+      resolvedUiObserved =
+        signal.emptyMounted || (signal.popupGone && signal.scheduledNarration);
+      resumedRunFinished = isResumedRunFinished(signal);
+      if (resolvedUiObserved && resumedRunFinished) {
         return;
       }
       lastSnap = signal.sample;
       await new Promise<void>((r) => setTimeout(r, 250));
     }
     throw new Error(
-      `${tag}: post-pick signal never landed within 30s — neither [data-testid="interrupt-headless-empty"] re-mounted nor an assistant "scheduled / confirmed / booked" continuation appeared. Recent body tail: ${JSON.stringify(lastSnap.slice(-200))}`,
+      `${tag}: post-pick resolution never settled within 30s — expected [data-testid="interrupt-headless-empty"] to re-mount or an assistant "scheduled / confirmed / booked" continuation, plus either a stopped run lifecycle or a new RUN_FINISHED event after the slot response (resolvedUiObserved=${resolvedUiObserved}, resumedRunFinished=${resumedRunFinished}). Recent body tail: ${JSON.stringify(lastSnap.slice(-200))}`,
     );
   };
 }

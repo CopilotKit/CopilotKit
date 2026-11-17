@@ -1,0 +1,156 @@
+"use client";
+
+import React from "react";
+
+// Branded catch-all renderer for tools that don't have a dedicated
+// per-tool renderer. Registered via `useDefaultRenderTool` in page.tsx,
+// this component handles every tool call NOT claimed by a named
+// `useRenderTool` registration.
+//
+// Shows the tool name, a status badge, pretty-printed arguments, and
+// the result (as JSON). Each demo folder is self-contained, so
+// `tool-rendering-reasoning-chain` keeps its own copy of this file
+// instead of importing it across demo boundaries.
+
+export type CatchallToolStatus = "inProgress" | "executing" | "complete";
+
+export interface CustomCatchallRendererProps {
+  name: string;
+  status: CatchallToolStatus;
+  parameters: unknown;
+  result: string | undefined;
+}
+
+export function CustomCatchallRenderer({
+  name,
+  status,
+  parameters,
+  result,
+}: CustomCatchallRendererProps) {
+  const parsedResult = parseResult(result);
+  const done = status === "complete";
+
+  return (
+    <div
+      data-testid="custom-catchall-card"
+      data-tool-name={name}
+      data-status={status}
+      className="my-3 overflow-hidden rounded-2xl border border-[#DBDBE5] dark:border-border bg-white dark:bg-card shadow-sm"
+    >
+      <div className="flex items-center justify-between border-b border-[#E9E9EF] dark:border-border bg-[#FAFAFC] dark:bg-muted px-4 py-2.5">
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] uppercase tracking-[0.14em] text-[#838389] dark:text-muted-foreground">
+            Tool
+          </span>
+          <span
+            data-testid="custom-catchall-tool-name"
+            className="font-mono text-sm text-[#010507] dark:text-foreground"
+          >
+            {name}
+          </span>
+        </div>
+        <StatusBadge status={status} />
+      </div>
+
+      <div className="grid gap-3 p-4 text-sm">
+        <Section label="Arguments">
+          <pre
+            data-testid="custom-catchall-args"
+            className="overflow-x-auto rounded-lg border border-[#E9E9EF] dark:border-border bg-[#FAFAFC] dark:bg-muted p-2.5 font-mono text-xs text-[#010507] dark:text-foreground"
+          >
+            {safeStringify(parameters)}
+          </pre>
+        </Section>
+
+        <Section label="Result">
+          {done ? (
+            <pre
+              data-testid="custom-catchall-result"
+              className="overflow-x-auto rounded-lg border border-[#85ECCE4D] bg-[#85ECCE]/10 p-2.5 font-mono text-xs text-[#010507] dark:text-foreground"
+            >
+              {parsedResult !== undefined
+                ? safeStringify(parsedResult)
+                : "(empty)"}
+            </pre>
+          ) : (
+            <p className="text-xs italic text-[#838389] dark:text-muted-foreground">
+              waiting for tool to finish…
+            </p>
+          )}
+        </Section>
+      </div>
+    </div>
+  );
+}
+
+function Section({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <div className="mb-1.5 text-[10px] font-medium uppercase tracking-[0.14em] text-[#838389] dark:text-muted-foreground">
+        {label}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function StatusBadge({ status }: { status: CatchallToolStatus }) {
+  const { label, tone } = describeStatus(status);
+  return (
+    <span
+      data-testid="custom-catchall-status"
+      className={`rounded-full px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-[0.14em] ${tone}`}
+    >
+      {label}
+    </span>
+  );
+}
+
+function describeStatus(status: CatchallToolStatus) {
+  switch (status) {
+    case "inProgress":
+      return {
+        label: "streaming",
+        tone: "border border-[#FFAC4D33] bg-[#FFAC4D]/15 text-[#57575B] dark:text-muted-foreground",
+      };
+    case "executing":
+      return {
+        label: "running",
+        tone: "border border-[#BEC2FF] bg-[#BEC2FF1A] text-[#010507] dark:text-foreground",
+      };
+    case "complete":
+      return {
+        label: "done",
+        tone: "border border-[#85ECCE4D] bg-[#85ECCE]/20 text-[#189370] dark:text-[#85ECCE]",
+      };
+  }
+}
+
+// A tool result is usually a JSON string. Some agent adapters (the .NET
+// AG-UI adapter, for example) wrap that JSON string in another JSON string,
+// so this parses up to three layers. A value that is not JSON stays as it is.
+function parseResult(result: string | undefined) {
+  let parsed: unknown = result;
+  for (let depth = 0; depth < 3 && typeof parsed === "string"; depth += 1) {
+    try {
+      parsed = JSON.parse(parsed);
+    } catch {
+      return parsed;
+    }
+  }
+  return parsed;
+}
+
+function safeStringify(value: unknown) {
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
+  }
+}

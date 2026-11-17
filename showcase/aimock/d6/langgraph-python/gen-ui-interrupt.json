@@ -6,10 +6,11 @@
   },
   "fixtures": [
     {
-      "_comment": "gen-ui-interrupt sales-call pill — first leg: schedule_meeting tool call triggers Python agent's interrupt(...). The toolName gate ensures this matches only when schedule_meeting is in the tool list (the agent must declare it). Placed BEFORE the toolCallId resume-leg so the duplicate-userMessage dedup does not shadow the tool-emitting leg — mirrors the passing mastra/pydantic-ai ordering.",
+      "_comment": "gen-ui-interrupt sales-call pill — first leg: schedule_meeting tool call triggers Python agent's interrupt(...). The toolName gate ensures this matches only when schedule_meeting is in the tool list (the agent must declare it). Placed BEFORE the toolCallId resume-leg so the duplicate-userMessage dedup does not shadow the tool-emitting leg — mirrors the passing mastra/pydantic-ai ordering. hasToolResult:false keeps it to the first turn: the resume request carries the tool result, and without the gate it matched this entry again, so the agent called schedule_meeting again and re-interrupted.",
       "match": {
         "userMessage": "intro call with the sales team",
         "toolName": "schedule_meeting",
+        "hasToolResult": false,
         "context": "langgraph-python"
       },
       "response": {
@@ -31,6 +32,18 @@
       }
     },
     {
+      "_comment": "gen-ui-interrupt sales-call pill — second leg after the user cancels: interrupt_agent.py returns 'User cancelled. Meeting NOT scheduled: …'. Keyed by toolCallId and toolResultContains, and placed before the pick confirmation below, which would otherwise answer a cancel with 'Booked'. Mirrors strands/gen-ui-interrupt.json.",
+      "match": {
+        "userMessage": "intro call with the sales team",
+        "toolCallId": "call_d5_schedule_sales_001",
+        "toolResultContains": "cancelled",
+        "context": "langgraph-python"
+      },
+      "response": {
+        "content": "Denied — the sales intro call was not booked because no time slot was selected."
+      }
+    },
+    {
       "_comment": "gen-ui-interrupt sales-call pill — second leg: confirmation after user picks a slot and resolve fires. Keyed by toolCallId so it only matches when the prior tool result is being fed back (last message is the tool result for this call).",
       "match": {
         "userMessage": "intro call with the sales team",
@@ -42,10 +55,11 @@
       }
     },
     {
-      "_comment": "gen-ui-interrupt alice-1on1 pill — first leg: schedule_meeting tool call. Placed BEFORE the toolCallId resume-leg so the tool-emitting leg is not shadowed.",
+      "_comment": "gen-ui-interrupt alice-1on1 pill — first leg: schedule_meeting tool call. Placed BEFORE the toolCallId resume-leg so the tool-emitting leg is not shadowed. hasToolResult:false keeps it to the first turn, as for the sales-call pill.",
       "match": {
         "userMessage": "1:1 with Alice",
         "toolName": "schedule_meeting",
+        "hasToolResult": false,
         "context": "langgraph-python"
       },
       "response": {
@@ -64,6 +78,18 @@
             }
           }
         ]
+      }
+    },
+    {
+      "_comment": "gen-ui-interrupt alice-1on1 pill — second leg after the user cancels. Keyed by toolCallId and toolResultContains, and placed before the pick confirmation below. Mirrors strands/gen-ui-interrupt.json.",
+      "match": {
+        "userMessage": "1:1 with Alice",
+        "toolCallId": "call_d5_schedule_alice_001",
+        "toolResultContains": "cancelled",
+        "context": "langgraph-python"
+      },
+      "response": {
+        "content": "Denied — the 1:1 with Alice was not scheduled because no time slot was selected."
       }
     },
     {

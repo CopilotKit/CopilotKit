@@ -19,6 +19,7 @@ import {
   makeTmpTree,
   writePackage,
   makeExampleDir,
+  writeSharedSpecs,
 } from "./audit.shared.js";
 
 describe("main() exit codes via CLI subprocess", () => {
@@ -45,16 +46,20 @@ describe("main() exit codes via CLI subprocess", () => {
   }
 
   it("exits 0 when there are no anomalies", () => {
+    // The routed demo's spec sits in <root>/frontends/nextjs/tests/e2e/,
+    // so a clean run also pins where the CLI looks for the shared suite.
     writePackage(root, "crewai-crews", {
-      manifest: `slug: crewai-crews\ndeployed: true\ndemos:\n  - id: a\n`,
-      specs: ["a.spec.ts"],
+      manifest: `slug: crewai-crews\ndeployed: true\ndemos:\n  - id: a\n    route: /demos/a\n`,
       qaFiles: ["a.md"],
     });
     makeExampleDir(root, "crewai-crews");
+    writeSharedSpecs(root, ["a"]);
     const r = runCli([], {
       env: { SHOWCASE_AUDIT_ROOT: root },
     });
     expect(r.status, r.stdout + r.stderr).toBe(0);
+    // The row: 1 demo, 1 shared-suite spec, 1 QA doc, deployed.
+    expect(r.stdout).toMatch(/\bcrewai-crews\s+1\s+1\s+1\s+yes\b/);
     // Positive stdout assertions: a regression that truncates stdout or
     // drops the summary/table would slip past a r.status-only check.
     // Pin the column headers as whole tokens, the Overall health
@@ -75,7 +80,6 @@ describe("main() exit codes via CLI subprocess", () => {
   it("exits 1 when anomalies are found", () => {
     writePackage(root, "bad", {
       manifest: `slug: bad\ndeployed: false\ndemos:\n  - id: a\n`,
-      specs: [],
       qaFiles: [],
     });
     const r = runCli([], {
@@ -234,7 +238,6 @@ fs.existsSync = function(...args) {
   it("exits 2 on invalid arg combination (bad arg: --slug --json)", () => {
     writePackage(root, "crewai-crews", {
       manifest: `slug: crewai-crews\ndeployed: true\ndemos:\n  - id: a\n`,
-      specs: ["a.spec.ts"],
       qaFiles: ["a.md"],
     });
     makeExampleDir(root, "crewai-crews");
@@ -248,13 +251,11 @@ fs.existsSync = function(...args) {
   it("--json --slug <slug> combination emits JSON for a single package", () => {
     writePackage(root, "crewai-crews", {
       manifest: `slug: crewai-crews\ndeployed: true\ndemos:\n  - id: a\n`,
-      specs: ["a.spec.ts"],
       qaFiles: ["a.md"],
     });
     makeExampleDir(root, "crewai-crews");
     writePackage(root, "other", {
       manifest: `slug: other\ndeployed: true\ndemos:\n  - id: a\n`,
-      specs: ["a.spec.ts"],
       qaFiles: ["a.md"],
     });
     makeExampleDir(root, "other");
@@ -280,7 +281,6 @@ fs.existsSync = function(...args) {
     expect(SLUG_TO_EXAMPLES[mappedSlug]).toBeDefined();
     writePackage(root, mappedSlug, {
       manifest: `slug: ${mappedSlug}\ndeployed: true\ndemos:\n  - id: a\n`,
-      specs: ["a.spec.ts"],
       qaFiles: ["a.md"],
     });
     // Intentionally DO NOT create examples/integrations/<mapped> dir so
@@ -309,7 +309,6 @@ fs.existsSync = function(...args) {
     expect(SLUG_TO_EXAMPLES[mappedSlug]).toBeDefined();
     writePackage(root, mappedSlug, {
       manifest: `slug: ${mappedSlug}\ndeployed: true\ndemos:\n  - id: a\n`,
-      specs: ["a.spec.ts"],
       qaFiles: ["a.md"],
     });
     const r = runCli([], {
@@ -386,7 +385,6 @@ JSON.stringify = function(value, ...rest) {
     );
     writePackage(root, "foo", {
       manifest: `slug: foo\ndeployed: true\ndemos:\n  - id: a\n`,
-      specs: ["a.spec.ts"],
       qaFiles: ["a.md"],
     });
     try {
@@ -482,7 +480,6 @@ describe("main() --columns via CLI subprocess", () => {
   it("--columns filters the table to the specified columns", () => {
     writePackage(root, "crewai-crews", {
       manifest: `slug: crewai-crews\ndeployed: true\ndemos:\n  - id: a\n`,
-      specs: ["a.spec.ts"],
       qaFiles: ["a.md"],
     });
     makeExampleDir(root, "crewai-crews");

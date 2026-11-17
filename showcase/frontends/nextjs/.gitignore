@@ -1,0 +1,15 @@
+node_modules/
+.next/
+
+# Written by showcase/scripts/generate-registry.ts before dev, build,
+# typecheck, test and e2e.
+src/data/
+
+# Written by `next typegen`, `next dev` and `next build`.
+next-env.d.ts
+
+playwright-report/
+test-results/
+
+# mastra's in-process agents keep their working memory here when the app runs.
+mastra-memory.db*

@@ -12,6 +12,8 @@ image. Railway deploys those images from `main` on push.
 | When you need to...                                                     | Read                                                                                                                  |
 | ----------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
 | Turn a red cell green (cell red→green SOP, `bin/showcase test` CLI)     | [`./TESTING.md`](./TESTING.md#sop-turning-a-cell-red--green)                                                          |
+| Run the shared e2e suite for one integration                            | [`./TESTING.md`](./TESTING.md#shared-e2e-suite)                                                                       |
+| Change a demo for every integration (the shared app)                    | [`./frontends/nextjs/README.md`](./frontends/nextjs/README.md)                                                        |
 | Debug a failure mode locally (debugging loop, strategies, prod ops)     | [`./DEBUGGING.md`](./DEBUGGING.md)                                                                                    |
 | Look up a framework / fixture / `--isolate` edge case                   | [`./GOTCHAS.md`](./GOTCHAS.md)                                                                                        |
 | Add a brand-new integration (per-package + external setup)              | [`./INTEGRATION-CHECKLIST.md`](./INTEGRATION-CHECKLIST.md)                                                            |
@@ -31,6 +33,7 @@ showcase/
   bin/showcase                  # unified CLI — run showcase/bin/showcase <command> for help
   bin/railway                   # Ruby tool for Railway ops (snapshot/promote/pin) — see bin/README.md
   integrations/<slug>/          # one per framework (17 total) — Dockerfile, src/app/demos/*/, src/agents/ or equivalent
+  frontends/nextjs/             # shared app: one copy of each demo for every integration, plus the shared e2e suite
   shell/                        # hub: home page, /matrix, canonical /integrations/[slug]/[demo]/{preview,code}
   shell-dashboard/              # internal-only feature × integration grid (port 3002)
   harness/                      # showcase-harness service — see harness/README.md
@@ -67,6 +70,10 @@ CI, `npm run build`, `npm run dev`) regenerates them automatically.
 Each generator writes to the `src/data/` directory of every shell app that
 consumes it. Shell apps are independent — no shell cross-imports another
 shell's data directory.
+
+`generate-registry.ts` also writes to `frontends/nextjs/src/data/`, for the
+shared app. The app's own `scripts/collect-extra-demos.ts` adds
+`extra-demos.json` there.
 
 ## Prerequisites
 
@@ -116,7 +123,7 @@ gracefully (per-package).
 
 For the full invocation table (control-plane vs `--direct`, per-demo scoping
 matrix) and the cell red→green SOP, see
-[`./TESTING.md`](./TESTING.md#bin-showcase-test-invocation-semantics). For
+[`./TESTING.md`](./TESTING.md#binshowcase-test-invocation-semantics). For
 debugging workflows (aimock rebuild cycles, fixture validation, probe testing,
 diagnostics), see [`./DEBUGGING.md`](./DEBUGGING.md).
 
@@ -177,6 +184,10 @@ Column ordering lives in `shell-dashboard/src/lib/sort-order.ts` — internal to
 this app, not part of the public registry.
 
 ## Iterating on a demo
+
+Change a demo in the shared app first: see
+[`frontends/nextjs/README.md`](./frontends/nextjs/README.md). The steps below
+change an integration's own website, which serves production today.
 
 1. Edit the demo in `integrations/<slug>/src/app/demos/<demo-id>/page.tsx` (and
    the backend under `src/agents/` if applicable).

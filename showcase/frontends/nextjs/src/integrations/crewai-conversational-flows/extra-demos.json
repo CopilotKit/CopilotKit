@@ -1,0 +1,7 @@
+[
+  "byoc-hashbrown",
+  "declarative-hashbrown",
+  "declarative-json-render",
+  "shared-state-read",
+  "threadid-frontend-tool-roundtrip"
+]

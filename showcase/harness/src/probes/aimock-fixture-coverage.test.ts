@@ -3,31 +3,40 @@ import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { load as loadYaml } from "js-yaml";
+import { z } from "zod";
 
 /**
- * Aimock fixture coverage for the langgraph-python E2E suite.
+ * Aimock fixture coverage for the shared E2E suite, run for langgraph-python.
  *
  * ---------------------------------------------------------------------------
  * WHY THIS TEST EXISTS
  * ---------------------------------------------------------------------------
- * The langgraph-python showcase specs under
- * `showcase/integrations/langgraph-python/tests/e2e/*.spec.ts` run against one of
- * two agent backends:
+ * The shared showcase specs under `showcase/frontends/nextjs/tests/e2e/` run
+ * against the showcase app for one integration at a time. When they run for
+ * langgraph-python, its agent talks to one of two LLM backends:
  *
- *   1. Railway deployment with a real LLM — prompts can be freeform; the
- *      agent's response is judged by the spec's assertions only.
- *   2. The aimock sidecar (`showcase/aimock/feature-parity.json`) — every
- *      user message must match a fixture's `match.userMessage` substring or
- *      the agent will either fall through to the real LLM (proxy mode) OR
- *      fail deterministically (strict mode in CI).
+ *   1. A real LLM. Prompts can be freeform. Only the spec's assertions judge
+ *      the response.
+ *   2. The aimock sidecar (the fixture folders in FIXTURE_DIRS). Every user
+ *      message must match a fixture's `match.userMessage` substring. If none
+ *      matches, the message goes through the proxy to the real LLM (proxy
+ *      mode) or fails deterministically (strict mode in CI).
  *
  * When the aimock backend is active, a spec whose prompt has no matching
- * fixture silently drifts — the user message goes through the proxy to the
+ * fixture silently drifts. The user message goes through the proxy to the
  * real LLM (costing money and producing non-deterministic assertions), or
  * the assertion fails with a cryptic "no fixture matched" error. This test
- * enforces that EVERY prompt issued from these specs has a matching fixture
- * before any run of the aimock-backed suite, so operators catch drift at
- * PR time rather than mid-CI.
+ * enforces that EVERY prompt these specs send for langgraph-python has a
+ * matching fixture, so operators catch drift at PR time rather than mid-CI.
+ *
+ * ---------------------------------------------------------------------------
+ * WHICH SPECS
+ * ---------------------------------------------------------------------------
+ * A spec runs for langgraph-python when langgraph-python serves its demo (see
+ * `servedDemoIds`). A spec names its demo in `describeDemo("<id>", ...)`. A
+ * spec without `describeDemo` runs for every integration, so it is checked
+ * too.
  *
  * ---------------------------------------------------------------------------
  * EXTRACTION APPROACH
@@ -37,23 +46,23 @@ import { fileURLToPath } from "node:url";
  * without pulling in a TypeScript AST parser:
  *
  *   - `<var>.fill("prompt")` where <var> is one of `input`, `textarea`,
- *     `chatInput`. These variables are bound to the chat input locator by
- *     convention across every spec (see the `.find the one true input` grep
- *     in the driver directory). Other .fill() sites use distinct variable
- *     names (`editorTextarea`, `ctx-name`) and are excluded because they
- *     target non-chat UI (document editor, context-field, etc.).
- *   - `page.getByPlaceholder("Type a message").fill("prompt")` and the
- *     `"Type a message..."` variant used by headless specs.
- *   - `filter({ hasText: "Pill Title" }).click()` on `copilot-suggestion`
- *     locators — the suggestion-pill -> user-message mapping is resolved
- *     via a hard-coded table keyed by spec file (see PILL_MESSAGES below).
+ *     `chatInput`. Specs bind these names to the chat input by convention.
+ *     Other `.fill()` receivers (`editorTextarea`, `getByTestId("ctx-name")`)
+ *     target non-chat UI (document editor, context field, etc.) and are
+ *     excluded.
+ *   - `page.getByPlaceholder("Type a message").fill("prompt")`, also with
+ *     `.fill` on its own line, and the `"Type a message..."` variant used by
+ *     headless specs.
+ *   - Either form with the prompt on its own line and a trailing comma.
+ *   - `send(page, "prompt")`, where `send` is any module-level helper of the
+ *     spec that types its string parameter into the chat input with one of
+ *     the forms above.
+ *   - Suggestion-pill clicks. The demo page sets the message a pill sends,
+ *     so the hard-coded PILL_MESSAGES table below maps pill titles to
+ *     messages.
  *
- * Specs that use pills with a different mechanism (beautiful-chat's
- * `getByRole("button", { name: "Pie Chart (Controlled Generative UI)" })`)
- * resolve through the same hard-coded table.
- *
- * Multi-line `.fill(` calls (opening paren on one line, string on the next)
- * are handled by collapsing whitespace before matching.
+ * Prompts inside a `test.skip("title", ...)` or `test.fixme("title", ...)`
+ * declaration are left out, because Playwright never runs those tests.
  *
  * ---------------------------------------------------------------------------
  * FIXTURE COVERAGE RULE
@@ -68,7 +77,7 @@ import { fileURLToPath } from "node:url";
  *
  * Prompts that fail both predicates fail the test with a listing that
  * identifies the spec file, the line, and the prompt text, so an operator
- * can either add a new fixture to `feature-parity.json` OR demonstrate the
+ * can either add a new fixture to one of FIXTURE_DIRS OR demonstrate the
  * prompt is LLM-text-dependent and legitimately cannot be mocked.
  */
 
@@ -76,7 +85,21 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const WORKSPACE_ROOT = path.resolve(__dirname, "../../../..");
 const SPEC_DIR = path.resolve(
   WORKSPACE_ROOT,
-  "showcase/integrations/langgraph-python/tests/e2e",
+  "showcase/frontends/nextjs/tests/e2e",
+);
+
+/**
+ * The committed files that say which demos langgraph-python serves in the
+ * showcase app. The app's `src/data/` copies are generated, so they are not
+ * read here.
+ */
+const MANIFEST_PATH = path.resolve(
+  WORKSPACE_ROOT,
+  "showcase/integrations/langgraph-python/manifest.yaml",
+);
+const EXTRA_DEMOS_PATH = path.resolve(
+  WORKSPACE_ROOT,
+  "showcase/frontends/nextjs/src/integrations/langgraph-python/extra-demos.json",
 );
 
 /**
@@ -107,16 +130,18 @@ const FIXTURE_DIRS = [
 const MIN_PROMPT_LEN = 12;
 
 /**
- * Hard-coded mapping from spec-file -> suggestion-pill -> actual user
- * message sent. This table mirrors the `useConfigureSuggestions` hook in
- * `showcase/integrations/langgraph-python/src/app/demos/beautiful-chat/hooks/
- * use-example-suggestions.tsx` and the `suggestions` prop on the chat-slots
- * and prebuilt-sidebar/popup demos. Hand-maintained — if a spec adds a new
- * pill click, its message must be added here.
+ * Hard-coded mapping from demo id -> suggestion pill -> the user message the
+ * pill sends. This table mirrors the demo pages under
+ * `showcase/frontends/nextjs/src/app/demos/[integration]/`:
+ * `beautiful-chat/hooks/use-example-suggestions.tsx` and
+ * `chat-slots/suggestions.ts`. Hand-maintained: if a spec clicks a new pill,
+ * add its message here.
  *
- * Keys: spec file basename (without `.spec.ts`).
- * Values: array of `{ pillText, userMessage }` — pillText is the substring
- * used in the spec's filter/getByRole matcher.
+ * Keys: the demo id of the spec's `describeDemo` call. Every spec of a demo
+ * (`beautiful-chat.spec.ts`, `beautiful-chat-pie-chart.spec.ts`, ...) reads
+ * the same entry.
+ * Values: array of `{ pillText, userMessage }`. pillText is the pill title
+ * that the spec passes to its click helper or `getByRole` matcher.
  */
 const PILL_MESSAGES: Record<
   string,
@@ -137,11 +162,44 @@ const PILL_MESSAGES: Record<
       userMessage:
         "Show me a bar chart of our expenses by category. Use the query_data tool to fetch the data first, then render it with the barChart component.",
     },
+    {
+      pillText: "Schedule Meeting (Human In The Loop)",
+      userMessage:
+        "I'd like to schedule a 30-minute meeting to learn about CopilotKit. Please use the scheduleTime tool to let me pick a time.",
+    },
+    {
+      pillText: "Search Flights (A2UI Fixed Schema)",
+      userMessage: "Find flights from SFO to JFK for next Tuesday.",
+    },
+    {
+      pillText: "Sales Dashboard (A2UI Dynamic)",
+      userMessage:
+        "First use the query_data tool to fetch the financial sales data, then using A2UI, show me a sales dashboard with total revenue, new customers, and conversion rate metrics. Include a pie chart of revenue by category and a bar chart of monthly sales.",
+    },
+    {
+      pillText: "Excalidraw Diagram (MCP App)",
+      userMessage:
+        "Use Excalidraw to create a simple network diagram showing a router connected to two switches, each connected to two computers.",
+    },
+    {
+      pillText: "Calculator App (Open Generative UI)",
+      userMessage:
+        "Using the generateSandboxedUi tool, build a modern calculator with standard buttons plus labeled metric shortcut buttons that insert their values into the display when clicked. Use sample company data.",
+    },
+    {
+      pillText: "Task Manager (Shared State)",
+      userMessage:
+        "Enable app mode and add three todos about learning CopilotKit: one about reading the docs, one about building a prototype, and one about exploring agent state.",
+    },
   ],
   "chat-slots": [
     {
       pillText: "Tell me a joke",
       userMessage: "Tell me a short joke.",
+    },
+    {
+      pillText: "Write a sonnet",
+      userMessage: "Write a short sonnet about AI.",
     },
   ],
 };
@@ -155,7 +213,7 @@ const PILL_MESSAGES: Record<
 const EXEMPT_PROMPTS: { spec: string; prompt: string; reason: string }[] = [];
 
 interface Fixture {
-  match: { userMessage: string };
+  match: { userMessage?: string };
   response: unknown;
 }
 
@@ -167,65 +225,179 @@ interface ExtractedPrompt {
   spec: string;
   line: number;
   prompt: string;
-  source: "fill" | "pill";
+  source: "fill" | "helper" | "pill";
+}
+
+// The fields of a manifest.yaml that say which demo pages an integration has.
+const ManifestDemosSchema = z.object({
+  demos: z.array(z.object({ route: z.string().optional() })),
+});
+
+const ExtraDemoIdsSchema = z.array(z.string());
+
+const DEMO_ROUTE_PREFIX = "/demos/";
+
+/**
+ * The ids of the demos an integration serves in the showcase app: the route
+ * of each manifest demo without its `/demos/` prefix, plus the ids in the
+ * app's `src/integrations/<slug>/extra-demos.json`. The app's registry
+ * (`src/lib/registry.ts`) uses the same rule. An entry without a route, such
+ * as a CLI command, has no page.
+ */
+function servedDemoIds(manifestYaml: string, extraDemosJson: string) {
+  const { demos } = ManifestDemosSchema.parse(loadYaml(manifestYaml));
+  const routed = demos.flatMap(({ route }) =>
+    route?.startsWith(DEMO_ROUTE_PREFIX)
+      ? [route.slice(DEMO_ROUTE_PREFIX.length)]
+      : [],
+  );
+  const extras = ExtraDemoIdsSchema.parse(JSON.parse(extraDemosJson));
+  return new Set([...routed, ...extras]);
 }
 
 /**
- * Collapse `.fill(<newline><indent>"..."<newline><indent>)` to
- * `.fill("...")` on a single line so a line-level regex can match both
- * shapes uniformly.
+ * The demos a spec runs on: the first argument of each `describeDemo(...)`
+ * call, as a string literal or as the name of a `const` in the same file
+ * that holds one. Empty when the spec has no `describeDemo` call, because
+ * then it runs for every integration.
  */
-function collapseMultilineFill(src: string): string {
-  return src.replace(/\.fill\(\s*\n\s*/g, ".fill(");
+function specDemoIds(specName: string, src: string) {
+  const calls = src.matchAll(
+    /\bdescribeDemo\(\s*(?:"([^"]+)"|([A-Za-z_]\w*))/g,
+  );
+  return [...calls].map(([, literal, constName]) => {
+    if (literal !== undefined) return literal;
+    const declaration = src.match(
+      new RegExp(String.raw`\bconst\s+${constName}\s*=\s*"([^"]+)"`),
+    );
+    if (declaration === null) {
+      throw new Error(
+        `${specName}.spec.ts: describeDemo takes ${constName}, which is not a const string in the same file`,
+      );
+    }
+    return declaration[1];
+  });
+}
+
+/** A double-quoted string literal. Group 1 is its body, still escaped. */
+const STRING_LITERAL = String.raw`"((?:[^"\\]|\\.)*)"`;
+
+/**
+ * A `.fill(` call on the chat input, up to its first argument. The receiver
+ * is a variable bound to the chat input, or the input found by its
+ * placeholder.
+ */
+const CHAT_INPUT_FILL = String.raw`(?:\b(?:input|textarea|chatInput)|getByPlaceholder\(\s*"Type a message[^"]*"\s*\))\s*\.fill\(\s*`;
+
+/** The end of a call after its last argument: a trailing comma, then `)`. */
+const CALL_END = String.raw`\s*,?\s*\)`;
+
+const CHAT_INPUT_FILL_RE = new RegExp(
+  CHAT_INPUT_FILL + STRING_LITERAL + CALL_END,
+  "g",
+);
+
+/**
+ * A module-level helper of a spec, `async function <name>(page: Page,
+ * <param>: string) { ... }`, up to the `}` that closes it at the start of a
+ * line. Group 1 is the name, group 2 the parameter, group 3 the body.
+ */
+const PAGE_TEXT_HELPER_RE =
+  /^(?:async\s+)?function\s+(\w+)\(\s*page:\s*Page,\s*(\w+):\s*string,?\s*\)[^{]*\{([\s\S]*?)^\}/gm;
+
+/**
+ * A test or hook declaration. Group 1 is the modifier of a test with a
+ * string title: `test("title", ...)`, `test.only`, `test.skip` or
+ * `test.fixme`. A conditional `test.skip(condition, reason)` inside a test
+ * has no string title, so it does not match.
+ */
+const TEST_DECLARATION_RE =
+  /\btest(?:\.(only|skip|fixme))?\(\s*["'`]|\btest\.(?:before|after)(?:Each|All)\(/g;
+
+/**
+ * True when the code at `offset` belongs to a `test.skip("title", ...)` or
+ * `test.fixme("title", ...)` declaration: the last test or hook declared
+ * before `offset` is one of those. Playwright never runs them, so their
+ * prompts are never sent.
+ */
+function isInSkippedTest(src: string, offset: number) {
+  const declarations = [...src.slice(0, offset).matchAll(TEST_DECLARATION_RE)];
+  const modifier = declarations.at(-1)?.[1];
+  return modifier === "skip" || modifier === "fixme";
+}
+
+/** The offset of the first mention of `text` outside a skipped test, or -1. */
+function firstRunOffset(src: string, text: string) {
+  let offset = src.indexOf(text);
+  while (offset !== -1 && isInSkippedTest(src, offset)) {
+    offset = src.indexOf(text, offset + 1);
+  }
+  return offset;
+}
+
+/** The 1-based line of a character offset in a source. */
+function lineAt(src: string, offset: number) {
+  return src.slice(0, offset).split("\n").length;
+}
+
+/** The text of a string literal body, with its escapes resolved. */
+function parseStringBody(body: string): string {
+  return JSON.parse(`"${body}"`);
 }
 
 /**
- * Extract chat prompts from a single spec source. Returns a list of
- * `{line, prompt, source}` tuples (line numbers are 1-indexed and refer
- * to the ORIGINAL, un-collapsed source for operator-friendly reporting).
+ * Extract chat prompts from a single spec source. Line numbers are 1-based
+ * and point at the call that sends the prompt, or at the pill title.
  */
-function extractPrompts(specName: string, rawSrc: string): ExtractedPrompt[] {
+function extractPrompts(
+  specName: string,
+  src: string,
+  demoIds: string[],
+): ExtractedPrompt[] {
   const out: ExtractedPrompt[] = [];
-  const collapsed = collapseMultilineFill(rawSrc);
-  // Build a line index against the ORIGINAL source. We search the collapsed
-  // text but report positions from the original by re-finding each match.
-  const lines = rawSrc.split("\n");
 
-  // 1) <var>.fill("...") where var is a chat-input binding.
-  //    Matches `input.fill("...")`, `textarea.fill("...")`, `chatInput.fill("...")`.
-  const varFillRe =
-    /\b(?:input|textarea|chatInput)\.fill\(\s*"((?:[^"\\]|\\.)*)"\s*\)/g;
-  for (const m of collapsed.matchAll(varFillRe)) {
-    const prompt = JSON.parse(`"${m[1]}"`);
+  // 1) A prompt typed straight into the chat input.
+  for (const m of src.matchAll(CHAT_INPUT_FILL_RE)) {
+    if (isInSkippedTest(src, m.index)) continue;
     out.push({
       spec: specName,
-      line: findLineForPrompt(lines, prompt),
-      prompt,
+      line: lineAt(src, m.index),
+      prompt: parseStringBody(m[1]),
       source: "fill",
     });
   }
 
-  // 2) page.getByPlaceholder("Type a message[...]").fill("...") — inline form.
-  const placeholderFillRe =
-    /getByPlaceholder\(\s*"Type a message[^"]*"\s*\)\.fill\(\s*"((?:[^"\\]|\\.)*)"\s*\)/g;
-  for (const m of collapsed.matchAll(placeholderFillRe)) {
-    const prompt = JSON.parse(`"${m[1]}"`);
-    out.push({
-      spec: specName,
-      line: findLineForPrompt(lines, prompt),
-      prompt,
-      source: "fill",
-    });
-  }
-
-  // 3) Suggestion-pill clicks — resolve via PILL_MESSAGES table.
-  const pillEntries = PILL_MESSAGES[specName] ?? [];
-  for (const entry of pillEntries) {
-    // Only include if the spec actually references the pill text.
-    if (rawSrc.includes(entry.pillText)) {
+  // 2) A prompt passed to a helper that types its parameter into the chat
+  //    input, such as `send(page, "prompt")`.
+  for (const [, name, param, body] of src.matchAll(PAGE_TEXT_HELPER_RE)) {
+    const typesParam = new RegExp(CHAT_INPUT_FILL + param + CALL_END).test(
+      body,
+    );
+    if (!typesParam) continue;
+    const callRe = new RegExp(
+      String.raw`\b${name}\(\s*page\s*,\s*${STRING_LITERAL}`,
+      "g",
+    );
+    for (const m of src.matchAll(callRe)) {
+      if (isInSkippedTest(src, m.index)) continue;
       out.push({
         spec: specName,
-        line: findLineForSubstring(lines, entry.pillText),
+        line: lineAt(src, m.index),
+        prompt: parseStringBody(m[1]),
+        source: "helper",
+      });
+    }
+  }
+
+  // 3) Suggestion-pill clicks, resolved through PILL_MESSAGES by demo. Only
+  //    include a pill if the spec actually references its title.
+  for (const demoId of demoIds) {
+    for (const entry of PILL_MESSAGES[demoId] ?? []) {
+      const offset = firstRunOffset(src, entry.pillText);
+      if (offset === -1) continue;
+      out.push({
+        spec: specName,
+        line: lineAt(src, offset),
         prompt: entry.userMessage,
         source: "pill",
       });
@@ -233,20 +405,6 @@ function extractPrompts(specName: string, rawSrc: string): ExtractedPrompt[] {
   }
 
   return out;
-}
-
-function findLineForPrompt(lines: string[], prompt: string): number {
-  for (let i = 0; i < lines.length; i += 1) {
-    if (lines[i].includes(prompt)) return i + 1;
-  }
-  return 0;
-}
-
-function findLineForSubstring(lines: string[], needle: string): number {
-  for (let i = 0; i < lines.length; i += 1) {
-    if (lines[i].includes(needle)) return i + 1;
-  }
-  return 0;
 }
 
 /**
@@ -272,6 +430,11 @@ function isCovered(prompt: string, fixtures: Fixture[]): boolean {
   return false;
 }
 
+/** The message of a caught value. */
+function errorMessage(err: unknown) {
+  return err instanceof Error ? err.message : String(err);
+}
+
 /**
  * Load and union all fixtures from the per-integration + shared dirs.
  * Each file is expected to be `{fixtures: [...]}` (the same shape the old
@@ -292,7 +455,7 @@ export async function loadAllFixtures(dirs: string[]): Promise<Fixture[]> {
     } catch (err) {
       // Missing dir is a hard error — the reorg layout is load-bearing.
       throw new Error(
-        `aimock fixture dir not found: ${dir} (${(err as Error).message})`,
+        `aimock fixture dir not found: ${dir} (${errorMessage(err)})`,
         { cause: err },
       );
     }
@@ -302,12 +465,12 @@ export async function loadAllFixtures(dirs: string[]): Promise<Fixture[]> {
       let parsed: Partial<FeatureParityFile>;
       try {
         const raw = await fs.readFile(fullPath, "utf8");
-        parsed = JSON.parse(raw) as Partial<FeatureParityFile>;
+        parsed = JSON.parse(raw);
       } catch (err) {
-        const msg = (err as Error).message;
-        throw new Error(`failed to parse fixture file ${fullPath}: ${msg}`, {
-          cause: err,
-        });
+        throw new Error(
+          `failed to parse fixture file ${fullPath}: ${errorMessage(err)}`,
+          { cause: err },
+        );
       }
       if (!parsed || !Array.isArray(parsed.fixtures)) {
         // Schema drift is a hard error — every fixture file MUST carry a
@@ -321,24 +484,33 @@ export async function loadAllFixtures(dirs: string[]): Promise<Fixture[]> {
   return out;
 }
 
-describe("aimock feature-parity fixture coverage for langgraph-python E2E specs", () => {
+describe("aimock fixture coverage for the shared E2E specs, run for langgraph-python", () => {
   it("every extracted chat prompt has a matching fixture", async () => {
     // Load fixtures from the D4/D6 per-integration dirs + shared bucket.
     const fixtures = await loadAllFixtures(FIXTURE_DIRS);
-    expect(Array.isArray(fixtures)).toBe(true);
     expect(fixtures.length).toBeGreaterThan(0);
 
-    // Walk every .spec.ts under the e2e dir.
+    const served = servedDemoIds(
+      await fs.readFile(MANIFEST_PATH, "utf8"),
+      await fs.readFile(EXTRA_DEMOS_PATH, "utf8"),
+    );
+
+    // Walk every .spec.ts of the shared suite that runs for langgraph-python.
     const entries = await fs.readdir(SPEC_DIR);
     const specFiles = entries.filter((e) => e.endsWith(".spec.ts"));
-    expect(specFiles.length).toBeGreaterThan(0);
-
     const allPrompts: ExtractedPrompt[] = [];
+    let scannedSpecs = 0;
     for (const file of specFiles) {
       const src = await fs.readFile(path.join(SPEC_DIR, file), "utf8");
       const specName = file.replace(/\.spec\.ts$/, "");
-      allPrompts.push(...extractPrompts(specName, src));
+      const demoIds = specDemoIds(specName, src);
+      const runsForIntegration =
+        demoIds.length === 0 || demoIds.some((id) => served.has(id));
+      if (!runsForIntegration) continue;
+      scannedSpecs += 1;
+      allPrompts.push(...extractPrompts(specName, src, demoIds));
     }
+    expect(scannedSpecs).toBeGreaterThan(0);
 
     // Partition into covered / exempt / uncovered.
     const exemptSet = new Set(
@@ -358,21 +530,192 @@ describe("aimock feature-parity fixture coverage for langgraph-python E2E specs"
         )
         .join("\n");
       throw new Error(
-        `Found ${uncovered.length} langgraph-python spec prompt(s) without matching aimock fixtures.\n` +
+        `Found ${uncovered.length} prompt(s) in the shared E2E specs that run for langgraph-python without matching aimock fixtures.\n` +
           `Add a fixture entry (match.userMessage substring + deterministic response) to one of:\n` +
           `  - showcase/aimock/d4/langgraph-python/<file>.json\n` +
           `  - showcase/aimock/d6/langgraph-python/<file>.json\n` +
           `  - showcase/aimock/shared/<file>.json (no-context, depth-agnostic)\n\n` +
           `${listing}\n\n` +
-          `Total prompts scanned: ${allPrompts.length}. Specs scanned: ${specFiles.length}.`,
+          `Total prompts scanned: ${allPrompts.length}. Specs scanned: ${scannedSpecs} of ${specFiles.length} (the others are for demos langgraph-python does not serve).`,
       );
     }
 
-    // Assert we actually extracted a meaningful number — a silent regex
+    // Assert we actually extracted a meaningful number. A silent regex
     // regression that extracts zero prompts would otherwise pass this test
-    // trivially. Floor chosen from the current count (roughly 50+) with
-    // margin for future pruning.
-    expect(allPrompts.length).toBeGreaterThanOrEqual(30);
+    // trivially. The floor sits below today's count (69 prompts) with margin
+    // for future pruning.
+    expect(allPrompts.length).toBeGreaterThanOrEqual(50);
+  });
+});
+
+describe("servedDemoIds", () => {
+  it("serves each manifest demo route and each extra demo, and skips an entry without a route", () => {
+    const manifest = [
+      "demos:",
+      "  - id: cli-start",
+      "    command: npx copilotkit@latest init",
+      "  - id: agentic-chat",
+      "    route: /demos/agentic-chat",
+      "  - id: hitl-in-chat-booking",
+      "    route: /demos/hitl-in-chat",
+    ].join("\n");
+
+    expect(servedDemoIds(manifest, '["hitl"]')).toEqual(
+      new Set(["agentic-chat", "hitl-in-chat", "hitl"]),
+    );
+  });
+});
+
+describe("specDemoIds", () => {
+  it.each([
+    {
+      form: "a string literal",
+      src: 'describeDemo("agentic-chat", "Agentic Chat", () => {});',
+      ids: ["agentic-chat"],
+    },
+    {
+      form: "a call split over lines",
+      src: 'describeDemo(\n  "hitl-in-app",\n  "HITL In-App",\n  () => {},\n);',
+      ids: ["hitl-in-app"],
+    },
+    {
+      form: "a const in the same file",
+      src: 'const DEMO = "gen-ui-interrupt";\ndescribeDemo(DEMO, "Gen UI interrupt", () => {});',
+      ids: ["gen-ui-interrupt"],
+    },
+    {
+      form: "a spec without describeDemo",
+      src: 'test.describe("Showcase app", () => {});',
+      ids: [],
+    },
+  ])("reads the demo from $form", ({ src, ids }) => {
+    expect(specDemoIds("example", src)).toEqual(ids);
+  });
+
+  it("throws when describeDemo takes a name that is not a const string", () => {
+    expect(() =>
+      specDemoIds("example", 'describeDemo(demoId, "Example", () => {});'),
+    ).toThrow("example.spec.ts: describeDemo takes demoId");
+  });
+});
+
+describe("extractPrompts", () => {
+  it.each([
+    {
+      form: "a chat-input variable",
+      src: 'await input.fill("What recipe am I making?");',
+      prompts: ["What recipe am I making?"],
+    },
+    {
+      form: "a prompt on its own line with a trailing comma",
+      src: 'await input.fill(\n  "Plan a trip to mars in 5 steps",\n);',
+      prompts: ["Plan a trip to mars in 5 steps"],
+    },
+    {
+      form: "the placeholder locator split over lines",
+      src: 'await page\n  .getByPlaceholder("Type a message")\n  .fill("Tell me a one-line joke");',
+      prompts: ["Tell me a one-line joke"],
+    },
+    {
+      form: "a helper that types its parameter into the chat input",
+      src: [
+        "async function send(page: Page, text: string) {",
+        '  const input = page.getByPlaceholder("Type a message");',
+        "  await input.fill(text);",
+        "}",
+        'await send(page, "Say hello in one short sentence");',
+      ].join("\n"),
+      prompts: ["Say hello in one short sentence"],
+    },
+  ])("extracts a prompt typed through $form", ({ src, prompts }) => {
+    expect(extractPrompts("example", src, []).map((p) => p.prompt)).toEqual(
+      prompts,
+    );
+  });
+
+  it.each([
+    {
+      form: "a non-chat input",
+      src: 'await page.getByTestId("ctx-name").fill("Jamie");',
+    },
+    {
+      form: "a helper that fills a non-chat input",
+      src: [
+        "async function rename(page: Page, name: string) {",
+        '  await page.getByTestId("pref-name").fill(name);',
+        "}",
+        'await rename(page, "Ada");',
+      ].join("\n"),
+    },
+  ])("ignores text typed into $form", ({ src }) => {
+    expect(extractPrompts("example", src, [])).toEqual([]);
+  });
+
+  it("leaves out prompts of skipped tests, and keeps the next test's prompt", () => {
+    const src = [
+      'test.fixme("downgrade flow", async () => {});',
+      'test.skip("draws a diagram", async ({ page }) => {',
+      "  await input.fill(",
+      '    "Use Excalidraw to draw exactly 2 rectangles",',
+      "  );",
+      "});",
+      'test("plans a trip", async ({ page }) => {',
+      '  await input.fill("Plan a trip to mars in 5 steps");',
+      "});",
+    ].join("\n");
+
+    expect(extractPrompts("example", src, []).map((p) => p.prompt)).toEqual([
+      "Plan a trip to mars in 5 steps",
+    ]);
+  });
+
+  it("keeps a prompt that follows a conditional test.skip in a running test", () => {
+    const src = [
+      'test("reads forwardedProps", async ({ page }) => {',
+      '  test.skip(readsContext, "The agent reads the agent context.");',
+      '  await input.fill("Show me the sales dashboard");',
+      "});",
+    ].join("\n");
+
+    expect(extractPrompts("example", src, []).map((p) => p.prompt)).toEqual([
+      "Show me the sales dashboard",
+    ]);
+  });
+
+  it("resolves a pill click to its message through the spec's demo", () => {
+    const src =
+      'await clickBeautifulChatPill(page, "Toggle Theme (Frontend Tools)");';
+
+    expect(
+      extractPrompts("beautiful-chat-toggle-theme", src, ["beautiful-chat"]),
+    ).toEqual([
+      {
+        spec: "beautiful-chat-toggle-theme",
+        line: 1,
+        prompt: "Toggle the app theme using the toggleTheme tool.",
+        source: "pill",
+      },
+    ]);
+  });
+
+  it("reads a pill from its first mention outside a skipped test", () => {
+    const src = [
+      'test.skip("toggles twice", async ({ page }) => {',
+      '  await clickBeautifulChatPill(page, "Toggle Theme (Frontend Tools)");',
+      "});",
+      'test("toggles the theme", async ({ page }) => {',
+      '  await clickBeautifulChatPill(page, "Toggle Theme (Frontend Tools)");',
+      "});",
+    ].join("\n");
+
+    expect(extractPrompts("beautiful-chat", src, ["beautiful-chat"])).toEqual([
+      {
+        spec: "beautiful-chat",
+        line: 5,
+        prompt: "Toggle the app theme using the toggleTheme tool.",
+        source: "pill",
+      },
+    ]);
   });
 });
 

@@ -1,0 +1,40 @@
+# Build context of showcase/frontends/nextjs/Dockerfile (the context is the repo
+# root). This file replaces the root .dockerignore for that build.
+#
+# Send only what the image build reads. A change anywhere else, such as an
+# integration's agent code, then does not invalidate the `next build` layer.
+*
+
+# The app.
+!showcase/frontends/nextjs
+# The target of the app's `_shared` symlink.
+!showcase/integrations/_shared
+# The registry generator and its inputs.
+!showcase/scripts
+!showcase/shared
+!showcase/harness/package.json
+!showcase/harness/src/shared
+!showcase/integrations/*/manifest.yaml
+!showcase/integrations/*/docs-links.json
+
+# Local installs, build output and secrets inside the folders above. The image
+# installs, generates and builds its own.
+**/node_modules
+**/.next
+**/.env
+**/.env.*
+**/__pycache__
+**/.DS_Store
+showcase/frontends/nextjs/src/data
+showcase/frontends/nextjs/next-env.d.ts
+showcase/frontends/nextjs/tsconfig.tsbuildinfo
+showcase/frontends/nextjs/playwright-report
+showcase/frontends/nextjs/test-results
+
+# App files that the build does not read, so that a change to them does not
+# start a new `next build`.
+showcase/frontends/nextjs/Dockerfile
+showcase/frontends/nextjs/Dockerfile.dockerignore
+showcase/frontends/nextjs/project.json
+showcase/frontends/nextjs/README.md
+showcase/frontends/nextjs/scripts/e2e-local.sh

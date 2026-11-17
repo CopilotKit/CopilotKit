@@ -15,11 +15,8 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { fileURLToPath } from "url";
-import {
-  anomalyMessage,
-  type AuditConfig,
-  type PackageAudit,
-} from "../audit.js";
+import { anomalyMessage } from "../audit.js";
+import type { AuditConfig, PackageAudit } from "../audit.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -29,11 +26,11 @@ export const AUDIT_SCRIPT = path.resolve(__dirname, "..", "audit.ts");
 /**
  * Build a throwaway temp tree mimicking:
  *   <root>/integrations/<slug>/manifest.yaml
- *   <root>/integrations/<slug>/tests/e2e/*.spec.ts
  *   <root>/integrations/<slug>/qa/*.md
+ *   <root>/frontends/nextjs/tests/e2e/<demo-id>.spec.ts (the shared suite)
  *   <root>/examples/integrations/<name>/
  */
-export function makeTmpTree(): string {
+export function makeTmpTree() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "audit-fixture-"));
   fs.mkdirSync(path.join(root, "integrations"), { recursive: true });
   fs.mkdirSync(path.join(root, "examples", "integrations"), {
@@ -42,12 +39,30 @@ export function makeTmpTree(): string {
   return root;
 }
 
-export function makeConfig(root: string): AuditConfig {
+/**
+ * The shared e2e suite folder of a temp tree. Spelled out here, not taken
+ * from audit.ts, so a wrong path in the CLI config fails the CLI tests.
+ */
+export function sharedSuiteDir(root: string) {
+  return path.join(root, "frontends", "nextjs", "tests", "e2e");
+}
+
+export function makeConfig(root: string) {
   return {
     packagesDir: path.join(root, "integrations"),
     examplesIntegrationsDir: path.join(root, "examples", "integrations"),
     repoRoot: root,
-  };
+    sharedSpecsDir: sharedSuiteDir(root),
+  } satisfies AuditConfig;
+}
+
+/** Writes `<demo-id>.spec.ts` for each id into the shared suite of a tree. */
+export function writeSharedSpecs(root: string, demoIds: readonly string[]) {
+  const dir = sharedSuiteDir(root);
+  fs.mkdirSync(dir, { recursive: true });
+  for (const demoId of demoIds) {
+    fs.writeFileSync(path.join(dir, `${demoId}.spec.ts`), "// test\n");
+  }
 }
 
 export function writePackage(
@@ -55,7 +70,6 @@ export function writePackage(
   slug: string,
   opts: {
     manifest?: string; // raw YAML string; undefined = no manifest.yaml
-    specs?: string[];
     qaFiles?: string[];
   },
 ) {
@@ -63,13 +77,6 @@ export function writePackage(
   fs.mkdirSync(pkgDir, { recursive: true });
   if (opts.manifest !== undefined) {
     fs.writeFileSync(path.join(pkgDir, "manifest.yaml"), opts.manifest);
-  }
-  if (opts.specs && opts.specs.length > 0) {
-    const e2eDir = path.join(pkgDir, "tests", "e2e");
-    fs.mkdirSync(e2eDir, { recursive: true });
-    for (const s of opts.specs) {
-      fs.writeFileSync(path.join(e2eDir, s), "// test\n");
-    }
   }
   if (opts.qaFiles && opts.qaFiles.length > 0) {
     const qaDir = path.join(pkgDir, "qa");

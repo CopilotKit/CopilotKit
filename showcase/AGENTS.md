@@ -10,19 +10,21 @@ A showcase "cell" is one (integration × feature) pair rendered on the dashboard
 
 ## The 4 Iron Rules
 
-### 1. Identical tests — ONE shared probe, run across all integrations
+### 1. Identical tests: ONE shared e2e suite and ONE shared probe, run across all integrations
 
-The test that measures a feature (the e2e/probe spec) is **byte-identical** across every integration. Differences between integrations live ONLY in fixtures, never in the test. For D6/D5 this is a single shared harness probe — e.g. `showcase/harness/src/probes/scripts/d5-gen-ui-a2ui-fixed.ts` — run against every integration.
+ONE test measures a feature for every integration. Differences between integrations live ONLY in fixtures, never in the test.
 
-- **What a violation looks like:** a per-integration copy of a test/probe, or an `if slug === "mastra"` branch inside the probe.
-- **How to satisfy it:** edit the one shared probe; if a specific integration behaves differently, that difference belongs in its fixture, not in the test.
+- **e2e:** the shared e2e suite of the shared app, `showcase/frontends/nextjs/tests/e2e/`. It has a spec for each demo, and `INTEGRATION=<slug>` picks the integration. Run it with `pnpm nx run showcase-frontend-nextjs:e2e-local <slug>` (see [`TESTING.md`](./TESTING.md#shared-e2e-suite)).
+- **D6/D5:** a single shared harness probe, for example `showcase/harness/src/probes/scripts/d5-gen-ui-a2ui-fixed.ts`, run against every integration.
+- **What a violation looks like:** a per-integration copy of a spec or probe, or an `if slug === "mastra"` branch inside a spec or probe.
+- **How to satisfy it:** edit the one shared spec or probe. If an integration behaves differently, that difference belongs in its fixture, not in the test. If a page differs by design (rule 2), the spec reads the same demo config as the page, with `integrationDemoConfig`.
 
-### 2. Near-identical frontends — a cell renders the same regardless of backend
+### 2. ONE copy of each demo: a cell renders the same regardless of backend
 
-The feature UI is a shared / near-identical frontend, so a cell looks and renders the same no matter which backend drives it (e.g. mastra's frontend ≡ langgraph-python's frontend, byte-identical).
+Each demo has ONE copy, in the shared app: `showcase/frontends/nextjs/src/app/demos/[integration]/<demo>/`. Every integration renders that copy, so a cell looks the same no matter which backend drives it.
 
-- **What a violation looks like:** one integration's frontend component diverging from the others for the same feature.
-- **How to satisfy it:** edit the shared frontend source; verify parity by screenshot/diff, don't diverge per-integration.
+- **What a violation looks like:** a per-integration copy of a demo, a slug branch in demo code, or demo config for anything but a real framework difference.
+- **How to satisfy it:** edit the one copy. Only a real framework difference is per-integration data, for example an interrupt event instead of a frontend tool. Put it in `showcase/frontends/nextjs/src/integrations/<slug>/demos/<demo>.ts` as serializable demo config. The page reads it with `loadIntegrationDemoConfig`. Every other difference belongs in the fixture (rule 4). For a fix that must reach production now, see [Production today](./frontends/nextjs/README.md#production-today).
 
 ### 3. Minimal backends — the thinnest thing that drives the feature
 
@@ -69,7 +71,11 @@ These checks apply to changes to integration behavior, shared feature frontends,
 fixtures, and the probes that exercise them. For changes confined to the dashboard,
 use the verification scope below.
 
-1. **Locate the shared source first.** Is what you're about to edit a shared probe (rule 1), a shared frontend (rule 2), shared tool logic (rule 3), or a per-integration fixture (rule 4)? Edit the correct layer.
+1. **Locate the shared source first.** Edit the correct layer, which is one of these:
+   - a shared spec or probe (rule 1)
+   - the one copy of a demo in the shared app (rule 2)
+   - shared tool logic (rule 3)
+   - a per-integration fixture (rule 4)
 2. **Confirm symlink integrity.** If you're editing anything under `shared-tools/` / `tools/` / `_shared/`, verify it's a symlink (`ls -l`). If it's a real file, you're looking at drift — fix the shared source and restore the symlink instead.
 3. **Never per-integration-copy a test or frontend.** Differences go in the fixture (`showcase/aimock/d6/<slug>/`) only.
 4. **Value-test before merge (mandatory).** Run the real probe surface, not unit tests against fakes:

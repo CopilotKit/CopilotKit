@@ -681,5 +681,78 @@ services:
     volumes:
       - ./integrations/built-in-agent/src:/app/src
 
+  ###########################################################################
+  # The shared demo app (frontends/nextjs): one Next.js process that serves
+  # the demos of every integration at /demos/<integration>/<demo>. It reaches
+  # each integration's agent on this network, at AGENT_URL_<SLUG>.
+  #
+  # Start it with aimock and the integrations to test. Naming the services
+  # keeps the rest of the infra profile down:
+  #
+  #   docker compose -f docker-compose.local.yml --profile infra \
+  #     --profile frontend-nextjs --profile strands \
+  #     up -d aimock strands frontend-nextjs
+  #
+  # frontends/nextjs/scripts/e2e-local.sh <slug> does this, waits for the app
+  # and the agent, and runs the shared e2e suite against
+  # http://localhost:3200.
+  #
+  # Host port 3200 is not in shared/local-ports.json on purpose: the harness
+  # reads that file as the list of integrations.
+  ###########################################################################
+  frontend-nextjs:
+    build:
+      context: ../
+      dockerfile: showcase/frontends/nextjs/Dockerfile
+    image: showcase-frontend-nextjs:local
+    container_name: showcase-frontend-nextjs
+    # The same .env as the integration services, for optional keys such as
+    # OPENAI_TRANSCRIPTION_API_KEY. The entries below win over it.
+    env_file: .env
+    environment:
+      # built-in-agent and mastra run inside this process and call OpenAI
+      # directly, so they use aimock here. mastra reads the base URL once, at
+      # first load.
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-sk-mock}
+      - OPENAI_BASE_URL=http://aimock:4010/v1
+      # The claude-sdk agents add the X-AIMock-Context header only when
+      # ANTHROPIC_BASE_URL or AIMOCK_URL contains "aimock".
+      - AIMOCK_URL=http://aimock:4010
+      # The agent address of every HTTP integration. The host is the
+      # integration's compose service, which has the same name as its slug.
+      # Integrations that run in process have no address. After an env.ts
+      # change, regenerate the lines from frontends/nextjs:
+      #   for slug in $(ls ../../integrations | grep -v '^_'); do
+      #     npx tsx scripts/agent-env.ts "$slug" "$slug"; done
+      - AGENT_URL_AG2=http://ag2:8000
+      - AGENT_URL_AGNO=http://agno:8000
+      - AGENT_URL_CLAUDE_SDK_PYTHON=http://claude-sdk-python:8000
+      - AGENT_URL_CLAUDE_SDK_TYPESCRIPT=http://claude-sdk-typescript:8000
+      - AGENT_URL_CREWAI_CONVERSATIONAL_FLOWS=http://crewai-conversational-flows:8000
+      - AGENT_URL_CREWAI_CREWS=http://crewai-crews:8000
+      - AGENT_URL_GOOGLE_ADK=http://google-adk:8000
+      - AGENT_URL_GOOGLE_ANTIGRAVITY=http://google-antigravity:8000
+      - AGENT_URL_LANGGRAPH_FASTAPI=http://langgraph-fastapi:8123
+      - AGENT_URL_LANGGRAPH_PYTHON=http://langgraph-python:8123
+      - AGENT_URL_LANGGRAPH_TYPESCRIPT=http://langgraph-typescript:8123
+      - AGENT_URL_LANGROID=http://langroid:8000
+      - AGENT_URL_LLAMAINDEX=http://llamaindex:8000
+      - AGENT_URL_MS_AGENT_DOTNET=http://ms-agent-dotnet:8000
+      - AGENT_URL_MS_AGENT_HARNESS_DOTNET=http://ms-agent-harness-dotnet:8000
+      - AGENT_URL_MS_AGENT_PYTHON=http://ms-agent-python:8000
+      - AGENT_URL_OPENAI_AGENTS_PYTHON=http://openai-agents-python:8000
+      - AGENT_URL_PYDANTIC_AI=http://pydantic-ai:8000
+      - AGENT_URL_SPRING_AI=http://spring-ai:8000
+      - AGENT_URL_STRANDS=http://strands:8000
+      - AGENT_URL_STRANDS_TYPESCRIPT=http://strands-typescript:8000
+    ports:
+      - "3200:10000"
+    depends_on:
+      aimock:
+        condition: service_healthy
+    profiles: ["frontend-nextjs", "all"]
+    restart: unless-stopped
+    # The healthcheck (GET /api/health) comes from the image.
+
 volumes:
   showcase-pb-data:

@@ -70,6 +70,17 @@
       }
     },
     {
+      "_comment": "Beautiful Chat — Calculator pill follow-up for built-in-agent, keyed on the tool result instead of a tool_call_id. built-in-agent's /v1/responses runtime rewrites the tool_call id to a generated `fc-…` value, so the three toolCallId follow-ups above never match, and the leg-1 entries below matched the follow-up and called generateSandboxedUi again, in a loop. In aimock 1.48 hasToolResult checks only the current turn (the messages after the last user message), so a first calculator click in a thread with earlier tool results still reaches leg 1; the leg-1 note that rejects this backstop assumes the older thread-wide check. MUST precede the leg-1 entries below.",
+      "match": {
+        "userMessage": "build a modern calculator with standard buttons",
+        "hasToolResult": true,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Calculator app rendered above — tap a metric shortcut to insert its value, then operate on it with the standard keypad."
+      }
+    },
+    {
       "_comment": "Beautiful Chat — Calculator (Open Generative UI) pill, repeat-click variant 1 of 3 (sequenceIndex 0: serves the first match for its X-Test-Id). REPEAT-CLICK FIX: each click must emit a DISTINCT tool_call_id — the frontend keys tool renders by id, so a repeated id collapses the second widget into the first one's slot (second never mounts, first remounts and loses its state). aimock co-increments every sequenceIndex sibling that shares these match criteria whenever one of them matches. SCOPE CAVEAT: sequence counters are scoped per X-Test-Id for the lifetime of the aimock process (see showcase/GOTCHAS.md), and matchCriteriaEqual ignores 'context', so all 18 integrations' copies of these variants form ONE co-increment sibling group — a calculator click on ANY integration consumes a seq slot for all. D6 mints per-run unique test ids (buildE2eTestId), so CI gets the full click-order guarantee; manual/staging traffic sends no test id and shares DEFAULT_TEST_ID server-wide, so after the first two calculator clicks (any integration, any session) every later click falls through to the _003 fallback and reuses its id — a degradation floor equal to the pre-fix collapse behavior, never worse. The proper fix is aimock-side: per-thread sequence scoping and/or including 'context' in matchCriteriaEqual. Returns a generateSandboxedUi tool call with a complete calculator widget (matches the d5 calc fixture's pattern but tailored to the beautiful-chat pill's user message). DELIBERATE TRADEOFF: no hasToolResult gate here — hasToolResult is thread-global in aimock and gating on it broke interleaved pills; the toolCallId follow-up entries above (which must stay first) are what stop these entries from re-matching after leg 1. An Excalidraw-style userMessage+hasToolResult:true backstop was considered and REJECTED because it would hijack a first calculator click in a thread that already contains tool results.",
       "match": {
         "userMessage": "build a modern calculator with standard buttons",

@@ -43,6 +43,18 @@
       }
     },
     {
+      "_comment": "Sales intro call — follow-up after the user cancels the picker: the frontend tool returns 'User cancelled. Meeting NOT scheduled.'. Keyed on the tool result (built-in-agent rewrites tool_call ids) and placed before the pick fallback below, which would otherwise answer a cancel with 'Booked'.",
+      "match": {
+        "userMessage": "intro call with the sales team",
+        "hasToolResult": true,
+        "toolResultContains": "cancelled",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Denied — the sales intro call was not booked because no time slot was selected."
+      }
+    },
+    {
       "_comment": "Sales intro call — follow-up content fallback for the built-in-agent /v1/responses endpoint, which REWRITES the assistant tool_call id to a runtime-generated `fc-…` value, so the call_d5_schedule_sales_001 toolCallId chain above never matches the follow-up turn after schedule_meeting runs → strict 503. Anchored on hasToolResult:true so it fires only after the tool result; carries no toolCalls so it is loop-safe. MUST precede the hasToolResult:false tool-emit fixture below.",
       "match": {
         "userMessage": "intro call with the sales team",
@@ -87,6 +99,29 @@
       "match": {
         "userMessage": "1:1 with Alice",
         "toolCallId": "call_d5_schedule_alice_001",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Scheduled: 1:1 with Alice locked in for the slot you picked."
+      }
+    },
+    {
+      "_comment": "1:1 with Alice — follow-up after the user cancels the picker: the frontend tool returns 'User cancelled. Meeting NOT scheduled.'. built-in-agent rewrites the tool_call id to a generated `fc-…` value, so the toolCallId entry above never matches; this keys on the tool result instead. MUST precede the pick fallback and the hasToolResult:false tool-emit fixture below.",
+      "match": {
+        "userMessage": "1:1 with Alice",
+        "hasToolResult": true,
+        "toolResultContains": "cancelled",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Denied — the 1:1 with Alice was not scheduled because no time slot was selected."
+      }
+    },
+    {
+      "_comment": "1:1 with Alice — follow-up content fallback after the user picks a slot, for the same tool_call id rewrite as the sales intro call above. Anchored on hasToolResult:true so it fires only after the tool result; carries no toolCalls so it is loop-safe. MUST precede the hasToolResult:false tool-emit fixture below.",
+      "match": {
+        "userMessage": "1:1 with Alice",
+        "hasToolResult": true,
         "context": "built-in-agent"
       },
       "response": {

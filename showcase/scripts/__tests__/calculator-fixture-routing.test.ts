@@ -48,14 +48,13 @@ const REPO_ROOT = path.resolve(__dirname, "..", "..", "..");
 
 const CALC_PILL = "build a modern calculator with standard buttons";
 const GENERIC_PILL = "build a modern calculator";
-// The FULL production pill text, from
-// src/app/demos/beautiful-chat/hooks/use-example-suggestions.tsx in 17 of the
-// 19 integrations — built-in-agent and claude-sdk-python have no calculator
-// pill; their fixture blocks are mirror-parity entries per the GOTCHAS MIRROR
-// rule, ready for when those demos gain the pill. The fixture matchers above
-// (CALC_PILL / GENERIC_PILL) are SUBSTRINGS of this — the behavioral walk
-// sends the full text so it exercises the same substring matching the live
-// demo relies on.
+// The FULL production pill text, from the beautiful-chat demo's
+// hooks/use-example-suggestions.tsx. The shared app
+// (showcase/frontends/nextjs) shows this pill for every integration. Some
+// integration websites still lack it (built-in-agent, claude-sdk-python). The
+// fixture matchers above (CALC_PILL / GENERIC_PILL) are SUBSTRINGS of this:
+// the behavioral walk sends the full text so it exercises the same substring
+// matching the live demo relies on.
 const CALC_PILL_FULL =
   "Using the generateSandboxedUi tool, build a modern calculator with " +
   "standard buttons plus labeled metric shortcut buttons that insert their " +
@@ -79,6 +78,10 @@ const integrations = fixtureFiles.map((file) => ({
 
 interface CalcEntryIndices {
   followUps: number[]; // toolCallId calculator_001/002/003 follow-up entries
+  // CALC_PILL + hasToolResult: true. Optional: an agent that rewrites tool
+  // call ids (built-in-agent sends fc-… ids) never matches the toolCallId
+  // follow-ups, so its file adds this id-agnostic follow-up.
+  resultFollowUps: number[];
   sequenced: number[]; // CALC_PILL + sequenceIndex 0/1 leg-1 variants
   fallback: number[]; // CALC_PILL without sequenceIndex (_003 fallback)
   genericFollowUps: number[]; // toolCallId open_gen_ui_calc_001 follow-up
@@ -88,6 +91,7 @@ interface CalcEntryIndices {
 function indexCalcEntries(fixtures: Fixture[]): CalcEntryIndices {
   const out: CalcEntryIndices = {
     followUps: [],
+    resultFollowUps: [],
     sequenced: [],
     fallback: [],
     genericFollowUps: [],
@@ -100,6 +104,8 @@ function indexCalcEntries(fixtures: Fixture[]): CalcEntryIndices {
       (CALC_CALL_IDS as readonly string[]).includes(m.toolCallId)
     ) {
       out.followUps.push(i);
+    } else if (m.userMessage === CALC_PILL && m.hasToolResult === true) {
+      out.resultFollowUps.push(i);
     } else if (m.userMessage === CALC_PILL) {
       if (m.sequenceIndex !== undefined) out.sequenced.push(i);
       else out.fallback.push(i);
@@ -181,6 +187,10 @@ describe("beautiful-chat calculator fixture routing", () => {
         expectNonEmptyFixtures(fixtures, rel);
         const idx = indexCalcEntries(fixtures);
         expect(idx.followUps, `${rel}: calculator follow-ups`).toHaveLength(3);
+        expect(
+          idx.resultFollowUps.length,
+          `${rel}: id-agnostic hasToolResult follow-ups`,
+        ).toBeLessThanOrEqual(1);
         expect(idx.sequenced, `${rel}: sequenced leg-1 variants`).toHaveLength(
           2,
         );
@@ -199,9 +209,11 @@ describe("beautiful-chat calculator fixture routing", () => {
         expectNonEmptyFixtures(fixtures, rel);
         const idx = indexCalcEntries(fixtures);
 
-        // Guard every index bucket so the Math.max/Math.min comparisons below
-        // can never pass vacuously over empty arrays (-Infinity < Infinity).
-        for (const [bucket, indices] of Object.entries(idx)) {
+        // Guard every required index bucket so the Math.max/Math.min
+        // comparisons below can never pass vacuously over empty arrays
+        // (-Infinity < Infinity). resultFollowUps is optional.
+        const { resultFollowUps, ...required } = idx;
+        for (const [bucket, indices] of Object.entries(required)) {
           expect(
             indices.length,
             `${rel}: no ${bucket} entries indexed — the ordering assertions ` +
@@ -212,13 +224,25 @@ describe("beautiful-chat calculator fixture routing", () => {
         const leg1 = [...idx.sequenced, ...idx.fallback];
         const generic = [...idx.genericFollowUps, ...idx.genericLeg1];
 
-        // (1) toolCallId follow-ups precede ALL leg-1 variants.
+        // (1) every follow-up (toolCallId or hasToolResult) precedes ALL
+        // leg-1 variants.
         expect(
-          Math.max(...idx.followUps),
-          `${rel}: a calculator toolCallId follow-up entry must precede every ` +
+          Math.max(...idx.followUps, ...resultFollowUps),
+          `${rel}: a calculator follow-up entry must precede every ` +
             `leg-1 variant, or follow-up requests re-match a leg-1 fixture ` +
             `and the demo tool-call-loops`,
         ).toBeLessThan(Math.min(...leg1));
+
+        // (1b) the id-agnostic follow-up comes after the toolCallId ones, so
+        // an agent that keeps the fixture's tool call ids still gets each
+        // leg's own follow-up.
+        if (resultFollowUps.length > 0) {
+          expect(
+            Math.max(...idx.followUps),
+            `${rel}: the hasToolResult follow-up must come after the ` +
+              `toolCallId follow-ups, or it answers every leg first`,
+          ).toBeLessThan(Math.min(...resultFollowUps));
+        }
 
         // (2) sequenceIndex variants precede the non-sequenced fallback.
         expect(

@@ -37,7 +37,7 @@ showcase/aimock/
 
 ## Fixtures in this directory
 
-- **`feature-parity.json`** — 35+ fixtures covering the nine showcase demos across 17 packages: agentic chat (weather, backgrounds, themes), tool rendering (pie/bar charts, weather cards), HITL (plans, steps, approvals), Sales Dashboard (deals, pipelines, todos), and assorted meeting/flight/greeting prompts. Consumed by the per-package `test_e2e-showcase-on-demand` Playwright suites and loaded at Railway boot via GitHub raw URL.
+- **`shared/`, `d4/`, `d5-recorded/` and `d6/`**: the fixtures that `/test-aimock <slug>` and the local `aimock` compose service load. The shared e2e suite of the shared app (`showcase/frontends/nextjs`) runs against them. Its requests carry `X-AIMock-Context: <slug>`, and the agents forward that header to aimock, so aimock answers with that integration's fixtures.
 - **`smoke.json`** — a single minimal fixture (`userMessage: "Respond with exactly: OK"` → `content: "OK"`). Used by `/api/smoke` endpoints in each package to verify the aimock → package → UI round-trip without depending on a real agent.
 
 Fixture match semantics: `userMessage` is a substring match against the last user turn. First fixture to match wins, so more specific prompts should appear before more generic ones (see the `"Based on the following context, write a concise"` entry that precedes the generic `report` / `plan` fixtures to protect CrewAI's startup probe).
@@ -63,9 +63,10 @@ The process is manual. There is no CLI for this directory specifically — aimoc
    ```
    pnpm --filter @copilotkit/showcase-scripts test aimock-fixtures
    ```
-4. Run the per-package E2E against the new fixture:
+4. Run the shared e2e suite against the new fixture, from the repo root. If aimock runs already, restart it first, because it loads fixtures only when it starts:
    ```
-   ./showcase/scripts/run-e2e-with-aimock.sh <slug> [test-filter]
+   docker restart showcase-aimock
+   pnpm nx run showcase-frontend-nextjs:e2e-local <slug>
    ```
 5. Ship it. Fixture changes take effect on the next Railway service restart (aimock fetches fixtures from GitHub raw URLs at boot).
 
@@ -84,7 +85,7 @@ There is no scheduled drift-detection job that compares fixture responses agains
 
 ## Related workflows
 
-- **`test_e2e-showcase-on-demand.yml`** (historically `showcase_aimock-e2e.yml`) — triggered by `/test-aimock <slug>` PR comments or `workflow_dispatch`. Installs `@copilotkit/aimock@latest`, boots it with `feature-parity.json`, spins up the target package's dev server against `OPENAI_BASE_URL=http://localhost:4010/v1`, and runs the package's Playwright suite. Posts pass/fail back to the PR.
+- **`test_e2e-showcase-on-demand.yml`**: triggered by `/test-aimock <slug>` PR comments or `workflow_dispatch`, for Python-backed integrations. It starts aimock with `shared/`, `d4/`, `d5-recorded/` and `d6/`, then the integration's Python agent and the shared app. It runs the shared e2e suite with `INTEGRATION=<slug>`, and posts the result to the PR.
 - **`showcase_validate.yml`** — runs fixture schema validation (`aimock-fixtures.test.ts`) on every PR that touches `showcase/**`.
 - **`showcase_deploy.yml`** — builds and deploys all showcase services. aimock is no longer in this workflow's matrix (Railway pulls the upstream `ghcr.io/copilotkit/aimock:latest` image directly).
 - **`showcase_smoke-monitor.yml`** — every 15 minutes, polls `/api/smoke` on all deployed showcase packages. Those smoke endpoints internally hit aimock's `smoke.json` fixture to verify the full stack.
