@@ -43,7 +43,7 @@ function useHumanInTheLoop<T extends Record<string, unknown>>(
 </PropertyReference>
 
   <PropertyReference name="render" type="React.ComponentType<RenderProps>" required>
-    A React component that drives the human interaction. The component receives different props depending on the current status:
+    A React component that drives the human interaction. In every status it receives `name`, `description`, `toolCallId`, and `agentId` (the tool's own `agentId`, or `undefined`). The other props depend on the current status:
 
     **When `status` is `ToolCallStatus.InProgress`:**
     - `args: Partial<T>` -- partially streamed arguments
@@ -60,6 +60,15 @@ function useHumanInTheLoop<T extends Record<string, unknown>>(
     - `respond: undefined` -- no longer available
     - `result: string` -- the serialized result
 
+  </PropertyReference>
+
+  <PropertyReference name="followUp" type="boolean" default="true">
+    Whether the agent runs again after `respond` is called, so it can act on
+    the user's answer. Set to `false` to end the turn instead.
+  </PropertyReference>
+
+  <PropertyReference name="agentId" type="string">
+    Limits the tool to one agent. When unset, every agent can call the tool.
   </PropertyReference>
 
   <PropertyReference name="available" type="boolean" default="true">

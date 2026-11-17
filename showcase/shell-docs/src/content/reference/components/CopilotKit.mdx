@@ -219,7 +219,7 @@ detail, pass a composition guide through the middleware's A2UI guidelines:
 
 </PropertyReference>
 
-<PropertyReference name="mcpApps" type="{ allowSameOriginFallback?: boolean }">
+<PropertyReference name="mcpApps" type="{ allowSameOriginFallback?: boolean; modelContext?: boolean }">
 Configuration for the built-in MCP Apps renderer.
 
 `allowSameOriginFallback` restores `allow-same-origin` on the MCP App sandbox.
@@ -227,6 +227,10 @@ By default widgets get an opaque origin. **Unsafe:** with it set, a widget runs
 with your page's origin and can read your cookies, storage and DOM. Only use it
 for widgets you trust that need `localStorage`, `IndexedDB` or cookies. See
 [Sandbox and widget storage](/generative-ui/mcp-apps#sandbox-and-widget-storage).
+
+`modelContext` (default `false`) lets MCP Apps report their state to the model
+through `ui/update-model-context`. That state goes with every later run, and
+the user does not see it. Turn it on only for MCP servers you trust.
 
 </PropertyReference>
 

@@ -184,6 +184,13 @@ All slot props follow the CopilotKit slot system: each accepts a replacement Rea
 
 </PropertyReference>
 
+<PropertyReference name="intelligenceIndicator" type="SlotValue<typeof IntelligenceIndicatorView>">
+  Slot for the "Using CopilotKit Intelligence" indicator. It shows only when
+  the runtime uses Intelligence and `showIntelligenceIndicator` on the
+  provider is not `false`. Accepts a `className`, a props object, or a
+  replacement component.
+</PropertyReference>
+
 <PropertyReference name="workSummary" type="SlotValue<typeof CopilotChatWorkSummary>">
   Slot for the line at the top of each reply in the `"turn"` tool-call
   display. Defaults to
