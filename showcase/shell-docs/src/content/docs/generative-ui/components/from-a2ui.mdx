@@ -6,7 +6,7 @@ description: "Move an app from the a2ui provider option to components and surfac
 
 ## What is this?
 
-CopilotKit 2.0 renders A2UI 1.0 only, with components and surfaces. The `a2ui` provider option, the `a2ui` option of `provideCopilotKit`, `@copilotkit/angular/a2ui` and `@copilotkit/a2ui-renderer` are removed. The runtime option `a2ui` is now `generativeUI`.
+CopilotKit 2.0 renders A2UI 1.0 only, with components and surfaces. `@copilotkit/angular/a2ui` and `@copilotkit/a2ui-renderer` are removed. The `a2ui` provider option, the `a2ui` option of `provideCopilotKit` and the runtime option `a2ui` are deprecated. They still work, and they pass their options on to `generativeUI`: `catalog` becomes the `ui`, which must come from `createGenerativeUI`. Move them to `generativeUI` as this page shows.
 
 The idea stays the same: the agent writes operations, and the browser renders your components. Components and surfaces adds typed catalogs, the [standard catalog](/generative-ui/components/standard-catalog), areas of the page as targets, two transports, dynamic values that compute in the browser, and functions the agent can call.
 
@@ -24,7 +24,7 @@ The provider takes a UI instead of a catalog. `myCatalog` and `appUI` are the ca
 
 <Tabs groupId="frontend_framework" items={["React", "Angular", "Vue"]} persist>
   <Tab value="React">
-    {/* kiira: ignore, the before code of a migration: the a2ui prop is removed in 2.0 */}
+    {/* kiira: ignore, the before code of a migration: myCatalog is a v0.9 catalog, and @copilotkit/a2ui-renderer is not published for 2.0 */}
     ```tsx ignore title="Before"
     "use client";
     import { CopilotKitProvider } from "@copilotkit/react-core";
@@ -93,7 +93,7 @@ The provider takes a UI instead of a catalog. `myCatalog` and `appUI` are the ca
 
 On the runtime, the `a2ui` options move to `generativeUI`. Add `a2uiVersion: "0.9"` when the agent writes A2UI v0.9:
 
-{/* kiira: ignore, the before code of a migration: the runtime a2ui option is removed in 2.0 */}
+{/* kiira: ignore, the before code of a migration: the runtime a2ui option is deprecated in 2.0 */}
 ```ts ignore title="Runtime, before"
 import { CopilotKitRuntime } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";

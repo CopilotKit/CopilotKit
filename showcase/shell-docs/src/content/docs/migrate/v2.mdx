@@ -411,12 +411,14 @@ npm install @langchain/core@^1.1.41 @langchain/langgraph@^1.2.9 langchain@^1.3.4
   schemas must come from Zod 4.2 or later.
 - **Names can move packages.** React UI components move from
   `@copilotkit/react-ui` to `@copilotkit/react-core`.
-- **The `a2ui` option is removed.** The `a2ui` provider prop (React and
-  Vue), the `a2ui` option of Angular's `provideCopilotKit`, and
-  `@copilotkit/a2ui-renderer` are gone. The provider renders A2UI with
-  [components and surfaces](/generative-ui/components). The runtime option
-  `a2ui` is now `generativeUI`, and an agent that writes A2UI v0.9 needs
-  `generativeUI: { a2uiVersion: "0.9" }`. See
+- **The `a2ui` option is deprecated.** `@copilotkit/a2ui-renderer` is gone,
+  and the provider renders A2UI with
+  [components and surfaces](/generative-ui/components). The `a2ui` provider
+  prop (React and Vue) and the `a2ui` option of Angular's `provideCopilotKit`
+  still work: they pass `catalog` and `theme` on to generative UI, so
+  `catalog` must be a UI from `createGenerativeUI`. The runtime option `a2ui`
+  still works as `generativeUI: { a2uiVersion: "0.9" }`, which an agent that
+  writes A2UI v0.9 needs. Move both to `generativeUI`. See
   [Adopt from A2UI](/generative-ui/components/from-a2ui).
 - **`CopilotTextarea` has no replacement.** 2.0 deleted
   `@copilotkit/react-textarea`. Remove the component, or build the behavior

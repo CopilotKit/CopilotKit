@@ -40,6 +40,6 @@ export const basicConfig: ApplicationConfig = {
 
 export const notInArray = provideCopilotKit({
   runtimeUrl: "/api/copilotkit",
-  // TODO(copilotkit-2.0): The `a2ui` option was removed in 2.0. Add `provideGenerativeUI({ ui })` from "@copilotkit/angular/generative-ui" next to `provideCopilotKit`, with a UI from `createGenerativeUI`, and delete `a2ui`. See https://docs.copilotkit.ai/generative-ui/components/from-a2ui#before-and-after
+  // TODO(copilotkit-2.0): The `a2ui` option is deprecated in 2.0. Add `provideGenerativeUI({ ui })` from "@copilotkit/angular/generative-ui" next to `provideCopilotKit`, with a UI from `createGenerativeUI`, and delete `a2ui`. See https://docs.copilotkit.ai/generative-ui/components/from-a2ui#before-and-after
   a2ui: { catalog: myCatalog },
 });

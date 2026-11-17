@@ -11,8 +11,8 @@ import {
   propertyKey,
   removeEntry,
   removeSpecifier,
-  type Node,
 } from "./ast-helpers.ts";
+import type { Node } from "./ast-helpers.ts";
 import { byteIndex, charIndex } from "./offsets.ts";
 
 /**
@@ -29,9 +29,9 @@ export const ANGULAR_COMPONENT_NOTE = `This was a v0.9 Angular component. In 2.0
 export const DESCRIPTION_NOTE = `Add a \`description\` to this component. The agent reads it to choose the component. See ${GUIDE}#convert-a-custom-catalog`;
 export const CATALOG_NOTE = `This v0.9 catalog could not be converted automatically. Rewrite it with \`createGenerativeUI({ id, extends: [standardUI], components })\`, one entry per component with \`component\`, \`description\` and plain \`props\`. See ${GUIDE}#convert-a-custom-catalog`;
 export const SCHEMA_NOTE = `This v0.9 binding or action schema has no 2.0 equivalent. A bound prop takes its plain type (the engine resolves \`{ "@path" }\` before the component renders), and an action becomes an event that the component calls. See ${GUIDE}#bindings-and-actions`;
-export const PROVIDER_NOTE = `The \`a2ui\` option was removed in 2.0. Pass \`generativeUI={{ ui }}\` with a UI from \`createGenerativeUI\`, or delete it to use the standard catalog. See ${GUIDE}#before-and-after`;
-export const PROVIDER_OPTIONS_NOTE = `The \`a2ui\` option was removed in 2.0, and these options have no 1:1 equivalent: \`theme\` becomes the \`theme\` of the generative UI config (CSS variables), \`onAction\` becomes events or functions on the components, and \`loadingComponent\`, \`recovery\` and \`includeSchema\` are gone. Move what you need, then delete \`a2ui\`. See ${GUIDE}`;
-export const ANGULAR_PROVIDER_NOTE = `The \`a2ui\` option was removed in 2.0. Add \`provideGenerativeUI({ ui })\` from "@copilotkit/angular/generative-ui" next to \`provideCopilotKit\`, with a UI from \`createGenerativeUI\`, and delete \`a2ui\`. See ${GUIDE}#before-and-after`;
+export const PROVIDER_NOTE = `The \`a2ui\` option is deprecated in 2.0. Pass \`generativeUI={{ ui }}\` with a UI from \`createGenerativeUI\`, or delete it to use the standard catalog. See ${GUIDE}#before-and-after`;
+export const PROVIDER_OPTIONS_NOTE = `The \`a2ui\` option is deprecated in 2.0, and these options have no 1:1 equivalent: \`theme\` becomes the \`theme\` of the generative UI config (CSS variables), \`onAction\` becomes events or functions on the components, and \`loadingComponent\`, \`recovery\` and \`includeSchema\` are gone. Move what you need, then delete \`a2ui\`. See ${GUIDE}`;
+export const ANGULAR_PROVIDER_NOTE = `The \`a2ui\` option is deprecated in 2.0. Add \`provideGenerativeUI({ ui })\` from "@copilotkit/angular/generative-ui" next to \`provideCopilotKit\`, with a UI from \`createGenerativeUI\`, and delete \`a2ui\`. See ${GUIDE}#before-and-after`;
 export const PACKAGE_NOTE = `The A2UI v0.9 client (\`@copilotkit/a2ui-renderer\`, \`@copilotkit/angular/a2ui\`) was removed in 2.0. Use generative UI from the framework's \`/generative-ui\` entry: \`createGenerativeUI\` and \`standardUI\` for catalogs, \`GenerativeUISurface\` for a surface, and \`useGenerativeUIState\` and \`useGenerativeUIFunction\` for state and actions. Then delete this import. See ${GUIDE}`;
 export const CHAT_RENDERER_NOTE = `The v0.9 chat renderer (\`createA2UIMessageRenderer\`, its option and action types, \`A2UITheme\`, \`a2uiDefaultTheme\`) was removed in 2.0. Generative UI renders the chat surfaces itself: delete the renderer and its \`renderActivityMessages\` entry, pass a wrapper component as \`<CopilotChat generativeUISurface>\`, and set colors with \`generativeUI.theme\`. See ${GUIDE}`;
 export const ACTIVITY_NOTE = `2.0 sends A2UI surfaces as \`generative-ui-surface\` activities, with the A2UI 1.0 operations in \`content.operations\` (not \`a2ui_operations\`). When the runtime has generative UI on, \`a2ui-surface\` activities no longer reach the client, so this code never runs. See ${GUIDE}`;
