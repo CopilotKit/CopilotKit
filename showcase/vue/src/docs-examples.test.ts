@@ -126,53 +126,47 @@ describe("Vue documentation examples", () => {
     return { respond, wrapper };
   }
 
-  for (const verdict of ["allow", "deny"] as const) {
-    it(`automatically responds to ${verdict} without approval controls`, async () => {
-      const { respond, wrapper } = mountGovernedActionCard({
+  it("automatically rejects deny without approval controls", async () => {
+    const { respond, wrapper } = mountGovernedActionCard({
+      id: "action",
+      reference: "policy",
+      verdict: "deny",
+    });
+    await flushPromises();
+    expect(wrapper.findAll("button")).toHaveLength(0);
+    expect(respond.mock.calls).toEqual([
+      [{ approved: false, actionId: "action", reference: "policy" }],
+    ]);
+    await wrapper.setProps({
+      args: {
         id: "action",
         reference: "policy",
-        verdict,
-      });
-      await flushPromises();
-      expect(wrapper.findAll("button")).toHaveLength(0);
-      expect(respond.mock.calls).toEqual([
-        [
-          {
-            approved: verdict === "allow",
-            actionId: "action",
-            reference: "policy",
-          },
-        ],
-      ]);
-      await wrapper.setProps({
-        args: {
+        verdict: "deny",
+        summary: "Updated",
+      },
+    });
+    expect(respond).toHaveBeenCalledTimes(1);
+    wrapper.unmount();
+  });
+
+  // The model writes `verdict`, so the card never approves "allow" without a click.
+  for (const verdict of ["allow", "require_approval"] as const) {
+    for (const approved of [true, false]) {
+      it(`requires a user decision for ${verdict} (${approved})`, async () => {
+        const { respond, wrapper } = mountGovernedActionCard({
           id: "action",
           reference: "policy",
           verdict,
-          summary: "Updated",
-        },
+        });
+        await flushPromises();
+        expect(respond).not.toHaveBeenCalled();
+        await wrapper.findAll("button")[approved ? 0 : 1].trigger("click");
+        expect(respond.mock.calls).toEqual([
+          [{ approved, actionId: "action", reference: "policy" }],
+        ]);
+        wrapper.unmount();
       });
-      expect(respond).toHaveBeenCalledTimes(1);
-      wrapper.unmount();
-    });
-  }
-
-  for (const approved of [true, false]) {
-    it(`requires a user decision for require_approval (${approved})`, async () => {
-      const { respond, wrapper } = mountGovernedActionCard({
-        id: "action",
-        reference: "policy",
-        verdict: "require_approval",
-      });
-      expect(respond).not.toHaveBeenCalled();
-      await wrapper.findAll("button")[approved ? 0 : 1].trigger("click");
-      expect(respond).toHaveBeenCalledWith({
-        approved,
-        actionId: "action",
-        reference: "policy",
-      });
-      wrapper.unmount();
-    });
+    }
   }
 
   it("waits for complete arguments and an executing callback", async () => {
