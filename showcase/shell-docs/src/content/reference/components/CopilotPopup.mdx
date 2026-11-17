@@ -157,5 +157,5 @@ function App() {
 - **Toggle button**: Renders a floating toggle button (typically in the bottom-right corner) that opens and closes the popup. The button uses `CopilotChatToggleButton` internally.
 - **Modal state**: Open/close state is managed via the chat configuration context. The `defaultOpen` prop sets the initial state; after that, state changes come from user interaction (toggle button, close button, clicking outside). Pass `open` and `onOpenChange` to own the state yourself, and to open or close the popup from your own UI.
 - **Click outside**: When `clickOutsideToClose` is `true`, clicking anywhere outside the popup panel closes it. It is off by default.
-- **Layout**: The popup uses `CopilotPopupView` internally. `CopilotPopupView` builds on [`CopilotChatView`](/reference/components/CopilotChatView) and provides a popup-specific welcome screen layout with the welcome message centered vertically and suggestions just above the input.
+- **Layout**: The popup uses `CopilotPopupView` internally. `CopilotPopupView` builds on [`CopilotChatView`](/reference/components/CopilotChatView) and provides a popup-specific welcome screen layout with the welcome message centered vertically and suggestions directly above the input.
 - **Agent connection**: All agent wiring (messages, running state, suggestions) is handled by the parent `CopilotChat` logic.

@@ -144,6 +144,6 @@ function App() {
 
 - **Toggle button**: Renders a floating toggle button that opens and closes the sidebar. The button uses `CopilotChatToggleButton` internally.
 - **Modal state**: Open/close state is managed via the chat configuration context. The `defaultOpen` prop sets the initial state; after that, state changes come from user interaction (toggle button, close button in the header). Pass `open` and `onOpenChange` to own the state yourself, and to open or close the sidebar from your own UI.
-- **Layout**: The sidebar uses `CopilotSidebarView` internally. `CopilotSidebarView` builds on [`CopilotChatView`](/reference/components/CopilotChatView) and provides a sidebar-specific welcome screen layout with the welcome message centered and the suggestions just above the input at the bottom.
+- **Layout**: The sidebar uses `CopilotSidebarView` internally. `CopilotSidebarView` builds on [`CopilotChatView`](/reference/components/CopilotChatView) and provides a sidebar-specific welcome screen layout with the welcome message centered and the suggestions directly above the input at the bottom.
 - **Fixed positioning**: The sidebar renders as a fixed panel on one side of the viewport. On screens 768 px wide or wider, the open sidebar adds a margin to `document.body` on its side, so your page content moves aside. On narrower screens, it covers the page.
 - **Agent connection**: All agent wiring (messages, running state, suggestions) is handled by the parent `CopilotChat` logic.

@@ -5,7 +5,7 @@ description: "React hook for providing dynamic context to agents"
 
 ## Overview
 
-`useAgentContext` registers a dynamic context object with the active Copilot runtime for the lifetime of the component. The hook adds the context on mount and removes it on unmount, so the agent always sees an up-to-date snapshot of your application state without manual cleanup.
+`useAgentContext` registers a dynamic context object with CopilotKit for the lifetime of the component. The hook adds the context on mount and removes it on unmount, so the agent always sees an up-to-date snapshot of your application state without manual cleanup.
 
 Update the incoming context object to refresh what the agent sees. Pass any serializable app state, such as user preferences or selected items, and the agent can use it in its answers. For a walkthrough, see [Agent Read-Only Context](/shared-state/agent-readonly).
 
@@ -28,7 +28,7 @@ function useAgentContext(context: AgentContextInput): void;
 </PropertyReference>
 
   <PropertyReference name="value" type="JsonSerializable" required>
-    The context value to provide. Must be JSON-serializable: `string`, `number`, `boolean`, `null`, arrays, or plain objects with string keys and serializable values. Anything that is not already a string is stringified with `JSON.stringify` before it is sent, so the agent receives a JSON string rather than the value you passed -- see [What the agent receives](#what-the-agent-receives).
+    The context value to provide. Must be JSON-serializable: `string`, `number`, `boolean`, `null`, arrays, or plain objects with string keys and serializable values. Anything that is not already a string is stringified with `JSON.stringify` before it is sent, so the agent receives a JSON string rather than the value you passed. See [What the agent receives](#what-the-agent-receives).
   </PropertyReference>
 </PropertyReference>
 
@@ -115,7 +115,7 @@ function Sidebar() {
 
 ## What the agent receives
 
-Every registered entry reaches the agent as `{ description, value }`, and `value` is a **JSON string** -- not the object or array you passed. The AG-UI protocol types it as a string, so this is not an implementation detail you can ignore when writing the agent.
+Every registered entry reaches the agent as `{ description, value }`, and `value` is a **JSON string**, not the object or array you passed. The AG-UI protocol types it as a string, so this is not an implementation detail you can ignore when writing the agent.
 
 Registering this:
 
@@ -174,6 +174,6 @@ For Google ADK, see [Agent Read-Only Context](/google-adk/shared-state/agent-rea
 
 - **Mount/Unmount lifecycle**: The context is registered when the component mounts and automatically removed when it unmounts. There is no manual cleanup required.
 - **Reactive updates**: When the `context` object changes between renders, the agent immediately sees the updated value.
-- **Serialization**: The `value` must conform to `JsonSerializable` (`string | number | boolean | null | JsonSerializable[] | { [key: string]: JsonSerializable }`). Non-serializable values such as functions, class instances, or symbols will cause errors. Strings are sent through unchanged; every other value is stringified, so the agent always reads a string -- see [What the agent receives](#what-the-agent-receives).
+- **Serialization**: The `value` must conform to `JsonSerializable` (`string | number | boolean | null | JsonSerializable[] | { [key: string]: JsonSerializable }`). Non-serializable values such as functions, class instances, or symbols will cause errors. Strings are sent through unchanged; every other value is stringified, so the agent always reads a string. See [What the agent receives](#what-the-agent-receives).
 - **Multiple contexts**: Multiple `useAgentContext` calls across your component tree are all visible to the agent concurrently. Each is identified by its description and value.
 - **No return value**: The hook returns `void`.

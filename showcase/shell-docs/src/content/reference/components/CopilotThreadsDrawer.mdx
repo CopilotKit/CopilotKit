@@ -5,7 +5,7 @@ description: "Prebuilt threads drawer that lists, switches, and manages threads 
 
 ## Overview
 
-`CopilotThreadsDrawer` is a prebuilt thread switcher. Put it and [`CopilotChat`](/reference/components/CopilotChat) inside one `CopilotChatConfigurationProvider`. It lists the threads of the user and lets them switch, start, archive, and delete threads with **no active-thread state to wire up**. (Thread rename is available headlessly via [`useThreads`](/reference/hooks/useThreads), not through the drawer's row menu.) It is a thin React wrapper around the framework-agnostic `<copilotkit-threads-drawer>` shadow-DOM web component, fed by the [`useThreads`](/reference/hooks/useThreads) hook and the surrounding chat configuration.
+`CopilotThreadsDrawer` is a prebuilt thread switcher. Put it and [`CopilotChat`](/reference/components/CopilotChat) inside one `CopilotChatConfigurationProvider`. It lists the threads of the user and lets them switch, start, archive, and delete threads. You have **no active-thread state to wire up**. (Thread rename is available headlessly via [`useThreads`](/reference/hooks/useThreads), not through the drawer's row menu.) It is a thin React wrapper around the framework-agnostic `<copilotkit-threads-drawer>` shadow-DOM web component, fed by the [`useThreads`](/reference/hooks/useThreads) hook and the surrounding chat configuration.
 
 When `onThreadSelect` / `onNewThread` are omitted, the drawer drives the surrounding chat configuration directly: selecting a row connects the chat to that thread (and replays its history); the "New Conversation" row resets the chat to a fresh welcome screen. Pass the callbacks only to take control of the active thread yourself.
 
