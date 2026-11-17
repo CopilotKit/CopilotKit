@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from "vue";
-import type { GenerativeUIInvokeResult } from "@copilotkit/vue/v2/generative-ui";
+import type { GenerativeUIInvokeResult } from "@copilotkit/vue/generative-ui";
 import { COUPON_CODE } from "./cart";
 
 // `email` and `note` are writable: the agent can prefill them, and what the

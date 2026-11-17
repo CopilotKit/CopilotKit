@@ -7,8 +7,8 @@ import {
   useAgentContext,
   useConfigureSuggestions,
   useFrontendTool,
-} from "@copilotkit/vue/v2";
-import type { ToolsMenuItem } from "@copilotkit/vue/v2";
+} from "@copilotkit/vue";
+import type { ToolsMenuItem } from "@copilotkit/vue";
 
 const selectedThreadId = ref<"thread---a" | "thread---b" | "thread---c">(
   "thread---a",

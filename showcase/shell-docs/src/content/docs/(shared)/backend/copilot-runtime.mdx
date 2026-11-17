@@ -78,7 +78,7 @@ export const appConfig: ApplicationConfig = {
 <FrontendOnly frontend="vue">
 ```vue title="src/App.vue"
 <script setup lang="ts">
-import { CopilotKitProvider } from "@copilotkit/vue/v2";
+import { CopilotKitProvider } from "@copilotkit/vue";
 </script>
 
 <template>
@@ -453,7 +453,7 @@ export const appConfig: ApplicationConfig = {
 ```vue title="src/App.vue"
 <script setup lang="ts">
 import { HttpAgent } from "@ag-ui/client";
-import { CopilotKitProvider } from "@copilotkit/vue/v2";
+import { CopilotKitProvider } from "@copilotkit/vue";
 
 const myAgent = new HttpAgent({
   url: "https://my-agent.example.com",

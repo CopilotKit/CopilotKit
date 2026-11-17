@@ -44,7 +44,7 @@ The UI side is identical to any other [shared-state](/vue/shared-state) subscrip
 ```vue title="src/components/StreamingDocument.vue"
 <script setup lang="ts">
 import { computed } from "vue";
-import { useAgent, UseAgentUpdate } from "@copilotkit/vue/v2";
+import { useAgent, UseAgentUpdate } from "@copilotkit/vue";
 
 type DocumentState = { document?: string };
 
@@ -72,7 +72,7 @@ From there, `state.document` is a string that grows on every token, and `agent.i
 
 ```vue title="src/App.vue"
 <script setup lang="ts">
-import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue/v2";
+import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue";
 import StreamingDocument from "./components/StreamingDocument.vue";
 </script>
 

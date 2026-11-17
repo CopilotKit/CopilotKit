@@ -26,7 +26,7 @@ Without this composable, CopilotKit has no `*` renderer and tool calls are not s
 
 ```vue title="src/components/AgentExperience.vue"
 <script setup lang="ts">
-import { CopilotChat, useDefaultRenderTool } from "@copilotkit/vue/v2";
+import { CopilotChat, useDefaultRenderTool } from "@copilotkit/vue";
 
 useDefaultRenderTool();
 </script>
@@ -40,7 +40,7 @@ Once you want on-brand chrome, pass a `render` component or function to `useDefa
 
 ```ts title="src/components/AgentExperience.vue"
 // Inside <script setup lang="ts">
-import { useDefaultRenderTool } from "@copilotkit/vue/v2";
+import { useDefaultRenderTool } from "@copilotkit/vue";
 import BrandedToolCard from "./BrandedToolCard.vue";
 
 useDefaultRenderTool({ render: BrandedToolCard });
@@ -75,7 +75,7 @@ The most expressive path is one renderer per tool name. Each renderer receives t
    ```vue title="src/components/AgentExperience.vue"
    <script setup lang="ts">
    import { z } from "zod";
-   import { CopilotChat, useDefaultRenderTool, useRenderTool } from "@copilotkit/vue/v2";
+   import { CopilotChat, useDefaultRenderTool, useRenderTool } from "@copilotkit/vue";
    import WeatherToolCard from "./WeatherToolCard.vue";
 
    useRenderTool({
@@ -94,7 +94,7 @@ The most expressive path is one renderer per tool name. Each renderer receives t
 
    ```vue title="src/App.vue"
    <script setup lang="ts">
-   import { CopilotKitProvider } from "@copilotkit/vue/v2";
+   import { CopilotKitProvider } from "@copilotkit/vue";
    import AgentExperience from "./components/AgentExperience.vue";
    </script>
 
@@ -117,7 +117,7 @@ If the renderer closes over reactive values, pass Vue watch sources as the secon
 // Inside <script setup lang="ts">
 import { ref } from "vue";
 import { z } from "zod";
-import { useRenderTool } from "@copilotkit/vue/v2";
+import { useRenderTool } from "@copilotkit/vue";
 import WeatherToolCard from "./WeatherToolCard.vue";
 
 const locale = ref("en-US");

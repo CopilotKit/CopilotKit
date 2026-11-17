@@ -26,7 +26,7 @@ A provider component that injects localized labels, agent and thread IDs, and op
 
 ```vue
 <script setup lang="ts">
-import { CopilotChatConfigurationProvider } from "@copilotkit/vue/v2";
+import { CopilotChatConfigurationProvider } from "@copilotkit/vue";
 </script>
 
 <template>
@@ -83,9 +83,9 @@ The provider renders its default `<slot />`, so descendant components placed ins
 ### Signature
 
 ```ts
-import { useCopilotChatConfiguration } from "@copilotkit/vue/v2";
+import { useCopilotChatConfiguration } from "@copilotkit/vue";
 import type { ComputedRef } from "vue";
-import type { CopilotChatConfigurationValue } from "@copilotkit/vue/v2";
+import type { CopilotChatConfigurationValue } from "@copilotkit/vue";
 
 useCopilotChatConfiguration satisfies () => ComputedRef<CopilotChatConfigurationValue | null>;
 ```
@@ -168,7 +168,7 @@ Some labels contain placeholders in braces, such as `{count}`, `{name}`, or `{du
 
 ```vue
 <script setup lang="ts">
-import { CopilotChat } from "@copilotkit/vue/v2";
+import { CopilotChat } from "@copilotkit/vue";
 </script>
 
 <template>
@@ -296,7 +296,7 @@ Call the composable once, then read from the returned ref. Guard against `null` 
 
 ```vue
 <script setup lang="ts">
-import { useCopilotChatConfiguration } from "@copilotkit/vue/v2";
+import { useCopilotChatConfiguration } from "@copilotkit/vue";
 
 const config = useCopilotChatConfiguration();
 </script>
@@ -313,7 +313,7 @@ Scope label overrides by mounting a provider around the chat UI.
 
 ```vue
 <script setup lang="ts">
-import { CopilotChatConfigurationProvider } from "@copilotkit/vue/v2";
+import { CopilotChatConfigurationProvider } from "@copilotkit/vue";
 import ChatUI from "./ChatUI.vue";
 
 const labels = {
@@ -335,7 +335,7 @@ const labels = {
 
 ```vue
 <script setup lang="ts">
-import { CopilotChatConfigurationProvider } from "@copilotkit/vue/v2";
+import { CopilotChatConfigurationProvider } from "@copilotkit/vue";
 import ChatWindow from "./ChatWindow.vue";
 </script>
 
@@ -360,7 +360,7 @@ When a provider sets `is-modal-default-open`, descendants can read `isModalOpen`
 ```vue
 <!-- App.vue -->
 <script setup lang="ts">
-import { CopilotChatConfigurationProvider } from "@copilotkit/vue/v2";
+import { CopilotChatConfigurationProvider } from "@copilotkit/vue";
 import ToggleButton from "./ToggleButton.vue";
 import ChatModal from "./ChatModal.vue";
 </script>
@@ -376,7 +376,7 @@ import ChatModal from "./ChatModal.vue";
 ```vue
 <!-- ToggleButton.vue -->
 <script setup lang="ts">
-import { useCopilotChatConfiguration } from "@copilotkit/vue/v2";
+import { useCopilotChatConfiguration } from "@copilotkit/vue";
 
 const config = useCopilotChatConfiguration();
 
@@ -406,7 +406,7 @@ from another component.
 ```vue
 <!-- ToggleDrawer.vue -->
 <script setup lang="ts">
-import { useCopilotChatConfiguration } from "@copilotkit/vue/v2";
+import { useCopilotChatConfiguration } from "@copilotkit/vue";
 
 const config = useCopilotChatConfiguration();
 
@@ -430,7 +430,7 @@ Providers can be nested. Child providers inherit and merge labels from their par
 
 ```vue
 <script setup lang="ts">
-import { CopilotChatConfigurationProvider } from "@copilotkit/vue/v2";
+import { CopilotChatConfigurationProvider } from "@copilotkit/vue";
 import SalesChat from "./SalesChat.vue";
 </script>
 

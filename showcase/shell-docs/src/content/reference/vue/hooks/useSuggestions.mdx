@@ -24,7 +24,7 @@ import {
   useSuggestions,
   type UseSuggestionsOptions,
   type UseSuggestionsResult,
-} from "@copilotkit/vue/v2";
+} from "@copilotkit/vue";
 
 useSuggestions satisfies (
   options?: UseSuggestionsOptions,
@@ -82,7 +82,7 @@ The composable returns an object of Vue refs and control functions. Because `sug
 
 ```vue
 <script setup lang="ts">
-import { useSuggestions } from "@copilotkit/vue/v2";
+import { useSuggestions } from "@copilotkit/vue";
 
 const { suggestions, isLoading } = useSuggestions();
 </script>
@@ -102,7 +102,7 @@ const { suggestions, isLoading } = useSuggestions();
 
 ```vue
 <script setup lang="ts">
-import { useSuggestions } from "@copilotkit/vue/v2";
+import { useSuggestions } from "@copilotkit/vue";
 
 const { suggestions, reloadSuggestions, clearSuggestions, isLoading } =
   useSuggestions();
@@ -129,7 +129,7 @@ const { suggestions, reloadSuggestions, clearSuggestions, isLoading } =
 
 ```vue
 <script setup lang="ts">
-import { useSuggestions } from "@copilotkit/vue/v2";
+import { useSuggestions } from "@copilotkit/vue";
 
 const { suggestions } = useSuggestions({ agentId: "support-agent" });
 </script>
@@ -149,7 +149,7 @@ Because `agentId` accepts a `ref` or getter, the composable re-resolves and re-s
 ```vue
 <script setup lang="ts">
 import { ref } from "vue";
-import { useSuggestions } from "@copilotkit/vue/v2";
+import { useSuggestions } from "@copilotkit/vue";
 
 const activeAgentId = ref("default");
 

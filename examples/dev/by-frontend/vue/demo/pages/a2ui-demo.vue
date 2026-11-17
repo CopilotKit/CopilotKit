@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue/v2";
+import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue";
 
 // No `generativeUI` prop: the runtime at /api/copilotkit turns generative UI
 // on, so the provider renders the agent's A2UI surface with the standard

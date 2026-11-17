@@ -113,7 +113,7 @@ The agent does not know how many items are in the cart, and it must not guess. D
   <Tab value="Vue">
     ```ts title="src/shop-ui.ts"
     import { z } from "zod";
-    import { createGenerativeUI } from "@copilotkit/vue/v2/generative-ui";
+    import { createGenerativeUI } from "@copilotkit/vue/generative-ui";
     import ProductCard from "./components/ProductCard.vue";
 
     const cartSchema = z.object({
@@ -189,7 +189,7 @@ Then give the state its value from your app:
 
     ```vue
     <script setup lang="ts">
-    import { useGenerativeUIState } from "@copilotkit/vue/v2/generative-ui";
+    import { useGenerativeUIState } from "@copilotkit/vue/generative-ui";
     import { useCartStore } from "./cart-store";
     import { shopUI } from "./shop-ui";
 
@@ -338,7 +338,7 @@ The agent does not see the state either. To let it answer "what is in my cart?",
   <Tab value="Vue">
     ```ts title="src/shop-ui.ts"
     import { z } from "zod";
-    import { createGenerativeUI } from "@copilotkit/vue/v2/generative-ui";
+    import { createGenerativeUI } from "@copilotkit/vue/generative-ui";
     import ProductCard from "./components/ProductCard.vue";
 
     export const shopUI = createGenerativeUI({
@@ -363,7 +363,7 @@ The agent does not see the state either. To let it answer "what is in my cart?",
 
     ```vue
     <script setup lang="ts">
-    import { useGenerativeUIFunction } from "@copilotkit/vue/v2/generative-ui";
+    import { useGenerativeUIFunction } from "@copilotkit/vue/generative-ui";
     import { useCartStore } from "./cart-store";
     import { shopUI } from "./shop-ui";
 
@@ -471,7 +471,7 @@ In the component, the event is a typed prop, or a typed function input in Angula
     ```vue title="src/components/ProductCard.vue"
     <script setup lang="ts">
     import { ref } from "vue";
-    import type { GenerativeUIInvokeResult } from "@copilotkit/vue/v2/generative-ui";
+    import type { GenerativeUIInvokeResult } from "@copilotkit/vue/generative-ui";
 
     const props = defineProps<{
       productId: string;

@@ -28,7 +28,7 @@ Register a frontend tool with `useFrontendTool`. Give it a name, a Zod schema fo
 <script setup lang="ts">
 import { ref } from "vue";
 import { z } from "zod";
-import { CopilotChat, useFrontendTool } from "@copilotkit/vue/v2";
+import { CopilotChat, useFrontendTool } from "@copilotkit/vue";
 
 const severity = ref("all");
 
@@ -60,7 +60,7 @@ The second argument is an optional array of Vue watch sources. When one changes,
 
 ```vue title="src/App.vue"
 <script setup lang="ts">
-import { CopilotKitProvider } from "@copilotkit/vue/v2";
+import { CopilotKitProvider } from "@copilotkit/vue";
 import DashboardAgent from "./components/DashboardAgent.vue";
 </script>
 

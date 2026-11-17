@@ -3,7 +3,7 @@
  * construction/config time. Mirrors
  * `react-core/src/providers/__tests__/CopilotKitProvider.headersAtSendTime.test.tsx`
  * and
- * `vue/src/v2/providers/__tests__/CopilotKitProvider.headersAtSendTime.test.ts`.
+ * `vue/src/providers/__tests__/CopilotKitProvider.headersAtSendTime.test.ts`.
  */
 import { Component } from "@angular/core";
 import { TestBed } from "@angular/core/testing";

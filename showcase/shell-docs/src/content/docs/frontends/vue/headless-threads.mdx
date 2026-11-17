@@ -25,7 +25,7 @@ CopilotKit Rich Threads enable persistent, resumable multi-turn conversations. T
 ## Prerequisites
 
 - A CopilotKit application connected to CopilotKit Intelligence, cloud-hosted or [self-hosted](/intelligence/self-hosting)
-- The current `@copilotkit/vue` v2 package
+- The current `@copilotkit/vue` package
 - A model provider key supported by your runtime
 
 For multi-user applications, configure the runtime to [scope Rich Threads to the signed-in user](/vue/threads-lifecycle#scope-rich-threads-to-the-signed-in-user) before exposing thread lists or lifecycle actions.
@@ -83,7 +83,7 @@ For multi-user applications, configure the runtime to [scope Rich Threads to the
     import {
       useCopilotChatConfiguration,
       useThreads,
-    } from "@copilotkit/vue/v2";
+    } from "@copilotkit/vue";
 
     const config = useCopilotChatConfiguration();
     const {
@@ -130,7 +130,7 @@ For multi-user applications, configure the runtime to [scope Rich Threads to the
       CopilotChat,
       CopilotChatConfigurationProvider,
       CopilotKitProvider,
-    } from "@copilotkit/vue/v2";
+    } from "@copilotkit/vue";
     import ThreadSidebar from "./components/ThreadSidebar.vue";
     </script>
 

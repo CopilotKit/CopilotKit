@@ -711,8 +711,8 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
 
     ```vue title="src/App.vue"
     <script setup lang="ts">
-    import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue/v2";
-    import { standardUI } from "@copilotkit/vue/v2/generative-ui";
+    import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue";
+    import { standardUI } from "@copilotkit/vue/generative-ui";
     </script>
 
     <template>
@@ -739,8 +739,8 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
 
     ```ts title="src/main.ts"
     import { createApp } from "vue";
-    import { GenerativeUIChart } from "@copilotkit/vue/v2/generative-ui/chart";
-    import { GenerativeUIMap } from "@copilotkit/vue/v2/generative-ui/map";
+    import { GenerativeUIChart } from "@copilotkit/vue/generative-ui/chart";
+    import { GenerativeUIMap } from "@copilotkit/vue/generative-ui/map";
     import App from "./App.vue";
 
     createApp(App).use(GenerativeUIChart).use(GenerativeUIMap).mount("#app");
