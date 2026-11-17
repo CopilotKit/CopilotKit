@@ -40,7 +40,7 @@ function example(path: string, title: string, bindings = {}) {
   const exports: { default?: Vue.Component } = {};
   const require = (name: string) => {
     if (name === "vue") return Vue;
-    if (name === "@copilotkit/vue/v2") return bindings;
+    if (name === "@copilotkit/vue") return bindings;
     throw new Error(`Unexpected example import: ${name}`);
   };
   new Function("require", "exports", "myApi", outputText)(
@@ -55,10 +55,11 @@ function example(path: string, title: string, bindings = {}) {
 describe("Vue documentation examples", () => {
   const page = "threads-lifecycle";
 
-  it(`${page}: restores once per agent/thread identity, not message or run updates`, async () => {
+  function mountRestoreHistory(
+    getMessages: (threadId: string) => Promise<string[]>,
+  ) {
     const setMessages = vi.fn();
     const agent = Vue.shallowRef({ setMessages });
-    const getMessages = vi.fn().mockResolvedValue([]);
     const component = example(
       `docs/frontends/vue/${page}.mdx`,
       "src/components/RestoreHistory.vue",
@@ -68,6 +69,12 @@ describe("Vue documentation examples", () => {
       },
     );
     const wrapper = mount(component, { props: { threadId: "first" } });
+    return { agent, setMessages, wrapper };
+  }
+
+  it(`${page}: restores once per agent/thread identity, not message or run updates`, async () => {
+    const getMessages = vi.fn().mockResolvedValue([]);
+    const { agent, wrapper } = mountRestoreHistory(getMessages);
     await flushPromises();
     expect(getMessages).toHaveBeenCalledTimes(1);
     // useAgent emits triggerRef for message/state/run-status changes.
@@ -86,22 +93,12 @@ describe("Vue documentation examples", () => {
   });
 
   it(`${page}: ignores a stale history response after switching threads or unmounting`, async () => {
-    const setMessages = vi.fn();
-    const agent = Vue.shallowRef({ setMessages });
     const pending = new Map<string, (messages: string[]) => void>();
     const getMessages = vi.fn(
       (id: string) =>
         new Promise<string[]>((fulfill) => pending.set(id, fulfill)),
     );
-    const component = example(
-      `docs/frontends/vue/${page}.mdx`,
-      "src/components/RestoreHistory.vue",
-      {
-        useAgent: () => ({ agent }),
-        getMessages,
-      },
-    );
-    const wrapper = mount(component, { props: { threadId: "first" } });
+    const { setMessages, wrapper } = mountRestoreHistory(getMessages);
     await wrapper.setProps({ threadId: "second" });
     pending.get("second")!(["new"]);
     await flushPromises();
@@ -115,19 +112,26 @@ describe("Vue documentation examples", () => {
     expect(setMessages).toHaveBeenCalledTimes(1);
   });
 
-  const card = () =>
-    example(
+  function mountGovernedActionCard(args: {
+    id: string;
+    reference?: string;
+    verdict?: "allow" | "deny" | "require_approval";
+  }) {
+    const respond = vi.fn().mockResolvedValue(undefined);
+    const component = example(
       "docs/frontends/vue/human-in-the-loop/governed-actions.mdx",
       "src/components/GovernedActionCard.vue",
     );
+    const wrapper = mount(component, { props: { args, respond } });
+    return { respond, wrapper };
+  }
+
   for (const verdict of ["allow", "deny"] as const) {
     it(`automatically responds to ${verdict} without approval controls`, async () => {
-      const respond = vi.fn().mockResolvedValue(undefined);
-      const wrapper = mount(card(), {
-        props: {
-          args: { id: "action", reference: "policy", verdict },
-          respond,
-        },
+      const { respond, wrapper } = mountGovernedActionCard({
+        id: "action",
+        reference: "policy",
+        verdict,
       });
       await flushPromises();
       expect(wrapper.findAll("button")).toHaveLength(0);
@@ -155,16 +159,10 @@ describe("Vue documentation examples", () => {
 
   for (const approved of [true, false]) {
     it(`requires a user decision for require_approval (${approved})`, async () => {
-      const respond = vi.fn().mockResolvedValue(undefined);
-      const wrapper = mount(card(), {
-        props: {
-          args: {
-            id: "action",
-            reference: "policy",
-            verdict: "require_approval",
-          },
-          respond,
-        },
+      const { respond, wrapper } = mountGovernedActionCard({
+        id: "action",
+        reference: "policy",
+        verdict: "require_approval",
       });
       expect(respond).not.toHaveBeenCalled();
       await wrapper.findAll("button")[approved ? 0 : 1].trigger("click");
@@ -178,10 +176,7 @@ describe("Vue documentation examples", () => {
   }
 
   it("waits for complete arguments and an executing callback", async () => {
-    const respond = vi.fn().mockResolvedValue(undefined);
-    const wrapper = mount(card(), {
-      props: { args: { id: "action" }, respond },
-    });
+    const { respond, wrapper } = mountGovernedActionCard({ id: "action" });
     expect(wrapper.findAll("button")).toHaveLength(0);
     expect(respond).not.toHaveBeenCalled();
     await wrapper.setProps({

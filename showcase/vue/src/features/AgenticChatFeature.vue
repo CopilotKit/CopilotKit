@@ -3,7 +3,7 @@ import {
   CopilotChat,
   CopilotChatConfigurationProvider,
   CopilotKitProvider,
-} from "@copilotkit/vue/v2";
+} from "@copilotkit/vue";
 import type { VueHostConfiguration } from "../host-configuration";
 
 defineProps<{
