@@ -46,21 +46,46 @@ interface TransportSettings {
   runtime: CopilotRuntime;
   basePath: string;
   hooks?: CopilotRuntimeHooks;
+  /** Whether the runtime has an MCP Apps server, reported by GET /info. */
+  mcpAppsEnabled: boolean;
+}
+
+// The runtime's GET /info reports A2UI and Open Generative UI but not MCP
+// Apps. The route adds `mcpAppsEnabled`, so a spec can tell whether a demo's
+// runtime serves MCP Apps without knowing the integration.
+async function withMcpAppsEnabled(response: Response, mcpAppsEnabled: boolean) {
+  const info: unknown = await response.json();
+  const headers = new Headers(response.headers);
+  headers.delete("content-length");
+  const body =
+    typeof info === "object" && info !== null
+      ? { ...info, mcpAppsEnabled }
+      : info;
+  return Response.json(body, { status: response.status, headers });
 }
 
 // Serves both client transports from one runtime. A single-route client posts
 // `{ method, params, body }` envelopes to the base path itself. A REST client
 // calls paths under it: GET /info, POST /agent/<id>/run, and so on. A client
 // with no `useSingleEndpoint` asks GET /info first, so it gets REST.
-function createTransportHandler(settings: TransportSettings) {
+function createTransportHandler({
+  mcpAppsEnabled,
+  ...settings
+}: TransportSettings) {
   const singleRoute = createCopilotRuntimeHandler({
     ...settings,
     mode: "single-route",
   });
   const multiRoute = createCopilotRuntimeHandler(settings);
-  return (request: Request) => {
-    const isBasePath = new URL(request.url).pathname === settings.basePath;
-    return isBasePath ? singleRoute(request) : multiRoute(request);
+  const infoPath = `${settings.basePath}/info`;
+  return async (request: Request) => {
+    const { pathname } = new URL(request.url);
+    if (pathname === settings.basePath) return singleRoute(request);
+    const response = await multiRoute(request);
+    const isInfo = request.method === "GET" && pathname === infoPath;
+    return isInfo && response.ok
+      ? withMcpAppsEnabled(response, mcpAppsEnabled)
+      : response;
   };
 }
 
@@ -129,16 +154,17 @@ export function createDemoRouteHandler(settings: DemoRouteSettings) {
       return Response.json({ error: "unknown demo" }, { status: 404 });
     }
 
-    const runtime = new CopilotRuntime({
+    const options: RuntimeOptions = {
       ...DEMO_RUNTIME_OPTIONS[demo],
       ...settings.runtimeOptions,
       ...config.options,
-      agents: config.agents,
-    });
+    };
+    const runtime = new CopilotRuntime({ ...options, agents: config.agents });
     const handler = createTransportHandler({
       runtime,
       basePath: `/api/${integration}/${demo}`,
       hooks: settings.hooks,
+      mcpAppsEnabled: (options.mcpApps?.servers.length ?? 0) > 0,
     });
     handlers.set(key, handler);
     return handler;

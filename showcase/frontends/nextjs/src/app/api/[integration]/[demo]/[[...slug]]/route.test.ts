@@ -379,6 +379,45 @@ describe("createDemoRouteHandler", () => {
       expect(body.openGenerativeUIEnabled).toBe(enabled);
     },
   );
+
+  // The runtime's /info does not report MCP Apps, so the route adds
+  // `mcpAppsEnabled` from the same merged options it builds the runtime with.
+  it.each([
+    ["the demo's DEMO_RUNTIME_OPTIONS entry has a server", undefined, true],
+    [
+      "the integration's options remove the server",
+      { mcpApps: undefined },
+      false,
+    ],
+  ])(
+    "reports mcpAppsEnabled in GET /info when %s",
+    async (_, integrationOptions, enabled) => {
+      const handle = routeOver({
+        fake: {
+          createRuntimeConfig: () => ({
+            ...helloConfig(),
+            options: integrationOptions,
+          }),
+        },
+      });
+      const mcpApps = { integration: "fake", demo: "mcp-apps" };
+
+      const { status, body } = await jsonOf(
+        await send(handle, mcpApps, "/info"),
+      );
+
+      expect(status).toBe(200);
+      expect(body.mcpAppsEnabled).toBe(enabled);
+    },
+  );
+
+  it("reports mcpAppsEnabled false for a demo with no MCP Apps", async () => {
+    const { body } = await jsonOf(
+      await send(helloIntegration(), AGENTIC_CHAT, "/info"),
+    );
+
+    expect(body.mcpAppsEnabled).toBe(false);
+  });
 });
 
 describe("DEMO_AUTH_HOOKS", () => {
