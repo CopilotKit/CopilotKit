@@ -620,33 +620,6 @@ export function createCopilotKitRuntimeHandler(
   return handler;
 }
 
-/**
- * @deprecated Use createCopilotKitRuntimeHandler. This old name is an alias
- * with the same behavior.
- */
-export function createCopilotRuntimeHandler(
-  options: CopilotKitRuntimeHandlerOptions & {
-    runtime: RuntimeWithDeclaredChannels;
-    activateChannels?: true | undefined;
-  },
-): CopilotKitRuntimeFetchHandlerWithChannels;
-/**
- * @deprecated Use createCopilotKitRuntimeHandler. This old name is an alias
- * with the same behavior.
- */
-export function createCopilotRuntimeHandler(
-  options: CopilotKitRuntimeHandlerOptions,
-): CopilotKitRuntimeFetchHandler;
-/**
- * @deprecated Use createCopilotKitRuntimeHandler. This old name is an alias
- * with the same behavior.
- */
-export function createCopilotRuntimeHandler(
-  options: CopilotKitRuntimeHandlerOptions,
-): CopilotKitRuntimeFetchHandler {
-  return createCopilotKitRuntimeHandler(options);
-}
-
 /* ------------------------------------------------------------------------------------------------
  * Route dispatch
  * --------------------------------------------------------------------------------------------- */

@@ -19,7 +19,7 @@ import path from "path";
 import {
   CopilotKitRuntime,
   ThreadAccessDeniedError,
-  createCopilotRuntimeHandler,
+  createCopilotKitRuntimeHandler,
 } from "@copilotkit/runtime";
 import { SqliteAgentRunner } from "..";
 
@@ -669,7 +669,7 @@ describe("SqliteAgentRunner behind a runtime with identifyUser", () => {
       runner,
       identifyUser: identify,
     });
-    return createCopilotRuntimeHandler({
+    return createCopilotKitRuntimeHandler({
       runtime,
       basePath: "/api/copilotkit",
     });
