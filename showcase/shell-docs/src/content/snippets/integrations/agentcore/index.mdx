@@ -5,7 +5,7 @@ isolation, and infrastructure. CopilotKit gives those agents a frontend.
 
 ## How it works
 
-The two connect through **CopilotKit Runtime**, a lightweight server-side layer that sits between
+The two connect through **Copilot Runtime**, a lightweight server-side layer that sits between
 your browser and AgentCore. This is the same runtime as for any CopilotKit agent. With AgentCore,
 the runtime must run on the server. Browsers cannot sign SigV4 or OAuth2 requests to AgentCore.
 
@@ -92,7 +92,7 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
       <Step>
         ### Run locally
 
-        To run the full stack locally (agent, CopilotKit runtime, and frontend) without deploying:
+        To run the full stack locally (agent, Copilot Runtime, and frontend) without deploying:
 
         ```bash
         cp .env.example .env
@@ -105,7 +105,7 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
         | Service | Port | Description |
         |---|---|---|
         | `agent` | 8080 | Your agent, hot-reloads on `.py` changes |
-        | `bridge` | 3001 | CopilotKit Runtime |
+        | `bridge` | 3001 | Copilot Runtime |
         | `frontend` | 3000 | Vite dev server |
       </Step>
 
@@ -140,9 +140,9 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
       </Step>
 
       <Step>
-        ### Set up CopilotKit Runtime
+        ### Set up Copilot Runtime
 
-        CopilotKit Runtime is the server-side layer that connects your frontend to AgentCore. It handles
+        Copilot Runtime is the server-side layer that connects your frontend to AgentCore. It handles
         the communication protocol, middleware, and (with AgentCore specifically) the server-side
         authentication that browsers can't perform directly.
 

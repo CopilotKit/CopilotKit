@@ -5,9 +5,9 @@ the LangGraph Server API. CopilotKit gives those agents a production-ready front
 
 ## How it works
 
-The two connect through **CopilotKit Runtime**, a lightweight server-side layer that sits between
+The two connect through **Copilot Runtime**, a lightweight server-side layer that sits between
 your browser and your LangSmith deployment. It's the same runtime you'd use with any
-CopilotKit-powered agent. It just needs to run server-side so your `LANGSMITH_API_KEY` never
+CopilotKit-powered agent. It runs server-side so your `LANGSMITH_API_KEY` never
 reaches the browser.
 
 ```
@@ -165,7 +165,7 @@ point the runtime at the LangSmith deployment URL.
 
               - **No multimodal input**: only `messages[-1].content` is forwarded as a single text
                 part; inbound images, files, or audio are dropped.
-              - **Last message only**: just the final item in `messages` is sent to the ADK agent
+              - **Last message only**: only the final item in `messages` is sent to the ADK agent
                 each turn.
               - **No live / audio / voice**: ADK's `run_live()` bidirectional streaming isn't used.
               - **Text output only**: non-text output parts (images, audio, files) aren't surfaced.
@@ -237,9 +237,9 @@ point the runtime at the LangSmith deployment URL.
       </Step>
 
       <Step>
-        ### Set up CopilotKit Runtime
+        ### Set up Copilot Runtime
 
-        CopilotKit Runtime is the server-side layer that connects your frontend to the LangSmith
+        Copilot Runtime is the server-side layer that connects your frontend to the LangSmith
         deployment. Create an API route:
 
         ```typescript title="app/api/copilotkit/[[...slug]]/route.ts" doctest="component"
@@ -360,7 +360,7 @@ point the runtime at the LangSmith deployment URL.
       </Step>
 
       <Step>
-        ### Set up CopilotKit Runtime
+        ### Set up Copilot Runtime
 
         Create an API route that points at your LangSmith deployment:
 
@@ -474,7 +474,7 @@ point the runtime at the LangSmith deployment URL.
     (e.g. `my_agent`). Check the deployment's config in the LangSmith UI if unsure.
   </Accordion>
   <Accordion title="401 / authentication errors from the deployment">
-    - Set `LANGSMITH_API_KEY` on the **server** where CopilotKit Runtime runs, not in the browser.
+    - Set `LANGSMITH_API_KEY` on the **server** where Copilot Runtime runs, not in the browser.
     - Use a key from the same LangSmith workspace as the deployment. The key must start with
       `lsv2_`.
   </Accordion>
