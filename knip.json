@@ -97,7 +97,7 @@
         "src/index.ts!",
         "*.d.ts",
         "src/**/*.test-d.{ts,tsx}",
-        "src/v2/__tests__/mocks/web-inspector.ts"
+        "src/__tests__/mocks/web-inspector.ts"
       ],
       "ignoreDependencies": ["phoenix"]
     }

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { createGenerativeUI } from "@copilotkit/vue/v2/generative-ui";
+import { createGenerativeUI } from "@copilotkit/vue/generative-ui";
 import CartSummary from "./CartSummary.vue";
 import CheckoutForm from "./CheckoutForm.vue";
 import DiagnosticWidget from "./DiagnosticWidget.vue";
@@ -16,7 +16,7 @@ const cartSchema = z.object({
 /**
  * The components the agent can render on the store page, the cart state
  * they read, and the functions they call. Mirrors `storeUI` of the React
- * demo (`examples/v2/react/demo/src/app/generative-ui/catalog.tsx`).
+ * demo (`examples/dev/by-frontend/react/demo/src/app/generative-ui/catalog.tsx`).
  */
 export const storeUI = createGenerativeUI({
   id: "acme/storefront@1",

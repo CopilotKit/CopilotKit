@@ -1,0 +1,14 @@
+<script setup lang="ts">
+import { computed, ref } from "vue";
+
+const count = ref(0);
+const label = computed(() => (count.value < 10 ? "few" : "many"));
+</script>
+
+<template>
+  <button type="button" @click="count++">{{ label }}</button>
+</template>
+
+<style scoped>
+button > span { font-weight: 600; }
+</style>

@@ -20,7 +20,7 @@ For a full walkthrough, see [State and actions](/generative-ui/components/state-
 ## Import
 
 ```ts
-import { useGenerativeUIState } from "@copilotkit/vue/v2/generative-ui";
+import { useGenerativeUIState } from "@copilotkit/vue/generative-ui";
 ```
 
 ## Signature
@@ -32,7 +32,7 @@ import {
   useGenerativeUIState,
   type GenerativeUI,
   type GenerativeUIStateOf,
-} from "@copilotkit/vue/v2/generative-ui";
+} from "@copilotkit/vue/generative-ui";
 
 type StateInput<UI extends GenerativeUI, Key extends keyof GenerativeUIStateOf<UI>> = SchemaInput<
   GenerativeUIDefinitionsOf<UI>["state"][Key]
@@ -74,7 +74,7 @@ None. The composable writes the value to the provider.
 
 ```ts title="shop-ui.ts"
 import { z } from "zod";
-import { createGenerativeUI } from "@copilotkit/vue/v2/generative-ui";
+import { createGenerativeUI } from "@copilotkit/vue/generative-ui";
 
 const cartSchema = z.object({
   items: z.array(z.object({ productId: z.string(), quantity: z.number() })),
@@ -93,7 +93,7 @@ Give the key its value from a component:
 
 ```vue title="CartState.vue"
 <script setup lang="ts">
-import { useGenerativeUIState } from "@copilotkit/vue/v2/generative-ui";
+import { useGenerativeUIState } from "@copilotkit/vue/generative-ui";
 import { useCartStore } from "./cart-store";
 import { shopUI } from "./shop-ui";
 

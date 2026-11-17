@@ -31,11 +31,15 @@ React is the canonical behavioral reference in:
 - `packages/react-textarea/`
 
 Vue is one published package, not a parallel `vue-core` plus `vue-ui` split.
-Current V2 code is primarily under `packages/vue/src/v2/`. The root
-[`src/index.ts`](./src/index.ts) also exposes V1 compatibility wrappers from
-`src/hooks/` and `src/components/copilot-provider/`, so check the public barrel
-before adding or moving an export. Framework-agnostic behavior comes from
-`@copilotkit/core`.
+Its source is under `packages/vue/src/`. Each package entry has its own barrel:
+
+- `@copilotkit/vue`: [`src/index.ts`](./src/index.ts)
+- `@copilotkit/vue/generative-ui`: [`src/generative-ui/index.ts`](./src/generative-ui/index.ts)
+- `@copilotkit/vue/generative-ui/chart`: [`src/generative-ui-chart/index.ts`](./src/generative-ui-chart/index.ts)
+- `@copilotkit/vue/generative-ui/map`: [`src/generative-ui-map/index.ts`](./src/generative-ui-map/index.ts)
+
+Before you add or move an export, read the barrel for its entry.
+Framework-agnostic behavior comes from `@copilotkit/core`.
 
 Headless React hooks and providers generally translate to Vue composables,
 providers, or types. Render props and render-oriented hooks generally translate

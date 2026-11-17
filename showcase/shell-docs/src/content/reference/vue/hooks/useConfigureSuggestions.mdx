@@ -24,7 +24,7 @@ import {
   useConfigureSuggestions,
   type DynamicSuggestionsConfig,
   type StaticSuggestionsConfig,
-} from "@copilotkit/vue/v2";
+} from "@copilotkit/vue";
 
 useConfigureSuggestions satisfies (
   config: DynamicSuggestionsConfig | StaticSuggestionsConfig | null | undefined,
@@ -115,7 +115,7 @@ Used when suggestions are a predefined list.
 
 ```vue
 <script setup lang="ts">
-import { useConfigureSuggestions } from "@copilotkit/vue/v2";
+import { useConfigureSuggestions } from "@copilotkit/vue";
 
 useConfigureSuggestions({
   suggestions: [
@@ -136,7 +136,7 @@ useConfigureSuggestions({
 
 ```vue
 <script setup lang="ts">
-import { useConfigureSuggestions } from "@copilotkit/vue/v2";
+import { useConfigureSuggestions } from "@copilotkit/vue";
 
 useConfigureSuggestions({
   instructions:
@@ -161,7 +161,7 @@ underlying reactive state changes.
 ```vue
 <script setup lang="ts">
 import { ref } from "vue";
-import { useConfigureSuggestions } from "@copilotkit/vue/v2";
+import { useConfigureSuggestions } from "@copilotkit/vue";
 
 const reloadKey = ref(0);
 
@@ -201,7 +201,7 @@ configuration.
 ```vue
 <script setup lang="ts">
 import { computed } from "vue";
-import { useConfigureSuggestions } from "@copilotkit/vue/v2";
+import { useConfigureSuggestions } from "@copilotkit/vue";
 
 const props = defineProps<{ enabled: boolean }>();
 
@@ -230,7 +230,7 @@ useConfigureSuggestions(
 
 ```vue
 <script setup lang="ts">
-import { useConfigureSuggestions } from "@copilotkit/vue/v2";
+import { useConfigureSuggestions } from "@copilotkit/vue";
 
 useConfigureSuggestions({
   instructions: "Suggest data analysis tasks the user can perform.",

@@ -124,7 +124,7 @@ Wrap an area of your page in a target. Give it an id, and tell the agent what th
   <Tab value="Vue">
     ```vue title="src/components/FeaturedProducts.vue"
     <script setup lang="ts">
-    import { GenerativeUISurface } from "@copilotkit/vue/v2/generative-ui";
+    import { GenerativeUISurface } from "@copilotkit/vue/generative-ui";
     import type { Product } from "../product";
     import { shopUI } from "../shop-ui";
     import ProductRow from "./ProductRow.vue";
@@ -365,7 +365,7 @@ A target can be specific. A product page can give each product its own target, s
     ```vue
     <script setup lang="ts">
     import { computed } from "vue";
-    import { GenerativeUISurface } from "@copilotkit/vue/v2/generative-ui";
+    import { GenerativeUISurface } from "@copilotkit/vue/generative-ui";
     import type { Product } from "../product";
 
     const props = defineProps<{ product: Product }>();
@@ -474,7 +474,7 @@ Each component renders inside its own error boundary. One broken component shows
 
     ```vue title="src/components/RetryFallback.vue"
     <script setup lang="ts">
-    import type { GenerativeUIErrorFallbackProps } from "@copilotkit/vue/v2/generative-ui";
+    import type { GenerativeUIErrorFallbackProps } from "@copilotkit/vue/generative-ui";
 
     defineProps<GenerativeUIErrorFallbackProps>();
     </script>
@@ -486,8 +486,8 @@ Each component renders inside its own error boundary. One broken component shows
 
     ```vue
     <script setup lang="ts">
-    import { CopilotKitProvider } from "@copilotkit/vue/v2";
-    import type { GenerativeUIErrorInfo } from "@copilotkit/vue/v2/generative-ui";
+    import { CopilotKitProvider } from "@copilotkit/vue";
+    import type { GenerativeUIErrorInfo } from "@copilotkit/vue/generative-ui";
     import RetryFallback from "./components/RetryFallback.vue";
     import { shopUI } from "./shop-ui";
 

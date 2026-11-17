@@ -14,9 +14,12 @@ codemod-skill-version: 0.1.0
 
 The codemod already did the mechanical part: `/v2` import paths now point at the package roots, `<CopilotKit>` is `<CopilotKitProvider>`, `agent=` is `agentId=`, LangGraph agents import from `@ag-ui/langgraph`, and `BuiltInAgent` model strings are TanStack AI adapters. Each `useCopilotReadable` call is now `useAgentContext`, each destructured `useCoAgent` and `useCopilotChat()` call is `useAgent` with the same values, `new TextMessage(...)` is a plain AG-UI message, a v1 App Router endpoint with an OpenAI, Anthropic, Google or empty service adapter is `createCopilotKitRuntimeHandler` with a `BuiltInAgent`, and each `useCopilotAction` call with a literal `Parameter[]` is now `useFrontendTool`, `useHumanInTheLoop` or `useRenderTool` with a Zod schema, and the `labels` of the v1 chat components use the 2.0 keys. A v0.9 A2UI catalog (`createCatalog`, `createAngularCatalog`) is now `createGenerativeUI` with plain prop types, the `a2ui` provider option is `generativeUI={{ ui }}` (`provideGenerativeUI` in Angular), and the runtime `a2ui` option is `generativeUI: { a2uiVersion: "0.9", ... }`. Everything it could not do safely is marked with a `TODO(copilotkit-2.0):` comment next to the code.
 
+In a Vue app, the codemod changed the `.ts` and `.js` files and the `<script>` blocks of `.vue` files in the same way. `@copilotkit/vue/v2` paths now point at `@copilotkit/vue`, and the v1 Vue `useCopilotAction` and `useCopilotReadable` calls are now 2.0 hooks, except the calls with a TODO. It did not change templates. `<CopilotKit>` stays, because 2.0 keeps `CopilotKit` as an alias of `CopilotKitProvider`.
+
 ## Rules
 
 - **Never rename a v1 hook to its 2.0 name and stop.** The 2.0 APIs take different arguments. A `useCopilotAction` call that is left becomes `useFrontendTool` (a `handler`), `useHumanInTheLoop` (`renderAndWaitForResponse`) or `useRenderTool` (only `render`), with a Zod schema instead of a `Parameter[]` list. Rewrite the call, not just the name. The calls the codemod already rewrote show the pattern.
+- **Vue code has its own rules.** The v1 Vue `useCopilotAction` chose its 2.0 hook in a different way from React, and the Vue `useAgentContext` takes no deps. Before you fix a TODO in Vue code, read the "Vue" section of `references/mappings.md`.
 - **Read the docs link in the TODO** before you rewrite a call. The link points at the exact 2.0 API.
 - **Delete each TODO comment once its code is fixed.** A TODO left in the file means the work is not done.
 - **Markdown lost features by default.** The built-in renderer does no syntax highlighting, math, or mermaid diagrams. Before you delete a Streamdown prop, read the "Markdown rendering" section of `references/mappings.md`.
@@ -26,7 +29,7 @@ The codemod already did the mechanical part: `/v2` import paths now point at the
 
 ## Steps
 
-1. List the work: `grep -rn "TODO(copilotkit-2.0)" --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" .`
+1. List the work: `grep -rn "TODO(copilotkit-2.0)" --include="*.ts" --include="*.tsx" --include="*.mts" --include="*.cts" --include="*.js" --include="*.jsx" --include="*.mjs" --include="*.cjs" --include="*.vue" .`
 2. Fix each TODO with `references/mappings.md`, then delete the comment.
 3. Update `package.json`:
    - set every `@copilotkit/*` dependency to the same 2.x version;

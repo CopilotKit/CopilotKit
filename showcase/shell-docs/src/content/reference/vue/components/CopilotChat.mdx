@@ -24,7 +24,7 @@ You typically only need to specify which agent to connect and, optionally, custo
 
 ```vue
 <script setup lang="ts">
-import { CopilotChat } from "@copilotkit/vue/v2";
+import { CopilotChat } from "@copilotkit/vue";
 </script>
 ```
 
@@ -59,7 +59,7 @@ All reactive props are declared with `defineProps`. `CopilotChat` extends `Copil
 
 ```vue
 <script setup lang="ts">
-import { CopilotChat } from "@copilotkit/vue/v2";
+import { CopilotChat } from "@copilotkit/vue";
 
 function handleError(event: {
   error: Error;
@@ -177,7 +177,7 @@ Vue uses named slots in place of React's render props and sub-component props. P
 
 ```vue
 <script setup lang="ts">
-import { CopilotChat } from "@copilotkit/vue/v2";
+import { CopilotChat } from "@copilotkit/vue";
 </script>
 
 <template>
@@ -192,7 +192,7 @@ import { CopilotChat } from "@copilotkit/vue/v2";
 
 ```vue
 <script setup lang="ts">
-import { CopilotChat } from "@copilotkit/vue/v2";
+import { CopilotChat } from "@copilotkit/vue";
 </script>
 
 <template>
@@ -217,7 +217,7 @@ import { CopilotChat } from "@copilotkit/vue/v2";
 
 ```vue
 <script setup lang="ts">
-import { CopilotChat } from "@copilotkit/vue/v2";
+import { CopilotChat } from "@copilotkit/vue";
 </script>
 
 <template>
@@ -236,7 +236,7 @@ import { CopilotChat } from "@copilotkit/vue/v2";
 
 ```vue
 <script setup lang="ts">
-import { CopilotChat } from "@copilotkit/vue/v2";
+import { CopilotChat } from "@copilotkit/vue";
 
 function onSubmit(value: string) {
   console.log("user submitted:", value);
@@ -254,7 +254,7 @@ function onSubmit(value: string) {
 
 ```vue
 <script setup lang="ts">
-import { CopilotChat } from "@copilotkit/vue/v2";
+import { CopilotChat } from "@copilotkit/vue";
 import { ref } from "vue";
 
 // Vue SFC templates cannot resolve dotted tags like `<CopilotChat.View>`,

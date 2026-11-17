@@ -86,7 +86,7 @@ export default function YourApp() {
 
 ## Customization
 
-All three components support the [slot system](/custom-look-and-feel/slots) for deep customization, from Tailwind classes to full component replacement:
+All three components support the [slot system](/custom-look-and-feel/slots) for deep customization, from Tailwind classes to full component replacement. With Tailwind v4, add `!` to each class, so that it overrides the CopilotKit CSS:
 
 ```tsx title="page.tsx"
 import { CopilotChat } from "@copilotkit/react-core";
@@ -96,13 +96,13 @@ export function StyledChat() {
     <CopilotChat
       // Style slots with Tailwind classes
       input={{
-        textArea: "text-blue-500",
-        sendButton: "bg-blue-600 hover:bg-blue-700",
+        textArea: "text-blue-500!",
+        sendButton: "bg-blue-600! hover:bg-blue-700!",
       }}
       // Customize nested message slots
       messageView={{
-        assistantMessage: "bg-blue-50 rounded-xl p-2",
-        userMessage: "bg-blue-100 rounded-xl",
+        assistantMessage: "bg-blue-50! rounded-xl! p-2!",
+        userMessage: "bg-blue-100! rounded-xl!",
       }}
     />
   );

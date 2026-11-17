@@ -6,14 +6,14 @@ icon: "lucide/RefreshCw"
 
 ## Overview
 
-CopilotKit 2.0 removes the v1 React and Runtime APIs. The React hooks and the
+CopilotKit 2.0 removes the v1 React, Vue, and Runtime APIs. The React hooks and the
 chat components are exported from `@copilotkit/react-core`, and the runtime
 serves AG-UI agents from `@copilotkit/runtime`. The `@copilotkit/react-ui` and
 `@copilotkit/react-textarea` packages are deleted.
 
 If your app already used the `/v2` subpaths that CopilotKit 1.x shipped
-(`@copilotkit/react-core/v2`, `@copilotkit/runtime/v2`), the same APIs now
-import from the package root. 2.0 has no `/v2` subpaths for React or the runtime.
+(`@copilotkit/react-core/v2`, `@copilotkit/runtime/v2`, `@copilotkit/vue/v2`),
+the same APIs now import from the package root. 2.0 has no `/v2` subpaths.
 
 This migration is not a global string replacement. Some exports kept their
 names, some were renamed, and some have no 1:1 replacement because 2.0 uses a
@@ -36,7 +36,8 @@ npx codemod @copilotkit/v2-migration
 | `@copilotkit/runtime` service adapters   | `BuiltInAgent` and `createCopilotKitRuntimeHandler` from `@copilotkit/runtime` |
 | `@copilotkit/runtime/v2`                 | `@copilotkit/runtime`                 |
 | `CopilotRuntime`                         | `CopilotKitRuntime`                   |
-| `@copilotkit/vue`                        | `@copilotkit/vue/v2`                  |
+| v1 hooks from `@copilotkit/vue`          | 2.0 hooks from `@copilotkit/vue`      |
+| `@copilotkit/vue/v2`                     | `@copilotkit/vue`                     |
 | `CopilotTextarea` (`@copilotkit/react-textarea`) | Removed. 2.0 has no equivalent. |
 
 ## Minimum versions
@@ -268,20 +269,64 @@ export const POST = handler;
 <Step>
 ### If you use Vue, update Vue imports
 
-The Vue 2.0 API lives at the `@copilotkit/vue/v2` subpath. The v1 `CopilotKit`
-component becomes `CopilotKitProvider`; most exports otherwise retain their
-public names.
+In 2.0, imports from `@copilotkit/vue/v2` fail, because 2.0 removes the `/v2`
+subpaths. Imports of `useCopilotAction` and `useCopilotReadable` from
+`@copilotkit/vue` also fail, because 2.0 removes the v1 hooks. The 2.0 API is
+at the package root, `@copilotkit/vue`, as in React.
+
+The codemod (`npx codemod @copilotkit/v2-migration`) migrates these imports and
+hooks. It changes `.ts` files and the `<script>` and `<script setup>` blocks of
+`.vue` files. It does not change templates. If it cannot convert some code, it adds a `TODO(copilotkit-2.0)`
+comment.
+
+To migrate by hand:
+
+1. Remove `/v2` from each `@copilotkit/vue` import path. For example,
+   `@copilotkit/vue/v2/generative-ui` becomes `@copilotkit/vue/generative-ui`.
+2. Replace `useCopilotAction` and `useCopilotReadable` with their 2.0 hooks.
+   The [hook mapping](#hook-mapping) table above applies to Vue too. A
+   `useCopilotAction` call that only renders becomes `useRenderTool`.
+3. If a `useFrontendTool` call has a `Parameter[]` list, replace the list with
+   a Standard Schema such as `z.object(...)`. A Zod schema needs
+   [Zod 4.2 or later](#upgrade-to-zod-42-or-later).
+
+`CopilotKit` and `CopilotKitProps` still work. They are aliases of
+`CopilotKitProvider` and `CopilotKitProviderProps`, so `<CopilotKit>` in a
+template does not break. Use `CopilotKitProvider` in new code.
 
 #### Before
 
-```ts
-import { CopilotKit, useCopilotAction } from "@copilotkit/vue";
+{/* kiira: ignore, shows the v1 code this guide migrates away from */}
+```ts ignore
+// Inside <script setup lang="ts">
+import { useCopilotAction } from "@copilotkit/vue";
+import { useAgentContext } from "@copilotkit/vue/v2";
+
+useAgentContext({ description: "The name of the user", value: "Ada" });
+
+useCopilotAction({
+  name: "sayHello",
+  description: "Greet the user by name",
+  parameters: [{ name: "name", type: "string", required: true }],
+  handler: async ({ name }) => `Hello, ${name}!`,
+});
 ```
 
 #### After
 
 ```ts
-import { CopilotKitProvider, useFrontendTool } from "@copilotkit/vue/v2";
+// Inside <script setup lang="ts">
+import { useAgentContext, useFrontendTool } from "@copilotkit/vue";
+import { z } from "zod";
+
+useAgentContext({ description: "The name of the user", value: "Ada" });
+
+useFrontendTool({
+  name: "sayHello",
+  description: "Greet the user by name",
+  parameters: z.object({ name: z.string() }),
+  handler: async ({ name }) => `Hello, ${name}!`,
+});
 ```
 
 </Step>
@@ -306,44 +351,6 @@ npx jscodeshift --parser=tsx --extensions=tsx,ts,jsx,js,css,scss,vue,json \
 ```
 
 In an Angular app, add `angular.json` after `./src` so the codemod also updates its `styles` arrays.
-
-</Step>
-<Step>
-### If the chat has no padding, move your CSS reset into a layer
-
-After the upgrade, the chat has no padding and no margin. In development,
-the browser console also shows a `[CopilotKit]` warning that links to this step.
-
-The cause is a global CSS reset outside a cascade layer. Starter templates
-such as `create-next-app` and `create-vue` add one. CopilotKit puts its styles
-in cascade layers, and a rule outside a layer always wins over a rule in a layer.
-
-To correct this problem, put the reset in `@layer base`:
-
-#### Before
-
-```css title="app/globals.css"
-* {
-  box-sizing: border-box;
-  padding: 0;
-  margin: 0;
-}
-```
-
-#### After
-
-```css title="app/globals.css"
-@layer base {
-  * {
-    box-sizing: border-box;
-    padding: 0;
-    margin: 0;
-  }
-}
-```
-
-The reset still applies to the rest of your app. Reload the page. The chat
-has its spacing again, and the console warning is gone.
 
 </Step>
 <Step>
@@ -454,4 +461,4 @@ export function App({ children }: { children: ReactNode }) {
 }
 ```
 
-Run your type check. It must pass. When it passes and no import from a v1 API or a `/v2` React or runtime subpath is left, the migration is complete.
+Run your type check. It must pass. When it passes and no import from a v1 API or a `/v2` subpath is left, the migration is complete.

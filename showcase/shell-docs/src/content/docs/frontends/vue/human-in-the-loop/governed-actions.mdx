@@ -46,7 +46,7 @@ If your runtime can pause an agent run, model the approval as an interrupt. The 
 ```vue title="src/components/GovernedActionApproval.vue"
 <script setup lang="ts">
 import { computed, watchEffect } from "vue";
-import { useInterrupt } from "@copilotkit/vue/v2";
+import { useInterrupt } from "@copilotkit/vue";
 
 type GovernedAction = {
   id: string;
@@ -141,7 +141,7 @@ For LLM-initiated pauses, register the approval checkpoint as a human-in-the-loo
 ```vue title="src/components/GovernedActionTool.vue"
 <script setup lang="ts">
 import { z } from "zod";
-import { useHumanInTheLoop } from "@copilotkit/vue/v2";
+import { useHumanInTheLoop } from "@copilotkit/vue";
 import GovernedActionCard from "./GovernedActionCard.vue";
 
 const governedActionSchema = z.object({
@@ -222,7 +222,7 @@ Both composables must run in components beneath `CopilotKitProvider`:
 
 ```vue title="src/App.vue"
 <script setup lang="ts">
-import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue/v2";
+import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue";
 import GovernedActionApproval from "./components/GovernedActionApproval.vue";
 import GovernedActionTool from "./components/GovernedActionTool.vue";
 </script>

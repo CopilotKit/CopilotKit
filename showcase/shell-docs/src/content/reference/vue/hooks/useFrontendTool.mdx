@@ -10,7 +10,7 @@ description: "Vue composable for registering a client-side tool with an optional
 The composable manages the full registration lifecycle: it registers the tool (and its optional renderer) immediately, re-runs the registration when reactive dependencies change, and removes the tool automatically when the owning scope is disposed. Parameter schemas are defined with a [Standard Schema](https://standardschema.dev) such as a [Zod](https://zod.dev) object, for the advertised tool schema and TypeScript inference. Runtime arguments are JSON-parsed but are not validated against that schema.
 
 <Callout type="info">
-  Import from the `/v2` subpath: `@copilotkit/vue/v2`. Like all CopilotKit
+  Import from the package root, `@copilotkit/vue`. Like all CopilotKit
   composables, `useFrontendTool` must be called from within a component that is a
   descendant of [`CopilotKitProvider`](/reference/vue/components/CopilotKitProvider).
 </Callout>
@@ -19,7 +19,7 @@ The composable manages the full registration lifecycle: it registers the tool (a
 
 ```ts
 import type { WatchSource } from "vue";
-import { useFrontendTool, type VueFrontendTool } from "@copilotkit/vue/v2";
+import { useFrontendTool, type VueFrontendTool } from "@copilotkit/vue";
 
 useFrontendTool satisfies <T extends Record<string, unknown>>(
   tool: VueFrontendTool<T>,
@@ -67,7 +67,7 @@ useFrontendTool satisfies <T extends Record<string, unknown>>(
     Long-running handlers can check `signal.aborted` or pass `signal` to
     `fetch` to cancel cooperatively. The resolved value is surfaced back to the
     agent as the tool result. `FrontendToolHandlerContext` is exported from
-    `@copilotkit/vue/v2`.
+    `@copilotkit/vue`.
   </PropertyReference>
 
   <PropertyReference
@@ -142,7 +142,7 @@ useFrontendTool satisfies <T extends Record<string, unknown>>(
 <script setup lang="ts">
 import { ref } from "vue";
 import { z } from "zod";
-import { useFrontendTool } from "@copilotkit/vue/v2";
+import { useFrontendTool } from "@copilotkit/vue";
 
 const todos = ref<string[]>([]);
 
@@ -174,7 +174,7 @@ Provide a `render` component to visualize the tool call in chat. The component r
 ```vue
 <!-- WeatherToolView.vue -->
 <script setup lang="ts">
-import { ToolCallStatus } from "@copilotkit/vue/v2";
+import { ToolCallStatus } from "@copilotkit/vue";
 
 defineProps<{
   name: string;
@@ -201,7 +201,7 @@ defineProps<{
 <!-- App.vue -->
 <script setup lang="ts">
 import { z } from "zod";
-import { useFrontendTool } from "@copilotkit/vue/v2";
+import { useFrontendTool } from "@copilotkit/vue";
 import WeatherToolView from "./WeatherToolView.vue";
 
 useFrontendTool({
@@ -230,7 +230,7 @@ Expose `available` as a getter that reads a reactive value. The registration wat
 <script setup lang="ts">
 import { computed, toRef } from "vue";
 import { z } from "zod";
-import { useFrontendTool } from "@copilotkit/vue/v2";
+import { useFrontendTool } from "@copilotkit/vue";
 
 const props = defineProps<{ isAdmin: boolean }>();
 const isAdmin = toRef(props, "isAdmin");

@@ -51,7 +51,7 @@ The simplest headless pattern uses `useInterrupt({ renderInChat: false })`. Inst
 
 ```vue title="src/components/ApprovalPanel.vue"
 <script setup lang="ts">
-import { useInterrupt } from "@copilotkit/vue/v2";
+import { useInterrupt } from "@copilotkit/vue";
 
 const { slotProps } = useInterrupt({
   agentId: "interrupt-headless",
@@ -133,7 +133,7 @@ Register the tool, and render the picker from the store anywhere in your app:
 ```vue title="src/components/HeadlessApprovalPanel.vue"
 <script setup lang="ts">
 import { z } from "zod";
-import { useHumanInTheLoop } from "@copilotkit/vue/v2";
+import { useHumanInTheLoop } from "@copilotkit/vue";
 import ApprovalBridge from "./ApprovalBridge.vue";
 import { pendingApproval } from "../approval-store";
 
@@ -173,7 +173,7 @@ The chat renders tool calls, so it mounts the render component. Keep `<CopilotCh
 
 ```vue title="src/App.vue"
 <script setup lang="ts">
-import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue/v2";
+import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue";
 import HeadlessApprovalPanel from "./components/HeadlessApprovalPanel.vue";
 </script>
 
@@ -198,7 +198,7 @@ Combine `useAgent`, `useCopilotKit`, and the headless interrupt state when the s
 ```vue title="src/components/HeadlessInterruptPanel.vue"
 <script setup lang="ts">
 import { toRaw } from "vue";
-import { useAgent, useCopilotKit, useInterrupt } from "@copilotkit/vue/v2";
+import { useAgent, useCopilotKit, useInterrupt } from "@copilotkit/vue";
 
 const { agent } = useAgent({ agentId: "interrupt-headless" });
 const { copilotkit } = useCopilotKit();
@@ -240,7 +240,7 @@ The component calling these composables must be below `CopilotKitProvider`:
 
 ```vue title="src/App.vue"
 <script setup lang="ts">
-import { CopilotKitProvider } from "@copilotkit/vue/v2";
+import { CopilotKitProvider } from "@copilotkit/vue";
 import HeadlessInterruptPanel from "./components/HeadlessInterruptPanel.vue";
 </script>
 

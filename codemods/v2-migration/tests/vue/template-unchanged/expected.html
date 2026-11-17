@@ -1,0 +1,14 @@
+<template>
+  <ChatPanel v-if="ready" :agent-id="agentId" @submit.prevent="send" />
+  <MyCard #header="{ title }" v-bind:title="title" class="card">
+    <p v-for="item in items" :key="item.id">{{ item.count < 10 ? "few" : "many" }}</p>
+  </MyCard>
+  <pre>import { useKatexStyles } from "@copilotkit/vue";
+useKatexStyles();</pre>
+</template>
+
+<script setup lang="ts">
+import { ref } from "vue";
+
+const ready = ref(true);
+</script>

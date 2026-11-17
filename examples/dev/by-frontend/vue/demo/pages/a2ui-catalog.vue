@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue/v2";
-import { standardUI } from "@copilotkit/vue/v2/generative-ui";
+import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue";
+import { standardUI } from "@copilotkit/vue/generative-ui";
 
 // Catalog-on-provider path: the runtime at /api/copilotkit-catalog has NO
 // generativeUI config. Generative UI must switch on purely because we pass a

@@ -259,17 +259,6 @@
   background-color: var(--background);
 }
 
-/* Read by ɵdetectStyleOverrides (style-overrides.ts) in development. When the
-   probe's padding or margin is not 1px, a rule outside a cascade layer, such
-   as `* { padding: 0 }`, wins over these styles. The custom property shows
-   that this stylesheet is in the page, since resets don't touch it. After
-   the reset above, so it wins in this layer. */
-:where([data-copilotkit-style-probe]) {
-  padding: 1px;
-  margin: 1px;
-  --cpk-style-probe: 1;
-}
-
 /* CopilotChat's root is an inline-size container, so its content gives it no
    width. As a flex item in a row (beside <CopilotThreadsDrawer>) its auto width
    resolved to 0px and the chat disappeared. Fill the container instead. */

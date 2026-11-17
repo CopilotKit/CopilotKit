@@ -30,7 +30,7 @@ The toolbar provides copy, thumbs up, thumbs down, read aloud, and regenerate bu
 
 ```vue
 <script setup lang="ts">
-import { CopilotChatAssistantMessage } from "@copilotkit/vue/v2";
+import { CopilotChatAssistantMessage } from "@copilotkit/vue";
 </script>
 ```
 
@@ -38,7 +38,7 @@ import { CopilotChatAssistantMessage } from "@copilotkit/vue/v2";
 
 ```vue
 <script setup lang="ts">
-import { CopilotChatAssistantMessage } from "@copilotkit/vue/v2";
+import { CopilotChatAssistantMessage } from "@copilotkit/vue";
 import type { AssistantMessage } from "@ag-ui/core";
 
 const message: AssistantMessage = {
@@ -200,7 +200,7 @@ behavior to the message and toolbar handlers.
 
 ```vue
 <script setup lang="ts">
-import { CopilotChatAssistantMessage } from "@copilotkit/vue/v2";
+import { CopilotChatAssistantMessage } from "@copilotkit/vue";
 import type { AssistantMessage } from "@ag-ui/core";
 
 defineProps<{ message: AssistantMessage }>();
@@ -221,7 +221,7 @@ Attaching the listeners makes the corresponding buttons appear automatically.
 
 ```vue
 <script setup lang="ts">
-import { CopilotChatAssistantMessage } from "@copilotkit/vue/v2";
+import { CopilotChatAssistantMessage } from "@copilotkit/vue";
 import type { AssistantMessage } from "@ag-ui/core";
 
 defineProps<{ message: AssistantMessage }>();
@@ -248,7 +248,7 @@ function handleReadAloud(msg: AssistantMessage) {
 
 ```vue
 <script setup lang="ts">
-import { CopilotChatAssistantMessage } from "@copilotkit/vue/v2";
+import { CopilotChatAssistantMessage } from "@copilotkit/vue";
 import type { AssistantMessage } from "@ag-ui/core";
 
 defineProps<{ message: AssistantMessage }>();
@@ -267,7 +267,7 @@ defineProps<{ message: AssistantMessage }>();
 
 ```vue
 <script setup lang="ts">
-import { CopilotChatAssistantMessage } from "@copilotkit/vue/v2";
+import { CopilotChatAssistantMessage } from "@copilotkit/vue";
 import type { AssistantMessage } from "@ag-ui/core";
 
 defineProps<{ message: AssistantMessage }>();
@@ -282,7 +282,7 @@ defineProps<{ message: AssistantMessage }>();
 
 ```vue
 <script setup lang="ts">
-import { CopilotChatAssistantMessage } from "@copilotkit/vue/v2";
+import { CopilotChatAssistantMessage } from "@copilotkit/vue";
 import type { AssistantMessage } from "@ag-ui/core";
 
 defineProps<{ message: AssistantMessage }>();
@@ -301,7 +301,7 @@ defineProps<{ message: AssistantMessage }>();
 
 ```vue
 <script setup lang="ts">
-import { CopilotChatAssistantMessage } from "@copilotkit/vue/v2";
+import { CopilotChatAssistantMessage } from "@copilotkit/vue";
 import type { AssistantMessage } from "@ag-ui/core";
 
 defineProps<{ message: AssistantMessage }>();
