@@ -129,7 +129,7 @@ When you are done, your Runtime will send selected Threads to a Learning Space, 
   <Step>
     ### Assign Threads from your Runtime
 
-    Return the Space ID from `getLearningContainerId` on the Copilot Runtime you already run. Keep your agents as they are. The callback is the same for every agent framework.
+    Return the Space ID from `getLearningContainerId` on Copilot Runtime, which you already run. Keep your agents as they are. The callback is the same for every agent framework.
 
     ```ts title="Your Copilot Runtime"
     import {
@@ -334,7 +334,7 @@ Once you have published a Skill, connect the agent that should use it:
 </Steps>
 
 <Callout type="info" title="Pausing delivery is separate from Automatic Learning">
-  Turning off **Skill delivery** does not stop Automatic Learning runs or revoke published revisions. Once an adapter checks delivery and receives the denial, it blocks new invocations; invocations already in progress keep their captured Skills. Pausing Automatic Learning runs likewise does not stop delivery of published Skills.
+  Turning off **Skill delivery** does not stop Automatic Learning runs or revoke published revisions. Once an adapter checks delivery and receives the denial, it blocks new invocations. Invocations already in progress keep their captured Skills. Pausing Automatic Learning runs likewise does not stop delivery of published Skills.
 </Callout>
 
 ### Download Skills manually
@@ -359,7 +359,7 @@ The output contains a directory and `SKILL.md` for each published Skill. Configu
 | The Runtime reports a container conflict    | The selector returned a different ID for an already-bound Thread. Restore the original mapping or start a new Thread.        |
 | A run has no new evidence                   | Runs created before assignment, still in progress, or already included in an earlier Automatic Learning run are not new input.         |
 | An automatic run has not started            | Check the Space's readiness count, daily schedule, and active or failed analysis. If it shows **Automatic learning is off**, scheduling is off for the deployment, and editing the time does not turn it on. Ask the administrator of your Intelligence deployment to turn on Automatic Learning. Until then, use **Start manual run now**. |
-| Automatic Learning is waiting after a failed run | Inspect the failure under **Analysis results**. Automatic Learning waits for additional eligible Threads before retrying that evidence; you can also start a manual run. |
+| Automatic Learning is waiting after a failed run | Inspect the failure under **Analysis results**. Automatic Learning waits for additional eligible Threads before retrying that evidence. You can also start a manual run. |
 | A run succeeds without a Skill candidate    | Inspect the Insights. The evidence may be useful without supporting a reusable procedural Skill.                             |
 | An approved Skill does not affect the agent | Confirm delivery is enabled, the adapter uses the correct project and Space ID, and a new invocation can load the Skill. Check for an exact revision pin. For manual loading, download the latest bundle and confirm your agent loads its directory. |
 | Delivery status is unavailable              | Select **Retry delivery status**. For self-hosted deployments, verify the delivery endpoint and migration are installed before relying on an adapter. See [deployment requirements](/intelligence/learned-skills#deployment-requirements). |

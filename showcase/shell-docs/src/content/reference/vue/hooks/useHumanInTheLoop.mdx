@@ -42,7 +42,7 @@ function useHumanInTheLoop<T extends Record<string, unknown>>(
 
 <PropertyReference name="description" type="string">
   A natural-language description that tells the agent what the tool does and
-  when to call it (e.g., "Ask the user to confirm before deleting records").
+  when to call it (for example, "Ask the user to confirm before deleting records").
 </PropertyReference>
 
 <PropertyReference name="parameters" type="StandardSchemaV1 (e.g. z.ZodSchema)">
@@ -92,7 +92,7 @@ function useHumanInTheLoop<T extends Record<string, unknown>>(
 </PropertyReference>
 
 <PropertyReference name="deps" type="WatchSource<unknown>[]">
-  An optional array of reactive watch sources (refs, getters, etc.). When
+  An optional array of reactive watch sources (such as refs or getters). When
   provided, the tool registration is refreshed whenever any source changes.
 </PropertyReference>
 

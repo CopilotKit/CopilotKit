@@ -138,7 +138,7 @@ The adapter has no post-run hook, so the server persists each turn to Oracle Age
 - **Per-user memory**: the cookbook defaults to a single `demo-user`. The stock adapter does not forward `forwarded_props`, so scope `user_id` via a FastAPI dependency / ContextVar (see `agent/concierge/tools.py`).
 - **Swap the runtime**: Agent Spec's adapter also supports Oracle's WayFlow runtime; the same spec runs on either.
 - **Multi-turn workaround.** `agent/concierge/server.py` replaces the adapter's message merge with the full history each turn, to work around an upstream `tool_call_id` bug. See [`agentspec-multiturn-toolcall-correlation`](https://github.com/CopilotKit/CopilotKit/blob/main/examples/showcases/oracle-agent-memory/docs/known-issues/agentspec-multiturn-toolcall-correlation.md).
-- **Memory reconciliation**: after each turn a small LLM pass (`reconcile_durable_memories` in `agent/concierge/reconcile.py`) prunes outdated or duplicate durable facts so an updated preference supersedes the old one on recall. Swap in your own policy (e.g. keep history, or reconcile on a schedule).
+- **Memory reconciliation**: after each turn a small LLM pass (`reconcile_durable_memories` in `agent/concierge/reconcile.py`) prunes outdated or duplicate durable facts so an updated preference supersedes the old one on recall. Swap in your own policy (for example, keep history, or reconcile on a schedule).
 
 ## Get started with a coding agent
 

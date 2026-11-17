@@ -7,7 +7,7 @@ description: "Vue 3 composable for providing reactive context to agents"
 
 `useAgentContext` registers reactive contextual data that is sent with agent runs. The context entry is added while the composable is active and removed automatically on scope cleanup, so the agent always sees an up-to-date snapshot of your application state without manual teardown.
 
-Because the parameters accept `MaybeRefOrGetter`, you can pass plain values, refs, computeds, or getter functions. When any reactive source changes, the registered context is updated automatically. This lets you surface any serializable application state (user preferences, selected items, computed values, etc.) as context that agents can reference when generating responses or making decisions.
+Because the parameters accept `MaybeRefOrGetter`, you can pass plain values, refs, computeds, or getter functions. When any reactive source changes, the registered context is updated automatically. This lets you surface any serializable application state (such as user preferences, selected items, or computed values) as context that agents can reference when generating responses or making decisions.
 
 <Callout type="info">
   `useAgentContext` must be called within a component that has access to the

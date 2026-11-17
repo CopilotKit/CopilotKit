@@ -35,7 +35,7 @@ function useInterrupt<
 
   <PropertyReference name="render" type="(props: InterruptRenderProps<any, TResult | null>) => React.ReactElement" required>
     Render callback for interrupt UI. Called when an interrupt is available. The callback receives:
-    - `event`: interrupt event (`{ name, value }`). `value` is `any`; type-narrow in your callback as needed.
+    - `event`: interrupt event (`{ name, value }`). `value` is `any`, so narrow its type in your callback as needed.
     - `interrupt`: the primary standard `Interrupt` (`{ id, reason, message?, toolCallId?, responseSchema?, expiresAt?, metadata? }`), or `null` for custom-event interrupts.
     - `interrupts`: all open standard interrupts (empty array for custom-event interrupts).
     - `result`: inferred from `handler` return type, or `null`

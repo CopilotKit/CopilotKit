@@ -39,7 +39,7 @@ The [`<CopilotKit>`](/reference/components/CopilotKit) export is the v1 compatib
 
 <PropertyReference name="selfManagedAgents" type="Record<string, AbstractAgent>">
   AG-UI agents managed by your app and registered directly with CopilotKit.
-  Use this when you connect to agents without routing through a Copilot Runtime.
+  Use this when you connect to agents without routing through Copilot Runtime.
 </PropertyReference>
 
 <PropertyReference name="openGenerativeUI" type="{ sandboxFunctions?: SandboxFunction[]; designSkill?: string }">
@@ -78,7 +78,7 @@ The [`<CopilotKit>`](/reference/components/CopilotKit) export is the v1 compatib
   gets `header_resolution_failed`.
 
   Re-passing the same builder function is a no-op. On a user switch, remount
-  the provider (e.g. `key={userId}`), so Inspector metadata and thread lists
+  the provider (for example, `key={userId}`), so Inspector metadata and thread lists
   reload for the new user. This does not refetch the runtime's `/info`.
 
   `copilotkit.headers` is the last resolved value. Use
@@ -99,7 +99,7 @@ The [`<CopilotKit>`](/reference/components/CopilotKit) export is the v1 compatib
 </PropertyReference>
 
 <PropertyReference name="credentials" type="RequestCredentials">
-  Credentials mode for fetch requests (e.g. `"include"` for HTTP-only cookies in
+  Credentials mode for fetch requests (for example, `"include"` for HTTP-only cookies in
   cross-origin requests).
 </PropertyReference>
 

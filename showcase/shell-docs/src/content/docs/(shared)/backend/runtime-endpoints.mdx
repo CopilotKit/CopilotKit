@@ -4,9 +4,8 @@ icon: "lucide/Network"
 description: "The HTTP routes exposed by Copilot Runtime for self-hosting, proxying, and debugging."
 ---
 
-Use this page when you self-host the runtime behind a reverse proxy, lock down
-auth, or debug a connection failure with `curl`. It lists what the runtime
-exposes.
+You self-host the runtime behind a reverse proxy, lock down auth, or debug a
+connection failure with `curl`. These are the routes the runtime exposes.
 
 When you mount [Copilot Runtime](/backend/copilot-runtime) with
 `createCopilotRuntimeHandler`, `createCopilotExpressHandler`,
@@ -332,7 +331,7 @@ from the start, follow the
 
 ### Start with your coding agent
 
-Use this prompt to configure Intelligence and verify that your Runtime exposes Intelligence's AG-UI streams.
+Use this prompt to configure Intelligence and verify that your Runtime exposes Intelligence’s AG-UI streams.
 
 <RichThreadsSetupPrompt />
 
@@ -340,7 +339,7 @@ Use this prompt to configure Intelligence and verify that your Runtime exposes I
 <Step>
 ### Choose a Runtime route mode
 
-Single-route and multi-route handlers both expose Intelligence's AG-UI streams. Use single-route
+Single-route and multi-route handlers both expose Intelligence’s AG-UI streams. Use single-route
 when your server should expose only one `POST` endpoint:
 
 ```ts
@@ -441,7 +440,7 @@ const runtime = new CopilotRuntime({
 });
 ```
 
-See [Scope AG-UI Streams to the signed-in user](/threads-lifecycle#scope-rich-threads-to-the-signed-in-user)
+See [Scope threads to the signed-in user](/threads-lifecycle#scope-threads-to-the-signed-in-user)
 for the full identity and authorization pattern.
 
 </Step>
@@ -477,7 +476,7 @@ Restart the Runtime. For multi-route, request its info endpoint:
 curl -s http://localhost:4000/api/copilotkit/info
 ```
 
-An Intelligence-backed web Runtime that is ready for Intelligence's AG-UI streams includes:
+An Intelligence-backed web Runtime that is ready for Intelligence’s AG-UI streams includes:
 
 ```json
 {

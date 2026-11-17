@@ -58,7 +58,7 @@ Walk me through it step by step, starting with the agent and its governed tools.
 
 ## How it works
 
-- OpenBox wraps the Copilot Runtime and the LangGraph agent with a governance adapter, so it intercepts every tool call on both sides. Both create a `createOpenBoxCopilotKitAdapter` with the same `selfGovernedToolNames` and `clientName`, but different `agentWorkflowType`/`taskQueue`. The runtime uses `"CopilotKitRuntime"`/`"copilotkit-runtime"`, and the agent uses `"CopilotKitLangGraphAgent"`/`"copilotkit-langgraph"`.
+- OpenBox wraps Copilot Runtime and the LangGraph agent with a governance adapter, so it intercepts every tool call on both sides. Both create a `createOpenBoxCopilotKitAdapter` with the same `selfGovernedToolNames` and `clientName`, but different `agentWorkflowType`/`taskQueue`. The runtime uses `"CopilotKitRuntime"`/`"copilotkit-runtime"`, and the agent uses `"CopilotKitLangGraphAgent"`/`"copilotkit-langgraph"`.
 - For each governed tool, OpenBox Core evaluates the input and output against your policies and returns a verdict: **allow**, **redact**, **approval required**, **block**, or **halt**. Money movement is routed to a human, goal-drifting exports are blocked, and a critical payment-control change halts the whole session before the tool body runs.
 - An **approval route** (`/api/openbox/approvals/decide`) lets the UI post an Approve/Reject decision back to OpenBox Core, which resumes (or halts) the paused tool run.
 - Every decision is appended to an immutable audit trail in OpenBox Core, and each verdict streams to CopilotKit as a **generative UI** governance card alongside the chat.
@@ -82,7 +82,7 @@ Run the demo yourself by following the steps below (`agent/` on port 8123 and `f
 - **Node.js ≥ 20** and npm
 - An **OpenAI-compatible API key** (`OPENAI_API_KEY`) and a chat model in `OPENAI_MODEL`. The demo uses `gpt-6-luna`. `OPENAI_MODEL` is required: the agent has no built-in default and throws if it is unset. The governed business results are LLM-generated, so a working model key is required, not optional.
 - An **OpenBox account with a test API key**. Sign up at [openbox.ai](https://openbox.ai) to get the agent runtime key `OPENBOX_API_KEY` (starts with `obx_test_`), `OPENBOX_CORE_URL`, `OPENBOX_AGENT_ID`, `OPENBOX_AGENT_DID`, and `OPENBOX_AGENT_PRIVATE_KEY`.
-- The **OpenBox Admin API**, required by the provisioning and verification scripts: `OPENBOX_API_URL` (the Admin API base URL, e.g. `https://api.openbox.ai`) and `OPENBOX_BACKEND_API_KEY`, the org/backend key that starts with `obx_key_`. This is a different key from the `obx_test_` runtime key above. Keep it server-only and never prefix it with `NEXT_PUBLIC_`.
+- The **OpenBox Admin API**, required by the provisioning and verification scripts: `OPENBOX_API_URL` (the Admin API base URL, for example, `https://api.openbox.ai`) and `OPENBOX_BACKEND_API_KEY`, the org/backend key that starts with `obx_key_`. This is a different key from the `obx_test_` runtime key above. Keep it server-only and never prefix it with `NEXT_PUBLIC_`.
 
 <Callout type="warning" title="This demo calls live OpenBox Core">
 There is no offline mock. Every prompt sends a real tool call to your OpenBox Core instance, which evaluates it and writes an audit record. To disable the middleware and compare governed vs. ungoverned behavior, set `OPENBOX_ENABLED=false` in the agent `.env`.
@@ -126,7 +126,7 @@ Open `http://localhost:3000`.
 
 ## Try it
 
-**Frontend at a glance:** a single CopilotKit chat with one-click example prompts. Each message that triggers a governed tool renders an OpenBox **governance card** showing the verdict: a green **Allow**, a pending **Approval required** card with **Approve** / **Reject** buttons, a red **Block**, or a **Halt** that ends the session and disables the input until you reset. Only allowed (or approved) actions surface a business result; blocked, halted, and errored actions never produce business content.
+**Frontend at a glance:** a single CopilotKit chat with one-click example prompts. Each message that triggers a governed tool renders an OpenBox **governance card** showing the verdict: a green **Allow**, a pending **Approval required** card with **Approve** / **Reject** buttons, a red **Block**, or a **Halt** that ends the session and disables the input until you reset. Only allowed (or approved) actions surface a business result. Blocked, halted, and errored actions never produce business content.
 
 Expand each prompt below. They map to the four governance verdicts that make the demo worth watching:
 
@@ -192,7 +192,7 @@ When you click **Approve** on the service credit, the UI posts to `/api/openbox/
 
 ## The key pieces, in code
 
-The frontend's `/api/copilotkit` route hosts the V2 Copilot Runtime and wraps it with `createOpenBoxCopilotRuntime`, so every agent run is governed at the runtime boundary:
+The frontend's `/api/copilotkit` route hosts Copilot Runtime V2 and wraps it with `createOpenBoxCopilotRuntime`, so every agent run is governed at the runtime boundary:
 
 ```ts title="frontend/src/app/api/copilotkit/[[...slug]]/route.ts"
 const runtime = new CopilotRuntime({
@@ -299,11 +299,11 @@ export async function POST(request: Request) {
 
 ## Going further
 
-- **Observe before you enforce.** Start in `governanceMode: "observe"` to log what *would* be allowed or blocked without changing behavior. Then switch to `"enforce"` once your policies match reality.
-- **Fail closed.** Set `failClosed: true` so that if OpenBox Core is unreachable, governed actions are denied rather than allowed through. The included agent already refuses to produce business content when a tool result is `"error"` or `"halted"`.
-- **Govern more tools.** Add tool names to `selfGovernedToolNames` (kept identical on the runtime adapter and the agent middleware) to bring additional actions under governance.
-- **Sign agent identity.** Supply `OPENBOX_AGENT_DID` and a base64 raw `OPENBOX_AGENT_PRIVATE_KEY` so the agent signs requests with **DID + Ed25519**, giving OpenBox cryptographic proof of which agent took each action.
-- **Audit and replay.** Every decision is appended to OpenBox Core's immutable audit trail. Query it to review who did what, or replay a session to reproduce a governance outcome.
+- **Observe before you enforce**: Start in `governanceMode: "observe"` to log what *would* be allowed or blocked without changing behavior. Then switch to `"enforce"` once your policies match reality.
+- **Fail closed**: Set `failClosed: true` so that if OpenBox Core is unreachable, governed actions are denied rather than allowed through. The included agent already refuses to produce business content when a tool result is `"error"` or `"halted"`.
+- **Govern more tools**: Add tool names to `selfGovernedToolNames` (kept identical on the runtime adapter and the agent middleware) to bring additional actions under governance.
+- **Sign agent identity**: Supply `OPENBOX_AGENT_DID` and a base64 raw `OPENBOX_AGENT_PRIVATE_KEY` so the agent signs requests with **DID + Ed25519**, giving OpenBox cryptographic proof of which agent took each action.
+- **Audit and replay**: Every decision is appended to OpenBox Core's immutable audit trail. Query it to review who did what, or replay a session to reproduce a governance outcome.
 
 ## Get the code
 

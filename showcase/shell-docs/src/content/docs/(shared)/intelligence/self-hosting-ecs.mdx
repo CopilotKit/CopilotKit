@@ -354,7 +354,7 @@ Use ECS service events, stopped-task reasons, and `/ecs/<deploymentName>/...` Cl
 
 Remove application DNS records first. From the bundle directory, delete the three Intelligence stacks:
 
-```bash title="Terminal (removes the deployment)"
+```bash title="Terminal: removes the deployment"
 ./bin/cpki-ecs teardown \
   --config "$CPKI_CONFIG" \
   --confirm "$CPKI_DEPLOYMENT_NAME"

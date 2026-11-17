@@ -25,7 +25,7 @@ function useCapabilities(agentId?: string): AgentCapabilities | undefined
 ## Return Value
 
 <PropertyReference name="capabilities" type="AgentCapabilities | undefined">
-  The agent's capability declaration, or `undefined` if the agent hasn't reported capabilities yet (e.g., the runtime handshake is still in progress) or has no `capabilities` property. Runtime agents get this property from the `/info` response. A local agent returns `undefined` unless its class defines a `capabilities` property.
+  The agent's capability declaration, or `undefined` if the agent hasn't reported capabilities yet (for example, the runtime handshake is still in progress) or has no `capabilities` property. Runtime agents get this property from the `/info` response. A local agent returns `undefined` unless its class defines a `capabilities` property.
 
   When defined, the object contains these optional categories:
 

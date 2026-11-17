@@ -10,7 +10,7 @@ description: "Vue 3 composable that registers a wildcard default renderer for un
 - With no config, it registers CopilotKit's built-in default tool-call UI: an expandable card showing the tool name, status, arguments, and result.
 - With a `render` config, it replaces that default UI with your own wildcard renderer.
 
-In Vue, the renderer is a Vue render function or a Vue component (not JSX). It returns a `VNodeChild` (anything Vue can render: a VNode, a string, an array of VNodes, `null`, etc.). Whatever shape the underlying call site passes, your renderer always receives the documented `DefaultRenderProps`.
+In Vue, the renderer is a Vue render function or a Vue component (not JSX). It returns a `VNodeChild` (anything Vue can render: a VNode, a string, an array of VNodes, `null`, and more). Whatever shape the underlying call site passes, your renderer always receives the documented `DefaultRenderProps`.
 
 <Callout type="info">
   `useDefaultRenderTool` must be called within a component that has access to the

@@ -94,7 +94,7 @@ Use this prompt to set up CopilotKit in your React Native app, configure Metro a
         </Callout>
 
         <Callout type="info" title="Granular polyfills">
-          If you already polyfill some of these APIs (e.g. `ReadableStream`), you can import only what you need instead of the barrel:
+          If you already polyfill some of these APIs (for example, `ReadableStream`), you can import only what you need instead of the barrel:
 
           ```js
           import "@copilotkit/react-native/polyfills/streams";
@@ -463,9 +463,9 @@ import "@copilotkit/react-native/polyfills/location";
 |------|------|-------------|
 | `runtimeUrl` | `string` | URL of the Copilot Runtime endpoint (**required**) |
 | `headers` | `Record<string, string> \| (() => Record<string, string>)` | Custom headers sent with every request. Use this for auth, such as an `Authorization` bearer token. A function form is called **when the provider renders**, not per request (see the callout below) |
-| `credentials` | `RequestCredentials` | Fetch credentials mode, e.g. `"include"` to send HTTP-only cookies on cross-origin requests |
+| `credentials` | `RequestCredentials` | Fetch credentials mode, for example, `"include"` to send HTTP-only cookies on cross-origin requests |
 | `messageFilter` | `(messages, context) => messages` | Rewrites the message list sent to runtime agents on every run, for example `(messages) => messages.slice(-1)` for an agent that stores the conversation itself. Changes the request only, not the messages the UI renders |
-| `properties` | `Record<string, unknown>` | Custom properties forwarded to agents (e.g. a scoped user id) |
+| `properties` | `Record<string, unknown>` | Custom properties forwarded to agents (for example, a scoped user id) |
 | `onError` | `(event) => void` | Called for all error types (runtime connection, agent, tool). Defaults to `console.error` |
 | `debug` | `DebugConfig` | Enables verbose client-side event logging |
 | `defaultThrottleMs` | `number` | Default re-render throttle for streaming updates; individual `useAgent` calls can override |
@@ -519,7 +519,7 @@ The string form reads the matching provider API key from the environment. You ca
 
 ### OpenAI-compatible endpoints
 
-To point the string model form at an OpenAI-compatible endpoint (a gateway, Azure OpenAI, a self-hosted server, etc.), set the base-URL environment variable. The runtime honors it when it constructs the provider:
+To point the string model form at an OpenAI-compatible endpoint (such as a gateway, Azure OpenAI, or a self-hosted server), set the base-URL environment variable. The runtime honors it when it constructs the provider:
 
 ```bash
 export OPENAI_BASE_URL=https://your-gateway.example.com/v1
@@ -532,7 +532,7 @@ On a host other than OpenAI or Azure, `openai:` models use the Chat Completions 
 The same applies to `ANTHROPIC_BASE_URL` and `GOOGLE_GENERATIVE_AI_BASE_URL`. When the variable is unset, the provider uses its default endpoint. You do **not** need to build a custom model instance to change the base URL.
 
 <Callout type="info" title="Other BuiltInAgent options">
-  Beyond `model` and `prompt`, `BuiltInAgent` accepts `maxSteps` (tool-calling iterations, default `1`), `tools` (server-executed tools via `defineTool`), `temperature`, `maxOutputTokens`, `providerOptions` (e.g. OpenAI `reasoningEffort`), and `mcpServers` / `mcpClients`. Tools that mutate the app's UI belong on the **client** via `useFrontendTool` (below), not in the server `tools` list.
+  Beyond `model` and `prompt`, `BuiltInAgent` accepts `maxSteps` (tool-calling iterations, default `1`), `tools` (server-executed tools via `defineTool`), `temperature`, `maxOutputTokens`, `providerOptions` (for example, OpenAI `reasoningEffort`), and `mcpServers` / `mcpClients`. Tools that mutate the app's UI belong on the **client** via `useFrontendTool` (below), not in the server `tools` list.
 </Callout>
 
 ## Connecting from a device or bench
@@ -545,7 +545,7 @@ The same applies to `ANTHROPIC_BASE_URL` and `GOOGLE_GENERATIVE_AI_BASE_URL`. Wh
 | Android emulator | `10.0.2.2` is the emulator's alias for the host's `localhost` |
 | Android device over USB | run `adb reverse tcp:8200 tcp:8200`, then use `localhost` on the device. `adb reverse` is Android-only. There is no iOS equivalent |
 | iOS device | your dev machine's LAN IP, on the same Wi-Fi network, plus the [ATS exception](#plaintext-http-on-a-physical-device) a plain `http://` address needs |
-| Physical device on the same LAN (a bench) | your dev machine's LAN IP, e.g. `http://192.168.1.23:8200/api/copilotkit` |
+| Physical device on the same LAN (a bench) | your dev machine's LAN IP, for example, `http://192.168.1.23:8200/api/copilotkit` |
 | Production | a hosted runtime URL over HTTPS |
 
 The quickstart already branches on `Platform.OS` for the simulator/emulator case. Keep the URL a single named constant with a comment so it's easy to swap per environment.
@@ -1056,13 +1056,13 @@ You start with the chat screen from the quickstart. You end with an agent that r
 
         The error line shows the error of a run that `send` started, for example a network failure or the agent's `RUN_ERROR`. The same error also reaches the `onError` of `CopilotKitProvider`. Without that prop, the provider only logs it with `console.error`, which nobody sees in a release build, so pass `onError` and send it to your crash reporter.
 
-        A run that a click on a surface starts ([an event sent to the agent](/generative-ui/components/state-and-actions#send-a-click-to-the-agent)) does not go through `runTurn`: its user message stays when it fails, and its error reaches only the `onError` subscribers of the core, such as the `onError` of `CopilotKitProvider`. While a run of this agent is going, one that `send` started or one that a click on a surface started, Send is disabled; a run of another agent, such as the `home` agent of the next step, does not disable it. A ref, set at once, keeps a second tap that lands before the next render from sending twice.
+        A run that a click on a surface starts ([an event sent to the agent](/generative-ui/components/state-and-actions#send-a-click-to-the-agent)) does not go through `runTurn`: its user message stays when it fails, and its error reaches only the `onError` subscribers of the core, such as the `onError` of `CopilotKitProvider`. While a run of this agent is going, one that `send` started or one that a click on a surface started, Send is disabled. A run of another agent, such as the `home` agent of the next step, does not disable it. A ref, set at once, keeps a second tap that lands before the next render from sending twice.
 
         `GenerativeUIActivity` renders nothing for a message that carries no surface, so passing it other messages is safe. Like the web chat, it shows only surfaces aimed at the chat (target `"chat"`): a surface aimed at a [named area](#named-areas-of-a-screen) renders in its `GenerativeUISurface`, not twice. It also renders nothing for a surface that the agent deleted, for malformed content, while the agent has no `threadId` yet, when there is no `GenerativeUIProvider` above it or the provider has no `ui`, and when the provider holds no surface for the message. `isChatSurface` leaves out the named-area and deleted surfaces, so they take no row.
 
-        In development, `GenerativeUIActivity` warns for malformed content, an undefined `agent`, a missing `threadId` and a missing provider or `ui`, not for the other cases. Each instance warns once for each distinct cause, also when the cause goes away and comes back; a message with another id warns again.
+        In development, `GenerativeUIActivity` warns for malformed content, an undefined `agent`, a missing `threadId` and a missing provider or `ui`, not for the other cases. Each instance warns once for each distinct cause, also when the cause goes away and comes back. A message with another id warns again.
 
-        The default wrapper of `GenerativeUIActivity` adds a short error line when operations of the surface were rejected. To show your own streaming or error state, pass a `Wrapper` component; it gets `surfaceId`, `isStreaming`, `error`, `rejected` and `children`.
+        The default wrapper of `GenerativeUIActivity` adds a short error line when operations of the surface were rejected. To show your own streaming or error state, pass a `Wrapper` component. It gets `surfaceId`, `isStreaming`, `error`, `rejected` and `children`.
 
         The agent knows nothing about the user's accounts yet. Give it the data with [`useAgentContext`](/reference/react-native/hooks/useAgentContext), in any component under the provider:
 
@@ -1262,13 +1262,13 @@ You start with the chat screen from the quickstart. You end with an agent that r
         }
         ```
 
-        Render `HomeScreen` anywhere under `GenerativeUIProvider`, next to a component that calls `useAgentContext` with the accounts. The run's user message and the agent's text never show; the screen shows only the chat surfaces that `isChatSurface` keeps, which fill in while the agent streams. The run waits for `isReady`, so it goes to the agent that the runtime registered.
+        Render `HomeScreen` anywhere under `GenerativeUIProvider`, next to a component that calls `useAgentContext` with the accounts. The run's user message and the agent's text never show. The screen shows only the chat surfaces that `isChatSurface` keeps, which fill in while the agent streams. The run waits for `isReady`, so it goes to the agent that the runtime registered.
 
-        The `home` agent and its messages live in the core, not in the screen, so a screen that mounts again (after the user navigates away and back) shows the surfaces the agent already rendered and starts no run; while a run is still going, it shows the spinner until that run ends.
+        The `home` agent and its messages live in the core, not in the screen, so a screen that mounts again (after the user navigates away and back) shows the surfaces the agent already rendered and starts no run. While a run is still going, it shows the spinner until that run ends.
 
-        A run that fails, or that renders and updates no chat surface, has its prompt taken back and leaves a retry with the reason rather than a spinner that never stops; each retry sends the prompt once, and a second tap while one runs does nothing. A surface that a failed run rendered stays on screen, above the retry, because the provider and the model keep it (see the [chat step](#render-surfaces-in-your-message-list)); so a retry in which the agent updates that surface instead of rendering a new one counts as rendering.
+        A run that fails, or that renders and updates no chat surface, has its prompt taken back and leaves a retry with the reason rather than a spinner that never stops. Each retry sends the prompt once, and a second tap while one runs does nothing. A surface that a failed run rendered stays on screen, above the retry, because the provider and the model keep it (see the [chat step](#render-surfaces-in-your-message-list)). So a retry in which the agent updates that surface instead of rendering a new one counts as rendering.
 
-        The check compares the operations of the chat surfaces before and after the run, so a surface of an earlier run that the run left alone cannot hide a run that rendered nothing, and neither can a call whose operations were all rejected (it changes only the surface's list of rejected operations). A surface counts only once the device has built it: the app checks each operation again, prop values included, and when it rejects a `createSurface` that the runtime let through, `GenerativeUIActivity` shows only an error line. The screen then treats it as no surface and offers the retry; the model sees the failed surface on the next run and can render it again.
+        The check compares the operations of the chat surfaces before and after the run, so a surface of an earlier run that the run left alone cannot hide a run that rendered nothing, and neither can a call whose operations were all rejected (it changes only the surface's list of rejected operations). A surface counts only once the device has built it: the app checks each operation again, prop values included, and when it rejects a `createSurface` that the runtime let through, `GenerativeUIActivity` shows only an error line. The screen then treats it as no surface and offers the retry. The model sees the failed surface on the next run and can render it again.
 
         When the agent moves to another thread while the screen stays mounted, the screen checks that thread the same way and composes it if it has no surface.
 
@@ -1364,7 +1364,7 @@ A client-executed frontend tool renders its UI **mid-run**: the tool fires, your
 `@copilotkit/voice` has **not** been adapted for React Native, so there's no drop-in voice hook. Voice is a bring-your-own-STT concern: capture a transcript with a React Native speech recognizer, then feed the final text through the same send-a-turn path (`agent.addMessage` + `copilotkit.runAgent`).
 
 <Callout type="warn" title="Don't assume a platform speech recognizer exists">
-  Recognizers that wrap the OS speech service (iOS `SFSpeechRecognizer` / Android `SpeechRecognizer`) can be **absent** on de-Googled or automotive hardware, where the call throws rather than degrading. If you target that kind of device, guard the unavailable case and fall back to text input, or embed an on-device recognizer (e.g. Vosk) as a guaranteed floor. Always give voice a deterministic **Send** control rather than relying on silence detection to end a turn.
+  Recognizers that wrap the OS speech service (iOS `SFSpeechRecognizer` / Android `SpeechRecognizer`) can be **absent** on de-Googled or automotive hardware, where the call throws rather than degrading. If you target that kind of device, guard the unavailable case and fall back to text input, or embed an on-device recognizer (for example, Vosk) as a guaranteed floor. Always give voice a deterministic **Send** control rather than relying on silence detection to end a turn.
 </Callout>
 
 ## Proving it works

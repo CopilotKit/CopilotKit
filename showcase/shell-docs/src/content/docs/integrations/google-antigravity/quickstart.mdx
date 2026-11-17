@@ -68,9 +68,9 @@ Before you begin, you'll need the following:
 
           The starter contains three pieces:
 
-          - `agent/main.py` - the FastAPI app built with the adapter's `create_antigravity_app`, mounting one `AntigravityAgent` with a weather tool
-          - `src/app/api/copilotkit/[[...slug]]/route.ts` - the Copilot Runtime route that proxies to the agent with `HttpAgent`
-          - `src/app/page.tsx` - a page demonstrating a frontend tool, a rendered backend tool, and a human-in-the-loop picker
+          - `agent/main.py`: the FastAPI app built with the adapter's `create_antigravity_app`, mounting one `AntigravityAgent` with a weather tool
+          - `src/app/api/copilotkit/[[...slug]]/route.ts`: the Copilot Runtime route that proxies to the agent with `HttpAgent`
+          - `src/app/page.tsx`: a page demonstrating a frontend tool, a rendered backend tool, and a human-in-the-loop picker
         </Step>
 
         <Step>
@@ -182,7 +182,7 @@ Before you begin, you'll need the following:
             add_antigravity_fastapi_endpoint(app, agent, path="/agui")
             ```
 
-            Point the runtime's `HttpAgent` at that path, e.g. `http://localhost:8000/agui`.
+            Point the runtime's `HttpAgent` at that path, for example, `http://localhost:8000/agui`.
             Your existing routes keep working alongside it.
           </Callout>
         </Step>

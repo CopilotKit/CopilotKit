@@ -453,7 +453,7 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
 
     The prebuilt React Native `CopilotChat` does not draw surfaces yet, so the chat is your own list. Each surface arrives as an activity message in `agent.messages`; `GenerativeUIActivity` draws it.
 
-    A failed run does not reject: `copilotkit.runAgent` resolves, and the error goes to the `onError` subscribers of the core. This helper listens, while the run lasts, for an error of its agent that ends the run; a failed tool call does not end it, so the helper ignores those.
+    A failed run does not reject: `copilotkit.runAgent` resolves, and the error goes to the `onError` subscribers of the core. This helper listens, while the run lasts, for an error of its agent that ends the run. A failed tool call does not end it, so the helper ignores those.
 
     On failure it takes back the messages that the turn added, such as the user message and any partial reply. It keeps the surfaces of the run, in the chat and in a [named area](/generative-ui/components/surfaces) alike: the provider never forgets a surface, the model still sees it on its next run, and the runtime rejects a new `createSurface` with its id, so removing its activity message would only hide it.
 
@@ -686,9 +686,9 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
     }
     ```
 
-    The error line shows the error of a run that `send` started. The same error reaches the `onError` of `CopilotKitProvider`; without that prop it is only logged with `console.error`, which nobody sees in a release build, so pass `onError` and send it to your crash reporter.
+    The error line shows the error of a run that `send` started. The same error reaches the `onError` of `CopilotKitProvider`. Without that prop it is only logged with `console.error`, which nobody sees in a release build, so pass `onError` and send it to your crash reporter.
 
-    A run that a click on a surface starts ([Send a click to the agent](/generative-ui/components/state-and-actions#send-a-click-to-the-agent)) does not go through `runTurn`: its user message stays when it fails, and its error reaches only that `onError`. While a run of this agent is going, one that `send` started or one that a click on a surface started, Send is disabled; a run of another agent does not disable it. A ref, set at once, keeps a second tap that lands before the next render from sending twice.
+    A run that a click on a surface starts ([Send a click to the agent](/generative-ui/components/state-and-actions#send-a-click-to-the-agent)) does not go through `runTurn`: its user message stays when it fails, and its error reaches only that `onError`. While a run of this agent is going, one that `send` started or one that a click on a surface started, Send is disabled. A run of another agent does not disable it. A ref, set at once, keeps a second tap that lands before the next render from sending twice.
 
     Like the web chat, `GenerativeUIActivity` shows only surfaces aimed at the chat, so a surface that the agent aims at a [named area](/generative-ui/components/surfaces) renders there and not in the list. The chat target is always offered to the agent, so an app that shows surfaces only through `GenerativeUISurface`, or only in the prebuilt `CopilotChat`, never shows a surface aimed at the chat. `GenerativeUIActivity` renders nothing without a `GenerativeUIProvider` above it, or under a provider without `ui`, and warns in development, once for each distinct cause; it also renders nothing for a deleted surface, which `isChatSurface` leaves out of the list.
 
@@ -782,7 +782,7 @@ Inspector runs in the browser, so it has no React Native version. On React Nativ
 
 Operations that the runtime rejected never reach `onError`. They reach the `rejected` and `error` props of the `Wrapper` (with the ones that the app rejected): the `Wrapper` of `GenerativeUIActivity` for a chat surface, and the `Wrapper` of `GenerativeUISurface` for a surface in a named area. Both default wrappers show a short error line.
 
-The exception is a rejected `createSurface`. A named area then keeps its fallback and renders no `Wrapper`; when the app rejected it, `onError` gets it and `<GenerativeUIActivity target="<id>">` shows it. When the runtime rejected it, no activity message is sent for it, so only the model learns of it, in the result of its `render_ui` call, and nothing on the device shows it. The one exception is a `createSurface` with the id of a live surface: the runtime adds that rejection to the live surface, whose `Wrapper` shows it. See [Errors on the device](/react-native#errors-on-the-device).
+The exception is a rejected `createSurface`. A named area then keeps its fallback and renders no `Wrapper`. When the app rejected it, `onError` gets it and `<GenerativeUIActivity target="<id>">` shows it. When the runtime rejected it, no activity message is sent for it, so only the model learns of it, in the result of its `render_ui` call, and nothing on the device shows it. The one exception is a `createSurface` with the id of a live surface: the runtime adds that rejection to the live surface, whose `Wrapper` shows it. See [Errors on the device](/react-native#errors-on-the-device).
 
 ## Learn the ideas
 

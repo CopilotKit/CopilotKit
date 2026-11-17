@@ -33,14 +33,14 @@ import { CopilotKitProvider } from "@copilotkit/react-native";
 </PropertyReference>
 
 <PropertyReference name="runtimeUrl" type="string" required>
-  URL of the Copilot Runtime endpoint, e.g.
+  URL of the Copilot Runtime endpoint, for example,
   `https://your-server/api/copilotkit`. Use your machine's LAN IP (not
   `localhost`) when testing on a physical device.
 </PropertyReference>
 
 <PropertyReference name="headers" type="Record<string, string> | (() => Record<string, string>)" default="{}">
   Custom headers sent with every runtime request. Pass a function to compute
-  headers lazily (e.g. to attach a fresh auth token). The function is called
+  headers lazily (for example, to attach a fresh auth token). The function is called
   when the provider renders, not per request. See
   [Frontends: React Native](/frontends/react-native#provider-options) for the
   rotating-token pattern.
@@ -51,7 +51,7 @@ import { CopilotKitProvider } from "@copilotkit/react-native";
 </PropertyReference>
 
 <PropertyReference name="credentials" type="RequestCredentials">
-  Credentials mode for fetch requests (e.g. `"include"` for HTTP-only cookies
+  Credentials mode for fetch requests (for example, `"include"` for HTTP-only cookies
   in cross-origin requests).
 </PropertyReference>
 
@@ -92,7 +92,7 @@ and suggestion runs are never filtered.
 </PropertyReference>
 
 <PropertyReference name="properties" type="Record<string, unknown>" default="{}">
-  Custom properties forwarded to agents on every run (e.g. user metadata or
+  Custom properties forwarded to agents on every run (for example, user metadata or
   LangGraph Platform `authorization`).
 </PropertyReference>
 

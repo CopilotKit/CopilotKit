@@ -194,7 +194,7 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
         ### Why the route uses AgentCoreRunner
 
         AgentCore's memory layer stores conversation history server-side. When CopilotKit reconnects
-        to an existing thread (e.g. on page refresh), two issues arise. `AgentCoreRunner` from
+        to an existing thread (for example, on page refresh), two issues arise. `AgentCoreRunner` from
         `@copilotkit/agentcore-runner` handles both:
 
         1. **Unknown threads**: CopilotKit may call `connect()` before any `run()` has happened.

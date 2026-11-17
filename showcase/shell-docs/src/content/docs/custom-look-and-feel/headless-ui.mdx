@@ -65,7 +65,7 @@ The role-switch mirrors `CopilotChatMessageView`'s `renderMessageBlock`: assista
 
 ### Tool-call composition
 
-For each `toolCall` on an assistant message, the example looks up the sibling `tool`-role message (keyed by `toolCallId`) and hand both to `renderToolCall`:
+For each `toolCall` on an assistant message, the example looks up the sibling `tool`-role message (keyed by `toolCallId`) and hands both to `renderToolCall`:
 
 <Snippet region="manual-tool-call-rendering" title="chat/message-list.tsx: assistant + tool calls" />
 

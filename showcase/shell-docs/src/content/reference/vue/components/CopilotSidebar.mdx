@@ -53,7 +53,7 @@ import "@copilotkit/vue/styles.css";
 </PropertyReference>
 
 <PropertyReference name="labels" type="Partial<CopilotChatLabels>">
-  Partial label overrides for the text strings rendered inside the chat (input placeholder, welcome message, header title, toolbar buttons, disclaimer, etc.). Any label you omit falls back to the built-in default.
+  Partial label overrides for the text strings rendered inside the chat (input placeholder, welcome message, header title, toolbar buttons, disclaimer, and more). Any label you omit falls back to the built-in default.
 </PropertyReference>
 
 <PropertyReference name="attachments" type="AttachmentsConfig">
@@ -118,7 +118,7 @@ Vue uses named slots in place of React's render props and sub-component props. P
 </PropertyReference>
 
 <PropertyReference name="chat-view" type="CopilotChatViewOverrideSlotProps">
-  Replaces the entire inner sidebar view. Receives all of the composed view state and handlers (`messages`, `isRunning`, `suggestions`, `inputValue`, `onSubmitMessage`, `onSelectSuggestion`, `onStop`, transcription and attachment handlers, etc.) so you can render a fully custom layout.
+  Replaces the entire inner sidebar view. Receives all of the composed view state and handlers (`messages`, `isRunning`, `suggestions`, `inputValue`, `onSubmitMessage`, `onSelectSuggestion`, `onStop`, transcription and attachment handlers, and more) so you can render a fully custom layout.
 </PropertyReference>
 
 <PropertyReference name="message-view" type="{ messages: Message[]; isRunning: boolean }">
