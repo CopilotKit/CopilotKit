@@ -317,7 +317,7 @@ using Microsoft.Extensions.AI;
             <Step>
                 ### Add the Copilot Runtime route
 
-                CopilotKit talks to your agent safely through a Copilot Runtime endpoint. The endpoint can run
+                CopilotKit needs a Copilot Runtime endpoint to talk to your agent safely. The endpoint can run
                 anywhere that Node.js runs. This example serves it from Next.js.
 
                 Create a new API route at `app/api/copilotkit/[[...slug]]/route.ts`:
