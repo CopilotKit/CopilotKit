@@ -1,0 +1,20 @@
+<docs>
+Use it on a chat page:
+
+```vue
+<script setup>
+import { useKatexStyles } from "@copilotkit/vue";
+useKatexStyles();
+</script>
+```
+</docs>
+
+<script setup lang="ts">
+import { useAgent } from "@copilotkit/vue";
+
+const { agent } = useAgent();
+</script>
+
+<template>
+  <p>{{ agent.agentId }}</p>
+</template>

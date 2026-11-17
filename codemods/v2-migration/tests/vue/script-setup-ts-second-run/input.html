@@ -1,0 +1,10 @@
+<script setup lang="ts">
+import { useAgent } from "@copilotkit/vue";
+
+const prompt = <HTMLTextAreaElement>document.querySelector("textarea");
+const { agent } = useAgent({ agentId: "assistant" });
+</script>
+
+<template>
+  <p>{{ agent.agentId }}: {{ prompt.value }}</p>
+</template>

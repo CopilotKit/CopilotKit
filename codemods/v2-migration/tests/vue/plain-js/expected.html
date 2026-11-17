@@ -1,0 +1,13 @@
+<script>
+import { useAgent } from "@copilotkit/vue";
+
+export default {
+  setup() {
+    return { agent: useAgent().agent };
+  },
+};
+</script>
+
+<template>
+  <p>{{ agent.agentId }}</p>
+</template>

@@ -5,7 +5,7 @@
   "description": "Codemod that migrates a CopilotKit app from v1 to 2.0. Published to the Codemod registry, not npm.",
   "type": "module",
   "scripts": {
-    "test": "codemod jssg test -l tsx ./scripts/codemod.ts ./tests/tsx && codemod jssg test -l typescript ./scripts/codemod.ts ./tests/ts",
+    "test": "codemod jssg test -l tsx ./scripts/codemod.ts ./tests/tsx && codemod jssg test -l typescript ./scripts/codemod.ts ./tests/ts && codemod jssg test -l html ./scripts/vue-sfc.ts ./tests/vue",
     "check-types": "tsc --noEmit",
     "validate": "codemod workflow validate -w workflow.yaml",
     "test:runtime": "nx run @copilotkit/runtime:build && node scripts/verify-runtime-fixture.mjs"

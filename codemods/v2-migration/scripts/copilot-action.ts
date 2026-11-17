@@ -11,14 +11,91 @@ import {
 import type { Node } from "./ast-helpers.ts";
 import { charIndex } from "./offsets.ts";
 import { migrateV1Calls } from "./v1-calls.ts";
+import type { CallContext } from "./v1-calls.ts";
 
 const TODO = "TODO(copilotkit-2.0):";
-const RESULT_NOTE =
-  "`result` is the tool's result as a string in 2.0; v1 parsed it as JSON first. Parse it with `JSON.parse` where you need the object. https://docs.copilotkit.ai/reference/v2/hooks/useFrontendTool";
+
+/** The TODO for a render that reads `result`, with the page about it. */
+function resultNote(docs: string) {
+  return `\`result\` is the tool's result as a string in 2.0; v1 parsed it as JSON first. Parse it with \`JSON.parse\` where you need the object. ${docs}`;
+}
+
+/** What a hook choice reads from a v1 config. */
+interface ActionConfig {
+  /** The entries of the config, by key. */
+  entries: Map<string, Node>;
+  /** The `available` string, when the config has one. */
+  availability: string | undefined;
+  /** `renderAndWaitForResponse` or `renderAndWait`, when the config has one. */
+  waitKey: string | undefined;
+}
+
+/** How the v1 `useCopilotAction` of one framework read its config. */
+interface ActionDialect {
+  /** The package the v1 hook came from. The 2.0 hooks come from it too. */
+  source: string;
+  /** The config keys the v1 hook took. A call with another key is left. */
+  keys: Set<string>;
+  /**
+   * The 2.0 hook for a call, picked the way the v1 hook dispatched it, or
+   * `null` to leave the call.
+   */
+  hookFor: (config: ActionConfig) => string | null;
+  /**
+   * The `available` string that becomes `available: false` on
+   * `useFrontendTool` and `useHumanInTheLoop`. Other strings are dropped.
+   */
+  unavailable: string;
+  /**
+   * Render props of a `renderAndWaitForResponse` that v1 passed under
+   * another name, by that name. With none, the render is kept as it is, so
+   * it can also be a function or component the file does not define.
+   */
+  waitRenames?: Record<string, string>;
+  /** The TODO for a render that reads `result`. */
+  resultNote: string;
+}
+
+/** The config keys of both the React and the Vue v1 hook. */
+const ACTION_KEYS = [
+  "name",
+  "description",
+  "parameters",
+  "handler",
+  "render",
+  "renderAndWaitForResponse",
+  "renderAndWait",
+  "followUp",
+  "available",
+  "webmcp",
+];
+
+const REACT: ActionDialect = {
+  source: "@copilotkit/react-core",
+  keys: new Set([...ACTION_KEYS, "disabled"]),
+  hookFor: reactHook,
+  unavailable: "disabled",
+  // v1 passed the respond callback as `handler` too.
+  waitRenames: { handler: "respond" },
+  resultNote: resultNote(
+    "https://docs.copilotkit.ai/reference/v2/hooks/useFrontendTool",
+  ),
+};
+
+const VUE: ActionDialect = {
+  source: "@copilotkit/vue",
+  keys: new Set([...ACTION_KEYS, "agentId"]),
+  hookFor: vueHook,
+  // v1 hid a "remote" action from the agent.
+  unavailable: "remote",
+  resultNote: resultNote(
+    "https://docs.copilotkit.ai/reference/vue/hooks/useFrontendTool",
+  ),
+};
 
 /**
- * Rewrites v1 `useCopilotAction(...)` calls to the 2.0 hook that does the
- * same job, the way v1 itself dispatched them:
+ * Rewrites v1 `useCopilotAction(...)` calls from `@copilotkit/react-core` to
+ * the 2.0 hook that does the same job, the way v1 itself dispatched them:
  *
  * - `renderAndWaitForResponse` / `renderAndWait` → `useHumanInTheLoop`, with
  *   the key renamed to `render`;
@@ -37,36 +114,104 @@ const RESULT_NOTE =
  *
  * Returns the new source, or `null` when nothing changed.
  */
-export function migrateCopilotActions(rootNode: Node): string | null {
-  return migrateV1Calls(rootNode, "useCopilotAction", (call, context) => {
-    const converted = convertCall(call, context.z, context.source);
-    if (!converted) return null;
-    if (converted.usesZod) context.useZod();
-    return { edits: converted.edits, hooks: [converted.hook] };
-  });
+export function migrateCopilotActions(rootNode: Node) {
+  return migrateActions(rootNode, REACT);
 }
 
-interface Converted {
-  hook: string;
-  edits: Edit[];
-  usesZod: boolean;
+/**
+ * Rewrites v1 `useCopilotAction(...)` calls from `@copilotkit/vue` the same
+ * way, by the rules of the v1 Vue hook:
+ *
+ * - `renderAndWaitForResponse` / `renderAndWait` → `useHumanInTheLoop`. v1
+ *   passed it only the name, description, parameters, render and `agentId`,
+ *   so a call with another key is left;
+ * - `available: "frontend" | "disabled"` → `useRenderTool`. v1 drew nothing
+ *   without `render` and `parameters`, and ignored a `handler`, so a call
+ *   like that is left;
+ * - any other call → `useFrontendTool`, also a `render` with no `handler`.
+ *   `available: "remote"` becomes `available: false`.
+ *
+ * The render of `useFrontendTool` and `useHumanInTheLoop` gets the same props
+ * as in v1, so it is kept as it is, also when it is a component. The render
+ * of `useRenderTool` reads the arguments as `parameters`. v1 parsed a JSON
+ * `result` for a render function, so a render that reads `result` gets a
+ * TODO. The deps stay: the 2.0 hooks take them too.
+ *
+ * Returns the new source, or `null` when nothing changed.
+ */
+export function migrateVueCopilotActions(rootNode: Node) {
+  return migrateActions(rootNode, VUE);
 }
 
-const ACTION_KEYS = new Set([
+function migrateActions(rootNode: Node, dialect: ActionDialect) {
+  return migrateV1Calls(
+    rootNode,
+    "useCopilotAction",
+    (call, context) => {
+      const converted = convertCall(call, context, dialect);
+      if (!converted) return null;
+      if (converted.usesZod) context.useZod();
+      return { edits: converted.edits, hooks: [converted.hook] };
+    },
+    { source: dialect.source },
+  );
+}
+
+/** The React v1 dispatch. */
+function reactHook({ entries, availability, waitKey }: ActionConfig) {
+  if (waitKey) {
+    const isMixed =
+      entries.has("render") ||
+      entries.has("handler") ||
+      availability === "frontend";
+    return isMixed ? null : "useHumanInTheLoop";
+  }
+  switch (availability) {
+    case "enabled":
+    case "remote":
+      return "useFrontendTool";
+    case "frontend":
+    case "disabled":
+      return entries.has("handler") ? null : "useRenderTool";
+    default:
+      if (entries.has("handler")) return "useFrontendTool";
+      return entries.has("render") ? "useRenderTool" : null;
+  }
+}
+
+/** The keys the v1 Vue hook passed to `useHumanInTheLoop`. */
+const VUE_WAIT_KEYS = new Set([
   "name",
   "description",
   "parameters",
-  "handler",
-  "render",
   "renderAndWaitForResponse",
   "renderAndWait",
-  "followUp",
-  "available",
-  "disabled",
-  "webmcp",
+  "agentId",
 ]);
 
-function convertCall(call: Node, z: string, source: string): Converted | null {
+/** The Vue v1 dispatch. */
+function vueHook({ entries, availability, waitKey }: ActionConfig) {
+  if (waitKey) {
+    const keys = [...entries.keys()];
+    return keys.every((key) => VUE_WAIT_KEYS.has(key))
+      ? "useHumanInTheLoop"
+      : null;
+  }
+  const rendersOnly =
+    availability === "frontend" || availability === "disabled";
+  if (!rendersOnly) return "useFrontendTool";
+  const draws =
+    entries.has("render") &&
+    entries.has("parameters") &&
+    !entries.has("handler");
+  return draws ? "useRenderTool" : null;
+}
+
+function convertCall(
+  call: Node,
+  { z, source }: CallContext,
+  dialect: ActionDialect,
+) {
   const args = argumentNodes(call);
   const [config] = args;
   if (config?.kind() !== "object" || args.length > 2) return null;
@@ -75,7 +220,7 @@ function convertCall(call: Node, z: string, source: string): Converted | null {
     const kind = entry.kind();
     if (["{", "}", ",", "comment"].includes(kind)) continue;
     const key = keyOf(entry);
-    if (key === undefined || !ACTION_KEYS.has(key) || entries.has(key)) {
+    if (key === undefined || !dialect.keys.has(key) || entries.has(key)) {
       return null;
     }
     entries.set(key, entry);
@@ -99,23 +244,8 @@ function convertCall(call: Node, z: string, source: string): Converted | null {
     : entries.has("renderAndWait")
       ? "renderAndWait"
       : undefined;
-  let hook: string;
-  if (waitKey) {
-    if (entries.has("render") || entries.has("handler")) return null;
-    if (availability === "frontend") return null;
-    hook = "useHumanInTheLoop";
-  } else if (availability === "enabled" || availability === "remote") {
-    hook = "useFrontendTool";
-  } else if (availability === "frontend" || availability === "disabled") {
-    if (entries.has("handler")) return null;
-    hook = "useRenderTool";
-  } else if (entries.has("handler")) {
-    hook = "useFrontendTool";
-  } else if (entries.has("render")) {
-    hook = "useRenderTool";
-  } else {
-    return null;
-  }
+  const hook = dialect.hookFor({ entries, availability, waitKey });
+  if (hook === null) return null;
 
   const edits: Edit[] = [];
   const callee = call.field("function");
@@ -169,7 +299,7 @@ function convertCall(call: Node, z: string, source: string): Converted | null {
   // Availability.
   const availableEntry = entries.get("available");
   if (availableEntry) {
-    if (availability === "disabled" && hook !== "useRenderTool") {
+    if (availability === dialect.unavailable && hook !== "useRenderTool") {
       const value = valueOf(availableEntry);
       if (value) edits.push(value.replace("false"));
     } else {
@@ -195,9 +325,8 @@ function convertCall(call: Node, z: string, source: string): Converted | null {
   }
   if (render && render.kind() === "string") return null;
 
-  // HITL: v1 passed the respond callback as `handler` too.
-  if (hook === "useHumanInTheLoop" && render) {
-    const renamed = renameProps(render, { handler: "respond" });
+  if (hook === "useHumanInTheLoop" && render && dialect.waitRenames) {
+    const renamed = renameProps(render, dialect.waitRenames);
     if (renamed === null) return null;
     edits.push(...renamed);
   }
@@ -224,7 +353,7 @@ function convertCall(call: Node, z: string, source: string): Converted | null {
     statement?.kind() === "expression_statement" &&
     statement.range().start.index === callee.range().start.index
   ) {
-    const comment = `// ${TODO} ${RESULT_NOTE}`;
+    const comment = `// ${TODO} ${dialect.resultNote}`;
     const startChar = charIndex(source, callee.range().start.index);
     const lineStart = source.lastIndexOf("\n", startChar - 1) + 1;
     if (!source.slice(0, lineStart).trimEnd().endsWith(comment)) {

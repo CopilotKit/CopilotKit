@@ -1,0 +1,57 @@
+<script setup lang="ts">
+import { h } from "vue";
+// TODO(copilotkit-2.0): `useFrontendTool`: The v2 API uses a Zod schema instead of the v1 Parameter[] shape. https://docs.copilotkit.ai/reference/vue/hooks/useFrontendTool
+import {
+  CopilotKit,
+  useHumanInTheLoop, useRenderTool,
+  useAgentContext,
+  useFrontendTool,
+} from "@copilotkit/vue";
+import ConfirmDelete from "./ConfirmDelete.vue";
+import { useTodos } from "./todos";
+import { z } from "zod";
+
+const { todos } = useTodos();
+
+useAgentContext({ description: "The todo list", value: todos });
+
+useFrontendTool({
+  name: "addTodo",
+  parameters: z.object({
+    title: z.string(),
+  }),
+  handler: ({ title }) => {
+    todos.value.push(title);
+  },
+});
+
+useHumanInTheLoop({
+  name: "confirmDelete",
+  parameters: z.object({
+    title: z.string(),
+  }),
+  render: ConfirmDelete,
+});
+
+useRenderTool({
+  name: "showProgress",
+  parameters: z.object({
+    percent: z.number(),
+  }),
+  render: ({ parameters: args }) => h("progress", { value: args.percent }),
+});
+
+useFrontendTool({
+  name: "clearTodos",
+  parameters: [{ name: "confirm", type: "boolean" }],
+  handler: () => {
+    todos.value = [];
+  },
+});
+</script>
+
+<template>
+  <CopilotKit runtime-url="/api/copilotkit">
+    <slot />
+  </CopilotKit>
+</template>
