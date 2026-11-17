@@ -14,7 +14,7 @@ Middleware is an [AG-UI protocol](./ag-ui) concept from `@ag-ui/client`. For the
 Install `@ag-ui/client` and `rxjs` at the versions that `@copilotkit/runtime` uses, so the app has one copy of each:
 
 ```npm
-npm install @ag-ui/client@1.0.4 rxjs@7.8.1
+npm install @ag-ui/client@1.0.2 rxjs@7.8.1
 ```
 
 A middleware extends the `Middleware` base class from `@ag-ui/client` and implements `run(input, next)`. It receives the incoming `RunAgentInput` and returns an `Observable<BaseEvent>` of [AG-UI events](/backend/ag-ui), typically by subscribing to `runNextWithState(input, next)` and transforming the stream:
