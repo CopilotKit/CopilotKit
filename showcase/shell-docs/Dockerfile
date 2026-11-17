@@ -90,14 +90,14 @@ try {
 
   for (const [path, marker] of [
     ['/', '<title>'],
-    ['/quickstart', '<title>Quickstart</title>'],
+    ['/quickstart', '<title>Quickstart | CopilotKit Docs</title>'],
     // Read from the Markdown sources at request time.
     ['/quickstart.md', '# Quickstart'],
     // The standard catalog imports its samples from ../shared, which this
     // stage doesn't have.
     ['/generative-ui/components', 'Let your agent render your own components'],
     ['/generative-ui/components/standard-catalog', 'standardUI'],
-    ['/generative-ui/components/standard-catalog/button', '<title>Button</title>'],
+    ['/generative-ui/components/standard-catalog/button', '<title>Button | CopilotKit Docs</title>'],
     // What verify-deploy's docs driver checks on every environment.
     ['/api/telemetry/config', '"posthogKey"'],
   ]) {
