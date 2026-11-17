@@ -1,4 +1,3 @@
-import { statSync } from "node:fs";
 import {
   ROOT_FRAMEWORK,
   getFrameworkVariants,
@@ -29,18 +28,20 @@ export interface LiveEntry {
 
 /**
  * A page's title where it's listed out of context (search results, the MCP
- * page list): a framework's own pages name the framework, since every
- * framework has a "Quickstart" and an "Introduction". A framework's landing
- * is the framework's name; its other pages read `Mastra: Quickstart`.
+ * page list, and the page's `<title>`): a framework's own pages, and its
+ * own version of a shared page (`/mastra/shared-state`), name the framework,
+ * since every framework has a "Quickstart" and a "Shared State". A
+ * framework's landing is the framework's name; its other pages read
+ * `Mastra: Quickstart`.
  */
 export function entryTitle(live: ResolvedLivePage): string {
   if (live.overview) return live.overview.frameworkName;
   const { title } = live.page.data;
-  const framework = live.scope.framework;
+  const framework = live.variant ?? live.scope.framework;
   if (
     !framework ||
     framework === ROOT_FRAMEWORK ||
-    !live.contentPath.startsWith("docs/integrations/")
+    !(live.variant || live.contentPath.startsWith("docs/integrations/"))
   ) {
     return title;
   }
@@ -79,17 +80,22 @@ export function llmsFullEntries(): LiveEntry[] {
 
 export interface SitemapEntry {
   url: string;
-  lastModified: Date;
+  /** Only when the page says so (frontmatter `lastmod`). */
+  lastModified?: Date;
 }
 
-/** The home page and every page at its canonical URL. */
+/**
+ * The home page and every page at its canonical URL. A page's date is its
+ * frontmatter `lastmod` or nothing: file times in a checkout or an image are
+ * when the files were copied, not when the page changed, and a sitemap that
+ * marks every page as changed on every deploy teaches crawlers to ignore it.
+ */
 export function sitemapEntries(): SitemapEntry[] {
-  const now = new Date();
   return [
-    { url: "/", lastModified: now },
+    { url: "/" },
     ...entries().map(({ url, live }) => ({
       url,
-      lastModified: lastModified(live.page) ?? now,
+      lastModified: lastModified(live.page),
     })),
   ];
 }
@@ -192,20 +198,12 @@ export function frameworkSetupEntries(): FrameworkSetupEntry[] {
   });
 }
 
-/** Frontmatter `lastmod`, else the file's mtime. */
-function lastModified(page: {
-  data: object;
-  absolutePath?: string;
-}): Date | undefined {
+/** Frontmatter `lastmod`, if the page has one. */
+function lastModified(page: { data: object }): Date | undefined {
   const lastmod = (page.data as { lastmod?: unknown }).lastmod;
   if (lastmod instanceof Date || typeof lastmod === "string") {
     const date = new Date(lastmod);
     if (!Number.isNaN(date.getTime())) return date;
   }
-  if (!page.absolutePath) return undefined;
-  try {
-    return statSync(page.absolutePath).mtime;
-  } catch {
-    return undefined;
-  }
+  return undefined;
 }

@@ -16,6 +16,7 @@ import {
   resolveLivePage,
   unsupportedRedirect,
 } from "@/lib/live-docs";
+import { entryTitle } from "@/lib/llms/live-inventory";
 import { absoluteUrl } from "@/lib/seo/base-url";
 import {
   HOME_DESCRIPTION,
@@ -67,7 +68,8 @@ export async function generateMetadata({
   const url = `/${path.join("/")}`;
   if (path.length === 0) {
     return {
-      title: HOME_TITLE,
+      // The home page's title names the product already.
+      title: { absolute: HOME_TITLE },
       description: HOME_DESCRIPTION,
       ...liveDocMetadata({
         title: HOME_TITLE,
@@ -102,13 +104,11 @@ export async function generateMetadata({
   }
   // The page answers 404 (`not-found.tsx` sets its own title).
   if (!live) return { robots: { index: false } };
-  // A generated framework's landing: its record's name and tagline.
-  const { title, description } = live.overview
-    ? {
-        title: live.overview.frameworkName,
-        description: live.overview.subheader,
-      }
-    : live.page.data;
+  // A framework's own pages name the framework (`Mastra: Quickstart`), so
+  // its quickstart isn't one of twenty pages titled "Quickstart". A
+  // generated framework's landing is its record's name and tagline.
+  const title = entryTitle(live);
+  const description = live.overview?.subheader ?? live.page.data.description;
   // The page's one indexed URL (`canonicalUrl`), Open Graph and Twitter
   // cards. `/vue/mastra/backend/copilot-runtime` is the same page as
   // `/backend/copilot-runtime`, so it points there.
