@@ -21,7 +21,7 @@ Register that config from a component or service with
 removed when that injector is destroyed.
 
 The schema advertises the input shape and supplies TypeScript inference.
-Runtime arguments arrive as parsed JSON; validate inside the handler when the
+Runtime arguments arrive as parsed JSON. Validate inside the handler when the
 action needs a hard trust boundary. The handler receives the calling agent,
 the raw tool call, and an optional abort signal as its second argument.
 

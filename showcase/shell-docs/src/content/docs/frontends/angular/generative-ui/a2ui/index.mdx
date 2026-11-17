@@ -83,7 +83,7 @@ their nested elements receive the same rules:
 
 Keep semantic state in explicit classes such as `a2ui-status-success` rather
 than asking the model to invent colors. You can also pass an A2UI `theme`
-through `provideCopilotKit` for renderer-level theme values; catalog CSS
+through `provideCopilotKit` for renderer-level theme values. Catalog CSS
 remains the right place for product-specific layout and visual states.
 
 ## Recover incomplete streams
@@ -95,14 +95,14 @@ attempts. The provider sample above uses two seconds and two attempts.
 
 Use `recovery.debugExposure` only when users should see protocol diagnostics.
 Keep it hidden in consumer-facing chat, or choose a collapsed or verbose mode
-for internal debugging. Recovery thresholds affect client display; the server
+for internal debugging. Recovery thresholds affect client display. The server
 still owns activity lifecycle status and retry behavior.
 
 ## Angular support boundaries
 
 - **Hashbrown is unsupported.** The stable Hashbrown Angular package does not support the Angular 22 policy.
   Use A2UI with a typed catalog instead.
-- **JSON Renderer is not applicable.** JSON Renderer does not provide an Angular renderer; use A2UI for declarative Angular interfaces.
+- **JSON Renderer is not applicable.** JSON Renderer does not provide an Angular renderer. Use A2UI for declarative Angular interfaces.
 
 ## Check the result
 
