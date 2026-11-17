@@ -1060,9 +1060,9 @@ You start with the chat screen from the quickstart. You end with an agent that r
 
         `GenerativeUIActivity` renders nothing for a message that carries no surface, so passing it other messages is safe. Like the web chat, it shows only surfaces aimed at the chat (target `"chat"`): a surface aimed at a [named area](#named-areas-of-a-screen) renders in its `GenerativeUISurface`, not twice. It also renders nothing for a surface that the agent deleted, for malformed content, while the agent has no `threadId` yet, when there is no `GenerativeUIProvider` above it or the provider has no `ui`, and when the provider holds no surface for the message. `isChatSurface` leaves out the named-area and deleted surfaces, so they take no row.
 
-        In development it warns for malformed content, an undefined `agent`, a missing `threadId` and a missing provider or `ui`, not for the other cases. Each instance warns once for each distinct cause, also when the cause goes away and comes back; a message with another id warns again.
+        In development, `GenerativeUIActivity` warns for malformed content, an undefined `agent`, a missing `threadId` and a missing provider or `ui`, not for the other cases. Each instance warns once for each distinct cause, also when the cause goes away and comes back; a message with another id warns again.
 
-        Its default wrapper adds a short error line when operations of the surface were rejected. To show your own streaming or error state, pass a `Wrapper` component; it gets `surfaceId`, `isStreaming`, `error`, `rejected` and `children`.
+        The default wrapper of `GenerativeUIActivity` adds a short error line when operations of the surface were rejected. To show your own streaming or error state, pass a `Wrapper` component; it gets `surfaceId`, `isStreaming`, `error`, `rejected` and `children`.
 
         The agent knows nothing about the user's accounts yet. Give it the data with [`useAgentContext`](/reference/react-native/hooks/useAgentContext), in any component under the provider:
 
