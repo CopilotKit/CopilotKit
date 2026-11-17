@@ -67,7 +67,7 @@ If you're encountering network or API errors, here's how to troubleshoot:
         - Accessible from your frontend
         - Not blocked by CORS or firewalls
 
-        Check the [quickstart](/quickstart) to see how to set it up
+        See the [quickstart](/quickstart) for the setup.
     </Accordion>
 
 </Accordions>
@@ -79,7 +79,7 @@ If you see `Failed to find or contact remote endpoint at url ...` (error code `R
 <Accordions>
     <Accordion title="Check your FastAPI setup (if using python's FastAPI)">
         Make sure that your FastAPI app mounts a `CopilotKitRemoteEndpoint` with `add_fastapi_endpoint`.<br/>
-        Refer to [Remote Python Endpoint](/reference/v1/sdk/python/RemoteEndpoints) to see how to set it up
+        See [Remote Python Endpoint](/reference/v1/sdk/python/RemoteEndpoints) for the setup.
     </Accordion>
     <Accordion title="Test your endpoint">
         The `/info` endpoint should return agent or action information. Test it directly:
@@ -114,7 +114,7 @@ If you see `Failed to find or contact remote endpoint at url ...` (error code `R
         {"actions":[],"agents":[{"name":"my_agent","description":"A helpful agent.","type":"langgraph"},],"sdkVersion":"0.1.32"}%
         ```
 
-        As you can see, it's a JSON response with your registered agents and actions, as well as the `200 OK` HTTP response status.
+        The response is JSON with your registered agents and actions, and the HTTP status is `200 OK`.
         If you see a different response, check your FastAPI logs for errors.
     </Accordion>
 
@@ -143,9 +143,8 @@ If you notice the tunnel creation process spinning indefinitely, your router or 
 </Accordions>
 
 <Callout>
-    Have an issue not listed here? Open a ticket on [GitHub](https://github.com/CopilotKit/CopilotKit/issues) or reach out on [Discord](https://discord.com/invite/6dffbvGU3D)
-    and we'll be happy to help.
+    Have an issue not listed here? Open a ticket on [GitHub](https://github.com/CopilotKit/CopilotKit/issues) or ask on [Discord](https://discord.com/invite/6dffbvGU3D).
 
-    We also highly encourage any open-source contributors that want to add their own troubleshooting issues to [GitHub as a pull request](https://github.com/CopilotKit/CopilotKit/blob/main/CONTRIBUTING.md).
+    To add your own troubleshooting notes, open a [pull request on GitHub](https://github.com/CopilotKit/CopilotKit/blob/main/CONTRIBUTING.md).
 
 </Callout>

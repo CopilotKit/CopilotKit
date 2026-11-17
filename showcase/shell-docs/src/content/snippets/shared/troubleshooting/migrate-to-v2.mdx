@@ -12,7 +12,7 @@ CopilotKit V2 consolidates the frontend into a single package. Both hooks and UI
 
 **What's not changing:**
 
-- Backend packages (`@copilotkit/runtime`, etc.) do not need changes.
+- Backend packages, such as `@copilotkit/runtime`, do not need changes.
 - Your `CopilotRuntime` configuration stays the same.
 - Agent definitions and backend setup stay the same.
 - Keep the `<CopilotKit>` provider name, but import it from `@copilotkit/react-core/v2`.
@@ -113,7 +113,7 @@ import "@copilotkit/react-core/v2/styles.css";
 If you import from `@ag-ui/client` directly, install the version that `@copilotkit/runtime` depends on:
 
 ```bash
-npm install @ag-ui/client@1.0.2
+npm install @ag-ui/client@1.0.4
 ```
 
 A different version installs a second copy of the package, with its own `HttpAgent` class. Run `npm ls @ag-ui/client` to make sure that only one version is installed.
