@@ -75,7 +75,7 @@ function useAgent(options?: UseAgentProps): { agent: AbstractAgent; isReady: boo
     <PropertyReference name="messages" type="Message[]">
       Array of conversation messages. Each message contains:
       - `id: string`: Unique message identifier
-      - `role`: Message role: `"developer"`, `"system"`, `"assistant"`, `"user"`, `"tool"`, `"activity"`, or `"reasoning"`
+      - `role`: the message role, one of `"developer"`, `"system"`, `"assistant"`, `"user"`, `"tool"`, `"activity"`, or `"reasoning"`
       - `content`: Message content. Its type depends on the role, and it can be absent on an assistant message.
     </PropertyReference>
 
