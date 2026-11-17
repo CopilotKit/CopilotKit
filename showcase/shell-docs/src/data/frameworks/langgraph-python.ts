@@ -41,7 +41,7 @@ const data: FrameworkOverviewData = {
       iconKey: "user",
       description:
         "A node calls interrupt() and stops mid-execution. CopilotKit catches that event, renders your own UI for the decision, and resumes the graph with the answer.",
-      documentationLink: "/langgraph-python/human-in-the-loop/useInterrupt",
+      documentationLink: "/langgraph/human-in-the-loop/useInterrupt",
     },
     {
       title: "Shared state",
@@ -67,6 +67,8 @@ import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
 
 const runtime = new CopilotRuntime({
   agents: {
+    // A self-hosted FastAPI agent uses \`new HttpAgent({ url })\` from
+    // "@ag-ui/client" here instead.
     sample_agent: new LangGraphAgent({
       deploymentUrl: process.env.LANGGRAPH_DEPLOYMENT_URL!,
       graphId: "sample_agent",
