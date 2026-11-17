@@ -147,6 +147,9 @@ export const agentConfigAgent = new BuiltInAgent({
         buildSystemPrompt(tone, expertise, responseLength),
         ...systemPrompts,
       ],
+      threadId: input.threadId,
+      runId: input.runId,
+      stream: true,
       abortController,
     });
   },

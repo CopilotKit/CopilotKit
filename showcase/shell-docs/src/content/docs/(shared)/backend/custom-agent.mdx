@@ -35,6 +35,12 @@ Pick your backend:
 
 <Tabs items={["AI SDK", "TanStack AI", "Custom"]}>
 <Tab value="AI SDK">
+`@copilotkit/runtime` runs on AI SDK 6. Install `ai` and each `@ai-sdk/*` provider from the `ai-v6` release line:
+
+```npm
+npm install @copilotkit/runtime ai@ai-v6 @ai-sdk/openai@ai-v6
+```
+
 ```typescript title="src/copilotkit.ts"
 import {
   CopilotRuntime,
@@ -88,6 +94,9 @@ const agent = new BuiltInAgent({
       adapter: openaiText("gpt-6-luna"),
       messages,
       systemPrompts,
+      threadId: input.threadId,
+      runId: input.runId,
+      stream: true,
       abortController,
     });
   },
@@ -104,6 +113,8 @@ const handler = createCopilotRuntimeHandler({
 });
 export default handler;
 ```
+
+TanStack AI 1.x `chat()` fails without a `threadId`. Pass the run's `threadId` and `runId` in every `chat()` call.
 </Tab>
 <Tab value="Custom">
 ```typescript title="src/copilotkit.ts"
@@ -264,6 +275,9 @@ const agent = new BuiltInAgent({
       messages,
       systemPrompts,
       tools: [...tools, getWeather],
+      threadId: input.threadId,
+      runId: input.runId,
+      stream: true,
       abortController,
     });
   },
@@ -377,9 +391,10 @@ const agent = new BuiltInAgent({
       adapter: anthropicText("claude-sonnet-4-6"),
       messages,
       systemPrompts,
-      modelOptions: {
-        thinking: { type: "adaptive", display: "summarized" },
-      },
+      reasoning: { level: "high", summary: true },
+      threadId: input.threadId,
+      runId: input.runId,
+      stream: true,
       abortController,
     });
   },
@@ -453,6 +468,9 @@ const agent = new BuiltInAgent({
       adapter: openaiText("gpt-6-luna"),
       messages,
       systemPrompts,
+      threadId: input.threadId,
+      runId: input.runId,
+      stream: true,
       abortController,
     });
   },
@@ -535,6 +553,9 @@ const agent = new BuiltInAgent({
       messages,
       systemPrompts,
       modelOptions,
+      threadId: input.threadId,
+      runId: input.runId,
+      stream: true,
       abortController,
     });
   },
