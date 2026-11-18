@@ -1,0 +1,73 @@
+{
+  "modal-closed": [],
+  "modal-open": [
+    "dom:{\"rule\":\"click-focusable\",\"target\":\"div:nth-of-type(2) > div:nth-of-type(1)\",\"detail\":\"Click target cannot take focus\"}",
+    "dom:{\"rule\":\"click-role\",\"target\":\"div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1)\",\"detail\":\"Click target has no interactive role\"}",
+    "dom:{\"rule\":\"click-role\",\"target\":\"div:nth-of-type(2) > div:nth-of-type(1)\",\"detail\":\"Click target has no interactive role\"}",
+    "dom:{\"rule\":\"interactive-name\",\"target\":\"div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1)\",\"detail\":\"Unnamed dialog\"}",
+    "pattern:{\"rule\":\"dialog\",\"target\":\":scope\",\"detail\":\"div[role=dialog]: has no accessible name; give it aria-label or aria-labelledby (APG dialog (modal)).\"}"
+  ],
+  "tabs": [
+    "dom:{\"rule\":\"id-reference\",\"target\":\"div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > button:nth-of-type(2)\",\"detail\":\"Unresolved aria-controls\"}",
+    "dom:{\"rule\":\"id-reference\",\"target\":\"div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > button:nth-of-type(3)\",\"detail\":\"Unresolved aria-controls\"}",
+    "dom:{\"rule\":\"interactive-name\",\"target\":\"div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)\",\"detail\":\"Unnamed tablist\"}",
+    "pattern:{\"rule\":\"tabs\",\"target\":\":scope\",\"detail\":\"button#<id:1>[role=tab]: aria-controls points at \\\"<id:2>\\\", which isn't in the page; every id reference names a real element (ARIA).\"}",
+    "pattern:{\"rule\":\"tabs\",\"target\":\":scope\",\"detail\":\"button#<id:3>[role=tab]: aria-controls points at \\\"<id:4>\\\", which isn't in the page; every id reference names a real element (ARIA).\"}",
+    "pattern:{\"rule\":\"tabs\",\"target\":\":scope\",\"detail\":\"button#<id:5>[role=tab]: aria-controls points at \\\"<id:6>\\\", which isn't in the page; every id reference names a real element (ARIA).\"}",
+    "pattern:{\"rule\":\"tabs\",\"target\":\":scope\",\"detail\":\"div[role=tablist]: has no accessible name; give it aria-label or aria-labelledby (APG tabs).\"}"
+  ],
+  "image-closed": [
+    "dom:{\"rule\":\"click-focusable\",\"target\":\"div:nth-of-type(1) > div:nth-of-type(1) > img:nth-of-type(1)\",\"detail\":\"Click target cannot take focus\"}",
+    "dom:{\"rule\":\"click-role\",\"target\":\"div:nth-of-type(1) > div:nth-of-type(1) > img:nth-of-type(1)\",\"detail\":\"Click target has no interactive role\"}"
+  ],
+  "image-open": [
+    "dom:{\"rule\":\"click-focusable\",\"target\":\"div:nth-of-type(1) > div:nth-of-type(1) > img:nth-of-type(1)\",\"detail\":\"Click target cannot take focus\"}",
+    "dom:{\"rule\":\"click-focusable\",\"target\":\"div:nth-of-type(2)\",\"detail\":\"Click target cannot take focus\"}",
+    "dom:{\"rule\":\"click-role\",\"target\":\"div:nth-of-type(1) > div:nth-of-type(1) > img:nth-of-type(1)\",\"detail\":\"Click target has no interactive role\"}",
+    "dom:{\"rule\":\"click-role\",\"target\":\"div:nth-of-type(2)\",\"detail\":\"Click target has no interactive role\"}",
+    "pattern:{\"rule\":\"dialog\",\"target\":\":scope\",\"detail\":\"div[role=dialog]: is open, but focus is on body; opening a dialog moves focus into it (APG dialog (modal)).\"}"
+  ],
+  "entity-card": [],
+  "icon-button": [
+    "axe:{\"rule\":\"button-name\",\"target\":\"div:nth-of-type(1) > div:nth-of-type(1) > button:nth-of-type(1)\",\"detail\":\"Buttons must have discernible text\"}",
+    "dom:{\"rule\":\"interactive-name\",\"target\":\"div:nth-of-type(1) > div:nth-of-type(1) > button:nth-of-type(1)\",\"detail\":\"Unnamed button\"}"
+  ],
+  "failed-field": [
+    "dom:{\"rule\":\"error-reference\",\"target\":\"div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > input:nth-of-type(1)\",\"detail\":\"Invalid field has no referenced error message\"}"
+  ],
+  "hidden-button": [
+    "dom:{\"rule\":\"hidden-focus\",\"target\":\"div:nth-of-type(1) > div:nth-of-type(1) > span:nth-of-type(1) > div:nth-of-type(1) > button:nth-of-type(1)\",\"detail\":\"Focusable content inside aria-hidden\"}"
+  ],
+  "hidden-image-open": [
+    "dom:{\"rule\":\"hidden-focus\",\"target\":\"div:nth-of-type(2) > button:nth-of-type(1)\",\"detail\":\"Focusable content inside aria-hidden\"}",
+    "pattern:{\"rule\":\"dialog\",\"target\":\":scope\",\"detail\":\"div[role=dialog]: is open, but focus is on body; opening a dialog moves focus into it (APG dialog (modal)).\"}"
+  ],
+  "chat-popup": [
+    "dom:{\"rule\":\"click-focusable\",\"target\":\"div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)\",\"detail\":\"Click target cannot take focus\"}",
+    "dom:{\"rule\":\"click-role\",\"target\":\"div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)\",\"detail\":\"Click target has no interactive role\"}",
+    "pattern:{\"rule\":\"dialog\",\"target\":\":scope\",\"detail\":\"div[role=dialog]: is open, but focus is on body; opening a dialog moves focus into it (APG dialog (modal)).\"}"
+  ],
+  "chat-sidebar": [
+    "dom:{\"rule\":\"click-focusable\",\"target\":\"div:nth-of-type(1) > aside:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)\",\"detail\":\"Click target cannot take focus\"}",
+    "dom:{\"rule\":\"click-role\",\"target\":\"div:nth-of-type(1) > aside:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)\",\"detail\":\"Click target has no interactive role\"}"
+  ],
+  "named-modal-open": [
+    "dom:{\"rule\":\"click-focusable\",\"target\":\"div:nth-of-type(2) > div:nth-of-type(1)\",\"detail\":\"Click target cannot take focus\"}",
+    "dom:{\"rule\":\"click-role\",\"target\":\"div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1)\",\"detail\":\"Click target has no interactive role\"}",
+    "dom:{\"rule\":\"click-role\",\"target\":\"div:nth-of-type(2) > div:nth-of-type(1)\",\"detail\":\"Click target has no interactive role\"}"
+  ],
+  "tabs-rtl": [
+    "dom:{\"rule\":\"id-reference\",\"target\":\"div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > button:nth-of-type(2)\",\"detail\":\"Unresolved aria-controls\"}",
+    "dom:{\"rule\":\"id-reference\",\"target\":\"div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > button:nth-of-type(3)\",\"detail\":\"Unresolved aria-controls\"}",
+    "dom:{\"rule\":\"interactive-name\",\"target\":\"div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)\",\"detail\":\"Unnamed tablist\"}",
+    "pattern:{\"rule\":\"tabs\",\"target\":\":scope\",\"detail\":\"button#<id:1>[role=tab]: ArrowLeft should move focus to the next tab, button#<id:3>[role=tab], but focus went to button#<id:5>[role=tab] (APG tabs).\"}",
+    "pattern:{\"rule\":\"tabs\",\"target\":\":scope\",\"detail\":\"button#<id:1>[role=tab]: aria-controls points at \\\"<id:2>\\\", which isn't in the page; every id reference names a real element (ARIA).\"}",
+    "pattern:{\"rule\":\"tabs\",\"target\":\":scope\",\"detail\":\"button#<id:3>[role=tab]: ArrowLeft should move focus to the next tab, button#<id:5>[role=tab], but focus went to button#<id:1>[role=tab] (APG tabs).\"}",
+    "pattern:{\"rule\":\"tabs\",\"target\":\":scope\",\"detail\":\"button#<id:3>[role=tab]: ArrowRight should move focus to the previous tab, button#<id:1>[role=tab], but focus went to button#<id:5>[role=tab] (APG tabs).\"}",
+    "pattern:{\"rule\":\"tabs\",\"target\":\":scope\",\"detail\":\"button#<id:3>[role=tab]: aria-controls points at \\\"<id:4>\\\", which isn't in the page; every id reference names a real element (ARIA).\"}",
+    "pattern:{\"rule\":\"tabs\",\"target\":\":scope\",\"detail\":\"button#<id:5>[role=tab]: ArrowLeft should move focus to the next tab, wrapping around, button#<id:1>[role=tab], but focus went to button#<id:3>[role=tab] (APG tabs).\"}",
+    "pattern:{\"rule\":\"tabs\",\"target\":\":scope\",\"detail\":\"button#<id:5>[role=tab]: ArrowRight should move focus to the previous tab, button#<id:3>[role=tab], but focus went to button#<id:1>[role=tab] (APG tabs).\"}",
+    "pattern:{\"rule\":\"tabs\",\"target\":\":scope\",\"detail\":\"button#<id:5>[role=tab]: aria-controls points at \\\"<id:6>\\\", which isn't in the page; every id reference names a real element (ARIA).\"}",
+    "pattern:{\"rule\":\"tabs\",\"target\":\":scope\",\"detail\":\"div[role=tablist]: has no accessible name; give it aria-label or aria-labelledby (APG tabs).\"}"
+  ]
+}
