@@ -1,0 +1,138 @@
+---
+title: What's new in 2.0
+description: What changed in CopilotKit 2.0, how to install the release candidate, how to upgrade a 1.x app, the known limits, and where to report an issue.
+icon: "lucide/Sparkles"
+---
+
+CopilotKit 2.0 is available as a release candidate. It changes how you import
+the frontend APIs, how the runtime serves agents, and how tools declare their
+parameters. A 1.x app needs code changes, and a codemod makes most of them.
+
+To try 2.0, [install the release candidate](#install-the-release-candidate) in
+a new app, or [upgrade a 1.x app](#upgrade-a-1x-app).
+
+## What changed
+
+- **One API, at the package root.** 2.0 removes the 1.x APIs. Each package
+  serves the 2.0 API from its root, for example `@copilotkit/react-core`. The
+  `/v2` subpaths of 1.x still work as deprecated aliases. As a result, 1.x and
+  2.0 code cannot run side by side in one app.
+- **One chat for every frontend.** React, Vue, Angular, and React Native run
+  the same chat logic from `@copilotkit/core`. The chat in each framework
+  shows the same text, and it sends messages, uploads attachments, and renders
+  tool calls by the same rules. See [Chat UI in 2.0](/migrate/chat-2.0).
+- **The runtime serves AG-UI agents.** 2.0 has no service adapters and no
+  GraphQL endpoint. A model runs in a `BuiltInAgent` on TanStack AI.
+  `createCopilotKitRuntimeHandler` returns a fetch handler, which you can serve
+  from Next.js, Node.js, Bun, Deno, or Cloudflare Workers. See
+  [Runtime HTTP handlers in 2.0](/migrate/runtime-2.0).
+- **Tool schemas are Standard Schemas.** Write `parameters` with Zod 4.2 or
+  later, Valibot, or ArkType, not as a 1.x `Parameter[]` list. Zod 3 schemas do
+  not work. See [Upgrade to Zod 4.2 or later](/migrate/v2#upgrade-to-zod-42-or-later).
+- **No stylesheet import.** The components add their own styles, also in
+  server-rendered HTML. Delete the CopilotKit stylesheet imports from your app.
+  See [Remove the stylesheet import](/migrate/v2#remove-the-stylesheet-import).
+
+These changes also need code changes in some apps:
+
+| Change | Read |
+| --- | --- |
+| A2UI renders with generative UI, and the A2UI v0.9 renderer is removed. The runtime still serves A2UI v0.9 agents. | [Generative UI in 2.0](/migrate/generative-ui-2.0) |
+| Assistant messages render with `@copilotkit/markdown`. CopilotKit no longer bundles Streamdown. | [Migrate the Markdown Renderer](/migrate/markdown-renderer) |
+| LangGraph agents, remote endpoints, and server-side actions become AG-UI agents in `agents`. | [Agents and server-side actions in 2.0](/migrate/agents-2.0) |
+| The APIs that 1.x marked as deprecated are removed. | [Removed deprecated APIs in 2.0](/migrate/removed-apis-2.0) |
+| Without an `onError` handler, the provider logs each error. The React provider disposes its core when it unmounts. | [Providers in 2.0](/migrate/providers-2.0) |
+
+## Install the release candidate
+
+The 2.0 packages are on the npm `next` tag. The current release candidate is
+`2.0.0-rc.60`. Before you install, read
+[Minimum versions](/migrate/v2#minimum-versions). For example, the runtime
+needs Node.js `^20.19.3` or `>=22.13.0`.
+
+1. Install the packages with `@next`. For React:
+
+   ```bash
+   npm install @copilotkit/react-core@next @copilotkit/runtime@next @tanstack/ai-openai
+   ```
+
+   For another frontend, install `@copilotkit/vue@next`,
+   `@copilotkit/angular@next`, or `@copilotkit/react-native@next` in place of
+   `@copilotkit/react-core@next`.
+
+2. Follow the [quickstart](/quickstart) for your framework. Its install
+   commands do not name a tag, so npm installs 1.x from the `latest` tag. Add
+   `@next` to each `@copilotkit/` package in those commands.
+3. Run `npm ls @copilotkit/react-core`, or the same command for your frontend
+   package. The version must start with `2.0.0-rc`.
+
+Do not install `@copilotkit/react-ui` or `@copilotkit/react-textarea` with
+`@next`. 2.0 has no such packages, and their `next` tag points to an old 1.x
+prerelease.
+
+## Upgrade a 1.x app
+
+The codemod makes most of the changes. Run it before you upgrade the packages,
+because it reads `@copilotkit/react-core` and `@copilotkit/runtime` as the 1.x
+API. For the details of each change, see [Migrate from v1 to 2.0](/migrate/v2).
+
+1. Commit your work. The codemod expects a clean git tree.
+2. In the root of your app, run the codemod:
+
+   ```bash
+   npx codemod @copilotkit/v2-migration
+   ```
+
+3. Remove the deleted packages. Then install each `@copilotkit/` package that
+   your app uses with `@next`, for example:
+
+   ```bash
+   npm uninstall @copilotkit/react-ui @copilotkit/react-textarea
+   npm install @copilotkit/react-core@next @copilotkit/runtime@next
+   ```
+
+4. Search your code for `TODO(copilotkit-2.0)`. Each comment names the 2.0
+   replacement and links to its docs. Change the code, then delete the
+   comment. Your coding agent can do this step with the skill that the codemod
+   installs.
+5. Run your type check and your build. If one of them reports a missing
+   package, such as `@tanstack/ai-openai`, install it.
+
+When the type check and the build pass, and no `TODO(copilotkit-2.0)` comment
+is left, your app runs on 2.0.
+
+## Known limits
+
+Read these limits before you upgrade:
+
+- **`CopilotTextarea` has no successor.** `@copilotkit/react-textarea` is
+  discontinued. Build the behavior with your own textarea and the
+  [2.0 hooks](/reference).
+- **The built-in markdown renderer has no code highlighting, math, or
+  diagrams.** This applies to React and Vue. To get them, plug in your own
+  renderer. See [Migrate the Markdown Renderer](/migrate/markdown-renderer).
+- **A2UI v0.9 has no progress or retry UI.** The runtime converts A2UI v0.9 to
+  generative UI, but it does not convert A2UI v0.8. See
+  [Adopt from A2UI](/generative-ui/components/from-a2ui#limits).
+- **`LangGraphAgent` does not convert the events of the CopilotKit SDKs.**
+  Calls such as `copilotkit_emit_state` do not update the chat. In Python,
+  serve the graph with `LangGraphAGUIAgent`, which converts them. See
+  [Events from the CopilotKit SDKs](/migrate/agents-2.0#events-from-the-copilotkit-sdks).
+- **The codemod does not change templates or stylesheets.** It changes
+  JavaScript and TypeScript, and the `<script>` blocks of `.vue` files. Change
+  Vue and Angular templates, CSS files, and `angular.json` by hand.
+
+## Report an issue
+
+If something breaks on 2.0, open an issue on GitHub:
+
+1. Open the
+   [bug report form](https://github.com/CopilotKit/CopilotKit/issues/new?template=1-bug-report.yml).
+2. In the version field, paste the output of `npm ls | grep "@copilotkit"`. It
+   shows the release candidate that you use, for example `2.0.0-rc.60`.
+3. If the codemod changed your code, add the code from before and after the
+   codemod.
+
+For an error in these docs, use the
+[documentation form](https://github.com/CopilotKit/CopilotKit/issues/new?template=3-documentation.yml).
+For questions, ask on [Discord](https://discord.gg/6dffbvGU3D).

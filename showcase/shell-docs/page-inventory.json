@@ -272,7 +272,8 @@
     "troubleshooting/error-reference.mdx",
     "troubleshooting/hook-explorer.mdx",
     "troubleshooting/inspector-dev-console.mdx",
-    "voice.mdx"
+    "voice.mdx",
+    "whats-new-2.0.mdx"
   ],
   "unlisted": [
     "(shared)/(other)/contributing/code-contributions/package-linking.mdx",
@@ -1322,6 +1323,7 @@
     "/vue/shared-state/agent-readonly",
     "/vue/shared-state/rendering-in-app",
     "/vue/threads-lifecycle",
-    "/webmcp"
+    "/webmcp",
+    "/whats-new-2.0"
   ]
 }
