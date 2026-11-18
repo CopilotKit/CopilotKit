@@ -272,5 +272,3 @@ export const ɵnormalizeGeneratedTitle = normalizeGeneratedTitle;
 export const ɵbuildThreadTitlePrompt = buildThreadTitlePrompt;
 /** @internal Exported for testing only. */
 export const ɵhasThreadName = hasThreadName;
-/** @internal Exported for testing only. */
-export const ɵderiveFallbackTitleFromMessages = deriveFallbackTitleFromMessages;
