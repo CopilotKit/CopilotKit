@@ -1,6 +1,6 @@
 /**
  * The `starter_validation` schema contract, executed against the REAL schema,
- * the repo's REAL ajv stack, and all 23 REAL manifests.
+ * the repo's REAL ajv stack, and all 24 REAL manifests.
  *
  * WHY THIS IS A TEST AND NOT A COMMENT. The load-bearing part of the schema is
  * the NESTING LEVEL of `additionalProperties: false` — it sits inside each
@@ -21,7 +21,7 @@
  *     minting a provisioned-looking column with no service. The
  *     "a half-authored block fails validation" guarantee becomes false.
  *
- * This suite runs all three placements over all 23 manifests so the decision is
+ * This suite runs all three placements over all 24 manifests so the decision is
  * re-derived on every CI run rather than trusted.
  */
 import { describe, it, expect } from "vitest";
@@ -69,7 +69,7 @@ function withPlacement(placement: unknown) {
   s.properties.starter_validation = placement;
   return s;
 }
-/** How many of the 23 accept `block`, under `placement`. */
+/** How many of the 24 accept `block`, under `placement`. */
 function acceptCount(placement: unknown, block: unknown): number {
   const v = compile(withPlacement(placement));
   return MANIFESTS.filter((m) => v({ ...m.rest, starter_validation: block }))
@@ -131,15 +131,15 @@ const ILLEGAL: [string, unknown][] = [
 const N = MANIFESTS.length;
 
 describe("starter_validation schema", () => {
-  it("baseline control: the UNMODIFIED schema validates all 23 real manifests", () => {
+  it("baseline control: the UNMODIFIED schema validates all 24 real manifests", () => {
     // Without this, a failure below could be a broken fixture rather than the
     // placement under test.
     const v = compile(SCHEMA);
-    expect(N).toBe(23);
+    expect(N).toBe(24);
     expect(MANIFESTS.filter((m) => v(m.rest)).length).toBe(N);
   });
 
-  it("the shipped schema validates all 23 manifests WITH their real blocks", () => {
+  it("the shipped schema validates all 24 manifests WITH their real blocks", () => {
     const v = compile(SCHEMA);
     const bad = MANIFESTS.filter((m) => !v(m.doc)).map((m) => m.slug);
     expect(bad).toEqual([]);
@@ -158,12 +158,12 @@ describe("starter_validation schema", () => {
 
   describe("per-branch placement (shipped)", () => {
     for (const [label, block] of LEGAL) {
-      it(`accepts ${label} on all 23`, () => {
+      it(`accepts ${label} on all 24`, () => {
         expect(acceptCount(PER_BRANCH, block)).toBe(N);
       });
     }
     for (const [label, block] of ILLEGAL) {
-      it(`REJECTS ${label} on all 23`, () => {
+      it(`REJECTS ${label} on all 24`, () => {
         expect(acceptCount(PER_BRANCH, block)).toBe(0);
       });
     }
