@@ -699,6 +699,87 @@ describe("IntelligenceAgent", () => {
       expect(fourth.params.last_seen_event_id).toBe("event-1");
     });
 
+    it("does not pass on again what a failed run replay already passed on", async () => {
+      const agent = createAgent();
+      const runEvent = (
+        seq: number,
+        fields: { type: EventType } & Record<string, unknown>,
+      ): BaseEvent => ({
+        threadId: "thread-1",
+        runId: "run-1",
+        metadata: { cpki_event_id: `event-${seq}`, cpki_event_seq: seq },
+        ...fields,
+      });
+      const shown = [
+        runEvent(1, { type: EventType.RUN_STARTED }),
+        runEvent(2, {
+          type: EventType.TEXT_MESSAGE_START,
+          messageId: "message-1",
+          role: "assistant",
+        }),
+        runEvent(3, {
+          type: EventType.TEXT_MESSAGE_CONTENT,
+          messageId: "message-1",
+          delta: "Hello",
+        }),
+      ];
+
+      // The run shows its first events, then its replay fails.
+      const promise = collectEvents(agent);
+      await waitForConnection(agent);
+      const runChannel = getChannel(agent)!;
+      runChannel.triggerJoin("ok");
+      for (const event of shown) runChannel.serverPush("ag_ui_event", event);
+      runChannel.serverPush("replay_failed", { reason: "run_replay_gap" });
+      const run = await promise;
+      expect(run.events.map((event) => event.type)).toEqual([
+        EventType.RUN_STARTED,
+        EventType.TEXT_MESSAGE_START,
+        EventType.TEXT_MESSAGE_CONTENT,
+      ]);
+
+      // The next connect loads the run again from the start. The app still
+      // holds what the run showed, so only the rest may reach it.
+      mockFetch.mockResolvedValueOnce(await jsonResponse(runtimeCredentials()));
+      const connected: BaseEvent[] = [];
+      connectWithTestAccess(agent, defaultInput).subscribe({
+        next: (event) => connected.push(event),
+        error: () => {},
+      });
+      await waitForConnection(agent);
+      const connectChannel = getChannel(agent)!;
+      connectChannel.triggerJoin("ok");
+      for (const event of shown) {
+        connectChannel.serverPush("ag_ui_event", event);
+      }
+      connectChannel.serverPush(
+        "ag_ui_event",
+        runEvent(4, {
+          type: EventType.TEXT_MESSAGE_CONTENT,
+          messageId: "message-1",
+          delta: " there",
+        }),
+      );
+      connectChannel.serverPush("replay_complete", {});
+
+      expect(
+        connected.map(
+          (event) =>
+            (event as { metadata?: { cpki_event_id?: string } }).metadata
+              ?.cpki_event_id,
+        ),
+      ).toEqual(["event-4"]);
+
+      // The cursor still follows the whole replay.
+      mockFetch.mockResolvedValueOnce(await jsonResponse(runtimeCredentials()));
+      connectWithTestAccess(agent, defaultInput).subscribe({
+        next: () => {},
+        error: () => {},
+      });
+      await waitForConnection(agent);
+      expect(getChannel(agent)!.params.last_seen_event_id).toBe("event-4");
+    });
+
     it("names the client's run in the replay error when the credentials omit it", async () => {
       mockFetch.mockResolvedValueOnce(
         await jsonResponse(runtimeCredentials({ runId: null })),
@@ -2389,6 +2470,78 @@ describe("IntelligenceAgent", () => {
         expect(agent.messages.map((message) => message.id)).toEqual([
           "history-1",
         ]);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("applies the history once when replay_failed arrives after it was passed on", async () => {
+      vi.useFakeTimers();
+      try {
+        mockFetch
+          .mockResolvedValueOnce(
+            await jsonResponse(runtimeCredentials({ joinToken: "jt-1" })),
+          )
+          .mockResolvedValueOnce(
+            await jsonResponse(runtimeCredentials({ joinToken: "jt-2" })),
+          );
+
+        const agent = createAgent();
+        setThreadIdForTest(agent, "thread-1");
+        const pushReply = (channel: MockChannel) => {
+          const events = [
+            { type: EventType.RUN_STARTED, threadId: "thread-1" },
+            {
+              type: EventType.TEXT_MESSAGE_START,
+              messageId: "reply",
+              role: "assistant",
+            },
+            {
+              type: EventType.TEXT_MESSAGE_CONTENT,
+              messageId: "reply",
+              delta: "Hello",
+            },
+            { type: EventType.TEXT_MESSAGE_END, messageId: "reply" },
+            { type: EventType.RUN_FINISHED, threadId: "thread-1" },
+          ];
+          events.forEach((event, index) => {
+            channel.serverPush("ag_ui_event", {
+              ...event,
+              run_id: "backend-run-old",
+              metadata: {
+                cpki_event_id: `reply-${index + 1}`,
+                cpki_event_seq: index + 1,
+              },
+            } as BaseEvent);
+          });
+        };
+
+        const connectPromise = agent.connectAgent({ runId: "run-1" });
+        await waitForConnection(agent);
+
+        // The history is complete and passed on; then the gateway reports a
+        // failure, and the client loads it again from where the join started.
+        const firstChannel = getChannel(agent)!;
+        firstChannel.triggerJoin("ok");
+        pushReply(firstChannel);
+        firstChannel.serverPush("replay_complete", {});
+        firstChannel.serverPush("replay_failed", { reason: "run_replay_gap" });
+
+        await vi.advanceTimersByTimeAsync(1_000);
+        await waitForConnection(agent);
+        const secondChannel = getChannel(agent)!;
+        expect(secondChannel).not.toBe(firstChannel);
+        expect(secondChannel.params.last_seen_event_id).toBeNull();
+
+        secondChannel.triggerJoin("ok");
+        pushReply(secondChannel);
+        secondChannel.serverPush("replay_complete", {});
+        secondChannel.serverPush("stream_idle", {});
+        await connectPromise;
+
+        expect(
+          agent.messages.map((message) => [message.id, message.content]),
+        ).toEqual([["reply", "Hello"]]);
       } finally {
         vi.useRealTimers();
       }

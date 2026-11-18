@@ -122,6 +122,12 @@ interface IntelligenceAgentSharedState {
    * cursor. Keeps a replayed older event of the same run from moving it back.
    */
   lastSeenEventSeqs?: Map<string, EventSequencePosition>;
+  /**
+   * Per thread, what a session had passed on when a failed replay put the
+   * cursor back. The app still holds those events, and the next join loads
+   * them again, so the next session starts from this record and drops them.
+   */
+  shownBeforeRewind?: Map<string, DeliveredEvents>;
 }
 
 /** Where an event sits in its run: `cpki_event_seq` is ordered per run. */
@@ -147,6 +153,12 @@ interface ThreadSessionCursorState {
    * verification.
    */
   delivered: DeliveredEvents;
+  /**
+   * True while this session replays history that an earlier session passed on
+   * before a failed replay put the cursor back. A repeated event is still
+   * dropped, but it moves the cursor, which has to follow the replay forward.
+   */
+  catchingUp: boolean;
 }
 
 /**
@@ -313,6 +325,7 @@ export class IntelligenceAgent extends AbstractAgent {
     sharedState: IntelligenceAgentSharedState = {
       lastSeenEventIds: new Map<string, string>(),
       lastSeenEventSeqs: new Map<string, EventSequencePosition>(),
+      shownBeforeRewind: new Map<string, DeliveredEvents>(),
     },
   ) {
     super();
@@ -916,9 +929,22 @@ export class IntelligenceAgent extends AbstractAgent {
         }),
         shareReplay({ bufferSize: 1, refCount: true }),
       );
+      const shownBeforeRewind = this.sharedState.shownBeforeRewind?.get(
+        input.threadId,
+      );
       const sessionCursor: ThreadSessionCursorState = {
         latest: null,
-        delivered: { runs: new Map(), unnumberedIds: new Set<string>() },
+        delivered: shownBeforeRewind ?? {
+          runs: new Map(),
+          unnumberedIds: new Set<string>(),
+        },
+        catchingUp: shownBeforeRewind !== undefined,
+      };
+      // The replay that repeats what an earlier session passed on has ended.
+      const endCatchUp = () => {
+        if (!sessionCursor.catchingUp) return;
+        sessionCursor.catchingUp = false;
+        this.sharedState.shownBeforeRewind?.delete(input.threadId);
       };
       let reconnectCursor = this.readDurableEventId(
         options.replayCursor ?? this.getReconnectCursor(input),
@@ -1004,6 +1030,12 @@ export class IntelligenceAgent extends AbstractAgent {
           // event that advanced the cursor makes the next join skip the
           // history this replay failed to deliver.
           this.resetLastSeenEventId(input.threadId, reconnectCursor);
+          // The app keeps what this session passed on, and the next join
+          // loads it again from that cursor.
+          this.sharedState.shownBeforeRewind?.set(
+            input.threadId,
+            sessionCursor.delivered,
+          );
           // A live run cannot continue from an incomplete replay: the events
           // after it would be verified against a lifecycle missing its start.
           // Settle the client run without stopping the one on the server.
@@ -1044,6 +1076,7 @@ export class IntelligenceAgent extends AbstractAgent {
       ).pipe(
         // Notify before idle completion can unsubscribe other observers.
         tap(() => {
+          endCatchUp();
           replayFinished = true;
           scheduleIdleWarning();
           options.lifecycle?.onReplayFinished?.();
@@ -1057,7 +1090,7 @@ export class IntelligenceAgent extends AbstractAgent {
         controlCursor,
         sessionCursor,
         () => replayHold.release(),
-      ).pipe(share());
+      ).pipe(tap(endCatchUp), share());
       const replayRestart$ = merge(
         this.observeControlEvent$(
           input.threadId,
@@ -1208,6 +1241,12 @@ export class IntelligenceAgent extends AbstractAgent {
             "Dropping a replayed event this connection already delivered.",
             { threadId, eventId, type: payload.type },
           );
+          if (
+            sessionCursor.catchingUp &&
+            this.updateLastSeenEventId(threadId, payload)
+          ) {
+            sessionCursor.latest = eventId;
+          }
           return false;
         }),
         tap((payload) => {
@@ -1370,6 +1409,7 @@ export class IntelligenceAgent extends AbstractAgent {
   public clearReconnectCursor(threadId: string): void {
     this.sharedState.lastSeenEventIds.delete(threadId);
     this.sharedState.lastSeenEventSeqs?.delete(threadId);
+    this.sharedState.shownBeforeRewind?.delete(threadId);
   }
 
   /**
@@ -1444,10 +1484,10 @@ export class IntelligenceAgent extends AbstractAgent {
    */
   private resetLastSeenEventId(threadId: string, eventId: string | null): void {
     if (eventId === null) {
-      this.clearReconnectCursor(threadId);
-      return;
+      this.sharedState.lastSeenEventIds.delete(threadId);
+    } else {
+      this.advanceLastSeenEventId(threadId, eventId);
     }
-    this.advanceLastSeenEventId(threadId, eventId);
     this.sharedState.lastSeenEventSeqs?.delete(threadId);
   }
 
