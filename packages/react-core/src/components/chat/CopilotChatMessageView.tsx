@@ -774,6 +774,7 @@ export function CopilotChatMessageView({
       : next;
     // eslint-disable-next-line react-hooks/exhaustive-deps -- rowKey reads rowRenderKeys
   }, [rows, rowRenderKeys]);
+  // react-doctor-disable-next-line react-doctor/no-ref-current-in-render -- identity cache: the stored list only decides whether an equal key list keeps its array
   previousRowKeysRef.current = rowKeys;
 
   // State each group's wrapper keeps here rather than in itself, so it
@@ -1093,6 +1094,7 @@ export function CopilotChatMessageView({
       } else {
         history.generation += 1;
         resizeAnchorRef.current = null;
+        // react-doctor-disable-next-line react-doctor/no-ref-current-in-render -- resets the scroll bookkeeping in the render that switches threads, like the refs beside it
         heldOffsetRef.current = 0;
         measuredRef.current = {
           total: 0,
@@ -1136,6 +1138,7 @@ export function CopilotChatMessageView({
   // replaced) no longer says anything about this thread's row heights.
   const measuredKeysRef = React.useRef(rowKeys);
   if (measuredKeysRef.current !== rowKeys) {
+    // react-doctor-disable-next-line react-doctor/no-ref-current-in-render -- prunes the cached row heights in the render that changes the rows, before the virtualizer reads them
     measuredKeysRef.current = rowKeys;
     const live = new Set(rowKeys);
     const measured = measuredRef.current;
@@ -1483,6 +1486,7 @@ export function CopilotChatMessageView({
   });
   virtualizerRef.current = virtualizer;
 
+  // react-doctor-disable-next-line react-doctor/no-ref-current-in-render -- records the total size this render lays out, which applyHeldOffset compares in the layout effect
   renderedTotalRef.current = virtualizer.getTotalSize();
   useLayoutEffect(applyHeldOffset);
 

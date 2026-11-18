@@ -26,6 +26,7 @@ export function Steps({
     <ol className="flex flex-col" start={start}>
       {steps.map((s, i) => (
         <li
+          // react-doctor-disable-next-line react-doctor/no-array-index-as-key -- static list of steps that never reorders
           key={i}
           className={`${RAIL} pb-9 last:pb-0${rise === undefined ? "" : " wb-rise"}`}
           style={

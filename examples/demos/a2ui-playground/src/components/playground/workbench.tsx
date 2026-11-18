@@ -227,7 +227,9 @@ export function Workbench({ embed = false }: { embed?: boolean }) {
   // phone), so the A2UI can be watched streaming in. It does not overwrite the stored choice, and a chat
   // restored from earlier, which sends nothing, leaves the panel as it was.
   const emptyChat = useRef(!turns.length);
-  emptyChat.current = !turns.length;
+  useLayoutEffect(() => {
+    emptyChat.current = !turns.length;
+  });
   const onSent = useCallback(() => {
     setPicked(null);
     setCodeOpen(false);
