@@ -2,7 +2,7 @@ import {
   GenerateSandboxedUiArgsSchema,
   OpenGenerativeUIContentSchema as ContentSchema,
 } from "@copilotkit/vue";
-// TODO(copilotkit-2.0): `CopilotA2UIRecovery` no longer exposes `lifecycle`, `retryRevealed`, `debugExposure`, `label`, `phase`, `failureDiagnostics` or `retryDiagnostics`. Read the lifecycle from the activity content with `readA2UILifecycleContent`. See https://docs.copilotkit.ai/migrate/generative-ui-2.0
+// TODO(copilotkit-2.0): `CopilotA2UIRecovery` was removed in 2.0, with `readA2UILifecycleContent` and the other A2UI exports of `@copilotkit/angular`. Delete the code that reads it. A failed A2UI recovery shows as a generative UI surface with status `"error"`. To show that state, pass a `chatCard` component to `provideGenerativeUI` from "@copilotkit/angular/generative-ui". See https://docs.copilotkit.ai/migrate/generative-ui-2.0
 import { CopilotA2UIRecovery } from "@copilotkit/angular";
 // TODO(copilotkit-2.0): The A2UI v0.9 client (`@copilotkit/a2ui-renderer`, `@copilotkit/angular/a2ui`) was removed in 2.0. Use generative UI from the framework's `/generative-ui` entry: `createGenerativeUI` and `standardUI` for catalogs, `GenerativeUISurface` for a surface, and `useGenerativeUIState` and `useGenerativeUIFunction` for state and actions. Then delete this import. See https://docs.copilotkit.ai/generative-ui/components/from-a2ui
 import { Catalog, filterCatalog } from "@copilotkit/a2ui-renderer";
