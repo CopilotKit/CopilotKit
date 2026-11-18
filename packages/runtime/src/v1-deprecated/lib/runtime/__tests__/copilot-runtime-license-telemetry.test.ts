@@ -384,8 +384,15 @@ function requestCreatedGlobals(send: {
     .map(([event]) => event.globalProperties as Record<string, unknown>);
 }
 
+// A registered agent: `copilot_request_created` is captured only once the
+// agent id has been validated, so these request paths must resolve to one.
+const REQUEST_AGENT_ID = "test-agent";
+const REQUEST_AGENTS = {
+  [REQUEST_AGENT_ID]: { clone: () => ({}) },
+} as unknown as Record<string, never>;
+
 function createRootRuntimeRequest(): Request {
-  return new Request("https://example.com/agent/missing/run", {
+  return new Request(`https://example.com/agent/${REQUEST_AGENT_ID}/run`, {
     method: "POST",
   });
 }
@@ -402,7 +409,7 @@ test("every event a v1 root runtime produces is stamped as v1 surface", async ()
   vi.stubEnv("COPILOTKIT_LICENSE_TOKEN", undefined);
 
   try {
-    const rootRuntime = new CopilotRuntime({ agents: {} });
+    const rootRuntime = new CopilotRuntime({ agents: REQUEST_AGENTS });
     const handler = createCopilotRuntimeHandler({
       runtime: rootRuntime.instance,
       basePath: "/",
@@ -434,7 +441,7 @@ test("a v2 runtime constructed directly reports the v2 surface", async () => {
   vi.stubEnv("COPILOTKIT_LICENSE_TOKEN", undefined);
 
   try {
-    const runtime = new CopilotSseRuntime({ agents: {} });
+    const runtime = new CopilotSseRuntime({ agents: REQUEST_AGENTS });
     const handler = createCopilotRuntimeHandler({ runtime, basePath: "/" });
     send.mockClear();
 
@@ -463,11 +470,11 @@ test("public root runtimes keep request identity across lazy V2 instance creatio
 
   try {
     const rootRuntimeA = new CopilotRuntime({
-      agents: {},
+      agents: REQUEST_AGENTS,
       telemetryId: "root-runtime-a",
     });
     const rootRuntimeB = new CopilotRuntime({
-      agents: {},
+      agents: REQUEST_AGENTS,
       telemetryId: "root-runtime-b",
     });
     const handlerA = createCopilotRuntimeHandler({

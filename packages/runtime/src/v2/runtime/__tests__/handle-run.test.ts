@@ -1744,11 +1744,15 @@ describe("handleRunAgent", () => {
         .mockResolvedValue(undefined);
 
       try {
-        const runtime = createMockRuntime({});
+        // A registered agent: the event is captured only once the agent id
+        // has been validated, so an unknown id emits nothing at all.
+        const runtime = createMockRuntime({
+          "test-agent": { clone: () => ({}) },
+        });
         await handleRunAgent({
           runtime,
           request: createMockRequest(),
-          agentId: "nonexistent-agent",
+          agentId: "test-agent",
         });
 
         expect(captureSpy).toHaveBeenCalledWith(
@@ -1763,7 +1767,9 @@ describe("handleRunAgent", () => {
       }
     });
 
-    it("includes cloud.public_api_key when x-copilotcloud-public-api-key header is set", async () => {
+    it("captures nothing when the agent does not exist", async () => {
+      // A client retry-looping against an unknown agent used to bill one
+      // event per attempt, indefinitely: the capture ran before the 404.
       const { telemetry } = await import("../telemetry");
       const captureSpy = vi
         .spyOn(telemetry, "capture")
@@ -1771,6 +1777,34 @@ describe("handleRunAgent", () => {
 
       try {
         const runtime = createMockRuntime({});
+        for (let attempt = 0; attempt < 3; attempt++) {
+          const response = await handleRunAgent({
+            runtime,
+            request: createMockRequest(),
+            agentId: "nonexistent-agent",
+          });
+          expect(response.status).toBe(404);
+        }
+
+        expect(captureSpy).not.toHaveBeenCalledWith(
+          "oss.runtime.copilot_request_created",
+          expect.anything(),
+        );
+      } finally {
+        captureSpy.mockRestore();
+      }
+    });
+
+    it("includes cloud.public_api_key when x-copilotcloud-public-api-key header is set", async () => {
+      const { telemetry } = await import("../telemetry");
+      const captureSpy = vi
+        .spyOn(telemetry, "capture")
+        .mockResolvedValue(undefined);
+
+      try {
+        const runtime = createMockRuntime({
+          "test-agent": { clone: () => ({}) },
+        });
         const request = new Request("https://example.com/agent/test/run", {
           method: "POST",
           headers: {
@@ -1781,7 +1815,7 @@ describe("handleRunAgent", () => {
         await handleRunAgent({
           runtime,
           request,
-          agentId: "nonexistent-agent",
+          agentId: "test-agent",
         });
 
         expect(captureSpy).toHaveBeenCalledWith(

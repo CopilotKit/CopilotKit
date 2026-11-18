@@ -20,9 +20,13 @@ import type { CopilotRuntime } from "../core/runtime";
 
 const CLOUD_KEY = "ck_live_abc123.secret";
 
+// A registered agent: the event is captured only once the agent id has been
+// validated, so these assertions need the id to resolve.
+const AGENT_ID = "test-agent";
+
 function mockRuntime(): CopilotRuntime {
   return {
-    agents: Promise.resolve({}),
+    agents: Promise.resolve({ [AGENT_ID]: { clone: () => ({}) } }),
     transcriptionService: undefined,
     beforeRequestMiddleware: undefined,
     afterRequestMiddleware: undefined,
@@ -34,7 +38,7 @@ function runRequest(
   body: Record<string, unknown>,
   headers: Record<string, string> = {},
 ): Request {
-  return new Request("https://example.com/agent/missing/run", {
+  return new Request(`https://example.com/agent/${AGENT_ID}/run`, {
     method: "POST",
     headers: { "content-type": "application/json", ...headers },
     body: JSON.stringify(body),
@@ -65,7 +69,7 @@ describe("copilot_request_created — CopilotCloud guardrails", () => {
     await handleRunAgent({
       runtime: mockRuntime(),
       request: runRequest({}),
-      agentId: "missing",
+      agentId: AGENT_ID,
     });
 
     expect(properties()).toEqual({
@@ -82,7 +86,7 @@ describe("copilot_request_created — CopilotCloud guardrails", () => {
         { forwardedProps: { cloud: { guardrails: { rules: [] } } } },
         { "x-copilotcloud-public-api-key": CLOUD_KEY },
       ),
-      agentId: "missing",
+      agentId: AGENT_ID,
     });
 
     expect(properties()).toMatchObject({
@@ -101,7 +105,7 @@ describe("copilot_request_created — CopilotCloud guardrails", () => {
           "x-copilotcloud-public-api-key": CLOUD_KEY,
         },
       ),
-      agentId: "missing",
+      agentId: AGENT_ID,
     });
 
     expect(properties()["cloud.guardrails.enabled"]).toBe(false);
@@ -118,7 +122,7 @@ describe("copilot_request_created — CopilotCloud guardrails", () => {
       request: runRequest({
         forwardedProps: { cloud: { guardrails: { rules: [] } } },
       }),
-      agentId: "missing",
+      agentId: AGENT_ID,
     });
 
     expect(properties()).toMatchObject({
@@ -131,7 +135,7 @@ describe("copilot_request_created — CopilotCloud guardrails", () => {
     await handleRunAgent({
       runtime: mockRuntime(),
       request: runRequest({ forwardedProps: {} }),
-      agentId: "missing",
+      agentId: AGENT_ID,
     });
 
     expect(properties()["cloud.guardrails.enabled"]).toBe(false);
@@ -140,7 +144,7 @@ describe("copilot_request_created — CopilotCloud guardrails", () => {
   it("survives a body that is not readable as JSON", async () => {
     // Telemetry must never decide whether a request is served, so a malformed
     // body reports false rather than throwing out of the handler.
-    const request = new Request("https://example.com/agent/missing/run", {
+    const request = new Request(`https://example.com/agent/${AGENT_ID}/run`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: "{not json",
@@ -149,7 +153,7 @@ describe("copilot_request_created — CopilotCloud guardrails", () => {
     await handleRunAgent({
       runtime: mockRuntime(),
       request,
-      agentId: "missing",
+      agentId: AGENT_ID,
     });
 
     expect(properties()["cloud.guardrails.enabled"]).toBe(false);
