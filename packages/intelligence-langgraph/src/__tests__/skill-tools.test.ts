@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { isLangChainTool } from "@langchain/core/tools";
 import fixtures from "../../conformance/snapshots.v1.json";
@@ -199,5 +200,76 @@ describe("native skill tools", () => {
     await expect(
       read.invoke({ skill_name, path: "resource.bin" }),
     ).rejects.toThrow(/^Skill file is unavailable\.$/);
+  });
+});
+
+const sha256 = (text: string) =>
+  createHash("sha256").update(text).digest("hex");
+const usdTotal =
+  "function run(input) { return { totalUsd: input.deals.reduce((sum, d) => sum + d.amount * input.rates[d.currency], 0) }; }";
+const textFile = (path: string, text: string) => ({
+  path,
+  size: text.length,
+  sha256: sha256(text),
+  text,
+});
+const scripted: VerifiedSnapshot = {
+  revision: "r1",
+  etag: "e1",
+  skills: [
+    {
+      name: "pipeline-total",
+      description: "Total open deals in USD.",
+      files: [
+        textFile("SKILL.md", "# Pipeline total"),
+        textFile("scripts/usd-total.js", usdTotal),
+        textFile(
+          "scripts/manifest.json",
+          JSON.stringify({
+            scripts: [
+              {
+                path: "scripts/usd-total.js",
+                kind: "action",
+                language: "javascript",
+                entrypoint: "run",
+                contractVersion: 1,
+                version: 1,
+                sha256: sha256(usdTotal),
+                input: "The deals tool result.",
+              },
+            ],
+          }),
+        ),
+      ],
+    },
+  ],
+};
+
+describe("skill scripts", () => {
+  it("adds a script tool only when the caller opts in, and runs a delivered script", async () => {
+    expect(createSkillTools(() => scripted).map((entry) => entry.name)).toEqual(
+      ["copilotkit_load_skill", "copilotkit_read_skill_file"],
+    );
+    const tools = createSkillTools(() => scripted, { scripts: true });
+    expect(tools.map((entry) => entry.name)).toEqual([
+      "copilotkit_load_skill",
+      "copilotkit_read_skill_file",
+      "copilotkit_run_skill_script",
+    ]);
+    const output = await tools[2]!.invoke({
+      skill_name: "pipeline-total",
+      script: "usd-total",
+      input: {
+        deals: [{ amount: 100, currency: "EUR" }],
+        rates: { EUR: 1.08 },
+      },
+    });
+    expect(JSON.parse(output as string).output).toEqual({ totalUsd: 108 });
+  });
+
+  it("tells the model to run a script only when a skill delivers one", () => {
+    expect(formatSkillCatalog(scripted)).toContain(
+      "copilotkit_run_skill_script",
+    );
   });
 });

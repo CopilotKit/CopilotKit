@@ -41,9 +41,19 @@ Pass an existing `CopilotKitIntelligence` client from `@copilotkit/runtime/v2` a
 
 `freshnessWindowMs` and `requestTimeoutMs` default to 5000; `debug` defaults to false. Set `revision` or `CPK_INTELLIGENCE_SKILLS_REVISION` for an exact whole-container pin. Startup initialization is optional: the first wrapped invocation initializes automatically. Initialization and invocation errors are catchable as `SkillDeliveryError`.
 
-`registry.status` reports initialization, revision, last successful check, stale state, and a safe last error. Warm transient failures retain the prior snapshot; confirmed denial blocks new invocations. Running invocations finish with their captured snapshot. The adapter performs no retry, disk writes, or script execution.
+`registry.status` reports initialization, revision, last successful check, stale state, and a safe last error. Warm transient failures retain the prior snapshot; confirmed denial blocks new invocations. Running invocations finish with their captured snapshot. The adapter performs no retry or disk writes. It runs no skill script unless you pass `scripts: true` (see below).
 
 Both `copilotkit_load_skill` and `copilotkit_read_skill_file` remain registered for an empty container. Developer instructions retain precedence over learned skills. Unsupported file content and unknown names or paths use native tool errors.
+
+### Skill scripts
+
+A learned skill can deliver a script, for example one that computes a currency total from a tool result. Intelligence delivers scripts only when the project allows them. To let the agent run them, pass `scripts: true`:
+
+```ts
+const skills = createSkillRegistryMiddleware({ registry, scripts: true });
+```
+
+This adds `copilotkit_run_skill_script`. It runs only scripts that the skill's manifest lists with a matching SHA-256, in a QuickJS sandbox with no network, files, modules, clock, or randomness, and a 1-second time limit. Without the option, the tool list stays the same.
 
 See the [learned skill delivery guide](https://docs.copilotkit.ai/intelligence/learned-skills) for managed/self-hosted setup, release prerequisites, and migration from CLI downloads.
 

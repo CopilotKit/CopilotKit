@@ -484,3 +484,21 @@ it("uses a multi-container registry through a native Mastra agent", async () => 
   expect(test.prompts.at(-1)).toContain("published refund policy");
   expect(fetch).toHaveBeenCalledTimes(1);
 });
+
+it("adds the script tool only when the caller opts in", () => {
+  const registry = {
+    acquireSnapshot: async () => ({ revision: "r", etag: "e", skills: [] }),
+  } as unknown as SkillRegistry;
+  expect(Object.keys(createSkillRegistryProcessor({ registry }).tools)).toEqual(
+    ["copilotkit_load_skill", "copilotkit_read_skill_file"],
+  );
+  expect(
+    Object.keys(
+      createSkillRegistryProcessor({ registry, scripts: true }).tools,
+    ),
+  ).toEqual([
+    "copilotkit_load_skill",
+    "copilotkit_read_skill_file",
+    "copilotkit_run_skill_script",
+  ]);
+});

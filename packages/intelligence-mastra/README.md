@@ -34,6 +34,8 @@ const result = await agent.generate("Help with a refund.");
 
 Register other processors and tools in the same native arrays and maps. Reserve `copilotkit_load_skill` and `copilotkit_read_skill_file` for this adapter. Both tools remain available for an empty registry. Host instructions retain precedence over learned content.
 
+To let the agent run scripts that learned skills deliver, pass `scripts: true` to `createSkillRegistryProcessor`. This adds `copilotkit_run_skill_script`, which runs only scripts that the skill's manifest lists with a matching SHA-256, in a QuickJS sandbox with no network, files, modules, clock, or randomness. Intelligence delivers scripts only when the project allows them.
+
 ## Execution and resume
 
 Call the wrapped Agent for `generate`, `stream`, `resumeGenerate`, and `resumeStream`. The wrapper also covers the native approval helpers: `approveToolCall`, `declineToolCall`, `approveToolCallGenerate`, and `declineToolCallGenerate` where the installed Mastra version provides them.

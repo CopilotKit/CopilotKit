@@ -106,6 +106,7 @@
     "coverage/**",
     "storybook-static/**",
     "**/@generated/**",
+    "**/*.generated.ts",
     "docs/**"
   ]
 }
