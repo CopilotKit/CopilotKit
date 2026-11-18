@@ -211,6 +211,82 @@ describe("ɵdeduplicateMessages duplicate tool-call ids", () => {
     // Reference equality keeps memoized consumers from re-rendering.
     expect(merged.toolCalls).toBe(original);
   });
+
+  it("keeps the first populated copy when both copies in one message carry arguments", () => {
+    // TOOL_CALL_ARGS deltas go to the first copy with that id, so a later copy
+    // in the same message can be left holding stale partial arguments.
+    const merged = dedupeToSingleAssistant([
+      assistantMsg("a-1", "", [
+        toolCall("call_1", "captureData", '{"symptom":"headache"}'),
+        toolCall("call_1", "captureData", '{"symptom":'),
+      ]),
+    ]);
+
+    expect(merged.toolCalls).toHaveLength(1);
+    expect(merged.toolCalls![0]!.function.arguments).toBe(
+      '{"symptom":"headache"}',
+    );
+  });
+});
+
+describe("ɵdeduplicateMessages interleaved tool calls", () => {
+  // A TOOL_CALL_RESULT between two TOOL_CALL_STARTs for the same parent used to
+  // leave the parent no longer last, so older @ag-ui/client versions created a
+  // second assistant message with the same id. Each copy then holds only some
+  // of the tool calls, so merging the copies must keep the calls from both.
+  it("keeps the tool calls from every copy of a duplicated assistant message", () => {
+    const result = ɵdeduplicateMessages([
+      assistantMsg("assistant-1", "Let me record that...", [
+        toolCall("tc-1", "captureData"),
+        toolCall("tc-2", "updateMemory"),
+      ]),
+      toolMsg("tool-result-1", "tc-1", "Recorded."),
+      assistantMsg("assistant-1", "", [toolCall("tc-3", "searchDocs")]),
+    ]);
+
+    expect(result.map((m) => m.id)).toEqual(["assistant-1", "tool-result-1"]);
+    const merged = result[0] as ReturnType<typeof assistantMsg>;
+    expect(merged.content).toBe("Let me record that...");
+    expect(merged.toolCalls?.map((tc) => tc.id)).toEqual([
+      "tc-1",
+      "tc-2",
+      "tc-3",
+    ]);
+  });
+
+  it("does not let a blank later copy of a tool call replace a populated one", () => {
+    const merged = dedupeToSingleAssistant([
+      assistantMsg("assistant-1", "", [
+        toolCall("tc-1", "captureData", '{"symptom":"headache"}'),
+      ]),
+      assistantMsg("assistant-1", "", [
+        toolCall("tc-1", "captureData", ""),
+        toolCall("tc-2", "updateMemory"),
+      ]),
+    ]);
+
+    expect(merged.toolCalls!.map((tc) => tc.id)).toEqual(["tc-1", "tc-2"]);
+    expect(merged.toolCalls![0]!.function.arguments).toBe(
+      '{"symptom":"headache"}',
+    );
+  });
+
+  it("uses the later copy's arguments when both copies are populated", () => {
+    // Streaming updates grow the arguments, so the later copy is the freshest.
+    const merged = dedupeToSingleAssistant([
+      assistantMsg("assistant-1", "", [
+        toolCall("tc-1", "captureData", '{"symptom":'),
+      ]),
+      assistantMsg("assistant-1", "", [
+        toolCall("tc-1", "captureData", '{"symptom":"headache"}'),
+      ]),
+    ]);
+
+    expect(merged.toolCalls).toHaveLength(1);
+    expect(merged.toolCalls![0]!.function.arguments).toBe(
+      '{"symptom":"headache"}',
+    );
+  });
 });
 
 describe("ɵmessagesFingerprint", () => {

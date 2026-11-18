@@ -171,6 +171,12 @@
   width: 1.5rem;
   height: 1.5rem;
   color: var(--muted-foreground);
+}
+/* The arc spins inside the SVG rather than the SVG element itself: Safari
+   turns a spinning <svg> around a point slightly off its center, so the ring
+   wobbles by about a pixel. */
+:where(.cpk-chat-view-connecting-spinner > *) {
+  transform-origin: center;
   animation: cpk-spin 1s linear infinite;
 }
 /* Screen readers announce a status region's text, not its aria-label. */

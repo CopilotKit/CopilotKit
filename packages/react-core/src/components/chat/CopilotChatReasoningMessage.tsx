@@ -168,7 +168,14 @@ export namespace CopilotChatReasoningMessage {
         aria-expanded={isExpandable ? isOpen : undefined}
         {...headerProps}
       >
-        <span className="cpk-reasoning-message-label">{label}</span>
+        <span
+          className={cn(
+            "cpk-reasoning-message-label",
+            isStreaming && "cpk-shimmer",
+          )}
+        >
+          {label}
+        </span>
         {isStreaming && !hasContent && (
           <span className="cpk-reasoning-message-indicator">
             <span className="cpk-reasoning-message-indicator-dot" />

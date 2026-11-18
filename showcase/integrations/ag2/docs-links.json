@@ -3,7 +3,7 @@
   "features": {
     "agentic-chat": {
       "og_docs_url": "https://docs.copilotkit.ai/ag2/prebuilt-components",
-      "shell_docs_path": "/prebuilt-components"
+      "shell_docs_path": "/prebuilt-components/chat"
     },
     "hitl-in-chat": {
       "og_docs_url": "https://docs.copilotkit.ai/ag2/human-in-the-loop",

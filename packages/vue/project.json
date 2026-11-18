@@ -1,0 +1,45 @@
+{
+  "implicitDependencies": ["@copilotkit/a11y-test-kit"],
+  "targets": {
+    "test": {
+      "inputs": [
+        "default",
+        "^production",
+        "{projectRoot}/a11y/**/*",
+        "{projectRoot}/vitest.config.ts",
+        "{workspaceRoot}/packages/a11y-test-kit/**/*"
+      ]
+    },
+    "test:a11y": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "packages/vue",
+        "command": "vitest run a11y/__tests__ --maxWorkers=1 --fileParallelism=false"
+      },
+      "dependsOn": ["^build"],
+      "inputs": [
+        "default",
+        "^production",
+        "{projectRoot}/a11y/**/*",
+        "{projectRoot}/vitest.config.ts",
+        "{workspaceRoot}/packages/a11y-test-kit/**/*"
+      ],
+      "cache": true
+    },
+    "check-types:a11y": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "packages/vue",
+        "command": "vue-tsc --noEmit -p a11y/tsconfig.json"
+      },
+      "dependsOn": ["^build"],
+      "inputs": [
+        "default",
+        "^production",
+        "{projectRoot}/a11y/**/*",
+        "{workspaceRoot}/packages/a11y-test-kit/**/*"
+      ],
+      "cache": true
+    }
+  }
+}

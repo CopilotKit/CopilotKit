@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/vue",
-  "version": "1.87.0",
+  "version": "1.89.0",
   "private": false,
   "description": "Vue 3 components and composables for CopilotKit",
   "keywords": [
@@ -150,8 +150,8 @@
     "clean": "node -e \"const fs=require('fs');fs.rmSync('dist',{recursive:true,force:true})\""
   },
   "dependencies": {
-    "@ag-ui/client": "1.0.4",
-    "@ag-ui/core": "1.0.4",
+    "@ag-ui/client": "1.0.5",
+    "@ag-ui/core": "1.0.5",
     "@copilotkit/core": "workspace:*",
     "@copilotkit/markdown": "workspace:*",
     "@copilotkit/mcp-apps-renderer": "workspace:*",

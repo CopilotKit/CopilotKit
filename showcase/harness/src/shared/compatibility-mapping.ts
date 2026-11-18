@@ -407,6 +407,19 @@ export const COMPATIBILITY_MAPPING: VariantMapping[] = [
     excludedLibraries: [],
   },
   {
+    slug: "omnara",
+    language: "typescript",
+    libraries: [
+      framework(
+        "@omnara/sdk",
+        "npm",
+        npm("omnara"),
+        "Pinned Omnara client SDK; it does not establish the hosted service version",
+      ),
+    ],
+    excludedLibraries: [adapter("@ag-ui/omnara")],
+  },
+  {
     slug: "openai-agents-python",
     language: "python",
     libraries: [

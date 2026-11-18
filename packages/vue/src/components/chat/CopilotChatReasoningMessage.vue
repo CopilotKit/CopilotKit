@@ -163,7 +163,12 @@ function toggleOpen() {
           :aria-expanded="hasContent ? isOpen : undefined"
           @click="hasContent ? toggleOpen() : undefined"
         >
-          <span class="cpk-reasoning-message-label">{{ label }}</span>
+          <span
+            class="cpk-reasoning-message-label"
+            :class="{ 'cpk-shimmer': isStreaming }"
+          >
+            {{ label }}
+          </span>
           <span
             v-if="isStreaming && !hasContent"
             class="cpk-reasoning-message-indicator"

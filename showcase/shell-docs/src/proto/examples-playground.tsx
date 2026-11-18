@@ -120,8 +120,8 @@ function ToolButton({
 
 /**
  * The examples as a playground, laid out like the docs: the examples as a
- * sidebar on the frame, and the real showcase demo running in the white page
- * panel, with the framework picker and the tools in its header.
+ * plain column down the left, and the real showcase demo filling the rest
+ * under a thin bar with the framework picker and the tools.
  */
 export function ExamplesPlayground() {
   const params = useSearchParams();
@@ -150,6 +150,8 @@ export function ExamplesPlayground() {
     ? wanted
     : feature.frameworks[0];
   const fwName = frameworkById(framework)?.name ?? framework;
+  const group = GROUPS.find((g) => g.items.some((f) => f.id === feature.id));
+  const category = group ? (CATEGORY[group.id]?.label ?? group.name) : null;
   const demo = feature.demos[framework];
   const src = demoUrl(hosts, framework, demo);
   const frameKey = `${src}#${reloads}`;
@@ -182,17 +184,20 @@ export function ExamplesPlayground() {
   };
 
   return (
-    // Spacious' geometry: the frame holds the sidebar and an 8px ring around
-    // the white page panel.
-    <div className="flex flex-1 flex-col bg-frame lg:h-[calc(100dvh-3.5rem)] lg:flex-none lg:flex-row">
+    // One plain page in the home's centered column (the navbar's width): the
+    // examples down the left, and the demo in a card filling the rest.
+    <div
+      data-playground
+      className="mx-auto flex w-full max-w-(--fd-layout-width) flex-1 flex-col bg-background lg:h-[calc(100dvh-3.5rem)] lg:flex-none lg:flex-row"
+    >
       {/* The examples, as the docs' sidebar */}
       <aside className="flex min-h-0 flex-col text-sm lg:w-[268px] lg:shrink-0">
-        <div className="px-2 pt-2 lg:hidden">
+        <div className="p-2 lg:hidden">
           <button
             type="button"
             aria-expanded={browsing}
             onClick={() => setBrowsing((b) => !b)}
-            className="flex h-11 w-full items-center gap-2.5 rounded-xl bg-card px-3 text-start font-medium shadow-lift"
+            className="flex h-11 w-full items-center gap-2.5 rounded-xl border px-3 text-start font-medium hover:bg-accent"
           >
             <span className="min-w-0 flex-1 truncate">
               Browse all {EXAMPLES.length} examples
@@ -215,7 +220,7 @@ export function ExamplesPlayground() {
           <nav
             ref={navRef}
             aria-label="Examples"
-            className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pt-4 pb-8 mask-t-from-[calc(100%-16px)] mask-b-from-[calc(100%-32px)]"
+            className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-1.5 pt-4 pb-8 [scrollbar-color:transparent_transparent] [scrollbar-width:thin] hover:[scrollbar-color:var(--border)_transparent] focus-within:[scrollbar-color:var(--border)_transparent] mask-t-from-[calc(100%-16px)] mask-b-from-[calc(100%-32px)]"
           >
             {GROUPS.map((g) => {
               const meta = CATEGORY[g.id] ?? {
@@ -247,7 +252,7 @@ export function ExamplesPlayground() {
                               "flex w-full items-center rounded-lg px-2.5 py-2 text-start wrap-anywhere outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
                               on
                                 ? "bg-sidebar-primary/10 text-sidebar-primary"
-                                : "text-frame-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
+                                : "text-muted-foreground hover:bg-accent hover:text-foreground",
                             )}
                           >
                             {f.name}
@@ -263,14 +268,28 @@ export function ExamplesPlayground() {
         </div>
       </aside>
 
-      {/* The demo, in the page panel */}
+      {/* The demo, in a card like the home's: a hairline and the card lift,
+          its bar with the name and tools, then the demo itself. */}
       <section
         aria-label={`${feature.name} on ${fwName}`}
-        className="m-2 flex min-h-[34rem] flex-1 flex-col overflow-clip rounded-2xl border bg-background shadow-sm lg:ms-0 lg:min-h-0"
+        className="m-2 flex min-h-[34rem] flex-1 flex-col overflow-hidden rounded-2xl border bg-card shadow-card lg:my-4 lg:ms-0 lg:me-4 lg:min-h-0 dark:bg-[#13131b]"
       >
-        <header className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b py-2.5 ps-6 pe-3 max-sm:ps-4">
-          <h1 className="min-w-[12rem] flex-1 truncate text-base font-semibold tracking-[-0.01em]">
-            {feature.name}
+        <header className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b py-2 ps-6 pe-3 max-sm:ps-4">
+          <h1 className="flex min-w-[12rem] flex-1 items-baseline gap-2 truncate text-base font-semibold tracking-[-0.01em]">
+            {category ? (
+              <>
+                <span className="font-normal text-muted-foreground max-sm:hidden">
+                  {category}
+                </span>
+                <span
+                  aria-hidden="true"
+                  className="font-normal text-muted-foreground/50 max-sm:hidden"
+                >
+                  /
+                </span>
+              </>
+            ) : null}
+            <span className="truncate">{feature.name}</span>
           </h1>
 
           <div className="flex items-center gap-1">
@@ -299,7 +318,7 @@ export function ExamplesPlayground() {
           </div>
         </header>
 
-        <div className="relative flex-1 bg-background">
+        <div className="relative flex-1">
           {mounted ? (
             <iframe
               key={frameKey}

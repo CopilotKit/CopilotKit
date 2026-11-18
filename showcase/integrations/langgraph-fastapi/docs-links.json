@@ -3,7 +3,7 @@
   "features": {
     "agentic-chat": {
       "og_docs_url": "https://docs.copilotkit.ai/integrations/langgraph/prebuilt-components",
-      "shell_docs_path": "/prebuilt-components"
+      "shell_docs_path": "/prebuilt-components/chat"
     },
     "tool-rendering": {
       "og_docs_url": "https://docs.copilotkit.ai/integrations/langgraph/generative-ui/tool-rendering",

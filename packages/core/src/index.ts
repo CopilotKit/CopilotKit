@@ -24,3 +24,4 @@ export type {
 export { shallowEqualRecord as ɵshallowEqualRecord } from "./utils/shallow-equal";
 export { cn as ɵcn } from "./utils/class-names";
 export type { ClassValue as ɵClassValue } from "./utils/class-names";
+export type { RunErrorPhase } from "./utils/connect-replay";

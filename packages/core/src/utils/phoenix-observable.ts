@@ -33,12 +33,21 @@ export interface ɵPhoenixChannelLike {
 }
 
 /**
+ * Channel join params. phoenix.js also accepts a function, which it calls on
+ * every join and rejoin, so a rejoin can send params that changed since the
+ * first join (for example a newer resume cursor).
+ */
+export type ɵPhoenixChannelParams =
+  | Record<string, unknown>
+  | (() => Record<string, unknown>);
+
+/**
  * Minimal Phoenix socket contract used by the observable adapters.
  */
 export interface ɵPhoenixSocketLike {
   connect(): void;
   disconnect(): void;
-  channel(topic: string, params?: Record<string, unknown>): ɵPhoenixChannelLike;
+  channel(topic: string, params?: ɵPhoenixChannelParams): ɵPhoenixChannelLike;
   onError(callback: (error?: unknown) => void): unknown;
   onOpen(callback: () => void): unknown;
 }
@@ -88,7 +97,8 @@ export interface ɵPhoenixSocketOptions {
 export interface ɵPhoenixChannelOptions {
   socket$: Observable<ɵPhoenixSocketSession>;
   topic: string;
-  params?: Record<string, unknown>;
+  /** Join params, or a function evaluated on every (re)join. */
+  params?: ɵPhoenixChannelParams;
   leaveOnUnsubscribe?: boolean;
 }
 

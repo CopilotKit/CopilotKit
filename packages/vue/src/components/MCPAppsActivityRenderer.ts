@@ -77,6 +77,15 @@ export const MCPAppsActivityRenderer = defineComponent({
       required: false,
       default: false,
     },
+    /**
+     * Accept `ui/update-model-context`. Set via `mcpApps.modelContext` on
+     * `CopilotKitProvider`.
+     */
+    modelContext: {
+      type: Boolean,
+      required: false,
+      default: false,
+    },
   },
   setup(props) {
     const { copilotkit } = useCopilotKit();
@@ -96,13 +105,17 @@ export const MCPAppsActivityRenderer = defineComponent({
 
     // A new host or sandbox setting needs a new host object.
     watch(
-      [() => copilotkit.value, () => props.allowSameOriginFallback],
-      ([core, allowSameOriginFallback]) => {
+      [
+        () => copilotkit.value,
+        () => props.allowSameOriginFallback,
+        () => props.modelContext,
+      ],
+      ([core, allowSameOriginFallback, modelContext]) => {
         unsubscribe();
         app.value?.destroy();
         const created = new ɵMcpAppHost({
           host: core,
-          sessionOptions: { allowSameOriginFallback },
+          sessionOptions: { allowSameOriginFallback, modelContext },
           importRenderer: () => import("@copilotkit/mcp-apps-renderer"),
         });
         unsubscribe = created.subscribe(() => {

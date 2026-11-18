@@ -40,7 +40,12 @@ import { ChevronRight, CopilotIcon } from "../icons/copilot-icon";
         [attr.aria-expanded]="hasContent() ? open() : null"
         (click)="toggle()"
       >
-        <span class="cpk-reasoning-message-label">{{ label() }}</span>
+        <span
+          class="cpk-reasoning-message-label"
+          [class.cpk-shimmer]="isStreaming()"
+        >
+          {{ label() }}
+        </span>
         @if (isStreaming() && !hasContent()) {
           <span class="cpk-reasoning-message-indicator">
             <span class="cpk-reasoning-message-indicator-dot"></span>

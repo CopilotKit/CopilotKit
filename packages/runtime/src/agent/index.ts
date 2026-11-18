@@ -261,6 +261,9 @@ export type BuiltInAgentFactoryContext = AgentFactoryContext;
  *   run is aborted.
  */
 export interface BuiltInAgentAISDKFactoryConfig {
+  /** Human-readable display name, independent of the agent's ID. */
+  name?: string;
+
   /** Opt in to automatic snapshot acquisition before each run, including resumes. */
   learnedSkills?: BuiltInAgentLearnedSkillsOptions;
   type: "aisdk";
@@ -276,6 +279,8 @@ export interface BuiltInAgentAISDKFactoryConfig {
  * The factory must return an async iterable of TanStack AI stream chunks.
  */
 export interface BuiltInAgentTanStackFactoryConfig {
+  /** Human-readable display name, independent of the agent's ID. */
+  name?: string;
   /** Opt in to automatic snapshot acquisition before each run, including resumes. */
   learnedSkills?: BuiltInAgentLearnedSkillsOptions;
   type: "tanstack";
@@ -288,6 +293,8 @@ export interface BuiltInAgentTanStackFactoryConfig {
  * Factory config for a custom backend that directly yields AG-UI events.
  */
 export interface BuiltInAgentCustomFactoryConfig {
+  /** Human-readable display name, independent of the agent's ID. */
+  name?: string;
   /** Opt in to automatic snapshot acquisition before each run, including resumes. */
   learnedSkills?: BuiltInAgentLearnedSkillsOptions;
   type: "custom";
@@ -423,6 +430,8 @@ export interface BuiltInAgentClassicConfig<
   TAdapter extends AnyTextAdapter = AnyTextAdapter,
   TContext = unknown,
 > extends BuiltInAgentChatOptions<TAdapter, TContext> {
+  /** Human-readable display name, independent of the agent's ID. */
+  name?: string;
   /** Opt in to automatic snapshot acquisition before each run, including resumes. */
   learnedSkills?: BuiltInAgentLearnedSkillsOptions;
   /**
@@ -671,6 +680,8 @@ export class BuiltInAgent<
   TAdapter extends AnyTextAdapter = AnyTextAdapter,
   TContext = unknown,
 > extends AbstractAgent {
+  /** Human-readable display name, independent of the agent's ID. */
+  name?: string;
   private abortController?: AbortController;
   private skillRegistry?: SkillRegistry;
 
@@ -692,6 +703,7 @@ export class BuiltInAgent<
    */
   constructor(private config: BuiltInAgentConfiguration<TAdapter, TContext>) {
     super();
+    this.name = config.name;
     if (!isFactoryConfig(config)) assertTextAdapter(config.model);
     this.skillRegistry =
       config.learnedSkills === undefined
@@ -1270,7 +1282,8 @@ export class BuiltInAgent<
     });
     cloned.config = this.config;
     cloned.skillRegistry = this.skillRegistry;
-    // clone() must preserve middleware chains.
+    // AbstractAgent.middlewares is protected in @ag-ui/client, with no public
+    // accessor. clone() must preserve middleware chains.
     cloned.middlewares = [...this.middlewares];
     return cloned;
   }

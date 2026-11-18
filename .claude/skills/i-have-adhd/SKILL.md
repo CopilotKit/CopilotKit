@@ -1,6 +1,6 @@
 ---
 name: i-have-adhd
-description: Use when the user invokes /i-have-adhd, says they have ADHD, or asks for ADHD-friendly output. Agents may also load it on their own as a writing filter for text a person must read and act on, such as docs pages (the docs skill requires it), PR descriptions, handoff notes, and long status summaries. Don't use for marketing copy or after the user says "stop adhd mode" or "normal mode".
+description: Use when the user invokes /i-have-adhd, says they have ADHD, or asks for ADHD-friendly output. Agents may also load it on their own as a writing filter for text a person must read and act on, such as docs pages (the write-cpk-docs skill requires it), PR descriptions, handoff notes, and long status summaries. Don't use for marketing copy or after the user says "stop adhd mode" or "normal mode".
 license: MIT
 metadata:
   tags: "ADHD, Output Style, Productivity, Formatting"

@@ -37,6 +37,16 @@ export {
   type UpdateThreadRequest,
 } from "./intelligence-platform";
 
+// Export runs in an Intelligence Thread with no client attached
+export {
+  runAgentInThread,
+  ThreadRunError,
+  type ThreadRunErrorReason,
+  type RunAgentInThreadOptions,
+  type RunAgentInThreadResult,
+  type RunAgentInThreadRuntime,
+} from "./core/thread-run";
+
 // Export framework-agnostic fetch handler
 export { createCopilotKitRuntimeHandler } from "./core/fetch-handler";
 export type {

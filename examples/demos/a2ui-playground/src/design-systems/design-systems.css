@@ -7,9 +7,9 @@
    Every color a light rule sets, its dark rule sets again, so nothing light leaks into dark mode; the
    rest (type, corners, padding) is the same in both. */
 
-/* ChatCN: shadcn/ui v4's neutral palette, light and dark, with its chart colors. */
-.a2-surface-host[data-ds="chatcn"],
-.a2-static[data-ds="chatcn"] {
+/* shadcn/ui: v4's neutral palette, light and dark, with its chart colors. */
+.a2-surface-host[data-ds="shadcn"],
+.a2-static[data-ds="shadcn"] {
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -51,7 +51,7 @@
   --a2-warning: oklch(0.555 0.163 48.998);
   --a2-info: oklch(0.546 0.245 262.881);
 }
-.dark :is(.a2-surface-host, .a2-static)[data-ds="chatcn"] {
+.dark :is(.a2-surface-host, .a2-static)[data-ds="shadcn"] {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.205 0 0);
@@ -94,19 +94,19 @@
   --a2-info: oklch(0.623 0.214 259.815);
 }
 /* shadcn's Card: its fill and its shadow-sm (a heavier shadow on the dark ground). */
-:is(.a2-surface-host, .a2-static)[data-ds="chatcn"] .a2-card {
+:is(.a2-surface-host, .a2-static)[data-ds="shadcn"] .a2-card {
   background: var(--a2-surface);
   box-shadow:
     0 1px 3px 0 oklch(0 0 0 / 10%),
     0 1px 2px -1px oklch(0 0 0 / 10%);
 }
-.dark :is(.a2-surface-host, .a2-static)[data-ds="chatcn"] .a2-card {
+.dark :is(.a2-surface-host, .a2-static)[data-ds="shadcn"] .a2-card {
   box-shadow: 0 1px 2px oklch(0 0 0 / 25%);
 }
-:is(.a2-surface-host, .a2-static)[data-ds="chatcn"] .a2-chart {
+:is(.a2-surface-host, .a2-static)[data-ds="shadcn"] .a2-chart {
   color: oklch(0.556 0 0);
 }
-.dark :is(.a2-surface-host, .a2-static)[data-ds="chatcn"] .a2-chart {
+.dark :is(.a2-surface-host, .a2-static)[data-ds="shadcn"] .a2-chart {
   color: oklch(0.708 0 0);
 }
 
@@ -570,7 +570,7 @@
    which outranks a component library's layered styles: a shadcn button would lose its text color. A
    swapped button takes its library's font and color back. Material's buttons inherit their type by
    design, so they get Material's label-large role, the one its buttons use at these sizes. */
-:is(.a2-surface-host, .a2-static)[data-ds="chatcn"] [data-slot="button"],
+:is(.a2-surface-host, .a2-static)[data-ds="shadcn"] [data-slot="button"],
 :is(.a2-surface-host, .a2-static)[data-ds="material"]
   :is(.m3e-button, .m3e-icon-button) {
   font: revert-layer;

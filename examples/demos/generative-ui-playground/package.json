@@ -11,7 +11,7 @@
     "@a2a-js/sdk": "^0.2.5",
     "@ag-ui/a2a": "^0.0.6",
     "@ag-ui/a2a-middleware": "^0.0.2",
-    "@ag-ui/client": "1.0.4",
+    "@ag-ui/client": "1.0.5",
     "@ag-ui/mcp-apps-middleware": "^0.0.1",
     "@copilotkit/core": "workspace:*",
     "@copilotkit/react-core": "workspace:*",

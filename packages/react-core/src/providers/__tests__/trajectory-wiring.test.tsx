@@ -305,6 +305,7 @@ describe("CopilotKitProvider authenticated Trajectories", () => {
                 url: location.href,
                 title: document.title,
                 referrer: document.referrer,
+                sdkVersion: expect.any(String),
                 seq: SEQ_BASE,
               },
             },
