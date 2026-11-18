@@ -14,6 +14,7 @@ import {
   InteractivityGlyph,
   OtherGlyph,
   QuickstartGlyph,
+  ReferenceGlyph,
 } from "@/components/icons/glyphs";
 import { FrameworkLogo } from "@/components/icons/framework-icons";
 import { FrontendLogo } from "@/components/icons/frontend-logo";
@@ -44,8 +45,14 @@ import { frameworkById } from "./data";
 export function liveTree(nav: LiveNav, pathname: string): PageTree.Root {
   const path = pathname.split("/").filter(Boolean);
   if (path[0] === "reference") {
-    const sdk = nav.reference[path[1]] ? path[1] : REFERENCE_ROOT_VERSION;
-    return { name: "Reference", children: referenceTree(nav, sdk) };
+    // One tree for every reference page, under a stable id: Fumadocs keeps a
+    // tree until its `$id` changes, so the folders stay as the reader left
+    // them while they move between pages.
+    return {
+      $id: "reference",
+      name: "Reference",
+      children: referenceTree(nav),
+    };
   }
   if (path[0] === "cookbook") {
     return { name: "Cookbook", children: nav.cookbook.map(recipeIcon) };
@@ -172,7 +179,7 @@ function isTopRow(sidebar: NavNode[], i: number) {
 
 /** Each frontend's own reference, from the outline's Reference row. */
 const REFERENCE_FOR: Record<FrontendId, string> = {
-  react: "/reference",
+  react: `/reference/${REFERENCE_ROOT_VERSION}`,
   vue: "/reference/vue",
   angular: "/reference/angular",
   "react-native": "/reference/react-native",
@@ -296,44 +303,43 @@ const REFERENCE_SDKS: [sdk: string, name: string, icon: ReactNode][] = [
 ];
 
 /**
- * Every SDK's reference as a folder that opens on its overview, so any SDK is
- * one click away; the one in the URL starts open.
+ * The reference's overview (`/reference`), then every SDK's reference as a
+ * folder. A folder only opens and closes: its overview is the first row inside
+ * it, so opening one never navigates, and every folder stays as the reader
+ * left it. The one holding the current page opens on its own.
  */
-function referenceTree(nav: LiveNav, current: string): PageTree.Node[] {
-  const v1 = sdkFolder(nav, "v1", "v1", current === "v1");
-  return REFERENCE_SDKS.flatMap(([sdk, name, icon]): PageTree.Node[] => {
-    const nested = sdk === "v2" && v1 ? [v1] : [];
-    const folder = sdkFolder(
-      nav,
-      sdk,
-      name,
-      sdk === current || !!nested[0]?.defaultOpen,
-    );
-    if (!folder) return [];
-    return [{ ...folder, icon, children: [...folder.children, ...nested] }];
-  });
+function referenceTree(nav: LiveNav): PageTree.Node[] {
+  const overview: PageTree.Item = {
+    type: "page",
+    name: "Overview",
+    url: "/reference",
+    icon: <ReferenceGlyph aria-hidden size={16} />,
+  };
+  const v1 = sdkFolder(nav, "v1", "v1");
+  return [
+    overview,
+    ...REFERENCE_SDKS.flatMap(([sdk, name, icon]): PageTree.Node[] => {
+      const folder = sdkFolder(nav, sdk, name);
+      if (!folder) return [];
+      const nested = sdk === "v2" && v1 ? [v1] : [];
+      return [{ ...folder, icon, children: [...folder.children, ...nested] }];
+    }),
+  ];
 }
 
 function sdkFolder(
   nav: LiveNav,
   sdk: string,
   name: string,
-  defaultOpen: boolean,
 ): PageTree.Folder | undefined {
   const nodes = nav.reference[sdk];
   if (!nodes?.length) return undefined;
   const [first, ...rest] = nodes;
-  const index =
+  const children =
     first.type === "page" && first.url === `/reference/${sdk}`
-      ? first
-      : undefined;
-  return {
-    type: "folder",
-    name,
-    defaultOpen,
-    index,
-    children: index ? rest : nodes,
-  };
+      ? [{ ...first, name: "Overview" }, ...rest]
+      : nodes;
+  return { type: "folder", name, children };
 }
 
 function dropEmptySections(nodes: PageTree.Node[]): PageTree.Node[] {

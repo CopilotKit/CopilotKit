@@ -2,7 +2,7 @@
 
 Shape output so a reader with ADHD can act on it: next action first, numbered steps, lists capped at 5, no preamble, a visible win at the end.
 
-Vendored from [ayghri/i-have-adhd](https://github.com/ayghri/i-have-adhd) (MIT). The `docs` skill loads it as a writing filter for documentation pages.
+Vendored from [ayghri/i-have-adhd](https://github.com/ayghri/i-have-adhd) (MIT). The `write-cpk-docs` skill loads it as a writing filter for documentation pages.
 
 ## What it does
 

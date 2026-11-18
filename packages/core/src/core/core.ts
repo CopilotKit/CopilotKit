@@ -187,6 +187,13 @@ export enum CopilotKitCoreErrorCode {
   AGENT_CONNECT_FAILED = "agent_connect_failed",
   AGENT_RUN_FAILED = "agent_run_failed",
   AGENT_RUN_FAILED_EVENT = "agent_run_failed_event",
+  /**
+   * An agent emitted RUN_ERROR. `context.phase` (`RunErrorPhase`) is
+   * `"replay"` when the error belongs to stored thread history replayed on
+   * connect, `"live"` when the run is happening now, and `"unknown"` when the
+   * transport cannot tell. To hide failures from history, skip only
+   * `"replay"`: an `"unknown"` error may be a live failure.
+   */
   AGENT_RUN_ERROR_EVENT = "agent_run_error_event",
   TOOL_ARGUMENT_PARSE_FAILED = "tool_argument_parse_failed",
   TOOL_HANDLER_FAILED = "tool_handler_failed",
@@ -487,7 +494,9 @@ export interface CopilotKitCoreFriendsAccess {
 
   // Internal methods
   buildFrontendTools(agentId?: string): import("@ag-ui/client").Tool[];
-  getContextForAgent(agentId?: string): Context[];
+  getContextForAgent(agentId?: string, threadId?: string): Context[];
+  /** Drop the context entries scoped to a deleted conversation. */
+  removeThreadContext(agentId: string, threadId: string): void;
   getPropertiesForAgent(agentId?: string): Record<string, unknown>;
   getAgent(id: string): AbstractAgent | undefined;
   /**
@@ -514,6 +523,7 @@ export interface CopilotKitCoreFriendsAccess {
   readonly suggestionEngine: {
     clearSuggestions(agentId: string): void;
     reloadSuggestions(agentId: string): void;
+    syncThread(agentId: string): void;
   };
 
   /**
@@ -1532,16 +1542,32 @@ export class CopilotKitCore {
     return this.contextStore.addContext(context);
   }
 
+  /**
+   * Create or replace the context entry stored under a stable `id`. Use it
+   * for state that is reported repeatedly (an MCP App's model context) so
+   * every report replaces the previous one instead of piling up. Pass
+   * `threadId` to keep the entry to one conversation.
+   */
+  upsertContext(id: string, context: ScopedContext): void {
+    this.contextStore.upsertContext(id, context);
+  }
+
   removeContext(id: string): void {
     this.contextStore.removeContext(id);
   }
 
   /**
-   * Build the context array for a run of the given agent, dropping entries
-   * scoped to other agents and stripping the scoping metadata.
+   * Build the context array for a run of the given agent in the given thread,
+   * dropping entries scoped to other agents or threads and stripping the
+   * scoping metadata.
    */
-  getContextForAgent(agentId?: string): Context[] {
-    return this.contextStore.getContextForAgent(agentId);
+  getContextForAgent(agentId?: string, threadId?: string): Context[] {
+    return this.contextStore.getContextForAgent(agentId, threadId);
+  }
+
+  /** @internal Called when a registered thread store reports a deletion. */
+  protected removeThreadContext(agentId: string, threadId: string): void {
+    this.contextStore.removeThreadContext(agentId, threadId);
   }
 
   /**

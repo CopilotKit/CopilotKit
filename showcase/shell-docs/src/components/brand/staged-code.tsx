@@ -11,7 +11,7 @@ import { cn } from "@/lib/cn";
 import {
   CODE_TABS_WINDOW,
   STAGE_WINDOW,
-  Stage,
+  CodeFrame,
   UNTITLED_VIEWPORT,
   isCommandLang,
 } from "./stage";
@@ -50,9 +50,9 @@ export function StagedPre({
   );
   if (onStage) return block;
   return (
-    <Stage compact={isCommandLang(lang)} className="my-6">
+    <CodeFrame compact={isCommandLang(lang)} className="my-6">
       {block}
-    </Stage>
+    </CodeFrame>
   );
 }
 
@@ -69,9 +69,9 @@ export function CodeTabsStage({
   compact?: boolean;
 }) {
   return (
-    <Stage compact={compact} className="my-6">
+    <CodeFrame compact={compact} className="my-6">
       <OnStage value>{children}</OnStage>
-    </Stage>
+    </CodeFrame>
   );
 }
 

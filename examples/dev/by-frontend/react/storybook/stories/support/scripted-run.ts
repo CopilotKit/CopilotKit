@@ -20,6 +20,7 @@ interface ScriptCall {
 
 type ScriptStep =
   | { kind: "text"; id: string; text: string }
+  | { kind: "think"; id: string; text: string }
   | { kind: "tool"; call: ScriptCall };
 
 export interface ScriptedRun {
@@ -29,6 +30,13 @@ export interface ScriptedRun {
 
 const say = (id: string, text: string): ScriptStep => ({
   kind: "text",
+  id,
+  text,
+});
+
+/** A reasoning message: thinking, which the chat shows as "Thought for 3s". */
+const think = (id: string, text: string): ScriptStep => ({
+  kind: "think",
   id,
   text,
 });
@@ -163,6 +171,79 @@ export const pricingExperimentRun: ScriptedRun = {
   ],
 };
 
+/**
+ * A docs agent that thinks between every burst of reading, and thinks three
+ * more times after its last search. The shape the docs chat produces, and the
+ * one that used to leave a stack of "Thought for 2 seconds" lines behind.
+ */
+export const quickstartResearchRun: ScriptedRun = {
+  question: "Build my quickstart.",
+  steps: [
+    think(
+      "qs-t1",
+      "Vue with an AG2 backend, a new app, chat and generative UI. I should check what the Vue quickstart covers before writing anything.",
+    ),
+    call(
+      "qs-c1",
+      "search_docs",
+      { query: "Vue quickstart new app" },
+      "4 pages: /vue, /vue/quickstart, /integrations/ag2/quickstart, /frontends/vue/generative-ui/tool-based",
+      900,
+    ),
+    call(
+      "qs-c2",
+      "search_docs",
+      { query: "AG2 generative UI Vue" },
+      "2 pages: /ag2/backend/ag-ui, /ag2/quickstart",
+      700,
+    ),
+    call(
+      "qs-c3",
+      "read_page",
+      { path: "/integrations/ag2/quickstart" },
+      "Expose the agent with AG2's AGUIStream (AG2 1.1.2 or newer) at an HTTP endpoint such as /chat.",
+      800,
+    ),
+    call(
+      "qs-c4",
+      "read_page",
+      { path: "/frontends/vue/generative-ui/tool-based" },
+      "Register a Vue component as a tool renderer with useComponent.",
+      700,
+    ),
+    call(
+      "qs-c5",
+      "read_page",
+      { path: "/vue" },
+      "npm create vue@latest, then install @copilotkit/vue and @copilotkit/runtime.",
+      800,
+    ),
+    think(
+      "qs-t2",
+      "AG2 serves AG-UI itself, so the runtime registers it as an HttpAgent rather than wrapping it.",
+    ),
+    call(
+      "qs-c6",
+      "read_page",
+      { path: "/ag2/backend/ag-ui" },
+      "Register the AG2 endpoint in Copilot Runtime with an HttpAgent.",
+      700,
+    ),
+    think(
+      "qs-t3",
+      "The stylesheet import is easy to miss; it belongs in src/main.ts next to the provider.",
+    ),
+    think(
+      "qs-t4",
+      "Three steps reads right: create the app, serve the agent, connect them. Generative UI folds into step three.",
+    ),
+    say(
+      "qs-answer",
+      'I\'ll create a new Vue app, connect its chat to an AG2 agent over AG-UI, and add a Vue component as a generative UI tool. "Copy prompt" hands the guide to your coding agent.',
+    ),
+  ],
+};
+
 const LEAD_MS = 600;
 const GAP_MS = 220;
 const WORD_MS = 30;
@@ -173,7 +254,7 @@ function schedule(steps: ScriptStep[]) {
   let cursor = LEAD_MS;
   const timed = steps.map((step) => {
     const duration =
-      step.kind === "text" ? words(step.text).length * WORD_MS : step.call.ms;
+      step.kind === "tool" ? step.call.ms : words(step.text).length * WORD_MS;
     const entry = { step, start: cursor, end: cursor + duration };
     cursor = entry.end + GAP_MS;
     return entry;
@@ -193,16 +274,17 @@ function messagesAt(
   for (const { step, start, end } of timed) {
     if (start > t) break;
     const finished = t >= end;
-    if (step.kind === "text") {
+    if (step.kind === "text" || step.kind === "think") {
       const all = words(step.text);
       const shown = finished
         ? all.length
         : Math.max(1, Math.floor((t - start) / WORD_MS));
-      messages.push({
-        id: step.id,
-        role: "assistant",
-        content: all.slice(0, shown).join(""),
-      });
+      const content = all.slice(0, shown).join("");
+      messages.push(
+        step.kind === "think"
+          ? { id: step.id, role: "reasoning", content }
+          : { id: step.id, role: "assistant", content },
+      );
       continue;
     }
     const { id, name, args, result, error } = step.call;

@@ -649,7 +649,7 @@ function StackRow({
 }) {
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
-      <PopoverTrigger className="flex w-full items-center gap-3 rounded-[11px] px-2.5 py-2 text-start outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-fd-ring data-[popup-open]:bg-accent">
+      <PopoverTrigger className="flex w-full items-center gap-3 rounded-[20px] px-2.5 py-2 text-start outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-fd-ring data-[popup-open]:bg-accent">
         <span className="flex size-5 shrink-0 items-center justify-center">
           {icon}
         </span>
@@ -711,8 +711,10 @@ export function StackRows({
   const fw = frameworkById(framework);
   return (
     // The website's white container and soft lift set the stack apart from the
-    // sidebar's grey ground.
-    <div className="flex flex-col rounded-xl border bg-card p-1 text-sm shadow-lift">
+    // sidebar's grey ground; at night a raised ink, since
+    // the card color is darker than the frame. It takes the page panel's 24px
+    // corners, and starts level with it (theme.css sizes the logo row).
+    <div className="flex flex-col rounded-[24px] border bg-card p-1 text-sm shadow-lift dark:bg-[#1e1e2a]">
       <StackRow
         label="Frontend"
         value={frontendById(frontend)?.name ?? ""}

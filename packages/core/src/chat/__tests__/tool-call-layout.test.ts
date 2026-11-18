@@ -55,6 +55,12 @@ const say = (id: string, content: string): Message => ({
   content,
 });
 
+const think = (id: string, content: string): Message => ({
+  id,
+  role: "reasoning",
+  content,
+});
+
 const entry = (
   id: string,
   name = "run_command",
@@ -210,6 +216,48 @@ describe("getToolCallLayouts", () => {
 });
 
 describe("getTurnWork", () => {
+  it("keeps thinking that trails the last call inside the work", () => {
+    const messages = [
+      question,
+      think("r1", "Where do I look?"),
+      callMessage("a"),
+      result("a"),
+      think("r2", "That settles the endpoint."),
+      think("r3", "Three steps reads right."),
+      say("t2", "The answer."),
+    ];
+    const turn = getTurnWork(messages, layoutsOf(messages)).get("u1")!;
+    // Without the trailing reach, r2 and r3 would fall outside the work and
+    // nothing would ever fold them away.
+    expect([...turn.workMessageIds]).toEqual(["r1", "m-a", "r2", "r3"]);
+    expect(turn.reasoningIds).toEqual(["r1", "r2", "r3"]);
+  });
+
+  it("stops the work at the text that answers", () => {
+    const messages = [
+      question,
+      callMessage("a"),
+      result("a"),
+      say("t2", "The answer."),
+      think("r9", "An afterthought."),
+    ];
+    const turn = getTurnWork(messages, layoutsOf(messages)).get("u1")!;
+    expect([...turn.workMessageIds]).toEqual(["m-a"]);
+    expect(turn.reasoningIds).toEqual([]);
+  });
+
+  it("leaves the thinking of a reply that called no tools out of the work", () => {
+    // A reply with no calls has no work summary to unfold its thinking.
+    const messages = [
+      question,
+      think("r1", "No lookup needed."),
+      say("t2", "42."),
+    ];
+    const turn = getTurnWork(messages, layoutsOf(messages)).get("u1")!;
+    expect([...turn.workMessageIds]).toEqual([]);
+    expect(turn.reasoningIds).toEqual([]);
+  });
+
   it("treats everything up to the last call as work, and the rest as the reply", () => {
     const messages = [
       question,
@@ -378,6 +426,41 @@ describe("turn open state", () => {
       ["answer", true],
     ]);
     expect([...workTextOpen]).toEqual([["t1", true]]);
+  });
+
+  it("shows only the latest thought while the agent works on the reply", () => {
+    const messages = [
+      question,
+      think("r1", "Where do I look?"),
+      callMessage("a"),
+      result("a"),
+      think("r2", "That settles the endpoint."),
+      think("r3", "Three steps reads right."),
+    ];
+    const turns = () => getTurnWork(messages, layoutsOf(messages)).values();
+    const working = getWorkOpenState(turns(), state({ latestTurnKey: "u1" }));
+    expect([...working.reasoningOpen]).toEqual([
+      ["r1", false],
+      ["r2", false],
+      ["r3", true],
+    ]);
+
+    // Once the reply is done, the thinking folds with the rest of the work,
+    // and opening the work brings every thought back.
+    const done = getWorkOpenState(
+      turns(),
+      state({ latestTurnKey: "u1", isRunning: false }),
+    );
+    expect([...done.reasoningOpen].every(([, open]) => !open)).toBe(true);
+    const opened = getWorkOpenState(
+      turns(),
+      state({
+        latestTurnKey: "u1",
+        isRunning: false,
+        toggledTurns: new Map([["u1", true]]),
+      }),
+    );
+    expect([...opened.reasoningOpen].every(([, open]) => open)).toBe(true);
   });
 });
 

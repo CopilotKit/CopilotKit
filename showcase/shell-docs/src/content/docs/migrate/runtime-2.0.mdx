@@ -209,6 +209,43 @@ methods above. The `LOG_LEVEL` environment variable still sets the log level.
 In 2.0 you can also pass your own logger, for example pino, as `logger`. See
 [Sending logs to your own logger](/backend/copilot-runtime#sending-logs-to-your-own-logger).
 
+## Thread names
+
+With Intelligence, the runtime gives each new thread a name. Before 1.88.0, it
+ran a copy of your agent to write the name, and that copy could run your
+agent's server-side tools again. Since 1.88.0, and in 2.0, the runtime never
+runs your agent to name a thread:
+
+- `generateThreadNames: true`, the default: the name is the first user message,
+  cut to 8 words. No model runs.
+- `generateThreadNames: { model }`: the runtime calls the model once, with no
+  tools, for a 2 to 5 word title. If the call fails, it uses the first user
+  message.
+- `generateThreadNames: false`: the runtime does not name threads.
+
+If you set nothing, a new thread gets the first user message as its name, not
+a summary. To get summary titles, give the runtime a model.
+
+In 1.x, `model` takes a `"provider/model"` string or an AI SDK model, and an
+optional `apiKey`. In 2.0, `model` takes a TanStack AI text adapter, as
+`BuiltInAgent` does. The adapter holds its own API key, so remove `apiKey`:
+
+```ts
+import { CopilotKitRuntime } from "@copilotkit/runtime";
+import { openaiText } from "@tanstack/ai-openai";
+// Your agents, Intelligence client, and user lookup from the quickstart.
+import { agents, intelligence, resolveUser } from "./copilotkit";
+
+const runtime = new CopilotKitRuntime({
+  agents,
+  intelligence,
+  identifyUser: async (request) => resolveUser(request),
+  generateThreadNames: { model: openaiText("gpt-5-mini") },
+});
+```
+
+See [Threads](/intelligence/threads-explained#auto-naming).
+
 ## Built-in Agent
 
 In 2.0, `BuiltInAgent` imports from `@copilotkit/runtime/agent`, and it calls the

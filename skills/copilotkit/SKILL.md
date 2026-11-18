@@ -73,7 +73,7 @@ Worth knowing so a search or a fetch has somewhere to land. Each link is a docs 
 - **Getting started** — [quickstart](/quickstart), and [the CLI](/cli) for the
   CLI-driven path
 - **Frontend** — [frontend tools](/frontend-tools), [human-in-the-loop](/human-in-the-loop),
-  [prebuilt components](/prebuilt-components), [styling](/custom-look-and-feel/css),
+  [prebuilt components](/prebuilt-components/chat), [styling](/custom-look-and-feel/css),
   [attachments](/multimodal-attachments), [voice](/voice)
 - **Runtime** — [the runtime](/backend/copilot-runtime),
   [HTTP endpoints](/backend/runtime-endpoints), [runners](/backend/agent-runner),

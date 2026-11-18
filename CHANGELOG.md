@@ -16,6 +16,113 @@ releases have no changelog: the per-package files from the changesets era stoppe
 at `1.55.2` while the lane shipped `1.69.3`, and they are recoverable from git
 history (for example `git show v1.69.3:packages/core/CHANGELOG.md`).
 
+## 1.89.0 - 2026-11-17
+
+This release improves performance and reliability for long Intelligence threads, adds support for distinct agent display names, and expands MCP Apps with model-context sharing.
+
+## Features
+
+- **Separate agent IDs and display names** (#7868): Built-in and proxied agents can now have an optional `name` display label that differs from their registry ID. The registry ID is still used for routing, and a blank or whitespace-only name falls back to the agent ID. Display names are reflected in runtime information, and existing agent instances are preserved when names are refreshed.
+
+- **MCP Apps model-context sharing** (#7811): MCP App widgets can now report their state (a selection, active filters, a cart) to the model via `ui/update-model-context` in React, Vue, and Angular. The shared state is scoped to the agent and conversation, included in the next run's context, and retained in memory while the page is open. This is **off by default** and opt-in:
+  - React/Vue: `mcpApps={{ modelContext: true }}` on `CopilotKitProvider`
+  - Angular: `provideMCPApps({ modelContext: true })`
+
+  While disabled, the host does not announce the capability and answers `-32601 Method not found`. Because any MCP server the agent uses can write to this context, enable it only for trusted servers.
+
+  This also introduces several additions to the `@copilotkit/core` public API: `upsertContext(id, context)` for atomic create-or-replace, an optional `ScopedContext.threadId` to scope an entry to one conversation, a `threadId` argument on `getContextForAgent`, and `subscribeToThreadDeletions` on thread stores. Generated suggestions now stay tied to the conversation they were made for.
+
+## Fixes
+
+- **Faster loading of long Intelligence threads** (#8247): Replayed history is now held until replay completes and applied in a single burst rather than one websocket frame at a time. Opening a 32,819-event thread previously froze the tab for minutes; it now appears in one update a few seconds after the click. This also brings a number of chat rendering fixes, mostly in Safari:
+  - The loading spinner's arc now spins inside the icon, fixing an off-center wobble in Safari.
+  - Chat rows that render nothing now take 0px instead of a 100px placeholder, shrinking tool-heavy histories dramatically.
+  - Finished messages render in static mode with no empty first frame; only the message being written uses streaming Markdown.
+  - Overscan now reaches at least a viewport's height, fixing scroll jumps when scrolling up through long threads.
+  - Scroll corrections are held while the reader is scrolling and settle smoothly once scrolling stops, eliminating scroll-position jumps.
+
+- **Intelligence runner durability and replay handling** (#7826):
+  - Healthy but slow gateways no longer time out runs. The 60s durability deadline now counts from the last acknowledged batch rather than when the oldest event was queued.
+  - Per-event queue scans have been removed to avoid quadratic work on long runs, and runs are no longer kept fully in memory.
+  - The pending-event queue is now bounded by a configurable `maxPendingEvents` (default 50,000); exceeding it fails the run with `RunnerEventQueueFullError`.
+  - A new `onEventDeliveryStats` runtime option reports acknowledgement latency, pending event count, and the age of the oldest pending event per batch.
+  - Live runs now settle when their replay fails, producing a typed `IntelligenceReplayFailedError` (`code: "INTELLIGENCE_REPLAY_FAILED"`) instead of hanging, and restore the reconnect cursor so the next connect doesn't skip undelivered history.
+  - `onError` now distinguishes replayed run errors from live ones via `context.phase` (`"replay"`, `"live"`, or `"unknown"`), so apps no longer show stale errors from an old run's history. `IntelligenceReplayFailedError` and `RunErrorPhase` are re-exported from `@copilotkit/react-core`.
+  - A2UI renderers (React, Vue, Angular) now pass a copy of operation payloads to the processor, so form input is no longer written back into conversation history.
+
+- **Keep all tool calls when merging duplicate messages** (#8408): When two copies of an assistant message share an id and both carry tool calls, the chat view now keeps the calls from both copies instead of dropping those held only by the earlier copy. A blank copy still never replaces a populated one.
+
+- **Credentialed CORS preflights** (#8011): When credentials are enabled and an origin is explicitly allowed, the runtime now echoes the browser's `Access-Control-Request-Headers` on preflight responses instead of answering with `*`, which the Fetch spec disallows for credentialed requests. This unblocks the cookie-auth setup (`credentials: true` with an explicit origin) for the Hono endpoint. A configured `allowHeaders` still takes precedence, and non-credentialed and wildcard-reflection cases keep `*`.
+
+## 1.88.0 - 2026-11-13
+
+This release adds server-side agent runs through Intelligence, richer Learning capture, and several fixes to chat rendering and tool-call handling. It also includes one breaking change to thread naming.
+
+## Breaking Changes
+
+### Thread naming no longer runs your agent (#8377)
+
+Thread naming (`generateThreadNames`, on by default) previously ran a clone of your app's agent to write a title. Because `runAgent({ tools: [] })` only removes frontend tools, agents that bind their own server-side tools (such as LangGraph) would often repeat the user's task during the title run, call write tools, and loop to the recursion limit — retried up to three times per new thread.
+
+The runtime now never runs your agent to name a thread:
+
+| `generateThreadNames` | Before                          | After                                                                                                                                                    |
+| --------------------- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `true` (default)      | Agent clone runs, up to 3 times | Title is the first user message, cut to 8 words. No model runs.                                                                                          |
+| `{ model, apiKey? }`  | (did not exist)                 | One direct `generateText` call with no tools, no retries, and a 15s timeout. Falls back to the first user message if it fails or returns no valid title. |
+| `false`               | No naming                       | No naming                                                                                                                                                |
+
+**Migration:** Apps that set nothing now get the first user message as the title instead of a model-generated summary. To restore summary titles, set `generateThreadNames: { model: "openai/gpt-5-mini" }`. The `model` option accepts a `"provider/model"` string or an AI SDK `LanguageModel`, and a new public type `ThreadNameGenerationConfig` is exported.
+
+Messages with attachments are now named from their text parts only, so file URLs and base64 data no longer leak into titles or title prompts. A thread whose first message has no text is not named.
+
+## Features
+
+### Server-side agent runs with `runAgentInThread` (#8392)
+
+`@copilotkit/runtime/v2` now exports `runAgentInThread`, which runs an agent in an Intelligence Thread from the server with no client attached — for scheduled runs, agent hand-offs, and runs that resume once a person answers. The run is stored in the Thread exactly as a browser's run is, so the person sees it when they open the Thread.
+
+```ts
+const { newMessages, stopped } = await runAgentInThread({
+  runtime, // a CopilotRuntime configured with intelligence, or { intelligence }
+  agent: assistant.clone(),
+  agentId: "assistant",
+  threadId,
+  userId,
+  messages: [{ id: randomUUID(), role: "user", content: "Summarize today" }],
+  signal: AbortSignal.timeout(5 * 60_000),
+});
+```
+
+It creates the Thread if needed, takes and renews its lock, reads the Thread's history and stored state once the lock is held, runs the agent, stores only messages the Thread does not already hold, and releases the lock on every path. A busy Thread rejects with `PlatformRequestError` 409; a failed run, a lost lock, or a stop that never ends rejects with a `ThreadRunError`. Options carry tools, context, forwardedProps, resume, a Learning Container, analytics context, a request id, an `AgentSubscriber` for live events, and `onLockLost`. With only `{ intelligence }`, it needs no runtime or runner wiring, so a job worker can run without them.
+
+Managed Channel runs now share the same lock lifecycle, which also fixes a lock leak: attaching Channel Memory now happens inside the locked section, so a Memory setup error releases the lock instead of leaving it to expire.
+
+### Richer Learning capture (#8378)
+
+The Learning collector gains three additions:
+
+- **Field labels on edits.** `input` events now carry `target.label`, the field's caption from `aria-labelledby`, `aria-label`, or its `<label>` elements, cleaned the same way click labels are. It never comes from the value, placeholder, `title`, or the field's own text. A select adds its chosen options (`Deal stage: Negotiation`), so Learning can tell which fields a person corrects repeatedly without capturing typed text.
+- **SDK and app version.** The start `page` event now carries `sdkVersion` (set at build time) and `appVersion`, a new option passed through Core on both capture paths.
+- **Page errors.** A new `page.error` event captures `uncaught` errors, promise `rejection`s, failed `resource` loads, `invalid` native form validation (with the field label, never the value), and `alert` text. Messages and alert text are cleaned like labels and capped. Each distinct error is sent at its 1st, 10th, 100th, … occurrence, with at most 50 per session. Error capture is on by default (`capture.errors: false` disables it); alert text is opt-in with `capture.alerts: true`, since it can contain page content such as names. The gzip size budget rises from 10 KiB to 11 KiB.
+
+Note: `page.error` is now a reserved built-in name, so `emit("page.error")` from app code is refused.
+
+## Fixes
+
+- **core:** Intelligence channel rejoins now resume from the confirmed cursor instead of replaying the run from the start (#8394). Previously, a `phx_error` or socket reconnect re-sent static join params, causing the gateway to replay from `RUN_STARTED`, failing verification with `Cannot send 'RUN_STARTED' while a run is still active` and moving the saved cursor backward. Join params are now evaluated per rejoin and use connect mode with the latest cursor once a durable cursor exists, the cursor never moves backward within a run, and already-delivered events are dropped before reaching verification or subscribers.
+- **core:** Calls to a frontend tool that was advertised at the start of a run but unregistered before the result is processed (for example, when its component unmounts mid-run) are now answered when the run finishes cleanly (#8010). Such a call receives a `Tool not found: <name>` error result and a `TOOL_NOT_FOUND` event, so the thread can continue instead of every later message failing with a missing tool result. This applies only to names the client advertised for that run, on a cleanly finished run, when nothing else handles the call and it has no real result; interrupted, cancelled, and failed runs leave their calls open, and a `*` wildcard tool still takes precedence.
+- **react-core:** The chat virtualizer now keys rows by row key instead of by index (#8188). With `groupMessages` or `transformMessages`, indexes shift as tool calls fold together or stand-ins drop out, which meant cached row heights belonged to the wrong rows and the view jumped. Row heights now stay with their rows, and rows that leave the list are dropped from the estimate.
+- **react-core:** A reply's trailing thinking now folds into its work summary (#8381). Reasoning messages that came after a reply's last tool call were left outside the work phase, so a stack of `Thought for 2 seconds` lines stayed on screen permanently. Work now reaches past the last call over trailing thinking, while a single live reasoning line shimmers during the turn and the full trace returns when the folded work summary is expanded. Replies with no tool calls keep their thinking visible, unchanged.
+
+## 1.87.1 - 2026-11-12
+
+This patch release fixes A2UI rendering for catalogs that declare protocol version 1.0 when streaming Direct JSON.
+
+## Fixes
+
+- **Fix A2UI 1.0 Direct JSON rendering** (#8370): Bumped `@ag-ui/a2ui-middleware` to `0.0.16` in `@copilotkit/runtime` and `@copilotkit/shared`. Previously, Direct JSON snapshots were always stamped as `v0.9`, causing surfaces whose catalog declared `protocolVersion: "1.0"` to fail with a version mismatch error (e.g. _"specification version (1.0) does not match message protocol version (v0.9)"_). Snapshots are now stamped with the version declared by the catalog. The Express transport was already correct, and `v0.9` catalogs continue to behave as before.
+
 ## 1.87.0 - 2026-11-11
 
 This release adds support for rendering A2UI 1.0 operations alongside the existing v0.9 protocol, so agents emitting native 1.0 surfaces (such as those from ADK) now render correctly without breaking existing integrations.

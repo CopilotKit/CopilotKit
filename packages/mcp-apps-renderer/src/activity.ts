@@ -21,3 +21,4 @@ export type {
   McpAppHostOptions as ɵMcpAppHostOptions,
   McpAppsRendererImporter as ɵMcpAppsRendererImporter,
 } from "./host";
+export * from "./model-context";

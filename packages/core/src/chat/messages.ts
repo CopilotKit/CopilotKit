@@ -3,16 +3,18 @@ import type { AssistantMessage, Message, ToolCall } from "@ag-ui/core";
 /**
  * Collapses tool calls that share an id, keeping first-seen order.
  *
- * AG-UI's TOOL_CALL_START handler appends to the parent message's `toolCalls`
- * without checking whether that id is already present. When a start event is
+ * Older AG-UI clients appended to the parent message's `toolCalls` without
+ * checking whether that id was already present. When a start event was
  * applied twice (the human-in-the-loop flow does this when the run syncs after
- * `respond()`), the message carries the same call twice. The second copy has
+ * `respond()`), the message carried the same call twice. The second copy has
  * empty `arguments`, because a start event carries none. The args arrive later
  * as TOOL_CALL_ARGS deltas addressed to the first copy.
  *
  * Left alone, the same tool call renders twice: once populated and once blank.
  * The blank copy is the redundant one, so the copy that carries arguments wins,
- * whatever order the two arrive in.
+ * whatever order the two arrive in. When both copies carry arguments, the
+ * first one stays: the deltas went to it, and the later copy can hold stale
+ * partial arguments.
  *
  * @param toolCalls - The tool calls of one assistant message.
  * @returns The same array when no id repeats, so memoized consumers keep a
@@ -36,10 +38,38 @@ function dedupeToolCalls(toolCalls: ToolCall[]) {
 }
 
 /**
+ * Unites the tool calls of two snapshots of the same assistant message,
+ * keeping first-seen order. Each snapshot can hold only some of the calls, so
+ * neither list may replace the other.
+ *
+ * For an id present in both, the later snapshot wins when it carries
+ * arguments: it is the newer streaming update. A blank later copy never
+ * replaces a populated one.
+ */
+function mergeToolCalls(earlier: ToolCall[], later: ToolCall[]) {
+  const byId = new Map(earlier.map((toolCall) => [toolCall.id, toolCall]));
+  for (const toolCall of later) {
+    const existing = byId.get(toolCall.id);
+    if (
+      !existing ||
+      toolCall.function.arguments ||
+      !existing.function.arguments
+    ) {
+      byId.set(toolCall.id, toolCall);
+    }
+  }
+  return [...byId.values()];
+}
+
+/**
  * Merges two snapshots of the same assistant message.
  *
  * - Empty `content` means a streaming update cleared the field, so the earlier
  *   non-empty content is kept.
+ * - When both snapshots carry tool calls, they are united by id: a snapshot
+ *   can hold only some of the calls. Older AG-UI clients created a second
+ *   assistant message with the same id when a tool result arrived between two
+ *   tool-call starts of one parent.
  * - `toolCalls: undefined` means the later chunk had no tool-call activity, so
  *   the earlier tool calls are kept. An explicit `[]` is kept as-is.
  * - Fields that only the earlier snapshot has are kept.
@@ -49,7 +79,15 @@ function mergeAssistantMessages(
   message: AssistantMessage,
 ) {
   const content = message.content || existing.content;
-  const toolCalls = message.toolCalls ?? existing.toolCalls;
+  // Each list is collapsed on its own first, so duplicates within one
+  // snapshot keep their first populated copy.
+  const toolCalls =
+    message.toolCalls?.length && existing.toolCalls?.length
+      ? mergeToolCalls(
+          dedupeToolCalls(existing.toolCalls),
+          dedupeToolCalls(message.toolCalls),
+        )
+      : (message.toolCalls ?? existing.toolCalls);
   return {
     ...existing,
     ...message,
@@ -76,8 +114,9 @@ function withDedupedToolCalls(message: AssistantMessage) {
  * appears:
  *
  * - **Assistant messages** are merged. Later fields win, but empty `content`
- *   falls back to earlier non-empty content, and `toolCalls: undefined` falls
- *   back to earlier tool calls (an explicit `[]` is kept).
+ *   falls back to earlier non-empty content. Tool calls from every copy are
+ *   kept, united by id, and `toolCalls: undefined` falls back to earlier tool
+ *   calls (an explicit `[]` is kept).
  * - **Tool calls** on an assistant message are de-duplicated by id, also
  *   when the message itself is not repeated. The copy that has arguments
  *   wins, and the first-seen order is kept.

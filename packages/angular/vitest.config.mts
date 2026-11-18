@@ -8,7 +8,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const r = (...p: string[]) => resolve(__dirname, ...p);
 
 export default defineConfig(({ mode }) => ({
-  plugins: [angular()],
+  plugins: [angular({ tsconfig: r("a11y/tsconfig.vitest.json") })],
   resolve: {
     alias: {
       "@copilotkit/angular/generative-ui": r("src/generative-ui/index.ts"),
@@ -32,7 +32,10 @@ export default defineConfig(({ mode }) => ({
     // inspector.spec.ts switches back to localhost for its own tests.
     environmentOptions: { jsdom: { url: "http://angular-tests.invalid/" } },
     setupFiles: [r("src/test-setup.ts")], // Use absolute path
-    include: ["src/**/*.{spec,test}.{ts,tsx}"],
+    include: [
+      "a11y/__tests__/**/*.test.{ts,tsx}",
+      "src/**/*.{spec,test}.{ts,tsx}",
+    ],
     pool: "threads",
     poolOptions: { threads: { singleThread: true } },
     reporters: [["default", { summary: false }]],

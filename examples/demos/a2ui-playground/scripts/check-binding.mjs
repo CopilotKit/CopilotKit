@@ -6,9 +6,11 @@
  * reflects the edit. Also screenshots open popovers. (TextField is a standard
  * Gen UI 2.0 component now, with no catalog page of its own.)
  */
+import { mkdirSync } from "node:fs";
 import puppeteer from "puppeteer-core";
 import { openComponent } from "./lib-components.mjs";
 const [, , outDir = "/tmp/a2ui-playground-shots"] = process.argv;
+mkdirSync(outDir, { recursive: true });
 const browser = await puppeteer.launch({
   executablePath:
     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
@@ -99,10 +101,11 @@ await page.click('[data-preview="DatePicker"] button');
 await sleep(500);
 await page.screenshot({ path: `${outDir}/catalog-inputs-datepicker.png` });
 
+const passed = ok && results.combobox === "Tokyo";
 console.log(
   JSON.stringify(
     {
-      ok: ok && results.combobox === "Tokyo",
+      ok: passed,
       results,
       errors: errors.slice(0, 10),
     },
@@ -111,4 +114,4 @@ console.log(
   ),
 );
 await browser.close();
-process.exit(ok ? 0 : 1);
+process.exit(passed ? 0 : 1);

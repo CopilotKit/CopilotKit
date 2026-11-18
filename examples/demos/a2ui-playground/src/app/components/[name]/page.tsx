@@ -33,6 +33,12 @@ import { StandardProps } from "@/components/docs/standard-props";
 import { INTRINSIC } from "@/components/docs/tile-sizes";
 import { highlightCode } from "@/components/start/highlight";
 
+/**
+ * Every component page is built ahead of time, so an unknown name is the site's own 404. Rendered on demand
+ * instead, it would answer with an empty error shell that misses the theme and inherits the catalog's title.
+ */
+export const dynamicParams = false;
+
 /** The playground's components, then the Gen UI 2.0 standard ones. Any other name is a 404. */
 export function generateStaticParams() {
   return [...FLAT, ...STANDARD_NAMES].map((name) => ({ name }));
