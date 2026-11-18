@@ -32,6 +32,7 @@ import type {
   ResolvedForwardHeadersPolicy,
 } from "../handlers/header-utils";
 import type { AbstractAgent } from "@ag-ui/client";
+import type { AnyTextAdapter } from "@tanstack/ai";
 import type { MCPClientConfig } from "@ag-ui/mcp-apps-middleware";
 import type { A2UIMiddlewareConfig } from "@ag-ui/a2ui-middleware";
 import { RUNTIME_PACKAGE_VERSION } from "./package-info";
@@ -46,6 +47,7 @@ import { logRuntimeTelemetryDisclosure } from "../telemetry/disclosure";
 import type { TranscriptionService } from "../transcription-service/transcription-service";
 import { DebugEventBus, isDebugEventFeedEnabled } from "./debug-event-bus";
 import type { AgentRunner } from "../runner/agent-runner";
+import type { IntelligenceAgentRunnerOptions } from "../runner/intelligence";
 import { InMemoryAgentRunner } from "../runner/in-memory";
 import { IntelligenceAgentRunner } from "../runner/intelligence";
 import type { CopilotKitIntelligence } from "../intelligence-platform";
@@ -443,6 +445,16 @@ export interface CopilotKitSseRuntimeOptions extends BaseCopilotRuntimeOptions {
   channels?: undefined;
 }
 
+/** Model configuration for {@link CopilotKitIntelligenceRuntimeOptions.generateThreadNames}. */
+export interface ThreadNameGenerationConfig {
+  /**
+   * The model that writes thread titles, as a TanStack AI text adapter, for
+   * example `openaiText("gpt-5-mini")` from `@tanstack/ai-openai`. The adapter
+   * holds its own API key. A small, fast model is enough.
+   */
+  model: AnyTextAdapter;
+}
+
 interface CopilotIntelligenceRuntimeBaseOptions extends BaseCopilotRuntimeOptions {
   /** Configures Intelligence mode for durable threads and realtime events. */
   intelligence: CopilotKitIntelligence;
@@ -451,8 +463,19 @@ interface CopilotIntelligenceRuntimeBaseOptions extends BaseCopilotRuntimeOption
    * @deprecated Configure `getLearningContainerId` on `CopilotKitIntelligence`.
    */
   ɵlearning?: CopilotKitRuntimeLearningConfig;
-  /** Auto-generate short names for newly created threads. */
-  generateThreadNames?: boolean;
+  /**
+   * Names each new thread when its first run creates it.
+   *
+   * - `true` (default): the name is the first user message, cut to 8 words.
+   *   No model runs, and the app's agent does not run.
+   * - `{ model }`: the runtime calls that model once, with no tools, for a
+   *   2 to 5 word title. If the call fails, the first user message is used.
+   * - `false`: threads are not named.
+   *
+   * The runtime never runs the app's agent to name a thread, because the
+   * agent's own server-side tools could run and change app data.
+   */
+  generateThreadNames?: boolean | ThreadNameGenerationConfig;
   /** Max delay (ms) for WebSocket reconnect backoff. @default 10_000 */
   maxReconnectMs?: number;
   /** Max delay (ms) for channel rejoin backoff. @default 30_000 */
@@ -463,6 +486,13 @@ interface CopilotIntelligenceRuntimeBaseOptions extends BaseCopilotRuntimeOption
    * @default 15_000
    */
   heartbeatIntervalMs?: number;
+  /** Called each time Intelligence acknowledges a batch of runner events. */
+  onEventDeliveryStats?: IntelligenceAgentRunnerOptions["onEventDeliveryStats"];
+  /**
+   * Most runner events one run may hold while they wait for Intelligence to
+   * acknowledge them; past it the run fails. @default 50_000
+   */
+  maxPendingEvents?: IntelligenceAgentRunnerOptions["maxPendingEvents"];
   /** Lock TTL in seconds. Clamped to a maximum of 3600 (1 hour). @default 20 */
   lockTtlSeconds?: number;
   /** Custom Redis key prefix for the thread lock. */
@@ -577,7 +607,7 @@ export interface CopilotKitSseRuntimeLike extends CopilotKitRuntimeLike {
 export interface CopilotKitIntelligenceRuntimeLike extends CopilotKitRuntimeLike {
   intelligence: CopilotKitIntelligence;
   identifyUser?: IdentifyUserCallback;
-  generateThreadNames: boolean;
+  generateThreadNames: boolean | ThreadNameGenerationConfig;
   lockTtlSeconds: number;
   lockKeyPrefix?: string;
   lockHeartbeatIntervalSeconds: number;
@@ -764,7 +794,7 @@ export class CopilotKitIntelligenceRuntime
 {
   readonly intelligence: CopilotKitIntelligence;
   readonly identifyUser?: IdentifyUserCallback;
-  readonly generateThreadNames: boolean;
+  readonly generateThreadNames: boolean | ThreadNameGenerationConfig;
   readonly lockTtlSeconds: number;
   readonly lockKeyPrefix?: string;
   readonly lockHeartbeatIntervalSeconds: number;
@@ -884,6 +914,8 @@ export class CopilotKitIntelligenceRuntime
         maxRejoinMs: options.maxRejoinMs,
         heartbeatIntervalMs: options.heartbeatIntervalMs,
         logger: getRuntimeLogger(options),
+        onEventDeliveryStats: options.onEventDeliveryStats,
+        maxPendingEvents: options.maxPendingEvents,
       }),
     );
     this.intelligence = options.intelligence;
@@ -972,8 +1004,8 @@ export interface RuntimeWithDeclaredChannels {
 export interface CopilotKitRuntime extends CopilotKitRuntimeLike {
   /** Telemetry capture bound to this runtime's construction-time identity. */
   telemetry: TelemetryCapture;
-  /** Auto-generate short thread names; `undefined` in SSE mode. */
-  generateThreadNames?: boolean;
+  /** Thread naming configuration; `undefined` in SSE mode. */
+  generateThreadNames?: boolean | ThreadNameGenerationConfig;
   /** Thread lock TTL in seconds; `undefined` in SSE mode. */
   lockTtlSeconds?: number;
   /** Custom Redis key prefix for the thread lock; `undefined` in SSE mode. */
@@ -1077,7 +1109,7 @@ class CopilotRuntimeShim implements CopilotKitRuntime {
     return this.delegate.intelligence;
   }
 
-  get generateThreadNames(): boolean | undefined {
+  get generateThreadNames(): boolean | ThreadNameGenerationConfig | undefined {
     return isIntelligenceRuntime(this.delegate)
       ? this.delegate.generateThreadNames
       : undefined;

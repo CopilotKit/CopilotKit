@@ -1,12 +1,10 @@
 import type { Message, RunAgentInput } from "@ag-ui/client";
 import { getRuntimeLogger } from "../../core/logger";
-import type { CopilotKitIntelligenceRuntimeLike } from "../../core/runtime";
-import {
-  cloneAgentForRequest,
-  configureAgentForRequest,
-} from "../shared/agent-utils";
+import type {
+  CopilotKitIntelligenceRuntimeLike,
+  ThreadNameGenerationConfig,
+} from "../../core/runtime";
 import type { ThreadSummary } from "../../intelligence-platform";
-import { isHandlerResponse } from "../shared/json-response";
 
 const THREAD_NAME_SYSTEM_PROMPT = [
   "You generate short, specific conversation titles.",
@@ -19,34 +17,39 @@ const THREAD_NAME_SYSTEM_PROMPT = [
   "Do not use *, _, #, `, [, ], (, ), !, ~, >, or |.",
   "No trailing punctuation.",
   "No explanations.",
-  "Do not call tools.",
 ].join("\n");
 
 const MAX_TITLE_LENGTH = 80;
 const MAX_TITLE_WORDS = 8;
 const MAX_TRANSCRIPT_MESSAGES = 8;
-const MAX_TITLE_GENERATION_ATTEMPTS = 3;
+const TITLE_MODEL_TIMEOUT_MS = 15_000;
 const FALLBACK_THREAD_TITLE = "Untitled";
 
 interface GenerateThreadNameParams {
   runtime: CopilotKitIntelligenceRuntimeLike;
-  request: Request;
   agentId: string;
   sourceInput: RunAgentInput;
   thread: ThreadSummary;
   userId: string;
 }
 
+/**
+ * Names a new thread. It never runs the app's agent: an agent keeps its own
+ * server-side tools, so a "title" run can repeat the user's task and change
+ * app data (#8375). With a configured model, the runtime makes one direct
+ * model call with no tools. Otherwise, or if that call fails, the name is the
+ * first user message.
+ */
 export async function generateThreadNameForNewThread({
   runtime,
-  request,
   agentId,
   sourceInput,
   thread,
   userId,
 }: GenerateThreadNameParams): Promise<void> {
   const logger = getRuntimeLogger(runtime);
-  if (!runtime.generateThreadNames || hasThreadName(thread.name)) {
+  const config = runtime.generateThreadNames;
+  if (!config || hasThreadName(thread.name)) {
     return;
   }
 
@@ -56,29 +59,19 @@ export async function generateThreadNameForNewThread({
   }
 
   let generatedTitle: string | null = null;
-
-  for (let attempt = 1; attempt <= MAX_TITLE_GENERATION_ATTEMPTS; attempt++) {
+  if (typeof config === "object") {
     try {
-      generatedTitle = await runTitleGenerationAttempt({
-        runtime,
-        request,
-        agentId,
-        threadId: thread.id,
-        prompt,
-      });
-
-      if (generatedTitle) {
-        break;
+      generatedTitle = await generateTitleWithModel(config, prompt);
+      if (!generatedTitle) {
+        logger.warn(
+          { agentId, threadId: thread.id },
+          "Thread name model returned an empty or invalid title",
+        );
       }
-
-      logger.warn(
-        { agentId, attempt, threadId: thread.id },
-        "Thread name generation returned an empty or invalid title",
-      );
     } catch (error) {
       logger.warn(
-        { err: error, agentId, attempt, threadId: thread.id },
-        "Thread name generation attempt failed",
+        { err: error, agentId, threadId: thread.id },
+        "Thread name model call failed",
       );
     }
   }
@@ -94,56 +87,38 @@ export async function generateThreadNameForNewThread({
   });
 }
 
-async function runTitleGenerationAttempt(params: {
-  runtime: CopilotKitIntelligenceRuntimeLike;
-  request: Request;
-  agentId: string;
-  threadId: string;
-  prompt: string;
-}): Promise<string | null> {
-  const { runtime, request, agentId, threadId, prompt } = params;
-  const logger = getRuntimeLogger(runtime);
-  const agent = await cloneAgentForRequest(runtime, agentId, request);
-  if (isHandlerResponse(agent)) {
-    logger.warn(
-      { agentId, threadId },
-      "Skipping thread naming because the agent could not be cloned",
+async function generateTitleWithModel(
+  config: ThreadNameGenerationConfig,
+  prompt: string,
+): Promise<string | null> {
+  // @tanstack/ai is ESM-only, so the CommonJS build cannot require() it. A
+  // literal import() loads it from both builds.
+  const { chat, streamToText } = await import("@tanstack/ai");
+  const abortController = new AbortController();
+  const timeout = setTimeout(
+    () => abortController.abort(),
+    TITLE_MODEL_TIMEOUT_MS,
+  );
+  try {
+    const { text } = await streamToText(
+      chat({
+        adapter: config.model,
+        systemPrompts: [THREAD_NAME_SYSTEM_PROMPT],
+        messages: [{ role: "user", content: prompt }],
+        // A one-off call: it belongs to no conversation.
+        threadId: globalThis.crypto.randomUUID(),
+        // No output cap: a reasoning model (gpt-5-mini) spends a small cap on
+        // reasoning and returns no text. The title is checked and cut anyway.
+        // One call only, with no tools and no retry: on any failure the first
+        // user message names the thread.
+        stream: true,
+        abortController,
+      }),
     );
-    return null;
+    return normalizeGeneratedTitle(text);
+  } finally {
+    clearTimeout(timeout);
   }
-
-  configureAgentForRequest({
-    runtime,
-    request,
-    agentId,
-    agent,
-  });
-
-  const messages: Message[] = [
-    {
-      id: globalThis.crypto.randomUUID(),
-      role: "system",
-      content: THREAD_NAME_SYSTEM_PROMPT,
-    },
-    {
-      id: globalThis.crypto.randomUUID(),
-      role: "user",
-      content: prompt,
-    },
-  ];
-
-  agent.setMessages(messages);
-  agent.setState({});
-  agent.threadId = globalThis.crypto.randomUUID();
-  // Messages and state are picked up from the agent itself (set above);
-  // RunAgentParameters no longer accepts them directly.
-  const { newMessages } = await agent.runAgent({
-    tools: [],
-    context: [],
-    forwardedProps: {},
-  });
-
-  return selectGeneratedTitleFromMessages(newMessages);
 }
 
 function buildThreadTitlePrompt(
@@ -175,20 +150,31 @@ function buildThreadTitlePrompt(
   ].join("\n\n");
 }
 
+/**
+ * Returns the text of a message. For content parts (a message with an
+ * attachment), it keeps only the text parts: images, files, and other binary
+ * parts never go into a title or a title prompt.
+ */
 function stringifyMessageContent(content: Message["content"]): string {
   if (typeof content === "string") {
     return content.trim();
   }
 
-  if (content == null) {
+  if (!Array.isArray(content)) {
     return "";
   }
 
-  try {
-    return JSON.stringify(content).trim();
-  } catch {
-    return "";
-  }
+  return content
+    .map((part: unknown) =>
+      typeof part === "object" &&
+      part !== null &&
+      (part as { type?: unknown }).type === "text" &&
+      typeof (part as { text?: unknown }).text === "string"
+        ? (part as { text: string }).text
+        : "",
+    )
+    .join(" ")
+    .trim();
 }
 
 function normalizeGeneratedTitle(rawTitle: string): string | null {
@@ -267,22 +253,6 @@ function deriveFallbackTitleFromMessages(
   return FALLBACK_THREAD_TITLE;
 }
 
-function selectGeneratedTitleFromMessages(messages: Message[]): string | null {
-  for (let index = messages.length - 1; index >= 0; index--) {
-    const message = messages[index];
-    if (message.role !== "assistant" || typeof message.content !== "string") {
-      continue;
-    }
-
-    const title = normalizeGeneratedTitle(message.content);
-    if (title) {
-      return title;
-    }
-  }
-
-  return null;
-}
-
 function isJsonLike(candidate: string): boolean {
   return (
     (candidate.startsWith("{") && candidate.endsWith("}")) ||
@@ -297,9 +267,8 @@ function hasThreadName(name: string | null | undefined): boolean {
 /** @internal Exported for testing only. */
 export const ɵnormalizeGeneratedTitle = normalizeGeneratedTitle;
 /** @internal Exported for testing only. */
-export const ɵselectGeneratedTitleFromMessages =
-  selectGeneratedTitleFromMessages;
-/** @internal Exported for testing only. */
 export const ɵbuildThreadTitlePrompt = buildThreadTitlePrompt;
 /** @internal Exported for testing only. */
 export const ɵhasThreadName = hasThreadName;
+/** @internal Exported for testing only. */
+export const ɵderiveFallbackTitleFromMessages = deriveFallbackTitleFromMessages;

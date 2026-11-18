@@ -309,8 +309,14 @@ export interface TurnWork {
   key: string;
   /** The first assistant-side message, where the "Worked for" line goes. */
   firstMessageId: string;
-  /** Everything up to and including the last message with a tool call. */
+  /** Everything the reply did before its answer: see {@link getTurnWork}. */
   workMessageIds: ReadonlySet<string>;
+  /**
+   * The reply's reasoning messages, in order. While the agent works, only the
+   * last one shows: thinking is one live line that replaces itself, not a row
+   * per thought. The whole trace comes back when the folded work is opened.
+   */
+  reasoningIds: readonly string[];
   /**
    * The reply's last assistant message, when it has text and is part of the
    * work (it also calls a tool). Its text is the answer, so it stays out.
@@ -326,9 +332,14 @@ const FIRST_TURN_KEY = "start";
 
 /**
  * Finds the working phase of every reply in `rendered`: its messages up to the
- * last one that calls a tool. Text in there was narration. What follows is the
+ * last one that calls a tool, plus the thinking and the silent messages that
+ * trail it. Text in there was narration. The first text after the work is the
  * reply itself. Replies that called no tools are left out, except the latest,
  * which may be about to.
+ *
+ * The trailing part matters: an agent that thinks once more after its last
+ * tool call would otherwise leave those "Thought for 2 seconds" lines outside
+ * the work, where nothing ever folds them away.
  *
  * @param rendered - The messages as the chat renders them, in order.
  * @param layouts - The layouts from `getToolCallLayouts` for the same messages.
@@ -368,6 +379,29 @@ export function getTurnWork(
       if (makesShownCall) lastWork = index;
     });
 
+    // Work runs past the last tool call, over the thinking and the silent
+    // messages that follow it, and stops at the text that answers. Only past
+    // a real call, though: a reply that called nothing has no work summary to
+    // fold into (it would read "Used 0 tools"), so folding its thinking would
+    // put it somewhere the reader can't open.
+    let workEnd = lastWork;
+    for (
+      let index = lastWork + 1;
+      lastWork >= 0 && index < visible.length;
+      index++
+    ) {
+      const message = visible[index]!;
+      const content = message.content;
+      if (
+        message.role === "assistant" &&
+        typeof content === "string" &&
+        content.trim()
+      ) {
+        break;
+      }
+      workEnd = index;
+    }
+
     const first = visible[0];
     if (first && (calls.length > 0 || isLatest)) {
       let lastAssistant = -1;
@@ -377,16 +411,19 @@ export function getTurnWork(
       const replyText = visible[lastAssistant]?.content;
       const endsWithWork =
         lastAssistant >= 0 &&
-        lastAssistant <= lastWork &&
+        lastAssistant <= workEnd &&
         typeof replyText === "string" &&
         replyText.trim().length > 0;
+
+      const work = visible.slice(0, workEnd + 1);
 
       turns.set(key, {
         key,
         firstMessageId: first.id,
-        workMessageIds: new Set(
-          visible.slice(0, lastWork + 1).map((message) => message.id),
-        ),
+        workMessageIds: new Set(work.map((message) => message.id)),
+        reasoningIds: work
+          .filter((message) => message.role === "reasoning")
+          .map((message) => message.id),
         replyTextMessageId: endsWithWork
           ? visible[lastAssistant]!.id
           : undefined,
@@ -452,9 +489,15 @@ export function isTurnWorkOpen(turnKey: string, state: TurnOpenState) {
  * show. Text that ends the reply stays out of `workTextOpen` even when its
  * message also calls a tool, because it is the answer.
  *
+ * `reasoningOpen` says whether each of the reply's reasoning messages shows.
+ * Thinking is one live line while the agent works: the reply's latest
+ * thought, replacing the one before it. The earlier thoughts are not dropped.
+ * They come back with the rest of the work when the folded work is opened.
+ *
  * @param turns - The turns from `getTurnWork`.
  * @param state - The user's toggles, the run state, and the latest turn key.
- * @returns The `workOpen` and `workTextOpen` maps of `ToolCallDisplayContextValue`.
+ * @returns The `workOpen` and `workTextOpen` maps of `ToolCallDisplayContextValue`,
+ *   and `reasoningOpen` for the reasoning messages. A message missing from a map shows.
  */
 export function getWorkOpenState(
   turns: Iterable<TurnWork>,
@@ -462,14 +505,26 @@ export function getWorkOpenState(
 ) {
   const workOpen = new Map<string, boolean>();
   const workTextOpen = new Map<string, boolean>();
+  const reasoningOpen = new Map<string, boolean>();
   for (const turn of turns) {
     const turnOpen = isTurnWorkOpen(turn.key, state);
     for (const id of turn.workMessageIds) {
       workOpen.set(id, turnOpen);
       if (id !== turn.replyTextMessageId) workTextOpen.set(id, turnOpen);
     }
+    // While the agent works on the reply, every thought but the latest has
+    // been moved on from.
+    const latestThought = isTurnWorking(turn.key, state)
+      ? turn.reasoningIds[turn.reasoningIds.length - 1]
+      : undefined;
+    for (const id of turn.reasoningIds) {
+      reasoningOpen.set(
+        id,
+        turnOpen && (latestThought === undefined || id === latestThought),
+      );
+    }
   }
-  return { workOpen, workTextOpen };
+  return { workOpen, workTextOpen, reasoningOpen };
 }
 
 /** How long the agent has worked on one reply, summed over its runs. */

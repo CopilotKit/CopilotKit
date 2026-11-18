@@ -490,14 +490,16 @@ function resolveActivityRenderer(
         </CopilotChatUserMessage>
       </slot>
 
-      <!-- Reasoning during a reply's working phase folds away with the work.
-           Always wrapped in this display, so reasoning that turns into work
-           keeps its node (and its "Thought for" timer) instead of remounting. -->
+      <!-- Reasoning during a reply's working phase folds away with the work,
+           and a thought the agent has already moved on from folds away while
+           it works. Always wrapped in this display, so reasoning that turns
+           into work keeps its node (and its "Thought for" timer) instead of
+           remounting. -->
       <TurnWorkFold
         v-else-if="message.role === 'reasoning'"
         :open="
           toolCallDisplay === 'turn'
-            ? (viewState.workOpen.get(message.id) ?? true)
+            ? (viewState.reasoningOpen.get(message.id) ?? true)
             : undefined
         "
       >

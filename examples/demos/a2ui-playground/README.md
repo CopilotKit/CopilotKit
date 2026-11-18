@@ -4,7 +4,7 @@ Watch an agent write UI. Ask for anything ("Q3 sales by region as a dashboard", 
 
 This playground uses published `@copilotkit/*` 2.0.0-rc.44 packages with canonical `"1.0"` wire operations and `@a2ui/agent` 0.1.0 native streaming. The agent writes A2UI 1.0 itself, so the runtime needs no `a2uiVersion` bridge.
 
-A hosted version of the pre-migration playground runs at https://web-production-d0431.up.railway.app.
+The hosted playground runs at https://a2ui.open.bot.
 
 ## What it shows
 
@@ -12,10 +12,10 @@ A hosted version of the pre-migration playground runs at https://web-production-
 - **A2UI Express by default.** The model writes one line per component and Google's `@a2ui/agent` SDK compiles it, usually about half the size of the same UI in JSON. JSON is the alternative. Express that still fails to compile after a retry is rewritten as JSON on the same surface.
 - **Any model.** Gemini Flash (`gemini-flash-latest`) is the default; Gemma 4 runs locally through Ollama (or any OpenAI-compatible server); GPT is in the picker too.
 - **A real catalog.** The 69 Gen UI 2.0 standard components, 52 of the playground's own (shadcn/ui, TanStack Charts, MapLibre) and 3 macros, `FlightCard`, `ProductCard` and `WeatherReport`, that the server expands into standard components.
-- **Any design system.** The first picker in the prompt box's "+" menu chooses what draws each surface: CopilotKit's standard catalog, ChatCN (shadcn/ui), Material (Material 3 Expressive), or a hand-written in-house set standing in for your own components. The agent's A2UI never changes; switching repaints every surface on the page, which is the point of a catalog: a contract, not a look. `src/design-systems/` swaps leaf components (Button, Badge, Stat, Heading and the like) and themes the rest; `?ds=chatcn`, `?ds=material` or `?ds=byoc` picks one in a link. Material's stylesheet and typeface load the first time it is picked.
+- **Any design system.** The first picker in the prompt box's "+" menu chooses what draws each surface: CopilotKit's standard catalog, shadcn/ui, Material (Material 3 Expressive), or a hand-written in-house set standing in for your own components. The agent's A2UI never changes; switching repaints every surface on the page, which is the point of a catalog: a contract, not a look. `src/design-systems/` swaps leaf components (Button, Badge, Stat, Heading and the like) and themes the rest; `?ds=shadcn`, `?ds=material` or `?ds=byoc` picks one in a link. Material's stylesheet and typeface load the first time it is picked.
 - **Chat first, with the code beside it.** Each prompt shows its UI inline as it paints. The side pane shows the selected surface's Express (or JSON) lines as they are written, the JSON with an editor (live preview, no model; then "Ask the model to change this"), and the run's timings.
 - **Light or dark, and embeddable.** Light by default, dark from the header or `?theme=dark`; `?embed=1` is a compact version for an iframe (see Embed it).
-- **Take it home.** `/start` is one Copy prompt for a coding agent (Claude Code, Cursor, Gemini CLI, Codex) that adds A2UI to an existing app for the design system you pick, plus the two lines it comes down to by hand. `/components` documents every component, `/catalog.json` and the agent skill download (`/api/skills?format=express&download=1`) carry the catalog to other renderers and agents, `/evals` shows per-model scores (`pnpm evals`), and `examples/adk` is a Google ADK agent on the same catalog.
+- **Take it home.** `/start` is one Copy prompt for a coding agent (Claude Code, Codex, Cursor, Antigravity CLI, OpenCode, Hermes) that adds A2UI to an existing app for the design system you pick, plus the two lines it comes down to by hand. `/components` documents every component, `/catalog.json` and the agent skill download (`/api/skills?format=express&download=1`) carry the catalog to other renderers and agents, `/evals` shows per-model scores (`pnpm evals`), and `examples/adk` is a Google ADK agent on the same catalog.
 
 ## Run it
 
@@ -35,7 +35,7 @@ pnpm skills:export       # skills/generated/{express,json}: the agent skills /ap
 pnpm evals               # per-model scores -> src/data/evals.json, shown at /evals
 pnpm evals --models gemini --formats express --tasks sales-dashboard,flights --out /tmp/evals.json
 pnpm evals --skill path/to/skill.zip --formats json   # score an agent skill (the /start download, or your own)
-node scripts/record-replay.mjs dynamic "<prompt>"     # re-record the first-visit replay (dev server running)
+node scripts/record-replay.mjs dynamic "<prompt>"     # re-record the /watch run (dev server running)
 ```
 
 ## How it works
@@ -84,7 +84,7 @@ The limits are constants in `src/lib/limits.ts`:
 
 A refused request gets a 429 (with `Retry-After`) or a 413, with a short message the chat shows, such as "You're sending a lot of requests. Try again in a minute." The page's startup calls (`info`, `connect`) and requests that can't start a run are not counted as runs. A run must be sent as `application/json`, so a page on another site can't start runs from its visitors' browsers (415 otherwise). The IP is the first `X-Forwarded-For` address, else `X-Real-IP`; an IPv6 address counts by its /64. The counts are kept in memory: right for one instance, but each extra replica counts on its own, and a redeploy resets them. Listing and clearing threads answers 403, since the runtime has no `identifyUser`.
 
-**Turning live runs off.** `AGENT_RUNS_PAUSED=1` makes every agent route refuse runs with "Live runs are paused on this server for now." The first-visit replay and `/watch` keep playing, since they never run the agent. Railway applies a variable change by redeploying the service, so time one before launch. To stop spending at once without a deploy, disable the key at the provider: runs then fail with a short error, and the replay still plays. After `AGENT_RUNS_PER_DAY` runs in a UTC day, runs are refused the same way until midnight UTC.
+**Turning live runs off.** `AGENT_RUNS_PAUSED=1` makes every agent route refuse runs with "Live runs are paused on this server for now." `/watch` keeps playing, since it never runs the agent. Railway applies a variable change by redeploying the service, so time one before launch. To stop spending at once without a deploy, disable the key at the provider: runs then fail with a short error. After `AGENT_RUNS_PER_DAY` runs in a UTC day, runs are refused the same way until midnight UTC.
 
 **Spend.** A run makes at most 4 model calls (router, composer, one Express retry, a JSON fallback), each under the output caps above, so `AGENT_RUNS_PER_DAY` bounds a day's spend. It is not a budget: set one, with alerts, on the Google Cloud billing account behind the Gemini key (and on the OpenAI project, if GPT is on).
 
@@ -94,7 +94,7 @@ The website and docs show the playground in an iframe. `?embed=1` drops the site
 
 ```html
 <iframe
-  src="https://web-production-d0431.up.railway.app/?embed=1&ds=material"
+  src="https://a2ui.open.bot/?embed=1&ds=material"
   width="600"
   height="600"
   title="A2UI Playground by CopilotKit"
@@ -104,7 +104,7 @@ The website and docs show the playground in an iframe. `?embed=1` drops the site
 ></iframe>
 ```
 
-The page is light unless it is opened with `?theme=dark` (for a dark page) or the visitor picks dark in the header. `?ds=` picks the design system (`copilotkit`, `chatcn`, `material`, `byoc`). Only `copilotkit.ai`, its subdomains and the origins in `FRAME_ANCESTORS` may frame it (`Content-Security-Policy: frame-ancestors`). Runs from an embed spend the same key under the same limits as the site, so a busy launch page brings the day's ceiling closer.
+The page is light unless it is opened with `?theme=dark` (for a dark page) or the visitor picks dark in the header. `?ds=` picks the design system (`copilotkit`, `shadcn`, `material`, `byoc`; the older `chatcn` still means shadcn). Only `copilotkit.ai`, its subdomains and the origins in `FRAME_ANCESTORS` may frame it (`Content-Security-Policy: frame-ancestors`). Runs from an embed spend the same key under the same limits as the site, so a busy launch page brings the day's ceiling closer.
 
 ## Use it in your app
 
@@ -131,17 +131,17 @@ pnpm dev                         # from the repo root, then open http://localhos
 
 ## Layout
 
-| Path                         | What it holds                                                                       |
-| ---------------------------- | ----------------------------------------------------------------------------------- |
-| `src/agent/`                 | The agent: router, composers (Express and JSON), models, surfaces, templates, tools |
-| `src/a2ui/catalog/`          | Definitions (Zod), renderers and samples of the playground's components             |
-| `src/a2ui/macros/`           | The three macros and their samples                                                  |
-| `src/components/playground/` | The chat, composer, lines pane and the JSON editor                                  |
-| `src/design-systems/`        | CopilotKit, ChatCN, Material and Bring-your-own implementations of the same catalog |
-| `src/app/`                   | Pages (`/`, `/components`, `/evals`, `/start`, `/watch`) and API routes             |
-| `skills/`                    | The catalog skill and the generated agent skills                                    |
-| `examples/adk/`              | A Google ADK agent served over AG-UI                                                |
-| `scripts/`                   | Catalog and skill export, evals, the replay recorder, browser checks                |
+| Path                         | What it holds                                                                          |
+| ---------------------------- | -------------------------------------------------------------------------------------- |
+| `src/agent/`                 | The agent: router, composers (Express and JSON), models, surfaces, templates, tools    |
+| `src/a2ui/catalog/`          | Definitions (Zod), renderers and samples of the playground's components                |
+| `src/a2ui/macros/`           | The three macros and their samples                                                     |
+| `src/components/playground/` | The chat, composer, lines pane and the JSON editor                                     |
+| `src/design-systems/`        | CopilotKit, shadcn/ui, Material and Bring-your-own implementations of the same catalog |
+| `src/app/`                   | Pages (`/`, `/components`, `/evals`, `/start`, `/watch`) and API routes                |
+| `skills/`                    | The catalog skill and the generated agent skills                                       |
+| `examples/adk/`              | A Google ADK agent served over AG-UI                                                   |
+| `scripts/`                   | Catalog and skill export, evals, the replay recorder, browser checks                   |
 
 ## Known limitations
 

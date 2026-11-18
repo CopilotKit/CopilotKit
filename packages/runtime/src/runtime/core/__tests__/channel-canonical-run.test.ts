@@ -223,7 +223,9 @@ test("runCanonical rejects a RUN_ERROR event even when the runner completes", as
     details,
     cause: details,
   });
-  expect(cleanup).toHaveBeenCalledWith(canonicalIdentity);
+  expect(cleanup).toHaveBeenCalledWith(
+    expect.objectContaining(canonicalIdentity),
+  );
 });
 
 test("runCanonical renews the standard thread lock until the run settles", async () => {
@@ -288,6 +290,7 @@ test("runCanonical stops only its exact run when the delivery is superseded", as
     ...runArgs(),
     signal: controller.signal,
   });
+  await vi.waitFor(() => expect(complete).toBeDefined());
 
   controller.abort("superseded");
   await running;
@@ -296,6 +299,26 @@ test("runCanonical stops only its exact run when the delivery is superseded", as
     threadId: canonicalIdentity.threadId,
     runId: canonicalIdentity.runId,
   });
+});
+
+test("runCanonical runs nothing and takes no lock for a delivery superseded before it started", async () => {
+  const controller = new AbortController();
+  const run = vi.fn(() => EMPTY);
+  const intelligence = new CopilotKitIntelligence({
+    apiUrl: "https://runtime.example",
+    wsUrl: "wss://runtime.example",
+    apiKey: "cpk-42_short_long",
+  });
+  const runCanonical = await captureRunCanonical(new TestRunner(run), {
+    intelligence,
+  });
+  controller.abort("superseded");
+
+  await expect(
+    runCanonical({ ...runArgs(), signal: controller.signal }),
+  ).resolves.toEqual({ iterations: 0, interrupted: false });
+  expect(intelligence.ɵacquireThreadLock).not.toHaveBeenCalled();
+  expect(run).not.toHaveBeenCalled();
 });
 
 test("runCanonical keeps the run alive through a transient renewal failure", async () => {
@@ -614,7 +637,41 @@ test("runCanonical cleans up the lock when the runner cannot start", async () =>
   await expect(runCanonical(runArgs())).rejects.toThrow(
     "runner startup failed",
   );
-  expect(cleanup).toHaveBeenCalledWith(canonicalIdentity);
+  expect(cleanup).toHaveBeenCalledWith(
+    expect.objectContaining(canonicalIdentity),
+  );
+});
+
+test("runCanonical cleans up the lock when Channel Memory cannot attach to the agent", async () => {
+  const intelligence = new CopilotKitIntelligence({
+    apiUrl: "https://runtime.example",
+    wsUrl: "wss://runtime.example",
+    apiKey: "cpk-42_short_long",
+  });
+  const cleanup = vi
+    .spyOn(intelligence, "ɵcleanupThreadLock")
+    .mockResolvedValue(undefined);
+  const run = vi.fn(() => EMPTY);
+  const runCanonical = await captureRunCanonical(new TestRunner(run), {
+    intelligence,
+  });
+  // An agent with no middleware support cannot take the Memory tools.
+  const agent = new NoopAgent();
+  Object.defineProperty(agent, "use", { value: undefined });
+
+  const delivery: Parameters<RunCanonical>[0] = {
+    ...runArgs(),
+    agent,
+    memory: { grant: { user: "none", project: "read" }, user: null },
+  };
+
+  await expect(runCanonical(delivery)).rejects.toMatchObject({
+    code: "channel_memory_agent_unsupported",
+  });
+  expect(run).not.toHaveBeenCalled();
+  expect(cleanup).toHaveBeenCalledWith(
+    expect.objectContaining(canonicalIdentity),
+  );
 });
 
 test("runCanonical cleans up the lock after a successful runner stream", async () => {
@@ -631,7 +688,9 @@ test("runCanonical cleans up the lock after a successful runner stream", async (
 
   await runCanonical(runArgs());
 
-  expect(cleanup).toHaveBeenCalledWith(canonicalIdentity);
+  expect(cleanup).toHaveBeenCalledWith(
+    expect.objectContaining(canonicalIdentity),
+  );
 });
 
 test("runCanonical rejects an outer agent error completed by the standard runner", async () => {

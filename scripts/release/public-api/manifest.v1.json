@@ -19,7 +19,7 @@
   "packages": [
     {
       "name": "@copilotkit/agentcore-runner",
-      "version": "1.87.0",
+      "version": "1.89.0",
       "sourceDirectory": "packages/agentcore-runner",
       "entrypoints": [
         {
@@ -80,7 +80,7 @@
     },
     {
       "name": "@copilotkit/angular",
-      "version": "1.87.0",
+      "version": "1.89.0",
       "sourceDirectory": "packages/angular",
       "entrypoints": [
         {
@@ -980,7 +980,7 @@
     },
     {
       "name": "@copilotkit/core",
-      "version": "1.87.0",
+      "version": "1.89.0",
       "sourceDirectory": "packages/core",
       "entrypoints": [
         {
@@ -1236,7 +1236,7 @@
     },
     {
       "name": "@copilotkit/learning",
-      "version": "1.87.0",
+      "version": "1.89.0",
       "sourceDirectory": "packages/learning",
       "entrypoints": [
         {
@@ -1434,7 +1434,7 @@
     },
     {
       "name": "@copilotkit/mcp-apps-renderer",
-      "version": "1.87.0",
+      "version": "1.89.0",
       "sourceDirectory": "packages/mcp-apps-renderer",
       "entrypoints": [
         {
@@ -1525,7 +1525,7 @@
     },
     {
       "name": "@copilotkit/react-core",
-      "version": "1.87.0",
+      "version": "1.89.0",
       "sourceDirectory": "packages/react-core",
       "entrypoints": [
         {
@@ -1785,7 +1785,7 @@
     },
     {
       "name": "@copilotkit/react-native",
-      "version": "1.87.0",
+      "version": "1.89.0",
       "sourceDirectory": "packages/react-native",
       "entrypoints": [
         {
@@ -1994,7 +1994,7 @@
     },
     {
       "name": "@copilotkit/runtime",
-      "version": "1.87.0",
+      "version": "1.89.0",
       "sourceDirectory": "packages/runtime",
       "entrypoints": [
         {
@@ -2167,7 +2167,7 @@
     },
     {
       "name": "@copilotkit/sdk-js",
-      "version": "1.87.0",
+      "version": "1.89.0",
       "sourceDirectory": "packages/sdk-js",
       "entrypoints": [
         {
@@ -2281,7 +2281,7 @@
     },
     {
       "name": "@copilotkit/shared",
-      "version": "1.87.0",
+      "version": "1.89.0",
       "sourceDirectory": "packages/shared",
       "entrypoints": [
         {
@@ -2364,7 +2364,7 @@
     },
     {
       "name": "@copilotkit/sqlite-runner",
-      "version": "1.87.0",
+      "version": "1.89.0",
       "sourceDirectory": "packages/sqlite-runner",
       "entrypoints": [
         {
@@ -2441,7 +2441,7 @@
     },
     {
       "name": "@copilotkit/voice",
-      "version": "1.87.0",
+      "version": "1.89.0",
       "sourceDirectory": "packages/voice",
       "entrypoints": [
         {
@@ -2510,7 +2510,7 @@
     },
     {
       "name": "@copilotkit/vue",
-      "version": "1.87.0",
+      "version": "1.89.0",
       "sourceDirectory": "packages/vue",
       "entrypoints": [
         {
@@ -2738,7 +2738,7 @@
     },
     {
       "name": "@copilotkit/web-components",
-      "version": "1.87.0",
+      "version": "1.89.0",
       "sourceDirectory": "packages/web-components",
       "entrypoints": [
         {
@@ -2825,7 +2825,7 @@
     },
     {
       "name": "@copilotkit/web-inspector",
-      "version": "1.87.0",
+      "version": "1.89.0",
       "sourceDirectory": "packages/web-inspector",
       "entrypoints": [
         {
@@ -2999,6 +2999,7 @@
       {
         "type": "aisdk",
         "configurationKeys": [
+          "name",
           "learnedSkills",
           "type",
           "factory"
@@ -3019,6 +3020,7 @@
       {
         "type": "tanstack",
         "configurationKeys": [
+          "name",
           "learnedSkills",
           "type",
           "factory"
@@ -3039,6 +3041,7 @@
       {
         "type": "custom",
         "configurationKeys": [
+          "name",
           "learnedSkills",
           "type",
           "factory"

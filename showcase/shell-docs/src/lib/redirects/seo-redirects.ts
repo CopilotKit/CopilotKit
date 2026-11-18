@@ -120,7 +120,7 @@ const CANONICAL_FRAMEWORKS = [
 
 /** Per-framework subpath renames (Category 5 in spec). Applied to ALL 13 frameworks. */
 const SUBPATH_RENAMES: { specId: string; from: string; to: string }[] = [
-  { specId: "S1", from: "agentic-chat-ui", to: "prebuilt-components" },
+  { specId: "S1", from: "agentic-chat-ui", to: "prebuilt-components/chat" },
   { specId: "S2", from: "use-agent-hook", to: "programmatic-control" },
   { specId: "S3", from: "frontend-actions", to: "frontend-tools" },
   { specId: "S4", from: "vibe-coding-mcp", to: "build-with-agents" },
@@ -512,8 +512,9 @@ const ROOT_RENAMES: RedirectEntry[] = [
     source: "/frontend-actions",
     destination: "/frontend-tools",
   },
-  // R7 (`/generative-ui`) not ported: v2 serves the Generative UI overview
-  // there. R8 and R9 go to the pages in its sidebar that cover the same thing.
+  // R7 (`/generative-ui`) lives in next-config-redirects.mjs
+  // (RETIRED_OVERVIEW_REDIRECTS): the overview page is retired. R8 and
+  // R9 go to the pages in its sidebar that cover the same thing.
   {
     id: "R8",
     source: "/generative-ui/display",
