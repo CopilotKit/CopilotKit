@@ -1213,7 +1213,8 @@ export function CopilotChatMessageView({
       // the old reading position before any row reports its resized height.
       captureResizeAnchor(instance);
       const rect = el.getBoundingClientRect();
-      const height = rect.height;
+      const measuredHeight: unknown = rect.height;
+      const height = typeof measuredHeight === "number" ? measuredHeight : 0;
       // `data-index` is set on every virtual row below, and is what the
       // virtualizer itself uses to identify a measured element.
       const index = Number((el as HTMLElement | null)?.dataset?.index);
@@ -1226,10 +1227,18 @@ export function CopilotChatMessageView({
       // virtualizer's own offsets for later rows lag behind within a batch of
       // measurements, while the list offset already moved with each correction
       // held before: a row well above the viewport could look inside it.
-      const viewportTop = instance.scrollElement?.getBoundingClientRect().top;
+      // A measured rect without `top` (a stand-in element) says nothing about
+      // where the row is, so the virtualizer's own offsets decide.
+      const rowTop: unknown = rect.top;
+      const viewportTop =
+        typeof rowTop === "number"
+          ? instance.scrollElement?.getBoundingClientRect().top
+          : undefined;
       lastMeasuredRef.current =
-        Number.isInteger(index) && typeof viewportTop === "number"
-          ? { index, above: rect.top < viewportTop }
+        Number.isInteger(index) &&
+        typeof rowTop === "number" &&
+        typeof viewportTop === "number"
+          ? { index, above: rowTop < viewportTop }
           : null;
       // Every row measures 0 while the chat is hidden (a display:none tab) or
       // the row is detached; those keep their last visible measurement. In a
