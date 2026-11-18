@@ -1,6 +1,5 @@
 import { spawnSync } from "child_process";
 import fs from "fs";
-import os from "os";
 import path from "path";
 import { fileURLToPath } from "url";
 import { glob } from "glob";
@@ -533,10 +532,13 @@ const CLAUDE_QUICKSTARTS = [
     path: "integrations/claude-sdk-python/quickstart.mdx",
     title: "Python",
     modelEnvLine: "ANTHROPIC_MODEL=claude-opus-4-8",
+    // The agent that the runtime route registers and the provider targets.
+    agentName: "claude_agent",
+    // The starter files that the page names, relative to the starter root.
     requiredStarterFiles: [
-      "src/agent_server.py",
-      "src/agents/claude_agent_sdk_adapter.py",
-      "src/app/api/copilotkit/route.ts",
+      "agent/main.py",
+      "agent/src/agent.py",
+      "src/app/api/copilotkit/[[...slug]]/route.ts",
     ],
   },
   {
@@ -544,9 +546,11 @@ const CLAUDE_QUICKSTARTS = [
     path: "integrations/claude-sdk-typescript/quickstart.mdx",
     title: "TypeScript",
     modelEnvLine: "CLAUDE_MODEL=claude-opus-4-8",
+    agentName: "default",
     requiredStarterFiles: [
-      "src/agent_server.ts",
-      "src/app/api/copilotkit/route.ts",
+      "agent/src/server.ts",
+      "agent/src/agent.ts",
+      "src/app/api/copilotkit/[[...slug]]/route.ts",
       "src/app/page.tsx",
     ],
   },
@@ -730,12 +734,14 @@ export function checkClaudeQuickstarts(input: {
       config.modelEnvLine,
       "Claude model env var",
     );
-    addMissing(
+    // Only inline code in the prose matches. The route snippet's
+    // `process.env.AGENT_URL ?? "http://localhost:8000"` does not.
+    addMissingRegex(
       failures,
       page.path,
       page.body,
-      "AGENT_URL=http://localhost:8000",
-      "agent URL default",
+      /`AGENT_URL[=`][^\n]*http:\/\/localhost:8000/,
+      "AGENT_URL default http://localhost:8000",
     );
     addMissing(
       failures,
@@ -755,7 +761,7 @@ export function checkClaudeQuickstarts(input: {
       );
       if (!starterFileExists(config.slug, filePath)) {
         failures.push(
-          `${page.path}: documented starter file not found after extraction: ${filePath}`,
+          `${page.path}: documented starter file not found in examples/starters/${config.slug}: ${filePath}`,
         );
       }
     }
@@ -779,15 +785,16 @@ export function checkClaudeQuickstarts(input: {
       "app/api/copilotkit/route.ts",
       [
         ["HttpAgent", "HttpAgent"],
-        ["CopilotRuntime", "CopilotRuntime"],
-        // The v2 fetch handler in single-route mode. These assertions used to
-        // require `ExperimentalEmptyAdapter` +
-        // `copilotRuntimeNextJSAppRouterEndpoint`, which pinned both pages to
-        // the v1 entrypoint. Single-route keeps the route POST-only at the
-        // plain `route.ts` path — matching the starter these pages document,
-        // so `requiredStarterFiles` below is unchanged.
-        ["createCopilotRuntimeHandler", "createCopilotRuntimeHandler"],
-        ['from "@copilotkit/runtime/v2"', "v2 runtime entrypoint"],
+        [
+          `${config.agentName}: new HttpAgent`,
+          `registration of agent ${config.agentName}`,
+        ],
+        // `new` because createCopilotKitRuntimeHandler also contains the name.
+        ["new CopilotKitRuntime(", "CopilotKitRuntime"],
+        // Single-route mode keeps the route POST-only at the plain `route.ts`
+        // path.
+        ["createCopilotKitRuntimeHandler", "createCopilotKitRuntimeHandler"],
+        ['from "@copilotkit/runtime"', "root runtime entrypoint"],
         ['mode: "single-route"', "single-route mode"],
         ["export const POST", "POST export"],
         ['"http://localhost:8000"', "localhost agent URL"],
@@ -796,12 +803,19 @@ export function checkClaudeQuickstarts(input: {
     checkBlockContains(
       failures,
       page.path,
+      findTitledBlock(blocks, "app/providers.tsx"),
+      "app/providers.tsx",
+      [
+        ['from "@copilotkit/react-core"', "root React entrypoint"],
+        [`agentId="${config.agentName}"`, `agentId="${config.agentName}"`],
+      ],
+    );
+    checkBlockContains(
+      failures,
+      page.path,
       findTitledBlock(blocks, "app/layout.tsx"),
       "app/layout.tsx",
-      [
-        ['@copilotkit/react-core/v2"', "v2 React entrypoint"],
-        ['agent="claude_agent"', "agent prop"],
-      ],
+      [["<Providers>", "Providers wrapper"]],
     );
     checkBlockContains(
       failures,
@@ -940,55 +954,11 @@ function loadSetupContent(): SetupContentLite {
   return JSON.parse(fs.readFileSync(p, "utf-8")) as SetupContentLite;
 }
 
-function createExtractedStarterResolver(): {
-  starterFileExists: (framework: string, filePath: string) => boolean;
-  cleanup: () => void;
-  errors: string[];
-} {
-  const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "claude-quickstarts-"));
-  const cache = new Map<string, Set<string>>();
-  const errors: string[] = [];
-
-  function load(framework: string): Set<string> {
-    const cached = cache.get(framework);
-    if (cached) return cached;
-
-    const outDir = path.join(tmpRoot, framework);
-    const result = spawnSync(
-      "npx",
-      ["tsx", "extract-starter.ts", framework, outDir],
-      {
-        cwd: __dirname,
-        encoding: "utf-8",
-      },
-    );
-    if (result.status !== 0) {
-      errors.push(
-        `${framework}: starter extraction failed: ${[
-          result.stdout,
-          result.stderr,
-        ]
-          .filter(Boolean)
-          .join("\n")}`,
-      );
-      const empty = new Set<string>();
-      cache.set(framework, empty);
-      return empty;
-    }
-
-    const files = glob
-      .sync("**/*", { cwd: outDir, nodir: true, dot: true })
-      .map((file) => file.split(path.sep).join("/"));
-    const fileSet = new Set(files);
-    cache.set(framework, fileSet);
-    return fileSet;
-  }
-
-  return {
-    starterFileExists: (framework, filePath) => load(framework).has(filePath),
-    cleanup: () => fs.rmSync(tmpRoot, { recursive: true, force: true }),
-    errors,
-  };
+// Each quickstart's starter is the app in examples/starters/<slug>.
+function starterHasFile(framework: string, filePath: string): boolean {
+  return fs.existsSync(
+    path.join(REPO_ROOT, "examples", "starters", framework, filePath),
+  );
 }
 
 async function main() {
@@ -998,48 +968,33 @@ async function main() {
   const demoContent = loadDemoContent();
   const setupContent = loadSetupContent();
   const knownRoutes = loadKnownRoutes();
-  const starterResolver = createExtractedStarterResolver();
+
+  const results: CheckResult[] = [
+    runBuildCheck({ skipExecution: skipBuild }),
+    checkInlineDemoRefs({ pages, registry }),
+    checkSnippetRegions({ pages, demoContent }),
+    checkDuplicateRegionSources(),
+    checkInternalLinks({ pages, knownRoutes }),
+    checkImportPaths({ pages, existsOnDisk: aliasExists }),
+    checkComponentImports({ pages }),
+    checkClaudeQuickstarts({
+      pages,
+      setupSource: (framework, concept) =>
+        setupContent.concepts[`${framework}::${concept}`]?.source ?? null,
+      starterFileExists: starterHasFile,
+    }),
+    runEssentialContentCheck(pages),
+  ];
 
   let failed = false;
-  // Always clean up the extraction temp dir, even if a check throws — cleanup
-  // runs in finally, and process.exit is deferred until after it so the exit
-  // can't skip the finally block.
-  try {
-    const results: CheckResult[] = [
-      runBuildCheck({ skipExecution: skipBuild }),
-      checkInlineDemoRefs({ pages, registry }),
-      checkSnippetRegions({ pages, demoContent }),
-      checkDuplicateRegionSources(),
-      checkInternalLinks({ pages, knownRoutes }),
-      checkImportPaths({ pages, existsOnDisk: aliasExists }),
-      checkComponentImports({ pages }),
-      checkClaudeQuickstarts({
-        pages,
-        setupSource: (framework, concept) =>
-          setupContent.concepts[`${framework}::${concept}`]?.source ?? null,
-        starterFileExists: starterResolver.starterFileExists,
-      }),
-      runEssentialContentCheck(pages),
-    ];
-    if (starterResolver.errors.length > 0) {
-      results.push({
-        name: "starter-extraction",
-        status: "fail",
-        messages: starterResolver.errors,
-      });
+  for (const r of results) {
+    const tag =
+      r.status === "pass" ? "PASS" : r.status === "fail" ? "FAIL" : "SKIP";
+    console.log(`[${tag}] ${r.name}`);
+    for (const msg of r.messages) {
+      console.log(`  ${msg}`);
     }
-
-    for (const r of results) {
-      const tag =
-        r.status === "pass" ? "PASS" : r.status === "fail" ? "FAIL" : "SKIP";
-      console.log(`[${tag}] ${r.name}`);
-      for (const msg of r.messages) {
-        console.log(`  ${msg}`);
-      }
-      if (r.status === "fail") failed = true;
-    }
-  } finally {
-    starterResolver.cleanup();
+    if (r.status === "fail") failed = true;
   }
 
   process.exit(failed ? 1 : 0);
