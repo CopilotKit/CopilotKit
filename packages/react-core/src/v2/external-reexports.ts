@@ -287,6 +287,7 @@ export type {
   AgentStateMutation,
   AgentSubscriber,
   AgentSubscriberParams,
+  ApplyEventsOptions,
   AssistantMessage,
   Attributable,
   AudioInputContent,
