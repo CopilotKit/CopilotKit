@@ -54,10 +54,36 @@ const FORMATS = {
   cjs: (specifier) => require(specifier),
 };
 
-for (const [format, load] of Object.entries(FORMATS)) {
+const SPECIFIERS = [
+  ...new Set([
+    ...ALIASES.flatMap(({ alias, entry }) => [alias, entry]),
+    "@copilotkit/runtime/agent",
+  ]),
+];
+
+// Load every module in both formats first; the checks below are synchronous.
+const loaded = await Promise.all(
+  Object.entries(FORMATS).flatMap(([format, load]) =>
+    SPECIFIERS.map((specifier) =>
+      Promise.resolve(load(specifier)).then((module) => ({
+        format,
+        specifier,
+        module,
+      })),
+    ),
+  ),
+);
+
+/** The loaded modules, by format, then by specifier. */
+const MODULES = {};
+for (const { format, specifier, module } of loaded) {
+  MODULES[format] = { ...MODULES[format], [specifier]: module };
+}
+
+for (const [format, modules] of Object.entries(MODULES)) {
   for (const { alias, entry, renamed } of ALIASES) {
-    const aliasModule = await load(alias);
-    const entryModule = await load(entry);
+    const aliasModule = modules[alias];
+    const entryModule = modules[entry];
     for (const [name, value] of Object.entries(entryModule)) {
       assert.equal(
         aliasModule[name],
@@ -75,8 +101,8 @@ for (const [format, load] of Object.entries(FORMATS)) {
     }
   }
 
-  const v2 = await load("@copilotkit/runtime/v2");
-  const agent = await load("@copilotkit/runtime/agent");
+  const v2 = modules["@copilotkit/runtime/v2"];
+  const agent = modules["@copilotkit/runtime/agent"];
   for (const name of AGENT_VALUES) {
     assert.equal(typeof agent[name], "function");
     assert.equal(
