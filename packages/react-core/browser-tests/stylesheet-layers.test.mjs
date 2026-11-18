@@ -153,6 +153,62 @@ for (const [order, styles] of [
   });
 }
 
+// Splits a selector list at its top-level commas.
+function splitSelectorList(list) {
+  const parts = [];
+  let depth = 0;
+  let start = 0;
+  for (let i = 0; i < list.length; i++) {
+    if (list[i] === "(") depth++;
+    else if (list[i] === ")") depth--;
+    else if (list[i] === "," && depth === 0) {
+      parts.push(list.slice(start, i).trim());
+      start = i + 1;
+    }
+  }
+  parts.push(list.slice(start).trim());
+  return parts;
+}
+
+// "Any class rule of the app wins" holds only while every component rule has
+// the specificity of `html body` alone, so each selector is in `:where()`. A
+// pseudo-element after it, such as `::placeholder`, adds one element, and the
+// app's `.class::placeholder` still wins.
+test("every component rule has the specificity of two element selectors", () => {
+  const selectors = [
+    ...stylesheet.matchAll(/(?:^|[{};])(html body[^{};]*)\{/g),
+  ].flatMap((match) => splitSelectorList(match[1]));
+  assert.ok(selectors.length > 100);
+  const outsideWhere = selectors.filter(
+    (selector) =>
+      !/^html body :where\(.*\)(::?(before|after|marker|placeholder))?$/.test(
+        selector,
+      ),
+  );
+  assert.deepEqual(outsideWhere, []);
+});
+
+test("an app class rule beats the intelligence indicator's styles", async () => {
+  const page = await browser.newPage();
+  await page.setContent(`<!doctype html><html><head>
+    <style>${stylesheet}</style>
+    <style>.app-indicator-label { transform: none; }</style>
+    </head><body>
+      <div data-copilotkit>
+        <div class="cpk-intelligence-indicator" data-status="finished">
+          <span class="cpk-intelligence-indicator__content">
+            <span class="cpk-intelligence-indicator__label app-indicator-label" id="label">Done</span>
+          </span>
+        </div>
+      </div>
+    </body></html>`);
+  const transform = await page.evaluate(
+    () => getComputedStyle(document.getElementById("label")).transform,
+  );
+  await page.close();
+  assert.equal(transform, "none");
+});
+
 // The create-vite React starter centers all text in `#root`, which wraps the
 // chat. The chat keeps its own alignment.
 test("the chat does not inherit the page's text alignment", async () => {
