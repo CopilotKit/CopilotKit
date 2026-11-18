@@ -11,6 +11,7 @@
         "migrate/v2",
         "migrate/removed-apis-2.0",
         "migrate/runtime-2.0",
+        "migrate/agents-2.0",
         "migrate/providers-2.0",
         "migrate/chat-2.0",
         "migrate/generative-ui-2.0",
