@@ -27,6 +27,18 @@ The codemod makes these changes:
 | `showDevConsole` on `CopilotKitProvider`, `registry` on `A2UIRenderer` | Deletes the prop |
 | The other removed imports, and `disclaimer` on `CopilotChatView` | Adds a `TODO(copilotkit-2.0)` comment |
 
+## `CopilotKitRemovedApiError`
+
+If your code still uses a 1.x export that 2.0 removed, it throws a `CopilotKitRemovedApiError`. The error happens when the code calls, constructs, or renders the export. The import itself does not throw. The message names the 2.0 replacement and links to the section about it:
+
+```text
+"useCopilotAction" was removed in CopilotKit 2.0. Use useFrontendTool from @copilotkit/react-core (parameters are now a Zod 4 / Standard Schema), or useHumanInTheLoop when the action waits for the user. Run `npx codemod @copilotkit/v2-migration` to update your code. See https://docs.copilotkit.ai/migrate/v2#hook-mapping
+```
+
+TypeScript shows the same message as a type error where the code uses the export, and your editor marks the import as deprecated. Do what the message says, or run the codemod.
+
+The error is a `CopilotKitError` with the code `REMOVED_API`. A removed constant, object, or React context has no stand-in, because code reads it without a call. An import of one fails the build.
+
 ## Runtime
 
 | Removed | Use |

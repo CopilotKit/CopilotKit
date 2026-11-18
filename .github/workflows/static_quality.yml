@@ -378,8 +378,19 @@ jobs:
       - name: Test the docs prompt telemetry pins
         run: pnpm exec vitest run scripts/__tests__/docs-prompt-telemetry.test.ts
 
+      # The stand-ins for the 1.x exports that 2.0 removed: each docs link has
+      # a heading, and the stand-in modules match the table.
+      - name: Test the removed-export stand-ins
+        run: pnpm exec vitest run scripts/__tests__/removed-exports.test.ts
+
       - name: Run publint, attw, and check-dts
         run: pnpm run check:packages
+
+      # Needs the builds of check:packages: the table matches the exports that
+      # 2.0 removed, and each type error of a removed export names its
+      # replacement.
+      - name: Test the removed-export stand-ins against the builds
+        run: pnpm exec vitest run scripts/__tests__/removed-exports-dist.test.ts
 
   check-types:
     runs-on: ubuntu-latest

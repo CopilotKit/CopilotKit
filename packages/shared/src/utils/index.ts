@@ -1,5 +1,6 @@
 export * from "./clipboard";
 export * from "./errors";
+export * from "./removed-api";
 export * from "./json-schema";
 export * from "./inspector-metadata";
 export * from "./inspector-learning";

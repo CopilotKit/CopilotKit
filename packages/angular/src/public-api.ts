@@ -1,3 +1,7 @@
+// Stand-ins for the 1.x exports that 2.0 removed: each one fails with the
+// replacement when code uses it. A star export, so that a stand-in that
+// collides with a real export fails the type check instead of hiding it.
+export * from "./removed-exports";
 export * from "./lib/config";
 export * from "./lib/copilotkit";
 export * from "./lib/tools";

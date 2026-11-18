@@ -22,6 +22,7 @@ export const ERROR_NAMES = {
   CONFIGURATION_ERROR: "ConfigurationError",
   MISSING_PUBLIC_API_KEY_ERROR: "MissingPublicApiKeyError",
   UPGRADE_REQUIRED_ERROR: "UpgradeRequiredError",
+  REMOVED_API_ERROR: "CopilotKitRemovedApiError",
 } as const;
 
 // Banner errors - critical configuration/discovery issues
@@ -50,6 +51,8 @@ export enum CopilotKitErrorCode {
   CONFIGURATION_ERROR = "CONFIGURATION_ERROR",
   MISSING_PUBLIC_API_KEY_ERROR = "MISSING_PUBLIC_API_KEY_ERROR",
   UPGRADE_REQUIRED_ERROR = "UPGRADE_REQUIRED_ERROR",
+  /** 1.x code uses an API that CopilotKit 2.0 removed. See `CopilotKitRemovedApiError`. */
+  REMOVED_API = "REMOVED_API",
 }
 
 const BASE_URL = "https://docs.copilotkit.ai";
@@ -127,6 +130,13 @@ export const ERROR_CONFIG = {
     troubleshootingUrl: null,
     visibility: ErrorVisibility.DEV_ONLY,
     severity: Severity.INFO,
+  },
+  [CopilotKitErrorCode.REMOVED_API]: {
+    statusCode: 400,
+    // Each CopilotKitRemovedApiError replaces this with the section about its API.
+    troubleshootingUrl: `${BASE_URL}/migrate/removed-apis-2.0#copilotkitremovedapierror`,
+    visibility: ErrorVisibility.BANNER,
+    severity: Severity.CRITICAL,
   },
 };
 
@@ -420,6 +430,83 @@ export class UpgradeRequiredError extends ConfigurationError {
     super(message);
     this.name = ERROR_NAMES.UPGRADE_REQUIRED_ERROR;
     this.severity = Severity.WARNING;
+  }
+}
+
+/**
+ * A section of the CopilotKit docs: a page and a heading on it, as a path
+ * from the docs root, for example `/migrate/v2#hook-mapping`. The heading is
+ * required, so that each link lands on the text about its API.
+ */
+export type CopilotKitDocsSection = `/${string}#${string}`;
+
+/**
+ * Something that CopilotKit 2.0 removed from 1.x, and what to do instead.
+ * `removedApiMessage` and `CopilotKitRemovedApiError` take it.
+ */
+export interface CopilotKitRemoval<
+  What extends string = string,
+  Use extends string = string,
+  Docs extends CopilotKitDocsSection = CopilotKitDocsSection,
+> {
+  /**
+   * What 2.0 removed: an export name in double quotes (`"useCopilotAction"`),
+   * or an option, a prop, or a call shape
+   * (`The "serviceAdapter" option of CopilotKitRuntime`).
+   */
+  what: What;
+  /** What to do instead, as one or more full sentences. */
+  use: Use;
+  /** The docs section that explains the replacement. */
+  docs: Docs;
+}
+
+/**
+ * The text of a `CopilotKitRemovedApiError`, and of each warning about a 1.x
+ * option that CopilotKit 2.0 ignores. They all have this format, which tells
+ * a developer or a coding agent what to change:
+ *
+ * `"useCopilotAction" was removed in CopilotKit 2.0. Use useFrontendTool from
+ * @copilotkit/react-core. Run \`npx codemod @copilotkit/v2-migration\` to
+ * update your code. See https://docs.copilotkit.ai/migrate/v2#hook-mapping`
+ *
+ * When each part is a string literal, the return type is the message itself,
+ * so that a type can carry it (see `RemovedApi`).
+ *
+ * @param removal - What was removed, what to use instead, and the docs section.
+ */
+export function removedApiMessage<
+  What extends string,
+  Use extends string,
+  Docs extends CopilotKitDocsSection,
+>({ what, use, docs }: CopilotKitRemoval<What, Use, Docs>) {
+  return `${what} was removed in CopilotKit 2.0. ${use} Run \`npx codemod @copilotkit/v2-migration\` to update your code. See ${BASE_URL}${docs}` as const;
+}
+
+/**
+ * The error that CopilotKit 2.0 throws for 1.x code: a call, `new`, or render
+ * of an export that 2.0 removed, or an option, a prop, or a call shape that
+ * only 1.x accepted. Its message says what to use instead and links to the
+ * docs section about it. `extensions.troubleshootingUrl` is that link.
+ *
+ * Check for it with `error instanceof CopilotKitRemovedApiError`, or with
+ * `error.code === CopilotKitErrorCode.REMOVED_API`.
+ *
+ * @example
+ * throw new CopilotKitRemovedApiError({
+ *   what: 'The "serviceAdapter" option of CopilotKitRuntime',
+ *   use: "Pass a model to a BuiltInAgent in agents.",
+ *   docs: "/migrate/v2#update-the-runtime",
+ * });
+ */
+export class CopilotKitRemovedApiError extends CopilotKitError {
+  constructor(removal: CopilotKitRemoval) {
+    super({
+      message: removedApiMessage(removal),
+      code: CopilotKitErrorCode.REMOVED_API,
+    });
+    this.name = ERROR_NAMES.REMOVED_API_ERROR;
+    this.extensions.troubleshootingUrl = `${BASE_URL}${removal.docs}`;
   }
 }
 

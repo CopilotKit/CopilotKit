@@ -35,13 +35,12 @@ describe("package exports", () => {
   });
 
   it("no longer exports the A2UI v0.9 renderer, since 2.0", () => {
-    // Generative UI (`/generative-ui`) is the only A2UI path now.
+    // Generative UI (`/generative-ui`) is the only A2UI path now. The removed
+    // functions and components, and the v1 hooks, are stand-ins that throw
+    // (removed-exports.test.ts). A removed constant has no stand-in.
     for (const name of [
-      "A2UISurfaceActivityRenderer",
       "A2UISurfaceActivityType",
       "A2UIActivityContentSchema",
-      "createA2UIMessageRenderer",
-      "getOperationSurfaceId",
       "vueBasicCatalog",
       "A2uiSurface",
       "createVueComponent",
@@ -52,12 +51,6 @@ describe("package exports", () => {
 
   it("exports CopilotKit as an alias of CopilotKitProvider", () => {
     expect(VuePackage.CopilotKit).toBe(VuePackage.CopilotKitProvider);
-  });
-
-  it("no longer exports the v1 hooks, since 2.0", () => {
-    for (const name of ["useCopilotAction", "useCopilotReadable"]) {
-      expect(VuePackage).not.toHaveProperty(name);
-    }
   });
 
   it("exports CopilotKitStyles and no stylesheet, since the CSS is injected", () => {
