@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/react-native",
-  "version": "1.88.0",
+  "version": "1.89.0",
   "private": false,
   "keywords": [
     "ai",
@@ -93,7 +93,7 @@
     "size:headless": "node scripts/measure-headless.mjs"
   },
   "dependencies": {
-    "@ag-ui/client": "1.0.2",
+    "@ag-ui/client": "1.0.5",
     "@copilotkit/core": "workspace:*",
     "@copilotkit/react-core": "workspace:*",
     "@copilotkit/shared": "workspace:*",
