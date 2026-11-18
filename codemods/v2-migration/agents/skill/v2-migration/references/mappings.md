@@ -564,7 +564,9 @@ const status = (await runtime.getLicenseChecker())?.getStatus();
 
 ### Runtime names
 
-2.0 removed the old runtime names. Each 2.0 name is the old name with "Kit" after "Copilot". The codemod renamed each use that it found. If the build still reports an old name, rename it:
+Each 2.0 runtime name is the old name with "Kit" after "Copilot". `@copilotkit/runtime` and `@copilotkit/runtime/node` export only the 2.0 names. The deprecated 1.x paths `@copilotkit/runtime/v2` and `@copilotkit/runtime/v2/node` also export the old names, as aliases of the 2.0 names. An import of an old name from a `/v2` path builds and runs, but the editor marks it as deprecated.
+
+The codemod renamed each use that it found, and it moved each `/v2` import to the package root. If a file still imports an old name from a `/v2` path, import the 2.0 name from the package root. If the build reports an old name, rename it:
 
 | Old name                      | 2.0 name                         |
 | ----------------------------- | -------------------------------- |
@@ -574,6 +576,7 @@ const status = (await runtime.getLicenseChecker())?.getStatus();
 | `createCopilotRuntimeHandler` | `createCopilotKitRuntimeHandler` |
 | `createCopilotNodeListener`   | `createCopilotKitNodeListener`   |
 | `createCopilotNodeHandler`    | `createCopilotKitNodeHandler`    |
+| `createNodeFetchHandler`      | `createCopilotKitNodeHandler`    |
 | `NodeCopilotListener`         | `NodeCopilotKitListener`         |
 
 These types get "Kit" after "Copilot" too:

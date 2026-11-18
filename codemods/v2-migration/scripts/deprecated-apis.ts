@@ -21,9 +21,10 @@ const RENAMED: Record<string, Record<string, string>> = {
 };
 
 /**
- * Runtime exports that 2.0 renamed to include "Kit". 2.0 removed the old
- * names, so every use of one is renamed. This rename runs after every other
- * step, because those steps find the runtime by its 1.x name,
+ * Runtime exports that 2.0 renamed to include "Kit". The package roots export
+ * only the new names (the deprecated `/v2` subpaths keep the old names as
+ * aliases), so every use of an old name is renamed. This rename runs after
+ * every other step, because those steps find the runtime by its 1.x name,
  * `CopilotRuntime`.
  */
 const KIT_NAMES: Record<string, Record<string, string>> = {
