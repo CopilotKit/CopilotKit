@@ -13,6 +13,7 @@ import {
   ɵresolveToolCallAgentId,
   ɵresolveToolCallRenderer,
 } from "@copilotkit/core";
+import { CopilotKitRemovedApiError } from "@copilotkit/shared";
 import { useCopilotKit } from "../context";
 import { useCopilotChatConfiguration } from "../providers/CopilotChatConfigurationProvider";
 import type { ReactToolCallRenderer } from "../types/react-tool-call-renderer";
@@ -135,9 +136,20 @@ export function useToolCallRendererNames() {
  * Hook that returns a function to render tool calls based on the render functions
  * defined in CopilotKitProvider.
  *
+ * @param removedArguments - None. In 1.x, `useRenderToolCall(tool, deps)`
+ * registered a renderer for a tool. That call throws a
+ * `CopilotKitRemovedApiError` in 2.0: register a renderer with `useRenderTool`.
+ * See https://docs.copilotkit.ai/migrate/removed-apis-2.0#userendertoolcall-with-arguments
  * @returns A function that takes a tool call and optional tool message and returns the rendered component
  */
-export function useRenderToolCall() {
+export function useRenderToolCall(...removedArguments: never[]) {
+  if (removedArguments.length > 0) {
+    throw new CopilotKitRemovedApiError({
+      what: '"useRenderToolCall(tool, deps)"',
+      use: "To register a renderer for a tool, use useRenderTool from @copilotkit/react-core. useRenderToolCall() takes no arguments: it returns a function that renders a tool call.",
+      docs: "/migrate/removed-apis-2.0#userendertoolcall-with-arguments",
+    });
+  }
   const { copilotkit, executingToolCallIds } = useCopilotKit();
   const config = useCopilotChatConfiguration();
   const agentId = ɵresolveToolCallAgentId(config?.agentId, undefined);

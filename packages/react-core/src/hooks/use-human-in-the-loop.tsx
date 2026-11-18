@@ -2,7 +2,11 @@ import { useCopilotKit } from "../context";
 import type { ReactFrontendTool } from "../types/frontend-tool";
 import type { ReactHumanInTheLoop } from "../types/human-in-the-loop";
 import type { ReactToolCallRenderer } from "../types/react-tool-call-renderer";
-import { ɵbuildHumanInTheLoopTool, ɵhitlRenderProps } from "@copilotkit/core";
+import {
+  ɵbuildHumanInTheLoopTool,
+  ɵcheckToolParameters,
+  ɵhitlRenderProps,
+} from "@copilotkit/core";
 import { useCallback, useLayoutEffect } from "react";
 import React from "react";
 import { useFrontendTool } from "./use-frontend-tool";
@@ -10,6 +14,7 @@ import { useFrontendTool } from "./use-frontend-tool";
 export function useHumanInTheLoop<
   T extends Record<string, unknown> = Record<string, unknown>,
 >(tool: ReactHumanInTheLoop<T>, deps?: ReadonlyArray<unknown>) {
+  ɵcheckToolParameters("useHumanInTheLoop", tool.parameters);
   const { copilotkit } = useCopilotKit();
   // Core parks each call by tool call id, so parallel calls of this tool
   // (or of a "*" catch-all) each get their own `respond`.

@@ -914,13 +914,57 @@ export function docsHeadingIds() {
   return pages;
 }
 
+/** Every source file of a package, without tests. */
+function packageSourceFiles(directory: string): string[] {
+  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const file = path.join(directory, entry.name);
+    const isTest =
+      entry.name === "__tests__" ||
+      /\.(test|spec)\.[cm]?tsx?$/.test(entry.name);
+    if (isTest || entry.name === "node_modules") return [];
+    if (entry.isDirectory()) return packageSourceFiles(file);
+    return /\.(tsx?|vue)$/.test(entry.name) ? [file] : [];
+  });
+}
+
 /**
- * The docs sections that the table and the error code link to, and that no
- * heading of the docs has.
+ * The packages that throw a CopilotKitRemovedApiError: those of SCOPES, and
+ * core, which checks the props of the providers.
+ */
+const ERROR_PACKAGES = [
+  ...SCOPES.map((scope) => scope.directory),
+  "packages/core",
+];
+
+/**
+ * The docs sections that the source of ERROR_PACKAGES links to: each docs URL
+ * with a heading, and each string such as `"/migrate/v2#hook-mapping"` (the
+ * `docs` of a CopilotKitRemovedApiError).
+ */
+function docsSectionsInSources() {
+  const sections = new Set<string>();
+  for (const directory of ERROR_PACKAGES) {
+    const source = path.join(repoRoot, directory, "src");
+    for (const file of packageSourceFiles(source)) {
+      const text = readFileSync(file, "utf8");
+      const urls = text.matchAll(
+        /https:\/\/docs\.copilotkit\.ai(\/[\w./-]*#[\w.-]+)/g,
+      );
+      for (const [, section] of urls) if (section) sections.add(section);
+      const paths = text.matchAll(/"(\/[\w./-]+#[\w.-]+)"/g);
+      for (const [, section] of paths) if (section) sections.add(section);
+    }
+  }
+  return sections;
+}
+
+/**
+ * The docs sections that the table, the error code, and the source of the
+ * packages link to, and that no heading of the docs has.
  */
 export function missingDocsSections() {
   const pages = docsHeadingIds();
-  const sections = new Set<string>();
+  const sections = docsSectionsInSources();
   for (const entries of Object.values(REMOVED_EXPORTS)) {
     for (const { docs } of Object.values(entries)) sections.add(docs);
   }

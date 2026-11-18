@@ -4,10 +4,13 @@ import type {
   RuntimeMode,
 } from "@copilotkit/shared";
 import {
+  CopilotKitRemovedApiError,
   RUNTIME_MODE_SSE,
   RUNTIME_MODE_INTELLIGENCE,
+  checkRemovedOptions,
   processEnv,
 } from "@copilotkit/shared";
+import type { RemovedOption } from "@copilotkit/shared";
 import { createLicenseChecker } from "@copilotkit/license-verifier";
 import type { LicenseChecker } from "@copilotkit/license-verifier";
 import { resolveDebugConfig } from "@copilotkit/shared";
@@ -278,6 +281,69 @@ export async function resolveAgents(
 }
 
 interface BaseCopilotRuntimeOptions extends CopilotRuntimeMiddlewares {
+  // The 1.x options that 2.0 removed. The constructor of CopilotKitRuntime
+  // throws or warns for each one (checkRuntimeOptions).
+
+  /**
+   * @deprecated Removed in CopilotKit 2.0, and it throws. Run the model in a `BuiltInAgent` in `agents`.
+   * See https://docs.copilotkit.ai/migrate/removed-apis-2.0#runtime-options
+   */
+  serviceAdapter?: never;
+  /**
+   * @deprecated Removed in CopilotKit 2.0, and it throws. Run the model in a `BuiltInAgent` in `agents`.
+   * See https://docs.copilotkit.ai/migrate/removed-apis-2.0#runtime-options
+   */
+  delegateAgentProcessingToServiceAdapter?: never;
+  /**
+   * @deprecated Removed in CopilotKit 2.0, and it throws. Register each agent in `agents`.
+   * See https://docs.copilotkit.ai/migrate/removed-apis-2.0#runtime-options
+   */
+  remoteEndpoints?: never;
+  /**
+   * @deprecated Removed in CopilotKit 2.0, and it throws. Register each agent in `agents`.
+   * See https://docs.copilotkit.ai/migrate/removed-apis-2.0#runtime-options
+   */
+  remoteActions?: never;
+  /**
+   * @deprecated Removed in CopilotKit 2.0, and it throws. Serve the chain as an AG-UI agent in `agents`.
+   * See https://docs.copilotkit.ai/migrate/removed-apis-2.0#runtime-options
+   */
+  langserve?: never;
+  /**
+   * @deprecated Removed in CopilotKit 2.0, and it throws. Give the tools to the agent.
+   * See https://docs.copilotkit.ai/migrate/removed-apis-2.0#runtime-options
+   */
+  actions?: never;
+  /**
+   * @deprecated Removed in CopilotKit 2.0, and it throws. Give MCP clients to a `BuiltInAgent` as `mcp`.
+   * See https://docs.copilotkit.ai/migrate/removed-apis-2.0#runtime-options
+   */
+  mcpServers?: never;
+  /**
+   * @deprecated Removed in CopilotKit 2.0, and it throws. Give MCP clients to a `BuiltInAgent` as `mcp`.
+   * See https://docs.copilotkit.ai/migrate/removed-apis-2.0#runtime-options
+   */
+  createMCPClient?: never;
+  /**
+   * @deprecated Removed in CopilotKit 2.0, and it throws. Use `beforeRequestMiddleware` and `afterRequestMiddleware`, or the `hooks` of `createCopilotKitRuntimeHandler`.
+   * See https://docs.copilotkit.ai/migrate/removed-apis-2.0#runtime-options
+   */
+  middleware?: never;
+  /**
+   * @deprecated Removed in CopilotKit 2.0, and it only warns. Delete it.
+   * See https://docs.copilotkit.ai/migrate/removed-apis-2.0#runtime-options
+   */
+  observability_c?: never;
+  /**
+   * @deprecated Removed in CopilotKit 2.0, and it only warns. Pass `hooks: { onError }` to `createCopilotKitRuntimeHandler`.
+   * See https://docs.copilotkit.ai/migrate/removed-apis-2.0#runtime-options
+   */
+  onError?: never;
+  /**
+   * @deprecated Removed in CopilotKit 2.0, and it only warns. Delete it.
+   * See https://docs.copilotkit.ai/migrate/removed-apis-2.0#runtime-options
+   */
+  onStopGeneration?: never;
   /**
    * Map of available agents, or a factory function for per-request agent resolution.
    *
@@ -1019,6 +1085,92 @@ export interface CopilotKitRuntimeConstructor {
   new (options: CopilotKitRuntimeOptions): CopilotKitRuntime;
 }
 
+const RUNTIME_OPTIONS_SECTION = "/migrate/removed-apis-2.0#runtime-options";
+
+const REMOTE_AGENTS: RemovedOption = {
+  effect: "throw",
+  use: "Register each agent in agents: a LangGraphAgent from @ag-ui/langgraph for LangGraph Platform, or an AG-UI agent for a Python SDK endpoint.",
+  docs: RUNTIME_OPTIONS_SECTION,
+};
+
+const MCP_SERVERS: RemovedOption = {
+  effect: "throw",
+  use: "Create the MCP clients with createMCPClient from @tanstack/ai-mcp, and give them to a BuiltInAgent as mcp: { clients }.",
+  docs: RUNTIME_OPTIONS_SECTION,
+};
+
+/**
+ * The options of the 1.x `CopilotRuntime` that CopilotKit 2.0 removed. An
+ * option throws when the 1.x code cannot work without it, and warns once in
+ * development when 2.0 only ignores it.
+ */
+const REMOVED_RUNTIME_OPTIONS: Record<string, RemovedOption> = {
+  serviceAdapter: {
+    effect: "throw",
+    use: 'Run the model in a BuiltInAgent from @copilotkit/runtime/agent, and pass it in agents, for example agents: { default: new BuiltInAgent({ model: openaiText("gpt-5") }) }.',
+    docs: RUNTIME_OPTIONS_SECTION,
+  },
+  delegateAgentProcessingToServiceAdapter: {
+    effect: "throw",
+    use: "Delete it. 2.0 has no service adapters: run the model in a BuiltInAgent in agents.",
+    docs: RUNTIME_OPTIONS_SECTION,
+  },
+  remoteEndpoints: REMOTE_AGENTS,
+  remoteActions: REMOTE_AGENTS,
+  langserve: {
+    effect: "throw",
+    use: "Serve the chain as an AG-UI agent, and register it in agents.",
+    docs: RUNTIME_OPTIONS_SECTION,
+  },
+  actions: {
+    effect: "throw",
+    use: "Give the tools to the agent: defineTool tools in the tools of a BuiltInAgent, or the tools of your agent framework.",
+    docs: RUNTIME_OPTIONS_SECTION,
+  },
+  mcpServers: MCP_SERVERS,
+  createMCPClient: MCP_SERVERS,
+  middleware: {
+    effect: "throw",
+    use: "Use beforeRequestMiddleware and afterRequestMiddleware on CopilotKitRuntime, or the hooks option of createCopilotKitRuntimeHandler.",
+    docs: RUNTIME_OPTIONS_SECTION,
+  },
+  observability_c: {
+    effect: "warn",
+    use: "Delete it. 2.0 has no observability hooks in the runtime options.",
+    docs: RUNTIME_OPTIONS_SECTION,
+  },
+  onError: {
+    effect: "warn",
+    use: "To handle errors, pass hooks: { onError } to createCopilotKitRuntimeHandler.",
+    docs: RUNTIME_OPTIONS_SECTION,
+  },
+  onStopGeneration: {
+    effect: "warn",
+    use: "Delete it. 2.0 does not call it.",
+    docs: RUNTIME_OPTIONS_SECTION,
+  },
+};
+
+/**
+ * Checks the options of `CopilotKitRuntime` for the 1.x shapes that 2.0
+ * removed: no options at all (1.x passed the model to the endpoint), and the
+ * options in REMOVED_RUNTIME_OPTIONS.
+ */
+function checkRuntimeOptions(options: unknown) {
+  if (typeof options !== "object" || options === null) {
+    throw new CopilotKitRemovedApiError({
+      what: '"new CopilotRuntime()" without options',
+      use: 'Pass the agents to CopilotKitRuntime, for example new CopilotKitRuntime({ agents: { default: new BuiltInAgent({ model: openaiText("gpt-5") }) } }). The service adapter of the 1.x endpoint is gone.',
+      docs: "/migrate/v2#update-the-runtime",
+    });
+  }
+  checkRemovedOptions(
+    "option of CopilotKitRuntime",
+    options,
+    REMOVED_RUNTIME_OPTIONS,
+  );
+}
+
 /**
  * Compatibility shim that preserves the legacy `CopilotKitRuntime` entrypoint.
  * New code should prefer `CopilotKitSseRuntime` or `CopilotKitIntelligenceRuntime`.
@@ -1031,6 +1183,7 @@ class CopilotRuntimeShim implements CopilotKitRuntime {
   private delegate: CopilotKitSseRuntime | CopilotKitIntelligenceRuntime;
 
   constructor(options: CopilotKitRuntimeOptions) {
+    checkRuntimeOptions(options);
     this.delegate = hasIntelligenceOptions(options)
       ? new CopilotKitIntelligenceRuntime(options)
       : new CopilotKitSseRuntime(options);

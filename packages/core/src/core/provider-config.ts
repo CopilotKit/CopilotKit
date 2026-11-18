@@ -2,9 +2,10 @@ import type { AbstractAgent } from "@ag-ui/client";
 import {
   COPILOT_CLOUD_CHAT_URL,
   COPILOT_CLOUD_PUBLIC_API_KEY_HEADER,
+  checkRemovedOptions,
   ɵanySchema,
 } from "@copilotkit/shared";
-import type { DebugConfig } from "@copilotkit/shared";
+import type { DebugConfig, RemovedOption } from "@copilotkit/shared";
 import type { CopilotRuntimeTransport, FrontendTool } from "../types";
 import { ɵbuildHumanInTheLoopTool } from "./human-in-the-loop";
 import type { ɵHumanInTheLoopRegistry } from "./human-in-the-loop";
@@ -685,4 +686,120 @@ export interface ɵCopilotKitProviderBaseOptions {
    * Capture stops on unmount, including manually started Trajectories.
    */
   learning?: boolean | ɵCopilotKitLearningOptions;
+
+  // The props of the 1.x `<CopilotKit>` that 2.0 removed. The providers throw
+  // or warn for each one (ɵcheckRemovedProviderProps).
+
+  /**
+   * @deprecated Removed in CopilotKit 2.0, and it throws. Pass `threadId` to
+   * `<CopilotChat>`, or to `<CopilotChatConfigurationProvider>` around the
+   * chat. See https://docs.copilotkit.ai/migrate/removed-apis-2.0#provider-props
+   */
+  threadId?: never;
+  /**
+   * @deprecated Removed in CopilotKit 2.0, and it throws. Rename it to
+   * `agentId`. See https://docs.copilotkit.ai/migrate/removed-apis-2.0#provider-props
+   */
+  agent?: never;
+  /**
+   * @deprecated Removed in CopilotKit 2.0, and it throws. Restrict the topics
+   * in your agent. See https://docs.copilotkit.ai/migrate/removed-apis-2.0#provider-props
+   */
+  guardrails_c?: never;
+  /**
+   * @deprecated Removed in CopilotKit 2.0, and it throws. Restrict the topics
+   * in your agent. See https://docs.copilotkit.ai/migrate/removed-apis-2.0#provider-props
+   */
+  cloudRestrictToTopic?: never;
+  /**
+   * @deprecated Removed in CopilotKit 2.0, and it throws. Show your own
+   * sign-in screen before you render the provider.
+   * See https://docs.copilotkit.ai/migrate/removed-apis-2.0#provider-props
+   */
+  authConfig_c?: never;
+  /**
+   * @deprecated Removed in CopilotKit 2.0: set the model parameters on the
+   * agent. See https://docs.copilotkit.ai/migrate/removed-apis-2.0#provider-props
+   */
+  forwardedParameters?: never;
+  /**
+   * @deprecated Removed in CopilotKit 2.0: voice input goes through the
+   * transcription service of the runtime.
+   * See https://docs.copilotkit.ai/migrate/removed-apis-2.0#provider-props
+   */
+  transcribeAudioUrl?: never;
+  /**
+   * @deprecated Removed in CopilotKit 2.0: voice input goes through the
+   * transcription service of the runtime.
+   * See https://docs.copilotkit.ai/migrate/removed-apis-2.0#provider-props
+   */
+  textToSpeechUrl?: never;
+  /**
+   * @deprecated Removed in CopilotKit 2.0: set `enableInspector` to turn the
+   * Inspector on or off. See https://docs.copilotkit.ai/migrate/removed-apis-2.0#showdevconsole
+   */
+  showDevConsole?: never;
+}
+
+const PROVIDER_PROPS_SECTION = "/migrate/removed-apis-2.0#provider-props";
+
+const COPILOT_CLOUD_GUARDRAILS: RemovedOption = {
+  effect: "throw",
+  use: "Copilot Cloud guardrails were removed. Restrict the topics in your agent, for example in its prompt.",
+  docs: PROVIDER_PROPS_SECTION,
+};
+
+const VOICE_URL: RemovedOption = {
+  effect: "warn",
+  use: "Delete it. Voice input goes through the transcription service of the runtime.",
+  docs: PROVIDER_PROPS_SECTION,
+};
+
+/**
+ * The props of the 1.x `<CopilotKit>` that CopilotKit 2.0 removed. A prop
+ * throws when the 1.x code cannot work without it, and warns once in
+ * development when 2.0 only ignores it.
+ */
+const REMOVED_PROVIDER_PROPS: Record<string, RemovedOption> = {
+  threadId: {
+    effect: "throw",
+    use: "Pass threadId to <CopilotChat>, or to <CopilotChatConfigurationProvider> around the chat.",
+    docs: PROVIDER_PROPS_SECTION,
+  },
+  agent: {
+    effect: "throw",
+    use: "Rename it to agentId.",
+    docs: PROVIDER_PROPS_SECTION,
+  },
+  guardrails_c: COPILOT_CLOUD_GUARDRAILS,
+  cloudRestrictToTopic: COPILOT_CLOUD_GUARDRAILS,
+  authConfig_c: {
+    effect: "throw",
+    use: "Show your own sign-in screen before you render the provider.",
+    docs: PROVIDER_PROPS_SECTION,
+  },
+  forwardedParameters: {
+    effect: "warn",
+    use: "Set the model parameters on the agent, for example modelOptions on a BuiltInAgent.",
+    docs: PROVIDER_PROPS_SECTION,
+  },
+  transcribeAudioUrl: VOICE_URL,
+  textToSpeechUrl: VOICE_URL,
+  showDevConsole: {
+    effect: "warn",
+    use: "Delete it. To turn the Inspector on or off, set enableInspector.",
+    docs: "/migrate/removed-apis-2.0#showdevconsole",
+  },
+};
+
+/**
+ * @internal Checks the props of a provider for the props of the 1.x
+ * `<CopilotKit>` that 2.0 removed. It throws a `CopilotKitRemovedApiError`
+ * for a prop that cannot work, and warns once in development for a prop that
+ * 2.0 ignores. React and Vue call it with all the props they got.
+ *
+ * @param props - The props of the provider.
+ */
+export function ɵcheckRemovedProviderProps(props: object) {
+  checkRemovedOptions("prop of CopilotKit", props, REMOVED_PROVIDER_PROPS);
 }

@@ -10,6 +10,10 @@ import type { Provider, Signal } from "@angular/core";
 // The store's own entry, not the core index: a chat configuration is often
 // provided in an app's initial bundle, which must not load all of core.
 import { ɵChatConfigurationStore } from "@copilotkit/core/chat-configuration";
+import {
+  CopilotKitRemovedApiError,
+  warnRemovedApiOnce,
+} from "@copilotkit/shared";
 import { COPILOT_KIT_CONFIG } from "./config";
 import { ɵOpenThreadBindings } from "./open-thread-bindings";
 
@@ -40,6 +44,9 @@ export interface CopilotChatConfigurationOptions {
   hasExplicitThreadId?: boolean;
 }
 
+const SET_OVERRIDE_SECTION =
+  "/migrate/removed-apis-2.0#_setoverride-in-angular";
+
 /**
  * Angular service that holds the runtime chat configuration state.
  *
@@ -56,6 +63,16 @@ export class CopilotChatConfiguration {
   readonly #snapshot = signal(this.#store.getSnapshot());
 
   constructor() {
+    // A 1.x subclass can override `_setOverride`, which 2.0 never calls.
+    const overridesSetOverride =
+      this._setOverride !== CopilotChatConfiguration.prototype._setOverride;
+    if (overridesSetOverride) {
+      warnRemovedApiOnce({
+        what: 'An override of "_setOverride" in a subclass of CopilotChatConfiguration',
+        use: "2.0 does not call _setOverride. Move the code into overrides of setActiveThreadId and startNewThread.",
+        docs: SET_OVERRIDE_SECTION,
+      });
+    }
     const destroyRef = inject(DestroyRef);
     const unsubscribe = this.#store.subscribe(() => {
       this.#snapshot.set(this.#store.getSnapshot());
@@ -108,6 +125,24 @@ export class CopilotChatConfiguration {
    */
   startNewThread(): void {
     this.#store.startNewThread();
+  }
+
+  /**
+   * @deprecated Removed in CopilotKit 2.0, and it throws. Call
+   * `setActiveThreadId(threadId, { explicit })` instead. Move the code of an
+   * override into overrides of `setActiveThreadId` and `startNewThread`: 2.0
+   * does not call `_setOverride`.
+   * See https://docs.copilotkit.ai/migrate/removed-apis-2.0#_setoverride-in-angular
+   */
+  // The `never` return type is written out: TypeScript infers `void` for a
+  // method that only throws, and `never` makes an override with a body fail
+  // the type check.
+  _setOverride(..._removedArguments: never[]): never {
+    throw new CopilotKitRemovedApiError({
+      what: '"_setOverride" of CopilotChatConfiguration',
+      use: "Call setActiveThreadId(threadId, { explicit }) instead.",
+      docs: SET_OVERRIDE_SECTION,
+    });
   }
 
   /** Whether the thread-list drawer is open. */
