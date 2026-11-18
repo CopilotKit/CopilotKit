@@ -3,7 +3,7 @@
   "features": {
     "beautiful-chat": {
       "og_docs_url": "https://docs.copilotkit.ai/langgraph/prebuilt-components",
-      "shell_docs_path": "/prebuilt-components"
+      "shell_docs_path": "/prebuilt-components/chat"
     },
     "cli-start": {
       "og_docs_url": "https://docs.copilotkit.ai/langgraph/quickstart",
@@ -11,15 +11,15 @@
     },
     "agentic-chat": {
       "og_docs_url": "https://docs.copilotkit.ai/langgraph/prebuilt-components",
-      "shell_docs_path": "/prebuilt-components"
+      "shell_docs_path": "/prebuilt-components/chat"
     },
     "prebuilt-sidebar": {
       "og_docs_url": "https://docs.copilotkit.ai/langgraph/prebuilt-components",
-      "shell_docs_path": "/prebuilt-components"
+      "shell_docs_path": "/prebuilt-components/sidebar"
     },
     "prebuilt-popup": {
       "og_docs_url": "https://docs.copilotkit.ai/langgraph/prebuilt-components",
-      "shell_docs_path": "/prebuilt-components"
+      "shell_docs_path": "/prebuilt-components/popup"
     },
     "chat-slots": {
       "og_docs_url": "https://docs.copilotkit.ai/langgraph/custom-look-and-feel/slots",

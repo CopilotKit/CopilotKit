@@ -23,7 +23,7 @@ import {
   standardUI,
   useGenerativeUIRuntime,
 } from "@copilotkit/react-core/v2/generative-ui";
-import { STAGE_WINDOW, Stage } from "@/components/brand/stage";
+import { STAGE_WINDOW, CodeFrame } from "@/components/brand/stage";
 import { brandDark, brandLight } from "@/proto/code-theme";
 import {
   catalogVariants,
@@ -153,7 +153,7 @@ function NodeCode({ name }: { name: string }) {
   const node = useSyncExternalStore(store.subscribe, store.get, store.get);
   if (!node) return null;
   return (
-    <Stage className="mt-4">
+    <CodeFrame className="mt-4">
       <DynamicCodeBlock
         lang="json"
         code={JSON.stringify(node, null, 2)}
@@ -163,7 +163,7 @@ function NodeCode({ name }: { name: string }) {
         }}
         options={{ themes: { light: brandLight, dark: brandDark } }}
       />
-    </Stage>
+    </CodeFrame>
   );
 }
 

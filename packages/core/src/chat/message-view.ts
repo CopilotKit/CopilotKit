@@ -129,7 +129,7 @@ export class ɵMessageViewModel {
         now: input.now,
       });
     }
-    const { workOpen, workTextOpen } = this.workOpen(
+    const { workOpen, workTextOpen, reasoningOpen } = this.workOpen(
       turnWork,
       isRunning,
       latestTurnKey,
@@ -142,6 +142,11 @@ export class ɵMessageViewModel {
       latestTurnKey,
       workOpen,
       workTextOpen,
+      /**
+       * Whether each reasoning message in a reply's work shows: with the work,
+       * and, while the agent works, only the reply's latest thought.
+       */
+      reasoningOpen,
       showCursor: ɵshouldShowMessageCursor({ isRunning, lastMessage, display }),
       // Before the reply's first message, the "turn" display's summary sits
       // where the cursor would.

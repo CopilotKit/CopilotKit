@@ -41,6 +41,9 @@ export async function fetchPublishedVersions(name: string): Promise<string[]> {
  * window reads the old list and picks the same version again, which npm then
  * refuses. Waiting here keeps the next run from starting until npm lists this
  * run's versions.
+ *
+ * A failed registry read counts as "not listed yet" and is read again on the
+ * next poll. Only the timeout throws.
  */
 export async function waitForPublishedVersions(
   packages: { name: string; version: string }[],
@@ -48,17 +51,29 @@ export async function waitForPublishedVersions(
 ): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   let missing = packages;
+  let lastError: unknown;
   for (;;) {
     const listed = await Promise.all(
-      missing.map(async (p) =>
-        (await fetchPublishedVersions(p.name)).includes(p.version),
-      ),
+      missing.map(async (p) => {
+        // The packages are already published, so a failed read is not a
+        // reason to stop. Count the package as not listed and read it again.
+        try {
+          return (await fetchPublishedVersions(p.name)).includes(p.version);
+        } catch (error) {
+          lastError = error;
+          return false;
+        }
+      }),
     );
     missing = missing.filter((_, i) => !listed[i]);
     if (missing.length === 0) return;
     if (Date.now() >= deadline) {
+      const cause =
+        lastError === undefined
+          ? ""
+          : ` The last registry read failed: ${lastError instanceof Error ? lastError.message : String(lastError)}`;
       throw new Error(
-        `npm does not list ${missing.map((p) => `${p.name}@${p.version}`).join(", ")} yet. They are published, but the next release candidate can pick the same version until npm lists them.`,
+        `npm does not list ${missing.map((p) => `${p.name}@${p.version}`).join(", ")} yet. They are published, but the next release candidate can pick the same version until npm lists them.${cause}`,
       );
     }
     await new Promise((resolve) => setTimeout(resolve, intervalMs));

@@ -121,11 +121,6 @@ export const FOLDED_PAGES: RedirectEntry[] = [
   },
   {
     id: "FOLD",
-    source: "/crewai-crews/multi-agent-flows",
-    destination: "/crewai-crews/multi-agent/subagents",
-  },
-  {
-    id: "FOLD",
     source: "/crewai-crews/persistence/loading-agent-state",
     destination: "/crewai-crews/threads-lifecycle",
   },
@@ -211,16 +206,6 @@ export const FOLDED_PAGES: RedirectEntry[] = [
   },
   {
     id: "FOLD",
-    source: "/google-adk/agent-app-context",
-    destination: "/google-adk/shared-state/agent-readonly",
-  },
-  {
-    id: "FOLD",
-    source: "/google-adk/deploy-langsmith",
-    destination: "/google-adk/deploy/langsmith",
-  },
-  {
-    id: "FOLD",
     source: "/google-adk/shared-state/in-app-agent-read",
     destination: "/google-adk/shared-state",
   },
@@ -256,11 +241,6 @@ export const FOLDED_PAGES: RedirectEntry[] = [
   },
   {
     id: "FOLD",
-    source: "/langgraph-fastapi/agent-app-context",
-    destination: "/langgraph-fastapi/shared-state/agent-readonly",
-  },
-  {
-    id: "FOLD",
     source: "/langgraph-fastapi/coagent-troubleshooting/error-debugging",
     destination: "/langgraph-fastapi/troubleshooting/error-debugging",
   },
@@ -279,16 +259,6 @@ export const FOLDED_PAGES: RedirectEntry[] = [
     id: "FOLD",
     source: "/langgraph-fastapi/deep-agents",
     destination: "/deepagents/quickstart",
-  },
-  {
-    id: "FOLD",
-    source: "/langgraph-fastapi/deploy-agentcore",
-    destination: "/langgraph-fastapi/deploy/agentcore",
-  },
-  {
-    id: "FOLD",
-    source: "/langgraph-fastapi/deploy-langsmith",
-    destination: "/langgraph-fastapi/deploy/langsmith",
   },
   {
     id: "FOLD",
@@ -362,11 +332,6 @@ export const FOLDED_PAGES: RedirectEntry[] = [
   },
   {
     id: "FOLD",
-    source: "/langgraph-python/agent-app-context",
-    destination: "/langgraph-python/shared-state/agent-readonly",
-  },
-  {
-    id: "FOLD",
     source: "/langgraph-python/coagent-troubleshooting/error-debugging",
     destination: "/langgraph-python/troubleshooting/error-debugging",
   },
@@ -380,16 +345,6 @@ export const FOLDED_PAGES: RedirectEntry[] = [
     id: "FOLD",
     source: "/langgraph-python/copilot-runtime",
     destination: "/langgraph-python/backend/copilot-runtime",
-  },
-  {
-    id: "FOLD",
-    source: "/langgraph-python/deploy-agentcore",
-    destination: "/langgraph-python/deploy/agentcore",
-  },
-  {
-    id: "FOLD",
-    source: "/langgraph-python/deploy-langsmith",
-    destination: "/langgraph-python/deploy/langsmith",
   },
   {
     id: "FOLD",
@@ -464,11 +419,6 @@ export const FOLDED_PAGES: RedirectEntry[] = [
   },
   {
     id: "FOLD",
-    source: "/langgraph-typescript/agent-app-context",
-    destination: "/langgraph-typescript/shared-state/agent-readonly",
-  },
-  {
-    id: "FOLD",
     source: "/langgraph-typescript/coagent-troubleshooting/error-debugging",
     destination: "/langgraph-typescript/troubleshooting/error-debugging",
   },
@@ -487,16 +437,6 @@ export const FOLDED_PAGES: RedirectEntry[] = [
     id: "FOLD",
     source: "/langgraph-typescript/deep-agents",
     destination: "/deepagents/quickstart",
-  },
-  {
-    id: "FOLD",
-    source: "/langgraph-typescript/deploy-agentcore",
-    destination: "/langgraph-typescript/deploy/agentcore",
-  },
-  {
-    id: "FOLD",
-    source: "/langgraph-typescript/deploy-langsmith",
-    destination: "/langgraph-typescript/deploy/langsmith",
   },
   {
     id: "FOLD",
@@ -573,11 +513,6 @@ export const FOLDED_PAGES: RedirectEntry[] = [
     id: "FOLD",
     source: "/llamaindex/generative-ui/your-components/interactive",
     destination: "/llamaindex/human-in-the-loop",
-  },
-  {
-    id: "FOLD",
-    source: "/llamaindex/multi-agent-flows",
-    destination: "/llamaindex/multi-agent/subagents",
   },
   {
     id: "FOLD",
@@ -677,11 +612,6 @@ export const FOLDED_PAGES: RedirectEntry[] = [
   },
   {
     id: "FOLD",
-    source: "/ms-agent-dotnet/agent-app-context",
-    destination: "/ms-agent-dotnet/shared-state/agent-readonly",
-  },
-  {
-    id: "FOLD",
     source: "/ms-agent-dotnet/copilot-runtime",
     destination: "/ms-agent-dotnet/backend/copilot-runtime",
   },
@@ -724,11 +654,6 @@ export const FOLDED_PAGES: RedirectEntry[] = [
     id: "FOLD",
     source: "/ms-agent-harness-dotnet/ag-ui",
     destination: "/ms-agent-harness-dotnet/backend/ag-ui",
-  },
-  {
-    id: "FOLD",
-    source: "/ms-agent-harness-dotnet/agent-app-context",
-    destination: "/ms-agent-harness-dotnet/shared-state/agent-readonly",
   },
   {
     id: "FOLD",
@@ -776,11 +701,6 @@ export const FOLDED_PAGES: RedirectEntry[] = [
     id: "FOLD",
     source: "/ms-agent-python/ag-ui",
     destination: "/ms-agent-python/backend/ag-ui",
-  },
-  {
-    id: "FOLD",
-    source: "/ms-agent-python/agent-app-context",
-    destination: "/ms-agent-python/shared-state/agent-readonly",
   },
   {
     id: "FOLD",
@@ -854,11 +774,6 @@ export const FOLDED_PAGES: RedirectEntry[] = [
   },
   {
     id: "FOLD",
-    source: "/pydantic-ai/multi-agent-flows",
-    destination: "/pydantic-ai/multi-agent/subagents",
-  },
-  {
-    id: "FOLD",
     source: "/pydantic-ai/shared-state/in-app-agent-read",
     destination: "/pydantic-ai/shared-state/rendering-in-app",
   },
@@ -896,11 +811,6 @@ export const FOLDED_PAGES: RedirectEntry[] = [
     id: "FOLD",
     source: "/strands-typescript/copilot-runtime",
     destination: "/strands-typescript/backend/copilot-runtime",
-  },
-  {
-    id: "FOLD",
-    source: "/strands-typescript/deploy-agentcore",
-    destination: "/strands-typescript/deploy/agentcore",
   },
   {
     id: "FOLD",
@@ -946,11 +856,6 @@ export const FOLDED_PAGES: RedirectEntry[] = [
     id: "FOLD",
     source: "/strands/copilot-runtime",
     destination: "/strands/backend/copilot-runtime",
-  },
-  {
-    id: "FOLD",
-    source: "/strands/deploy-agentcore",
-    destination: "/strands/deploy/agentcore",
   },
   {
     id: "FOLD",

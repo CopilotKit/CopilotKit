@@ -11,6 +11,7 @@ tsconfig.lib.json
 tsconfig.spec.json
 
 # Development files
+a11y/
 *.spec.ts
 *.spec.js
 *.test.ts

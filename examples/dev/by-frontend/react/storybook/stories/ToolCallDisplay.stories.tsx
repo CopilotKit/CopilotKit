@@ -11,10 +11,15 @@ import { demoToolRenderers } from "./support/ToolCards";
 import {
   debugBuildRun,
   pricingExperimentRun,
+  quickstartResearchRun,
   useScriptedRun,
 } from "./support/scripted-run";
 
-const runs = { debug: debugBuildRun, pricing: pricingExperimentRun };
+const runs = {
+  debug: debugBuildRun,
+  pricing: pricingExperimentRun,
+  quickstart: quickstartResearchRun,
+};
 
 interface ToolCallDisplayDemoProps {
   /** `CopilotChatMessageView`'s `toolCallDisplay`. */
@@ -120,6 +125,18 @@ export const Stacked: Story = {
  */
 export const Turn: Story = {
   args: { toolCallDisplay: "turn" },
+  decorators: [withMessageColumn],
+};
+
+/**
+ * Thinking in the `"turn"` display. The agent reasons between every burst of
+ * reading and three more times after its last search: while it works only its
+ * latest thought shows, as one line that replaces itself, and when the reply
+ * lands the whole trace folds into "Worked for 9s". Open that row to read it
+ * back, thought by thought.
+ */
+export const TurnWithThinking: Story = {
+  args: { toolCallDisplay: "turn", run: "quickstart" },
   decorators: [withMessageColumn],
 };
 

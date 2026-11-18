@@ -173,10 +173,13 @@ import type {
               </copilot-chat-user-message>
             }
           } @else if (message && message.role === "reasoning") {
-            <!-- Reasoning in a reply's working phase folds away with the work -->
+            <!-- Reasoning in a reply's working phase folds away with the work,
+                 and a thought the agent has moved on from folds away while it works -->
             @if (toolCallDisplay() === "turn") {
               <div
-                [copilotCollapsible]="viewState().workOpen.get(message.id) ?? true"
+                [copilotCollapsible]="
+                  viewState().reasoningOpen.get(message.id) ?? true
+                "
               >
                 <ng-container
                   *ngTemplateOutlet="reasoningRow; context: { $implicit: message }"

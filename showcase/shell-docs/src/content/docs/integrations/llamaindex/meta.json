@@ -6,6 +6,8 @@
     "index",
     "quickstart",
     "---App Control---",
-    "shared-state"
+    "shared-state",
+    "---LlamaIndex---",
+    "multi-agent-flows"
   ]
 }

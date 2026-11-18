@@ -95,11 +95,6 @@ const EMPTY_PROPERTIES: Readonly<Record<string, unknown>> = Object.freeze({});
 const EMPTY_AGENTS: Readonly<Record<string, AbstractAgent>> = Object.freeze({});
 
 // Provider props interface
-/** The MCP Apps renderer with `mcpApps.allowSameOriginFallback` applied. */
-const SameOriginMCPAppsActivityRenderer: typeof MCPAppsActivityRenderer = (
-  props,
-) => <MCPAppsActivityRenderer {...props} allowSameOriginFallback />;
-
 export interface CopilotKitProviderProps extends ɵCopilotKitProviderBaseOptions {
   children: ReactNode;
   /**
@@ -376,6 +371,22 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   const copilotkitRef = useRef<CopilotKitCoreReact | null>(null);
 
   const mcpAppsAllowSameOrigin = mcpApps?.allowSameOriginFallback === true;
+  const mcpAppsModelContext = mcpApps?.modelContext === true;
+  // Keyed on the two booleans, not on the `mcpApps` object, so an inline
+  // `mcpApps={{ ... }}` does not remount every widget on each render.
+  const mcpAppsRenderer = useMemo<typeof MCPAppsActivityRenderer>(
+    () =>
+      mcpAppsAllowSameOrigin || mcpAppsModelContext
+        ? (props) => (
+            <MCPAppsActivityRenderer
+              {...props}
+              allowSameOriginFallback={mcpAppsAllowSameOrigin}
+              modelContext={mcpAppsModelContext}
+            />
+          )
+        : MCPAppsActivityRenderer,
+    [mcpAppsAllowSameOrigin, mcpAppsModelContext],
+  );
 
   // The app's activity renderers, then the built-in ones (order from core).
   const allActivityRenderers = useMemo(
@@ -386,9 +397,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
           {
             activityType: MCPAppsActivityType,
             content: MCPAppsActivityContentSchema,
-            render: mcpAppsAllowSameOrigin
-              ? SameOriginMCPAppsActivityRenderer
-              : MCPAppsActivityRenderer,
+            render: mcpAppsRenderer,
           },
           openGenUIActive && {
             activityType: OpenGenerativeUIActivityType,
@@ -404,7 +413,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
       renderActivityMessagesList,
       openGenUIActive,
       generativeUIActive,
-      mcpAppsAllowSameOrigin,
+      mcpAppsRenderer,
     ],
   );
 

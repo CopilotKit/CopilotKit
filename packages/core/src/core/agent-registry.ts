@@ -1559,7 +1559,7 @@ export class AgentRegistry {
         .debug;
       const agents: Record<string, AbstractAgent> = Object.fromEntries(
         Object.entries(runtimeInfo.agents).map(
-          ([id, { description, capabilities }]) => {
+          ([id, { name, description, capabilities }]) => {
             // Preserve a live proxy only when its baked request routes still
             // match this connection. A new Runtime URL or resolved transport
             // needs a new proxy so agent traffic cannot keep using the old
@@ -1578,6 +1578,7 @@ export class AgentRegistry {
                 this._runtimeTransport,
               )
             ) {
+              existing.name = name || id;
               this.applyHeadersToAgent(existing);
               this.applyCredentialsToAgent(existing);
               this.applyMessageFilterToAgent(existing);
@@ -1588,6 +1589,7 @@ export class AgentRegistry {
             const agent = new ProxiedCopilotRuntimeAgent({
               runtimeUrl: this._runtimeEndpointUrl ?? runtimeUrl,
               agentId: id, // Runtime agents always have their ID set correctly
+              name: name || id,
               description: description,
               transport: this._runtimeTransport,
               credentials,
