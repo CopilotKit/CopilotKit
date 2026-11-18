@@ -1,4 +1,5 @@
 import { A2UI_SCHEMA_CONTEXT_DESCRIPTION } from "@ag-ui/a2ui-toolkit";
+import { createOpenAI } from "@ai-sdk/openai";
 import { tool } from "ai";
 import type { ModelMessage } from "ai";
 import { describe, expect, it } from "vitest";
@@ -11,6 +12,7 @@ import {
   subagentMessages,
   withoutRenderTool,
 } from "./a2ui";
+import { DEFAULT_MODEL, chatProviderOptions } from "./model";
 import {
   scriptedModel,
   systemPromptOf,
@@ -134,6 +136,76 @@ describe("generateA2uiTool", () => {
     const result = (await run()) as Record<string, unknown>;
     expect(result).toHaveProperty("a2ui_operations");
     expect(model.doGenerateCalls).toHaveLength(2);
+  });
+
+  it("sends each sub-agent prompt as a system message, so replay can tell a retry from the first attempt", async () => {
+    // aimock's `systemMessage` matcher reads only `system` messages; the
+    // OpenAI provider sends gpt-6-luna's system prompt as `developer` unless
+    // told otherwise.
+    const surfaces = [DANGLING_SURFACE, VALID_SURFACE];
+    const bodies: Array<{
+      messages: Array<{ role: string; content: unknown }>;
+      reasoning_effort?: string;
+    }> = [];
+    const fetchImpl: typeof fetch = async (_url, init) => {
+      bodies.push(JSON.parse(String(init?.body)));
+      const surface = surfaces[Math.min(bodies.length, surfaces.length) - 1];
+      return Response.json({
+        id: `chatcmpl-${bodies.length}`,
+        object: "chat.completion",
+        created: 0,
+        model: DEFAULT_MODEL,
+        choices: [
+          {
+            index: 0,
+            finish_reason: "tool_calls",
+            message: {
+              role: "assistant",
+              content: null,
+              tool_calls: [
+                {
+                  id: `call_${bodies.length}`,
+                  type: "function",
+                  function: {
+                    name: "render_a2ui",
+                    arguments: JSON.stringify(surface),
+                  },
+                },
+              ],
+            },
+          },
+        ],
+        usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+      });
+    };
+    const openai = createOpenAI({
+      apiKey: "test",
+      baseURL: "http://aimock.test/v1",
+      fetch: fetchImpl,
+    });
+    const generateA2ui = generateA2uiTool({
+      model: () => openai.chat(DEFAULT_MODEL),
+      providerOptions: chatProviderOptions(DEFAULT_MODEL),
+      defaultCatalogId: SALES_CATALOG_ID,
+      guidelines: SALES_GUIDELINES,
+      context: [],
+      messages: [],
+      state: {},
+    });
+
+    await generateA2ui.execute!({}, toolOptions("call-outer", conversation));
+
+    expect(bodies.map((body) => body.messages[0]?.role)).toEqual([
+      "system",
+      "system",
+    ]);
+    const [first, retry] = bodies.map((body) =>
+      String(body.messages[0]?.content),
+    );
+    expect(first).not.toContain("## Previous attempt was invalid");
+    expect(retry).toContain("## Previous attempt was invalid");
+    // The page's own provider options still apply.
+    expect(bodies[0]?.reasoning_effort).toBe("none");
   });
 
   it("returns the recovery-exhausted envelope when every attempt is invalid", async () => {

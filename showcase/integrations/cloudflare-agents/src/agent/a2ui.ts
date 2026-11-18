@@ -197,7 +197,18 @@ export function generateA2uiTool(options: GenerateA2uiOptions) {
               }),
             },
             toolChoice: { type: "tool", toolName: RENDER_TOOL },
-            providerOptions: options.providerOptions,
+            // The prompt goes out as a `system` message, not the provider's
+            // default `developer`: OpenAI reads both the same way, and replay
+            // (aimock's `systemMessage` matcher reads `system` only) can then
+            // tell a retry, which carries the previous attempt's errors, from
+            // the first attempt by content instead of by call order.
+            providerOptions: {
+              ...options.providerOptions,
+              openai: {
+                ...options.providerOptions?.openai,
+                systemMessageMode: "system",
+              },
+            },
             abortSignal,
           });
           const call = result.toolCalls.find((c) => c.toolName === RENDER_TOOL);

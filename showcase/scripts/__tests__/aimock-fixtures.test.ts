@@ -460,7 +460,13 @@ describe("fixture collision detection", () => {
     // (headless-complete revenue chart ×1, the schedule_meeting first legs
     // shared by gen-ui-interrupt, interrupt-headless and hitl-in-chat ×4),
     // each disambiguated at runtime by the probe's route or fixtureFile.
-    const KNOWN_DUPLICATE_CEILING = 400;
+    // Bumped 400 → 401 when cloudflare-agents/a2ui-recovery.json stopped
+    // keying the heal pill's render_a2ui retry on `sequenceIndex` (browser
+    // clicks carry no x-test-id, so every click shares the counters). The
+    // retry now matches on `systemMessage` ("## Previous attempt was
+    // invalid"), which `matchKey` does not encode, so it shares a key with the
+    // first attempt; aimock tells them apart at runtime, as for agno above.
+    const KNOWN_DUPLICATE_CEILING = 401;
 
     const collisions: string[] = [];
 
