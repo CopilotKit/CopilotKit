@@ -65,6 +65,37 @@ const forwardingFetch: NonNullable<HttpAgentConfig["fetch"]> = (url, init) => {
   return fetch(url, { ...init, headers: merged });
 };
 
+/** The aimock context of the model calls this integration makes (its slug). */
+const AIMOCK_CONTEXT = process.env.AIMOCK_CONTEXT || "cloudflare-agents";
+
+/** True for the inbound headers a model call must carry, as in the Worker. */
+function isModelHeader(name: string): boolean {
+  return (
+    name === "x-aimock-strict" ||
+    name === "x-test-id" ||
+    name === "x-aimock-context" ||
+    name.startsWith("x-diag-")
+  );
+}
+
+/**
+ * The `fetch` of the model clients this app calls itself (the voice route's
+ * transcription). Like the Worker's model calls, it sends the integration's
+ * `x-aimock-context` and adds the request's aimock and diagnostic headers;
+ * other `x-*` headers from the browser stay behind, since the call goes to
+ * the model provider.
+ */
+export const modelFetch: typeof fetch = (url, init) => {
+  const headers = new Headers(init?.headers);
+  if (!headers.has("x-aimock-context")) {
+    headers.set("x-aimock-context", AIMOCK_CONTEXT);
+  }
+  for (const [key, value] of Object.entries(forwarded.getStore() ?? {})) {
+    if (isModelHeader(key) && !headers.has(key)) headers.set(key, value);
+  }
+  return fetch(url, { ...init, headers });
+};
+
 /** An AG-UI client for one of the Worker's agents. */
 export function cloudflareAgent(name: CloudflareAgentName): HttpAgent {
   return new HttpAgent({

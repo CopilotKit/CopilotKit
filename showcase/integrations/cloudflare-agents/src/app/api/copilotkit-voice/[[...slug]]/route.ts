@@ -21,7 +21,11 @@ import {
   createCopilotRuntimeHandler,
 } from "@copilotkit/runtime/v2";
 import type { TranscribeFileOptions } from "@copilotkit/runtime/v2";
-import { cloudflareAgent, withForwardedHeaders } from "@/lib/cloudflare-agents";
+import {
+  cloudflareAgent,
+  modelFetch,
+  withForwardedHeaders,
+} from "@/lib/cloudflare-agents";
 import { TranscriptionServiceOpenAI } from "@copilotkit/voice";
 import OpenAI from "openai";
 
@@ -35,8 +39,13 @@ class GuardedOpenAITranscriptionService extends TranscriptionService {
   constructor() {
     super();
     const apiKey = process.env.OPENAI_API_KEY;
+    // `modelFetch` gives the transcription call this integration's aimock
+    // context and the probe's aimock/diagnostic headers, as the Worker does
+    // for its model calls.
     this.delegate = apiKey
-      ? new TranscriptionServiceOpenAI({ openai: new OpenAI({ apiKey }) })
+      ? new TranscriptionServiceOpenAI({
+          openai: new OpenAI({ apiKey, fetch: modelFetch }),
+        })
       : null;
   }
 

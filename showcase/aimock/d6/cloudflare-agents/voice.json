@@ -7,6 +7,18 @@
   },
   "fixtures": [
     {
+      "_comment": "Transcription of the bundled sample (public/demo-audio/sample.wav) posted to the voice route's /transcribe. The route's OpenAI client sends x-aimock-context: cloudflare-agents and the probe's aimock headers (src/lib/cloudflare-agents.ts modelFetch). The text is the sample's phrase, which the next fixture answers.",
+      "match": {
+        "endpoint": "transcription",
+        "context": "cloudflare-agents"
+      },
+      "response": {
+        "transcription": {
+          "text": "What is the weather in Tokyo?"
+        }
+      }
+    },
+    {
       "_comment": "Voice probe fast-path: exact-match content-only response.",
       "match": {
         "userMessage": "What is the weather in Tokyo?",
