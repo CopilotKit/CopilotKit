@@ -26,21 +26,27 @@ export async function handleRunAgent({
 }: RunAgentParameters) {
   const startTime = Date.now();
   const publicApiKey = request.headers.get("x-copilotcloud-public-api-key");
-  (runtime.telemetry ?? telemetry).capture(
-    "oss.runtime.copilot_request_created",
-    {
-      "cloud.guardrails.enabled": await readGuardrailsEnabled(request),
-      requestType: "run",
-      "cloud.api_key_provided": !!publicApiKey,
-      ...(publicApiKey ? { "cloud.public_api_key": publicApiKey } : {}),
-    },
-  );
 
   try {
     const agent = await cloneAgentForRequest(runtime, agentId, request);
     if (agent instanceof Response) {
       return agent;
     }
+
+    // Captured only once the agent id is known to be real. Emitting before the
+    // check above billed one event per attempt for a client retry-looping
+    // against an agent that does not exist, which is unbounded and carries no
+    // signal. The event itself is unchanged — same name, same properties.
+    // `readGuardrailsEnabled` reads a clone, so the body is still unread here.
+    (runtime.telemetry ?? telemetry).capture(
+      "oss.runtime.copilot_request_created",
+      {
+        "cloud.guardrails.enabled": await readGuardrailsEnabled(request),
+        requestType: "run",
+        "cloud.api_key_provided": !!publicApiKey,
+        ...(publicApiKey ? { "cloud.public_api_key": publicApiKey } : {}),
+      },
+    );
 
     // Ensure the clone carries the registry key so InMemoryAgentRunner can
     // tag historic runs with the correct agentId for filtering.
