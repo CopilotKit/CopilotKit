@@ -1,9 +1,10 @@
 /**
  * Sync contract: validate-parity.ts's BASELINE_DEMO_COUNT constant and
  * fail-baseline.json's `baselineDemoCount` field are two declarations of
- * the same number — the per-package e2e-spec-count floor. The workflow
- * .github/workflows/showcase_validate.yml reads the JSON; validate-parity.ts
- * uses the TS constant as its default. A divergence means the validator
+ * the same number. showcase_validate.yml invokes validate-e2e-coverage.ts,
+ * which reads the JSON for the legacy e2e-spec-count floor; explicit shared-d6
+ * integrations use structural inventory instead. validate-parity.ts uses the
+ * TS constant as its default demo-count warning. A divergence means the validator
  * and the CI gate disagree silently, so we lock them together here.
  *
  * Prior to this test the contract was enforced only by a comment ("keep
