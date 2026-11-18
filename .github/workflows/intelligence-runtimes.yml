@@ -93,14 +93,14 @@ jobs:
 
       - name: Setup Go
         if: matrix.language == 'go'
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7
         with:
           go-version-file: packages/runtime-go/go.mod
           cache-dependency-path: packages/runtime-go/go.sum
 
       - name: Setup Ruby
         if: startsWith(matrix.language, 'ruby-')
-        uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1.338.0
+        uses: ruby/setup-ruby@20eb24b0d509e2b9ed9b6d42ddfeb992915e0564 # v1.341.0
         with:
           ruby-version: "3.3"
           bundler: "2.4.22"

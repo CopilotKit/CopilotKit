@@ -1,0 +1,42 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for omnara / agentic-chat",
+    "sourceFile": "d6/langgraph-typescript/agentic-chat.json",
+    "created": "2026-11-09"
+  },
+  "fixtures": [
+    {
+      "_comment": "agentic-chat turn 1 — goldfish name. No turnIndex gate: the probe sends 3 sequential turns in one thread; turnIndex would restrict this to the first turn only, causing turns 2-3 to fall through to proxy.",
+      "match": {
+        "userMessage": "good name for a goldfish",
+        "context": "omnara"
+      },
+      "response": {
+        "content": "How about Bubbles? It is friendly, classic, and easy to call out at the tank. If you want alternatives: Goldie, Finley, or Mango."
+      }
+    },
+    {
+      "_comment": "agentic-chat turn 2 — tank name. No turnIndex gate (multi-turn conversation).",
+      "match": {
+        "userMessage": "name for its tank",
+        "context": "omnara"
+      },
+      "response": {
+        "content": "Following the Bubbles theme, you could call the tank The Bubble Bowl. It pairs naturally with the goldfish's name and keeps the playful tone."
+      }
+    },
+    {
+      "_comment": "agentic-chat turn 3 — recall. No turnIndex gate (multi-turn conversation).",
+      "match": {
+        "userMessage": "what we named the goldfish",
+        "context": "omnara"
+      },
+      "response": {
+        "content": "We named the goldfish Bubbles, and the tank The Bubble Bowl."
+      }
+    }
+  ],
+  "meta": {
+    "copiedFrom": "langgraph-typescript"
+  }
+}
