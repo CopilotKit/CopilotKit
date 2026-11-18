@@ -8,8 +8,15 @@ icon: "lucide/RefreshCw"
 
 CopilotKit 2.0 removes the v1 React, Vue, and Runtime APIs. The React hooks and the
 chat components are exported from `@copilotkit/react-core`, and the runtime
-serves AG-UI agents from `@copilotkit/runtime`. The `@copilotkit/react-ui` and
-`@copilotkit/react-textarea` packages are deleted.
+serves AG-UI agents from `@copilotkit/runtime`. Angular apps move from
+`@copilotkit/angular` 0.x to 2.0. For a summary of the changes, read
+[What's new in 2.0](/whats-new-2.0).
+
+2.0 deletes two packages:
+
+- `@copilotkit/react-ui`: its components moved to `@copilotkit/react-core`.
+- `@copilotkit/react-textarea`: discontinued. 2.0 has no successor for
+  `CopilotTextarea`.
 
 If your app already used the `/v2` subpaths that CopilotKit 1.x shipped
 (`@copilotkit/react-core/v2`, `@copilotkit/runtime/v2`, `@copilotkit/vue/v2`),
@@ -20,12 +27,14 @@ components add their own styles. Delete that import.
 
 This migration is not a global string replacement. Some exports kept their
 names, some were renamed, and some have no 1:1 replacement because 2.0 uses a
-different model. Start with the codemod, then use the steps below for what it
-cannot migrate:
+different model. Start with the codemod. Before you upgrade the packages, run
+it in the root of your app:
 
 ```bash
 npx codemod @copilotkit/v2-migration
 ```
+
+Then use the steps below for the code that it cannot migrate.
 
 **What's changing:**
 
@@ -41,7 +50,9 @@ npx codemod @copilotkit/v2-migration
 | `CopilotRuntime`                         | `CopilotKitRuntime`                   |
 | v1 hooks from `@copilotkit/vue`          | 2.0 hooks from `@copilotkit/vue`      |
 | `@copilotkit/vue/v2`                     | `@copilotkit/vue`                     |
-| `CopilotTextarea` (`@copilotkit/react-textarea`) | Removed. 2.0 has no equivalent. |
+| `@copilotkit/angular/styles.css`         | No stylesheet import                  |
+| `@copilotkit/angular/a2ui`               | `@copilotkit/angular/generative-ui`   |
+| `CopilotTextarea` (`@copilotkit/react-textarea`) | Discontinued. 2.0 has no successor. |
 
 ## Minimum versions
 
@@ -54,6 +65,7 @@ side in one app. Upgrade every `@copilotkit/*` package to 2.0 at the same time.
   or later for the other packages. See
   [Check your Node.js and LangChain versions](#check-your-nodejs-and-langchain-versions).
 - React 18 or 19.
+- Angular 22 for `@copilotkit/angular`.
 - Zod 4.2 or later for your tool schemas. See
   [Upgrade to Zod 4.2 or later](#upgrade-to-zod-42-or-later).
 
@@ -90,6 +102,21 @@ import {
 } from "@copilotkit/react-core";
 ```
 
+#### Provider props
+
+Some props of the v1 `<CopilotKit>` changed or are not in 2.0. The codemod
+renames `agent`. It marks each of the other props with a
+`TODO(copilotkit-2.0)` comment.
+
+| v1 prop | 2.0 |
+| --- | --- |
+| `agent` | `agentId` |
+| `threadId` | `threadId` on `<CopilotChat>`, or on a `<CopilotChatConfigurationProvider>` around the chat |
+| `onError` | Same prop. The handler gets `{ error, code, context }`. Read `code` where you read `type`. |
+| `transcribeAudioUrl` | Removed. For voice input, give the runtime a `transcriptionService`. See [Voice](/voice). |
+| `forwardedParameters` | Removed. Set the model options on the agent, for example `modelOptions` on `BuiltInAgent`. |
+| `textToSpeechUrl`, `guardrails_c`, `cloudRestrictToTopic`, `authConfig_c` | Removed. 2.0 has no equivalent. |
+
 #### Hook mapping
 
 Use this table to find the 2.0 replacement for each v1 hook:
@@ -106,6 +133,7 @@ Use this table to find the 2.0 replacement for each v1 hook:
 | `useCopilotChatSuggestions`        | [`useConfigureSuggestions`](/reference/hooks/useConfigureSuggestions)      |
 | `useLangGraphInterrupt`            | [`useInterrupt`](/reference/hooks/useInterrupt)                            |
 | `useRenderToolCall` (v1)           | [`useRenderTool`](/reference/hooks/useRenderTool)                          |
+| `useThreads` (v1)                  | [`useCopilotChatConfiguration`](/reference/hooks/useCopilotChatConfiguration) for the current thread. See [Same import, new API](#same-import-new-api). |
 | `useDefaultTool`                   | [`useDefaultRenderTool`](/reference/hooks/useDefaultRenderTool)            |
 
 The tool hooks take a Standard Schema such as `z.object(...)` for `parameters`,
@@ -272,10 +300,12 @@ export const POST = handler;
 <Step>
 ### If you use Vue, update Vue imports
 
-In 2.0, imports from `@copilotkit/vue/v2` fail, because 2.0 removes the `/v2`
-subpaths. Imports of `useCopilotAction` and `useCopilotReadable` from
-`@copilotkit/vue` also fail, because 2.0 removes the v1 hooks. The 2.0 API is
-at the package root, `@copilotkit/vue`, as in React.
+The 2.0 API is at the package root, `@copilotkit/vue`, as in React. The `/v2`
+subpaths, such as `@copilotkit/vue/v2` and `@copilotkit/vue/v2/generative-ui`,
+are deprecated aliases of the package root. Imports from them still work, and
+your editor marks them as deprecated. Imports of `useCopilotAction` and
+`useCopilotReadable` from `@copilotkit/vue` fail, because 2.0 removes the v1
+hooks.
 
 The codemod (`npx codemod @copilotkit/v2-migration`) migrates these imports and
 hooks. It changes `.ts` files and the `<script>` and `<script setup>` blocks of
@@ -334,26 +364,107 @@ useFrontendTool({
 
 </Step>
 <Step>
+### If you use Angular, update Angular code
+
+`@copilotkit/angular` goes from 0.x to 2.0. Most of the 0.x API stays the same
+in 2.0. These changes can break the build or the app:
+
+- `@copilotkit/angular/styles.css` is removed. The components add their own
+  styles.
+- `@copilotkit/angular/a2ui` is removed. A2UI renders with generative UI from
+  `@copilotkit/angular/generative-ui`.
+- The A2UI exports of `@copilotkit/angular` are removed, for example
+  `CopilotA2UIRecovery` and `readA2UILifecycleContent`.
+- `provideCopilotKit` throws in production when it has no runtime.
+
+The codemod (`npx codemod @copilotkit/v2-migration`) changes your `.ts` files.
+It does not change templates, stylesheets, or `angular.json`. If it cannot
+convert some code, it adds a `TODO(copilotkit-2.0)` comment.
+
+To migrate:
+
+1. Run the codemod. Then install `@copilotkit/angular@next`.
+2. Remove `@copilotkit/angular/styles.css` from `angular.json` and from your
+   stylesheets. See [Remove the stylesheet import](#remove-the-stylesheet-import).
+3. Give each `provideCopilotKit` call a `runtimeUrl`, `licenseKey`, `agents`,
+   or `selfManagedAgents`. The codemod marks each call that has none of them.
+4. Move your A2UI catalogs to generative UI. The codemod converts
+   `createAngularCatalog` to `createGenerativeUI`, and `a2ui: { catalog }` to
+   `provideGenerativeUI({ ui: catalog })`. Rewrite each component that it
+   marks. See [Adopt from A2UI](/generative-ui/components/from-a2ui).
+5. Fix the other `TODO(copilotkit-2.0)` comments. Each comment names the 2.0
+   API to use, for example `handleCopy()` for a write to the `copied` signal
+   of a copy button.
+
+#### Before
+
+{/* kiira: ignore, shows the 0.x code this guide migrates away from */}
+```ts ignore title="src/app/app.config.ts"
+import { ApplicationConfig } from "@angular/core";
+import { provideCopilotKit } from "@copilotkit/angular";
+import { appCatalog } from "./app-catalog";
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideCopilotKit({
+      runtimeUrl: "/api/copilotkit",
+      a2ui: { catalog: appCatalog },
+    }),
+  ],
+};
+```
+
+#### After
+
+```ts title="src/app/app.config.ts"
+import { ApplicationConfig } from "@angular/core";
+import { provideCopilotKit } from "@copilotkit/angular";
+import { provideGenerativeUI } from "@copilotkit/angular/generative-ui";
+import { appCatalog } from "./app-catalog";
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideCopilotKit({ runtimeUrl: "/api/copilotkit" }),
+    provideGenerativeUI({ ui: appCatalog }),
+  ],
+};
+```
+
+Some Angular behavior also changed: error logs, the runtime connection, the
+chat text, and the markdown output. Read the Angular sections of these pages:
+
+- [Providers in 2.0](/migrate/providers-2.0)
+- [Chat UI in 2.0](/migrate/chat-2.0)
+- [Generative UI in 2.0](/migrate/generative-ui-2.0)
+- [Migrate the Markdown Renderer](/migrate/markdown-renderer#angular)
+
+</Step>
+<Step>
 ### Remove the stylesheet import
 
-CopilotKit 2.0 components include their own styles, so you don't import a stylesheet.
-Remove this line when no v1 `@copilotkit/react-ui` components are left in your app:
+CopilotKit 2.0 components include their own styles, so you do not import a
+stylesheet.
 
-```tsx
-import "@copilotkit/react-ui/styles.css"; // [!code --]
-```
+The codemod deletes the CopilotKit stylesheet imports from your JavaScript and
+TypeScript files, and from the `<script>` blocks of `.vue` files. It does not
+read CSS files, the `<style>` blocks of `.vue` files, or `angular.json`.
 
-If your app imports a v2 stylesheet (`@copilotkit/react-core/v2/styles.css`,
-`@copilotkit/vue/styles.css`, or `@copilotkit/angular/styles.css`), this codemod
-removes the import from your JS, TS, CSS, and Vue files and from `angular.json`:
+To find the imports that are left, search your project:
 
 ```bash
-npx jscodeshift --parser=tsx --extensions=tsx,ts,jsx,js,css,scss,vue,json \
-  -t https://raw.githubusercontent.com/CopilotKit/CopilotKit/main/codemods/remove-stylesheet-import.ts \
-  ./src
+git grep -n "@copilotkit/.*\.css"
 ```
 
-In an Angular app, add `angular.json` after `./src` so the codemod also updates its `styles` arrays.
+Delete each import that it finds, for example:
+
+```css title="src/styles.css"
+@import "@copilotkit/angular/styles.css"; /* [!code --] */
+```
+
+In `angular.json`, delete the CopilotKit entry from each `styles` array.
+
+Keep `@copilotkit/core/styles.css`. It is the 2.0 stylesheet for an app that
+sets `injectStyles` to `false`.
 
 </Step>
 <Step>
@@ -400,11 +511,30 @@ npm install @langchain/core@^1.1.41 @langchain/langgraph@^1.2.9 langchain@^1.3.4
 </Step>
 </Steps>
 
+## Same import, new API
+
+These names import from the same package in v1 and 2.0, but the 2.0 API is
+different. After the upgrade, your type check fails at each v1 use. JavaScript
+has no type check, so there the v1 code fails at run time or does nothing.
+
+| v1 name | What you see in 2.0 | What to do |
+| --- | --- | --- |
+| `CopilotKit`, `CopilotKitProps` | Type errors on v1 props, such as `threadId`. `CopilotKit` is an alias of `CopilotKitProvider`, and it takes the 2.0 props. | Change each prop as the [provider props](#provider-props) table shows. |
+| `useFrontendTool` | A type error on `parameters`. The v1 hook took a `Parameter[]` list. | Write `parameters` as a Standard Schema, such as `z.object(...)`. See the [example](#hook-mapping). |
+| `useHumanInTheLoop` | A type error on `parameters`, for the same reason. | Write `parameters` as a Standard Schema. The `render` component still gets `respond`. |
+| `useRenderToolCall` | A type error, because the 2.0 hook takes no arguments. It returns a function that renders one tool call. | Register your renderer with [`useRenderTool`](/reference/hooks/useRenderTool). |
+| `useThreads` | A type error, because `agentId` is missing. The 2.0 hook lists the threads of an agent from CopilotKit Intelligence. It does not return `threadId` or `setThreadId`. | Pass `threadId` to `<CopilotChat>`. To read or change the thread, use `threadId` and `setActiveThreadId` from [`useCopilotChatConfiguration`](/reference/hooks/useCopilotChatConfiguration). |
+| `CopilotRuntime` | The 2.0 runtime class is `CopilotKitRuntime`. It takes `agents`, not `serviceAdapter`, `remoteEndpoints`, or `actions`. | Follow [Update the runtime](#update-the-runtime). |
+
+In Vue, `useFrontendTool` changes in the same way. See
+[If you use Vue, update Vue imports](#if-you-use-vue-update-vue-imports).
+
+The codemod renames or marks most of these uses. It does not change
+`useThreads` calls, so search your code for `useThreads` and change each call
+by hand.
+
 ## Gotchas
 
-- **Tool rendering is not frontend tool execution.** Replace the v1
-  `useRenderToolCall` registration hook with `useRenderTool`. The 2.0 hook named
-  `useRenderToolCall` is a different low-level consumer API.
 - **Schemas changed.** The 2.0 tool and interaction hooks use Standard Schema
   objects such as `z.object(...)`, not the v1 `Parameter[]` shape. Zod
   schemas must come from Zod 4.2 or later.
@@ -419,9 +549,9 @@ npm install @langchain/core@^1.1.41 @langchain/langgraph@^1.2.9 langchain@^1.3.4
   still works as `generativeUI: { a2uiVersion: "0.9" }`, which an agent that
   writes A2UI v0.9 needs. Move both to `generativeUI`. See
   [Adopt from A2UI](/generative-ui/components/from-a2ui).
-- **`CopilotTextarea` has no replacement.** 2.0 deleted
-  `@copilotkit/react-textarea`. Remove the component, or build the behavior
-  with your own textarea and the [2.0 hooks](/reference).
+- **`CopilotTextarea` has no successor.** `@copilotkit/react-textarea` is
+  discontinued, and 2.0 deletes it. Remove the component, or build the
+  behavior with your own textarea and the [2.0 hooks](/reference).
 - **No 1:1 replacement is intentional.** Where a v1 export has no 2.0
   equivalent, migrate the surrounding pattern using the linked 2.0 reference
   instead of selecting a similarly named symbol.

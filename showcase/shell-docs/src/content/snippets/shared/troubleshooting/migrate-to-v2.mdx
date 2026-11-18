@@ -1,8 +1,8 @@
 ## Overview
 
-CopilotKit 2.0 consolidates the React frontend into a single package. Both hooks and UI components are exported from `@copilotkit/react-core`. The `@copilotkit/react-ui` package is deleted. The `/v2` subpaths of React and the runtime are deprecated aliases of the package roots, so import from the roots.
+CopilotKit 2.0 consolidates the React frontend into a single package. Both hooks and UI components are exported from `@copilotkit/react-core`. The `@copilotkit/react-ui` package is deleted. `@copilotkit/react-textarea` is discontinued, and 2.0 has no successor for `CopilotTextarea`. The `/v2` subpaths of React and the runtime are deprecated aliases of the package roots, so import from the roots.
 
-Run the codemod first. It migrates most imports and the provider for you:
+Run the codemod first, before you upgrade the packages. It migrates most imports and the provider for you:
 
 ```bash
 npx codemod @copilotkit/v2-migration
@@ -116,23 +116,27 @@ import { CopilotChat } from "@copilotkit/react-core";
 ### Remove the stylesheet import
 
 CopilotKit 2.0 components include their own styles, so you don't import a stylesheet.
-Remove this line when no v1 `@copilotkit/react-ui` components are left in your app:
 
-```tsx
-import "@copilotkit/react-ui/styles.css"; // [!code --]
-```
+The codemod deletes the CopilotKit stylesheet imports from your JavaScript and
+TypeScript files, and from the `<script>` blocks of `.vue` files. It does not
+read CSS files, the `<style>` blocks of `.vue` files, or `angular.json`.
 
-If your app imports a v2 stylesheet (`@copilotkit/react-core/v2/styles.css`,
-`@copilotkit/vue/styles.css`, or `@copilotkit/angular/styles.css`), this codemod
-removes the import from your JS, TS, CSS, and Vue files and from `angular.json`:
+To find the imports that are left, search your project:
 
 ```bash
-npx jscodeshift --parser=tsx --extensions=tsx,ts,jsx,js,css,scss,vue,json \
-  -t https://raw.githubusercontent.com/CopilotKit/CopilotKit/main/codemods/remove-stylesheet-import.ts \
-  ./src
+git grep -n "@copilotkit/.*\.css"
 ```
 
-In an Angular app, add `angular.json` after `./src` so the codemod also updates its `styles` arrays.
+Delete each import that it finds, for example:
+
+```css title="src/styles.css"
+@import "@copilotkit/react-ui/styles.css"; /* [!code --] */
+```
+
+In `angular.json`, delete the CopilotKit entry from each `styles` array.
+
+Keep `@copilotkit/core/styles.css`. It is the 2.0 stylesheet for an app that
+sets `injectStyles` to `false`.
 
 </Step>
 <Step>
