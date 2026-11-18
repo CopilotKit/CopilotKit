@@ -37,7 +37,7 @@ If your code still uses a 1.x export that 2.0 removed, it throws a `CopilotKitRe
 
 TypeScript shows the same message as a type error where the code uses the export, and your editor marks the import as deprecated. Do what the message says, or run the codemod.
 
-The error is a `CopilotKitError` with the code `REMOVED_API`. A removed constant, object, or React context has no stand-in, because code reads it without a call. An import of one fails the build.
+The error has the code `REMOVED_API`, and its `docsUrl` property links the section about the API. It extends `Error`, not `CopilotKitError`, so `error instanceof CopilotKitError` does not match it. A removed constant, object, or React context has no stand-in, because code reads it without a call. An import of one fails the build.
 
 ## 1.x props, options, and arguments
 

@@ -3,6 +3,8 @@ import {
   CopilotKitError,
   CopilotKitErrorCode,
   CopilotKitRemovedApiError,
+  ERROR_NAMES,
+  isStructuredCopilotKitError,
   removedApiMessage,
 } from "../errors";
 import {
@@ -53,17 +55,22 @@ describe("CopilotKitRemovedApiError", () => {
     docs: "/migrate/v2#update-the-runtime",
   });
 
-  it("is a CopilotKitError with the REMOVED_API code", () => {
-    expect(error).toBeInstanceOf(CopilotKitError);
-    expect(error.name).toBe("CopilotKitRemovedApiError");
+  it("is an Error with the REMOVED_API code", () => {
+    expect(error).toBeInstanceOf(Error);
+    expect(error.name).toBe(ERROR_NAMES.REMOVED_API_ERROR);
     expect(error.code).toBe(CopilotKitErrorCode.REMOVED_API);
-    expect(error.extensions.code).toBe(CopilotKitErrorCode.REMOVED_API);
-    expect(error.statusCode).toBe(400);
+  });
+
+  // It is not a CopilotKitError, so that it does not add the error table to
+  // each app bundle. The name keeps it a structured CopilotKit error.
+  it("is not a CopilotKitError, but counts as a structured CopilotKit error", () => {
+    expect(error).not.toBeInstanceOf(CopilotKitError);
+    expect(isStructuredCopilotKitError(error)).toBe(true);
   });
 
   it("carries the message and links the docs section of the API", () => {
     expect(error.message).toBe(SERVICE_ADAPTER_MESSAGE);
-    expect(error.extensions.troubleshootingUrl).toBe(
+    expect(error.docsUrl).toBe(
       "https://docs.copilotkit.ai/migrate/v2#update-the-runtime",
     );
   });
