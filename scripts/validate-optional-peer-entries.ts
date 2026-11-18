@@ -255,13 +255,26 @@ export function isDedicatedEntry(entry: string, peer: string): boolean {
   return segments.includes(entry.split("/").pop());
 }
 
+/**
+ * The JavaScript file of one format of an exports entry: a path, or the
+ * `default` of `{ types, default }`, the shape of the `/v2` aliases.
+ */
+function fileOf(target: unknown): string | undefined {
+  if (typeof target === "string") return target;
+  if (!target || typeof target !== "object") return undefined;
+  const file = (target as Record<string, unknown>).default;
+  return typeof file === "string" ? file : undefined;
+}
+
 /** The published targets of one exports entry, by format. */
 export function targetsOf(condition: unknown): Array<[Format, string]> {
   if (!condition || typeof condition !== "object") return [];
   const record = condition as Record<string, unknown>;
   const targets: Array<[Format, string]> = [];
-  if (typeof record.import === "string") targets.push(["esm", record.import]);
-  if (typeof record.require === "string") targets.push(["cjs", record.require]);
+  const esm = fileOf(record.import);
+  if (esm !== undefined) targets.push(["esm", esm]);
+  const cjs = fileOf(record.require);
+  if (cjs !== undefined) targets.push(["cjs", cjs]);
   return targets;
 }
 

@@ -223,6 +223,37 @@ describe("findPeerViolations", () => {
     expect(violations[0]).toMatchObject({ entry: "./v2", format: "cjs" });
   });
 
+  it("follows the default file of a { types, default } target", () => {
+    // The `/v2` aliases name their declarations next to their JavaScript.
+    const root = setup({
+      dist: {
+        "v2/index.mjs": 'import express from "express";\nexport { express };',
+        "v2/index.cjs":
+          'const express = require("express");\nmodule.exports = { express };',
+      },
+      manifest: {
+        ...OPTIONAL_EXPRESS,
+        exports: {
+          "./v2": {
+            import: {
+              types: "./dist/v2/index.d.mts",
+              default: "./dist/v2/index.mjs",
+            },
+            require: {
+              types: "./dist/v2/index.d.cts",
+              default: "./dist/v2/index.cjs",
+            },
+          },
+        },
+      },
+    });
+
+    const violations = findPeerViolations(root);
+    expect(violations).toHaveLength(2);
+    expect(violations[0]).toMatchObject({ entry: "./v2", format: "esm" });
+    expect(violations[1]).toMatchObject({ entry: "./v2", format: "cjs" });
+  });
+
   it("allows the entry point dedicated to that peer", () => {
     const root = setup({
       dist: {
