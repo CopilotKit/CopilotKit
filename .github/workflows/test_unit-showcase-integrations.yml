@@ -2,17 +2,12 @@ name: test / unit / showcase-integrations
 
 # Unit tests that live INSIDE a showcase integration's own source tree.
 #
-# The integrations under `showcase/integrations/*` are deliberately outside the
-# pnpm workspace, so `nx run-many -t test` never discovers them and
-# `test_unit-showcase.yml` (which runs the harness suite) does not cover them
-# either. The Python half of the same tree is already gated, by the
-# `python-unit-tests` job in `showcase_validate.yml`; its TypeScript half was
-# not gated anywhere, so a `*.test.ts` next to an integration's agent code
-# could fail silently for as long as nobody ran it by hand.
+# Standalone integrations install their own dependencies and are not covered
+# by the package unit workflow or the harness suite in test_unit-showcase.yml.
+# The Python suites are gated separately by showcase_validate.yml.
 #
-# This workflow closes that gap: it runs the repo's own vitest against every
-# `*.test.ts` under `showcase/integrations`, from the repo root, so the tests
-# need no dependency of their own inside each integration's package.
+# This workflow gates Strands TypeScript's agent tests, the shared integration
+# utilities, and Omnara's standalone Node test suite.
 
 on:
   pull_request:
@@ -20,6 +15,7 @@ on:
       - "showcase/integrations/strands-typescript/src/agent/**"
       - "showcase/integrations/strands-typescript/src/cvdiag/**"
       - "showcase/integrations/_shared/ts/**"
+      - "showcase/integrations/omnara/**"
       - ".github/workflows/test_unit-showcase-integrations.yml"
   push:
     branches: [main]
@@ -27,6 +23,7 @@ on:
       - "showcase/integrations/strands-typescript/src/agent/**"
       - "showcase/integrations/strands-typescript/src/cvdiag/**"
       - "showcase/integrations/_shared/ts/**"
+      - "showcase/integrations/omnara/**"
       - ".github/workflows/test_unit-showcase-integrations.yml"
 
 permissions:
@@ -88,3 +85,10 @@ jobs:
         # demos' theme bootstrap, the CVDIAG emitter barrel). Its tests need
         # only the root workspace install.
         run: pnpm exec vitest run --config showcase/integrations/_shared/ts/vitest.config.ts
+
+      - name: Install Omnara integration dependencies
+        working-directory: showcase/integrations/omnara
+        run: npm ci
+
+      - name: Run Omnara integration unit tests
+        run: pnpm exec nx run showcase-omnara:test --skip-nx-cache

@@ -10,10 +10,7 @@ const data: FrameworkOverviewData = {
   subheader:
     "The Agents SDK runs your agent's loop: the model, its tools and its handoffs. CopilotKit gives that loop a surface your users can see, interrupt and steer.",
   guideLink: "/openai-agents-python/quickstart",
-  // No CLI starter exists for this framework yet (`copilotkit init` would
-  // scaffold a different framework), so the first command is the agent-side
-  // install from the quickstart's "use an existing agent" path.
-  initCommand: "uv add openai-agents ag-ui-openai-agents fastapi uvicorn",
+  initCommand: "npx copilotkit@latest init --framework openai-agents-python",
   // Link to the integration source for its supported features.
   featuresLink:
     "https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/openai-agents-python",
@@ -25,7 +22,7 @@ const data: FrameworkOverviewData = {
       iconKey: "paintbrush",
       description:
         "Your function tools run on the server, and their calls stream to the browser while the model writes them. CopilotKit renders each one as a React component instead of leaving the user with a spinner.",
-      documentationLink: "/openai-agents-python/generative-ui/tool-rendering",
+      documentationLink: "/openai-agents-python/generative-ui",
     },
     {
       title: "Human-in-the-loop",
@@ -76,6 +73,7 @@ const handler = createCopilotRuntimeHandler({
 
 export const POST = (req: NextRequest) => handler(req);`,
     guideLink: "/openai-agents-python/quickstart",
+    initCommand: "npx copilotkit@latest init --framework openai-agents-python",
   },
 
   liveDemos: [],
