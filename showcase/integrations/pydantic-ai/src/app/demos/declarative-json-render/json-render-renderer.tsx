@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import {
   CopilotChatAssistantMessage,
   type CopilotChatAssistantMessageProps,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 import { JSONUIProvider, Renderer } from "@json-render/react";
 import { registry } from "./registry";
 import type { JsonRenderSpec } from "./types";

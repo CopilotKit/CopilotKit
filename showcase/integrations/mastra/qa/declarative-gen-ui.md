@@ -18,5 +18,6 @@
 - A2UI dynamic catalog resolves `Card`, `Metric`, `StatusBadge`,
   `InfoRow`, `PrimaryButton`, `PieChart`, `BarChart` from
   `./a2ui/renderers.tsx`
-- The `generate_a2ui` tool on the Mastra weatherAgent produces operations
-  that the `@copilotkit/a2ui-renderer` intercepts and renders.
+- The `generate_a2ui` tool on the Mastra weatherAgent produces A2UI v0.9
+  operations. The runtime upgrades them to A2UI 1.0, and the page's
+  generative UI renders them.

@@ -5,13 +5,13 @@
  * the two core hooks (`useAgent` + `useCopilotKit`), styled with shadcn/ui.
  */
 
-import { CopilotKit } from "@copilotkit/react-core/v2";
+import { CopilotKitProvider } from "@copilotkit/react-core";
 import { Chat } from "./chat";
 
 export default function HeadlessSimpleDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="headless-simple">
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" agentId="headless-simple">
       <Chat />
-    </CopilotKit>
+    </CopilotKitProvider>
   );
 }

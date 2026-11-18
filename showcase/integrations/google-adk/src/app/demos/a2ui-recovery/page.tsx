@@ -9,7 +9,7 @@
 
 import React from "react";
 import { A2UIFormat } from "../../../../_shared/ts/a2ui-format";
-import { CopilotKit } from "@copilotkit/react-core/v2";
+import { CopilotKitProvider } from "@copilotkit/react-core";
 
 // Reuse the declarative-gen-ui catalog (same components, same catalogId).
 import { myCatalog } from "../declarative-gen-ui/a2ui/catalog";
@@ -19,18 +19,18 @@ export default function A2uiRecoveryDemo() {
   return (
     <A2UIFormat>
       {(inferenceFormat) => (
-        <CopilotKit
+        <CopilotKitProvider
           properties={{ a2ui: { inferenceFormat } }}
           runtimeUrl="/api/copilotkit-a2ui-recovery"
-          agent="a2ui-recovery"
-          a2ui={{ catalog: myCatalog }}
+          agentId="a2ui-recovery"
+          generativeUI={{ ui: myCatalog }}
         >
           <div className="flex justify-center items-center h-full w-full">
             <div className="h-full w-full max-w-4xl">
               <Chat />
             </div>
           </div>
-        </CopilotKit>
+        </CopilotKitProvider>
       )}
     </A2UIFormat>
   );

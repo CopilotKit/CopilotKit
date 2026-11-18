@@ -4,7 +4,7 @@
  *
  * Ordered from most constrained (fixed UI) to most open (freeform UI).
  */
-import { useConfigureSuggestions } from "@copilotkit/react-core/v2";
+import { useConfigureSuggestions } from "@copilotkit/react-core";
 
 export const useShowcaseSuggestions = (options?: { showcaseMode?: string }) => {
   const showcase = options?.showcaseMode;

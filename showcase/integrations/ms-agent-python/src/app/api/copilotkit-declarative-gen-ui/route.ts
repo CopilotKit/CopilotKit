@@ -14,7 +14,7 @@ import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import { HttpAgent } from "@ag-ui/client";
 
 // The MS Agent backend runs as a separate process on port 8000. This runtime
@@ -29,7 +29,8 @@ const declarativeGenUiAgent = new HttpAgent({
 const runtime = new CopilotRuntime({
   // @ts-ignore -- Published CopilotRuntime agents type wraps Record in MaybePromise<NonEmptyRecord<...>> which rejects plain Records; fixed in source, pending release
   agents: { "declarative-gen-ui": declarativeGenUiAgent },
-  a2ui: {
+  generativeUI: {
+    a2uiVersion: "0.9",
     // Native auto-injection (matches the langgraph-python reference). The
     // backend agent (src/agents/a2ui_dynamic.py) owns NO A2UI tool; the
     // runtime forwards `injectA2UITool: true` and the Microsoft Agent

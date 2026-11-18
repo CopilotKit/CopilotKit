@@ -14,7 +14,7 @@ import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import { HttpAgent } from "@ag-ui/client";
 import { extractForwardedHeaders } from "@/lib/header-forwarding";
 
@@ -34,7 +34,8 @@ export const POST = async (req: NextRequest) => {
           headers,
         }),
       },
-      a2ui: {
+      generativeUI: {
+        a2uiVersion: "0.9",
         // The backend owns `generate_a2ui` (src/demo_agents/a2ui_dynamic.py) and
         // returns an `a2ui_operations` container in its tool result; the
         // middleware still runs to paint it. `false` is load-bearing: a

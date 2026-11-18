@@ -18,7 +18,7 @@
  */
 
 import { useEffect, useMemo } from "react";
-import { useAgent } from "@copilotkit/react-core/v2";
+import { useAgent } from "@copilotkit/react-core";
 
 /**
  * Minimal structural shape of an AG-UI message. `@ag-ui/client`'s

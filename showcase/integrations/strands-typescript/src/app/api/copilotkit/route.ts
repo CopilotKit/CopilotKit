@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import type { AbstractAgent, HttpAgentConfig } from "@ag-ui/client";
 import { HttpAgent } from "@ag-ui/client";
 import { AsyncLocalStorage } from "node:async_hooks";

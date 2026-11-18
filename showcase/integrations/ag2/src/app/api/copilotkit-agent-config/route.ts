@@ -29,7 +29,7 @@ import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import { HttpAgent } from "@ag-ui/client";
 
 // Shape of the AG-UI run input we care about. We avoid a direct import of

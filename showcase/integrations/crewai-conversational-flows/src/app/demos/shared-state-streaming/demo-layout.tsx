@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { CopilotSidebar } from "@copilotkit/react-core/v2";
+import { CopilotSidebar } from "@copilotkit/react-core";
 
 import { DocumentView } from "./document-view";
 

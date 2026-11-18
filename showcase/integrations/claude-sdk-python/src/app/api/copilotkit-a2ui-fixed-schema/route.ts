@@ -11,7 +11,7 @@ import type { NextRequest } from "next/server";
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import { createClaudeHttpAgent } from "@/app/api/_shared/claude-http-agent";
 import { internalRuntimeErrorResponse } from "@/app/api/_shared/route-error";
 
@@ -24,7 +24,8 @@ const a2uiFixedSchemaAgent = createClaudeHttpAgent(
 const runtime = new CopilotRuntime({
   // @ts-ignore -- see main route.ts
   agents: { "a2ui-fixed-schema": a2uiFixedSchemaAgent },
-  a2ui: {
+  generativeUI: {
+    a2uiVersion: "0.9",
     // The backend agent emits its own `a2ui_operations` container inside
     // `display_flight` (see src/agents/a2ui_fixed.py). We still run the
     // A2UI middleware so it detects the container in tool results and

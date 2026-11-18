@@ -2,10 +2,10 @@
 
 // @region[frontend-useinterrupt-render]
 import {
-  CopilotKit,
+  CopilotKitProvider,
   CopilotChat,
   useHumanInTheLoop,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 import { z } from "zod";
 import type { TimeSlot } from "./_components/time-picker-card";
 import { TimePickerCard } from "./_components/time-picker-card";
@@ -14,13 +14,13 @@ import { useGenUiInterruptSuggestions } from "./suggestions";
 
 export default function GenUiInterruptDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="gen-ui-interrupt">
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" agentId="gen-ui-interrupt">
       <div className="flex justify-center items-center h-screen w-full">
         <div className="h-full w-full max-w-4xl">
           <Chat />
         </div>
       </div>
-    </CopilotKit>
+    </CopilotKitProvider>
   );
 }
 

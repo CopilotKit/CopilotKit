@@ -16,11 +16,11 @@
 // @region[render-weather-tool]
 import React from "react";
 import {
-  CopilotKit,
+  CopilotKitProvider,
   CopilotChat,
   useRenderTool,
   useDefaultRenderTool,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 import { z } from "zod";
 import { WeatherCard } from "./weather-card";
 import { FlightListCard, type Flight } from "./flight-list-card";
@@ -61,13 +61,13 @@ interface D20Result {
 
 export default function ToolRenderingDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="tool-rendering">
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" agentId="tool-rendering">
       <div className="flex justify-center items-center h-screen w-full">
         <div className="h-full w-full max-w-4xl">
           <Chat />
         </div>
       </div>
-    </CopilotKit>
+    </CopilotKitProvider>
   );
 }
 

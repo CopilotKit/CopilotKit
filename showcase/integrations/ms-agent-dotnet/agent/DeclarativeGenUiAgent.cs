@@ -13,7 +13,7 @@ using OpenAI;
 /// Mirrors the LangGraph `src/agents/a2ui_dynamic.py` reference: the agent
 /// owns a single `generate_a2ui` tool that delegates to a secondary LLM call
 /// which produces an A2UI v0.9 component tree against the frontend catalog
-/// (declared on the provider via `a2ui={{ catalog: myCatalog }}`). The
+/// (declared on the provider via `generativeUI={{ ui: myCatalog }}`). The
 /// runtime's A2UI middleware serialises that catalog schema into the agent's
 /// <c>copilotkit.context</c> so the secondary LLM knows which components are
 /// available.

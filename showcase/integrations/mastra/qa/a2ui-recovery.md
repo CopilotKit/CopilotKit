@@ -32,7 +32,7 @@ false` so the runtime does not double-inject (mirrors the langgraph/ADK
 - [ ] Click "Recover a bad render" — the agent calls `generate_a2ui`; the first
       inner render is structurally invalid, the loop retries, and a VALID surface
       paints (a Column with 2 Metric tiles: "Quarterly Revenue", "Win Rate")
-- [ ] No "Couldn't generate the UI" hard-failure text, no "Catalog not found"
+- [ ] No "Part of this UI couldn't be shown." hard-failure text, no "Catalog not found"
       banner
 - [ ] The agent's one-line chat reply confirms the recovery
 

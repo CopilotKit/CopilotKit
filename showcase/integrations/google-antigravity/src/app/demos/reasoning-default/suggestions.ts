@@ -1,6 +1,6 @@
 "use client";
 
-import { useConfigureSuggestions } from "@copilotkit/react-core/v2";
+import { useConfigureSuggestions } from "@copilotkit/react-core";
 
 // Suggestions registered via the v2 chat composer hook. The prompt is a
 // concrete reasoning-eliciting question — reasoning models only emit a

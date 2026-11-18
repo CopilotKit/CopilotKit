@@ -1,6 +1,6 @@
 "use client";
 
-import { CopilotChat } from "@copilotkit/react-core/v2";
+import { CopilotChat } from "@copilotkit/react-core";
 import { useA2uiRecoverySuggestions } from "./suggestions";
 
 // Note: this integration's declarative-gen-ui demo does not ship a

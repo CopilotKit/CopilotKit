@@ -24,7 +24,7 @@
  */
 
 import React from "react";
-import { CopilotKit } from "@copilotkit/react-core/v2";
+import { CopilotKitProvider } from "@copilotkit/react-core";
 import { Chat } from "./chat/chat";
 import { useFrontendComponents } from "./hooks/use-frontend-components";
 import { useHeadlessSuggestions } from "./hooks/use-headless-suggestions";
@@ -34,9 +34,12 @@ const AGENT_ID = "headless-complete";
 
 export default function HeadlessCompleteDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit-mcp-apps" agent={AGENT_ID}>
+    <CopilotKitProvider
+      runtimeUrl="/api/copilotkit-mcp-apps"
+      agentId={AGENT_ID}
+    >
       <HeadlessCompleteRoot />
-    </CopilotKit>
+    </CopilotKitProvider>
   );
 }
 

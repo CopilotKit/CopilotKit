@@ -9,4 +9,4 @@ The dedicated runtime route (`/api/copilotkit-declarative-gen-ui`) sets
 `a2ui.injectA2UITool: false` so the runtime does NOT auto-inject another
 A2UI tool on top — the A2UI middleware still serialises the registered
 client catalog into `copilotkit.context` and forwards the rendered
-operations to the frontend renderer wired via `<CopilotKit a2ui={{ catalog }}>`.
+operations to the frontend renderer wired via `<CopilotKitProvider generativeUI={{ ui: catalog }}>`.

@@ -10,7 +10,7 @@
  */
 
 import React from "react";
-import { useSuggestions } from "@copilotkit/react-core/v2";
+import { useSuggestions } from "@copilotkit/react-core";
 import { Badge } from "@/components/ui/badge";
 
 export function SuggestionBar({

@@ -3,7 +3,7 @@
 import {
   CopilotChat,
   CopilotChatAssistantMessage,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 import { HashBrownRenderMessage } from "./hashbrown-renderer";
 import { useByocHashbrownSuggestions } from "./suggestions";
 

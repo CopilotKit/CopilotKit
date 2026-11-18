@@ -27,9 +27,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { SyntheticEvent } from "react";
-import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
-import type { CopilotKitCoreErrorCode } from "@copilotkit/react-core/v2";
-import type { CopilotErrorEvent } from "@copilotkit/shared";
+import { CopilotKitProvider, CopilotChat } from "@copilotkit/react-core";
+import type { CopilotKitCoreErrorCode } from "@copilotkit/react-core";
 import { AuthBanner } from "./auth-banner";
 import { SignInCard } from "./sign-in-card";
 import { useDemoAuth } from "./use-demo-auth";
@@ -79,8 +78,8 @@ export default function AuthDemoPage() {
   }, []);
 
   const handleProviderError = useCallback(
-    (event: CopilotErrorEvent) => {
-      recordAuthError(event.error, event.type);
+    (event: { error: unknown; code: CopilotKitCoreErrorCode }) => {
+      recordAuthError(event.error, event.code);
     },
     [recordAuthError],
   );
@@ -123,9 +122,9 @@ export default function AuthDemoPage() {
     // `useSingleEndpoint={false}` opts into the V2 multi-endpoint protocol
     // (separate /info, /agents/<id>/run, etc.), which is what this demo's
     // runtime route is wired up for.
-    <CopilotKit
+    <CopilotKitProvider
       runtimeUrl="/api/copilotkit-auth"
-      agent="auth-demo"
+      agentId="auth-demo"
       headers={headers}
       useSingleEndpoint={false}
       onError={handleProviderError}
@@ -163,6 +162,6 @@ export default function AuthDemoPage() {
           />
         </div>
       </div>
-    </CopilotKit>
+    </CopilotKitProvider>
   );
 }

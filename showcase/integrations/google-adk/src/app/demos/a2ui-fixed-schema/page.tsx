@@ -10,7 +10,7 @@
  *
  * - Definitions (zod schemas): `./a2ui/definitions.ts`
  * - Renderers (React): `./a2ui/renderers.tsx`
- * - Catalog wiring: `./a2ui/catalog.ts` (includes the basic catalog)
+ * - Catalog wiring: `./a2ui/catalog.ts` (extends the standard catalog)
  * - Agent: `src/agents/a2ui_fixed_agent.py` (emits an `a2ui_operations` container)
  *
  * Reference:
@@ -19,28 +19,28 @@
 
 import React from "react";
 import { A2UIFormat } from "../../../../_shared/ts/a2ui-format";
-import { CopilotKit } from "@copilotkit/react-core/v2";
+import { CopilotKitProvider } from "@copilotkit/react-core";
 
 import { catalog } from "./a2ui/catalog";
 import { Chat } from "./chat";
 
 export default function A2UIFixedSchemaDemo() {
   return (
-    // `a2ui.catalog` wires the fixed catalog into the A2UI activity renderer.
+    // `generativeUI.ui` wires the fixed catalog into the generative UI renderer.
     <A2UIFormat template>
       {(inferenceFormat) => (
-        <CopilotKit
+        <CopilotKitProvider
           properties={{ a2ui: { inferenceFormat } }}
           runtimeUrl="/api/copilotkit-a2ui-fixed-schema"
-          agent="a2ui-fixed-schema"
-          a2ui={{ catalog: catalog }}
+          agentId="a2ui-fixed-schema"
+          generativeUI={{ ui: catalog }}
         >
           <div className="flex justify-center items-center h-full w-full bg-neutral-50 dark:bg-background">
             <div className="h-full w-full max-w-4xl border-x border-neutral-200 bg-white dark:border-border dark:bg-background">
               <Chat />
             </div>
           </div>
-        </CopilotKit>
+        </CopilotKitProvider>
       )}
     </A2UIFormat>
   );

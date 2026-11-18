@@ -29,9 +29,9 @@ import {
   CopilotRuntime,
   TranscriptionService,
   createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
-import type { TranscribeFileOptions } from "@copilotkit/runtime/v2";
-import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
+} from "@copilotkit/runtime";
+import type { TranscribeFileOptions } from "@copilotkit/runtime";
+import { LangGraphAgent } from "@ag-ui/langgraph";
 import { TranscriptionServiceOpenAI } from "@copilotkit/voice";
 import OpenAI from "openai";
 

@@ -18,8 +18,8 @@ import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
-import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
+} from "@copilotkit/runtime";
+import { LangGraphAgent } from "@ag-ui/langgraph";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8123";
 
@@ -31,7 +31,8 @@ const recoveryAgent = new LangGraphAgent({
 const runtime = new CopilotRuntime({
   // @ts-ignore -- see main route.ts
   agents: { "a2ui-recovery": recoveryAgent },
-  a2ui: {
+  generativeUI: {
+    a2uiVersion: "0.9",
     injectA2UITool: false,
     // Reuse the catalog the page registers (shared with declarative-gen-ui).
     defaultCatalogId: "declarative-gen-ui-catalog",

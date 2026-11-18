@@ -12,7 +12,7 @@ import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import { getLocalAgent } from "@ag-ui/mastra";
 import { mastra } from "@/mastra";
 import { withForwardedHeaders } from "@/mastra/_header_forwarding";
@@ -35,7 +35,8 @@ const runtime = new CopilotRuntime({
     "a2ui-recovery": recoveryAgent,
     default: recoveryAgent,
   },
-  a2ui: {
+  generativeUI: {
+    a2uiVersion: "0.9",
     // a2uiRecoveryAgent already owns `generate_a2ui` (getA2UITools) — don't
     // let the runtime double-inject it.
     injectA2UITool: false,

@@ -2,7 +2,7 @@ import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
   InMemoryAgentRunner,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import { createDeclarativeGenUIAgent } from "@/lib/factory/a2ui-factory";
 // Wrap handlers so inbound x-* headers (e.g. x-aimock-context) are bound
 // into ALS for the factory's `forwardingFetch` to re-attach on outbound
@@ -23,7 +23,8 @@ import { withForwardedHeaders } from "@/lib/header-forwarding";
 const runtime = new CopilotRuntime({
   agents: { "declarative-gen-ui": createDeclarativeGenUIAgent() },
   runner: new InMemoryAgentRunner(),
-  a2ui: {
+  generativeUI: {
+    a2uiVersion: "0.9",
     injectA2UITool: false,
     // Models follow the tool-usage guide and omit `catalogId`, and the
     // middleware then falls back to the unregistered spec basic catalog

@@ -17,7 +17,7 @@ import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import { HttpAgent } from "@ag-ui/client";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
@@ -29,7 +29,8 @@ const runtime = new CopilotRuntime({
       url: `${AGENT_URL}/declarative-gen-ui/`,
     }),
   },
-  a2ui: {
+  generativeUI: {
+    a2uiVersion: "0.9",
     // Pin the catalog the page registers so the middleware's secondary-LLM
     // pass uses the correct component set. Models that follow the tool-usage
     // guide and omit `catalogId` would otherwise fall back to the unregistered

@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { CopilotChat, useRenderTool } from "@copilotkit/react-core/v2";
+import { CopilotChat, useRenderTool } from "@copilotkit/react-core";
 import { z } from "zod";
 import { BrowseResultsCard, type BrowseResult } from "./browse-results-card";
 import { parseJsonResult } from "../_shared/parse-json-result";

@@ -17,7 +17,7 @@
 
 import React from "react";
 import { z } from "zod";
-import type { ReactActivityMessageRenderer } from "@copilotkit/react-core/v2";
+import type { ReactActivityMessageRenderer } from "@copilotkit/react-core";
 
 export const MASTRA_BACKGROUND_TASK_ACTIVITY_TYPE = "mastra-background-task";
 
@@ -30,7 +30,7 @@ const backgroundTaskContentSchema = z
     toolName: z.string().optional(),
     toolCallId: z.string().optional(),
     status: z.string().optional(),
-    args: z.record(z.unknown()).optional(),
+    args: z.record(z.string(), z.unknown()).optional(),
     outputs: z.array(z.unknown()).optional(),
     result: z.unknown().optional(),
     error: z.unknown().optional(),

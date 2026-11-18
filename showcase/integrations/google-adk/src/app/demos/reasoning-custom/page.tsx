@@ -19,8 +19,8 @@
 // `CopilotChatReasoningMessage`). The slot override below is the public,
 // stable way to customize that output.
 
-import type { CopilotChatReasoningMessage } from "@copilotkit/react-core/v2";
-import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
+import type { CopilotChatReasoningMessage } from "@copilotkit/react-core";
+import { CopilotKitProvider, CopilotChat } from "@copilotkit/react-core";
 import { ReasoningBlock } from "./reasoning-block";
 import { useReasoningCustomSuggestions } from "./suggestions";
 
@@ -29,13 +29,13 @@ const AGENT_ID = "reasoning-custom";
 
 export default function ReasoningCustomDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent={AGENT_ID}>
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" agentId={AGENT_ID}>
       <div className="flex justify-center items-center h-screen w-full">
         <div className="h-full w-full max-w-4xl">
           <Chat />
         </div>
       </div>
-    </CopilotKit>
+    </CopilotKitProvider>
   );
 }
 

@@ -1410,7 +1410,7 @@ def test_byoc_hashbrown_legacy_route_is_operational():
     assert "declarative-hashbrown/page" in page.read_text()
     source = declarative_page.read_text()
     assert 'runtimeUrl="/api/copilotkit-byoc-hashbrown"' in source
-    assert 'agent="byoc-hashbrown-demo"' in source
+    assert 'agentId="byoc-hashbrown-demo"' in source
     assert 'data-testid="byoc-hashbrown-root"' in source
 
 

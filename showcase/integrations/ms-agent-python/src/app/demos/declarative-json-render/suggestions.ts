@@ -1,4 +1,4 @@
-import { useConfigureSuggestions } from "@copilotkit/react-core/v2";
+import { useConfigureSuggestions } from "@copilotkit/react-core";
 
 export const BYOC_JSON_RENDER_SUGGESTIONS = [
   {

@@ -18,17 +18,20 @@
  */
 
 import React from "react";
-import { CopilotKit } from "@copilotkit/react-core/v2";
+import { CopilotKitProvider } from "@copilotkit/react-core";
 import { Chat } from "./chat";
 
 export default function BrowserUseDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit-browser-use" agent="browser-use">
+    <CopilotKitProvider
+      runtimeUrl="/api/copilotkit-browser-use"
+      agentId="browser-use"
+    >
       <div className="flex justify-center items-center h-screen w-full">
         <div className="h-full w-full max-w-4xl">
           <Chat />
         </div>
       </div>
-    </CopilotKit>
+    </CopilotKitProvider>
   );
 }

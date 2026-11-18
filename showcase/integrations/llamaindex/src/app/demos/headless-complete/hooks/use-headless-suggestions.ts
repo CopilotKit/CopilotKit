@@ -7,7 +7,7 @@
  * them back so they actually appear above the composer.
  */
 
-import { useConfigureSuggestions } from "@copilotkit/react-core/v2";
+import { useConfigureSuggestions } from "@copilotkit/react-core";
 
 export function useHeadlessSuggestions() {
   useConfigureSuggestions({

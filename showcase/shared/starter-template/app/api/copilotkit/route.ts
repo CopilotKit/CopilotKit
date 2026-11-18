@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   CopilotRuntime,
-  ExperimentalEmptyAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
+  createCopilotRuntimeHandler,
 } from "@copilotkit/runtime";
-import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
+import { LangGraphAgent } from "@ag-ui/langgraph";
 
 const AGENT_URL =
   process.env.AGENT_URL ||
@@ -49,13 +48,13 @@ for (const name of agentNames) {
 
 export const POST = async (req: NextRequest) => {
   try {
-    const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-      endpoint: "/api/copilotkit",
-      serviceAdapter: new ExperimentalEmptyAdapter(),
+    const handleRequest = createCopilotRuntimeHandler({
       runtime: new CopilotRuntime({
         // @ts-expect-error -- type wrapping mismatch, fixed in source pending release
         agents,
       }),
+      basePath: "/api/copilotkit",
+      mode: "single-route",
     });
 
     return await handleRequest(req);

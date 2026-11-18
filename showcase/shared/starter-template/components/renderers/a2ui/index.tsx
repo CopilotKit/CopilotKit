@@ -1,8 +1,7 @@
 "use client";
 
 import React from "react";
-import { CopilotKit } from "@copilotkit/react-core";
-import { CopilotSidebar } from "@copilotkit/react-core/v2";
+import { CopilotKitProvider, CopilotSidebar } from "@copilotkit/react-core";
 import { useShowcaseHooks } from "../../../hooks/use-showcase-hooks";
 import { useShowcaseSuggestions } from "../../../hooks/use-showcase-suggestions";
 import { SalesDashboard } from "../../sales-dashboard";
@@ -31,12 +30,12 @@ function DashboardContent({ agentId }: A2UIDashboardProps) {
 
 export function A2UIDashboard({ agentId }: A2UIDashboardProps) {
   return (
-    <CopilotKit
+    <CopilotKitProvider
       runtimeUrl="/api/copilotkit"
-      agent={agentId}
-      a2ui={{ catalog: demonstrationCatalog }}
+      agentId={agentId}
+      generativeUI={{ ui: demonstrationCatalog }}
     >
       <DashboardContent agentId={agentId} />
-    </CopilotKit>
+    </CopilotKitProvider>
   );
 }

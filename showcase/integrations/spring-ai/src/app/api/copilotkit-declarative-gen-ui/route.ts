@@ -11,7 +11,7 @@ import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import type { AbstractAgent } from "@ag-ui/client";
 import { HttpAgent } from "@ag-ui/client";
 
@@ -31,7 +31,8 @@ export const POST = async (req: NextRequest) => {
       runtime: new CopilotRuntime({
         // @ts-ignore -- see main route.ts
         agents,
-        a2ui: {
+        generativeUI: {
+          a2uiVersion: "0.9",
           injectA2UITool: false,
           // Models follow the tool-usage guide and omit `catalogId`, and the
           // middleware then falls back to the unregistered spec basic catalog

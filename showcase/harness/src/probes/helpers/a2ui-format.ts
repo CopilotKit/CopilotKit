@@ -49,7 +49,7 @@ export async function startA2uiEvidence(page: Page): Promise<void> {
       '[data-testid^="declarative-"], [data-testid="a2ui-fixed-card"]';
     const prior = new Set(g.document.querySelectorAll(selector));
     const priorSurfaces = new Set(
-      g.document.querySelectorAll("[data-surface-id]"),
+      g.document.querySelectorAll("[data-generative-ui-root]"),
     );
     const probe = {
       events: [],
@@ -98,7 +98,13 @@ const structuralValue = (value: any): any => {
   return value;
 };
 const operationsSignature = (event: A2uiArrival): string =>
-  JSON.stringify(structuralValue(event.payload.content.a2ui_operations));
+  JSON.stringify(structuralValue(event.payload.content.operations));
+
+/** The A2UI 1.0 operations of a `generative-ui-surface` snapshot. */
+const operationsOf = (event: A2uiArrival): unknown[] =>
+  Array.isArray(event.payload.content?.operations)
+    ? event.payload.content.operations
+    : [];
 
 export function assertA2uiEvidence(
   evidence: A2uiEvidence,
@@ -137,10 +143,13 @@ export function assertA2uiEvidence(
         return null;
       }
     });
+  // The runtime converts every A2UI surface to a 1.0 `generative-ui-surface`
+  // activity. The v0.9 lifecycle snapshots (building, retrying) and the
+  // `inferenceFormat` tag do not reach the browser.
   const snapshots = events.filter(
     (e) =>
       e.payload.type === "ACTIVITY_SNAPSHOT" &&
-      e.payload.activityType === "a2ui-surface",
+      e.payload.activityType === "generative-ui-surface",
   );
   if (mode === "fixed") {
     if (!results.some((result) => result?.inferenceFormat === format)) {
@@ -165,21 +174,20 @@ export function assertA2uiEvidence(
     ) {
       throw new Error("a2ui-format: missing exhausted SDK result");
     }
-    if (
-      snapshots.some((e) => e.payload.content?.a2ui_operations?.length) ||
-      evidence.paints.length
-    )
+    if (snapshots.some((e) => operationsOf(e).length) || evidence.paints.length)
       throw new Error("a2ui-format: exhausted attempt painted a surface");
+    // The runtime shows the exhausted recovery as a surface with status
+    // "error", no operations, and the agent's error as its rejected entry.
     if (
-      format === "express" &&
       !snapshots.some(
         (e) =>
-          e.payload.content?.inferenceFormat === "express" &&
-          e.payload.content?.status === "failed" &&
-          e.payload.content?.errors?.length,
+          e.payload.content?.status === "error" &&
+          e.payload.content?.rejected?.length,
       )
     )
-      throw new Error("a2ui-format: missing tagged Express failure activity");
+      throw new Error(
+        "a2ui-format: missing error surface for the exhausted recovery",
+      );
     return;
   }
   if (format === "direct_json") {
@@ -200,53 +208,24 @@ export function assertA2uiEvidence(
         return false;
       }
     });
-    if (
-      !structured ||
-      snapshots.some((e) => e.payload.content?.inferenceFormat === "express")
-    )
+    if (!structured)
       throw new Error(
         "a2ui-format: missing structured render_a2ui Direct JSON wire output",
       );
     return;
   }
-  const tagged = snapshots.filter(
-    (e) => e.payload.content?.inferenceFormat === format,
-  );
+  const tagged = snapshots.filter((e) => operationsOf(e).length > 0);
   if (!tagged.length)
-    throw new Error(
-      `a2ui-format: no server surface reported inferenceFormat=${format}`,
-    );
+    throw new Error("a2ui-format: no generative-ui-surface arrived");
   if (generate.length !== 1 || !end)
     throw new Error("a2ui-format: missing unique generate_a2ui lifecycle");
-  const id = "a2ui-surface-" + generate[0]!.payload.toolCallId;
-  if (tagged.some((e) => e.payload.messageId !== id))
+  if (new Set(tagged.map((e) => e.payload.messageId)).size !== 1)
     throw new Error("a2ui-format: unstable surface message identity");
-  if (mode === "heal") {
-    const retry = tagged.find(
-      (e) =>
-        e.payload.content?.status === "retrying" &&
-        e.payload.content?.errors?.length,
-    );
-    if (!retry)
-      throw new Error(
-        "a2ui-format: heal did not report a rejected first attempt",
-      );
-    if (
-      evidence.paints.some((paint) => paint.at < retry.at) ||
-      tagged.some(
-        (e) => e.at < retry.at && e.payload.content?.a2ui_operations?.length,
-      )
-    )
-      throw new Error(
-        "a2ui-format: invalid first attempt painted before retry",
-      );
-  }
-  const progressive = tagged.filter(
-    (e) =>
-      e.at < end.at &&
-      e.at < finished.at &&
-      Array.isArray(e.payload.content?.a2ui_operations),
-  );
+  // A heal is not visible in the 2.0 stream: the runtime consumes the
+  // "retrying" snapshot. The healed surface must not end as an error.
+  if (snapshots.some((e) => e.payload.content?.status === "error"))
+    throw new Error("a2ui-format: the surface ended as an error surface");
+  const progressive = tagged.filter((e) => e.at < end.at && e.at < finished.at);
   // The SDK emits full current-state operation snapshots (commonly the
   // same create/components/data triplet), not an append-only operation log.
   // Compare structure, ignoring object key order, while keeping array order.
@@ -255,8 +234,8 @@ export function assertA2uiEvidence(
       .slice(i + 1)
       .some(
         (second) =>
-          first.payload.content.a2ui_operations.length > 0 &&
-          second.payload.content.a2ui_operations.length > 0 &&
+          operationsOf(first).length > 0 &&
+          operationsOf(second).length > 0 &&
           first.batch < second.batch &&
           first.at < second.at &&
           operationsSignature(first) !== operationsSignature(second),
@@ -283,8 +262,13 @@ export async function checkA2uiEvidence(
 ): Promise<void> {
   const evidence = await page.evaluate(() => {
     const probe = (globalThis as any).__hk_a2uiProbe;
+    // An error surface has a root with nothing in it but its theme style.
     const roots = Array.from(
-      (globalThis as any).document.querySelectorAll("[data-surface-id]"),
+      (globalThis as any).document.querySelectorAll(
+        "[data-generative-ui-root]",
+      ),
+    ).filter((root: any) =>
+      Array.from(root.children).some((child: any) => child.tagName !== "STYLE"),
     );
     return {
       events: probe?.events ?? [],
@@ -305,8 +289,7 @@ export async function checkA2uiEvidence(
         type: event.payload.type,
         tool: event.payload.toolCallName,
         status: event.payload.content?.status,
-        inferenceFormat: event.payload.content?.inferenceFormat,
-        operations: event.payload.content?.a2ui_operations?.length,
+        operations: event.payload.content?.operations?.length,
       })),
       paints: evidence.paints.map((paint: A2uiEvidence["paints"][number]) => ({
         at: Math.round(paint.at),

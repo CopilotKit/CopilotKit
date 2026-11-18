@@ -18,7 +18,7 @@ import type {
   CopilotChatAssistantMessage,
   CopilotChatInput,
   CopilotChatView,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 
 declare const CustomWelcomeScreen: React.ComponentType;
 declare const CustomAssistantMessage: React.ComponentType;

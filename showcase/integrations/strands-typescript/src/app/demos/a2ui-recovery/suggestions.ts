@@ -1,4 +1,4 @@
-import { useConfigureSuggestions } from "@copilotkit/react-core/v2";
+import { useConfigureSuggestions } from "@copilotkit/react-core";
 
 // Two pills exercise the recovery loop deterministically via aimock fixtures
 // (showcase/aimock/d6/strands-typescript/a2ui-recovery.json). Prompts are unique

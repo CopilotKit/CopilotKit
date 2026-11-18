@@ -9,7 +9,7 @@ import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
   InMemoryAgentRunner,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import { createBuiltInAgent } from "@/lib/factory/tanstack-factory";
 import { DEMO_AUTH_HEADER } from "@/app/demos/auth/demo-token";
 // Wrap handlers so inbound x-* headers (e.g. x-aimock-context) are bound

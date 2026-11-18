@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { CopilotChat } from "@copilotkit/react-core/v2";
+import { CopilotChat } from "@copilotkit/react-core";
 
 import { ConfigCard } from "./config-card";
 import type { AgentConfig } from "./config-types";

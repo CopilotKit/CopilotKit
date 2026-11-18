@@ -20,11 +20,11 @@
 
 import React, { useRef, useState } from "react";
 import {
-  CopilotKit,
+  CopilotKitProvider,
   CopilotChat,
   useConfigureSuggestions,
   useFrontendTool,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 import { z } from "zod";
 
 type InterruptPayload = {
@@ -47,9 +47,12 @@ const DEFAULT_SLOTS: TimeSlot[] = [
 
 export default function InterruptHeadlessDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="interrupt-headless">
+    <CopilotKitProvider
+      runtimeUrl="/api/copilotkit"
+      agentId="interrupt-headless"
+    >
       <Layout />
-    </CopilotKit>
+    </CopilotKitProvider>
   );
 }
 

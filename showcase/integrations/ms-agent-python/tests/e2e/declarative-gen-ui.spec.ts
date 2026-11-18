@@ -5,7 +5,7 @@ import { test, expect } from "@playwright/test";
 //
 // Pattern: A2UI dynamic-schema BYOC. The frontend registers a 7-component
 // catalog (Card, StatusBadge, Metric, InfoRow, PrimaryButton, PieChart,
-// BarChart) via `a2ui={{ catalog: myCatalog }}`. The Python agent
+// BarChart) via `generativeUI={{ ui: myCatalog }}`. The Python agent
 // (`src/agents/a2ui_dynamic.py`) owns the `generate_a2ui` tool and emits an
 // `a2ui_operations` container with `catalogId: "declarative-gen-ui-catalog"`.
 // The secondary LLM inside `generate_a2ui` produces a JSON component tree

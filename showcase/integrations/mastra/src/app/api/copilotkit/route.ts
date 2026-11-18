@@ -1,7 +1,7 @@
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import { MastraAgent, getLocalAgent } from "@ag-ui/mastra";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";

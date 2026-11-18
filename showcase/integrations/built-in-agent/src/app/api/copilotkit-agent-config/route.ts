@@ -6,11 +6,13 @@
 
 import {
   BuiltInAgent,
-  CopilotRuntime,
   convertInputToTanStackAI,
+} from "@copilotkit/runtime/agent";
+import {
+  CopilotRuntime,
   createCopilotRuntimeHandler,
   InMemoryAgentRunner,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import { chat } from "@tanstack/ai";
 import { openaiText } from "@/lib/openai-text";
 // `withForwardedHeaders` snapshots inbound x-* headers (e.g.

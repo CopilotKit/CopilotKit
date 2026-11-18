@@ -7,8 +7,8 @@ import type { Page } from "@playwright/test";
 // A2UI error recovery (OSS-158 / OSS-375). Assert the STABLE end-states — the
 // recovered surface paints (heal) and the hard-failure UI shows (exhaust) — and
 // deliberately do NOT assert the transient "Retrying generation… (N/M)" label,
-// which is threshold-gated + timing dependent (see @copilotkit/react-core/v2
-// A2UIRecoveryStates) and would be flaky.
+// which is threshold-gated + timing dependent (2.0 does not
+// show it) and would be flaky.
 //
 // The aimock fixtures (showcase/aimock/d6/strands/a2ui-recovery.json) drive the
 // inner render_a2ui sub-agent two ways: HEAL emits free-form/sloppy args
@@ -16,8 +16,8 @@ import type { Page } from "@playwright/test";
 // EXHAUST is structurally invalid (unresolved child) on every attempt, so the
 // validate->retry loop hits the cap and returns the a2ui_recovery_exhausted
 // envelope. Healing + the loop run live in the Strands adapter's auto-inject
-// path (ag_ui_strands); the failure UI text ("Couldn't generate the UI") comes
-// from @copilotkit/react-core/v2. The recovered surface reuses the
+// path (ag_ui_strands); the failure UI text ("Part of this UI couldn't be shown.") comes
+// from @copilotkit/react-core. The recovered surface reuses the
 // declarative-gen-ui catalog, so it carries the `declarative-metric` testid.
 //
 // Requires the stack running with aimock so the malformed renders fire
@@ -86,7 +86,9 @@ test.describe("A2UI Error Recovery", () => {
       .toBeGreaterThanOrEqual(2);
 
     // The healed surface, NOT the hard-failure UI, and no render-error banners.
-    await expect(page.getByText("Couldn't generate the UI")).toHaveCount(0);
+    await expect(
+      page.getByText("Part of this UI couldn't be shown."),
+    ).toHaveCount(0);
     await expect(page.getByText(/Catalog not found/i)).toHaveCount(0);
     await expect(
       page.getByText(/Cannot create component .* without a type/i),
@@ -98,10 +100,11 @@ test.describe("A2UI Error Recovery", () => {
   }) => {
     await clickPill(page, EXHAUST_PILL, EXHAUST_MSG);
 
-    // Hard-failure UI appears once the attempt cap is hit (A2UIRecoveryStates
-    // renders this on status: "failed" = the a2ui_recovery_exhausted envelope).
+    // Hard-failure UI appears once the attempt cap is hit (the runtime
+    // sends an error surface for the a2ui_recovery_exhausted envelope, and the
+    // chat card shows this alert).
     await expect(
-      page.getByText("Couldn't generate the UI").first(),
+      page.getByText("Part of this UI couldn't be shown.").first(),
     ).toBeVisible({ timeout: 90_000 });
 
     // No faulty surface ever paints (server-side no-wipe guarantee: middleware

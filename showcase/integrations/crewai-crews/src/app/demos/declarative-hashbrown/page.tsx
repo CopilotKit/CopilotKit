@@ -1,14 +1,14 @@
 "use client";
 
-import { CopilotKit } from "@copilotkit/react-core/v2";
+import { CopilotKitProvider } from "@copilotkit/react-core";
 import { HashBrownDashboard } from "./hashbrown-renderer";
 import { Chat } from "./chat";
 
 export default function ByocHashbrownDemoPage() {
   return (
-    <CopilotKit
+    <CopilotKitProvider
       runtimeUrl="/api/copilotkit-byoc-hashbrown"
-      agent="byoc-hashbrown-demo"
+      agentId="byoc-hashbrown-demo"
     >
       <HashBrownDashboard>
         <div
@@ -28,6 +28,6 @@ export default function ByocHashbrownDemoPage() {
           </div>
         </div>
       </HashBrownDashboard>
-    </CopilotKit>
+    </CopilotKitProvider>
   );
 }

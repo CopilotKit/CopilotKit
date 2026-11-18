@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import type { AbstractAgent } from "@ag-ui/client";
 import { HttpAgent } from "@ag-ui/client";
 
@@ -23,7 +23,8 @@ const agents: Record<string, AbstractAgent> = {
 const runtime = new CopilotRuntime({
   // @ts-ignore -- published runtime typing rejects a plain Record.
   agents,
-  a2ui: {
+  generativeUI: {
+    a2uiVersion: "0.9",
     // The CrewAI Flow owns generate_a2ui through ag_ui_crewai.A2UITool.
     injectA2UITool: false,
     defaultCatalogId: "declarative-gen-ui-catalog",

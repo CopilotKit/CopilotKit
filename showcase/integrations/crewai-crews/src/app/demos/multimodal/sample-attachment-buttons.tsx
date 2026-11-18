@@ -28,7 +28,7 @@
  */
 
 import { useCallback, useState } from "react";
-import { useAgent, useCopilotKit } from "@copilotkit/react-core/v2";
+import { useAgent, useCopilotKit } from "@copilotkit/react-core";
 
 export interface SampleSpec {
   readonly buttonLabel: string;

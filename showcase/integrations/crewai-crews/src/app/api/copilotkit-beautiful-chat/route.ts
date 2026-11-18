@@ -15,7 +15,7 @@ import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import type { AbstractAgent } from "@ag-ui/client";
 import { HttpAgent } from "@ag-ui/client";
 
@@ -37,7 +37,8 @@ const runtime = new CopilotRuntime({
   // @ts-ignore -- see main route.ts
   agents,
   openGenerativeUI: true,
-  a2ui: {
+  generativeUI: {
+    a2uiVersion: "0.9",
     // Backend crew owns its own generate_a2ui tool; don't double-inject.
     injectA2UITool: false,
     // Models follow the tool-usage guide and omit `catalogId`, and the

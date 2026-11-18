@@ -6,7 +6,7 @@ import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import { HttpAgent } from "@ag-ui/client";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
@@ -33,11 +33,10 @@ export const POST = async (req: NextRequest) => {
       runtime: new CopilotRuntime({
         // @ts-ignore -- Published CopilotRuntime agents type wraps Record in MaybePromise<NonEmptyRecord<...>> which rejects plain Records; fixed in source, pending release
         agents,
-        // No runtime `a2ui` config: the page passes a catalog to the provider
-        // (`<CopilotKit a2ui={{ catalog }}>`), which auto-enables A2UI and
-        // defaults tool injection on (CopilotKit >= 1.61.2, PR #5611). The
-        // Strands adapter then auto-injects `generate_a2ui` and runs the
-        // recovery loop the A2UIMiddleware renders.
+        // The agent speaks A2UI v0.9. The page passes a catalog to the provider,
+        // so the runtime turns on `injectA2UITool` for the run, and the agent
+        // adapter adds `generate_a2ui` and paints the surfaces it returns.
+        generativeUI: { a2uiVersion: "0.9" },
       }),
       basePath: "/api/copilotkit-a2ui-recovery",
       mode: "single-route",

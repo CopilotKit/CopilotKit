@@ -18,7 +18,7 @@ import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import { HttpAgent } from "@ag-ui/client";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
@@ -41,7 +41,8 @@ const runtime = new CopilotRuntime({
   // @ts-ignore -- Published CopilotRuntime agents type wraps Record in MaybePromise<NonEmptyRecord<...>> which rejects plain Records; fixed in source, pending release
   agents,
   openGenerativeUI: true,
-  a2ui: {
+  generativeUI: {
+    a2uiVersion: "0.9",
     // The targeted Strands agent ("/") already registers the `generate_a2ui`
     // tool itself (build_showcase_agent in src/agents/agent.py), so the
     // runtime must NOT inject a second copy — that would double-bind the

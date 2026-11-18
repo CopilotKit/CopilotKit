@@ -5,8 +5,8 @@ import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
-import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
+} from "@copilotkit/runtime";
+import { LangGraphAgent } from "@ag-ui/langgraph";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8123";
 
@@ -18,9 +18,10 @@ const declarativeGenUiAgent = new LangGraphAgent({
 const runtime = new CopilotRuntime({
   // @ts-ignore -- see main route.ts
   agents: { "declarative-gen-ui": declarativeGenUiAgent },
-  // No runtime `a2ui` config: the page passes a catalog to the provider
-  // (`<CopilotKit a2ui={{ catalog }}>`), which auto-enables A2UI and defaults
-  // tool injection on (CopilotKit >= 1.61.2, PR #5611).
+  // The agent speaks A2UI v0.9. The page passes a catalog to the provider,
+  // so the runtime turns on `injectA2UITool` for the run, and the agent
+  // adapter adds `generate_a2ui` and paints the surfaces it returns.
+  generativeUI: { a2uiVersion: "0.9" },
 });
 
 export const POST = async (req: NextRequest) => {

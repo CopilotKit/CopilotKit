@@ -2,7 +2,7 @@ import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
   InMemoryAgentRunner,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import { createBuiltInAgent } from "@/lib/factory/tanstack-factory";
 // Per-demo system prompts, ported from the reference's dedicated graphs. The
 // demos below that pass one are those whose behaviour the model has to be told

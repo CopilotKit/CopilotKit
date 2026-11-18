@@ -11,7 +11,7 @@ import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import { HttpAgent } from "@ag-ui/client";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
@@ -23,7 +23,8 @@ const declarativeGenUiAgent = new HttpAgent({
 const runtime = new CopilotRuntime({
   // @ts-ignore -- see main route.ts
   agents: { "declarative-gen-ui": declarativeGenUiAgent },
-  a2ui: {
+  generativeUI: {
+    a2uiVersion: "0.9",
     // The backend PydanticAI agent owns the `generate_a2ui` tool
     // explicitly (see src/agents/a2ui_dynamic.py). The A2UI middleware
     // still runs — it serialises the registered client catalog into the

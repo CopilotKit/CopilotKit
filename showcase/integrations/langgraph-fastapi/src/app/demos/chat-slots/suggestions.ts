@@ -1,6 +1,6 @@
 "use client";
 
-import { useConfigureSuggestions } from "@copilotkit/react-core/v2";
+import { useConfigureSuggestions } from "@copilotkit/react-core";
 
 // The chat-slots cell is wired to the neutral `sample_agent` graph
 // (plain ChatOpenAI, no Responses API, no reasoning config), so it never

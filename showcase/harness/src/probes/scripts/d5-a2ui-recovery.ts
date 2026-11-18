@@ -17,9 +17,9 @@ import {
  *     (>= 2 `declarative-metric` tiles) and NO hard-failure card.
  *   - EXHAUST ("Show an unrecoverable failure"): every render attempt
  *     is structurally invalid; the loop hits the attempt cap and
- *     returns the `a2ui_recovery_exhausted` envelope. End-state: the
- *     hard-failure card text "Couldn't generate the UI" appears and NO
- *     surface paints.
+ *     returns the `a2ui_recovery_exhausted` envelope. The runtime sends
+ *     it as an error surface. End-state: the chat card alert "Part of
+ *     this UI couldn't be shown." appears and NO surface paints.
  *
  * Per-framework prompt isolation (load-bearing): the recovery PROMPTS
  * are UNIQUE per integration slug. The inner `render_a2ui` calls carry
@@ -57,9 +57,8 @@ import {
  * cards; exhaust requires >= 1 NEW failure card and ZERO new
  * `declarative-metric` tiles.
  *
- * The transient "Retrying generation… (N/M)" label is deliberately NOT
- * asserted — it is threshold-gated + timing dependent (see
- * `@copilotkit/react-core/v2` A2UIRecoveryStates) and would be flaky.
+ * CopilotKit 2.0 shows no "Retrying generation… (N/M)" label: the runtime
+ * consumes the building and retrying lifecycle snapshots.
  */
 
 import { registerD5Script } from "../helpers/d5-registry.js";
@@ -71,10 +70,11 @@ import { FIRST_SIGNAL_TIMEOUT_MS } from "./_genuine-shared.js";
  *  carries the `declarative-metric` testid. */
 const METRIC_TESTID = "declarative-metric";
 
-/** Hard-failure card copy from `A2UIRecoveryFailure`
- *  (`@copilotkit/react-core/v2` A2UIRecoveryStates). The card has no
- *  testid, so the probe matches this stable literal. */
-const FAILURE_TEXT = "Couldn't generate the UI";
+/** The alert of the generative UI chat card (`DefaultGenerativeUIChatCard`
+ *  in `@copilotkit/react-core`). The runtime sends an exhausted recovery as
+ *  an error surface, and the card shows this alert for it. The probe matches
+ *  this stable literal. */
+const FAILURE_TEXT = "Part of this UI couldn't be shown.";
 
 /** Minimum healed `declarative-metric` tiles the heal pill must newly
  *  mount. Mirrors the e2e spec's `>= 2` threshold — a lone widget is
@@ -191,7 +191,7 @@ async function readRecoveryCounts(page: Page): Promise<RecoveryCounts> {
       '[data-testid="declarative-metric"]',
     ).length;
     const body = win.document.body?.innerText ?? "";
-    const needle = "Couldn't generate the UI";
+    const needle = "Part of this UI couldn't be shown.";
     let failure = 0;
     let from = 0;
     for (;;) {
@@ -360,9 +360,9 @@ export function buildTurns(ctx: D5BuildContext): ConversationTurn[] {
         if (format) await checkA2uiEvidence(page, format, "exhaust");
       },
       responseTimeoutMs: RECOVERY_RESPONSE_TIMEOUT_MS,
-      // The hard-failure card renders REAL text ("Couldn't generate the
-      // UI") inside the assistant bubble, so the runner's default
-      // text-stability settle converges here — no completeOnMount needed.
+      // The chat card renders REAL text ("Part of this UI couldn't be
+      // shown.") in the chat, so the runner's default text-stability
+      // settle converges here — no completeOnMount needed.
     },
   ];
 }

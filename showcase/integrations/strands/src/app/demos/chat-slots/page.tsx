@@ -2,14 +2,14 @@
 
 import React from "react";
 import {
-  CopilotKit,
+  CopilotKitProvider,
   CopilotChat,
   CopilotChatAssistantMessage,
   CopilotChatUserMessage,
   CopilotChatReasoningMessage,
   CopilotChatView,
   CopilotChatInput,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 import {
   CustomWelcomeScreen,
   CustomAssistantMessage,
@@ -33,7 +33,7 @@ import { useChatSlotsSuggestions } from "./suggestions";
 // customizable and where it lives. Hover any region to reveal its slot path.
 export default function ChatSlotsDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="chat-slots">
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" agentId="chat-slots">
       <div className="flex flex-col h-screen w-full bg-background">
         <div className="flex-1 flex justify-center items-stretch p-4 min-h-0">
           <div className="h-full w-full max-w-5xl">
@@ -41,7 +41,7 @@ export default function ChatSlotsDemo() {
           </div>
         </div>
       </div>
-    </CopilotKit>
+    </CopilotKitProvider>
   );
 }
 

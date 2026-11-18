@@ -11,7 +11,7 @@ frontend renderer.
 Why a separate agent (vs reusing the main agent's `generate_a2ui` tool)?
 The main agent uses a hardcoded internal catalog ID
 (`copilotkit://app-dashboard-catalog`) and ignores any runtime catalog the
-frontend registers via `<CopilotKit a2ui={{ catalog }}>`. This dedicated
+frontend registers via `<CopilotKitProvider generativeUI={{ ui: catalog }}>`. This dedicated
 agent reads the runtime catalog from `session_state["copilotkit"]
 ["context"]` so it stays in sync with the frontend renderer's catalog.
 

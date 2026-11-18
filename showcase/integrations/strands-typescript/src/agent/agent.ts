@@ -267,7 +267,7 @@ export async function buildA2uiFixedSchemaAgent(): Promise<StrandsAgent> {
 // src/app/demos/declarative-gen-ui/a2ui/{definitions,renderers,catalog}.ts
 // (catalog id `declarative-gen-ui-catalog`): Card / StatusBadge / Metric /
 // InfoRow / PrimaryButton / PieChart / BarChart / DataTable, composed inside
-// the basic catalog's Row / Column / Text (`includeBasicCatalog: true`).
+// the standard catalog's Row / Column / Text (`extends: [standardUI]`).
 //
 // Grounding dataset + composition rules are kept in spirit with the frontend
 // `sales-context.ts` (SALES_DATASET + COMPOSITION_RULES) the page registers via

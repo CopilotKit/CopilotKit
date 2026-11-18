@@ -23,7 +23,7 @@
  */
 
 import React from "react";
-import { CopilotKit } from "@copilotkit/react-core/v2";
+import { CopilotKitProvider } from "@copilotkit/react-core";
 import { Chat } from "./chat";
 import { backgroundTaskActivityRenderer } from "./activity-card";
 
@@ -31,9 +31,9 @@ const activityRenderers = [backgroundTaskActivityRenderer];
 
 export default function BackgroundAgentsDemo() {
   return (
-    <CopilotKit
+    <CopilotKitProvider
       runtimeUrl="/api/copilotkit-background-agents"
-      agent="background-agents"
+      agentId="background-agents"
       renderActivityMessages={activityRenderers}
     >
       <div className="flex justify-center items-center h-screen w-full">
@@ -41,6 +41,6 @@ export default function BackgroundAgentsDemo() {
           <Chat />
         </div>
       </div>
-    </CopilotKit>
+    </CopilotKitProvider>
   );
 }

@@ -44,7 +44,7 @@
       }
     },
     {
-      "_comment": "EXHAUST — inner render_a2ui: structurally INVALID on every attempt (unresolved child) -> the loop hits its 3-attempt cap and generate_a2ui returns the a2ui_recovery_exhausted envelope (the 'Couldn't generate the UI' card).",
+      "_comment": "EXHAUST — inner render_a2ui: structurally INVALID on every attempt (unresolved child) -> the loop hits its 3-attempt cap and generate_a2ui returns the a2ui_recovery_exhausted envelope (the 'Part of this UI couldn't be shown.' card).",
       "match": {
         "userMessage": "Chart an Antigravity board that never passes validation so I can preview the fallback.",
         "toolName": "render_a2ui",

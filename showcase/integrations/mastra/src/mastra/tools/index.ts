@@ -291,7 +291,7 @@ export const searchFlightsTool = createTool({
     // array. Accept it so those keep rendering; the gold path below is the
     // origin/destination generator that tool-rendering + reasoning-chain use.
     flights: z
-      .array(z.record(z.any()))
+      .array(z.record(z.string(), z.any()))
       .optional()
       .describe("Pre-built flight list (legacy caller-supplied shape)"),
   }),
@@ -395,7 +395,7 @@ export const searchFlightsA2uiTool = createTool({
     '"5h 30m"), status (e.g. "On Time"), and price (e.g. "$289").',
   inputSchema: z.object({
     flights: z
-      .array(z.record(z.unknown()))
+      .array(z.record(z.string(), z.unknown()))
       .describe("The flights to display as A2UI FlightCard components."),
   }),
   // Return the OBJECT (not a JSON string): the @ag-ui/mastra bridge encodes the

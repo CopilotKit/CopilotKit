@@ -1,4 +1,4 @@
-import { useConfigureSuggestions } from "@copilotkit/react-core/v2";
+import { useConfigureSuggestions } from "@copilotkit/react-core";
 
 // Suggestion `message` strings double as deterministic aimock fixture keys.
 // Keep them short, distinctive, and aligned with the fixture entries in

@@ -22,7 +22,7 @@ import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import { HttpAgent } from "@ag-ui/client";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
@@ -39,7 +39,8 @@ const runtime = new CopilotRuntime({
   // the registered client catalog into agent context and detects
   // `a2ui_operations` containers in the tool result; it just must NOT bind
   // a second A2UI tool on top.
-  a2ui: {
+  generativeUI: {
+    a2uiVersion: "0.9",
     injectA2UITool: false,
     // Models follow the tool-usage guide and omit `catalogId`, and the
     // middleware then falls back to the unregistered spec basic catalog

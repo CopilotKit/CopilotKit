@@ -14,7 +14,7 @@ import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import type { AbstractAgent } from "@ag-ui/client";
 import { HttpAgent } from "@ag-ui/client";
 
@@ -45,7 +45,8 @@ const runtime = new CopilotRuntime({
   agents,
   // Canonical: openGenerativeUI: true, a2ui.injectA2UITool: true, mcpApps.
   openGenerativeUI: true,
-  a2ui: {
+  generativeUI: {
+    a2uiVersion: "0.9",
     // Native auto-injection (matches langgraph-python). The backend agent owns
     // NO A2UI tool; the runtime forwards `injectA2UITool: true` and the
     // agent-framework-ag-ui adapter's `plan_a2ui_injection` auto-injects the

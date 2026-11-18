@@ -17,7 +17,7 @@ import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import { HttpAgent } from "@ag-ui/client";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
@@ -29,7 +29,8 @@ const recoveryAgent = new HttpAgent({
 const runtime = new CopilotRuntime({
   // @ts-ignore -- see main route.ts
   agents: { "a2ui-recovery": recoveryAgent },
-  a2ui: {
+  generativeUI: {
+    a2uiVersion: "0.9",
     // The backend agent owns `generate_a2ui` and runs the recovery loop
     // in-graph. We still run the A2UI middleware so it renders the
     // building -> retrying -> painted / failed lifecycle — but we do NOT

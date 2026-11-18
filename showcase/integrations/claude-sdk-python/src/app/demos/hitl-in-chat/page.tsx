@@ -4,11 +4,11 @@
 // @region[time-slots]
 import React, { useMemo } from "react";
 import {
-  CopilotKit,
+  CopilotKitProvider,
   CopilotChat,
   useHumanInTheLoop,
   useConfigureSuggestions,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 import { z } from "zod";
 import type { TimeSlot } from "./time-picker-card";
 import { TimePickerCard } from "./time-picker-card";
@@ -53,13 +53,13 @@ function formatTime(date: Date): string {
 
 export default function HitlInChatDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="hitl-in-chat">
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" agentId="hitl-in-chat">
       <div className="flex justify-center items-center h-screen w-full">
         <div className="h-full w-full max-w-4xl">
           <Chat />
         </div>
       </div>
-    </CopilotKit>
+    </CopilotKitProvider>
   );
 }
 

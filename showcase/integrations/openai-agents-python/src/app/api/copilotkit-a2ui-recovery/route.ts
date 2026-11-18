@@ -20,7 +20,7 @@ import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import { HttpAgent } from "@ag-ui/client";
 import { extractForwardedHeaders } from "@/lib/header-forwarding";
 
@@ -40,7 +40,8 @@ export const POST = async (req: NextRequest) => {
           headers,
         }),
       },
-      a2ui: {
+      generativeUI: {
+        a2uiVersion: "0.9",
         // The backend owns `generate_a2ui` and its recovery loop; the runtime
         // must not inject a second A2UI tool (see the header comment).
         injectA2UITool: false,

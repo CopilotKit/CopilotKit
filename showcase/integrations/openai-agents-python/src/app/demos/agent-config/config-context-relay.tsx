@@ -7,7 +7,7 @@
  * this entry to the agent's instructions on every turn.
  */
 
-import { useAgentContext } from "@copilotkit/react-core/v2";
+import { useAgentContext } from "@copilotkit/react-core";
 import type { AgentConfig } from "./config-types";
 
 export function ConfigContextRelay({ config }: { config: AgentConfig }) {

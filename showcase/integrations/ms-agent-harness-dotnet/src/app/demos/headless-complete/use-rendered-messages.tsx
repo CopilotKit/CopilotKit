@@ -15,7 +15,7 @@ import {
   useRenderToolCall,
   useRenderActivityMessage,
   useRenderCustomMessages,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 
 /**
  * Manual per-message composition for the TRULY headless chat cell.

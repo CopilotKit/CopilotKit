@@ -26,7 +26,7 @@ vi.mock("@ag-ui/mastra", () => ({
   MastraAgent: { getLocalAgents: vi.fn() },
   getLocalAgent: vi.fn(),
 }));
-vi.mock("@copilotkit/runtime/v2", () => ({
+vi.mock("@copilotkit/runtime", () => ({
   CopilotRuntime: vi.fn(),
   createCopilotRuntimeHandler: vi.fn(() =>
     vi.fn(async () => new Response("ok")),

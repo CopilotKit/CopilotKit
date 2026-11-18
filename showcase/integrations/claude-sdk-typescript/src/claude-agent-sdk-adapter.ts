@@ -10,8 +10,8 @@ import type {
   McpServerConfig,
 } from "@anthropic-ai/claude-agent-sdk";
 import type Anthropic from "@anthropic-ai/sdk";
-import { z } from "zod4/v4";
-import type { ZodTypeAny } from "zod4/v4";
+import { z } from "zod/v4";
+import type { ZodTypeAny } from "zod/v4";
 
 type Emit = (event: BaseEvent | object) => void;
 

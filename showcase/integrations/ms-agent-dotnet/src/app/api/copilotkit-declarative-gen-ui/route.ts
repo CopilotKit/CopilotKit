@@ -12,7 +12,7 @@ import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import { HttpAgent } from "@ag-ui/client";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
@@ -24,7 +24,8 @@ const declarativeGenUiAgent = new HttpAgent({
 const runtime = new CopilotRuntime({
   // @ts-ignore -- see main route.ts
   agents: { "declarative-gen-ui": declarativeGenUiAgent },
-  a2ui: {
+  generativeUI: {
+    a2uiVersion: "0.9",
     // The backend agent owns the `generate_a2ui` tool explicitly, so the
     // runtime MUST NOT auto-inject its own A2UI tool on top. The A2UI
     // middleware still runs — it serialises the registered client catalog

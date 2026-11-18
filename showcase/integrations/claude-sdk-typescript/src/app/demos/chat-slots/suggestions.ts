@@ -1,6 +1,6 @@
 "use client";
 
-import { useConfigureSuggestions } from "@copilotkit/react-core/v2";
+import { useConfigureSuggestions } from "@copilotkit/react-core";
 
 // The chat-slots cell is wired to the neutral Claude backend path
 // (no reasoning config), so it never emits AG-UI REASONING_MESSAGE_* events.

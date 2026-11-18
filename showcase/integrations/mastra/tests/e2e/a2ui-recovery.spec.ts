@@ -15,7 +15,7 @@ import type { Page } from "@playwright/test";
 // Metric); EXHAUST is invalid on every attempt, so the validate->retry loop hits
 // the cap and returns the a2ui_recovery_exhausted envelope. The loop runs inside
 // the backend a2uiRecoveryAgent's getA2UITools tool; the failure UI text
-// ("Couldn't generate the UI") comes from @copilotkit/react-core/v2. The
+// ("Part of this UI couldn't be shown.") comes from @copilotkit/react-core. The
 // recovered surface reuses the declarative-gen-ui catalog, so it carries the
 // `declarative-metric` testid.
 //
@@ -82,7 +82,9 @@ test.describe("A2UI Error Recovery", () => {
       .toBeGreaterThanOrEqual(2);
 
     // The healed surface, NOT the hard-failure UI, and no render-error banners.
-    await expect(page.getByText("Couldn't generate the UI")).toHaveCount(0);
+    await expect(
+      page.getByText("Part of this UI couldn't be shown."),
+    ).toHaveCount(0);
     await expect(page.getByText(/Catalog not found/i)).toHaveCount(0);
   });
 
@@ -91,10 +93,11 @@ test.describe("A2UI Error Recovery", () => {
   }) => {
     await clickPill(page, EXHAUST_PILL, EXHAUST_MSG);
 
-    // Hard-failure UI appears once the attempt cap is hit (A2UIRecoveryStates
-    // renders this on status "failed" = the a2ui_recovery_exhausted envelope).
+    // Hard-failure UI appears once the attempt cap is hit (the runtime
+    // sends an error surface for the a2ui_recovery_exhausted envelope, and the
+    // chat card shows this alert).
     await expect(
-      page.getByText("Couldn't generate the UI").first(),
+      page.getByText("Part of this UI couldn't be shown.").first(),
     ).toBeVisible({ timeout: 90_000 });
 
     // No faulty surface ever paints.

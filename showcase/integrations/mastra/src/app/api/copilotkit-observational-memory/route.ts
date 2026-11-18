@@ -18,7 +18,7 @@ import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import { getLocalAgents } from "@ag-ui/mastra";
 import { mastra } from "@/mastra";
 import { withForwardedHeaders } from "@/mastra/_header_forwarding";

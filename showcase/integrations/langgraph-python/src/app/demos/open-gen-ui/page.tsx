@@ -20,7 +20,7 @@
  */
 
 import React from "react";
-import { CopilotKit } from "@copilotkit/react-core/v2";
+import { CopilotKitProvider } from "@copilotkit/react-core";
 
 import { VISUALIZATION_DESIGN_SKILL } from "./design-skill";
 import { Chat } from "./chat";
@@ -33,9 +33,9 @@ export default function OpenGenUiDemo() {
   // We DO pass `openGenerativeUI.designSkill` to swap in visualisation-tuned
   // guidance in place of the default shadcn design skill.
   return (
-    <CopilotKit
+    <CopilotKitProvider
       runtimeUrl="/api/copilotkit-ogui"
-      agent="open-gen-ui"
+      agentId="open-gen-ui"
       openGenerativeUI={{ designSkill: VISUALIZATION_DESIGN_SKILL }}
     >
       <div className="flex justify-center items-center h-screen w-full">
@@ -43,7 +43,7 @@ export default function OpenGenUiDemo() {
           <Chat />
         </div>
       </div>
-    </CopilotKit>
+    </CopilotKitProvider>
   );
   // @endregion[minimal-provider-setup]
 }

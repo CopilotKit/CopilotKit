@@ -15,8 +15,7 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
-  ExperimentalEmptyAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
+  createCopilotRuntimeHandler,
 } from "@copilotkit/runtime";
 import { HttpAgent } from "@ag-ui/client";
 
@@ -32,7 +31,8 @@ const recoveryAgent = new HttpAgent({
 const runtime = new CopilotRuntime({
   // @ts-ignore -- Published CopilotRuntime agents type wraps Record in MaybePromise<NonEmptyRecord<...>> which rejects plain Records; fixed in source, pending release
   agents: { "a2ui-recovery": recoveryAgent },
-  a2ui: {
+  generativeUI: {
+    a2uiVersion: "0.9",
     injectA2UITool: true,
     // Reuse the catalog the page registers (shared with declarative-gen-ui).
     defaultCatalogId: "declarative-gen-ui-catalog",
@@ -41,10 +41,10 @@ const runtime = new CopilotRuntime({
 
 export const POST = async (req: NextRequest) => {
   try {
-    const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-      endpoint: "/api/copilotkit-a2ui-recovery",
-      serviceAdapter: new ExperimentalEmptyAdapter(),
+    const handleRequest = createCopilotRuntimeHandler({
       runtime,
+      basePath: "/api/copilotkit-a2ui-recovery",
+      mode: "single-route",
     });
     return await handleRequest(req);
   } catch (error: unknown) {

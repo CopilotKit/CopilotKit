@@ -18,7 +18,7 @@ import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import { HttpAgent } from "@ag-ui/client";
 import { extractForwardedHeaders } from "@/lib/header-forwarding";
 
@@ -36,7 +36,8 @@ export const POST = async (req: NextRequest) => {
 
     const runtime = new CopilotRuntime({
       agents: { "a2ui-recovery": recoveryAgent },
-      a2ui: {
+      generativeUI: {
+        a2uiVersion: "0.9",
         injectA2UITool: false,
         // Reuse the catalog the page registers (shared with declarative-gen-ui).
         defaultCatalogId: "declarative-gen-ui-catalog",

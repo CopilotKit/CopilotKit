@@ -5,7 +5,7 @@ import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import { HttpAgent } from "@ag-ui/client";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
@@ -38,7 +38,8 @@ export const POST = async (req: NextRequest) => {
         // the agent emits the envelope itself (no generate_a2ui injection).
         // Mirrors the beautiful-chat route. Pin the catalog the page registers
         // so the middleware doesn't fall back to the unregistered basic catalog.
-        a2ui: {
+        generativeUI: {
+          a2uiVersion: "0.9",
           injectA2UITool: false,
           defaultCatalogId: "copilotkit://flight-fixed-catalog",
         },

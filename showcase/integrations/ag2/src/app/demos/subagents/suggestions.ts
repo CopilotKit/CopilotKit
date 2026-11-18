@@ -1,6 +1,6 @@
 "use client";
 
-import { useConfigureSuggestions } from "@copilotkit/react-core/v2";
+import { useConfigureSuggestions } from "@copilotkit/react-core";
 
 export function useSubagentsSuggestions() {
   useConfigureSuggestions({

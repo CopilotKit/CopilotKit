@@ -2,7 +2,7 @@ import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
   InMemoryAgentRunner,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import { createA2UIRecoveryAgent } from "@/lib/factory/a2ui-factory";
 // Wrap handlers so inbound x-* headers (e.g. x-aimock-context) are bound
 // into ALS for the factory's `forwardingFetch` to re-attach on outbound
@@ -20,7 +20,8 @@ import { withForwardedHeaders } from "@/lib/header-forwarding";
 const runtime = new CopilotRuntime({
   agents: { "a2ui-recovery": createA2UIRecoveryAgent() },
   runner: new InMemoryAgentRunner(),
-  a2ui: {
+  generativeUI: {
+    a2uiVersion: "0.9",
     injectA2UITool: false,
     defaultCatalogId: "declarative-gen-ui-catalog",
   },

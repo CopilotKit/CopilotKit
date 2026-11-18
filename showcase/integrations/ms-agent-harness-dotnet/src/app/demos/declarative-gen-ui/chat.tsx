@@ -1,6 +1,6 @@
 "use client";
 
-import { CopilotChat } from "@copilotkit/react-core/v2";
+import { CopilotChat } from "@copilotkit/react-core";
 import { useDeclarativeGenUISuggestions } from "./suggestions";
 
 export function Chat() {

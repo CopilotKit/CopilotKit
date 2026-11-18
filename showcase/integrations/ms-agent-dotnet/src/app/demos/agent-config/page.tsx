@@ -11,7 +11,7 @@
  * LangGraph Python v2 pattern.
  */
 
-import { CopilotKit } from "@copilotkit/react-core/v2";
+import { CopilotKitProvider } from "@copilotkit/react-core";
 
 import { DemoLayout } from "./demo-layout";
 import { ConfigContextRelay } from "./config-context-relay";
@@ -22,9 +22,9 @@ export default function AgentConfigDemoPage() {
 
   return (
     // @region[provider-setup]
-    <CopilotKit
+    <CopilotKitProvider
       runtimeUrl="/api/copilotkit-agent-config"
-      agent="agent-config-demo"
+      agentId="agent-config-demo"
       properties={config}
     >
       <ConfigContextRelay config={config} />
@@ -34,7 +34,7 @@ export default function AgentConfigDemoPage() {
         onExpertiseChange={setExpertise}
         onResponseLengthChange={setResponseLength}
       />
-    </CopilotKit>
+    </CopilotKitProvider>
     // @endregion[provider-setup]
   );
 }

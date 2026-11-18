@@ -4,10 +4,10 @@
 // @region[frontend-tool-registration]
 import { useState } from "react";
 import {
-  CopilotKit,
+  CopilotKitProvider,
   CopilotPopup,
   useFrontendTool,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 import { z } from "zod";
 import type { PendingApproval } from "./approval-dialog";
 import { ApprovalDialog } from "./approval-dialog";
@@ -16,9 +16,9 @@ import { useHitlInAppSuggestions } from "./suggestions";
 
 export default function HitlInAppDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="hitl-in-app">
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" agentId="hitl-in-app">
       <Layout />
-    </CopilotKit>
+    </CopilotKitProvider>
   );
 }
 

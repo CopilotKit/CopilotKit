@@ -8,7 +8,7 @@ import type { NextRequest } from "next/server";
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import { createClaudeHttpAgent } from "@/app/api/_shared/claude-http-agent";
 import { internalRuntimeErrorResponse } from "@/app/api/_shared/route-error";
 
@@ -22,7 +22,8 @@ const runtime = new CopilotRuntime({
       `${AGENT_URL}/declarative-gen-ui`,
     ),
   },
-  a2ui: {
+  generativeUI: {
+    a2uiVersion: "0.9",
     injectA2UITool: false,
     defaultCatalogId: "declarative-gen-ui-catalog",
   },

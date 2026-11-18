@@ -12,8 +12,8 @@ import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
-import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
+} from "@copilotkit/runtime";
+import { LangGraphAgent } from "@ag-ui/langgraph";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8123";
 
@@ -25,7 +25,8 @@ const a2uiFixedSchemaAgent = new LangGraphAgent({
 const runtime = new CopilotRuntime({
   // @ts-ignore -- see main route.ts
   agents: { "a2ui-fixed-schema": a2uiFixedSchemaAgent },
-  a2ui: {
+  generativeUI: {
+    a2uiVersion: "0.9",
     // The backend emits its own `a2ui_operations` container via
     // `a2ui.render(...)` inside `display_flight` (see src/agents/src/a2ui_fixed.py).
     // We still run the A2UI middleware so it detects the container in tool
