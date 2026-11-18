@@ -1,0 +1,14 @@
+{
+  "framework": "omnara",
+  "features": {
+    "agentic-chat": {
+      "shell_docs_path": "/agentic-chat-ui"
+    },
+    "frontend-tools": {
+      "shell_docs_path": "/frontend-tools"
+    },
+    "tool-rendering-default-catchall": {
+      "shell_docs_path": "/generative-ui/tool-rendering"
+    }
+  }
+}
