@@ -260,6 +260,28 @@ them internal.
 - `ɵCOPILOTKIT_BUILT_IN_ACTIVITY_RENDERERS`
 - `ɵCOPILOTKIT_INSPECTOR_DEVELOPMENT_MODE`
 - `ɵsetA2UIGenerativeUIProviders`
+
+### Removed 1.x exports
+
+2.0 removed these exports, and keeps each name only as a stand-in. Code that
+uses one throws a `CopilotKitRemovedApiError` that names the replacement, and
+TypeScript fails on it with the same message. See
+[Removed deprecated APIs in 2.0](https://docs.copilotkit.ai/migrate/removed-apis-2.0#copilotkitremovedapierror).
+
+- `A2UICatalog`
+- `A2UIClientEventMessage`
+- `A2UIConfig`
+- `A2UIDebugExposure`
+- `A2UILifecycleContent`
+- `A2UILifecycleStatus`
+- `A2UIRecoveryOptions`
+- `A2UISurfaceError`
+- `CopilotA2UIActivityRenderer`
+- `CopilotA2UIProgress`
+- `CopilotA2UIRecovery`
+- `CopilotA2UIToolRenderer`
+- `RenderA2UIArgs`
+- `readA2UILifecycleContent`
 <!-- public-api:root:end -->
 
 ## Generative UI entry point

@@ -542,6 +542,17 @@
       }
     },
     {
+      // The generated stand-ins for the removed 1.x runtime exports
+      // (scripts/deprecations/removed-exports.mts). These rules need
+      // strictNullChecks, which the runtime does not compile with, so they
+      // report each new runtime file at line 1. The file has no condition.
+      "files": ["packages/runtime/src/removed-exports.ts"],
+      "rules": {
+        "typescript/no-unnecessary-condition": "off",
+        "typescript/no-unnecessary-boolean-literal-compare": "off"
+      }
+    },
+    {
       "files": [
         "showcase/shell-dashboard/src/**/*.{ts,tsx}",
         "showcase/shell-docs/src/**/*.{ts,tsx}",

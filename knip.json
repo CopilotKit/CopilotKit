@@ -57,7 +57,8 @@
         "src/mcp-apps/index.ts!",
         "src/generative-ui/index.ts!",
         "src/generative-ui/{chart,icons,map}/index.ts!",
-        "scripts/**/*.{js,cjs,mjs,ts,mts}"
+        "scripts/**/*.{js,cjs,mjs,ts,mts}",
+        "type-fixtures/**/*.ts"
       ]
     },
     "packages/channels": {
@@ -86,7 +87,7 @@
         "browser/**/*.{ts,tsx,mjs}",
         "browser-tests/**/*.{ts,tsx,mjs}",
         "dev/**/*.ts",
-        "type-fixtures/**/*.ts",
+        "type-fixtures/**/*.{ts,tsx}",
         "vitest.mutation.config.mjs"
       ],
       "ignore": ["scripts/__tests__/fixtures/**"],
@@ -97,7 +98,8 @@
         "src/index.ts!",
         "*.d.ts",
         "src/**/*.test-d.{ts,tsx}",
-        "src/__tests__/mocks/web-inspector.ts"
+        "src/__tests__/mocks/web-inspector.ts",
+        "type-fixtures/**/*.ts"
       ],
       "ignoreDependencies": ["phoenix"]
     }

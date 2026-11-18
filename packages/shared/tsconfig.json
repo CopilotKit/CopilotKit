@@ -12,6 +12,8 @@
     "dist",
     "build",
     "node_modules",
+    // Compiled against the build by scripts/__tests__/removed-exports-dist.test.ts.
+    "type-fixtures",
     "**/*.test.ts",
     "**/*.test.tsx",
     "**/__tests__/*"
