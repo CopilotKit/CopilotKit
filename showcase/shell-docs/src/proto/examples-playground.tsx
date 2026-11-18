@@ -183,8 +183,9 @@ export function ExamplesPlayground() {
 
   return (
     // Spacious' geometry: the frame holds the sidebar and an 8px ring around
-    // the white page panel.
-    <div className="flex flex-1 flex-col bg-frame lg:h-[calc(100dvh-3.5rem)] lg:flex-none lg:flex-row">
+    // the white page panel. It fills the screen under the navbar, and under
+    // the release-candidate banner when there is one.
+    <div className="flex flex-1 flex-col bg-frame lg:h-[calc(100dvh-3.5rem-var(--fd-banner-height,0px))] lg:flex-none lg:flex-row">
       {/* The examples, as the docs' sidebar */}
       <aside className="flex min-h-0 flex-col text-sm lg:w-[268px] lg:shrink-0">
         <div className="px-2 pt-2 lg:hidden">

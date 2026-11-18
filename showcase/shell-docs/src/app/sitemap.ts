@@ -1,4 +1,6 @@
 import type { MetadataRoute } from "next";
+import { notFound } from "next/navigation";
+import { isVnextChannel } from "@/lib/docs-channel";
 import { sitemapEntries } from "@/lib/llms/live-inventory";
 import { absoluteUrl } from "@/lib/seo/base-url";
 
@@ -6,8 +8,10 @@ import { absoluteUrl } from "@/lib/seo/base-url";
 // the home page, every live docs page at each URL shell-docs listed it under
 // (framework- and frontend-scoped variants included), and the API reference.
 // See `sitemapEntries()` for the URL families. URLs are absolute on the
-// canonical origin (`getBaseUrl()`).
+// canonical origin (`getBaseUrl()`). The next major release's docs
+// (src/lib/docs-channel.ts) have no sitemap: /sitemap.xml answers 404.
 export default function sitemap(): MetadataRoute.Sitemap {
+  if (isVnextChannel) notFound();
   return sitemapEntries().map(({ url, lastModified }) => ({
     url: absoluteUrl(url),
     lastModified,
