@@ -26,7 +26,7 @@ Then add that data to the agent's messages in your AG-UI server, as shown below.
 
         ```tsx title="YourComponent.tsx" showLineNumbers {1, 7-10}
         "use client" // only necessary if you are using Next.js with the App Router. // [!code highlight]
-        import { useAgentContext } from "@copilotkit/react-core/v2";
+        import { useAgentContext } from "@copilotkit/react-core";
         import { useState } from "react";
 
         export function YourComponent() {

@@ -60,8 +60,10 @@ type Config struct {
 	OnError                    func(RuntimeError)
 	AllowedOrigins             []string
 	LockTTL, HeartbeatInterval time.Duration
-	A2UI                       *A2UIConfig
-	MCPApps                    *MCPAppsConfig
+	// GenerativeUI configures generative UI (A2UI 1.0 surfaces). Nil turns it on only for a
+	// run whose client sends a "tool" catalog; see GenerativeUIConfig.
+	GenerativeUI *GenerativeUIConfig
+	MCPApps      *MCPAppsConfig
 }
 type activeRun struct {
 	cancel context.CancelFunc
@@ -146,22 +148,11 @@ func New(c Config) (*Runtime, error) {
 		}
 	}
 	c.Agents = cloneAgents(c.Agents)
-	if c.A2UI != nil {
-		raw, err := json.Marshal(c.A2UI)
-		if err != nil {
-			return nil, errors.New("invalid A2UI configuration")
-		}
-		var copy A2UIConfig
-		if err = json.Unmarshal(raw, &copy); err != nil {
-			return nil, err
-		}
-		c.A2UI = &copy
-		switch c.A2UI.InjectA2UITool.(type) {
-		case nil, bool, string:
-		default:
-			return nil, errors.New("injectA2UITool must be a boolean or tool name")
-		}
+	generativeUI, err := cloneGenerativeUI(c.GenerativeUI)
+	if err != nil {
+		return nil, err
 	}
+	c.GenerativeUI = generativeUI
 	if c.MCPApps != nil {
 		raw, err := json.Marshal(c.MCPApps)
 		if err != nil {
@@ -479,17 +470,10 @@ func (r *Runtime) info(w http.ResponseWriter, req *http.Request) {
 		}
 		agents[id] = map[string]any{"name": id, "description": description, "className": "Agent"}
 	}
-	info := map[string]any{"version": "0.1.0", "mode": "intelligence", "agents": agents, "intelligence": map[string]any{"wsUrl": r.config.ClientURL}, "runtimeEntitlements": ent, "threadEndpoints": map[string]any{"list": true, "inspect": true, "mutations": true, "realtimeMetadata": true}, "a2uiEnabled": r.config.A2UI != nil && (r.config.A2UI.Enabled == nil || *r.config.A2UI.Enabled), "audioFileTranscriptionEnabled": false, "openGenerativeUIEnabled": false, "telemetryDisabled": r.config.TelemetryDisabled}
+	info := map[string]any{"version": "0.1.0", "mode": "intelligence", "agents": agents, "intelligence": map[string]any{"wsUrl": r.config.ClientURL}, "runtimeEntitlements": ent, "threadEndpoints": map[string]any{"list": true, "inspect": true, "mutations": true, "realtimeMetadata": true}, "generativeUI": generativeUIInfo(r.config.GenerativeUI), "audioFileTranscriptionEnabled": false, "openGenerativeUIEnabled": false, "telemetryDisabled": r.config.TelemetryDisabled}
 	info["telemetryDisabled"] = r.telemetry.disabled
 	info["inspectorMetadata"] = true
 	info["licenseStatus"] = licenseStatus
-	if info["a2uiEnabled"] == true {
-		a2ui := map[string]any{"enabled": true}
-		if len(r.config.A2UI.Agents) > 0 {
-			a2ui["agents"] = r.config.A2UI.Agents
-		}
-		info["a2ui"] = a2ui
-	}
 	reply(w, 200, info)
 }
 

@@ -18,83 +18,6 @@
   },
   "packages": [
     {
-      "name": "@copilotkit/a2ui-renderer",
-      "version": "1.89.0",
-      "sourceDirectory": "packages/a2ui-renderer",
-      "entrypoints": [
-        {
-          "importPath": "@copilotkit/a2ui-renderer",
-          "exportKey": ".",
-          "kind": "code",
-          "conditions": {
-            "import": {
-              "types": "./dist/index.d.mts",
-              "default": "./dist/index.mjs"
-            },
-            "require": {
-              "types": "./dist/index.d.cts",
-              "default": "./dist/index.cjs"
-            }
-          },
-          "provenance": {
-            "kind": "package-json",
-            "path": "packages/a2ui-renderer/package.json",
-            "selector": "exports[\".\"]"
-          }
-        },
-        {
-          "importPath": "@copilotkit/a2ui-renderer/package.json",
-          "exportKey": "./package.json",
-          "kind": "metadata",
-          "conditions": "./package.json",
-          "provenance": {
-            "kind": "package-json",
-            "path": "packages/a2ui-renderer/package.json",
-            "selector": "exports[\"./package.json\"]"
-          }
-        }
-      ],
-      "compatibility": {
-        "peerDependencies": {
-          "react": "^18 || ^19 || ^19.0.0-rc",
-          "react-dom": "^18 || ^19 || ^19.0.0-rc"
-        },
-        "optionalPeerDependencies": [
-          "react",
-          "react-dom"
-        ],
-        "provenance": [
-          {
-            "kind": "package-json",
-            "path": "packages/a2ui-renderer/package.json",
-            "selector": "peerDependencies"
-          },
-          {
-            "kind": "package-json",
-            "path": "packages/a2ui-renderer/package.json",
-            "selector": "peerDependenciesMeta.*.optional"
-          }
-        ]
-      },
-      "provenance": {
-        "name": {
-          "kind": "package-json",
-          "path": "packages/a2ui-renderer/package.json",
-          "selector": "name"
-        },
-        "version": {
-          "kind": "package-json",
-          "path": "packages/a2ui-renderer/package.json",
-          "selector": "version"
-        },
-        "releaseScope": {
-          "kind": "release-config",
-          "path": "release.config.json",
-          "selector": "scopes.monorepo.packages"
-        }
-      }
-    },
-    {
       "name": "@copilotkit/agentcore-runner",
       "version": "1.89.0",
       "sourceDirectory": "packages/agentcore-runner",
@@ -127,7 +50,7 @@
       ],
       "compatibility": {
         "engines": {
-          "node": ">=20"
+          "node": "^20.19.3 || >=22.13.0"
         },
         "provenance": [
           {
@@ -157,7 +80,7 @@
     },
     {
       "name": "@copilotkit/angular",
-      "version": "0.6.0",
+      "version": "1.89.0",
       "sourceDirectory": "packages/angular",
       "entrypoints": [
         {
@@ -172,20 +95,6 @@
             "kind": "package-json",
             "path": "packages/angular/package.json",
             "selector": "exports[\".\"]"
-          }
-        },
-        {
-          "importPath": "@copilotkit/angular/a2ui",
-          "exportKey": "./a2ui",
-          "kind": "code",
-          "conditions": {
-            "types": "./dist/types/copilotkit-angular-a2ui.d.ts",
-            "default": "./dist/fesm2022/copilotkit-angular-a2ui.mjs"
-          },
-          "provenance": {
-            "kind": "package-json",
-            "path": "packages/angular/package.json",
-            "selector": "exports[\"./a2ui\"]"
           }
         },
         {
@@ -257,20 +166,12 @@
             "path": "packages/angular/package.json",
             "selector": "exports[\"./mcp-apps\"]"
           }
-        },
-        {
-          "importPath": "@copilotkit/angular/styles.css",
-          "exportKey": "./styles.css",
-          "kind": "style",
-          "conditions": "./dist/styles.css",
-          "provenance": {
-            "kind": "package-json",
-            "path": "packages/angular/package.json",
-            "selector": "exports[\"./styles.css\"]"
-          }
         }
       ],
       "compatibility": {
+        "engines": {
+          "node": ">=20"
+        },
         "peerDependencies": {
           "@angular/cdk": "^22.0.0",
           "@angular/common": "^22.0.0",
@@ -286,6 +187,11 @@
           "maplibre-gl"
         ],
         "provenance": [
+          {
+            "kind": "package-json",
+            "path": "packages/angular/package.json",
+            "selector": "engines"
+          },
           {
             "kind": "package-json",
             "path": "packages/angular/package.json",
@@ -312,7 +218,7 @@
         "releaseScope": {
           "kind": "release-config",
           "path": "release.config.json",
-          "selector": "scopes.angular.packages"
+          "selector": "scopes.monorepo.packages"
         }
       }
     },
@@ -505,6 +411,9 @@
         }
       ],
       "compatibility": {
+        "engines": {
+          "node": "^20.19.3 || >=22.13.0"
+        },
         "peerDependencies": {
           "@microsoft/agents-activity": "^1.5.3",
           "@microsoft/agents-hosting": "^1.5.3",
@@ -520,6 +429,11 @@
           "takumi-js"
         ],
         "provenance": [
+          {
+            "kind": "package-json",
+            "path": "packages/channels/package.json",
+            "selector": "engines"
+          },
           {
             "kind": "package-json",
             "path": "packages/channels/package.json",
@@ -627,6 +541,9 @@
         }
       ],
       "compatibility": {
+        "engines": {
+          "node": "^20.19.3 || >=22.13.0"
+        },
         "peerDependencies": {
           "react": ">=18",
           "takumi-js": "^2.7.3"
@@ -636,6 +553,11 @@
           "takumi-js"
         ],
         "provenance": [
+          {
+            "kind": "package-json",
+            "path": "packages/channels-core/package.json",
+            "selector": "engines"
+          },
           {
             "kind": "package-json",
             "path": "packages/channels-core/package.json",
@@ -687,7 +609,16 @@
         }
       ],
       "compatibility": {
-        "provenance": []
+        "engines": {
+          "node": "^20.19.3 || >=22.13.0"
+        },
+        "provenance": [
+          {
+            "kind": "package-json",
+            "path": "packages/channels-discord/package.json",
+            "selector": "engines"
+          }
+        ]
       },
       "provenance": {
         "name": {
@@ -728,7 +659,16 @@
         }
       ],
       "compatibility": {
-        "provenance": []
+        "engines": {
+          "node": "^20.19.3 || >=22.13.0"
+        },
+        "provenance": [
+          {
+            "kind": "package-json",
+            "path": "packages/channels-intelligence/package.json",
+            "selector": "engines"
+          }
+        ]
       },
       "provenance": {
         "name": {
@@ -797,7 +737,16 @@
         }
       ],
       "compatibility": {
-        "provenance": []
+        "engines": {
+          "node": "^20.19.3 || >=22.13.0"
+        },
+        "provenance": [
+          {
+            "kind": "package-json",
+            "path": "packages/channels-slack/package.json",
+            "selector": "engines"
+          }
+        ]
       },
       "provenance": {
         "name": {
@@ -852,6 +801,9 @@
         }
       ],
       "compatibility": {
+        "engines": {
+          "node": "^20.19.3 || >=22.13.0"
+        },
         "peerDependencies": {
           "@microsoft/agents-activity": "^1.5.3",
           "@microsoft/agents-hosting": "^1.5.3",
@@ -863,6 +815,11 @@
           "express"
         ],
         "provenance": [
+          {
+            "kind": "package-json",
+            "path": "packages/channels-teams/package.json",
+            "selector": "engines"
+          },
           {
             "kind": "package-json",
             "path": "packages/channels-teams/package.json",
@@ -942,7 +899,16 @@
         }
       ],
       "compatibility": {
-        "provenance": []
+        "engines": {
+          "node": "^20.19.3 || >=22.13.0"
+        },
+        "provenance": [
+          {
+            "kind": "package-json",
+            "path": "packages/channels-ui/package.json",
+            "selector": "engines"
+          }
+        ]
       },
       "provenance": {
         "name": {
@@ -983,7 +949,16 @@
         }
       ],
       "compatibility": {
-        "provenance": []
+        "engines": {
+          "node": "^20.19.3 || >=22.13.0"
+        },
+        "provenance": [
+          {
+            "kind": "package-json",
+            "path": "packages/channels-whatsapp/package.json",
+            "selector": "engines"
+          }
+        ]
       },
       "provenance": {
         "name": {
@@ -1023,6 +998,20 @@
           }
         },
         {
+          "importPath": "@copilotkit/core/chat-configuration",
+          "exportKey": "./chat-configuration",
+          "kind": "code",
+          "conditions": {
+            "import": "./dist/chat-configuration.mjs",
+            "require": "./dist/chat-configuration.cjs"
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/core/package.json",
+            "selector": "exports[\"./chat-configuration\"]"
+          }
+        },
+        {
           "importPath": "@copilotkit/core/generative-ui",
           "exportKey": "./generative-ui",
           "kind": "code",
@@ -1045,6 +1034,31 @@
             "kind": "package-json",
             "path": "packages/core/package.json",
             "selector": "exports[\"./package.json\"]"
+          }
+        },
+        {
+          "importPath": "@copilotkit/core/styles",
+          "exportKey": "./styles",
+          "kind": "code",
+          "conditions": {
+            "import": "./dist/styles.mjs",
+            "require": "./dist/styles.cjs"
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/core/package.json",
+            "selector": "exports[\"./styles\"]"
+          }
+        },
+        {
+          "importPath": "@copilotkit/core/styles.css",
+          "exportKey": "./styles.css",
+          "kind": "style",
+          "conditions": "./dist/styles.css",
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/core/package.json",
+            "selector": "exports[\"./styles.css\"]"
           }
         }
       ],
@@ -1111,7 +1125,7 @@
       ],
       "compatibility": {
         "engines": {
-          "node": ">=20.19.0"
+          "node": "^20.19.3 || >=22.13.0"
         },
         "peerDependencies": {
           "@langchain/core": ">=1.2.10 <2",
@@ -1282,6 +1296,143 @@
       }
     },
     {
+      "name": "@copilotkit/markdown",
+      "version": "1.59.2",
+      "sourceDirectory": "packages/markdown",
+      "entrypoints": [
+        {
+          "importPath": "@copilotkit/markdown",
+          "exportKey": ".",
+          "kind": "code",
+          "conditions": {
+            "import": "./dist/index.mjs",
+            "require": "./dist/index.cjs"
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/markdown/package.json",
+            "selector": "exports[\".\"]"
+          }
+        },
+        {
+          "importPath": "@copilotkit/markdown/dom",
+          "exportKey": "./dom",
+          "kind": "code",
+          "conditions": {
+            "import": "./dist/dom/index.mjs",
+            "require": "./dist/dom/index.cjs"
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/markdown/package.json",
+            "selector": "exports[\"./dom\"]"
+          }
+        },
+        {
+          "importPath": "@copilotkit/markdown/package.json",
+          "exportKey": "./package.json",
+          "kind": "metadata",
+          "conditions": "./package.json",
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/markdown/package.json",
+            "selector": "exports[\"./package.json\"]"
+          }
+        },
+        {
+          "importPath": "@copilotkit/markdown/react",
+          "exportKey": "./react",
+          "kind": "code",
+          "conditions": {
+            "import": "./dist/react/index.mjs",
+            "require": "./dist/react/index.cjs"
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/markdown/package.json",
+            "selector": "exports[\"./react\"]"
+          }
+        },
+        {
+          "importPath": "@copilotkit/markdown/react-native",
+          "exportKey": "./react-native",
+          "kind": "code",
+          "conditions": {
+            "import": "./dist/react-native/index.mjs",
+            "require": "./dist/react-native/index.cjs"
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/markdown/package.json",
+            "selector": "exports[\"./react-native\"]"
+          }
+        },
+        {
+          "importPath": "@copilotkit/markdown/vue",
+          "exportKey": "./vue",
+          "kind": "code",
+          "conditions": {
+            "import": "./dist/vue/index.mjs",
+            "require": "./dist/vue/index.cjs"
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/markdown/package.json",
+            "selector": "exports[\"./vue\"]"
+          }
+        }
+      ],
+      "compatibility": {
+        "engines": {
+          "node": ">=20"
+        },
+        "peerDependencies": {
+          "react": ">=18",
+          "react-native": ">=0.70",
+          "vue": ">=3"
+        },
+        "optionalPeerDependencies": [
+          "react",
+          "react-native",
+          "vue"
+        ],
+        "provenance": [
+          {
+            "kind": "package-json",
+            "path": "packages/markdown/package.json",
+            "selector": "engines"
+          },
+          {
+            "kind": "package-json",
+            "path": "packages/markdown/package.json",
+            "selector": "peerDependencies"
+          },
+          {
+            "kind": "package-json",
+            "path": "packages/markdown/package.json",
+            "selector": "peerDependenciesMeta.*.optional"
+          }
+        ]
+      },
+      "provenance": {
+        "name": {
+          "kind": "package-json",
+          "path": "packages/markdown/package.json",
+          "selector": "name"
+        },
+        "version": {
+          "kind": "package-json",
+          "path": "packages/markdown/package.json",
+          "selector": "version"
+        },
+        "releaseScope": {
+          "kind": "release-config",
+          "path": "release.config.json",
+          "selector": "scopes.monorepo.packages"
+        }
+      }
+    },
+    {
       "name": "@copilotkit/mcp-apps-renderer",
       "version": "1.89.0",
       "sourceDirectory": "packages/mcp-apps-renderer",
@@ -1335,11 +1486,18 @@
         }
       ],
       "compatibility": {
+        "engines": {
+          "node": ">=20"
+        },
         "peerDependencies": {
-          "@ag-ui/client": ">=0.0.59",
-          "zod": ">=3.25"
+          "@ag-ui/client": "^1.0.2"
         },
         "provenance": [
+          {
+            "kind": "package-json",
+            "path": "packages/mcp-apps-renderer/package.json",
+            "selector": "engines"
+          },
           {
             "kind": "package-json",
             "path": "packages/mcp-apps-renderer/package.json",
@@ -1385,6 +1543,76 @@
           }
         },
         {
+          "importPath": "@copilotkit/react-core/context",
+          "exportKey": "./context",
+          "kind": "code",
+          "conditions": {
+            "import": "./dist/context.mjs",
+            "require": "./dist/context.cjs"
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/react-core/package.json",
+            "selector": "exports[\"./context\"]"
+          }
+        },
+        {
+          "importPath": "@copilotkit/react-core/generative-ui",
+          "exportKey": "./generative-ui",
+          "kind": "code",
+          "conditions": {
+            "import": "./dist/generative-ui.mjs",
+            "require": "./dist/generative-ui.cjs"
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/react-core/package.json",
+            "selector": "exports[\"./generative-ui\"]"
+          }
+        },
+        {
+          "importPath": "@copilotkit/react-core/generative-ui/map",
+          "exportKey": "./generative-ui/map",
+          "kind": "code",
+          "conditions": {
+            "import": "./dist/generative-ui/map.mjs",
+            "require": "./dist/generative-ui/map.cjs"
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/react-core/package.json",
+            "selector": "exports[\"./generative-ui/map\"]"
+          }
+        },
+        {
+          "importPath": "@copilotkit/react-core/generative-ui/native",
+          "exportKey": "./generative-ui/native",
+          "kind": "code",
+          "conditions": {
+            "import": "./dist/generative-ui/native.mjs",
+            "require": "./dist/generative-ui/native.cjs"
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/react-core/package.json",
+            "selector": "exports[\"./generative-ui/native\"]"
+          }
+        },
+        {
+          "importPath": "@copilotkit/react-core/headless",
+          "exportKey": "./headless",
+          "kind": "code",
+          "conditions": {
+            "import": "./dist/headless.mjs",
+            "require": "./dist/headless.cjs"
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/react-core/package.json",
+            "selector": "exports[\"./headless\"]"
+          }
+        },
+        {
           "importPath": "@copilotkit/react-core/package.json",
           "exportKey": "./package.json",
           "kind": "metadata",
@@ -1400,8 +1628,14 @@
           "exportKey": "./v2",
           "kind": "code",
           "conditions": {
-            "import": "./dist/v2/index.mjs",
-            "require": "./dist/v2/index.cjs"
+            "import": {
+              "types": "./dist/v2/index.d.mts",
+              "default": "./dist/index.mjs"
+            },
+            "require": {
+              "types": "./dist/v2/index.d.cts",
+              "default": "./dist/index.cjs"
+            }
           },
           "provenance": {
             "kind": "package-json",
@@ -1414,8 +1648,14 @@
           "exportKey": "./v2/context",
           "kind": "code",
           "conditions": {
-            "import": "./dist/v2/context.mjs",
-            "require": "./dist/v2/context.cjs"
+            "import": {
+              "types": "./dist/v2/context.d.mts",
+              "default": "./dist/context.mjs"
+            },
+            "require": {
+              "types": "./dist/v2/context.d.cts",
+              "default": "./dist/context.cjs"
+            }
           },
           "provenance": {
             "kind": "package-json",
@@ -1428,8 +1668,14 @@
           "exportKey": "./v2/generative-ui",
           "kind": "code",
           "conditions": {
-            "import": "./dist/v2/generative-ui.mjs",
-            "require": "./dist/v2/generative-ui.cjs"
+            "import": {
+              "types": "./dist/v2/generative-ui.d.mts",
+              "default": "./dist/generative-ui.mjs"
+            },
+            "require": {
+              "types": "./dist/v2/generative-ui.d.cts",
+              "default": "./dist/generative-ui.cjs"
+            }
           },
           "provenance": {
             "kind": "package-json",
@@ -1442,8 +1688,14 @@
           "exportKey": "./v2/generative-ui/native",
           "kind": "code",
           "conditions": {
-            "import": "./dist/v2/generative-ui/native.mjs",
-            "require": "./dist/v2/generative-ui/native.cjs"
+            "import": {
+              "types": "./dist/v2/generative-ui/native.d.mts",
+              "default": "./dist/generative-ui/native.mjs"
+            },
+            "require": {
+              "types": "./dist/v2/generative-ui/native.d.cts",
+              "default": "./dist/generative-ui/native.cjs"
+            }
           },
           "provenance": {
             "kind": "package-json",
@@ -1456,8 +1708,14 @@
           "exportKey": "./v2/headless",
           "kind": "code",
           "conditions": {
-            "import": "./dist/v2/headless.mjs",
-            "require": "./dist/v2/headless.cjs"
+            "import": {
+              "types": "./dist/v2/headless.d.mts",
+              "default": "./dist/headless.mjs"
+            },
+            "require": {
+              "types": "./dist/v2/headless.d.cts",
+              "default": "./dist/headless.cjs"
+            }
           },
           "provenance": {
             "kind": "package-json",
@@ -1469,7 +1727,7 @@
           "importPath": "@copilotkit/react-core/v2/styles.css",
           "exportKey": "./v2/styles.css",
           "kind": "style",
-          "conditions": "./dist/v2/index.css",
+          "conditions": "./dist/v2/styles.css",
           "provenance": {
             "kind": "package-json",
             "path": "packages/react-core/package.json",
@@ -1478,16 +1736,23 @@
         }
       ],
       "compatibility": {
+        "engines": {
+          "node": ">=20"
+        },
         "peerDependencies": {
           "maplibre-gl": "^5.0.0",
           "react": "^18 || ^19 || ^19.0.0-rc",
-          "react-dom": "^18 || ^19 || ^19.0.0-rc",
-          "zod": ">=3.25"
+          "react-dom": "^18 || ^19 || ^19.0.0-rc"
         },
         "optionalPeerDependencies": [
           "maplibre-gl"
         ],
         "provenance": [
+          {
+            "kind": "package-json",
+            "path": "packages/react-core/package.json",
+            "selector": "engines"
+          },
           {
             "kind": "package-json",
             "path": "packages/react-core/package.json",
@@ -1676,27 +1941,27 @@
         }
       ],
       "compatibility": {
+        "engines": {
+          "node": ">=20"
+        },
         "peerDependencies": {
           "@gorhom/bottom-sheet": "^5.0.0",
           "expo-document-picker": ">=12.0.0",
           "expo-file-system": ">=17.0.0",
           "react": "^18 || ^19",
-          "react-native": ">=0.70",
-          "react-native-gesture-handler": ">=2.0.0",
-          "react-native-reanimated": ">=3.0.0",
-          "react-native-streamdown": ">=0.1.0",
-          "zod": ">=3.0.0"
+          "react-native": ">=0.70"
         },
         "optionalPeerDependencies": [
           "@gorhom/bottom-sheet",
           "expo-document-picker",
-          "expo-file-system",
-          "react-native-gesture-handler",
-          "react-native-reanimated",
-          "react-native-streamdown",
-          "zod"
+          "expo-file-system"
         ],
         "provenance": [
+          {
+            "kind": "package-json",
+            "path": "packages/react-native/package.json",
+            "selector": "engines"
+          },
           {
             "kind": "package-json",
             "path": "packages/react-native/package.json",
@@ -1718,162 +1983,6 @@
         "version": {
           "kind": "package-json",
           "path": "packages/react-native/package.json",
-          "selector": "version"
-        },
-        "releaseScope": {
-          "kind": "release-config",
-          "path": "release.config.json",
-          "selector": "scopes.monorepo.packages"
-        }
-      }
-    },
-    {
-      "name": "@copilotkit/react-textarea",
-      "version": "1.89.0",
-      "sourceDirectory": "packages/react-textarea",
-      "entrypoints": [
-        {
-          "importPath": "@copilotkit/react-textarea",
-          "exportKey": ".",
-          "kind": "code",
-          "conditions": {
-            "import": "./dist/index.mjs",
-            "require": "./dist/index.cjs"
-          },
-          "provenance": {
-            "kind": "package-json",
-            "path": "packages/react-textarea/package.json",
-            "selector": "exports[\".\"]"
-          }
-        },
-        {
-          "importPath": "@copilotkit/react-textarea/package.json",
-          "exportKey": "./package.json",
-          "kind": "metadata",
-          "conditions": "./package.json",
-          "provenance": {
-            "kind": "package-json",
-            "path": "packages/react-textarea/package.json",
-            "selector": "exports[\"./package.json\"]"
-          }
-        },
-        {
-          "importPath": "@copilotkit/react-textarea/styles.css",
-          "exportKey": "./styles.css",
-          "kind": "style",
-          "conditions": "./dist/index.css",
-          "provenance": {
-            "kind": "package-json",
-            "path": "packages/react-textarea/package.json",
-            "selector": "exports[\"./styles.css\"]"
-          }
-        }
-      ],
-      "compatibility": {
-        "peerDependencies": {
-          "react": "^18 || ^19 || ^19.0.0-rc",
-          "react-dom": "^18 || ^19 || ^19.0.0-rc"
-        },
-        "provenance": [
-          {
-            "kind": "package-json",
-            "path": "packages/react-textarea/package.json",
-            "selector": "peerDependencies"
-          }
-        ]
-      },
-      "provenance": {
-        "name": {
-          "kind": "package-json",
-          "path": "packages/react-textarea/package.json",
-          "selector": "name"
-        },
-        "version": {
-          "kind": "package-json",
-          "path": "packages/react-textarea/package.json",
-          "selector": "version"
-        },
-        "releaseScope": {
-          "kind": "release-config",
-          "path": "release.config.json",
-          "selector": "scopes.monorepo.packages"
-        }
-      }
-    },
-    {
-      "name": "@copilotkit/react-ui",
-      "version": "1.89.0",
-      "sourceDirectory": "packages/react-ui",
-      "entrypoints": [
-        {
-          "importPath": "@copilotkit/react-ui",
-          "exportKey": ".",
-          "kind": "code",
-          "conditions": {
-            "import": "./dist/index.mjs",
-            "require": "./dist/index.cjs"
-          },
-          "provenance": {
-            "kind": "package-json",
-            "path": "packages/react-ui/package.json",
-            "selector": "exports[\".\"]"
-          }
-        },
-        {
-          "importPath": "@copilotkit/react-ui/package.json",
-          "exportKey": "./package.json",
-          "kind": "metadata",
-          "conditions": "./package.json",
-          "provenance": {
-            "kind": "package-json",
-            "path": "packages/react-ui/package.json",
-            "selector": "exports[\"./package.json\"]"
-          }
-        },
-        {
-          "importPath": "@copilotkit/react-ui/styles.css",
-          "exportKey": "./styles.css",
-          "kind": "style",
-          "conditions": "./dist/index.css",
-          "provenance": {
-            "kind": "package-json",
-            "path": "packages/react-ui/package.json",
-            "selector": "exports[\"./styles.css\"]"
-          }
-        },
-        {
-          "importPath": "@copilotkit/react-ui/v2/styles.css",
-          "exportKey": "./v2/styles.css",
-          "kind": "style",
-          "conditions": "./dist/v2/index.css",
-          "provenance": {
-            "kind": "package-json",
-            "path": "packages/react-ui/package.json",
-            "selector": "exports[\"./v2/styles.css\"]"
-          }
-        }
-      ],
-      "compatibility": {
-        "peerDependencies": {
-          "react": "^18 || ^19 || ^19.0.0-rc"
-        },
-        "provenance": [
-          {
-            "kind": "package-json",
-            "path": "packages/react-ui/package.json",
-            "selector": "peerDependencies"
-          }
-        ]
-      },
-      "provenance": {
-        "name": {
-          "kind": "package-json",
-          "path": "packages/react-ui/package.json",
-          "selector": "name"
-        },
-        "version": {
-          "kind": "package-json",
-          "path": "packages/react-ui/package.json",
           "selector": "version"
         },
         "releaseScope": {
@@ -1903,6 +2012,34 @@
           }
         },
         {
+          "importPath": "@copilotkit/runtime/agent",
+          "exportKey": "./agent",
+          "kind": "code",
+          "conditions": {
+            "import": "./dist/agent.mjs",
+            "require": "./dist/agent.cjs"
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/runtime/package.json",
+            "selector": "exports[\"./agent\"]"
+          }
+        },
+        {
+          "importPath": "@copilotkit/runtime/agent/ai-sdk",
+          "exportKey": "./agent/ai-sdk",
+          "kind": "code",
+          "conditions": {
+            "import": "./dist/agent/ai-sdk.mjs",
+            "require": "./dist/agent/ai-sdk.cjs"
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/runtime/package.json",
+            "selector": "exports[\"./agent/ai-sdk\"]"
+          }
+        },
+        {
           "importPath": "@copilotkit/runtime/internal/learned-skills",
           "exportKey": "./internal/learned-skills",
           "kind": "code",
@@ -1917,17 +2054,17 @@
           }
         },
         {
-          "importPath": "@copilotkit/runtime/langgraph",
-          "exportKey": "./langgraph",
+          "importPath": "@copilotkit/runtime/node",
+          "exportKey": "./node",
           "kind": "code",
           "conditions": {
-            "import": "./dist/langgraph.mjs",
-            "require": "./dist/langgraph.cjs"
+            "import": "./dist/node.mjs",
+            "require": "./dist/node.cjs"
           },
           "provenance": {
             "kind": "package-json",
             "path": "packages/runtime/package.json",
-            "selector": "exports[\"./langgraph\"]"
+            "selector": "exports[\"./node\"]"
           }
         },
         {
@@ -1946,8 +2083,14 @@
           "exportKey": "./v2",
           "kind": "code",
           "conditions": {
-            "import": "./dist/v2/index.mjs",
-            "require": "./dist/v2/index.cjs"
+            "import": {
+              "types": "./dist/v2/index.d.mts",
+              "default": "./dist/v2/index.mjs"
+            },
+            "require": {
+              "types": "./dist/v2/index.d.cts",
+              "default": "./dist/v2/index.cjs"
+            }
           },
           "provenance": {
             "kind": "package-json",
@@ -1956,40 +2099,18 @@
           }
         },
         {
-          "importPath": "@copilotkit/runtime/v2/express",
-          "exportKey": "./v2/express",
-          "kind": "code",
-          "conditions": {
-            "import": "./dist/v2/express.mjs",
-            "require": "./dist/v2/express.cjs"
-          },
-          "provenance": {
-            "kind": "package-json",
-            "path": "packages/runtime/package.json",
-            "selector": "exports[\"./v2/express\"]"
-          }
-        },
-        {
-          "importPath": "@copilotkit/runtime/v2/hono",
-          "exportKey": "./v2/hono",
-          "kind": "code",
-          "conditions": {
-            "import": "./dist/v2/hono.mjs",
-            "require": "./dist/v2/hono.cjs"
-          },
-          "provenance": {
-            "kind": "package-json",
-            "path": "packages/runtime/package.json",
-            "selector": "exports[\"./v2/hono\"]"
-          }
-        },
-        {
           "importPath": "@copilotkit/runtime/v2/node",
           "exportKey": "./v2/node",
           "kind": "code",
           "conditions": {
-            "import": "./dist/v2/node.mjs",
-            "require": "./dist/v2/node.cjs"
+            "import": {
+              "types": "./dist/v2/node.d.mts",
+              "default": "./dist/v2/node.mjs"
+            },
+            "require": {
+              "types": "./dist/v2/node.d.cts",
+              "default": "./dist/v2/node.cjs"
+            }
           },
           "provenance": {
             "kind": "package-json",
@@ -2000,31 +2121,13 @@
       ],
       "compatibility": {
         "engines": {
-          "node": ">=20"
+          "node": "^20.19.3 || >=22.13.0"
         },
         "peerDependencies": {
-          "@anthropic-ai/sdk": ">=0.57.0",
-          "@langchain/aws": ">=0.1.9",
-          "@langchain/community": ">=0.3.58",
-          "@langchain/core": ">=0.3.66",
-          "@langchain/google-gauth": ">=0.1.0",
-          "@langchain/langgraph-sdk": ">=0.1.2",
-          "@langchain/openai": ">=0.4.2",
-          "express": "^4.18.0 || ^5.0.0",
-          "groq-sdk": ">=0.3.0 <1.0.0",
-          "langchain": ">=0.3.3",
-          "openai": "^4.85.1 || >=5.0.0"
+          "ai": ">=6.0.104"
         },
         "optionalPeerDependencies": [
-          "@anthropic-ai/sdk",
-          "@langchain/aws",
-          "@langchain/community",
-          "@langchain/google-gauth",
-          "@langchain/langgraph-sdk",
-          "@langchain/openai",
-          "express",
-          "groq-sdk",
-          "langchain"
+          "ai"
         ],
         "provenance": [
           {
@@ -2053,67 +2156,6 @@
         "version": {
           "kind": "package-json",
           "path": "packages/runtime/package.json",
-          "selector": "version"
-        },
-        "releaseScope": {
-          "kind": "release-config",
-          "path": "release.config.json",
-          "selector": "scopes.monorepo.packages"
-        }
-      }
-    },
-    {
-      "name": "@copilotkit/runtime-client-gql",
-      "version": "1.89.0",
-      "sourceDirectory": "packages/runtime-client-gql",
-      "entrypoints": [
-        {
-          "importPath": "@copilotkit/runtime-client-gql",
-          "exportKey": ".",
-          "kind": "code",
-          "conditions": {
-            "import": "./dist/index.mjs",
-            "require": "./dist/index.cjs"
-          },
-          "provenance": {
-            "kind": "package-json",
-            "path": "packages/runtime-client-gql/package.json",
-            "selector": "exports[\".\"]"
-          }
-        },
-        {
-          "importPath": "@copilotkit/runtime-client-gql/package.json",
-          "exportKey": "./package.json",
-          "kind": "metadata",
-          "conditions": "./package.json",
-          "provenance": {
-            "kind": "package-json",
-            "path": "packages/runtime-client-gql/package.json",
-            "selector": "exports[\"./package.json\"]"
-          }
-        }
-      ],
-      "compatibility": {
-        "peerDependencies": {
-          "react": "^18 || ^19 || ^19.0.0-rc"
-        },
-        "provenance": [
-          {
-            "kind": "package-json",
-            "path": "packages/runtime-client-gql/package.json",
-            "selector": "peerDependencies"
-          }
-        ]
-      },
-      "provenance": {
-        "name": {
-          "kind": "package-json",
-          "path": "packages/runtime-client-gql/package.json",
-          "selector": "name"
-        },
-        "version": {
-          "kind": "package-json",
-          "path": "packages/runtime-client-gql/package.json",
           "selector": "version"
         },
         "releaseScope": {
@@ -2197,14 +2239,21 @@
         }
       ],
       "compatibility": {
+        "engines": {
+          "node": ">=20"
+        },
         "peerDependencies": {
-          "@langchain/core": ">=0.4.0 <2.0.0",
-          "@langchain/langgraph": ">=0.4.0 <2.0.0",
-          "langchain": ">=1.0.0",
-          "typescript": "^5.2.3",
-          "zod": "^3.23.3 || ^3.24.0 || ^3.25.0"
+          "@langchain/core": ">=1.1.41 <2",
+          "@langchain/langgraph": ">=1.2.9 <2",
+          "langchain": ">=1.3.4 <2",
+          "zod": "^4.2.0"
         },
         "provenance": [
+          {
+            "kind": "package-json",
+            "path": "packages/sdk-js/package.json",
+            "selector": "engines"
+          },
           {
             "kind": "package-json",
             "path": "packages/sdk-js/package.json",
@@ -2250,20 +2299,6 @@
           }
         },
         {
-          "importPath": "@copilotkit/shared/event-transforms",
-          "exportKey": "./event-transforms",
-          "kind": "code",
-          "conditions": {
-            "import": "./dist/event-transforms/index.mjs",
-            "require": "./dist/event-transforms/index.cjs"
-          },
-          "provenance": {
-            "kind": "package-json",
-            "path": "packages/shared/package.json",
-            "selector": "exports[\"./event-transforms\"]"
-          }
-        },
-        {
           "importPath": "@copilotkit/shared/generative-ui",
           "exportKey": "./generative-ui",
           "kind": "code",
@@ -2287,27 +2322,21 @@
             "path": "packages/shared/package.json",
             "selector": "exports[\"./package.json\"]"
           }
-        },
-        {
-          "importPath": "@copilotkit/shared/telemetry",
-          "exportKey": "./telemetry",
-          "kind": "code",
-          "conditions": {
-            "import": "./dist/telemetry/index.mjs",
-            "require": "./dist/telemetry/index.cjs"
-          },
-          "provenance": {
-            "kind": "package-json",
-            "path": "packages/shared/package.json",
-            "selector": "exports[\"./telemetry\"]"
-          }
         }
       ],
       "compatibility": {
+        "engines": {
+          "node": ">=20"
+        },
         "peerDependencies": {
-          "@ag-ui/core": ">=0.0.48"
+          "@ag-ui/core": "^1.0.2"
         },
         "provenance": [
+          {
+            "kind": "package-json",
+            "path": "packages/shared/package.json",
+            "selector": "engines"
+          },
           {
             "kind": "package-json",
             "path": "packages/shared/package.json",
@@ -2366,7 +2395,7 @@
       ],
       "compatibility": {
         "engines": {
-          "node": ">=20"
+          "node": "^20.19.3 || >=22.13.0"
         },
         "peerDependencies": {
           "better-sqlite3": "^12.2.0"
@@ -2443,10 +2472,10 @@
       ],
       "compatibility": {
         "engines": {
-          "node": ">=20"
+          "node": "^20.19.3 || >=22.13.0"
         },
         "peerDependencies": {
-          "@copilotkit/runtime": "workspace:*"
+          "@copilotkit/runtime": "workspace:^"
         },
         "provenance": [
           {
@@ -2505,6 +2534,66 @@
           }
         },
         {
+          "importPath": "@copilotkit/vue/generative-ui",
+          "exportKey": "./generative-ui",
+          "kind": "code",
+          "conditions": {
+            "import": {
+              "types": "./dist/generative-ui/index.d.mts",
+              "default": "./dist/generative-ui/index.mjs"
+            },
+            "require": {
+              "types": "./dist/generative-ui/index.d.cts",
+              "default": "./dist/generative-ui/index.cjs"
+            }
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/vue/package.json",
+            "selector": "exports[\"./generative-ui\"]"
+          }
+        },
+        {
+          "importPath": "@copilotkit/vue/generative-ui/chart",
+          "exportKey": "./generative-ui/chart",
+          "kind": "code",
+          "conditions": {
+            "import": {
+              "types": "./dist/generative-ui-chart/index.d.mts",
+              "default": "./dist/generative-ui-chart/index.mjs"
+            },
+            "require": {
+              "types": "./dist/generative-ui-chart/index.d.cts",
+              "default": "./dist/generative-ui-chart/index.cjs"
+            }
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/vue/package.json",
+            "selector": "exports[\"./generative-ui/chart\"]"
+          }
+        },
+        {
+          "importPath": "@copilotkit/vue/generative-ui/map",
+          "exportKey": "./generative-ui/map",
+          "kind": "code",
+          "conditions": {
+            "import": {
+              "types": "./dist/generative-ui-map/index.d.mts",
+              "default": "./dist/generative-ui-map/index.mjs"
+            },
+            "require": {
+              "types": "./dist/generative-ui-map/index.d.cts",
+              "default": "./dist/generative-ui-map/index.cjs"
+            }
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/vue/package.json",
+            "selector": "exports[\"./generative-ui/map\"]"
+          }
+        },
+        {
           "importPath": "@copilotkit/vue/package.json",
           "exportKey": "./package.json",
           "kind": "metadata",
@@ -2516,28 +2605,17 @@
           }
         },
         {
-          "importPath": "@copilotkit/vue/styles.css",
-          "exportKey": "./styles.css",
-          "kind": "style",
-          "conditions": "./dist/styles.css",
-          "provenance": {
-            "kind": "package-json",
-            "path": "packages/vue/package.json",
-            "selector": "exports[\"./styles.css\"]"
-          }
-        },
-        {
           "importPath": "@copilotkit/vue/v2",
           "exportKey": "./v2",
           "kind": "code",
           "conditions": {
             "import": {
               "types": "./dist/v2/index.d.mts",
-              "default": "./dist/v2/index.mjs"
+              "default": "./dist/index.mjs"
             },
             "require": {
               "types": "./dist/v2/index.d.cts",
-              "default": "./dist/v2/index.cjs"
+              "default": "./dist/index.cjs"
             }
           },
           "provenance": {
@@ -2552,12 +2630,12 @@
           "kind": "code",
           "conditions": {
             "import": {
-              "types": "./dist/v2/generative-ui/index.d.mts",
-              "default": "./dist/v2/generative-ui/index.mjs"
+              "types": "./dist/v2/generative-ui.d.mts",
+              "default": "./dist/generative-ui/index.mjs"
             },
             "require": {
-              "types": "./dist/v2/generative-ui/index.d.cts",
-              "default": "./dist/v2/generative-ui/index.cjs"
+              "types": "./dist/v2/generative-ui.d.cts",
+              "default": "./dist/generative-ui/index.cjs"
             }
           },
           "provenance": {
@@ -2572,12 +2650,12 @@
           "kind": "code",
           "conditions": {
             "import": {
-              "types": "./dist/v2/generative-ui-chart/index.d.mts",
-              "default": "./dist/v2/generative-ui/chart.mjs"
+              "types": "./dist/v2/generative-ui/chart.d.mts",
+              "default": "./dist/generative-ui-chart/index.mjs"
             },
             "require": {
-              "types": "./dist/v2/generative-ui-chart/index.d.cts",
-              "default": "./dist/v2/generative-ui/chart.cjs"
+              "types": "./dist/v2/generative-ui/chart.d.cts",
+              "default": "./dist/generative-ui-chart/index.cjs"
             }
           },
           "provenance": {
@@ -2592,12 +2670,12 @@
           "kind": "code",
           "conditions": {
             "import": {
-              "types": "./dist/v2/generative-ui-map/index.d.mts",
-              "default": "./dist/v2/generative-ui/map.mjs"
+              "types": "./dist/v2/generative-ui/map.d.mts",
+              "default": "./dist/generative-ui-map/index.mjs"
             },
             "require": {
-              "types": "./dist/v2/generative-ui-map/index.d.cts",
-              "default": "./dist/v2/generative-ui/map.cjs"
+              "types": "./dist/v2/generative-ui/map.d.cts",
+              "default": "./dist/generative-ui-map/index.cjs"
             }
           },
           "provenance": {
@@ -2613,11 +2691,13 @@
         },
         "peerDependencies": {
           "chart.js": "^4.4.0",
+          "lucide": "^0.525.0",
           "maplibre-gl": "^5.0.0",
           "vue": ">=3.3.0"
         },
         "optionalPeerDependencies": [
           "chart.js",
+          "lucide",
           "maplibre-gl"
         ],
         "provenance": [
@@ -2717,19 +2797,11 @@
         "engines": {
           "node": ">=20"
         },
-        "peerDependencies": {
-          "lit": "^3.3.2"
-        },
         "provenance": [
           {
             "kind": "package-json",
             "path": "packages/web-components/package.json",
             "selector": "engines"
-          },
-          {
-            "kind": "package-json",
-            "path": "packages/web-components/package.json",
-            "selector": "peerDependencies"
           }
         ]
       },
@@ -2768,6 +2840,20 @@
             "kind": "package-json",
             "path": "packages/web-inspector/package.json",
             "selector": "exports[\".\"]"
+          }
+        },
+        {
+          "importPath": "@copilotkit/web-inspector/mount",
+          "exportKey": "./mount",
+          "kind": "code",
+          "conditions": {
+            "import": "./dist/mount.mjs",
+            "require": "./dist/mount.cjs"
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/web-inspector/package.json",
+            "selector": "exports[\"./mount\"]"
           }
         },
         {
@@ -2814,347 +2900,12 @@
     }
   ],
   "runtime": {
-    "serviceAdapters": [
-      {
-        "importPath": "@copilotkit/runtime",
-        "symbol": "AnthropicAdapter",
-        "configurationType": "AnthropicAdapterParams",
-        "configurationKeys": [
-          "anthropic",
-          "model",
-          "promptCaching",
-          "maxInputTokens"
-        ],
-        "provenance": {
-          "importPath": {
-            "kind": "package-json",
-            "path": "packages/runtime/package.json",
-            "selector": "exports[\".\"]"
-          },
-          "symbol": {
-            "kind": "typescript-ast",
-            "path": "packages/runtime/src/v1-deprecated/service-adapters/anthropic/anthropic-adapter.ts",
-            "selector": "export class AnthropicAdapter"
-          },
-          "configurationType": {
-            "kind": "typescript-ast",
-            "path": "packages/runtime/src/v1-deprecated/service-adapters/anthropic/anthropic-adapter.ts",
-            "selector": "constructor parameter AnthropicAdapterParams"
-          },
-          "configurationKeys": {
-            "kind": "typescript-ast",
-            "path": "packages/runtime/src/v1-deprecated/service-adapters/anthropic/anthropic-adapter.ts",
-            "selector": "interface AnthropicAdapterParams public properties"
-          }
-        }
-      },
-      {
-        "importPath": "@copilotkit/runtime",
-        "symbol": "BedrockAdapter",
-        "configurationType": "BedrockAdapterParams",
-        "configurationKeys": [
-          "model",
-          "region",
-          "credentials"
-        ],
-        "provenance": {
-          "importPath": {
-            "kind": "package-json",
-            "path": "packages/runtime/package.json",
-            "selector": "exports[\".\"]"
-          },
-          "symbol": {
-            "kind": "typescript-ast",
-            "path": "packages/runtime/src/v1-deprecated/service-adapters/bedrock/bedrock-adapter.ts",
-            "selector": "export class BedrockAdapter"
-          },
-          "configurationType": {
-            "kind": "typescript-ast",
-            "path": "packages/runtime/src/v1-deprecated/service-adapters/bedrock/bedrock-adapter.ts",
-            "selector": "constructor parameter BedrockAdapterParams"
-          },
-          "configurationKeys": {
-            "kind": "typescript-ast",
-            "path": "packages/runtime/src/v1-deprecated/service-adapters/bedrock/bedrock-adapter.ts",
-            "selector": "interface BedrockAdapterParams public properties"
-          }
-        }
-      },
-      {
-        "importPath": "@copilotkit/runtime",
-        "symbol": "EmptyAdapter",
-        "configurationKeys": [],
-        "provenance": {
-          "importPath": {
-            "kind": "package-json",
-            "path": "packages/runtime/package.json",
-            "selector": "exports[\".\"]"
-          },
-          "symbol": {
-            "kind": "typescript-ast",
-            "path": "packages/runtime/src/v1-deprecated/service-adapters/empty/empty-adapter.ts",
-            "selector": "export class EmptyAdapter"
-          },
-          "configurationKeys": {
-            "kind": "typescript-ast",
-            "path": "packages/runtime/src/v1-deprecated/service-adapters/empty/empty-adapter.ts",
-            "selector": "class EmptyAdapter has no constructor configuration"
-          }
-        }
-      },
-      {
-        "importPath": "@copilotkit/runtime",
-        "symbol": "ExperimentalEmptyAdapter",
-        "configurationKeys": [],
-        "provenance": {
-          "importPath": {
-            "kind": "package-json",
-            "path": "packages/runtime/package.json",
-            "selector": "exports[\".\"]"
-          },
-          "symbol": {
-            "kind": "typescript-ast",
-            "path": "packages/runtime/src/v1-deprecated/service-adapters/empty/empty-adapter.ts",
-            "selector": "export const ExperimentalEmptyAdapter"
-          },
-          "configurationKeys": {
-            "kind": "typescript-ast",
-            "path": "packages/runtime/src/v1-deprecated/service-adapters/empty/empty-adapter.ts",
-            "selector": "class EmptyAdapter has no constructor configuration"
-          }
-        }
-      },
-      {
-        "importPath": "@copilotkit/runtime",
-        "symbol": "ExperimentalOllamaAdapter",
-        "configurationType": "OllamaAdapterOptions",
-        "configurationKeys": [
-          "model",
-          "baseUrl"
-        ],
-        "provenance": {
-          "importPath": {
-            "kind": "package-json",
-            "path": "packages/runtime/package.json",
-            "selector": "exports[\".\"]"
-          },
-          "symbol": {
-            "kind": "typescript-ast",
-            "path": "packages/runtime/src/v1-deprecated/service-adapters/experimental/ollama/ollama-adapter.ts",
-            "selector": "export class ExperimentalOllamaAdapter"
-          },
-          "configurationType": {
-            "kind": "typescript-ast",
-            "path": "packages/runtime/src/v1-deprecated/service-adapters/experimental/ollama/ollama-adapter.ts",
-            "selector": "constructor parameter OllamaAdapterOptions"
-          },
-          "configurationKeys": {
-            "kind": "typescript-ast",
-            "path": "packages/runtime/src/v1-deprecated/service-adapters/experimental/ollama/ollama-adapter.ts",
-            "selector": "interface OllamaAdapterOptions public properties"
-          }
-        }
-      },
-      {
-        "importPath": "@copilotkit/runtime",
-        "symbol": "GoogleGenerativeAIAdapter",
-        "configurationType": "GoogleGenerativeAIAdapterOptions",
-        "configurationKeys": [
-          "model",
-          "apiVersion",
-          "apiKey"
-        ],
-        "provenance": {
-          "importPath": {
-            "kind": "package-json",
-            "path": "packages/runtime/package.json",
-            "selector": "exports[\".\"]"
-          },
-          "symbol": {
-            "kind": "typescript-ast",
-            "path": "packages/runtime/src/v1-deprecated/service-adapters/google/google-genai-adapter.ts",
-            "selector": "export class GoogleGenerativeAIAdapter"
-          },
-          "configurationType": {
-            "kind": "typescript-ast",
-            "path": "packages/runtime/src/v1-deprecated/service-adapters/google/google-genai-adapter.ts",
-            "selector": "constructor parameter GoogleGenerativeAIAdapterOptions"
-          },
-          "configurationKeys": {
-            "kind": "typescript-ast",
-            "path": "packages/runtime/src/v1-deprecated/service-adapters/google/google-genai-adapter.ts",
-            "selector": "interface GoogleGenerativeAIAdapterOptions public properties"
-          }
-        }
-      },
-      {
-        "importPath": "@copilotkit/runtime",
-        "symbol": "GroqAdapter",
-        "configurationType": "GroqAdapterParams",
-        "configurationKeys": [
-          "groq",
-          "model",
-          "disableParallelToolCalls"
-        ],
-        "provenance": {
-          "importPath": {
-            "kind": "package-json",
-            "path": "packages/runtime/package.json",
-            "selector": "exports[\".\"]"
-          },
-          "symbol": {
-            "kind": "typescript-ast",
-            "path": "packages/runtime/src/v1-deprecated/service-adapters/groq/groq-adapter.ts",
-            "selector": "export class GroqAdapter"
-          },
-          "configurationType": {
-            "kind": "typescript-ast",
-            "path": "packages/runtime/src/v1-deprecated/service-adapters/groq/groq-adapter.ts",
-            "selector": "constructor parameter GroqAdapterParams"
-          },
-          "configurationKeys": {
-            "kind": "typescript-ast",
-            "path": "packages/runtime/src/v1-deprecated/service-adapters/groq/groq-adapter.ts",
-            "selector": "interface GroqAdapterParams public properties"
-          }
-        }
-      },
-      {
-        "importPath": "@copilotkit/runtime",
-        "symbol": "LangChainAdapter",
-        "configurationType": "LangChainAdapterOptions",
-        "configurationKeys": [
-          "chainFn"
-        ],
-        "provenance": {
-          "importPath": {
-            "kind": "package-json",
-            "path": "packages/runtime/package.json",
-            "selector": "exports[\".\"]"
-          },
-          "symbol": {
-            "kind": "typescript-ast",
-            "path": "packages/runtime/src/v1-deprecated/service-adapters/langchain/langchain-adapter.ts",
-            "selector": "export class LangChainAdapter"
-          },
-          "configurationType": {
-            "kind": "typescript-ast",
-            "path": "packages/runtime/src/v1-deprecated/service-adapters/langchain/langchain-adapter.ts",
-            "selector": "constructor parameter LangChainAdapterOptions"
-          },
-          "configurationKeys": {
-            "kind": "typescript-ast",
-            "path": "packages/runtime/src/v1-deprecated/service-adapters/langchain/langchain-adapter.ts",
-            "selector": "interface LangChainAdapterOptions public properties"
-          }
-        }
-      },
-      {
-        "importPath": "@copilotkit/runtime",
-        "symbol": "OpenAIAdapter",
-        "configurationType": "OpenAIAdapterParams",
-        "configurationKeys": [
-          "openai",
-          "model",
-          "disableParallelToolCalls",
-          "keepSystemRole",
-          "maxInputTokens"
-        ],
-        "provenance": {
-          "importPath": {
-            "kind": "package-json",
-            "path": "packages/runtime/package.json",
-            "selector": "exports[\".\"]"
-          },
-          "symbol": {
-            "kind": "typescript-ast",
-            "path": "packages/runtime/src/v1-deprecated/service-adapters/openai/openai-adapter.ts",
-            "selector": "export class OpenAIAdapter"
-          },
-          "configurationType": {
-            "kind": "typescript-ast",
-            "path": "packages/runtime/src/v1-deprecated/service-adapters/openai/openai-adapter.ts",
-            "selector": "constructor parameter OpenAIAdapterParams"
-          },
-          "configurationKeys": {
-            "kind": "typescript-ast",
-            "path": "packages/runtime/src/v1-deprecated/service-adapters/openai/openai-adapter.ts",
-            "selector": "interface OpenAIAdapterParams public properties"
-          }
-        }
-      },
-      {
-        "importPath": "@copilotkit/runtime",
-        "symbol": "OpenAIAssistantAdapter",
-        "configurationType": "OpenAIAssistantAdapterParams",
-        "configurationKeys": [
-          "assistantId",
-          "openai",
-          "codeInterpreterEnabled",
-          "fileSearchEnabled",
-          "disableParallelToolCalls",
-          "keepSystemRole"
-        ],
-        "provenance": {
-          "importPath": {
-            "kind": "package-json",
-            "path": "packages/runtime/package.json",
-            "selector": "exports[\".\"]"
-          },
-          "symbol": {
-            "kind": "typescript-ast",
-            "path": "packages/runtime/src/v1-deprecated/service-adapters/openai/openai-assistant-adapter.ts",
-            "selector": "export class OpenAIAssistantAdapter"
-          },
-          "configurationType": {
-            "kind": "typescript-ast",
-            "path": "packages/runtime/src/v1-deprecated/service-adapters/openai/openai-assistant-adapter.ts",
-            "selector": "constructor parameter OpenAIAssistantAdapterParams"
-          },
-          "configurationKeys": {
-            "kind": "typescript-ast",
-            "path": "packages/runtime/src/v1-deprecated/service-adapters/openai/openai-assistant-adapter.ts",
-            "selector": "interface OpenAIAssistantAdapterParams public properties"
-          }
-        }
-      },
-      {
-        "importPath": "@copilotkit/runtime",
-        "symbol": "UnifyAdapter",
-        "configurationType": "UnifyAdapterParams",
-        "configurationKeys": [
-          "apiKey",
-          "model"
-        ],
-        "provenance": {
-          "importPath": {
-            "kind": "package-json",
-            "path": "packages/runtime/package.json",
-            "selector": "exports[\".\"]"
-          },
-          "symbol": {
-            "kind": "typescript-ast",
-            "path": "packages/runtime/src/v1-deprecated/service-adapters/unify/unify-adapter.ts",
-            "selector": "export class UnifyAdapter"
-          },
-          "configurationType": {
-            "kind": "typescript-ast",
-            "path": "packages/runtime/src/v1-deprecated/service-adapters/unify/unify-adapter.ts",
-            "selector": "constructor parameter UnifyAdapterParams"
-          },
-          "configurationKeys": {
-            "kind": "typescript-ast",
-            "path": "packages/runtime/src/v1-deprecated/service-adapters/unify/unify-adapter.ts",
-            "selector": "interface UnifyAdapterParams public properties"
-          }
-        }
-      }
-    ],
+    "serviceAdapters": [],
     "hostFactories": [
       {
-        "importPath": "@copilotkit/runtime/v2",
-        "symbol": "createCopilotRuntimeHandler",
-        "configurationType": "CopilotRuntimeHandlerOptions",
+        "importPath": "@copilotkit/runtime",
+        "symbol": "createCopilotKitRuntimeHandler",
+        "configurationType": "CopilotKitRuntimeHandlerOptions",
         "configurationKeys": [
           "runtime",
           "basePath",
@@ -3167,121 +2918,51 @@
           "importPath": {
             "kind": "package-json",
             "path": "packages/runtime/package.json",
-            "selector": "exports[\"./v2\"]"
+            "selector": "exports[\".\"]"
           },
           "symbol": {
             "kind": "typescript-ast",
-            "path": "packages/runtime/src/v2/runtime/core/fetch-handler.ts",
-            "selector": "export function createCopilotRuntimeHandler"
+            "path": "packages/runtime/src/runtime/core/fetch-handler.ts",
+            "selector": "export function createCopilotKitRuntimeHandler"
           },
           "configurationType": {
             "kind": "typescript-ast",
-            "path": "packages/runtime/src/v2/runtime/core/fetch-handler.ts",
-            "selector": "interface CopilotRuntimeHandlerOptions"
+            "path": "packages/runtime/src/runtime/core/fetch-handler.ts",
+            "selector": "interface CopilotKitRuntimeHandlerOptions"
           },
           "configurationKeys": {
             "kind": "typescript-ast",
-            "path": "packages/runtime/src/v2/runtime/core/fetch-handler.ts",
-            "selector": "interface CopilotRuntimeHandlerOptions public properties"
+            "path": "packages/runtime/src/runtime/core/fetch-handler.ts",
+            "selector": "interface CopilotKitRuntimeHandlerOptions public properties"
           }
         }
       },
       {
-        "importPath": "@copilotkit/runtime/v2/express",
-        "symbol": "createCopilotExpressHandler",
-        "configurationType": "CopilotExpressEndpointParams",
-        "configurationKeys": [
-          "runtime",
-          "basePath",
-          "mode",
-          "cors",
-          "hooks",
-          "activateChannels"
-        ],
-        "provenance": {
-          "importPath": {
-            "kind": "package-json",
-            "path": "packages/runtime/package.json",
-            "selector": "exports[\"./v2/express\"]"
-          },
-          "symbol": {
-            "kind": "typescript-ast",
-            "path": "packages/runtime/src/v2/runtime/endpoints/express.ts",
-            "selector": "export function createCopilotExpressHandler"
-          },
-          "configurationType": {
-            "kind": "typescript-ast",
-            "path": "packages/runtime/src/v2/runtime/endpoints/express.ts",
-            "selector": "interface CopilotExpressEndpointParams"
-          },
-          "configurationKeys": {
-            "kind": "typescript-ast",
-            "path": "packages/runtime/src/v2/runtime/endpoints/express.ts",
-            "selector": "interface CopilotExpressEndpointParams public properties"
-          }
-        }
-      },
-      {
-        "importPath": "@copilotkit/runtime/v2/hono",
-        "symbol": "createCopilotHonoHandler",
-        "configurationType": "CopilotEndpointParams",
-        "configurationKeys": [
-          "runtime",
-          "basePath",
-          "mode",
-          "cors",
-          "hooks",
-          "activateChannels"
-        ],
-        "provenance": {
-          "importPath": {
-            "kind": "package-json",
-            "path": "packages/runtime/package.json",
-            "selector": "exports[\"./v2/hono\"]"
-          },
-          "symbol": {
-            "kind": "typescript-ast",
-            "path": "packages/runtime/src/v2/runtime/endpoints/hono.ts",
-            "selector": "export function createCopilotHonoHandler"
-          },
-          "configurationType": {
-            "kind": "typescript-ast",
-            "path": "packages/runtime/src/v2/runtime/endpoints/hono.ts",
-            "selector": "interface CopilotEndpointParams"
-          },
-          "configurationKeys": {
-            "kind": "typescript-ast",
-            "path": "packages/runtime/src/v2/runtime/endpoints/hono.ts",
-            "selector": "interface CopilotEndpointParams public properties"
-          }
-        }
-      },
-      {
-        "importPath": "@copilotkit/runtime/v2/node",
-        "symbol": "createCopilotNodeHandler",
+        "importPath": "@copilotkit/runtime/node",
+        "symbol": "createCopilotKitNodeHandler",
         "configurationKeys": [],
         "provenance": {
           "importPath": {
             "kind": "package-json",
             "path": "packages/runtime/package.json",
-            "selector": "exports[\"./v2/node\"]"
+            "selector": "exports[\"./node\"]"
           },
           "symbol": {
             "kind": "typescript-ast",
-            "path": "packages/runtime/src/v2/runtime/endpoints/node-fetch-handler.ts",
-            "selector": "export function createCopilotNodeHandler"
+            "path": "packages/runtime/src/runtime/endpoints/node-fetch-handler.ts",
+            "selector": "export function createCopilotKitNodeHandler"
           },
           "configurationKeys": {
             "kind": "typescript-ast",
-            "path": "packages/runtime/src/v2/runtime/endpoints/node-fetch-handler.ts",
-            "selector": "function createCopilotNodeHandler has no configuration object"
+            "path": "packages/runtime/src/runtime/endpoints/node-fetch-handler.ts",
+            "selector": "function createCopilotKitNodeHandler has no configuration object"
           }
         }
       },
       {
-        "importPath": "@copilotkit/runtime/v2/node",
-        "symbol": "createCopilotNodeListener",
-        "configurationType": "CopilotRuntimeHandlerOptions",
+        "importPath": "@copilotkit/runtime/node",
+        "symbol": "createCopilotKitNodeListener",
+        "configurationType": "CopilotKitRuntimeHandlerOptions",
         "configurationKeys": [
           "runtime",
           "basePath",
@@ -3294,22 +2975,22 @@
           "importPath": {
             "kind": "package-json",
             "path": "packages/runtime/package.json",
-            "selector": "exports[\"./v2/node\"]"
+            "selector": "exports[\"./node\"]"
           },
           "symbol": {
             "kind": "typescript-ast",
-            "path": "packages/runtime/src/v2/runtime/endpoints/node.ts",
-            "selector": "export function createCopilotNodeListener"
+            "path": "packages/runtime/src/runtime/endpoints/node.ts",
+            "selector": "export function createCopilotKitNodeListener"
           },
           "configurationType": {
             "kind": "typescript-ast",
-            "path": "packages/runtime/src/v2/runtime/core/fetch-handler.ts",
-            "selector": "interface CopilotRuntimeHandlerOptions"
+            "path": "packages/runtime/src/runtime/core/fetch-handler.ts",
+            "selector": "interface CopilotKitRuntimeHandlerOptions"
           },
           "configurationKeys": {
             "kind": "typescript-ast",
-            "path": "packages/runtime/src/v2/runtime/core/fetch-handler.ts",
-            "selector": "interface CopilotRuntimeHandlerOptions public properties"
+            "path": "packages/runtime/src/runtime/core/fetch-handler.ts",
+            "selector": "interface CopilotKitRuntimeHandlerOptions public properties"
           }
         }
       }
@@ -3382,199 +3063,13 @@
   },
   "deprecations": [
     {
-      "importPath": "@copilotkit/runtime",
-      "symbol": "CustomEventNames",
-      "replacement": {
-        "importPath": "@copilotkit/runtime/langgraph",
-        "symbol": "CustomEventNames"
-      },
-      "sourceMessage": "CustomEventNames import from `@copilotkit/runtime` is deprecated. Please import it from `@copilotkit/runtime/langgraph` instead",
-      "provenance": {
-        "importPath": {
-          "kind": "package-json",
-          "path": "packages/runtime/package.json",
-          "selector": "exports[\".\"]"
-        },
-        "symbol": {
-          "kind": "typescript-ast",
-          "path": "packages/runtime/src/v1-deprecated/lib/index.ts",
-          "selector": "CustomEventNames @deprecated tag"
-        },
-        "replacement": {
-          "kind": "typescript-ast",
-          "path": "packages/runtime/src/v1-deprecated/lib/index.ts",
-          "selector": "CustomEventNames @deprecated tag"
-        },
-        "sourceMessage": {
-          "kind": "typescript-ast",
-          "path": "packages/runtime/src/v1-deprecated/lib/index.ts",
-          "selector": "CustomEventNames @deprecated tag"
-        }
-      }
-    },
-    {
-      "importPath": "@copilotkit/runtime",
-      "symbol": "LangGraphAgent",
-      "replacement": {
-        "importPath": "@copilotkit/runtime/langgraph",
-        "symbol": "LangGraphAgent"
-      },
-      "sourceMessage": "LangGraphAgent import from `@copilotkit/runtime` is deprecated. Please import it from `@copilotkit/runtime/langgraph` instead",
-      "provenance": {
-        "importPath": {
-          "kind": "package-json",
-          "path": "packages/runtime/package.json",
-          "selector": "exports[\".\"]"
-        },
-        "symbol": {
-          "kind": "typescript-ast",
-          "path": "packages/runtime/src/v1-deprecated/lib/index.ts",
-          "selector": "LangGraphAgent @deprecated tag"
-        },
-        "replacement": {
-          "kind": "typescript-ast",
-          "path": "packages/runtime/src/v1-deprecated/lib/index.ts",
-          "selector": "LangGraphAgent @deprecated tag"
-        },
-        "sourceMessage": {
-          "kind": "typescript-ast",
-          "path": "packages/runtime/src/v1-deprecated/lib/index.ts",
-          "selector": "LangGraphAgent @deprecated tag"
-        }
-      }
-    },
-    {
-      "importPath": "@copilotkit/runtime",
-      "symbol": "LangGraphHttpAgent",
-      "replacement": {
-        "importPath": "@copilotkit/runtime/langgraph",
-        "symbol": "LangGraphHttpAgent"
-      },
-      "sourceMessage": "LangGraphHttpAgent import from `@copilotkit/runtime` is deprecated. Please import it from `@copilotkit/runtime/langgraph` instead",
-      "provenance": {
-        "importPath": {
-          "kind": "package-json",
-          "path": "packages/runtime/package.json",
-          "selector": "exports[\".\"]"
-        },
-        "symbol": {
-          "kind": "typescript-ast",
-          "path": "packages/runtime/src/v1-deprecated/lib/index.ts",
-          "selector": "LangGraphHttpAgent @deprecated tag"
-        },
-        "replacement": {
-          "kind": "typescript-ast",
-          "path": "packages/runtime/src/v1-deprecated/lib/index.ts",
-          "selector": "LangGraphHttpAgent @deprecated tag"
-        },
-        "sourceMessage": {
-          "kind": "typescript-ast",
-          "path": "packages/runtime/src/v1-deprecated/lib/index.ts",
-          "selector": "LangGraphHttpAgent @deprecated tag"
-        }
-      }
-    },
-    {
-      "importPath": "@copilotkit/runtime",
-      "symbol": "PredictStateTool",
-      "replacement": {
-        "importPath": "@copilotkit/runtime/langgraph",
-        "symbol": "PredictStateTool"
-      },
-      "sourceMessage": "PredictStateTool import from `@copilotkit/runtime` is deprecated. Please import it from `@copilotkit/runtime/langgraph` instead",
-      "provenance": {
-        "importPath": {
-          "kind": "package-json",
-          "path": "packages/runtime/package.json",
-          "selector": "exports[\".\"]"
-        },
-        "symbol": {
-          "kind": "typescript-ast",
-          "path": "packages/runtime/src/v1-deprecated/lib/index.ts",
-          "selector": "PredictStateTool @deprecated tag"
-        },
-        "replacement": {
-          "kind": "typescript-ast",
-          "path": "packages/runtime/src/v1-deprecated/lib/index.ts",
-          "selector": "PredictStateTool @deprecated tag"
-        },
-        "sourceMessage": {
-          "kind": "typescript-ast",
-          "path": "packages/runtime/src/v1-deprecated/lib/index.ts",
-          "selector": "PredictStateTool @deprecated tag"
-        }
-      }
-    },
-    {
-      "importPath": "@copilotkit/runtime",
-      "symbol": "TextMessageEvents",
-      "replacement": {
-        "importPath": "@copilotkit/runtime/langgraph",
-        "symbol": "TextMessageEvents"
-      },
-      "sourceMessage": "TextMessageEvents import from `@copilotkit/runtime` is deprecated. Please import it from `@copilotkit/runtime/langgraph` instead",
-      "provenance": {
-        "importPath": {
-          "kind": "package-json",
-          "path": "packages/runtime/package.json",
-          "selector": "exports[\".\"]"
-        },
-        "symbol": {
-          "kind": "typescript-ast",
-          "path": "packages/runtime/src/v1-deprecated/lib/index.ts",
-          "selector": "TextMessageEvents @deprecated tag"
-        },
-        "replacement": {
-          "kind": "typescript-ast",
-          "path": "packages/runtime/src/v1-deprecated/lib/index.ts",
-          "selector": "TextMessageEvents @deprecated tag"
-        },
-        "sourceMessage": {
-          "kind": "typescript-ast",
-          "path": "packages/runtime/src/v1-deprecated/lib/index.ts",
-          "selector": "TextMessageEvents @deprecated tag"
-        }
-      }
-    },
-    {
-      "importPath": "@copilotkit/runtime",
-      "symbol": "ToolCallEvents",
-      "replacement": {
-        "importPath": "@copilotkit/runtime/langgraph",
-        "symbol": "ToolCallEvents"
-      },
-      "sourceMessage": "ToolCallEvents import from `@copilotkit/runtime` is deprecated. Please import it from `@copilotkit/runtime/langgraph` instead",
-      "provenance": {
-        "importPath": {
-          "kind": "package-json",
-          "path": "packages/runtime/package.json",
-          "selector": "exports[\".\"]"
-        },
-        "symbol": {
-          "kind": "typescript-ast",
-          "path": "packages/runtime/src/v1-deprecated/lib/index.ts",
-          "selector": "ToolCallEvents @deprecated tag"
-        },
-        "replacement": {
-          "kind": "typescript-ast",
-          "path": "packages/runtime/src/v1-deprecated/lib/index.ts",
-          "selector": "ToolCallEvents @deprecated tag"
-        },
-        "sourceMessage": {
-          "kind": "typescript-ast",
-          "path": "packages/runtime/src/v1-deprecated/lib/index.ts",
-          "selector": "ToolCallEvents @deprecated tag"
-        }
-      }
-    },
-    {
       "importPath": "@copilotkit/runtime/v2",
-      "symbol": "BasicAgent",
+      "symbol": "CopilotCorsConfig",
       "replacement": {
-        "importPath": "@copilotkit/runtime/v2",
-        "symbol": "BuiltInAgent"
+        "importPath": "@copilotkit/runtime",
+        "symbol": "CopilotKitCorsConfig"
       },
-      "sourceMessage": "Use BuiltInAgent instead",
+      "sourceMessage": "Use `CopilotKitCorsConfig` from `@copilotkit/runtime`. This old\nname is an alias of it. To move your imports, run\n`npx codemod @copilotkit/v2-migration`.",
       "provenance": {
         "importPath": {
           "kind": "package-json",
@@ -3583,29 +3078,29 @@
         },
         "symbol": {
           "kind": "typescript-ast",
-          "path": "packages/runtime/src/agent/index.ts",
-          "selector": "BasicAgent @deprecated tag"
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotCorsConfig @deprecated tag"
         },
         "replacement": {
           "kind": "typescript-ast",
-          "path": "packages/runtime/src/agent/index.ts",
-          "selector": "BasicAgent @deprecated tag"
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotCorsConfig @deprecated tag"
         },
         "sourceMessage": {
           "kind": "typescript-ast",
-          "path": "packages/runtime/src/agent/index.ts",
-          "selector": "BasicAgent @deprecated tag"
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotCorsConfig @deprecated tag"
         }
       }
     },
     {
       "importPath": "@copilotkit/runtime/v2",
-      "symbol": "BasicAgentConfiguration",
+      "symbol": "CopilotIntelligenceRuntime",
       "replacement": {
-        "importPath": "@copilotkit/runtime/v2",
-        "symbol": "BuiltInAgentClassicConfig"
+        "importPath": "@copilotkit/runtime",
+        "symbol": "CopilotKitIntelligenceRuntime"
       },
-      "sourceMessage": "Use BuiltInAgentClassicConfig instead",
+      "sourceMessage": "Use `CopilotKitIntelligenceRuntime` from `@copilotkit/runtime`.\nThis old name is an alias of it. To move your imports, run\n`npx codemod @copilotkit/v2-migration`.",
       "provenance": {
         "importPath": {
           "kind": "package-json",
@@ -3614,29 +3109,29 @@
         },
         "symbol": {
           "kind": "typescript-ast",
-          "path": "packages/runtime/src/agent/index.ts",
-          "selector": "BasicAgentConfiguration @deprecated tag"
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotIntelligenceRuntime @deprecated tag"
         },
         "replacement": {
           "kind": "typescript-ast",
-          "path": "packages/runtime/src/agent/index.ts",
-          "selector": "BasicAgentConfiguration @deprecated tag"
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotIntelligenceRuntime @deprecated tag"
         },
         "sourceMessage": {
           "kind": "typescript-ast",
-          "path": "packages/runtime/src/agent/index.ts",
-          "selector": "BasicAgentConfiguration @deprecated tag"
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotIntelligenceRuntime @deprecated tag"
         }
       }
     },
     {
       "importPath": "@copilotkit/runtime/v2",
-      "symbol": "CopilotKitRequestHandler",
+      "symbol": "CopilotIntelligenceRuntimeLike",
       "replacement": {
-        "importPath": "@copilotkit/runtime/v2",
-        "symbol": "CopilotRuntimeFetchHandler"
+        "importPath": "@copilotkit/runtime",
+        "symbol": "CopilotKitIntelligenceRuntimeLike"
       },
-      "sourceMessage": "Use `CopilotRuntimeFetchHandler` instead. Note: the new type takes `Request` directly, not `{ request: Request }`.",
+      "sourceMessage": "Use `CopilotKitIntelligenceRuntimeLike` from\n`@copilotkit/runtime`. This old name is an alias of it. To move your\nimports, run `npx codemod @copilotkit/v2-migration`.",
       "provenance": {
         "importPath": {
           "kind": "package-json",
@@ -3645,153 +3140,587 @@
         },
         "symbol": {
           "kind": "typescript-ast",
-          "path": "packages/runtime/src/v2/runtime/index.ts",
-          "selector": "CopilotKitRequestHandler @deprecated tag"
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotIntelligenceRuntimeLike @deprecated tag"
         },
         "replacement": {
           "kind": "typescript-ast",
-          "path": "packages/runtime/src/v2/runtime/index.ts",
-          "selector": "CopilotKitRequestHandler @deprecated tag"
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotIntelligenceRuntimeLike @deprecated tag"
         },
         "sourceMessage": {
           "kind": "typescript-ast",
-          "path": "packages/runtime/src/v2/runtime/index.ts",
-          "selector": "CopilotKitRequestHandler @deprecated tag"
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotIntelligenceRuntimeLike @deprecated tag"
         }
       }
     },
     {
-      "importPath": "@copilotkit/runtime/v2/express",
-      "symbol": "createCopilotEndpointExpress",
+      "importPath": "@copilotkit/runtime/v2",
+      "symbol": "CopilotIntelligenceRuntimeOptions",
       "replacement": {
-        "importPath": "@copilotkit/runtime/v2/express",
-        "symbol": "createCopilotExpressHandler"
+        "importPath": "@copilotkit/runtime",
+        "symbol": "CopilotKitIntelligenceRuntimeOptions"
       },
-      "sourceMessage": "Use `createCopilotExpressHandler` instead.",
+      "sourceMessage": "Use `CopilotKitIntelligenceRuntimeOptions` from\n`@copilotkit/runtime`. This old name is an alias of it. To move your\nimports, run `npx codemod @copilotkit/v2-migration`.",
       "provenance": {
         "importPath": {
           "kind": "package-json",
           "path": "packages/runtime/package.json",
-          "selector": "exports[\"./v2/express\"]"
+          "selector": "exports[\"./v2\"]"
         },
         "symbol": {
           "kind": "typescript-ast",
-          "path": "packages/runtime/src/v2/runtime/endpoints/express.ts",
-          "selector": "createCopilotEndpointExpress @deprecated tag"
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotIntelligenceRuntimeOptions @deprecated tag"
         },
         "replacement": {
           "kind": "typescript-ast",
-          "path": "packages/runtime/src/v2/runtime/endpoints/express.ts",
-          "selector": "createCopilotEndpointExpress @deprecated tag"
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotIntelligenceRuntimeOptions @deprecated tag"
         },
         "sourceMessage": {
           "kind": "typescript-ast",
-          "path": "packages/runtime/src/v2/runtime/endpoints/express.ts",
-          "selector": "createCopilotEndpointExpress @deprecated tag"
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotIntelligenceRuntimeOptions @deprecated tag"
         }
       }
     },
     {
-      "importPath": "@copilotkit/runtime/v2/express",
-      "symbol": "createCopilotEndpointSingleRouteExpress",
+      "importPath": "@copilotkit/runtime/v2",
+      "symbol": "CopilotRuntime",
       "replacement": {
-        "importPath": "@copilotkit/runtime/v2/express",
-        "symbol": "createCopilotExpressHandler"
+        "importPath": "@copilotkit/runtime",
+        "symbol": "CopilotKitRuntime"
       },
-      "sourceMessage": "Use `createCopilotExpressHandler` with `mode: \"single-route\"` instead.",
+      "sourceMessage": "Use `CopilotKitRuntime` from `@copilotkit/runtime`. This old\nname is an alias of it. To move your imports, run\n`npx codemod @copilotkit/v2-migration`.",
       "provenance": {
         "importPath": {
           "kind": "package-json",
           "path": "packages/runtime/package.json",
-          "selector": "exports[\"./v2/express\"]"
+          "selector": "exports[\"./v2\"]"
         },
         "symbol": {
           "kind": "typescript-ast",
-          "path": "packages/runtime/src/v2/runtime/endpoints/express-single.ts",
-          "selector": "createCopilotEndpointSingleRouteExpress @deprecated tag"
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntime @deprecated tag"
         },
         "replacement": {
           "kind": "typescript-ast",
-          "path": "packages/runtime/src/v2/runtime/endpoints/express-single.ts",
-          "selector": "createCopilotEndpointSingleRouteExpress @deprecated tag"
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntime @deprecated tag"
         },
         "sourceMessage": {
           "kind": "typescript-ast",
-          "path": "packages/runtime/src/v2/runtime/endpoints/express-single.ts",
-          "selector": "createCopilotEndpointSingleRouteExpress @deprecated tag"
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntime @deprecated tag"
         }
       }
     },
     {
-      "importPath": "@copilotkit/runtime/v2/hono",
-      "symbol": "createCopilotEndpoint",
+      "importPath": "@copilotkit/runtime/v2",
+      "symbol": "CopilotRuntimeConstructor",
       "replacement": {
-        "importPath": "@copilotkit/runtime/v2/hono",
-        "symbol": "createCopilotHonoHandler"
+        "importPath": "@copilotkit/runtime",
+        "symbol": "CopilotKitRuntimeConstructor"
       },
-      "sourceMessage": "Use `createCopilotHonoHandler` instead.",
+      "sourceMessage": "Use `CopilotKitRuntimeConstructor` from `@copilotkit/runtime`.\nThis old name is an alias of it. To move your imports, run\n`npx codemod @copilotkit/v2-migration`.",
       "provenance": {
         "importPath": {
           "kind": "package-json",
           "path": "packages/runtime/package.json",
-          "selector": "exports[\"./v2/hono\"]"
+          "selector": "exports[\"./v2\"]"
         },
         "symbol": {
           "kind": "typescript-ast",
-          "path": "packages/runtime/src/v2/runtime/endpoints/hono.ts",
-          "selector": "createCopilotEndpoint @deprecated tag"
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntimeConstructor @deprecated tag"
         },
         "replacement": {
           "kind": "typescript-ast",
-          "path": "packages/runtime/src/v2/runtime/endpoints/hono.ts",
-          "selector": "createCopilotEndpoint @deprecated tag"
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntimeConstructor @deprecated tag"
         },
         "sourceMessage": {
           "kind": "typescript-ast",
-          "path": "packages/runtime/src/v2/runtime/endpoints/hono.ts",
-          "selector": "createCopilotEndpoint @deprecated tag"
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntimeConstructor @deprecated tag"
         }
       }
     },
     {
-      "importPath": "@copilotkit/runtime/v2/hono",
-      "symbol": "createCopilotEndpointSingleRoute",
+      "importPath": "@copilotkit/runtime/v2",
+      "symbol": "CopilotRuntimeFetchHandler",
       "replacement": {
-        "importPath": "@copilotkit/runtime/v2/hono",
-        "symbol": "createCopilotHonoHandler"
+        "importPath": "@copilotkit/runtime",
+        "symbol": "CopilotKitRuntimeFetchHandler"
       },
-      "sourceMessage": "Use `createCopilotHonoHandler` with `mode: \"single-route\"` instead.",
+      "sourceMessage": "Use `CopilotKitRuntimeFetchHandler` from `@copilotkit/runtime`.\nThis old name is an alias of it. To move your imports, run\n`npx codemod @copilotkit/v2-migration`.",
       "provenance": {
         "importPath": {
           "kind": "package-json",
           "path": "packages/runtime/package.json",
-          "selector": "exports[\"./v2/hono\"]"
+          "selector": "exports[\"./v2\"]"
         },
         "symbol": {
           "kind": "typescript-ast",
-          "path": "packages/runtime/src/v2/runtime/endpoints/hono-single.ts",
-          "selector": "createCopilotEndpointSingleRoute @deprecated tag"
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntimeFetchHandler @deprecated tag"
         },
         "replacement": {
           "kind": "typescript-ast",
-          "path": "packages/runtime/src/v2/runtime/endpoints/hono-single.ts",
-          "selector": "createCopilotEndpointSingleRoute @deprecated tag"
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntimeFetchHandler @deprecated tag"
         },
         "sourceMessage": {
           "kind": "typescript-ast",
-          "path": "packages/runtime/src/v2/runtime/endpoints/hono-single.ts",
-          "selector": "createCopilotEndpointSingleRoute @deprecated tag"
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntimeFetchHandler @deprecated tag"
+        }
+      }
+    },
+    {
+      "importPath": "@copilotkit/runtime/v2",
+      "symbol": "CopilotRuntimeFetchHandlerWithChannels",
+      "replacement": {
+        "importPath": "@copilotkit/runtime",
+        "symbol": "CopilotKitRuntimeFetchHandlerWithChannels"
+      },
+      "sourceMessage": "Use `CopilotKitRuntimeFetchHandlerWithChannels` from\n`@copilotkit/runtime`. This old name is an alias of it. To move your\nimports, run `npx codemod @copilotkit/v2-migration`.",
+      "provenance": {
+        "importPath": {
+          "kind": "package-json",
+          "path": "packages/runtime/package.json",
+          "selector": "exports[\"./v2\"]"
+        },
+        "symbol": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntimeFetchHandlerWithChannels @deprecated tag"
+        },
+        "replacement": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntimeFetchHandlerWithChannels @deprecated tag"
+        },
+        "sourceMessage": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntimeFetchHandlerWithChannels @deprecated tag"
+        }
+      }
+    },
+    {
+      "importPath": "@copilotkit/runtime/v2",
+      "symbol": "CopilotRuntimeHandlerOptions",
+      "replacement": {
+        "importPath": "@copilotkit/runtime",
+        "symbol": "CopilotKitRuntimeHandlerOptions"
+      },
+      "sourceMessage": "Use `CopilotKitRuntimeHandlerOptions` from\n`@copilotkit/runtime`. This old name is an alias of it. To move your\nimports, run `npx codemod @copilotkit/v2-migration`.",
+      "provenance": {
+        "importPath": {
+          "kind": "package-json",
+          "path": "packages/runtime/package.json",
+          "selector": "exports[\"./v2\"]"
+        },
+        "symbol": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntimeHandlerOptions @deprecated tag"
+        },
+        "replacement": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntimeHandlerOptions @deprecated tag"
+        },
+        "sourceMessage": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntimeHandlerOptions @deprecated tag"
+        }
+      }
+    },
+    {
+      "importPath": "@copilotkit/runtime/v2",
+      "symbol": "CopilotRuntimeHooks",
+      "replacement": {
+        "importPath": "@copilotkit/runtime",
+        "symbol": "CopilotKitRuntimeHooks"
+      },
+      "sourceMessage": "Use `CopilotKitRuntimeHooks` from `@copilotkit/runtime`. This\nold name is an alias of it. To move your imports, run\n`npx codemod @copilotkit/v2-migration`.",
+      "provenance": {
+        "importPath": {
+          "kind": "package-json",
+          "path": "packages/runtime/package.json",
+          "selector": "exports[\"./v2\"]"
+        },
+        "symbol": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntimeHooks @deprecated tag"
+        },
+        "replacement": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntimeHooks @deprecated tag"
+        },
+        "sourceMessage": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntimeHooks @deprecated tag"
+        }
+      }
+    },
+    {
+      "importPath": "@copilotkit/runtime/v2",
+      "symbol": "CopilotRuntimeLearningConfig",
+      "replacement": {
+        "importPath": "@copilotkit/runtime",
+        "symbol": "CopilotKitRuntimeLearningConfig"
+      },
+      "sourceMessage": "Use `CopilotKitRuntimeLearningConfig` from\n`@copilotkit/runtime`. This old name is an alias of it. To move your\nimports, run `npx codemod @copilotkit/v2-migration`.",
+      "provenance": {
+        "importPath": {
+          "kind": "package-json",
+          "path": "packages/runtime/package.json",
+          "selector": "exports[\"./v2\"]"
+        },
+        "symbol": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntimeLearningConfig @deprecated tag"
+        },
+        "replacement": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntimeLearningConfig @deprecated tag"
+        },
+        "sourceMessage": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntimeLearningConfig @deprecated tag"
+        }
+      }
+    },
+    {
+      "importPath": "@copilotkit/runtime/v2",
+      "symbol": "CopilotRuntimeLearningContext",
+      "replacement": {
+        "importPath": "@copilotkit/runtime",
+        "symbol": "CopilotKitRuntimeLearningContext"
+      },
+      "sourceMessage": "Use `CopilotKitRuntimeLearningContext` from\n`@copilotkit/runtime`. This old name is an alias of it. To move your\nimports, run `npx codemod @copilotkit/v2-migration`.",
+      "provenance": {
+        "importPath": {
+          "kind": "package-json",
+          "path": "packages/runtime/package.json",
+          "selector": "exports[\"./v2\"]"
+        },
+        "symbol": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntimeLearningContext @deprecated tag"
+        },
+        "replacement": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntimeLearningContext @deprecated tag"
+        },
+        "sourceMessage": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntimeLearningContext @deprecated tag"
+        }
+      }
+    },
+    {
+      "importPath": "@copilotkit/runtime/v2",
+      "symbol": "CopilotRuntimeLike",
+      "replacement": {
+        "importPath": "@copilotkit/runtime",
+        "symbol": "CopilotKitRuntimeLike"
+      },
+      "sourceMessage": "Use `CopilotKitRuntimeLike` from `@copilotkit/runtime`. This old\nname is an alias of it. To move your imports, run\n`npx codemod @copilotkit/v2-migration`.",
+      "provenance": {
+        "importPath": {
+          "kind": "package-json",
+          "path": "packages/runtime/package.json",
+          "selector": "exports[\"./v2\"]"
+        },
+        "symbol": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntimeLike @deprecated tag"
+        },
+        "replacement": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntimeLike @deprecated tag"
+        },
+        "sourceMessage": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntimeLike @deprecated tag"
+        }
+      }
+    },
+    {
+      "importPath": "@copilotkit/runtime/v2",
+      "symbol": "CopilotRuntimeLogger",
+      "replacement": {
+        "importPath": "@copilotkit/runtime",
+        "symbol": "CopilotKitRuntimeLogger"
+      },
+      "sourceMessage": "Use `CopilotKitRuntimeLogger` from `@copilotkit/runtime`. This\nold name is an alias of it. To move your imports, run\n`npx codemod @copilotkit/v2-migration`.",
+      "provenance": {
+        "importPath": {
+          "kind": "package-json",
+          "path": "packages/runtime/package.json",
+          "selector": "exports[\"./v2\"]"
+        },
+        "symbol": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntimeLogger @deprecated tag"
+        },
+        "replacement": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntimeLogger @deprecated tag"
+        },
+        "sourceMessage": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntimeLogger @deprecated tag"
+        }
+      }
+    },
+    {
+      "importPath": "@copilotkit/runtime/v2",
+      "symbol": "CopilotRuntimeMemoryConfig",
+      "replacement": {
+        "importPath": "@copilotkit/runtime",
+        "symbol": "CopilotKitRuntimeMemoryConfig"
+      },
+      "sourceMessage": "Use `CopilotKitRuntimeMemoryConfig` from `@copilotkit/runtime`.\nThis old name is an alias of it. To move your imports, run\n`npx codemod @copilotkit/v2-migration`.",
+      "provenance": {
+        "importPath": {
+          "kind": "package-json",
+          "path": "packages/runtime/package.json",
+          "selector": "exports[\"./v2\"]"
+        },
+        "symbol": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntimeMemoryConfig @deprecated tag"
+        },
+        "replacement": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntimeMemoryConfig @deprecated tag"
+        },
+        "sourceMessage": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntimeMemoryConfig @deprecated tag"
+        }
+      }
+    },
+    {
+      "importPath": "@copilotkit/runtime/v2",
+      "symbol": "CopilotRuntimeOptions",
+      "replacement": {
+        "importPath": "@copilotkit/runtime",
+        "symbol": "CopilotKitRuntimeOptions"
+      },
+      "sourceMessage": "Use `CopilotKitRuntimeOptions` from `@copilotkit/runtime`. This\nold name is an alias of it. To move your imports, run\n`npx codemod @copilotkit/v2-migration`.",
+      "provenance": {
+        "importPath": {
+          "kind": "package-json",
+          "path": "packages/runtime/package.json",
+          "selector": "exports[\"./v2\"]"
+        },
+        "symbol": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntimeOptions @deprecated tag"
+        },
+        "replacement": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntimeOptions @deprecated tag"
+        },
+        "sourceMessage": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntimeOptions @deprecated tag"
+        }
+      }
+    },
+    {
+      "importPath": "@copilotkit/runtime/v2",
+      "symbol": "CopilotRuntimeUser",
+      "replacement": {
+        "importPath": "@copilotkit/runtime",
+        "symbol": "CopilotKitRuntimeUser"
+      },
+      "sourceMessage": "Use `CopilotKitRuntimeUser` from `@copilotkit/runtime`. This old\nname is an alias of it. To move your imports, run\n`npx codemod @copilotkit/v2-migration`.",
+      "provenance": {
+        "importPath": {
+          "kind": "package-json",
+          "path": "packages/runtime/package.json",
+          "selector": "exports[\"./v2\"]"
+        },
+        "symbol": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntimeUser @deprecated tag"
+        },
+        "replacement": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntimeUser @deprecated tag"
+        },
+        "sourceMessage": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntimeUser @deprecated tag"
+        }
+      }
+    },
+    {
+      "importPath": "@copilotkit/runtime/v2",
+      "symbol": "CopilotSseRuntime",
+      "replacement": {
+        "importPath": "@copilotkit/runtime",
+        "symbol": "CopilotKitSseRuntime"
+      },
+      "sourceMessage": "Use `CopilotKitSseRuntime` from `@copilotkit/runtime`. This old\nname is an alias of it. To move your imports, run\n`npx codemod @copilotkit/v2-migration`.",
+      "provenance": {
+        "importPath": {
+          "kind": "package-json",
+          "path": "packages/runtime/package.json",
+          "selector": "exports[\"./v2\"]"
+        },
+        "symbol": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotSseRuntime @deprecated tag"
+        },
+        "replacement": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotSseRuntime @deprecated tag"
+        },
+        "sourceMessage": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotSseRuntime @deprecated tag"
+        }
+      }
+    },
+    {
+      "importPath": "@copilotkit/runtime/v2",
+      "symbol": "CopilotSseRuntimeLike",
+      "replacement": {
+        "importPath": "@copilotkit/runtime",
+        "symbol": "CopilotKitSseRuntimeLike"
+      },
+      "sourceMessage": "Use `CopilotKitSseRuntimeLike` from `@copilotkit/runtime`. This\nold name is an alias of it. To move your imports, run\n`npx codemod @copilotkit/v2-migration`.",
+      "provenance": {
+        "importPath": {
+          "kind": "package-json",
+          "path": "packages/runtime/package.json",
+          "selector": "exports[\"./v2\"]"
+        },
+        "symbol": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotSseRuntimeLike @deprecated tag"
+        },
+        "replacement": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotSseRuntimeLike @deprecated tag"
+        },
+        "sourceMessage": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotSseRuntimeLike @deprecated tag"
+        }
+      }
+    },
+    {
+      "importPath": "@copilotkit/runtime/v2",
+      "symbol": "CopilotSseRuntimeOptions",
+      "replacement": {
+        "importPath": "@copilotkit/runtime",
+        "symbol": "CopilotKitSseRuntimeOptions"
+      },
+      "sourceMessage": "Use `CopilotKitSseRuntimeOptions` from `@copilotkit/runtime`.\nThis old name is an alias of it. To move your imports, run\n`npx codemod @copilotkit/v2-migration`.",
+      "provenance": {
+        "importPath": {
+          "kind": "package-json",
+          "path": "packages/runtime/package.json",
+          "selector": "exports[\"./v2\"]"
+        },
+        "symbol": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotSseRuntimeOptions @deprecated tag"
+        },
+        "replacement": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotSseRuntimeOptions @deprecated tag"
+        },
+        "sourceMessage": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotSseRuntimeOptions @deprecated tag"
+        }
+      }
+    },
+    {
+      "importPath": "@copilotkit/runtime/v2",
+      "symbol": "createCopilotRuntimeHandler",
+      "replacement": {
+        "importPath": "@copilotkit/runtime",
+        "symbol": "createCopilotKitRuntimeHandler"
+      },
+      "sourceMessage": "Use `createCopilotKitRuntimeHandler` from `@copilotkit/runtime`.\nThis old name is an alias of it. To move your imports, run\n`npx codemod @copilotkit/v2-migration`.",
+      "provenance": {
+        "importPath": {
+          "kind": "package-json",
+          "path": "packages/runtime/package.json",
+          "selector": "exports[\"./v2\"]"
+        },
+        "symbol": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "createCopilotRuntimeHandler @deprecated tag"
+        },
+        "replacement": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "createCopilotRuntimeHandler @deprecated tag"
+        },
+        "sourceMessage": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "createCopilotRuntimeHandler @deprecated tag"
         }
       }
     },
     {
       "importPath": "@copilotkit/runtime/v2/node",
-      "symbol": "createNodeFetchHandler",
+      "symbol": "createCopilotNodeHandler",
       "replacement": {
-        "importPath": "@copilotkit/runtime/v2/node",
-        "symbol": "createCopilotNodeHandler"
+        "importPath": "@copilotkit/runtime/node",
+        "symbol": "createCopilotKitNodeHandler"
       },
-      "sourceMessage": "Use `createCopilotNodeHandler` instead.",
+      "sourceMessage": "Use `createCopilotKitNodeHandler` from\n`@copilotkit/runtime/node`. This old name is an alias of it. To move your\nimports, run `npx codemod @copilotkit/v2-migration`.",
       "provenance": {
         "importPath": {
           "kind": "package-json",
@@ -3800,18 +3729,142 @@
         },
         "symbol": {
           "kind": "typescript-ast",
-          "path": "packages/runtime/src/v2/runtime/endpoints/node-fetch-handler.ts",
+          "path": "packages/runtime/src/v2/node.ts",
+          "selector": "createCopilotNodeHandler @deprecated tag"
+        },
+        "replacement": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/node.ts",
+          "selector": "createCopilotNodeHandler @deprecated tag"
+        },
+        "sourceMessage": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/node.ts",
+          "selector": "createCopilotNodeHandler @deprecated tag"
+        }
+      }
+    },
+    {
+      "importPath": "@copilotkit/runtime/v2/node",
+      "symbol": "createCopilotNodeListener",
+      "replacement": {
+        "importPath": "@copilotkit/runtime/node",
+        "symbol": "createCopilotKitNodeListener"
+      },
+      "sourceMessage": "Use `createCopilotKitNodeListener` from\n`@copilotkit/runtime/node`. This old name is an alias of it. To move your\nimports, run `npx codemod @copilotkit/v2-migration`.",
+      "provenance": {
+        "importPath": {
+          "kind": "package-json",
+          "path": "packages/runtime/package.json",
+          "selector": "exports[\"./v2/node\"]"
+        },
+        "symbol": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/node.ts",
+          "selector": "createCopilotNodeListener @deprecated tag"
+        },
+        "replacement": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/node.ts",
+          "selector": "createCopilotNodeListener @deprecated tag"
+        },
+        "sourceMessage": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/node.ts",
+          "selector": "createCopilotNodeListener @deprecated tag"
+        }
+      }
+    },
+    {
+      "importPath": "@copilotkit/runtime/v2/node",
+      "symbol": "createNodeFetchHandler",
+      "replacement": {
+        "importPath": "@copilotkit/runtime/node",
+        "symbol": "createCopilotKitNodeHandler"
+      },
+      "sourceMessage": "Use `createCopilotKitNodeHandler` from\n`@copilotkit/runtime/node`. 1.x deprecated this name, and it is an alias of\n`createCopilotKitNodeHandler`. To move your imports, run\n`npx codemod @copilotkit/v2-migration`.",
+      "provenance": {
+        "importPath": {
+          "kind": "package-json",
+          "path": "packages/runtime/package.json",
+          "selector": "exports[\"./v2/node\"]"
+        },
+        "symbol": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/node.ts",
           "selector": "createNodeFetchHandler @deprecated tag"
         },
         "replacement": {
           "kind": "typescript-ast",
-          "path": "packages/runtime/src/v2/runtime/endpoints/node-fetch-handler.ts",
+          "path": "packages/runtime/src/v2/node.ts",
           "selector": "createNodeFetchHandler @deprecated tag"
         },
         "sourceMessage": {
           "kind": "typescript-ast",
-          "path": "packages/runtime/src/v2/runtime/endpoints/node-fetch-handler.ts",
+          "path": "packages/runtime/src/v2/node.ts",
           "selector": "createNodeFetchHandler @deprecated tag"
+        }
+      }
+    },
+    {
+      "importPath": "@copilotkit/runtime/v2/node",
+      "symbol": "NodeCopilotListener",
+      "replacement": {
+        "importPath": "@copilotkit/runtime/node",
+        "symbol": "NodeCopilotKitListener"
+      },
+      "sourceMessage": "Use `NodeCopilotKitListener` from `@copilotkit/runtime/node`.\nThis old name is an alias of it. To move your imports, run\n`npx codemod @copilotkit/v2-migration`.",
+      "provenance": {
+        "importPath": {
+          "kind": "package-json",
+          "path": "packages/runtime/package.json",
+          "selector": "exports[\"./v2/node\"]"
+        },
+        "symbol": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/node.ts",
+          "selector": "NodeCopilotListener @deprecated tag"
+        },
+        "replacement": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/node.ts",
+          "selector": "NodeCopilotListener @deprecated tag"
+        },
+        "sourceMessage": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/node.ts",
+          "selector": "NodeCopilotListener @deprecated tag"
+        }
+      }
+    },
+    {
+      "importPath": "@copilotkit/runtime/v2/node",
+      "symbol": "NodeCopilotListenerWithChannels",
+      "replacement": {
+        "importPath": "@copilotkit/runtime/node",
+        "symbol": "NodeCopilotKitListenerWithChannels"
+      },
+      "sourceMessage": "Use `NodeCopilotKitListenerWithChannels` from\n`@copilotkit/runtime/node`. This old name is an alias of it. To move your\nimports, run `npx codemod @copilotkit/v2-migration`.",
+      "provenance": {
+        "importPath": {
+          "kind": "package-json",
+          "path": "packages/runtime/package.json",
+          "selector": "exports[\"./v2/node\"]"
+        },
+        "symbol": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/node.ts",
+          "selector": "NodeCopilotListenerWithChannels @deprecated tag"
+        },
+        "replacement": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/node.ts",
+          "selector": "NodeCopilotListenerWithChannels @deprecated tag"
+        },
+        "sourceMessage": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/node.ts",
+          "selector": "NodeCopilotListenerWithChannels @deprecated tag"
         }
       }
     }

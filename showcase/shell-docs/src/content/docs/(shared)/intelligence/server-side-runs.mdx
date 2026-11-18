@@ -8,11 +8,15 @@ Some runs start on your server rather than in a browser: a scheduled check that 
 
 ## Run an agent in a thread
 
-Call `runAgentInThread` with the `CopilotRuntime` you already configured with Intelligence, an agent instance, the thread, and the user the thread belongs to.
+Call `runAgentInThread` with the `CopilotKitRuntime` you already configured with Intelligence, an agent instance, the thread, and the user the thread belongs to.
 
-```ts title="scheduled-summary.ts"
+```ts title="scheduled-summary.ts" group=server-side-runs
 import { randomUUID } from "node:crypto";
-import { runAgentInThread } from "@copilotkit/runtime/v2";
+import type { Message } from "@ag-ui/client";
+import { runAgentInThread } from "@copilotkit/runtime";
+// Your runtime, the agent registered on it, and the thread to run in.
+import { assistant, runtime } from "./copilotkit";
+import { threadId, userId } from "./thread";
 
 const { newMessages } = await runAgentInThread({
   runtime,
@@ -43,7 +47,13 @@ It resolves with the messages the run added in `newMessages`. Intelligence store
 
 Pass a function as `messages` to decide what the agent sees. It receives the thread's history as AG-UI messages and returns the whole conversation for the run. Messages whose IDs the thread already holds are not stored again, even when you change them.
 
-```ts
+```ts group=server-side-runs
+const request: Message = {
+  id: randomUUID(),
+  role: "user",
+  content: "Summarize what changed today",
+};
+
 await runAgentInThread({
   runtime,
   agent: assistant.clone(),
@@ -69,7 +79,7 @@ Use `AbortSignal.timeout()` for a deadline, and `AbortSignal.any()` to combine i
 
 Pass an AG-UI `AgentSubscriber` as `subscriber` to receive the agent's events while it works, for example to post a reply to another system as it is written.
 
-```ts
+```ts group=server-side-runs
 await runAgentInThread({
   runtime,
   agent: assistant.clone(),
@@ -78,7 +88,9 @@ await runAgentInThread({
   userId,
   messages: [request],
   subscriber: {
-    onTextMessageContentEvent: ({ event }) => process.stdout.write(event.delta),
+    onTextMessageContentEvent: ({ event }) => {
+      process.stdout.write(event.delta);
+    },
   },
 });
 ```

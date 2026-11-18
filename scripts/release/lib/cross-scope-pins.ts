@@ -5,10 +5,11 @@ import type { ReleaseConfig, ReleaseScope } from "./config.js";
  * Keeping one release scope's version line from freezing another's.
  *
  * Scopes are independent on the version axis and not on the dependency axis.
- * `@copilotkit/angular` is published from the `angular` scope on a `0.x` line
- * of its own while depending on `@copilotkit/core` from the `monorepo` scope,
- * and `pnpm pack` rewrites a `workspace:*` into the exact version in the tree
- * at pack time. So `angular@0.4.0` shipped pinning `core@1.69.3`; four days
+ * `@copilotkit/angular` was published from an `angular` scope on a `0.x` line
+ * of its own while depending on `@copilotkit/core` from the `monorepo` scope
+ * (it now releases with the monorepo packages), and `pnpm pack` rewrites a
+ * `workspace:*` into the exact version in the tree at pack time. So
+ * `angular@0.4.0` shipped pinning `core@1.69.3`; four days
  * later the monorepo scope released `1.70.0` and every Angular application
  * obeying the new dependency floor resolved two copies of core, one of which
  * did not export what the Angular package called (OSS-1107).

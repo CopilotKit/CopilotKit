@@ -1,6 +1,6 @@
 // Tests for scripts/assert-dist-context-types.mjs, the build gate that checks
 // that the ESM and CommonJS declarations of the native and headless entries
-// use the `CopilotKitCoreReact` of `/v2/context`.
+// use the `CopilotKitCoreReact` of `/context`.
 //
 // Each test builds a small fake package in a temp directory: a package.json
 // named `@copilotkit/react-core` with an `exports` map, a hand-written `dist/`
@@ -34,9 +34,9 @@ const REAL_TS = require.resolve("typescript");
 const REAL_TSC = require.resolve("typescript/bin/tsc");
 
 const PKG = "@copilotkit/react-core";
-const NATIVE = `${PKG}/v2/generative-ui/native`;
-const HEADLESS = `${PKG}/v2/headless`;
-const CONTEXT = `${PKG}/v2/context`;
+const NATIVE = `${PKG}/generative-ui/native`;
+const HEADLESS = `${PKG}/headless`;
+const CONTEXT = `${PKG}/context`;
 const EXTS = ["cts", "mts"];
 const js = (ext) => (ext === "cts" ? "cjs" : "mjs");
 
@@ -59,9 +59,9 @@ const baseFiles = () => {
         name: PKG,
         version: "0.0.0",
         exports: {
-          "./v2/context": exportsEntry("v2/context"),
-          "./v2/headless": exportsEntry("v2/headless"),
-          "./v2/generative-ui/native": exportsEntry("v2/generative-ui/native"),
+          "./context": exportsEntry("context"),
+          "./headless": exportsEntry("headless"),
+          "./generative-ui/native": exportsEntry("generative-ui/native"),
         },
       },
       null,
@@ -69,11 +69,11 @@ const baseFiles = () => {
     ),
   };
   for (const ext of EXTS) {
-    files[`dist/v2/context.d.${ext}`] =
+    files[`dist/context.d.${ext}`] =
       `declare class CopilotKitCoreReact ${CLASS_BODY}\nexport { CopilotKitCoreReact };\n`;
-    files[`dist/v2/headless.d.${ext}`] =
+    files[`dist/headless.d.${ext}`] =
       `import { CopilotKitCoreReact } from "${CONTEXT}";\nexport { CopilotKitCoreReact };\n`;
-    files[`dist/v2/generative-ui/native.d.${ext}`] =
+    files[`dist/generative-ui/native.d.${ext}`] =
       `import { CopilotKitCoreReact } from "${CONTEXT}";\n` +
       "declare function useGenerativeUIRoot(copilotkit: CopilotKitCoreReact, config: unknown): { ready: boolean };\n" +
       "export { useGenerativeUIRoot };\n";
@@ -171,17 +171,17 @@ const consumer = (lines) =>
   ].join("\n");
 
 describe("assert-dist-context-types", () => {
-  it("passes when both entries use the class of /v2/context", () => {
+  it("passes when both entries use the class of /context", () => {
     const { status, out } = run();
     assert.equal(status, 0, out);
     assert.match(out, /OK/);
   });
 
-  it("passes when /v2/context re-exports the class from a shared chunk", () => {
+  it("passes when /context re-exports the class from a shared chunk", () => {
     const { status, out } = run({
       files: forBoth((ext) => ({
-        [`dist/v2/chunk-core.d.${ext}`]: `declare class CopilotKitCoreReact ${CLASS_BODY}\nexport { CopilotKitCoreReact };\n`,
-        [`dist/v2/context.d.${ext}`]: `import { CopilotKitCoreReact } from "./chunk-core.${js(ext)}";\nexport { CopilotKitCoreReact };\n`,
+        [`dist/chunk-core.d.${ext}`]: `declare class CopilotKitCoreReact ${CLASS_BODY}\nexport { CopilotKitCoreReact };\n`,
+        [`dist/context.d.${ext}`]: `import { CopilotKitCoreReact } from "./chunk-core.${js(ext)}";\nexport { CopilotKitCoreReact };\n`,
       })),
     });
     assert.equal(status, 0, out);
@@ -191,7 +191,7 @@ describe("assert-dist-context-types", () => {
     it("is reported in the native entry, with the annotation hint", () => {
       const { status, out } = run({
         files: {
-          "dist/v2/generative-ui/native.d.cts":
+          "dist/generative-ui/native.d.cts":
             `declare class CopilotKitCoreReact$1 ${CLASS_BODY}\n` +
             "declare function useGenerativeUIRoot(copilotkit: CopilotKitCoreReact$1, config: unknown): { ready: boolean };\n" +
             "export { useGenerativeUIRoot };\n",
@@ -200,7 +200,7 @@ describe("assert-dist-context-types", () => {
       assert.equal(status, 1, out);
       assert.match(
         out,
-        /CommonJS \(\.d\.cts\): `useGenerativeUIRoot` of @copilotkit\/react-core\/v2\/generative-ui\/native uses a second declaration of the class, `CopilotKitCoreReact\$1`/,
+        /CommonJS \(\.d\.cts\): `useGenerativeUIRoot` of @copilotkit\/react-core\/generative-ui\/native uses a second declaration of the class, `CopilotKitCoreReact\$1`/,
       );
       assert.match(out, /CommonJS: tsdown emits/);
       assert.match(out, ANNOTATION_HINT);
@@ -209,7 +209,7 @@ describe("assert-dist-context-types", () => {
     it("is reported in the headless entry without the native-only hint", () => {
       const { status, out } = run({
         files: {
-          "dist/v2/headless.d.mts":
+          "dist/headless.d.mts":
             `declare class CopilotKitCoreReact$1 ${CLASS_BODY}\n` +
             "export { CopilotKitCoreReact$1 as CopilotKitCoreReact };\n",
         },
@@ -217,7 +217,7 @@ describe("assert-dist-context-types", () => {
       assert.equal(status, 1, out);
       assert.match(
         out,
-        /ESM \(\.d\.mts\): `CopilotKitCoreReact` of @copilotkit\/react-core\/v2\/headless uses a second declaration of the class/,
+        /ESM \(\.d\.mts\): `CopilotKitCoreReact` of @copilotkit\/react-core\/headless uses a second declaration of the class/,
       );
       assert.match(out, /separate declarations of a private property/);
       assert.match(out, /ESM: the `\.d\.mts` files take/);
@@ -227,13 +227,13 @@ describe("assert-dist-context-types", () => {
     it("is found when renamed other than `$N`", () => {
       const { status, out } = run({
         files: {
-          "dist/v2/generative-ui/native.d.cts":
+          "dist/generative-ui/native.d.cts":
             `declare class CopilotKitCoreReact_1 ${CLASS_BODY}\n` +
             "declare function useGenerativeUIRoot(copilotkit: CopilotKitCoreReact_1, config: unknown): { ready: boolean };\n" +
             "export { useGenerativeUIRoot };\n",
           // A copy under an unrelated name, carried by an export the
           // consumers do not import.
-          "dist/v2/generative-ui/native.d.mts":
+          "dist/generative-ui/native.d.mts":
             `import { CopilotKitCoreReact } from "${CONTEXT}";\n` +
             `declare class BundledCore ${CLASS_BODY}\n` +
             "declare function useGenerativeUIRoot(copilotkit: CopilotKitCoreReact, config: unknown): { ready: boolean };\n" +
@@ -256,12 +256,12 @@ describe("assert-dist-context-types", () => {
 
   it("reports missing built declarations", () => {
     const { status, out } = run({
-      files: { "dist/v2/headless.d.cts": null },
+      files: { "dist/headless.d.cts": null },
     });
     assert.equal(status, 1, out);
     assert.match(
       out,
-      /built declarations are missing:\n\s+dist\/v2\/headless\.d\.cts/,
+      /built declarations are missing:\n\s+dist\/headless\.d\.cts/,
     );
     assertNoCrash(out);
   });
@@ -303,7 +303,7 @@ describe("assert-dist-context-types", () => {
         ),
       });
       assert.equal(status, 1, out);
-      assert.match(out, /the `\/v2\/context` instance is not assignable/);
+      assert.match(out, /the `\/context` instance is not assignable/);
       assert.match(out, /no file location/);
     });
 
@@ -349,20 +349,20 @@ describe("assert-dist-context-types", () => {
   it("reports an import in the headless entry that does not resolve", () => {
     const { status, out } = run({
       files: {
-        "dist/v2/headless.d.mts":
+        "dist/headless.d.mts":
           'import { CopilotKitCoreReact } from "./chunk-gone.mjs";\nexport { CopilotKitCoreReact };\n',
       },
     });
     assert.equal(status, 1, out);
     assert.match(
       out,
-      /ESM \(\.d\.mts\): @copilotkit\/react-core\/v2\/headless: "\.\/chunk-gone\.mjs" in dist\/v2\/headless\.d\.mts does not resolve/,
+      /ESM \(\.d\.mts\): @copilotkit\/react-core\/headless: "\.\/chunk-gone\.mjs" in dist\/headless\.d\.mts does not resolve/,
     );
   });
 
   describe("the consumers' imports", () => {
     const twoCarriers = forBoth((ext) => ({
-      [`dist/v2/generative-ui/native.d.${ext}`]:
+      [`dist/generative-ui/native.d.${ext}`]:
         `import { CopilotKitCoreReact } from "${CONTEXT}";\n` +
         "declare function useGenerativeUIRoot(copilotkit: CopilotKitCoreReact, config: unknown): { ready: boolean };\n" +
         "declare function useCore(core: CopilotKitCoreReact): void;\n" +
@@ -397,7 +397,7 @@ describe("assert-dist-context-types", () => {
       const { status, out } = run({
         files: {
           ...forBoth((ext) => ({
-            [`dist/v2/generative-ui/native.d.${ext}`]:
+            [`dist/generative-ui/native.d.${ext}`]:
               `import { CopilotKitCoreReact } from "${CONTEXT}";\n` +
               "declare function useGenerativeUIRoot(copilotkit: CopilotKitCoreReact, config: unknown): { ready: boolean };\n" +
               "declare function useDefault(core: CopilotKitCoreReact): void;\n" +

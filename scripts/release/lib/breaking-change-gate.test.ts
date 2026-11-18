@@ -18,6 +18,34 @@ function committedManifest(): PublicApiManifest {
   ) as PublicApiManifest;
 }
 
+/**
+ * The committed manifest, plus one service adapter and one deprecation.
+ * Release lines such as 2.0.0 can ship neither, and the tests that remove
+ * them need one of each.
+ */
+function manifestWithRuntimeEntries(): PublicApiManifest {
+  const manifest = committedManifest();
+  const [factory] = manifest.runtime.hostFactories;
+  manifest.runtime.serviceAdapters.push({
+    ...structuredClone(factory),
+    symbol: "ExampleAdapter",
+    configurationType: "ExampleAdapterParams",
+  });
+  manifest.deprecations.push({
+    importPath: factory.importPath,
+    symbol: "exampleDeprecated",
+    replacement: { importPath: factory.importPath, symbol: factory.symbol },
+    sourceMessage: "Use createCopilotRuntimeHandler.",
+    provenance: {
+      importPath: factory.provenance.importPath,
+      symbol: factory.provenance.symbol,
+      replacement: factory.provenance.symbol,
+      sourceMessage: factory.provenance.symbol,
+    },
+  });
+  return manifest;
+}
+
 function gate(
   overrides: Partial<Parameters<typeof evaluateBreakingChangeGate>[0]>,
 ) {
@@ -49,8 +77,8 @@ describe("findPublicApiBreaks", () => {
   });
 
   it("ignores additions, versions, and provenance", () => {
-    const base = committedManifest();
-    const head = committedManifest();
+    const base = manifestWithRuntimeEntries();
+    const head = manifestWithRuntimeEntries();
     head.packages[0].version = "9.9.9";
     head.packages[0].provenance.version.path = "elsewhere/package.json";
     head.packages.push({
@@ -75,14 +103,20 @@ describe("findPublicApiBreaks", () => {
   it("reports a removed entrypoint and a removed export condition", () => {
     const base = committedManifest();
     const head = committedManifest();
-    const pkg = head.packages.find((candidate) =>
-      candidate.entrypoints.some(
-        (entry) =>
-          entry.exportKey === "." &&
-          typeof entry.conditions === "object" &&
-          entry.conditions !== null &&
-          "require" in entry.conditions,
-      ),
+    // A package whose root entry has `require.default`, plus another entry.
+    const pkg = head.packages.find(
+      (candidate) =>
+        candidate.entrypoints.some((entry) => entry.exportKey !== ".") &&
+        candidate.entrypoints.some(
+          (entry) =>
+            entry.exportKey === "." &&
+            typeof entry.conditions === "object" &&
+            entry.conditions !== null &&
+            "require" in entry.conditions &&
+            typeof entry.conditions.require === "object" &&
+            entry.conditions.require !== null &&
+            "default" in entry.conditions.require,
+        ),
     )!;
     const rootEntry = pkg.entrypoints.find((entry) => entry.exportKey === ".")!;
     delete (rootEntry.conditions as Record<string, unknown>).require;
@@ -101,8 +135,13 @@ describe("findPublicApiBreaks", () => {
   it("reports narrowed compatibility", () => {
     const base = committedManifest();
     const head = committedManifest();
-    const basePkg = base.packages[0];
-    const pkg = head.packages[0];
+    // The first package with a required peer, so a peer range can narrow.
+    const index = base.packages.findIndex(
+      (candidate) =>
+        Object.keys(candidate.compatibility.peerDependencies ?? {}).length > 0,
+    );
+    const basePkg = base.packages[index];
+    const pkg = head.packages[index];
     pkg.compatibility.engines = { node: ">=24" };
     pkg.compatibility.peerDependencies = {
       ...pkg.compatibility.peerDependencies,
@@ -135,8 +174,8 @@ describe("findPublicApiBreaks", () => {
   });
 
   it("reports removed runtime factories, options, and deprecated exports", () => {
-    const base = committedManifest();
-    const head = committedManifest();
+    const base = manifestWithRuntimeEntries();
+    const head = manifestWithRuntimeEntries();
     const [adapter] = head.runtime.serviceAdapters.splice(0, 1);
     const factory = head.runtime.hostFactories[0];
     const [option] = factory.configurationKeys.splice(0, 1);

@@ -585,7 +585,11 @@ export class ClaimedChannelDelivery {
     }
     const failure = this.unobservedOperationFailures.values().next().value;
     this.unobservedOperationFailures.clear();
-    if (throwOnFailure && failure !== undefined) throw failure;
+    if (throwOnFailure && failure !== undefined) {
+      throw failure instanceof Error
+        ? failure
+        : new Error(String(failure), { cause: failure });
+    }
   }
 
   private enqueue(

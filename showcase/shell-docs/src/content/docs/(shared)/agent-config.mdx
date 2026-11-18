@@ -20,7 +20,7 @@ Reach for agent config whenever the agent's behaviour depends on user-controllab
 
 If the values are a *channel* the user occasionally tunes (a settings panel, a toolbar of selects), agent config is the right shape. If the values are *content* the agent should write back to (notes, a document, a plan), use [Shared State](/shared-state) instead.
 
-How agent config flows from the UI into the agent's reasoning loop depends on your runtime architecture. Most agents read the config from the context that the UI publishes with `useAgentContext`. The Built-in Agent reads it from `input.forwardedProps`, which the UI sets with the `properties` prop on `<CopilotKit>`.
+How agent config flows from the UI into the agent's reasoning loop depends on your runtime architecture. Most agents read the config from the context that the UI publishes with `useAgentContext`. The Built-in Agent reads it from `input.forwardedProps`, which the UI sets with the `properties` prop on `<CopilotKitProvider>`.
 
 <WhenFrameworkHas flag="agent_config_pattern" equals="shared-state">
 
@@ -37,11 +37,15 @@ Hold the typed config in React state, then mirror every change into the agent
 through `useAgentContext`:
 
 ```tsx title="frontend/src/app/page.tsx — UI publishes the typed config"
-import { useAgentContext } from "@copilotkit/react-core/v2";
+import { useAgentContext } from "@copilotkit/react-core";
 
-type AgentConfig = { tone: string; expertise: string; responseLength: string };
+type AgentConfig = {
+  tone: "professional" | "casual" | "enthusiastic";
+  expertise: "beginner" | "intermediate" | "expert";
+  responseLength: "concise" | "detailed";
+};
 
-function ConfigContextRelay({ config }: { config: AgentConfig }) {
+export function ConfigContextRelay({ config }: { config: AgentConfig }) {
   useAgentContext({
     description: "Agent response preferences",
     value: {
@@ -85,15 +89,34 @@ At the start of every turn, the agent reads the latest config. Then it rebuilds 
 ## How it works
 
 <FrontendOnly frontend="react">
-Pass the typed object as `properties` on `<CopilotKit>`:
+Pass the typed object as `properties` on `<CopilotKitProvider>`:
 
 ```tsx title="frontend/src/app/page.tsx — config flows through the provider"
-<CopilotKit
-  runtimeUrl="/api/copilotkit"
-  properties={{ tone, expertise, responseLength }}
->
-  <Demo />
-</CopilotKit>
+import { useState } from "react";
+import { CopilotChat, CopilotKitProvider } from "@copilotkit/react-core";
+
+type Tone = "professional" | "casual" | "enthusiastic";
+type Expertise = "beginner" | "intermediate" | "expert";
+type ResponseLength = "concise" | "detailed";
+
+export default function Page() {
+  const [tone, setTone] = useState<Tone>("professional");
+  const [expertise] = useState<Expertise>("intermediate");
+  const [responseLength] = useState<ResponseLength>("concise");
+
+  return (
+    <CopilotKitProvider
+      runtimeUrl="/api/copilotkit"
+      properties={{ tone, expertise, responseLength }}
+      useSingleEndpoint
+    >
+      <button type="button" onClick={() => setTone("casual")}>
+        Casual
+      </button>
+      <CopilotChat />
+    </CopilotKitProvider>
+  );
+}
 ```
 </FrontendOnly>
 
@@ -130,23 +153,31 @@ export class AgentConfigComponent {
 The runtime hands the same object to the agent factory on every call as `input.forwardedProps`. The factory uses those fields to build a system prompt, then returns the model stream for that turn:
 
 ```ts title="backend/agent factory — synthesise the system prompt per turn"
-import { BuiltInAgent, convertInputToTanStackAI } from "@copilotkit/runtime/v2";
+import { BuiltInAgent, convertInputToTanStackAI } from "@copilotkit/runtime/agent";
 import { chat } from "@tanstack/ai";
 import { openaiText } from "@tanstack/ai-openai";
+
+function buildSystemPrompt(props: Record<string, unknown>): string {
+  const tone = typeof props.tone === "string" ? props.tone : "professional";
+  const expertise =
+    typeof props.expertise === "string" ? props.expertise : "intermediate";
+  const responseLength =
+    typeof props.responseLength === "string" ? props.responseLength : "concise";
+  return `Answer in a ${tone} tone, for a ${expertise} reader, and keep the answer ${responseLength}.`;
+}
 
 export const agentConfigAgent = new BuiltInAgent({
   type: "tanstack",
   factory: ({ input, abortController }) => {
-    const { tone, expertise, responseLength } = (input.forwardedProps ??
-      {}) as Record<string, string>;
     const { messages, systemPrompts } = convertInputToTanStackAI(input);
     return chat({
       adapter: openaiText("gpt-6-luna"),
       messages,
       systemPrompts: [
-        buildSystemPrompt(tone, expertise, responseLength),
+        buildSystemPrompt(input.forwardedProps ?? {}),
         ...systemPrompts,
       ],
+      threadId: input.threadId,
       abortController,
     });
   },

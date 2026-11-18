@@ -113,6 +113,41 @@ describe("CopilotKitCore - Suggestions Config Management", () => {
       expect(result.suggestions).toEqual([]);
       expect(result.isLoading).toBe(false);
     });
+
+    it("returns the same object on every read until the suggestions change", () => {
+      copilotKitCore.addSuggestionsConfig({
+        suggestions: [{ title: "Hi", message: "Say hi" }],
+      });
+      copilotKitCore.reloadSuggestions("test");
+
+      const first = copilotKitCore.getSuggestions("test");
+      expect(copilotKitCore.getSuggestions("test")).toBe(first);
+
+      copilotKitCore.clearSuggestions("test");
+      const cleared = copilotKitCore.getSuggestions("test");
+
+      expect(cleared).not.toBe(first);
+      expect(cleared).toEqual({ suggestions: [], isLoading: false });
+      expect(first).toEqual({
+        suggestions: [{ title: "Hi", message: "Say hi", isLoading: false }],
+        isLoading: false,
+      });
+    });
+
+    it("returns a new object when a reload adds suggestions", () => {
+      const empty = copilotKitCore.getSuggestions("test");
+      copilotKitCore.addSuggestionsConfig({
+        suggestions: [{ title: "Hi", message: "Say hi" }],
+      });
+
+      copilotKitCore.reloadSuggestions("test");
+      const loaded = copilotKitCore.getSuggestions("test");
+
+      expect(loaded).not.toBe(empty);
+      expect(loaded.suggestions).toEqual([
+        { title: "Hi", message: "Say hi", isLoading: false },
+      ]);
+    });
   });
 
   describe("Clearing suggestions", () => {

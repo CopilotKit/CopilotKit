@@ -9,8 +9,7 @@ import { pathToFileURL } from "node:url";
 const REPO_ROOT = resolve(import.meta.dirname, "..", "..", "..");
 const RULE_MODULE_PATH = join(
   REPO_ROOT,
-  "packages",
-  "react-ui",
+  "tools",
   "oxlint-rules",
   "no-public-env-shell-read.mjs",
 );

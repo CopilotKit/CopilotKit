@@ -26,10 +26,20 @@ from copilotkit_intelligence import (
 )
 from copilotkit_intelligence.inspector import parse_inspector_metadata
 
-from .a2ui import A2UIConfig, A2UIMiddleware
+from .a2ui import A2UIMiddleware
+from .a2ui_upgrade import prepare_v09_agent_input, upgrade_v09_activities
 from .agents import Agent
 from .finalizer import EventFinalizer
 from .gateway import Gateway
+from .generative_ui import (
+    GenerativeUIConfig,
+    GenerativeUIMiddleware,
+    a2ui_middleware_config,
+    generative_ui_info,
+    is_generative_ui_run,
+    read_tool_manifest,
+    resolve_a2ui_version,
+)
 from .mcp_apps import MCPAppsConfig, MCPAppsMiddleware, MCPServer
 from .models import Json, PlatformError, RuntimeConfig, RuntimeErrorResponse, User
 from .platform import Platform, segment
@@ -76,7 +86,7 @@ class IntelligenceRuntime:
         learning_container: LearningSelector | None = None,
         telemetry: Telemetry | None = None,
         http_client: httpx.AsyncClient | None = None,
-        a2ui: A2UIConfig | None = None,
+        generative_ui: bool | GenerativeUIConfig | None = None,
         mcp_apps: MCPAppsConfig | None = None,
         on_error: ErrorHandler | None = None,
     ) -> None:
@@ -118,7 +128,7 @@ class IntelligenceRuntime:
             or inspect.iscoroutinefunction(getattr(on_error, "__call__", None))
         ):
             raise ValueError("Application error handler must be async")
-        self.a2ui = a2ui
+        self.generative_ui = generative_ui
         self.mcp_apps = MCPAppsMiddleware(mcp_apps) if mcp_apps else None
         self.telemetry = telemetry or Telemetry(config.telemetry_enabled)
         self._owned_client = intelligence is None and http_client is None
@@ -399,22 +409,8 @@ class IntelligenceRuntime:
                 "runtimeEntitlements": entitlement,
                 "licenseStatus": license_status,
                 "telemetryDisabled": not self.telemetry.enabled,
-                "a2uiEnabled": bool(self.a2ui and self.a2ui.enabled),
-                **(
-                    {
-                        "a2ui": {
-                            "enabled": True,
-                            **(
-                                {"agents": list(self.a2ui.agents)}
-                                if self.a2ui.agents is not None
-                                else {}
-                            ),
-                        }
-                    }
-                    if self.a2ui and self.a2ui.enabled
-                    else {}
-                ),
                 "openGenerativeUIEnabled": False,
+                "generativeUI": generative_ui_info(self.generative_ui),
                 "audioFileTranscriptionEnabled": False,
                 "suggestions": False,
                 "inspectorMetadata": True,
@@ -732,18 +728,42 @@ class IntelligenceRuntime:
             async for event in self.mcp_apps.proxy(proxy, agent_id):
                 yield event
             return
-        a2ui = A2UIMiddleware(self.a2ui) if self.a2ui and self.a2ui.applies(agent_id) else None
-        prepared = a2ui.prepare(input) if a2ui else input
+        # Middleware order matches the TypeScript runtime, outermost first: the v0.9 bridge,
+        # A2UI v0.9, MCP Apps, then render_ui. Only the agent side gets the bridged input;
+        # the stored thread keeps the client's input.
+        forwarded = input.get("forwardedProps")
+        generative = is_generative_ui_run(self.generative_ui, agent_id, forwarded)
+        version = resolve_a2ui_version(self.generative_ui, agent_id)
+        agent_input = prepare_v09_agent_input(input, version) if generative else input
+        a2ui = (
+            A2UIMiddleware(a2ui_middleware_config(self.generative_ui, version, forwarded))
+            if generative
+            else None
+        )
+        prepared = a2ui.prepare(agent_input) if a2ui else agent_input
         ui_tools: dict[str, tuple[MCPServer, str]] = {}
         if self.mcp_apps:
             prepared, ui_tools = await self.mcp_apps.discover(prepared, agent_id)
+        # A v0.9 agent gets render_a2ui instead of render_ui.
+        manifest = (
+            read_tool_manifest(prepared.get("forwardedProps"))
+            if generative and version == "1.0"
+            else None
+        )
+        render_ui = GenerativeUIMiddleware(manifest) if manifest else None
+        if render_ui:
+            prepared = render_ui.prepare(prepared)
         if lease and lease.error:
             raise lease.error
         source = self.agents[agent_id].run(prepared)
+        if render_ui:
+            source = render_ui.transform(source, prepared)
         if self.mcp_apps:
             source = self.mcp_apps.transform(source, prepared, ui_tools)
         if a2ui:
-            source = a2ui.transform(source, input)
+            source = a2ui.transform(source, agent_input)
+        if generative:
+            source = upgrade_v09_activities(source)
         async for event in source:
             yield event
 

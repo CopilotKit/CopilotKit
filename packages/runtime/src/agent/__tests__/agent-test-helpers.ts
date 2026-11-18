@@ -1,26 +1,57 @@
 /**
- * Shared test utilities for BuiltInAgent factory-mode tests.
+ * Shared test utilities for BuiltInAgent tests.
  *
- * Re-exports everything from the existing test-helpers module and adds
- * BuiltInAgent-specific factories, mock stream builders, and assertion helpers.
+ * Factory mode: `createAgent(type, streamData)` builds a factory agent from
+ * AI SDK parts, TanStack chunks, or AG-UI events. The part and chunk
+ * builders below and in `test-helpers.ts` build that stream data.
+ *
+ * Classic mode runs the real TanStack AI `chat()` against a scripted fake
+ * model, `fakeText()` from `@tanstack/ai/testing`. No network, no API key.
+ *
+ * - `createFakeModel(responses)` returns `{ model, requests }`. `model` is
+ *   the adapter to pass as `model`. Each entry of `responses` answers one
+ *   model call: `{ text }`, `{ thinking }`, `{ toolCalls: [{ name, input,
+ *   id }] }`, `{ error }`, or a function `({ request }) => response`.
+ *   `requests` records what `chat()` sent on each call: `messages`,
+ *   `systemPrompts`, `tools`, `toolChoice`, `modelOptions`. A call with no
+ *   queued response fails the run with "No more fake responses queued".
+ * - `createClassicAgent(config, responses)` returns `{ agent, model,
+ *   requests }`. `config` is a classic config without `model`.
+ * - `runClassicAgent(config, responses, input)` runs the agent once with
+ *   `createDefaultInput(input)` and returns `{ events, requests, agent,
+ *   model }`. It rejects when the run errors; for an expected RUN_ERROR, use
+ *   `createClassicAgent` with `collectEventsIncludingErrors`.
+ * - `requestToolNames(request)` lists the tool names of one request.
+ * - `eventsOfType(events, EventType.X)` returns the events of one type,
+ *   typed as that event, so their fields need no cast.
+ *
+ * ```ts
+ * const { events, requests } = await runClassicAgent(
+ *   { prompt: "Be brief." },
+ *   [{ toolCalls: [{ id: "tc-1", name: "AGUISendStateSnapshot", input: { snapshot: { a: 1 } } }] }],
+ *   { messages: [{ id: "u1", role: "user", content: "hi" }] },
+ * );
+ * ```
  */
 
 import { EventType } from "@ag-ui/client";
-import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
+import type { AGUIEventOf, BaseEvent, RunAgentInput } from "@ag-ui/client";
 import type { Observable } from "rxjs";
-import { MockLanguageModelV3, simulateReadableStream } from "ai/test";
+import { fakeText } from "@tanstack/ai/testing";
+import type { FakeResponseStep } from "@tanstack/ai/testing";
+import type { TextOptions } from "@tanstack/ai";
 import { BuiltInAgent } from "../index";
 import type {
   AgentFactoryContext,
+  BuiltInAgentClassicConfig,
   BuiltInAgentFactoryConfig,
-  ToolDefinition,
 } from "../index";
 import type { MockStreamEvent } from "./test-helpers";
+import { collectEvents } from "./test-helpers";
 
 // Re-export everything from existing test helpers
 export {
   type MockStreamEvent,
-  mockStreamTextResponse,
   textStart,
   textDelta,
   toolCallStreamingStart,
@@ -32,8 +63,6 @@ export {
   reasoningDelta,
   reasoningEnd,
   finish,
-  abort,
-  error,
   collectEvents,
 } from "./test-helpers";
 
@@ -261,167 +290,58 @@ export function createAgent(
 }
 
 // ---------------------------------------------------------------------------
-// Classic (model-based) agent factory with a capturing mock model
+// Classic (model-based) agent on a fake TanStack AI model
 // ---------------------------------------------------------------------------
 
-/**
- * The element type of the `ReadableStream` returned by a V3 model's `doStream`.
- * Derived from `MockLanguageModelV3` so we never need a direct (non-resolvable
- * from this package) `@ai-sdk/provider` import.
- */
-type V3StreamResult = Awaited<ReturnType<MockLanguageModelV3["doStream"]>>;
-type V3StreamPart =
-  V3StreamResult["stream"] extends ReadableStream<infer P> ? P : never;
-type V3FinishPart = Extract<V3StreamPart, { type: "finish" }>;
-/** The shape of the options object the model's `doStream` is invoked with. */
-type V3CallOptions = MockLanguageModelV3["doStreamCalls"][number];
-
-function toV3FinishReason(value: unknown): V3FinishPart["finishReason"] {
-  if (value && typeof value === "object" && "unified" in value) {
-    return value as V3FinishPart["finishReason"];
-  }
-
-  const raw = typeof value === "string" ? value : undefined;
-  switch (raw) {
-    case "length":
-    case "content-filter":
-    case "tool-calls":
-    case "error":
-    case "other":
-    case "stop":
-      return { unified: raw, raw };
-    default:
-      return { unified: "stop", raw };
-  }
-}
-
-/** A BuiltInAgent augmented with a test-only seam exposing the messages the
- *  model received on its most recent `doStream` invocation. */
-export type ClassicAgentWithCapture = BuiltInAgent & {
-  /** The `prompt` (provider-level message list) passed to the mock model on its
-   *  most recent `doStream` call, or `undefined` if the model was never run. */
-  readonly __lastModelMessages: V3CallOptions["prompt"] | undefined;
-};
+/** A classic config without `model`: the helpers below supply the fake model. */
+export type ClassicTestConfig = Omit<BuiltInAgentClassicConfig, "model">;
 
 /**
- * Translates the existing fullStream-style `MockStreamEvent` chunks (built via
- * `textDelta`, `toolCall`, `finish`, …) into the provider-level
- * `LanguageModelV3` stream parts that the REAL `streamText` consumes from a
- * model's `doStream`.
- *
- * Only the chunk kinds needed by the classic-path interrupt tests are
- * translated; anything else is passed through unchanged so it can be extended
- * later without breaking existing callers.
+ * A scripted fake TanStack AI text adapter that records each request
+ * `chat()` sends it. See the file header for the response shapes.
  */
-function toV3StreamParts(chunks: MockStreamEvent[]): V3StreamPart[] {
-  const parts: V3StreamPart[] = [];
-  let openTextId: string | undefined;
-
-  const closeTextIfOpen = () => {
-    if (openTextId !== undefined) {
-      parts.push({ type: "text-end", id: openTextId } as V3StreamPart);
-      openTextId = undefined;
-    }
-  };
-
-  let autoId = 0;
-  for (const chunk of chunks) {
-    switch (chunk.type) {
-      case "text-start": {
-        const id = (chunk.id as string | undefined) ?? `text-${autoId++}`;
-        openTextId = id;
-        parts.push({ type: "text-start", id } as V3StreamPart);
-        break;
-      }
-      case "text-delta": {
-        if (openTextId === undefined) {
-          openTextId = `text-${autoId++}`;
-          parts.push({ type: "text-start", id: openTextId } as V3StreamPart);
-        }
-        parts.push({
-          type: "text-delta",
-          id: openTextId,
-          delta: String(chunk.text ?? ""),
-        } as V3StreamPart);
-        break;
-      }
-      case "tool-call": {
-        closeTextIfOpen();
-        // Provider-level tool calls carry a stringified-JSON `input`; the
-        // fullStream builder accepts an object, so stringify it here.
-        const input =
-          typeof chunk.input === "string"
-            ? chunk.input
-            : JSON.stringify(chunk.input ?? {});
-        parts.push({
-          type: "tool-call",
-          toolCallId: String(chunk.toolCallId),
-          toolName: String(chunk.toolName),
-          input,
-        } as V3StreamPart);
-        break;
-      }
-      case "finish": {
-        closeTextIfOpen();
-        const finishPart: V3FinishPart = {
-          type: "finish",
-          finishReason: toV3FinishReason(chunk.finishReason),
-          usage: {
-            inputTokens: {
-              total: 0,
-              noCache: 0,
-              cacheRead: 0,
-              cacheWrite: 0,
-            },
-            outputTokens: { total: 0, text: 0, reasoning: 0 },
-          },
-        };
-        parts.push(finishPart);
-        break;
-      }
-      default: {
-        // Pass through any already-provider-shaped part unchanged.
-        parts.push(chunk as unknown as V3StreamPart);
-      }
-    }
-  }
-  closeTextIfOpen();
-  return parts;
+export function createFakeModel(responses: FakeResponseStep[]) {
+  const model = fakeText();
+  const requests: TextOptions[] = [];
+  model.setResponses(
+    responses.map(
+      (step): FakeResponseStep =>
+        (call) => {
+          requests.push(call.request);
+          return typeof step === "function" ? step(call) : step;
+        },
+    ),
+  );
+  return { model, requests };
 }
 
 /**
- * Creates a CLASSIC (model-based) `BuiltInAgent` driven by a mock
- * `LanguageModelV3`, wired with the given `tools`.
- *
- * The mock model surfaces `streamChunks` (the same fullStream-style chunks used
- * by the AI-SDK factory tests — `toolCall`, `textDelta`, `finish`, …) through
- * the real `streamText` pipeline, and RECORDS the messages it was invoked with.
- * Read them via `agent.__lastModelMessages` after running the agent.
+ * A classic BuiltInAgent whose model is a fake from {@link createFakeModel}.
+ * By default the model answers one call with no text and no tool calls.
  */
-export function createClassicAgentWithTools(
-  streamChunks: MockStreamEvent[],
-  tools: ToolDefinition[],
-): ClassicAgentWithCapture {
-  const model = new MockLanguageModelV3({
-    doStream: async () => ({
-      stream: simulateReadableStream({
-        chunks: toV3StreamParts(streamChunks),
-      }),
-    }),
-  });
+export function createClassicAgent(
+  config: ClassicTestConfig = {},
+  responses: FakeResponseStep[] = [{}],
+) {
+  const { model, requests } = createFakeModel(responses);
+  const agent = new BuiltInAgent({ ...config, model });
+  return { agent, model, requests };
+}
 
-  const agent = new BuiltInAgent({ model, tools }) as ClassicAgentWithCapture;
+/** Runs a classic agent once and collects its events. */
+export async function runClassicAgent(
+  config: ClassicTestConfig = {},
+  responses: FakeResponseStep[] = [{}],
+  input?: Partial<RunAgentInput>,
+) {
+  const { agent, model, requests } = createClassicAgent(config, responses);
+  const events = await collectEvents(agent.run(createDefaultInput(input)));
+  return { events, requests, agent, model };
+}
 
-  Object.defineProperty(agent, "__lastModelMessages", {
-    configurable: true,
-    enumerable: false,
-    get() {
-      const calls = model.doStreamCalls;
-      return calls.length > 0 ? calls[calls.length - 1].prompt : undefined;
-    },
-  });
-
-  return agent;
+/** The names of the tools that one model request offered. */
+export function requestToolNames(request: TextOptions) {
+  return (request.tools ?? []).map((tool) => tool.name);
 }
 
 // ---------------------------------------------------------------------------
@@ -553,6 +473,16 @@ export async function collectEventsIncludingErrors(
 // ---------------------------------------------------------------------------
 // Typed event field accessors (avoids `as any` casts in tests)
 // ---------------------------------------------------------------------------
+
+/** The events of one type, typed as that AG-UI event. */
+export function eventsOfType<T extends EventType>(
+  events: BaseEvent[],
+  type: T,
+): Array<AGUIEventOf<T> & BaseEvent> {
+  return events.filter(
+    (event): event is AGUIEventOf<T> & BaseEvent => event.type === type,
+  );
+}
 
 /**
  * Reads a field from a BaseEvent. AG-UI's BaseEvent uses `.passthrough()` so

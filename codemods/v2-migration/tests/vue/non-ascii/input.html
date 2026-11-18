@@ -1,0 +1,12 @@
+<template>
+  <p class="status">Čeka odgovor 👋</p>
+</template>
+
+<script setup lang="ts">
+// Čeka odgovor 👋: the agent has not answered yet.
+import { useKatexStyles, OpenGenerativeUIContentSchema } from "@copilotkit/vue";
+
+useKatexStyles();
+const props = defineProps<{ value: unknown }>();
+const content = OpenGenerativeUIContentSchema.parse(props.value);
+</script>

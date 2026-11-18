@@ -41,7 +41,7 @@ Subscribe a component to the agent's state with `useAgent`. Any time the agent m
 ```vue title="src/components/SharedWorkspace.vue"
 <script setup lang="ts">
 import { computed } from "vue";
-import { useAgent, UseAgentUpdate } from "@copilotkit/vue/v2";
+import { useAgent, UseAgentUpdate } from "@copilotkit/vue";
 
 type WorkspaceState = {
   notes?: string[];
@@ -99,7 +99,7 @@ Nothing about this is chat-specific: `useAgent` works in any component under `Co
 
 ```vue title="src/App.vue"
 <script setup lang="ts">
-import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue/v2";
+import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue";
 import SharedWorkspace from "./components/SharedWorkspace.vue";
 </script>
 

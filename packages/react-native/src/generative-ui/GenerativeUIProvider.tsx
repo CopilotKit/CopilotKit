@@ -1,16 +1,16 @@
 import React, { createContext, useEffect, useRef } from "react";
 import type { ReactNode } from "react";
-import { useCopilotKit } from "@copilotkit/react-core/v2/context";
+import { useCopilotKit } from "@copilotkit/react-core/context";
 import {
   GenerativeUIHostContext,
   GenerativeUIRuntimeContext,
   GenerativeUIToolCallRenderer,
   useGenerativeUIRoot,
-} from "@copilotkit/react-core/v2/generative-ui/native";
+} from "@copilotkit/react-core/generative-ui/native";
 import type {
   GenerativeUIHost,
   GenerativeUIToolConfig as WebGenerativeUIToolConfig,
-} from "@copilotkit/react-core/v2/generative-ui/native";
+} from "@copilotkit/react-core/generative-ui/native";
 import { nativeGenerativeUIHost } from "./host";
 import {
   describeValue,
@@ -70,7 +70,7 @@ export const GenerativeUIProviderPresentContext = createContext(false);
  * your own chat list or on a home screen) or `<GenerativeUISurface id>` (a
  * named place in your app).
  *
- * The runtime needs no setup: `CopilotRuntime` adds the `render_ui` tool to
+ * The runtime needs no setup: `CopilotKitRuntime` adds the `render_ui` tool to
  * the run when the app sends a catalog with at least one component. A
  * catalog with no components gets no `render_ui` tool.
  *

@@ -38,15 +38,15 @@ Rendering runs only when you post host JSX or use the `<Render>` component. Star
     Takumi is a static, browser-free rasterizer with no system fonts, only a built-in Latin (Geist) fallback. Register the renderer, your fonts, and your compiled CSS once on `createChannel({ render })`, and every image post picks them up:
 
     ```ts title="channel.ts"
-    import { createChannel } from "@copilotkit/channels";
+    import { createChannel, HttpAgent } from "@copilotkit/channels";
     import { takumiRenderer } from "@copilotkit/channels/takumi";
     import { readFileSync } from "node:fs";
-    import { makeAgent } from "./agent.js";
 
     const channel = createChannel({
       name: "support", // managed channel configured in Intelligence
       identifyUser: "platform",
-      agent: makeAgent,
+      agent: (threadId) =>
+        new HttpAgent({ url: "http://localhost:8000/agent", threadId }),
       render: {
         renderer: takumiRenderer, // required to post images
         fonts: [
@@ -81,27 +81,38 @@ Rendering runs only when you post host JSX or use the `<Render>` component. Star
     - To combine a snapshot with native text or buttons, put the snapshot inside `<Render>`.
 
     ```tsx
-    /** @jsxImportSource @copilotkit/channels */
+    import { createChannel } from "@copilotkit/channels";
+    import { takumiRenderer } from "@copilotkit/channels/takumi";
     import { Message, Header, Section } from "@copilotkit/channels/ui";
 
-    await thread.post(
-      <Message>
-        <Header>Deploy complete</Header>
-        <Section>Shipped v2.4.0 to production.</Section>
-      </Message>,
-    );
+    const channel = createChannel({
+      name: "support",
+      identifyUser: "platform",
+      render: { renderer: takumiRenderer },
+    });
 
-    await thread.post(
-      <div style={{ display: "flex", padding: 32, backgroundColor: "white" }}>
-        <span style={{ fontSize: 48, color: "black" }}>MRR: $48,200</span>
-      </div>,
-      { altText: "Monthly recurring revenue is $48,200" },
-    );
+    channel.onMessage(async ({ thread }) => {
+      // Native: renders as Block Kit or an Adaptive Card.
+      await thread.post(
+        <Message>
+          <Header>Deploy complete</Header>
+          <Section>Shipped v2.4.0 to production.</Section>
+        </Message>,
+      );
+
+      // Host markup: rendered to a PNG and uploaded.
+      await thread.post(
+        <div style={{ display: "flex", padding: 32, backgroundColor: "white" }}>
+          <span style={{ fontSize: 48, color: "black" }}>MRR: $48,200</span>
+        </div>,
+        { altText: "Monthly recurring revenue is $48,200" },
+      );
+    });
     ```
 
     Use pure presentational components. Top-level component functions are expanded outside React's hook dispatcher, so hooks, browser APIs, and effects are unsupported. A reused native element renders again on each post or update; its output is not cached.
 
-    To check the setup, run the second `thread.post` above in a message handler. A PNG of the MRR card appears in the Slack or Teams thread.
+    To check the setup, send a message to the Channel. A PNG of the MRR card appears in the Slack or Teams thread.
 
     <Callout type="info" title="Image is URL-only">
       `<Image url>` is a public URL image. It does not take children. To put a React snapshot inside native text, buttons, or a carousel, wrap it in `<Render>`. See [Render and carousel](/channels/render-and-carousel).
@@ -115,9 +126,14 @@ Rendering runs only when you post host JSX or use the `<Render>` component. Star
     To include remote resources, opt in to an origin you control with `allowImageUrl`. This setting applies to server-side snapshot rendering; it does not restrict native `<Image url>` messages rendered by Slack or Teams.
 
     ```ts title="channel.ts"
+    import { createChannel } from "@copilotkit/channels";
+    import { takumiRenderer } from "@copilotkit/channels/takumi";
+
     const channel = createChannel({
-      // ...
+      name: "support",
+      identifyUser: "platform",
       render: {
+        renderer: takumiRenderer,
         // Allow resources only from a trusted CDN.
         allowImageUrl: (url) => new URL(url).origin === "https://cdn.example.com",
       },
@@ -134,12 +150,32 @@ Rendering runs only when you post host JSX or use the `<Render>` component. Star
     Canvas dimensions, fonts, and stylesheets can be overridden for a single post, handy for a wider dashboard, a taller card, or an extra font just for that message:
 
     ```tsx
-    await thread.post(<WideDashboard data={rows} />, { width: 1200 });
-    await thread.post(<CjkReport data={rows} />, { fonts: [notoSansJP] });
-    await thread.post(<MrrCard value="$48,200" delta={12} />, {
-      filename: "mrr.png",
-      title: "MRR",
-      altText: "Monthly recurring revenue card",
+    import { readFileSync } from "node:fs";
+    import { createChannel, type RenderFont } from "@copilotkit/channels";
+    import { takumiRenderer } from "@copilotkit/channels/takumi";
+    import { CjkReport, MrrCard, WideDashboard } from "./cards.js";
+    import { rows } from "./data.js";
+
+    const channel = createChannel({
+      name: "support",
+      identifyUser: "platform",
+      render: { renderer: takumiRenderer },
+    });
+
+    const notoSansJP = {
+      name: "Noto Sans JP",
+      data: readFileSync("./fonts/NotoSansJP-Regular.woff2"),
+      weight: 400,
+    } satisfies RenderFont;
+
+    channel.onMessage(async ({ thread }) => {
+      await thread.post(<WideDashboard data={rows} />, { width: 1200 });
+      await thread.post(<CjkReport data={rows} />, { fonts: [notoSansJP] });
+      await thread.post(<MrrCard value="$48,200" delta={12} />, {
+        filename: "mrr.png",
+        title: "MRR",
+        altText: "Monthly recurring revenue card",
+      });
     });
     ```
 
@@ -153,6 +189,15 @@ Rendering runs only when you post host JSX or use the `<Render>` component. Star
     A component nested inside a host card is resolved for you, so you can compose freely:
 
     ```tsx
+    import { createChannel } from "@copilotkit/channels";
+    import { takumiRenderer } from "@copilotkit/channels/takumi";
+
+    const channel = createChannel({
+      name: "support",
+      identifyUser: "platform",
+      render: { renderer: takumiRenderer },
+    });
+
     function Kpi({ label, value }: { label: string; value: string }) {
       return (
         <div className="flex flex-col gap-1.5 p-4 bg-card border rounded-xl">
@@ -162,12 +207,14 @@ Rendering runs only when you post host JSX or use the `<Render>` component. Star
       );
     }
 
-    await thread.post(
-      <div className="flex gap-3 p-6 bg-background">
-        <Kpi label="Stars" value="22.4k" />
-        <Kpi label="Downloads" value="118k" />
-      </div>,
-    );
+    channel.onMessage(async ({ thread }) => {
+      await thread.post(
+        <div className="flex gap-3 p-6 bg-background">
+          <Kpi label="Stars" value="22.4k" />
+          <Kpi label="Downloads" value="118k" />
+        </div>,
+      );
+    });
     ```
 
   </Step>
@@ -188,7 +235,7 @@ Image posts work on managed Slack and Teams only. On a direct adapter, an image 
 
 ## See it end to end
 
-The [`examples/slack`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/slack) app (`app/showcase/`) uses this for three "run it in your own Slack" features. Each one is a CopilotKit-branded card that the agent posts when a prompt asks for it. The agent calls the matching `render_*` tool:
+The [`examples/templates/slack`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/templates/slack) app (`app/showcase/`) uses this for three "run it in your own Slack" features. Each one is a CopilotKit-branded card that the agent posts when a prompt asks for it. The agent calls the matching `render_*` tool:
 
 - **PR review radar** (`render_pr_radar`): a card of the oldest open PRs with age-colored badges, from GitHub's public API (no token).
 - **Weekly OSS pulse** (`render_weekly_pulse`): a KPI card (stars, npm downloads, open issues) from GitHub and npm.

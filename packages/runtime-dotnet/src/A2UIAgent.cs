@@ -5,42 +5,34 @@ using System.Text.Json.Nodes;
 
 namespace CopilotKit.Intelligence;
 
-/// <summary>Runtime A2UI 0.0.10 behavior. Generation retries remain the agent adapter's responsibility.</summary>
-public sealed class A2UIOptions
+/// <summary>
+/// The A2UI v0.9 middleware of a run, aligned with AG-UI middleware 0.0.10. The runtime builds it from
+/// <see cref="GenerativeUIOptions"/>: fully configured for an agent that speaks A2UI v0.9, and for extraction
+/// of <c>{"a2ui_operations": [...]}</c> tool results only for a 1.0 agent. Generation retries remain the agent
+/// adapter's responsibility.
+/// </summary>
+internal sealed class A2UIOptions
 {
-    public bool Enabled { get; init; } = true;
-    public bool? InjectTool { get; init; }
+    public bool InjectTool { get; init; }
     public string ToolName { get; init; } = "render_a2ui";
     public IReadOnlySet<string>? ToolNames { get; init; }
-    public IReadOnlySet<string>? Agents { get; init; }
     public JsonNode? Schema { get; init; }
     public string? DefaultCatalogId { get; init; }
     public bool ShowProgressTokens { get; init; } = true;
     public int MaxAttempts { get; init; } = 3;
     public string? DebugExposure { get; init; }
-
-    /// <summary>Reads the published runtime configuration shape; invalid options fail during configuration.</summary>
-    public static A2UIOptions FromJson(JsonObject value) => new()
-    {
-        Enabled = value["enabled"]?.GetValue<bool>() ?? true,
-        InjectTool = value["injectA2UITool"] is JsonValue injection && injection.TryGetValue<bool>(out var enabled) ? enabled : value["injectA2UITool"] is null ? null : true,
-        ToolName = A2UIValidation.Text(value["injectA2UITool"]) ?? "render_a2ui",
-        ToolNames = value["a2uiToolNames"] is JsonArray names ? names.Select(node => node!.GetValue<string>()).ToHashSet(StringComparer.Ordinal) : null,
-        Agents = value["agents"] is JsonArray agents ? agents.Select(node => node!.GetValue<string>()).ToHashSet(StringComparer.Ordinal) : null,
-        Schema = value["schema"]?.DeepClone(), DefaultCatalogId = A2UIValidation.Text(value["defaultCatalogId"]),
-        ShowProgressTokens = value["recovery"]?["showProgressTokens"]?.GetValue<bool>() ?? true,
-        MaxAttempts = value["recovery"]?["maxAttempts"]?.GetValue<int>() ?? 3,
-        DebugExposure = A2UIValidation.Text(value["recovery"]?["debugExposure"])
-    };
 }
 
-/// <summary>Transforms tool calls to validated A2UI activities before Intelligence persists the stream.</summary>
-public sealed class A2UIAgent(IRuntimeAgent next, A2UIOptions options, bool providerCatalogAvailable = false) : IRuntimeAgent
+/// <summary>
+/// Transforms v0.9 render tool calls to validated <c>a2ui-surface</c> activities. The v0.9 bridge
+/// (<see cref="A2UIV09BridgeAgent"/>) converts them to A2UI 1.0 before Intelligence persists the stream.
+/// </summary>
+internal sealed class A2UIAgent(IRuntimeAgent next, A2UIOptions options) : IRuntimeAgent
 {
     public const string SchemaContextDescription = "A2UI Component Schema — available components for generating UI surfaces. Use these component names and properties when creating A2UI operations.";
     public const string BasicCatalogId = "https://a2ui.org/specification/v0_9/basic_catalog.json";
     public string Description => next.Description;
-    private bool Inject => options.InjectTool ?? providerCatalogAvailable;
+    private bool Inject => options.InjectTool;
     private sealed class Streaming(string? outer)
     {
         internal string? Outer { get; } = outer;
@@ -189,12 +181,12 @@ public sealed class A2UIAgent(IRuntimeAgent next, A2UIOptions options, bool prov
             var call = Guid.NewGuid().ToString();
             var message = $"User performed action \"{A2UIValidation.Text(action["name"]) ?? "unknown_action"}\" on surface \"{A2UIValidation.Text(action["surfaceId"]) ?? "unknown_surface"}\"";
             if (A2UIValidation.Text(action["sourceComponentId"]) is { Length: > 0 } component) message += $" (component: {component})";
-            message += ". Context: " + (action["context"]?.ToJsonString() ?? "{}");
+            message += ". Context: " + (JsonText.Truthy(action["context"]) ? JsonText.Compact(action["context"]) : "{}");
             var messages = value["messages"]!.AsArray();
-            messages.Add(new JsonObject { ["id"] = Guid.NewGuid().ToString(), ["role"] = "assistant", ["content"] = "", ["toolCalls"] = new JsonArray(new JsonObject { ["id"] = call, ["type"] = "function", ["function"] = new JsonObject { ["name"] = "log_a2ui_event", ["arguments"] = action.ToJsonString() } }) });
+            messages.Add(new JsonObject { ["id"] = Guid.NewGuid().ToString(), ["role"] = "assistant", ["content"] = "", ["toolCalls"] = new JsonArray(new JsonObject { ["id"] = call, ["type"] = "function", ["function"] = new JsonObject { ["name"] = "log_a2ui_event", ["arguments"] = JsonText.Compact(action) } }) });
             messages.Add(new JsonObject { ["id"] = Guid.NewGuid().ToString(), ["role"] = "tool", ["toolCallId"] = call, ["content"] = message });
         }
-        if (options.Schema is JsonArray { Count: > 0 } || options.Schema is JsonObject schema && schema["components"] is JsonObject { Count: > 0 }) AddContext(value, SchemaContextDescription, options.Schema.ToJsonString());
+        if (options.Schema is JsonArray { Count: > 0 } || options.Schema is JsonObject schema && schema["components"] is JsonObject { Count: > 0 }) AddContext(value, SchemaContextDescription, JsonText.Compact(options.Schema));
         if (Inject)
         {
             value["tools"] = new JsonArray(value["tools"]!.AsArray().Where(tool => A2UIValidation.Text(tool?["name"]) != options.ToolName).Select(tool => tool?.DeepClone()).Append(RenderTool()).ToArray());

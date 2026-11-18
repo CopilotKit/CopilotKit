@@ -17,10 +17,10 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import {
-  CopilotRuntime,
+  CopilotKitRuntime,
   ThreadAccessDeniedError,
-  createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
+  createCopilotKitRuntimeHandler,
+} from "@copilotkit/runtime";
 import { SqliteAgentRunner } from "..";
 
 type Callbacks = {
@@ -664,12 +664,12 @@ describe("SqliteAgentRunner behind a runtime with identifyUser", () => {
   };
 
   function makeHandler(runner: SqliteAgentRunner) {
-    const runtime = new CopilotRuntime({
+    const runtime = new CopilotKitRuntime({
       agents: { secret: new SecretAgent() },
       runner,
       identifyUser: identify,
     });
-    return createCopilotRuntimeHandler({
+    return createCopilotKitRuntimeHandler({
       runtime,
       basePath: "/api/copilotkit",
     });

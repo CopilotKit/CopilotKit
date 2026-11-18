@@ -2,7 +2,6 @@ import {
   Component,
   input,
   output,
-  signal,
   computed,
   ChangeDetectionStrategy,
   ViewEncapsulation,
@@ -20,7 +19,7 @@ import {
 import { CopilotTooltip } from "../../directives/tooltip";
 import { cn } from "../../utils";
 import { injectChatLabels } from "../../chat-config";
-import { copyToClipboard } from "@copilotkit/shared";
+import { injectCopyFeedback } from "./copy-feedback";
 
 // Base toolbar button component
 @Component({
@@ -50,29 +49,7 @@ export class CopilotChatAssistantMessageToolbarButton {
 
   computedClass = computed(() => {
     return cn(
-      // Flex centering with gap (from React button base styles)
-      "cpk:inline-flex cpk:items-center cpk:justify-center cpk:gap-2",
-      // Cursor
-      "cpk:cursor-pointer",
-      // Background and text
-      "cpk:p-0 cpk:text-[rgb(93,93,93)] cpk:hover:bg-[#E8E8E8]",
-      // Dark mode
-      "cpk:dark:text-[rgb(243,243,243)] cpk:dark:hover:bg-[#303030]",
-      // Shape and sizing
-      "cpk:h-8 cpk:w-8 cpk:rounded-md",
-      // Interactions
-      "cpk:transition-colors",
-      // Hover states
-      "cpk:hover:text-[rgb(93,93,93)]",
-      "cpk:dark:hover:text-[rgb(243,243,243)]",
-      // Focus states
-      "cpk:focus:outline-none cpk:focus:ring-2 cpk:focus:ring-offset-2",
-      // Disabled state
-      "cpk:disabled:opacity-50 cpk:disabled:cursor-not-allowed",
-      // SVG styling from React Button component
-      "cpk:[&_svg]:pointer-events-none cpk:[&_svg]:shrink-0",
-      // Ensure proper sizing
-      "cpk:shrink-0",
+      "cpk-button cpk-button-assistant-message-toolbar cpk-button-size-default",
       this.inputClass(),
     );
   });
@@ -93,9 +70,15 @@ export class CopilotChatAssistantMessageToolbarButton {
       (click)="handleCopy($event)"
     >
       @if (copied()) {
-        <copilot-icon [img]="CheckIcon" [size]="18"></copilot-icon>
+        <copilot-icon
+          [img]="CheckIcon"
+          iconClass="cpk-assistant-message-toolbar-icon"
+        ></copilot-icon>
       } @else {
-        <copilot-icon [img]="CopyIcon" [size]="18"></copilot-icon>
+        <copilot-icon
+          [img]="CopyIcon"
+          iconClass="cpk-assistant-message-toolbar-icon"
+        ></copilot-icon>
       }
     </button>
   `,
@@ -105,22 +88,17 @@ export class CopilotChatAssistantMessageCopyButton {
   readonly disabled = input<boolean>(false);
   readonly inputClass = input<string | undefined>();
   readonly content = input<string | undefined>();
-  readonly clicked = output<void>();
+  readonly clicked = output();
   readonly CopyIcon = Copy;
   readonly CheckIcon = Check;
-  readonly copied = signal(false);
+  readonly #copyFeedback = injectCopyFeedback();
+  readonly copied = this.#copyFeedback.copied;
   readonly labels = injectChatLabels();
 
   handleCopy(event?: Event): void {
     event?.stopPropagation();
-    if (!this.content()) return;
-
-    copyToClipboard(this.content()!).then((success) => {
-      if (success) {
-        this.copied.set(true);
-        this.clicked.emit();
-        setTimeout(() => this.copied.set(false), 2000);
-      }
+    void this.#copyFeedback.copy(this.content() ?? "").then((copied) => {
+      if (copied) this.clicked.emit();
     });
   }
 }
@@ -139,7 +117,10 @@ export class CopilotChatAssistantMessageCopyButton {
       [inputClass]="inputClass()"
       (click)="handleClick($event)"
     >
-      <copilot-icon [img]="ThumbsUpIcon" [size]="18"></copilot-icon>
+      <copilot-icon
+        [img]="ThumbsUpIcon"
+        iconClass="cpk-assistant-message-toolbar-icon"
+      ></copilot-icon>
     </button>
   `,
 })
@@ -147,7 +128,7 @@ export class CopilotChatAssistantMessageThumbsUpButton {
   readonly title = input<string | undefined>();
   readonly disabled = input<boolean>(false);
   readonly inputClass = input<string | undefined>();
-  readonly clicked = output<void>();
+  readonly clicked = output();
   readonly ThumbsUpIcon = ThumbsUp;
   readonly labels = injectChatLabels();
 
@@ -173,7 +154,10 @@ export class CopilotChatAssistantMessageThumbsUpButton {
       [inputClass]="inputClass()"
       (click)="handleClick($event)"
     >
-      <copilot-icon [img]="ThumbsDownIcon" [size]="18"></copilot-icon>
+      <copilot-icon
+        [img]="ThumbsDownIcon"
+        iconClass="cpk-assistant-message-toolbar-icon"
+      ></copilot-icon>
     </button>
   `,
 })
@@ -181,7 +165,7 @@ export class CopilotChatAssistantMessageThumbsDownButton {
   readonly title = input<string | undefined>();
   readonly disabled = input<boolean>(false);
   readonly inputClass = input<string | undefined>();
-  readonly clicked = output<void>();
+  readonly clicked = output();
   readonly ThumbsDownIcon = ThumbsDown;
   readonly labels = injectChatLabels();
 
@@ -207,7 +191,10 @@ export class CopilotChatAssistantMessageThumbsDownButton {
       [inputClass]="inputClass()"
       (click)="handleClick($event)"
     >
-      <copilot-icon [img]="Volume2Icon" [size]="20"></copilot-icon>
+      <copilot-icon
+        [img]="Volume2Icon"
+        iconClass="cpk-assistant-message-read-aloud-icon"
+      ></copilot-icon>
     </button>
   `,
 })
@@ -215,7 +202,7 @@ export class CopilotChatAssistantMessageReadAloudButton {
   readonly title = input<string | undefined>();
   readonly disabled = input<boolean>(false);
   readonly inputClass = input<string | undefined>();
-  readonly clicked = output<void>();
+  readonly clicked = output();
   readonly Volume2Icon = Volume2;
   readonly labels = injectChatLabels();
 
@@ -241,7 +228,10 @@ export class CopilotChatAssistantMessageReadAloudButton {
       [inputClass]="inputClass()"
       (click)="handleClick($event)"
     >
-      <copilot-icon [img]="RefreshCwIcon" [size]="18"></copilot-icon>
+      <copilot-icon
+        [img]="RefreshCwIcon"
+        iconClass="cpk-assistant-message-toolbar-icon"
+      ></copilot-icon>
     </button>
   `,
 })
@@ -249,7 +239,7 @@ export class CopilotChatAssistantMessageRegenerateButton {
   readonly title = input<string | undefined>();
   readonly disabled = input<boolean>(false);
   readonly inputClass = input<string | undefined>();
-  readonly clicked = output<void>();
+  readonly clicked = output();
   readonly RefreshCwIcon = RefreshCw;
   readonly labels = injectChatLabels();
 

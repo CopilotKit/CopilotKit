@@ -45,7 +45,6 @@ function setup(overrides: Partial<CollectorOptions> = {}) {
   };
   const collector = createCollector({
     sink,
-    routes: ["/learning/deals/:id"],
     ...overrides,
   });
   stopCurrent = () => collector.stop();

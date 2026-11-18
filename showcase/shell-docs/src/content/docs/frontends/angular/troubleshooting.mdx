@@ -100,9 +100,19 @@ Mutation methods return promises. Handle rejection and confirm before permanent
 deletion:
 
 ```ts
-await threads.renameThread(threadId, nextName).catch((error) => {
-  console.error("Thread rename failed", error);
-});
+import { Component } from "@angular/core";
+import { injectThreads } from "@copilotkit/angular";
+
+@Component({ selector: "app-thread-list", template: `` })
+export class ThreadListComponent {
+  readonly threads = injectThreads({ agentId: "default" });
+
+  async rename(threadId: string, nextName: string) {
+    await this.threads.renameThread(threadId, nextName).catch((error) => {
+      console.error("Thread rename failed", error);
+    });
+  }
+}
 ```
 
 See [`injectThreads`](/reference/angular/functions/injectThreads) for loading,

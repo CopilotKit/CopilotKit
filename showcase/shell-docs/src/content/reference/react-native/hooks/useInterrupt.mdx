@@ -13,7 +13,7 @@ description: "React hook for handling agent interrupt events and resuming execut
 In your `render` callback, call `resolve(payload)` to resume or `cancel()` to cancel. See [`render`](#parameters) for every prop it receives. For a pause that is a tool call, use [`useHumanInTheLoop`](/reference/react-native/hooks/useHumanInTheLoop).
 
 <Callout type="info">
-  Re-exported from `@copilotkit/react-core/v2`. It is identical to the [React (V2) `useInterrupt`](/reference/v2/hooks/useInterrupt); only the import path differs.
+  Re-exported from `@copilotkit/react-core`. It is identical to the [React `useInterrupt`](/reference/hooks/useInterrupt); only the import path differs.
 </Callout>
 
 The prebuilt [`CopilotChat`](/reference/react-native/components/CopilotChat#prebuilt-ui) and [`CopilotModal`](/reference/react-native/components/CopilotModal) from `@copilotkit/react-native/components` draw the in-chat interrupt element after the last message. The headless `CopilotChat`, `CopilotPopup`, and `CopilotSidebar` do not. With those, pass `renderInChat: false`, and the hook returns the element so you can render it in your own view. The element returned by `render` is a React Native element.
@@ -23,18 +23,22 @@ The prebuilt [`CopilotChat`](/reference/react-native/components/CopilotChat#preb
 ## Signature
 
 ```tsx
-import { useInterrupt } from "@copilotkit/react-native";
+import type { ReactElement } from "react";
+import {
+  useInterrupt,
+  type UseInterruptConfig,
+} from "@copilotkit/react-native";
 
-function useInterrupt<
+useInterrupt satisfies <
   TResult = never,
   TRenderInChat extends boolean | undefined = undefined,
 >(
-  config: UseInterruptConfig<any, TResult, TRenderInChat>,
-): TRenderInChat extends false
-  ? React.ReactElement | null
+  config: UseInterruptConfig<unknown, TResult, TRenderInChat>,
+) => TRenderInChat extends false
+  ? ReactElement | null
   : TRenderInChat extends true | undefined
     ? void
-    : React.ReactElement | null | void;
+    : ReactElement | null | void;
 ```
 
 ## Parameters

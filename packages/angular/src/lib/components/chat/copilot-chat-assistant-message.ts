@@ -9,14 +9,16 @@ import {
   ViewEncapsulation,
   Optional,
   Inject,
+  inject,
   input,
   output,
   InjectionToken,
-  inject,
 } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { CopilotSlot } from "../../slots/copilot-slot";
 import { CopilotChatToolCallsView } from "./copilot-chat-tool-calls-view";
+import { CopilotCollapsible } from "../tools/tool-call-parts";
+import { TOOL_CALL_DISPLAY_CONTEXT } from "./tool-call-display-context";
 import type { Message } from "@ag-ui/core";
 import {
   type AssistantMessage,
@@ -39,7 +41,18 @@ import {
   CopilotChatAssistantMessageThumbsDownButton,
 } from "./copilot-chat-assistant-message-buttons";
 import { CopilotChatAssistantMessageToolbar } from "./copilot-chat-assistant-message-toolbar";
+import {
+  CopilotChatInspectorButton,
+  inspectorShortcutsHidden,
+} from "./copilot-chat-inspector-button";
+import { CopilotInspector } from "../../inspector";
+import {
+  ɵhasAssistantMessageText,
+  ɵshouldShowAssistantToolbar,
+} from "@copilotkit/core";
+import { COPILOT_CHAT_CONFIGURATION } from "../../chat-configuration";
 import { cn } from "../../utils";
+import { hostStyles } from "../host-styles";
 import { CopilotChatViewHandlers } from "./copilot-chat-view-handlers";
 
 /**
@@ -58,14 +71,16 @@ export const ɵCOPILOTKIT_ASSISTANT_MARKDOWN_RENDERER =
 
 @Component({
   selector: "copilot-chat-assistant-message",
-  host: { "data-copilotkit": "", class: "cpk:block cpk:w-full" },
+  host: { "data-copilotkit": "" },
   imports: [
     CommonModule,
     CopilotSlot,
     CopilotChatAssistantMessageRenderer,
     CopilotChatAssistantMessageCopyButton,
     CopilotChatAssistantMessageToolbar,
+    CopilotChatInspectorButton,
     CopilotChatToolCallsView,
+    CopilotCollapsible,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
@@ -77,29 +92,54 @@ export const ɵCOPILOTKIT_ASSISTANT_MARKDOWN_RENDERER =
       data-message-role="assistant"
       role="article"
     >
-      <!-- Markdown Renderer -->
-      @if (
-        markdownRendererTemplate ||
-        markdownRendererComponent() ||
-        defaultMarkdownRenderer
-      ) {
-        <copilot-slot
-          [slot]="
+      <!-- In the "turn" display, text in a reply's working phase is narration:
+           it fades once a call follows it and folds away with the work. -->
+      @if (workTextDisplay()) {
+        <div
+          [copilotCollapsible]="workTextOpen() ?? true"
+          class="cpk-assistant-message-work-text"
+        >
+          <div
+            class="cpk-assistant-message-work-text-content"
+            [attr.data-work-text]="
+              workTextOpen() === undefined ? 'reply' : 'narration'
+            "
+          >
+            <ng-container *ngTemplateOutlet="markdown" />
+          </div>
+        </div>
+      } @else {
+        <ng-container *ngTemplateOutlet="markdown" />
+      }
+
+      <ng-template #markdown>
+        <!-- Markdown Renderer -->
+        <div class="cpk-markdown cpk-assistant-message-markdown">
+          @if (
             markdownRendererTemplate ||
             markdownRendererComponent() ||
             defaultMarkdownRenderer
-          "
-          [context]="markdownRendererContext()"
-          [defaultComponent]="CopilotChatAssistantMessageRenderer"
-        >
-        </copilot-slot>
-      } @else {
-        <copilot-chat-assistant-message-renderer
-          [content]="message().content || ''"
-          [inputClass]="markdownRendererClass()"
-        >
-        </copilot-chat-assistant-message-renderer>
-      }
+          ) {
+            <copilot-slot
+              [slot]="
+                markdownRendererTemplate ||
+                markdownRendererComponent() ||
+                defaultMarkdownRenderer
+              "
+              [context]="markdownRendererContext()"
+              [defaultComponent]="CopilotChatAssistantMessageRenderer"
+            >
+            </copilot-slot>
+          } @else {
+            <copilot-chat-assistant-message-renderer
+              [content]="message().content || ''"
+              [isStreaming]="isStreaming()"
+              [inputClass]="markdownRendererClass()"
+            >
+            </copilot-chat-assistant-message-renderer>
+          }
+        </div>
+      </ng-template>
 
       <!-- Tool Calls View -->
       @if (toolCallsViewTemplate || toolCallsViewComponent()) {
@@ -119,8 +159,8 @@ export const ɵCOPILOTKIT_ASSISTANT_MARKDOWN_RENDERER =
         </copilot-chat-tool-calls-view>
       }
 
-      <!-- Toolbar: show only when there is assistant text content -->
-      @if (toolbarVisible() && hasMessageContent()) {
+      <!-- Toolbar: hidden while this message streams; needs text or the Inspector shortcut -->
+      @if (shouldShowToolbar()) {
         @if (toolbarTemplate || toolbarComponent()) {
           <copilot-slot
             [slot]="toolbarTemplate || toolbarComponent()"
@@ -130,7 +170,7 @@ export const ɵCOPILOTKIT_ASSISTANT_MARKDOWN_RENDERER =
           </copilot-slot>
         } @else {
           <div copilotChatAssistantMessageToolbar [inputClass]="toolbarClass()">
-            <div class="cpk:flex cpk:items-center cpk:gap-1">
+            <div class="cpk-assistant-message-toolbar-items">
               <!-- Copy button -->
               @if (copyButtonTemplate || copyButtonComponent()) {
                 <copilot-slot
@@ -205,178 +245,23 @@ export const ɵCOPILOTKIT_ASSISTANT_MARKDOWN_RENDERER =
                   [ngTemplateOutlet]="additionalToolbarItems() || null"
                 ></ng-container>
               }
+
+              <!-- Inspector shortcut, only while the Inspector is enabled -->
+              <copilot-chat-inspector-button
+                [messageId]="message().id"
+                [threadId]="chatConfiguration?.threadId()"
+                [agentId]="agentId() ?? chatConfiguration?.agentId()"
+              />
             </div>
           </div>
         }
       }
     </div>
   `,
-  styles: [
-    `
-      /* Import KaTeX styles */
-      @import "katex/dist/katex.min.css";
-
-      /* Atom One Light theme for highlight.js */
-      .hljs {
-        color: rgb(56, 58, 66);
-        background: transparent;
-      }
-
-      .hljs-comment,
-      .hljs-quote {
-        color: #a0a1a7;
-        font-style: italic;
-      }
-
-      .hljs-doctag,
-      .hljs-formula,
-      .hljs-keyword {
-        color: #a626a4;
-      }
-
-      .hljs-deletion,
-      .hljs-name,
-      .hljs-section,
-      .hljs-selector-tag,
-      .hljs-subst {
-        color: #e45649;
-      }
-
-      .hljs-literal {
-        color: #0184bb;
-      }
-
-      .hljs-addition,
-      .hljs-attribute,
-      .hljs-meta .hljs-string,
-      .hljs-regexp,
-      .hljs-string {
-        color: #50a14f;
-      }
-
-      .hljs-attr,
-      .hljs-number,
-      .hljs-selector-attr,
-      .hljs-selector-class,
-      .hljs-selector-pseudo,
-      .hljs-template-variable,
-      .hljs-type,
-      .hljs-variable {
-        color: #986801;
-      }
-
-      .hljs-params {
-        color: rgb(56, 58, 66);
-      }
-
-      .hljs-bullet,
-      .hljs-link,
-      .hljs-meta,
-      .hljs-selector-id,
-      .hljs-symbol,
-      .hljs-title {
-        color: #4078f2;
-      }
-
-      .hljs-built_in,
-      .hljs-class .hljs-title,
-      .hljs-title.class_ {
-        color: #c18401;
-      }
-
-      .hljs-emphasis {
-        font-style: italic;
-      }
-
-      .hljs-strong {
-        font-weight: 700;
-      }
-
-      .hljs-link {
-        text-decoration: underline;
-      }
-
-      /* Atom One Dark theme for highlight.js */
-      .dark .hljs {
-        color: #abb2bf;
-        background: transparent;
-      }
-
-      .dark .hljs-comment,
-      .dark .hljs-quote {
-        color: #5c6370;
-        font-style: italic;
-      }
-
-      .dark .hljs-doctag,
-      .dark .hljs-formula,
-      .dark .hljs-keyword {
-        color: #c678dd;
-      }
-
-      .dark .hljs-deletion,
-      .dark .hljs-name,
-      .dark .hljs-section,
-      .dark .hljs-selector-tag,
-      .dark .hljs-subst {
-        color: #e06c75;
-      }
-
-      .dark .hljs-literal {
-        color: #56b6c2;
-      }
-
-      .dark .hljs-addition,
-      .dark .hljs-attribute,
-      .dark .hljs-meta .hljs-string,
-      .dark .hljs-regexp,
-      .dark .hljs-string {
-        color: #98c379;
-      }
-
-      .dark .hljs-attr,
-      .dark .hljs-number,
-      .dark .hljs-selector-attr,
-      .dark .hljs-selector-class,
-      .dark .hljs-selector-pseudo,
-      .dark .hljs-template-variable,
-      .dark .hljs-type,
-      .dark .hljs-variable {
-        color: #d19a66;
-      }
-
-      .dark .hljs-bullet,
-      .dark .hljs-link,
-      .dark .hljs-meta,
-      .dark .hljs-selector-id,
-      .dark .hljs-symbol,
-      .dark .hljs-title {
-        color: #61aeee;
-      }
-
-      .dark .hljs-built_in,
-      .dark .hljs-class .hljs-title,
-      .dark .hljs-title.class_ {
-        color: #e6c07b;
-      }
-
-      .dark .hljs-params {
-        color: #abb2bf; /* same as regular text */
-      }
-
-      .dark .hljs-emphasis {
-        font-style: italic;
-      }
-
-      .dark .hljs-strong {
-        font-weight: 700;
-      }
-
-      .dark .hljs-link {
-        text-decoration: underline;
-      }
-    `,
-  ],
+  styles: [hostStyles],
+  // Generated before build, test and type checking: KaTeX's CSS with only the
+  // woff2 fonts, so the package embeds 20 font files instead of 60.
+  styleUrl: "./katex/katex.css",
 })
 export class CopilotChatAssistantMessage {
   // Capture templates from content projection
@@ -431,6 +316,9 @@ export class CopilotChatAssistantMessage {
   // DI service exposes handler availability scoped to CopilotChatView
   // Make it optional with a default fallback for testing
   handlers: CopilotChatViewHandlers;
+  protected readonly chatConfiguration = inject(COPILOT_CHAT_CONFIGURATION, {
+    optional: true,
+  });
 
   constructor(
     @Optional()
@@ -452,7 +340,7 @@ export class CopilotChatAssistantMessage {
   // Computed values
   computedClass = computed(() => {
     return cn(
-      "copilotKitMessage copilotKitAssistantMessage cpk:prose cpk:max-w-full cpk:break-words cpk:dark:prose-invert",
+      "copilotKitMessage copilotKitAssistantMessage",
       this.customClass(),
       this.inputClass(),
     );
@@ -471,12 +359,21 @@ export class CopilotChatAssistantMessage {
     CopilotChatAssistantMessageCopyButton;
   protected readonly CopilotChatToolCallsView = CopilotChatToolCallsView;
 
+  // Like React: only the latest assistant message streams while running.
+  readonly isStreaming = computed(() => {
+    const messages = this.messages();
+    return (
+      this.isLoading() &&
+      messages[messages.length - 1]?.id === this.message().id
+    );
+  });
+
   // Context for slots (reactive via signals)
   markdownRendererContext = computed<AssistantMessageMarkdownRendererContext>(
     () => ({
       content: this.message()?.content || "",
       messageId: this.message()?.id,
-      isStreaming: this.isLoading(),
+      isStreaming: this.isStreaming(),
     }),
   );
   /** The renderer a secondary entry point provides, or null. */
@@ -496,9 +393,34 @@ export class CopilotChatAssistantMessage {
   }));
 
   // Return true if assistant message has non-empty text content
-  hasMessageContent(): boolean {
-    return (this.message()?.content ?? "").trim().length > 0;
+  hasMessageContent() {
+    return ɵhasAssistantMessageText(this.message()?.content);
   }
+
+  readonly #inspector = inject(CopilotInspector);
+  readonly #toolCallDisplay = inject(TOOL_CALL_DISPLAY_CONTEXT, {
+    optional: true,
+  });
+  /** Inside a message view with the `"turn"` tool-call display. */
+  protected readonly workTextDisplay = computed(
+    () => this.#toolCallDisplay?.display() === "turn",
+  );
+  /** `"turn"` display: whether this message's narration shows, or `undefined` for the reply. */
+  protected readonly workTextOpen = computed(() =>
+    this.#toolCallDisplay?.workTextOpen().get(this.message().id),
+  );
+
+  /** Core's toolbar rule: also hides it while the latest message streams. */
+  readonly shouldShowToolbar = computed(() =>
+    ɵshouldShowAssistantToolbar({
+      toolbarVisible: this.toolbarVisible(),
+      hasContent: this.hasMessageContent(),
+      showInspectorShortcut:
+        this.#inspector.isInspectorEnabled && !inspectorShortcutsHidden(),
+      isRunning: this.isLoading(),
+      isLatest: this.messages().at(-1)?.id === this.message().id,
+    }),
+  );
 
   toolCallsViewContext = computed(() => ({
     message: this.message(),

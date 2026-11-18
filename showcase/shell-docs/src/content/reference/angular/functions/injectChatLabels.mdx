@@ -12,9 +12,9 @@ It reads the `COPILOT_CHAT_LABELS` injection token (optionally), so it must run 
 ## Signature
 
 ```ts
-import { injectChatLabels } from "@copilotkit/angular";
+import { injectChatLabels, type CopilotChatLabels } from "@copilotkit/angular";
 
-function injectChatLabels(): CopilotChatLabels;
+injectChatLabels satisfies () => CopilotChatLabels;
 ```
 
 ## Return Value

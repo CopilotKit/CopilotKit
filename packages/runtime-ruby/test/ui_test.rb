@@ -25,7 +25,7 @@ class UITest < Minitest::Test
     schema = { 'components' => { 'Text' => { 'required' => ['text'] } } }
     run_input = input
     run_input['forwardedProps']['a2uiAction'] = { 'userAction' => { 'name' => 'save', 'surfaceId' => 's' } }
-    CopilotKit::UIAgent.new(agent: agent, a2ui: { 'injectA2UITool' => true, 'schema' => schema }).each_event(run_input) { |_| }
+    CopilotKit::UIAgent.new(agent: agent, generative_ui: { 'a2uiVersion' => '0.9', 'injectA2UITool' => true, 'schema' => schema }).each_event(run_input) { |_| }
     assert_equal 'render_a2ui', agent.input['tools'].first&.fetch('name')
     assert_equal 'log_a2ui_event', agent.input['messages'].first.dig('toolCalls', 0, 'function', 'name')
     assert_equal 2, agent.input['messages'].size
@@ -43,11 +43,15 @@ class UITest < Minitest::Test
       { 'type' => 'RUN_FINISHED' }
     ]
     output = []
-    CopilotKit::UIAgent.new(agent: ScriptAgent.new(events), a2ui: { 'defaultCatalogId' => 'app' }).each_event(input) { |event| output << event }
+    CopilotKit::UIAgent.new(agent: ScriptAgent.new(events), generative_ui: { 'a2uiVersion' => '0.9', 'defaultCatalogId' => 'app' }).each_event(input) { |event| output << event }
+    refute output.any? { |event| event['activityType'] == 'a2ui-surface' }
     snapshots = output.select { |event| event['type'] == 'ACTIVITY_SNAPSHOT' }
-    assert_equal ['a2ui-surface-call'], snapshots.map { |event| event['messageId'] }.uniq
-    painted = snapshots.filter_map { |event| event.dig('content', 'a2ui_operations') }
-    assert painted.all? { |ops| ops.any? { |op| op['updateComponents'] } }
+    assert_equal ['genui:s'], snapshots.map { |event| event['messageId'] }.uniq
+    assert snapshots.all? { |event| event.dig('content', 'catalogId') == 'app' && event.dig('content', 'a2uiSourceVersion') == '0.9' }
+    painted = snapshots.map { |event| event.dig('content', 'operations') }
+    assert painted.all? { |ops| ops.all? { |op| op['version'] == '1.0' } && ops.any? { |op| op['updateComponents'] } }
+    item = painted.last.find { |op| op['updateComponents'] }.dig('updateComponents', 'components', 1)
+    assert_equal({ 'id' => 'item', 'component' => 'Text', 'text' => { '@path' => 'name' } }, item)
     data = painted.filter_map { |ops| ops.find { |op| op['updateDataModel'] }&.dig('updateDataModel', 'value', 'items') }
     assert_equal [1, 2], data.map(&:size)
     assert_equal 'TOOL_CALL_RESULT', output[-2]['type']
@@ -61,9 +65,9 @@ class UITest < Minitest::Test
       { 'type' => 'RUN_FINISHED' }
     ]
     output = []
-    CopilotKit::UIAgent.new(agent: ScriptAgent.new(events), a2ui: {}).each_event(input) { |event| output << event }
-    refute output.any? { |event| event.dig('content', 'a2ui_operations') if event['content'].is_a?(Hash) }
-    assert output.any? { |event| event.dig('content', 'status') == 'retrying' if event['content'].is_a?(Hash) }
+    CopilotKit::UIAgent.new(agent: ScriptAgent.new(events), generative_ui: { 'a2uiVersion' => '0.9' }).each_event(input) { |event| output << event }
+    refute output.any? { |event| event['type'].start_with?('ACTIVITY_') }
+    assert_equal %w[TOOL_CALL_START TOOL_CALL_ARGS TOOL_CALL_RESULT RUN_FINISHED], output.map { |event| event['type'] }
   end
 
   def test_mcp_proxy_unknown_server_never_invokes_agent
@@ -175,7 +179,7 @@ class UITest
   def test_nullable_optional_arrays_are_normalized_before_middleware
     agent = ScriptAgent.new([])
     run_input = input.merge('tools' => nil, 'context' => nil, 'messages' => [{ 'id' => 'm', 'role' => 'assistant', 'toolCalls' => nil }, { 'id' => 'user', 'role' => 'user', 'content' => 'hello' }])
-    CopilotKit::UIAgent.new(agent: agent, a2ui: { 'injectA2UITool' => true }).each_event(run_input) { |_| }
+    CopilotKit::UIAgent.new(agent: agent, generative_ui: { 'a2uiVersion' => '0.9', 'injectA2UITool' => true }).each_event(run_input) { |_| }
     assert_kind_of Array, agent.input['tools']
     assert_kind_of Array, agent.input['context']
     assert_nil run_input['messages'][0]['toolCalls']

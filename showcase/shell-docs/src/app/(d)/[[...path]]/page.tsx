@@ -16,16 +16,50 @@ import {
   resolveLivePage,
   unsupportedRedirect,
 } from "@/lib/live-docs";
+import { JsonLd } from "@/components/json-ld";
 import { absoluteUrl } from "@/lib/seo/base-url";
 import {
   HOME_DESCRIPTION,
   HOME_TITLE,
   liveDocMetadata,
 } from "@/lib/seo/metadata";
+import {
+  breadcrumbJsonLd,
+  docPageJsonLd,
+  homeJsonLd,
+} from "@/lib/seo/structured-data";
+
+/**
+ * The breadcrumb trail for a canonical path (`/concepts/when-to-use`): each
+ * parent path that is a page of its own, then the page itself. A parent with
+ * no page (`/concepts`) is left out.
+ */
+function breadcrumbTrail(canonical: string, title: string) {
+  const segments = canonical.split("/").filter(Boolean);
+  const trail: { name: string; path: string }[] = [];
+  for (let i = 1; i < segments.length; i++) {
+    const parent = resolveLivePage(segments.slice(0, i));
+    const path = `/${segments.slice(0, i).join("/")}`;
+    if (!parent || parent.canonical !== path) continue;
+    trail.push({
+      name: parent.overview?.frameworkName ?? parent.page.data.title,
+      path,
+    });
+  }
+  trail.push({ name: title, path: canonical });
+  return trail;
+}
 
 export default async function Page({ params }: PageProps<"/[[...path]]">) {
   const { path = [] } = await params;
-  if (path.length === 0) return <DHome />;
+  if (path.length === 0) {
+    return (
+      <>
+        <JsonLd data={homeJsonLd()} />
+        <DHome />
+      </>
+    );
+  }
   if (path.length === 1 && path[0] === "examples") {
     return (
       <Suspense>
@@ -37,9 +71,43 @@ export default async function Page({ params }: PageProps<"/[[...path]]">) {
   // The live docs, ported from shell-docs, at their docs.copilotkit.ai URLs.
   const live = resolveLivePage(path);
   if (live?.overview) {
-    return <FrameworkLanding {...live} overview={live.overview} />;
+    return (
+      <>
+        <JsonLd
+          data={docPageJsonLd({
+            title: live.overview.frameworkName,
+            description: live.overview.subheader,
+            path: live.canonical,
+          })}
+        />
+        <JsonLd
+          data={breadcrumbJsonLd(
+            breadcrumbTrail(live.canonical, live.overview.frameworkName),
+          )}
+        />
+        <FrameworkLanding {...live} overview={live.overview} />
+      </>
+    );
   }
-  if (live) return <LiveArticle {...live} url={`/${path.join("/")}`} />;
+  if (live) {
+    return (
+      <>
+        <JsonLd
+          data={docPageJsonLd({
+            title: live.page.data.title,
+            description: live.page.data.description,
+            path: live.canonical,
+          })}
+        />
+        <JsonLd
+          data={breadcrumbJsonLd(
+            breadcrumbTrail(live.canonical, live.page.data.title),
+          )}
+        />
+        <LiveArticle {...live} url={`/${path.join("/")}`} />
+      </>
+    );
+  }
 
   // The standard catalog's per-component pages, generated from the catalog
   // itself, as on docs.copilotkit.ai (`/generative-ui/components/standard-catalog/box`).

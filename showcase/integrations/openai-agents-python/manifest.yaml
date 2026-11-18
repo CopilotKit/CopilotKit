@@ -570,4 +570,4 @@ demos:
       - src/app/api/copilotkit-ogui/route.ts
 
 starter_validation:
-  path: examples/integrations/openai-agents-python
+  path: examples/starters/openai-agents-python

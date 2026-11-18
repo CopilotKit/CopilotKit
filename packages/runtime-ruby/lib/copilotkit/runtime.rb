@@ -6,6 +6,7 @@ require 'securerandom'
 require 'thread'
 require_relative 'telemetry'
 require_relative 'intelligence'
+require_relative 'generative_ui'
 
 module CopilotKit
   # Rack endpoint. Mount directly in Rails routes with `mount runtime => '/copilotkit'`.
@@ -15,7 +16,7 @@ module CopilotKit
     def initialize(api_key: nil, identify_user:, intelligence: nil, api_url: nil,
                    runner_url: nil, client_url: nil, agents: {},
                    base_path: '', memory_access: nil, telemetry: nil, cors_origins: [],
-                   learning_container: nil, a2ui: nil, mcp_apps: nil, on_error: nil,
+                   learning_container: nil, generative_ui: nil, mcp_apps: nil, on_error: nil,
                    lock_heartbeat_interval: 15, lock_ttl: 20, license_token: nil)
       api_key ||= intelligence&.api_key
       api_url ||= intelligence&.api_url || Intelligence::API_URL
@@ -30,7 +31,7 @@ module CopilotKit
       @platform = @intelligence
       @api_key = api_key
       @identify_user, @agents, @base_path = identify_user, agents, base_path.sub(%r{/$}, '')
-      @a2ui = a2ui == true ? {} : a2ui
+      @generative_ui = GenerativeUI.validate_option!(generative_ui)
       @mcp_servers = (mcp_apps || {}).fetch('servers', [])
       @runner_url, @client_url = runner_url, client_url
       @memory_access = memory_access
@@ -210,9 +211,9 @@ module CopilotKit
         'intelligence' => { 'wsUrl' => @client_url }, 'runtimeEntitlements' => entitlement,
         'licenseStatus' => license_status,
         'threadEndpoints' => { 'list' => true, 'inspect' => true, 'mutations' => true, 'realtimeMetadata' => true },
-        'audioFileTranscriptionEnabled' => false, 'a2uiEnabled' => !!@a2ui && @a2ui['enabled'] != false, 'openGenerativeUIEnabled' => false,
+        'audioFileTranscriptionEnabled' => false, 'openGenerativeUIEnabled' => false,
+        'generativeUI' => GenerativeUI.info(@generative_ui),
         'suggestions' => false, 'telemetryDisabled' => @telemetry.disabled? }
-      result['a2ui'] = { 'enabled' => true }.merge(@a2ui.slice('agents')) if result['a2uiEnabled']
       result['inspectorMetadata'] = true
       result
     end
@@ -347,9 +348,8 @@ module CopilotKit
         end
         %w[threadId runId joinToken].each { |field| raise Error.new(502, 'Invalid platform lock response') unless lock[field].is_a?(String) && !lock[field].empty? }
         canonical = input.merge('threadId' => lock['threadId'], 'runId' => lock['runId'])
-        a2ui = @a2ui if @a2ui && @a2ui['enabled'] != false && (!@a2ui['agents'] || @a2ui['agents'].include?(agent_id))
         servers = @mcp_servers.select { |server| !server['agentId'] || server['agentId'] == agent_id }
-        agent = UIAgent.new(agent: @agents.fetch(agent_id), a2ui: a2ui, mcp_servers: servers)
+        agent = UIAgent.new(agent: @agents.fetch(agent_id), agent_id: agent_id, generative_ui: @generative_ui, mcp_servers: servers)
         runner = Runner.new(platform: @platform, url: @runner_url, auth_token: @api_key, lock: lock, agent: agent, input: canonical, messages: [], telemetry: @telemetry, on_error: @on_error, heartbeat_interval: @lock_heartbeat_interval, lock_ttl: @lock_ttl)
         runner.start_lease
         history = @platform.request('GET', "/api/threads/#{escaped(lock['threadId'])}/messages?userId=#{escaped(user['id'])}&fields=id").fetch('messages')

@@ -32,8 +32,6 @@ export interface TrajectoryError {
 }
 
 export interface TrajectoryCaptureOptions {
-  /** @deprecated Capture retains raw URLs; route templates no longer transform events. */
-  routes?: string[];
   capture?: CaptureOptions;
   /** Explicit app exclusions, plus Core transport URLs to prevent self-capture. */
   ignoreUrls?: (string | RegExp)[];

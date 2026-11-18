@@ -173,10 +173,10 @@ describe("RunHandler missing-parameters warning (PE-109)", () => {
   });
 
   /**
-   * The existing duplicate-name guard short-circuits `addTool`. A registration
-   * that never lands must not produce a warning about its schema.
+   * A second registration of the same name shadows the first, so the model
+   * now sees the second tool's schema. Its missing schema must be reported.
    */
-  it("does not warn for a registration the duplicate guard rejects", () => {
+  it("warns for a shadowing registration that has no schema", () => {
     const runHandler = createRunHandler();
 
     runHandler.addTool({
@@ -186,6 +186,8 @@ describe("RunHandler missing-parameters warning (PE-109)", () => {
     });
     runHandler.addTool({ name: "sayHello", description: "second" });
 
-    expect(missingParameterWarnings(warn)).toHaveLength(0);
+    const warnings = missingParameterWarnings(warn);
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toContain("'sayHello'");
   });
 });

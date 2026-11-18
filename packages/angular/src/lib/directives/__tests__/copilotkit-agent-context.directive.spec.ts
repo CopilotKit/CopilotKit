@@ -39,7 +39,7 @@ describe("CopilotKitAgentContext", () => {
     const core = TestBed.inject(CopilotKit).core as CopilotKitCoreStub;
     expect(core.addContext).toHaveBeenCalledWith({
       description: "Initial",
-      value: { foo: "bar" },
+      value: '{"foo":"bar"}',
     });
 
     fixture.componentInstance.description.set("Updated");
@@ -48,7 +48,7 @@ describe("CopilotKitAgentContext", () => {
     expect(core.removeContext).toHaveBeenCalledWith("ctx-1");
     expect(core.addContext).toHaveBeenLastCalledWith({
       description: "Updated",
-      value: { foo: "bar" },
+      value: '{"foo":"bar"}',
     });
 
     fixture.destroy();
@@ -72,7 +72,7 @@ describe("CopilotKitAgentContext", () => {
     const core = TestBed.inject(CopilotKit).core as CopilotKitCoreStub;
     expect(core.addContext).toHaveBeenCalledWith({
       description: "All",
-      value: 42,
+      value: "42",
     });
   });
 });

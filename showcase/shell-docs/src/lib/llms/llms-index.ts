@@ -106,6 +106,12 @@ const CURATED_LLM_PAGES: readonly CuratedPage[] = [
       "Bring an AG-UI agent into Microsoft Teams with native messages and approvals through generally available cloud-hosted Intelligence connections or direct SDK options.",
   },
   {
+    url: "slack/capabilities",
+    title: "Channels Capabilities and Limits",
+    description:
+      "Compare what a Channels agent can do in Slack, Microsoft Teams, Discord, and WhatsApp, on the managed connection and on direct adapters.",
+  },
+  {
     url: "langgraph-python/threads-import",
     title: "Add AG-UI Streams to LangGraph Threads",
     description:
@@ -146,6 +152,36 @@ const CURATED_LLM_PAGES: readonly CuratedPage[] = [
     title: "Open source vs Intelligence",
     description:
       "Decide which capabilities belong to the open-source stack and which require Intelligence.",
+  },
+  {
+    url: "concepts/when-to-use",
+    title: "When to Use CopilotKit",
+    description:
+      "Decide whether CopilotKit fits a project, which projects another tool serves better, and what stays with the agent framework.",
+  },
+  {
+    url: "agentic-protocols",
+    title: "Choose an Agentic Protocol",
+    description:
+      "Choose AG-UI, MCP, A2A, or A2UI for each connection in an agent system, and see where CopilotKit fits.",
+  },
+  {
+    url: "concepts/durability",
+    title: "Shared State, Interrupts, and Durability",
+    description:
+      "See what survives a reload, a dropped connection, and a server restart, and where state, threads, and approvals are stored.",
+  },
+  {
+    url: "concepts/harness-workspace",
+    title: "Harness Workspace Architecture",
+    description:
+      "Build a workspace around a coding or research agent harness with plans, artifacts, sub-agents, approvals, and resumable runs.",
+  },
+  {
+    url: "concepts/operator-console",
+    title: "Operator Console Architecture",
+    description:
+      "Build a console that shows the status, work, and pending approvals of several long-running agents, with stop and resume.",
   },
   {
     url: "agentic-protocols/ag-ui",
@@ -306,6 +342,7 @@ export function renderLlmsIndex(baseUrl: string): string {
     "",
     "## How to read these docs",
     "",
+    `- **Decide whether CopilotKit fits:** Read [When to Use CopilotKit](${baseUrl}/concepts/when-to-use) and [Choose an Agentic Protocol](${baseUrl}/agentic-protocols). For a workspace or console around agents, read [Harness Workspace Architecture](${baseUrl}/concepts/harness-workspace) or [Operator Console Architecture](${baseUrl}/concepts/operator-console).`,
     `- **Connect an existing app and agent:** Read your framework's overview and quickstart below together with [Architecture](${baseUrl}/concepts/architecture) and the relevant frontend guide.`,
     `- **Build an interaction:** Read [Chat UI](${baseUrl}/agentic-chat-ui), [Generative UI](${baseUrl}/concepts/generative-ui-overview), and [Human-in-the-Loop](${baseUrl}/human-in-the-loop) together, then use your framework's implementation guides.`,
     `- **Keep conversation history:** Read [AG-UI Streams](${baseUrl}/AG-UI-Streams) and [Thread Lifecycle](${baseUrl}/threads-lifecycle) together; keep your existing thread provider or use CopilotKit's built-in thread store. To layer AG-UI Streams and Automatic Learning onto LangChain/LangGraph, Google ADK, or Mastra without migrating your stack, read [Add AG-UI Streams to Existing Threads](${baseUrl}/threads-import) and the available framework guides below to add Intelligence and optionally include earlier history, with supported sources and source-specific limits. Copying historical conversations does not establish ongoing database replication; configure future runs through CopilotKit separately.`,

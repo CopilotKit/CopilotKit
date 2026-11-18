@@ -1,101 +1,64 @@
-import { Provider, Type, inject, InjectionToken } from "@angular/core";
-import { AbstractAgent } from "@ag-ui/client";
-import {
+import type {
+  EnvironmentProviders,
+  Provider,
+  Signal,
+  Type,
+} from "@angular/core";
+import { inject, InjectionToken, isDevMode } from "@angular/core";
+import type { AbstractAgent } from "@ag-ui/client";
+import type {
   ClientTool,
   FrontendToolConfig,
   HumanInTheLoopConfig,
   RenderToolCallConfig,
 } from "./tools";
-import { LICENSE_WATERMARK_ENABLED } from "./license-watermark";
-import { RenderActivityMessageConfig } from "./activity-renderer";
+import type { RenderActivityMessageConfig } from "./activity-renderer";
 // Type-only: a VALUE import here would pull the whole `@copilotkit/core`
 // dist into the app's startup graph, since `config.ts` sits on it
-// (`provideCopilotKit` runs at bootstrap). The public-key header default is
-// wrapped in `copilotkit.ts` instead, which already imports core at runtime
-// (see `ɵresolvePublicKeyHeaderDefaults` below and #1937's bundle-size fix).
+// (`provideCopilotKit` runs at bootstrap). `copilotkit.ts` takes the
+// public-key header defaults from core (#1937's bundle-size fix).
 import type {
-  CopilotKitHeadersSource,
-  CopilotKitMessageFilter,
+  CopilotRuntimeTransport,
   SuggestionsConfig,
+  ɵCopilotKitLearningOptions,
+  ɵCopilotKitProviderBaseOptions,
 } from "@copilotkit/core";
-import { OpenGenerativeUIConfig } from "./open-generative-ui";
-import { A2UICatalog } from "./components/a2ui/a2ui-types";
+import type {
+  GenerativeUI,
+  GenerativeUIDefinitions,
+  GenerativeUITheme,
+} from "@copilotkit/shared/generative-ui";
+import type { OpenGenerativeUIConfig } from "./open-generative-ui";
 
-export interface A2UIConfig {
-  theme?: Record<string, unknown>;
+/**
+ * The options of `provideCopilotKit`. The options shared with the React and
+ * Vue providers (same names) are documented on
+ * `ɵCopilotKitProviderBaseOptions` in `@copilotkit/core`.
+ */
+export interface CopilotKitConfig extends Pick<
+  ɵCopilotKitProviderBaseOptions,
+  | "runtimeUrl"
+  | "headers"
+  | "credentials"
+  | "messageFilter"
+  | "properties"
+  | "selfManagedAgents"
+  | "debug"
+  | "defaultThrottleMs"
+  | "onError"
+> {
   /**
-   * The catalog surfaces render with: `basicCatalog`, or one from
-   * `createAngularCatalog`, both in `@copilotkit/angular/a2ui`. Without one,
-   * A2UI stays off, even when the runtime enables it.
+   * Transport style for CopilotKitRuntime endpoints: `"single"`, `"rest"`, or
+   * `"auto"` (the default) to detect it from the runtime.
    */
-  catalog?: A2UICatalog;
-  /** Shown until the first surface renders. */
-  loadingComponent?: Type<unknown>;
+  runtimeTransport?: CopilotRuntimeTransport;
   /**
-   * When true (the default), the full component schemas from the catalog are
-   * sent as agent context so the agent knows what components and props are
-   * available. The A2UI middleware can overwrite this with a server-side
-   * schema if configured.
-   *
-   * When false, the agent context still describes the catalog, but only by its
-   * catalog ID and the names of its custom components, without their JSON
-   * schemas. The component schema entry and the A2UI generation and design
-   * guidelines are not sent. With the CopilotKit LangGraph middleware's
-   * injected A2UI tool, the A2UI subagent then gets the component names only;
-   * a host can still give it a composition guide through the middleware's
-   * guidelines (`a2uiParams.guidelines.compositionGuide` in TypeScript,
-   * `a2ui_params["guidelines"]["composition_guide"]` in Python).
+   * Your CopilotKit public license key (`publicApiKey` in React and Vue).
+   * With no `runtimeUrl`, CopilotKit uses Copilot Cloud.
    */
-  includeSchema?: boolean;
-  recovery?: A2UIRecoveryOptions;
-}
-
-export interface A2UIRecoveryOptions {
-  /** Delay before revealing a transient retry. Defaults to 2000ms. */
-  showAfterMs?: number;
-  /** Attempt number that reveals retry state immediately. Defaults to 2. */
-  showAfterAttempts?: number;
-  /** Client diagnostic visibility, overridden by server lifecycle content. */
-  debugExposure?: "hidden" | "collapsed" | "verbose";
-}
-
-export interface CopilotKitConfig {
-  runtimeUrl?: string;
-  /**
-   * Headers sent with every runtime request: a record, or a sync or async
-   * builder evaluated when each request is sent. See #1937.
-   */
-  headers?: CopilotKitHeadersSource;
-  /** Fetch credentials mode used for CopilotKit runtime requests. */
-  credentials?: RequestCredentials;
-  /**
-   * Rewrites the message list sent to runtime agents on every run.
-   *
-   * CopilotKit sends the whole thread each time. When your agent already
-   * stores the conversation, most of that payload is waste, and an agent that
-   * merges the inbound list with its own store can show the model every turn
-   * twice. Return the messages to send:
-   *
-   * ```ts
-   * provideCopilotKit({
-   *   runtimeUrl: "/api/copilotkit",
-   *   messageFilter: (messages) => messages.slice(-1),
-   * });
-   * ```
-   *
-   * The filter changes the request body only. The transcript the UI renders is
-   * untouched. Broken tool-call pairs are repaired before the request is sent,
-   * so a filter this blunt cannot strand a tool result mid-HITL.
-   *
-   * Agents reached through your CopilotRuntime honor this. An agent your app
-   * passes in directly does not, and neither Intelligence runs nor suggestion
-   * runs are ever filtered.
-   */
-  messageFilter?: CopilotKitMessageFilter;
   licenseKey?: string;
-  properties?: Record<string, unknown>;
+  /** Local agents, keyed by id (`agents__unsafe_dev_only` in React and Vue). */
   agents?: Record<string, AbstractAgent>;
-  selfManagedAgents?: Record<string, AbstractAgent>;
   tools?: ClientTool[];
   renderToolCalls?: RenderToolCallConfig[];
   renderActivityMessages?: RenderActivityMessageConfig[];
@@ -104,7 +67,6 @@ export interface CopilotKitConfig {
   humanInTheLoop?: HumanInTheLoopConfig[];
   /** Opt in to a text-only renderer for otherwise unknown tool calls. */
   defaultToolRendering?: boolean;
-  a2ui?: A2UIConfig;
   openGenerativeUI?: OpenGenerativeUIConfig;
   /**
    * Disable the CopilotKit Inspector in development.
@@ -112,65 +74,52 @@ export interface CopilotKitConfig {
    * always disabled in production and during server rendering.
    */
   enableInspector?: boolean;
-}
-
-const COPILOT_CLOUD_PUBLIC_API_KEY_HEADER = "X-CopilotCloud-Public-Api-Key";
-const COPILOT_CLOUD_PUBLIC_API_KEY_REGEX = /^ck_pub_[0-9a-f]{32}$/i;
-const LICENSE_WATERMARK_LOG_FLAG = "__copilotkitAngularLicenseWatermarkLogged";
-
-type ResolvedLicense = {
-  key?: string;
-  valid: boolean;
-  warning?: string;
-};
-
-function logLicenseWatermarkWarning(message: string): void {
-  const globalWindow = globalThis as typeof globalThis & {
-    [LICENSE_WATERMARK_LOG_FLAG]?: boolean;
+  /**
+   * Turns on interaction capture (`@copilotkit/learning`). `true` records with
+   * the default options; pass an object for options. Without a sink, Core
+   * authenticates with the runtime and sends browser events to Intelligence;
+   * a custom sink keeps the standalone collector behavior.
+   *
+   * Capture starts in the browser once `CopilotKit` is created. Set
+   * `trajectoryId` to use your own ID; otherwise one is generated. Set
+   * `autoStart: false` to start capture yourself with
+   * `copilotKit.core.startTrajectory()`. Capture stops when the application
+   * is destroyed, including manually started Trajectories. Read the active ID
+   * from `copilotKit.core.trajectoryId`.
+   *
+   * @example
+   * provideCopilotKit({ runtimeUrl: "/api/copilotkit", learning: true })
+   */
+  learning?: boolean | ɵCopilotKitLearningOptions;
+  /**
+   * Set to `false` when you list `@copilotkit/core/styles.css` in your
+   * `angular.json` styles, so browsers cache the CSS as a file. CopilotKit then
+   * adds no `<style>` tag. For a CSP nonce, provide Angular's `CSP_NONCE`.
+   * @default true
+   */
+  injectStyles?: boolean;
+  /**
+   * @deprecated Use `provideGenerativeUI` from
+   * `@copilotkit/angular/generative-ui`. `provideCopilotKit` passes `a2ui` on
+   * to generative UI: `a2ui: { catalog, theme }` works as
+   * `provideGenerativeUI({ ui: catalog, theme })`. When the app also calls
+   * `provideGenerativeUI`, its options win. The other v0.9 options
+   * (`onAction`, `loadingComponent`, `recovery`, `includeSchema`) have no 2.0
+   * equivalent. See https://docs.copilotkit.ai/generative-ui/components/from-a2ui
+   */
+  a2ui?: {
+    /**
+     * A UI from `createGenerativeUI` of `@copilotkit/angular/generative-ui`.
+     * It is the `ui` of `provideGenerativeUI`. Without it, generative UI
+     * stays off, unless the app calls `provideGenerativeUI`.
+     */
+    catalog?: GenerativeUI<GenerativeUIDefinitions, Type<unknown>>;
+    /**
+     * Values for the `--a2ui-*` CSS variables, or a signal of them. It is the
+     * `theme` of `provideGenerativeUI`.
+     */
+    theme?: GenerativeUITheme | Signal<GenerativeUITheme | undefined>;
   };
-  if (globalWindow[LICENSE_WATERMARK_LOG_FLAG]) {
-    return;
-  }
-  globalWindow[LICENSE_WATERMARK_LOG_FLAG] = true;
-
-  console.warn(
-    [
-      "========================================",
-      "[CopilotKit] License Required",
-      message,
-      "Get your CopilotCloud license key and add it as `licenseKey` to remove this watermark.",
-      "========================================",
-    ].join("\n"),
-  );
-}
-
-function resolveLicense(config: CopilotKitConfig): ResolvedLicense {
-  // A builder is only evaluated at send time, so it can't be read here. Rely
-  // on `licenseKey` in that case (same fallback the record branch already has).
-  const headerKey =
-    typeof config.headers === "function"
-      ? undefined
-      : config.headers?.[COPILOT_CLOUD_PUBLIC_API_KEY_HEADER];
-  const key = config.licenseKey ?? headerKey;
-
-  if (!key) {
-    return {
-      valid: false,
-      warning:
-        "No CopilotCloud license key was found. A watermark will be shown until one is added.",
-    };
-  }
-
-  if (!COPILOT_CLOUD_PUBLIC_API_KEY_REGEX.test(key)) {
-    return {
-      key,
-      valid: false,
-      warning:
-        "Your CopilotCloud license key appears invalid. A watermark will be shown until a valid key is added.",
-    };
-  }
-
-  return { key, valid: true };
 }
 
 export const COPILOT_KIT_CONFIG = new InjectionToken<CopilotKitConfig>(
@@ -182,37 +131,53 @@ export function injectCopilotKitConfig(): CopilotKitConfig {
 }
 
 /**
- * The public-key header default `provideCopilotKit` used to merge directly
- * into `config.headers` (main's behavior, record-only). Now that `headers`
- * can be a builder (#1937), the merge can't happen here — a builder is only
- * evaluated at send time — so `copilotkit.ts` applies these defaults itself,
- * via `ɵwithHeaderDefaults`, where `CopilotKitCore` is constructed and
- * wherever `setHeaders` is called. Kept in this file (rather than
- * `copilotkit.ts`) so the license-key condition has one definition, shared
- * with `resolveLicense`'s watermark check below; this function itself stays
- * a plain computation with no `@copilotkit/core` value import.
+ * @internal The deprecated `a2ui` option of `provideCopilotKit`.
+ * `@copilotkit/angular/generative-ui` reads it to pass its options to
+ * generative UI.
  */
-export function ɵresolvePublicKeyHeaderDefaults(
-  config: CopilotKitConfig,
-): Record<string, string> {
-  const resolvedLicense = resolveLicense(config);
-  return !resolvedLicense.valid || !resolvedLicense.key
-    ? {}
-    : { [COPILOT_CLOUD_PUBLIC_API_KEY_HEADER]: resolvedLicense.key };
+export const ɵCOPILOTKIT_A2UI_CONFIG = new InjectionToken<
+  NonNullable<CopilotKitConfig["a2ui"]>
+>("COPILOTKIT_A2UI_CONFIG");
+
+/**
+ * The generative UI providers for the catalog of the deprecated `a2ui`
+ * option. `@copilotkit/angular/generative-ui` sets them when it loads: this
+ * entry cannot import that one, not even lazily (ng-packagr rejects the
+ * cycle). An app that passes a catalog has loaded it, because the catalog
+ * comes from its `createGenerativeUI`.
+ */
+let a2uiGenerativeUIProviders: (() => EnvironmentProviders) | undefined;
+
+/**
+ * @internal Called by `@copilotkit/angular/generative-ui` when it loads, with
+ * the providers that turn generative UI on for the deprecated `a2ui` option.
+ */
+export function ɵsetA2UIGenerativeUIProviders(
+  providers: () => EnvironmentProviders,
+) {
+  a2uiGenerativeUIProviders = providers;
+}
+
+/** The generative UI providers for the catalog of the deprecated `a2ui` option. */
+function a2uiCatalogProviders() {
+  if (a2uiGenerativeUIProviders) return [a2uiGenerativeUIProviders()];
+  if (isDevMode()) {
+    console.warn(
+      "[CopilotKit] The `a2ui.catalog` of `provideCopilotKit` renders with `@copilotkit/angular/generative-ui`, which the app did not load. " +
+        "Create the catalog with `createGenerativeUI` from `@copilotkit/angular/generative-ui`, or add `provideGenerativeUI({ ui })` to the application providers.",
+    );
+  }
+  return [];
 }
 
 export function provideCopilotKit(config: CopilotKitConfig = {}): Provider {
-  const resolvedLicense = resolveLicense(config);
-  if (
-    LICENSE_WATERMARK_ENABLED &&
-    !resolvedLicense.valid &&
-    resolvedLicense.warning
-  ) {
-    logLicenseWatermarkWarning(resolvedLicense.warning);
-  }
-
-  return {
-    provide: COPILOT_KIT_CONFIG,
-    useValue: config,
-  };
+  const provider: Provider = { provide: COPILOT_KIT_CONFIG, useValue: config };
+  const { a2ui } = config;
+  if (!a2ui) return provider;
+  // The deprecated `a2ui` option goes to generative UI.
+  return [
+    provider,
+    { provide: ɵCOPILOTKIT_A2UI_CONFIG, useValue: a2ui },
+    ...(a2ui.catalog ? a2uiCatalogProviders() : []),
+  ];
 }

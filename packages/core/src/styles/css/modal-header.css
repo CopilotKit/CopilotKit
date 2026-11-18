@@ -1,0 +1,83 @@
+/* CopilotModalHeader: the popup and sidebar header. */
+:where(.cpk-modal-header) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+  background-color: color-mix(in oklab, var(--background) 95%, transparent);
+  padding: 1rem;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+@supports (backdrop-filter: blur(0)) or (-webkit-backdrop-filter: blur(0)) {
+  :where(.cpk-modal-header) {
+    background-color: color-mix(in oklab, var(--background) 80%, transparent);
+  }
+}
+:where(.cpk-modal-header-content) {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.5rem;
+}
+:where(
+  .cpk-modal-header-start,
+  .cpk-modal-header-center,
+  .cpk-modal-header-end
+) {
+  display: flex;
+  flex: 1;
+}
+:where(.cpk-modal-header-start) {
+  justify-content: flex-start;
+}
+:where(.cpk-modal-header-center) {
+  justify-content: center;
+  text-align: center;
+}
+:where(.cpk-modal-header-end) {
+  justify-content: flex-end;
+}
+:where(.cpk-modal-header-title) {
+  width: 100%;
+  font-size: 1rem;
+  line-height: 1;
+  font-weight: 500;
+  letter-spacing: -0.025em;
+  color: var(--foreground);
+}
+
+/* Close button and thread-list launcher. */
+:where(.cpk-modal-header-close-button, .cpk-modal-header-drawer-launcher) {
+  display: inline-flex;
+  width: 2rem;
+  height: 2rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: calc(infinity * 1px);
+  color: var(--muted-foreground);
+  cursor: pointer;
+  transition-property: color, background-color, box-shadow;
+  transition-duration: 150ms;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+@media (hover: hover) {
+  :where(
+    .cpk-modal-header-close-button:hover,
+    .cpk-modal-header-drawer-launcher:hover
+  ) {
+    background-color: var(--muted);
+    color: var(--foreground);
+  }
+}
+:where(
+  .cpk-modal-header-close-button:focus-visible,
+  .cpk-modal-header-drawer-launcher:focus-visible
+) {
+  outline-style: none;
+  box-shadow: 0 0 0 2px var(--ring);
+}
+:where(.cpk-modal-header-close-icon, .cpk-modal-header-drawer-launcher-icon) {
+  width: 1rem;
+  height: 1rem;
+}

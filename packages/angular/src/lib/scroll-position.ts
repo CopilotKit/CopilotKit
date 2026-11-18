@@ -1,6 +1,10 @@
 import { Injectable, ElementRef, NgZone, OnDestroy } from "@angular/core";
 import { ScrollDispatcher, ViewportRuler } from "@angular/cdk/scrolling";
 import {
+  ɵSCROLL_BOTTOM_THRESHOLD_PX,
+  ɵisScrolledToBottom,
+} from "@copilotkit/core";
+import {
   Observable,
   Subject,
   BehaviorSubject,
@@ -47,11 +51,11 @@ export class ScrollPosition implements OnDestroy {
   /**
    * Monitor scroll position of an element
    * @param element The element to monitor
-   * @param threshold Pixels from bottom to consider "at bottom" (default 10)
+   * @param threshold Pixels from bottom to consider "at bottom" (default `ɵSCROLL_BOTTOM_THRESHOLD_PX`, 12)
    */
   monitorScrollPosition(
     element: ElementRef<HTMLElement> | HTMLElement,
-    threshold: number = 10,
+    threshold: number = ɵSCROLL_BOTTOM_THRESHOLD_PX,
   ): Observable<ScrollState> {
     const el = element instanceof ElementRef ? element.nativeElement : element;
 
@@ -110,7 +114,7 @@ export class ScrollPosition implements OnDestroy {
    */
   isAtBottom(
     element: ElementRef<HTMLElement> | HTMLElement,
-    threshold: number = 10,
+    threshold: number = ɵSCROLL_BOTTOM_THRESHOLD_PX,
   ): boolean {
     const el = element instanceof ElementRef ? element.nativeElement : element;
     return this.getScrollState(el, threshold).isAtBottom;
@@ -123,8 +127,7 @@ export class ScrollPosition implements OnDestroy {
     const scrollTop = element.scrollTop;
     const scrollHeight = element.scrollHeight;
     const clientHeight = element.clientHeight;
-    const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
-    const isAtBottom = distanceFromBottom <= threshold;
+    const isAtBottom = ɵisScrolledToBottom(element, threshold);
 
     return {
       isAtBottom,

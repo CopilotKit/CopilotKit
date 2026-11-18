@@ -13,18 +13,16 @@ export default defineConfig({
     lib: {
       entry: {
         index: resolve(__dirname, "src/index.ts"),
-        "v2/index": resolve(__dirname, "src/v2/index.ts"),
-        "v2/generative-ui/index": resolve(
+        // Each entry is named after its source path, so the JS lands next to
+        // the declarations vue-tsc emits for it.
+        "generative-ui/index": resolve(__dirname, "src/generative-ui/index.ts"),
+        "generative-ui-chart/index": resolve(
           __dirname,
-          "src/v2/generative-ui/index.ts",
+          "src/generative-ui-chart/index.ts",
         ),
-        "v2/generative-ui/chart": resolve(
+        "generative-ui-map/index": resolve(
           __dirname,
-          "src/v2/generative-ui-chart/index.ts",
-        ),
-        "v2/generative-ui/map": resolve(
-          __dirname,
-          "src/v2/generative-ui-map/index.ts",
+          "src/generative-ui-map/index.ts",
         ),
       },
       name: "CopilotKitVue",
@@ -35,11 +33,11 @@ export default defineConfig({
     rollupOptions: {
       external: [
         "vue",
-        /^@a2ui\/web_core(\/.*)?$/,
         "@ag-ui/client",
         "@ag-ui/core",
-        // The core and shared packages plus their subpaths, such as the
-        // framework-free `/generative-ui` layer the Vue generative UI wraps.
+        // Core and its subpaths: `/styles`, so the stylesheet isn't bundled
+        // here, and the framework-free `/generative-ui` layer the Vue
+        // generative UI wraps.
         /^@copilotkit\/core(\/.*)?$/,
         // Keep the shared MCP Apps host + its subpaths external. The root entry
         // carries the ext-apps AppBridge and is loaded through a dynamic
@@ -48,8 +46,10 @@ export default defineConfig({
         // the lazy-loading); `/activity` is the bridge-free surface imported
         // statically for activity registration.
         /^@copilotkit\/mcp-apps-renderer(\/.*)?$/,
+        // Shared and its subpaths, such as `/generative-ui`.
         /^@copilotkit\/shared(\/.*)?$/,
-        "@copilotkit/web-inspector",
+        // The Inspector and its `/mount` subpath stay runtime imports.
+        /^@copilotkit\/web-inspector(\/.*)?$/,
         // Keep @copilotkit/web-components (the Lit drawer element) + its subpaths
         // external. It's a runtime dependency loaded via the drawer wrapper's
         // client-only dynamic import; bundling it inline would ship a duplicate
@@ -57,16 +57,12 @@ export default defineConfig({
         // (duplicate top-level lit binding → "Identifier 'h' has already been
         // declared") and risks double custom-element registration.
         /^@copilotkit\/web-components(\/.*)?$/,
-        "@jetbrains/websandbox",
-        "streamdown-vue",
-        /^katex(\/.*)?$/,
-        /^lucide-vue-next(\/.*)?$/,
         /^zod(\/.*)?$/,
-        // Optional peers of the generative UI chart and map plugins. The
-        // plugins load them with a dynamic import(), so they stay imports.
+        // Optional peers of the generative UI icons and the chart and map
+        // plugins. They load with a dynamic import(), so they stay imports.
+        /^lucide(\/.*)?$/,
         /^chart\.js(\/.*)?$/,
         /^maplibre-gl(\/.*)?$/,
-        "zod-to-json-schema",
       ],
       output: {
         globals: { vue: "Vue" },

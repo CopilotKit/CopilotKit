@@ -55,7 +55,7 @@ Skill delivery does not send native agent runs to Automatic Learning. To collect
 
 | Framework                 | Package                                  | Native extension                                                     |
 | ------------------------- | ---------------------------------------- | -------------------------------------------------------------------- |
-| [BuiltInAgent](#builtinagent) | `@copilotkit/runtime/v2`                 | `learnedSkills` configuration                                        |
+| [BuiltInAgent](#builtinagent) | `@copilotkit/runtime/agent`           | `learnedSkills` configuration                                        |
 | [LangGraph Python](#langgraph-python) | `copilotkit-intelligence-langgraph`      | `create_skill_registry_middleware`                                   |
 | [LangGraph TypeScript](#langgraph-typescript) | `@copilotkit/intelligence-langgraph`     | `createSkillRegistryMiddleware`                                      |
 | [Mastra](#mastra) | `@copilotkit/intelligence-mastra`        | `createSkillRegistryProcessor`                                       |
@@ -64,7 +64,7 @@ Skill delivery does not send native agent runs to Automatic Learning. To collect
 
 Attach an adapter to the agents that need skills. Adapters do not inspect or rebuild arbitrary graphs or agent hierarchies. Subagent behavior follows the selected framework.
 
-TypeScript uses the canonical client from `@copilotkit/runtime/v2`. Python uses `copilotkit-intelligence-runtime`. These dependencies include Runtime features beyond skill delivery. The .NET adapter targets `net9.0` and uses `CopilotKit.Intelligence`.
+TypeScript uses the canonical client from `@copilotkit/runtime`. Python uses `copilotkit-intelligence-runtime`. These dependencies include Runtime features beyond skill delivery. The .NET adapter targets `net9.0` and uses `CopilotKit.Intelligence`.
 
 ## Native setup
 
@@ -77,10 +77,11 @@ Each example shows an optional revision pin. Replace `"exact-revision-id"` with 
 Configure `learnedSkills` directly on `BuiltInAgent`. No wrapper or separate adapter package is required.
 
 ```typescript
-import { BuiltInAgent } from "@copilotkit/runtime/v2";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
 
 const agent = new BuiltInAgent({
-  model: "openai/gpt-6-luna",
+  model: openaiText("gpt-6-luna"),
   prompt: "Follow the application's support policy.",
   learnedSkills: {
     containerId: "support-learning",
@@ -95,13 +96,14 @@ Classic mode adds the catalog and both executable skill tools before the model c
 
 #### Factory mode
 
-BuiltInAgent fetches the snapshot before it calls your factory. Connect the catalog and tools to your model call:
+BuiltInAgent fetches the snapshot before it calls your factory. Connect the catalog and tools to your model call. This example uses the AI SDK (`npm install ai @ai-sdk/openai`):
 
 ```typescript
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import {
-  BuiltInAgent,
   convertMessagesToVercelAISDKMessages,
-} from "@copilotkit/runtime/v2";
+  toAISDKTools,
+} from "@copilotkit/runtime/agent/ai-sdk";
 import { openai } from "@ai-sdk/openai";
 import { stepCountIs, streamText } from "ai";
 
@@ -119,16 +121,48 @@ const agent = new BuiltInAgent({
         learnedSkills.catalog,
       ].filter(Boolean).join("\n\n"),
       messages: convertMessagesToVercelAISDKMessages(input.messages),
-      tools: { ...learnedSkills.tools },
+      tools: toAISDKTools(learnedSkills.tools),
       stopWhen: stepCountIs(10),
       abortSignal,
     }),
 });
 ```
 
-Import `BuiltInAgentFactoryContext` from `@copilotkit/runtime/v2` to annotate a factory context. Every factory receives a `learnedSkills` object. Its `catalog` is `""` and its `tools` is `{}` when delivery is unconfigured or the verified snapshot contains no skills. Omitting the configuration disables all skill requests, even when delivery environment variables exist. With configuration, later runs check for newly published skills according to the freshness window.
+`learnedSkills.tools` is an array of TanStack AI tools. `toAISDKTools` converts it to an AI SDK `ToolSet`. A TanStack AI factory passes the array to `chat()` as it is:
 
-The tools use AI SDK schemas and executors. TanStack and custom factories receive the same object and must adapt the tools to their model library; they are not TanStack-native tool definitions. Factory code owns the model call and its step limit. Keep the supplied catalog and tools together within that invocation. The tool map is read-only; spread it into a new object to add application tools.
+```typescript
+import {
+  BuiltInAgent,
+  convertInputToTanStackAI,
+} from "@copilotkit/runtime/agent";
+import { chat, maxIterations } from "@tanstack/ai";
+import { openaiText } from "@tanstack/ai-openai";
+
+const agent = new BuiltInAgent({
+  type: "tanstack",
+  learnedSkills: { containerId: "support-learning" },
+  factory: ({ input, abortController, learnedSkills }) => {
+    const { messages, systemPrompts } = convertInputToTanStackAI(input);
+    return chat({
+      adapter: openaiText("gpt-6-luna"),
+      messages,
+      systemPrompts: [
+        "Follow the application's support policy.",
+        learnedSkills.catalog,
+        ...systemPrompts,
+      ].filter(Boolean),
+      tools: learnedSkills.tools,
+      agentLoopStrategy: maxIterations(10),
+      threadId: input.threadId,
+      abortController,
+    });
+  },
+});
+```
+
+Import `BuiltInAgentFactoryContext` from `@copilotkit/runtime/agent` to annotate a factory context. Every factory receives a `learnedSkills` object. Its `catalog` is `""` and its `tools` is `[]` when delivery is unconfigured or the verified snapshot contains no skills. Omitting the configuration disables all skill requests, even when delivery environment variables exist. With configuration, later runs check for newly published skills according to the freshness window.
+
+A custom factory can call each tool's `execute` function itself. Factory code owns the model call and its step limit. Keep the supplied catalog and tools together within that invocation. The tool array is read-only. To add application tools, make a new array, such as `[...learnedSkills.tools, myTool]`.
 
 Each run, including a resume, acquires one snapshot before factory or model work. Agent clones share the refresh cache; each invocation retains its own snapshot. Cancellation stops that invocation's delivery wait without cancelling another clone's shared refresh. Snapshots stay out of application state. Existing cached skills can cover transient failures, but a confirmed delivery denial blocks new execution.
 
@@ -348,8 +382,11 @@ An entry without a revision follows that container's latest published Skills.
 BuiltInAgent accepts the list inside `learnedSkills`:
 
 ```typescript
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
+
 const agent = new BuiltInAgent({
-  model: "openai/gpt-6-luna",
+  model: openaiText("gpt-6-luna"),
   learnedSkills: {
     containers: [
       { id: "support", revision: "revision-123" },
@@ -362,6 +399,8 @@ const agent = new BuiltInAgent({
 Mastra and LangGraph TypeScript accept the same list in `SkillRegistry`:
 
 ```typescript
+import { SkillRegistry } from "@copilotkit/intelligence-mastra";
+
 const registry = new SkillRegistry({
   containers: [
     { id: "support", revision: "revision-123" },
@@ -471,7 +510,7 @@ Initialization can run during application startup. A valid empty container initi
 If your server already creates an Intelligence client, pass that client to the registry. This reuses its project key and endpoint.
 
 ```typescript
-import { CopilotKitIntelligence } from "@copilotkit/runtime/v2";
+import { CopilotKitIntelligence } from "@copilotkit/runtime";
 import { SkillRegistry } from "@copilotkit/intelligence-mastra";
 
 const intelligence = new CopilotKitIntelligence({
@@ -517,7 +556,7 @@ Published revisions have no automatic expiry. A revoked revision cannot be used 
 
 ## Read tools
 
-The framework adapters keep both tools registered even when the snapshot is empty. BuiltInAgent omits both tools for an empty snapshot; its factory receives `tools: {}`. With available skills, the tools are:
+The framework adapters keep both tools registered even when the snapshot is empty. BuiltInAgent omits both tools for an empty snapshot; its factory receives `tools: []`. With available skills, the tools are:
 
 - `copilotkit_load_skill(skill_name)` returns `SKILL.md` and the supporting file list.
 - `copilotkit_read_skill_file(skill_name, path)` returns one supporting UTF-8 text file.

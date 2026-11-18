@@ -107,9 +107,14 @@ import {
 ## `isGenerativeUIActivity`
 
 ```tsx
-function isGenerativeUIActivity<M extends GenerativeUIActivityMessage>(
+import {
+  isGenerativeUIActivity,
+  type GenerativeUIActivityMessage,
+} from "@copilotkit/react-native/generative-ui";
+
+isGenerativeUIActivity satisfies <M extends GenerativeUIActivityMessage>(
   message: M,
-): message is M & { role: "activity"; activityType: "generative-ui-surface" };
+) => message is M & { role: "activity"; activityType: "generative-ui-surface" };
 ```
 
 True for the activity messages that carry a generated surface: `role` is `"activity"` and `activityType` is the generative UI activity type. It is a type guard, so `agent.messages.filter(isGenerativeUIActivity)` gives activity messages. It does not check the content; `GenerativeUIActivity` does.
@@ -119,17 +124,30 @@ True for the activity messages that carry a generated surface: `role` is `"activ
 ### In a message list
 
 ```tsx
-<FlatList
-  data={agent.messages}
-  keyExtractor={(message) => message.id}
-  renderItem={({ item }) =>
-    isGenerativeUIActivity(item) ? (
-      <GenerativeUIActivity message={item} agent={agent} />
-    ) : (
-      <MessageBubble message={item} />
-    )
-  }
-/>
+import { FlatList } from "react-native";
+import { useAgent } from "@copilotkit/react-native/headless";
+import {
+  GenerativeUIActivity,
+  isGenerativeUIActivity,
+} from "@copilotkit/react-native/generative-ui";
+import { MessageBubble } from "./MessageBubble";
+
+export function Messages() {
+  const { agent } = useAgent();
+  return (
+    <FlatList
+      data={agent.messages}
+      keyExtractor={(message) => message.id}
+      renderItem={({ item }) =>
+        isGenerativeUIActivity(item) ? (
+          <GenerativeUIActivity message={item} agent={agent} />
+        ) : (
+          <MessageBubble message={item} />
+        )
+      }
+    />
+  );
+}
 ```
 
 A surface aimed at a named [`GenerativeUISurface`](/reference/react-native/components/GenerativeUISurface) target renders nothing in the list, because `target` defaults to `"chat"`, so it does not show twice. It still takes a cell of the list, and so does a surface that the agent deleted, so the [guide's chat screen](/react-native#render-surfaces-in-your-message-list) leaves both out of `data` with its `isChatSurface` helper.
@@ -137,21 +155,27 @@ A surface aimed at a named [`GenerativeUISurface`](/reference/react-native/compo
 ### On a screen with no chat
 
 ```tsx
+import { View } from "react-native";
+import { useAgent } from "@copilotkit/react-native/headless";
+import { GenerativeUIActivity } from "@copilotkit/react-native/generative-ui";
 import { isChatSurface } from "./agentTurns"; // the helper from the guide
+import { HomeSkeleton } from "./HomeSkeleton";
 
-const { agent } = useAgent({ agentId: "home" });
-// The surfaces that render here: aimed at the chat, and not deleted.
-const surfaces = agent.messages.filter(isChatSurface);
+export function HomeSurfaces() {
+  const { agent } = useAgent({ agentId: "home" });
+  // The surfaces that render here: aimed at the chat, and not deleted.
+  const surfaces = agent.messages.filter(isChatSurface);
 
-return surfaces.length > 0 ? (
-  <View>
-    {surfaces.map((message) => (
-      <GenerativeUIActivity key={message.id} message={message} agent={agent} />
-    ))}
-  </View>
-) : (
-  <HomeSkeleton />
-);
+  return surfaces.length > 0 ? (
+    <View>
+      {surfaces.map((message) => (
+        <GenerativeUIActivity key={message.id} message={message} agent={agent} />
+      ))}
+    </View>
+  ) : (
+    <HomeSkeleton />
+  );
+}
 ```
 
 Render every chat surface, not only the latest activity message: the latest can be a deleted surface, or one aimed at a named target, and render nothing. Filtering with `isChatSurface` keeps the skeleton up until a surface that renders here arrives; `agent.messages.filter(isGenerativeUIActivity)` would drop the skeleton for a named-target or deleted surface and leave the screen blank. `isChatSurface` is defined in the [guide](/react-native#render-surfaces-in-your-message-list).
@@ -162,7 +186,12 @@ Something has to run the `home` agent, and this part does not: on its own it sho
 
 ```tsx
 import { ActivityIndicator, Text, View } from "react-native";
-import type { GenerativeUIActivityWrapperProps } from "@copilotkit/react-native/generative-ui";
+import { useAgent } from "@copilotkit/react-native/headless";
+import {
+  GenerativeUIActivity,
+  type GenerativeUIActivityMessage,
+  type GenerativeUIActivityWrapperProps,
+} from "@copilotkit/react-native/generative-ui";
 
 function SurfaceCard({ isStreaming, error, children }: GenerativeUIActivityWrapperProps) {
   return (
@@ -174,7 +203,10 @@ function SurfaceCard({ isStreaming, error, children }: GenerativeUIActivityWrapp
   );
 }
 
-<GenerativeUIActivity message={message} agent={agent} Wrapper={SurfaceCard} />;
+export function Surface({ message }: { message: GenerativeUIActivityMessage }) {
+  const { agent } = useAgent();
+  return <GenerativeUIActivity message={message} agent={agent} Wrapper={SurfaceCard} />;
+}
 ```
 
 ## Related

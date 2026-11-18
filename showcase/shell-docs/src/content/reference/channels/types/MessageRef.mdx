@@ -15,8 +15,14 @@ interface MessageRef {
 Use a ref with `thread.update()` or `thread.delete()`:
 
 ```ts
-const ref = await thread.post("Working…");
-await thread.update(ref, "Done.");
+import { createChannel } from "@copilotkit/channels";
+
+const channel = createChannel({ name: "support", identifyUser: "platform" });
+
+channel.onMessage(async ({ thread }) => {
+  const ref = await thread.post("Working…");
+  await thread.update(ref, "Done.");
+});
 ```
 
 ## Managed lifetime
@@ -27,14 +33,23 @@ delivery. Do not persist it and assume it can be edited in a later delivery.
 For a later component callback, use `ctx.message.ref`. Intelligence stamps the
 source provider message onto that interaction delivery when available:
 
-```ts
-if (message.ref.id) {
-  try {
-    await thread.update(message.ref, "Updated");
-  } catch {
-    // Provider updates are best-effort.
-  }
-}
+```tsx
+import { Button } from "@copilotkit/channels/ui";
+
+<Button
+  value="refresh"
+  onClick={async ({ thread, message }) => {
+    if (message.ref.id) {
+      try {
+        await thread.update(message.ref, "Updated");
+      } catch {
+        // Provider updates are best-effort.
+      }
+    }
+  }}
+>
+  Refresh
+</Button>;
 ```
 
 Teams `Action.Submit` can arrive without `replyToId`, producing an empty ref.

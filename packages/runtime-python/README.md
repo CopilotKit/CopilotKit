@@ -289,23 +289,21 @@ Without a callback, Intelligence applies its default memory policy.
 The runtime supplies that ID for thread creation and lock acquisition.
 Both callbacks can return a value directly or through an awaitable.
 
-## Use MCP Apps and A2UI
+## Use MCP Apps and generative UI
 
 Pass the UI configuration to the runtime constructor:
 
 ```python
-from copilotkit_runtime import A2UIConfig, MCPAppsConfig, MCPServer
+from copilotkit_runtime import GenerativeUIConfig, MCPAppsConfig, MCPServer
 
 app = IntelligenceRuntime(
     RuntimeConfig(api_key=os.environ["CPK_INTELLIGENCE_API_KEY"]),
-    agents={"default": HttpAgent("http://localhost:8001/agent")},
+    agents={
+        "default": HttpAgent("http://localhost:8001/agent"),
+        "legacy": HttpAgent("http://localhost:8002/agent"),
+    },
     identify_user=identify_user,
-    a2ui=A2UIConfig(
-        inject_tool=True,
-        agents=("default",),
-        default_catalog_id="https://example.com/my-catalog.json",
-        schema={"components": {"Text": {"required": ["text"]}}},
-    ),
+    generative_ui=GenerativeUIConfig(a2ui_version={"legacy": "0.9"}),
     mcp_apps=MCPAppsConfig(
         servers=(
             MCPServer(
@@ -327,14 +325,35 @@ Browser reentry uses `forwardedProps.__proxiedMCPRequest` without another agent 
 The proxy permits configured servers and four methods: `tools/call`, `resources/read`, `notifications/message`, and `ping`.
 Browser input cannot replace server authentication headers.
 
-A2UI adds schema context and rendering tools. `inject_tool` accepts `True`, `False`, or a custom tool name.
-`agents` limits A2UI to named agents. `enabled=False` disables it for every agent.
-Action history comes from `forwardedProps.a2uiAction.userAction`.
+Generative UI renders A2UI 1.0 surfaces from the catalog that the client sends in `forwardedProps.copilotkit.ui`.
+`generative_ui` takes these values:
 
-A2UI validates complete component arrays before publication, then publishes cumulative data snapshots as array items arrive.
+- `None` (default): generative UI is on for a run whose client sends a "tool" catalog.
+- `True`: generative UI is on for every run.
+- `GenerativeUIConfig(...)`: generative UI is on for every run of `agents` (all agents when `None`).
+- `False`: generative UI is off.
+
+A run whose client asks for the "markdown" transport never gets a render tool.
+
+`a2ui_version` sets the A2UI version that each agent speaks. The default is `"1.0"`.
+A mapping sets one version for each agent. An agent that is not in the mapping speaks `"1.0"`.
+
+- A 1.0 agent gets the `render_ui` tool and the generative UI guide.
+  The runtime validates each streamed operation against the client's catalog before it publishes the operation.
+  A rejected operation goes back to the agent in the tool result.
+- A 0.9 agent gets the `render_a2ui` tool and a v0.9 component schema of the client's catalog.
+  The schema has the 18 basic components and the client's own components.
+  `schema`, `inject_a2ui_tool`, `a2ui_tool_names`, `default_catalog_id`, `max_attempts`, `show_progress_tokens`, and `debug_exposure` configure the v0.9 middleware.
+
+For both versions, the runtime converts v0.9 surfaces to A2UI 1.0 `generative-ui-surface` events.
+This includes v0.9 operations in a tool result (`{"a2ui_operations": [...]}`).
+A click on a converted surface reaches the agent as `forwardedProps.a2uiAction.userAction`, followed by a `log_a2ui_event` tool call and result.
+The stored thread keeps the click message.
+
+The v0.9 middleware validates complete component arrays before publication, then publishes cumulative data snapshots as array items arrive.
 Validation covers IDs, component types, roots, catalog membership, required properties, references, and cycles.
 The `schema` configuration describes A2UI components, not arbitrary JSON Schema validation.
-Build, retry, error, and painted surface updates share one activity ID. The agent controls model retries.
+The agent controls model retries.
 
 ## Configure analytics and error reporting
 

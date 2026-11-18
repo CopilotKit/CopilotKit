@@ -5,12 +5,11 @@ Headless React Native bindings for CopilotKit. Provides a lightweight provider a
 ## Installation
 
 ```bash
-npm install @copilotkit/react-native "zod@^3.25"
+npm install @copilotkit/react-native zod
 ```
 
-Every entry needs `zod` 3.25 or later, a peer dependency of
-`@copilotkit/react-core`. The command installs zod 3, which a generative UI
-catalog that uses `child()` or `childList()` needs.
+Write tool parameters and generative UI catalogs with `zod` 4.2 or later, the
+version `@copilotkit/react-core` depends on.
 
 ## Polyfills
 
@@ -60,18 +59,12 @@ Re-exports hooks from `@copilotkit/react-core`: `useAgent`, `useFrontendTool`, `
 ## Generative UI (experimental)
 
 `@copilotkit/react-native/generative-ui` lets the agent render a catalog of your
-own native components with the `render_ui` tool. Install `zod` 3.25 or later:
-every entry of this package needs it, because `@copilotkit/react-core` requires
-it as a peer dependency (`@copilotkit/react-native` declares `zod` an optional
-peer at `>=3.0.0` only because narrowing that range would be a breaking
-change). Install zod 3 (`npm install "zod@^3.25"`) for a catalog that uses
-`child()` or `childList()`: they return zod 3 schemas, which a zod 4 schema
-cannot hold. The runtime needs no change by default: `CopilotRuntime` adds the
+own native components with the `render_ui` tool. Write the catalog with `zod`
+4.2 or later: `child()` and `childList()` return zod 4 schemas. The runtime needs no change by default: `CopilotKitRuntime` adds the
 tool when the app sends a catalog with at least one component, unless the
 server sets `generativeUI: false` or limits it with
 `generativeUI: { agents: [...] }`. This example needs a `home` agent on the
-runtime: once the runtime has connected, `useAgent` throws without it. `/generative-ui` is not in 1.85.0 or any earlier version; it first
-ships in the release after 1.85.0.
+runtime: once the runtime has connected, `useAgent` throws without it.
 
 ```tsx
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -388,9 +381,9 @@ platform"), and the prebuilt `CopilotChat` does not draw surfaces yet. See the
 
 ## API Surface
 
-The root import (`@copilotkit/react-native`) IS the v2 API.
-Unlike the web SDK which has `/v2` subpath, React Native exports
-the v2 API directly from the package root.
+The root import (`@copilotkit/react-native`) is the 2.0 API, as in the web
+SDK. React Native has no `/v2` subpath. The web packages keep their 1.x `/v2`
+subpaths only as deprecated aliases of the package roots.
 
 The root also re-exports the chat components and `useAttachments`, which
 imports `expo-document-picker` and `expo-file-system`; Metro resolves them at

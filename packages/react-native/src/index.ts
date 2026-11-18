@@ -58,14 +58,32 @@ export type { CopilotPopupProps, CopilotPopupHandle } from "./CopilotPopup";
 // above (`export * from "./headless"`).
 //
 // Deliberately NOT re-exported — these genuinely render host DOM or link the
-// web chat-message stack, from @copilotkit/react-core/v2 (the fat entry):
+// web chat-message stack, from @copilotkit/react-core (the fat entry):
 //   useDefaultRenderTool  — DefaultToolCallRenderer uses <div>, <svg>, etc.
-//   useRenderCustomMessages / useRenderActivityMessage — link @copilotkit/a2ui-renderer
+//   useRenderCustomMessages / useRenderActivityMessage — import the web providers
+//     barrel (the web CopilotKitProvider and its inspector)
 //
 // NOTE: useRenderToolCall is NOT in this list. It was excluded until 2026-07-23
 // on the stated grounds that it "depends on DOM via DefaultToolCallRenderer" —
 // which was never true of the hook itself; it was only reachable through the fat
 // /v2 entry, whose weight is the real hazard (#4893). PR #5883 moved it into
 // /v2/headless, and we consume it from there. Never import from bare
-// "@copilotkit/react-core/v2" in this package — the import-graph guard in
+// "@copilotkit/react-core" in this package — the import-graph guard in
 // src/__tests__/headless-entry-surface.test.ts fails the build if you do.
+
+// Pluggable markdown renderer context
+export {
+  MarkdownRendererProvider,
+  useMarkdownRenderer,
+} from "./components/MarkdownRendererContext";
+export type {
+  NativeMarkdownRenderer,
+  NativeMarkdownRendererProps,
+} from "./components/MarkdownRendererContext";
+
+// Built-in markdown renderer
+export { CopilotMarkdown, defaultMarkdownStyles } from "./components/Markdown";
+export type {
+  CopilotMarkdownProps,
+  MarkdownStyle,
+} from "./components/Markdown";

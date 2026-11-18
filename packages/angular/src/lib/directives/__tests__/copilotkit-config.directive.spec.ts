@@ -7,7 +7,6 @@ import { provideCopilotKit, injectCopilotKitConfig } from "../../config";
 
 describe("CopilotKit config", () => {
   beforeEach(() => {
-    (globalThis as any).__copilotkitAngularLicenseWatermarkLogged = undefined;
     vi.restoreAllMocks();
   });
 
@@ -45,7 +44,7 @@ describe("CopilotKit config", () => {
     expect(fixture.componentInstance.config.headers).toBe(headers);
   });
 
-  it("does not throw or warn when license key is missing (watermark disabled)", () => {
+  it("does not throw or warn when license key is missing", () => {
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
     expect(() => {
@@ -83,7 +82,7 @@ describe("CopilotKit config", () => {
   // Angular app's startup graph (`provideCopilotKit` is called directly from
   // `app.config.ts`), so a VALUE import of `@copilotkit/core` here eagerly
   // pulls the whole core dist — and its own dependencies (`@ag-ui/client`,
-  // `@ag-ui/proto`, phoenix, `zod-to-json-schema`, `@ag-ui/core`,
+  // `@ag-ui/proto`, phoenix, `@ag-ui/core`,
   // `fast-json-patch`, `@bufbuild/protobuf`) — into the INITIAL bundle chunk
   // instead of a lazy one. Every `@copilotkit/core` import in this file must
   // stay `import type`; the public-key header default is wrapped in

@@ -8,7 +8,7 @@ matching catalog (see `src/app/demos/a2ui-fixed-schema/a2ui/catalog.ts`)
 that pins the schema's component names to real React implementations.
 
 Reference:
-    examples/integrations/langgraph-python/agent/src/a2ui_fixed_schema.py
+    examples/starters/langgraph-python/agent/src/a2ui_fixed_schema.py
 """
 
 # @region[backend-render-operations]

@@ -7,6 +7,8 @@ import {
 import { NgComponentOutlet } from "@angular/common";
 import type { ActivityMessage } from "@ag-ui/core";
 import type { AbstractAgent } from "@ag-ui/client";
+import { ɵdescribeActivityRendererFailure } from "@copilotkit/core";
+import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
 import { CopilotKit } from "../../copilotkit";
 import type { RenderActivityMessageConfig } from "../../activity-renderer";
 import { pickActivityRenderer } from "./pick-activity-renderer";
@@ -55,13 +57,16 @@ export class CopilotActivity {
 
   /** The activity message to render. */
   readonly message = input.required<ActivityMessage>();
-  /** Agent scope used for renderer resolution and passed to the renderer. */
+  /**
+   * Agent scope used for renderer resolution and passed to the renderer.
+   * Without one, the default agent's, as in React and Vue.
+   */
   readonly agentId = input<string | undefined>();
 
   protected resolveRender(
     message: ActivityMessage,
   ): ActivityRender | undefined {
-    const agentId = this.agentId();
+    const agentId = this.agentId() ?? DEFAULT_AGENT_ID;
     const renderer = pickActivityRenderer({
       activityType: message.activityType,
       agentId,
@@ -71,10 +76,11 @@ export class CopilotActivity {
 
     const parseResult = renderer.content.safeParse(message.content);
     if (parseResult.success === false) {
-      console.warn(
-        `Failed to parse content for activity message '${message.activityType}':`,
-        parseResult.error,
-      );
+      const warning = ɵdescribeActivityRendererFailure(message.activityType, {
+        reason: "invalid",
+        issues: [parseResult.error],
+      });
+      console.warn(warning?.message, ...(warning?.details ?? []));
       return undefined;
     }
 
@@ -84,7 +90,7 @@ export class CopilotActivity {
         activityType: message.activityType,
         content: parseResult.data,
         message,
-        agent: agentId ? this.#copilotKit.getAgent(agentId) : undefined,
+        agent: this.#copilotKit.getAgent(agentId),
       },
     };
   }

@@ -10,7 +10,7 @@ description: "Register a Vue component as a frontend tool renderer in chat"
 Use this when you want a visual component renderer without writing a full frontend tool config manually. For lower-level control over render status (in progress, executing, complete) or to render any tool with a wildcard, reach for [`useRenderTool`](/reference/vue/hooks/useRenderTool) instead.
 
 <Callout type="info">
-  Import from the `/v2` subpath: `@copilotkit/vue/v2`. Like all CopilotKit
+  Import from the package root, `@copilotkit/vue`. Like all CopilotKit
   composables, `useComponent` must be called from within a component that is a
   descendant of [`CopilotKitProvider`](/reference/vue/components/CopilotKitProvider).
 </Callout>
@@ -19,21 +19,25 @@ Use this when you want a visual component renderer without writing a full fronte
 
 ```ts
 import type { Component, WatchSource } from "vue";
-import type { StandardSchemaV1 } from "@copilotkit/shared";
-import { useComponent } from "@copilotkit/vue/v2";
+import type { InferSchemaOutput, StandardSchemaV1 } from "@copilotkit/shared";
+import { useComponent } from "@copilotkit/vue";
 
-function useComponent<TSchema extends StandardSchemaV1 | undefined = undefined>(
+useComponent satisfies <
+  TSchema extends StandardSchemaV1 | undefined = undefined,
+>(
   config: {
     name: string;
     description?: string;
     parameters?: TSchema;
     // When parameters is provided, props are inferred from the schema output.
     // When omitted, the component accepts any props.
-    render: Component<NoInfer<InferRenderProps<TSchema>>>;
+    render: Component<
+      TSchema extends StandardSchemaV1 ? InferSchemaOutput<TSchema> : object
+    >;
     agentId?: string;
   },
   deps?: WatchSource<unknown>[],
-): void;
+) => void;
 ```
 
 ## Parameters
@@ -98,7 +102,7 @@ defineProps<{
 <!-- App.vue -->
 <script setup lang="ts">
 import { z } from "zod";
-import { useComponent } from "@copilotkit/vue/v2";
+import { useComponent } from "@copilotkit/vue";
 import WeatherCard from "./WeatherCard.vue";
 
 const weatherCardSchema = z.object({
@@ -123,7 +127,7 @@ When you omit `parameters`, the component accepts any props and the agent can in
 
 ```vue
 <script setup lang="ts">
-import { useComponent } from "@copilotkit/vue/v2";
+import { useComponent } from "@copilotkit/vue";
 import LoadingSpinner from "./LoadingSpinner.vue";
 
 useComponent({
@@ -141,7 +145,7 @@ Pass reactive watch sources through `deps` so the registration re-runs when capt
 <script setup lang="ts">
 import { ref } from "vue";
 import { z } from "zod";
-import { useComponent } from "@copilotkit/vue/v2";
+import { useComponent } from "@copilotkit/vue";
 import WeatherCard from "./WeatherCard.vue";
 
 // Pass any reactive watch sources the registration should track through `deps`;

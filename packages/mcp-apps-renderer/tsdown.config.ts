@@ -52,11 +52,11 @@ export default defineConfig([
     format: ["umd"],
     globalName: "CopilotKitMcpAppsRendererActivity",
     sourcemap: true,
-    // es2018 for the script-tag UMD (broad browser reach), matching a2ui-renderer.
+    // es2018 for the script-tag UMD (broad browser reach), matching core.
     target: "es2018",
     outDir: "dist",
     external: (id: string) => id === "zod" || id.startsWith("zod/"),
-    // Force a single self-contained bundle (matches a2ui-renderer): without this,
+    // Force a single self-contained bundle (matches core): without this,
     // a sibling chunk emitted next to activity.umd.js would leave the global
     // incomplete, and es-check (syntax-only) would not catch it.
     codeSplitting: false,

@@ -163,6 +163,25 @@ const iconKebab = html`
 `;
 
 /**
+ * Most recent first, by `lastRunAt`, then `updatedAt`, then `createdAt`,
+ * compared as parsed instants. A timestamp that does not parse sorts last, and
+ * ties keep their input order. This is the order of `sortThreadsByRecency` in
+ * `@copilotkit/core` (`packages/core/src/threads.ts`), which sorts the
+ * threads the framework drawers pass in, so the element keeps their order.
+ * Keep the two in step: this package does not depend on core.
+ */
+function sortThreadsByRecency(threads: readonly DrawerThread[]) {
+  return [...threads].sort((left, right) => recencyOf(right) - recencyOf(left));
+}
+
+function recencyOf(thread: DrawerThread): number {
+  const time = Date.parse(
+    thread.lastRunAt ?? thread.updatedAt ?? thread.createdAt,
+  );
+  return Number.isNaN(time) ? Number.NEGATIVE_INFINITY : time;
+}
+
+/**
  * `<copilotkit-threads-drawer>` — a public, self-contained, controlled, framework-agnostic
  * threads drawer rendered into a shadow root.
  *
@@ -595,25 +614,7 @@ export class CopilotKitThreadsDrawer extends LitElement {
       this._filter === "active"
         ? this.threads.filter((t) => !t.archived)
         : this.threads;
-    // Parse to a timestamp; a malformed/absent value yields `null` (NOT epoch 0)
-    // so bad data is never silently treated as 1970. Threads with a valid
-    // timestamp sort most-recent-first; threads with no parseable timestamp
-    // keep their incoming relative order and sort after the dated ones.
-    const ts = (t: DrawerThread): number | null => {
-      const raw = t.lastRunAt ?? t.updatedAt ?? t.createdAt;
-      const parsed = Date.parse(raw);
-      return Number.isNaN(parsed) ? null : parsed;
-    };
-    return [...filtered]
-      .map((thread, index) => ({ thread, index, ts: ts(thread) }))
-      .sort((a, b) => {
-        if (a.ts === null && b.ts === null) return a.index - b.index;
-        if (a.ts === null) return 1;
-        if (b.ts === null) return -1;
-        if (a.ts !== b.ts) return b.ts - a.ts;
-        return a.index - b.index;
-      })
-      .map((entry) => entry.thread);
+    return sortThreadsByRecency(filtered);
   }
 
   private _emit<T>(type: string, detail: T): void {

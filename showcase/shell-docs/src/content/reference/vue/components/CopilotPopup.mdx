@@ -4,7 +4,7 @@ description: "Vue 3 popup variant of CopilotChat that renders in a floating pane
 ---
 
 <Callout type="info">
-  This is the Vue 3 popup component. Import it from `@copilotkit/vue/v2`.
+  This is the Vue 3 popup component. Import it from `@copilotkit/vue`.
 </Callout>
 
 `CopilotPopup` renders a floating chat popup with a toggle button. It wraps [`CopilotChat`](/reference/vue/components/CopilotChat) and provides popup-specific layout, sizing, and open/close behavior. The popup includes a header with a title and close button, and can optionally be dismissed by clicking outside.
@@ -15,7 +15,7 @@ The `"popup"` feature requires a license. When it is not licensed, the component
 
 ```vue
 <script setup lang="ts">
-import { CopilotPopup } from "@copilotkit/vue/v2";
+import { CopilotPopup } from "@copilotkit/vue";
 </script>
 
 <template>
@@ -123,7 +123,7 @@ All slots are forwarded down to the internal `CopilotPopupView`. Each slot recei
 </PropertyReference>
 
 <PropertyReference name="generative-ui-surface" type="(props: GenerativeUIChatSurfaceSlotProps) => unknown">
-  Experimental. Replaces the default card around each generative UI surface in the chat. Slot props: `surfaceId`, `isStreaming`, `error`, `rejected`, `children`. Render the surface with `<component :is="children" />`. See [`CopilotChat`](/reference/vue/components/CopilotChat) for the details of each slot prop.
+  Replaces the default card around each generative UI surface in the chat. Slot props: `surfaceId`, `isStreaming`, `error`, `rejected`, `children`. Render the surface with `<component :is="children" />`. See [`CopilotChat`](/reference/vue/components/CopilotChat) for the details of each slot prop.
 </PropertyReference>
 
 ## Events
@@ -147,7 +147,7 @@ All slots are forwarded down to the internal `CopilotPopupView`. Each slot recei
 
 ```vue
 <script setup lang="ts">
-import { CopilotPopup } from "@copilotkit/vue/v2";
+import { CopilotPopup } from "@copilotkit/vue";
 </script>
 
 <template>
@@ -162,7 +162,7 @@ import { CopilotPopup } from "@copilotkit/vue/v2";
 
 ```vue
 <script setup lang="ts">
-import { CopilotPopup } from "@copilotkit/vue/v2";
+import { CopilotPopup } from "@copilotkit/vue";
 </script>
 
 <template>
@@ -180,7 +180,7 @@ import { CopilotPopup } from "@copilotkit/vue/v2";
 
 ```vue
 <script setup lang="ts">
-import { CopilotPopup } from "@copilotkit/vue/v2";
+import { CopilotPopup } from "@copilotkit/vue";
 </script>
 
 <template>
@@ -199,7 +199,7 @@ import { CopilotPopup } from "@copilotkit/vue/v2";
 
 ```vue
 <script setup lang="ts">
-import { CopilotPopup } from "@copilotkit/vue/v2";
+import { CopilotPopup } from "@copilotkit/vue";
 
 function onSubmit(value: string) {
   console.log("submitted:", value);

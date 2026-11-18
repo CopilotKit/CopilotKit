@@ -109,7 +109,7 @@ export function attachDiscordListener(cfg: ListenerConfig): void {
     ).catch((e) => console.error("[bot-discord] onTurn handler failed:", e));
   });
 
-  client.on("interactionCreate", async (i: ChatInputLike) => {
+  const handleCommand = async (i: ChatInputLike) => {
     if (typeof i?.isChatInputCommand !== "function" || !i.isChatInputCommand())
       return;
     // Register the live interaction with the timer-race registry, arming an
@@ -155,6 +155,10 @@ export function attachDiscordListener(cfg: ListenerConfig): void {
         /* interaction already gone / cleared */
       }
     }
+  };
+  // onCommand failures are caught above and settle never rejects.
+  client.on("interactionCreate", (i: ChatInputLike) => {
+    void handleCommand(i);
   });
 
   if (onReaction) {
@@ -188,8 +192,15 @@ export function attachDiscordListener(cfg: ListenerConfig): void {
         }
       };
 
-    client.on("messageReactionAdd", handleReaction(true));
-    client.on("messageReactionRemove", handleReaction(false));
+    // handleReaction catches its own failures, so it never rejects.
+    const onReactionAdd = handleReaction(true);
+    const onReactionRemove = handleReaction(false);
+    client.on("messageReactionAdd", (reaction: unknown, user: unknown) => {
+      void onReactionAdd(reaction, user);
+    });
+    client.on("messageReactionRemove", (reaction: unknown, user: unknown) => {
+      void onReactionRemove(reaction, user);
+    });
   }
 }
 

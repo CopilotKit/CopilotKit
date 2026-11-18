@@ -56,8 +56,7 @@ import {
   CopilotChatConfigurationProvider,
   CopilotKitProvider,
   CopilotThreadsDrawer,
-} from "@copilotkit/vue/v2";
-import "@copilotkit/vue/styles.css";
+} from "@copilotkit/vue";
 </script>
 
 <template>
@@ -86,7 +85,7 @@ the same configuration method the Drawer calls for its own row.
 
 ```vue title="src/components/NewConversationButton.vue"
 <script setup lang="ts">
-import { useCopilotChatConfiguration } from "@copilotkit/vue/v2";
+import { useCopilotChatConfiguration } from "@copilotkit/vue";
 
 const configuration = useCopilotChatConfiguration();
 
@@ -110,9 +109,8 @@ import {
   CopilotChatConfigurationProvider,
   CopilotKitProvider,
   CopilotThreadsDrawer,
-} from "@copilotkit/vue/v2";
+} from "@copilotkit/vue";
 import NewConversationButton from "./components/NewConversationButton.vue";
-import "@copilotkit/vue/styles.css";
 </script>
 
 <template>
@@ -171,7 +169,7 @@ import {
   CopilotChat,
   CopilotChatConfigurationProvider,
   CopilotThreadsDrawer,
-} from "@copilotkit/vue/v2";
+} from "@copilotkit/vue";
 
 const threadId = ref<string>(crypto.randomUUID());
 const selectThread = (id: string) => {

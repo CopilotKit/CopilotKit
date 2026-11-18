@@ -208,7 +208,7 @@ const governedActionSchema = z.object({
   tool: z.string(),
   reference: z.string(),
   verdict: z.enum(["allow", "deny", "require_approval"]),
-  arguments: z.record(z.unknown()),
+  arguments: z.record(z.string(), z.unknown()),
 });
 
 export function useGovernedActionTool() {

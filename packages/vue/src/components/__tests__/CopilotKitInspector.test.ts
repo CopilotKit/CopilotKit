@@ -1,0 +1,124 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { nextTick } from "vue";
+import { mount } from "@vue/test-utils";
+import { defineWebInspector } from "@copilotkit/web-inspector";
+import CopilotKitInspector from "../CopilotKitInspector.vue";
+import { CopilotKitCoreVue } from "../../lib/vue-core";
+
+async function settleInspectorLoad() {
+  await nextTick();
+  await vi.dynamicImportSettled();
+  await nextTick();
+}
+
+describe("CopilotKitInspector", () => {
+  beforeEach(() => {
+    vi.mocked(defineWebInspector).mockClear();
+  });
+
+  it("renders nothing until the web inspector module resolves", async () => {
+    const wrapper = mount(CopilotKitInspector);
+
+    expect(wrapper.find("cpk-web-inspector").exists()).toBe(false);
+
+    await settleInspectorLoad();
+
+    expect(wrapper.find("cpk-web-inspector").exists()).toBe(true);
+    expect(defineWebInspector).toHaveBeenCalledTimes(1);
+  });
+
+  it("forwards core and arbitrary attributes to the web inspector element", async () => {
+    const core = new CopilotKitCoreVue({
+      runtimeUrl: "/api/copilotkit",
+    });
+
+    const wrapper = mount(CopilotKitInspector, {
+      props: {
+        core,
+      },
+      attrs: {
+        "data-testid": "inspector",
+        "data-surface": "storybook",
+      },
+    });
+
+    await settleInspectorLoad();
+
+    const inspector = wrapper.get("cpk-web-inspector");
+    const inspectorElement = inspector.element as HTMLElement & {
+      autoAttachCore?: boolean;
+      core?: CopilotKitCoreVue;
+    };
+
+    expect(inspector.attributes("data-testid")).toBe("inspector");
+    expect(inspector.attributes("data-surface")).toBe("storybook");
+    expect(inspectorElement.autoAttachCore).toBe(false);
+    expect(inspectorElement.core).toBeInstanceOf(CopilotKitCoreVue);
+    expect(inspectorElement.core?.runtimeUrl).toBe("/api/copilotkit");
+
+    await wrapper.setProps({ "data-surface": "updated" });
+    expect(wrapper.get("cpk-web-inspector").attributes("data-surface")).toBe(
+      "updated",
+    );
+  });
+
+  it("forwards event listeners to the web inspector element", async () => {
+    const onVisibility = vi.fn();
+    const wrapper = mount(CopilotKitInspector, {
+      attrs: { onCpkInspectorVisibilityChange: onVisibility },
+    });
+    await settleInspectorLoad();
+
+    const event = new CustomEvent("cpk-inspector-visibility-change", {
+      detail: { visible: false },
+    });
+    wrapper.get("cpk-web-inspector").element.dispatchEvent(event);
+
+    expect(onVisibility).toHaveBeenCalledWith(event);
+  });
+
+  it("opens a request made before the web inspector module resolves", async () => {
+    const wrapper = mount(CopilotKitInspector);
+    const openRequest = { messageId: "message-early" };
+    await wrapper.setProps({ openRequest });
+
+    await settleInspectorLoad();
+
+    const inspector = wrapper.get("cpk-web-inspector")
+      .element as HTMLElement & {
+      openInspector: ReturnType<typeof vi.fn>;
+    };
+    expect(inspector.openInspector).toHaveBeenCalledExactlyOnceWith(
+      "message_toolbar",
+      openRequest,
+    );
+  });
+
+  it("emits Inspector visibility and removes the element on unmount", async () => {
+    const wrapper = mount(CopilotKitInspector, { attachTo: document.body });
+    await settleInspectorLoad();
+    expect(wrapper.emitted("visibility-change")).toEqual([[true]]);
+
+    wrapper.unmount();
+
+    expect(document.querySelector("cpk-web-inspector")).toBeNull();
+  });
+
+  it("forwards Inspector open requests to the mounted element", async () => {
+    const openRequest = { messageId: "message-1" };
+    const wrapper = mount(CopilotKitInspector, {
+      props: { openRequest },
+    });
+
+    await settleInspectorLoad();
+
+    const inspector = wrapper.get("cpk-web-inspector")
+      .element as HTMLElement & {
+      openInspector: ReturnType<typeof vi.fn>;
+    };
+    expect(inspector.openInspector).toHaveBeenCalledWith(
+      "message_toolbar",
+      openRequest,
+    );
+  });
+});

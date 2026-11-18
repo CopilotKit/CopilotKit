@@ -6,7 +6,17 @@ description: Group portable buttons and Slack-select controls in one message act
 `Actions` groups interactive controls.
 
 ```tsx
-import { Actions, Button, Message, Section } from "@copilotkit/channels/ui";
+import {
+  Actions,
+  Button,
+  Message,
+  Section,
+  type ClickHandler,
+} from "@copilotkit/channels/ui";
+
+const handleDecision: ClickHandler<string> = async ({ thread, action }) => {
+  await thread.post(`Recorded decision: ${action.value}.`);
+};
 
 <Message>
   <Section>Approve this deployment?</Section>

@@ -20,7 +20,7 @@ const fixtureFiles: string[] = [
     cwd: REPO_ROOT,
     absolute: true,
   }),
-  ...globSync("examples/integrations/*/fixtures/*.json", {
+  ...globSync("examples/starters/*/fixtures/*.json", {
     cwd: REPO_ROOT,
     absolute: true,
   }),

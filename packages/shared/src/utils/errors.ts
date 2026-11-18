@@ -1,6 +1,3 @@
-import { GraphQLError } from "graphql";
-import { COPILOTKIT_VERSION } from "../index";
-
 export enum Severity {
   CRITICAL = "critical", // Critical errors that block core functionality
   WARNING = "warning", // Configuration/setup issues that need attention
@@ -21,11 +18,11 @@ export const ERROR_NAMES = {
     "CopilotKitRemoteEndpointDiscoveryError",
   COPILOT_KIT_AGENT_DISCOVERY_ERROR: "CopilotKitAgentDiscoveryError",
   COPILOT_KIT_LOW_LEVEL_ERROR: "CopilotKitLowLevelError",
-  COPILOT_KIT_VERSION_MISMATCH_ERROR: "CopilotKitVersionMismatchError",
   RESOLVED_COPILOT_KIT_ERROR: "ResolvedCopilotKitError",
   CONFIGURATION_ERROR: "ConfigurationError",
   MISSING_PUBLIC_API_KEY_ERROR: "MissingPublicApiKeyError",
   UPGRADE_REQUIRED_ERROR: "UpgradeRequiredError",
+  REMOVED_API_ERROR: "CopilotKitRemovedApiError",
 } as const;
 
 // Banner errors - critical configuration/discovery issues
@@ -54,6 +51,8 @@ export enum CopilotKitErrorCode {
   CONFIGURATION_ERROR = "CONFIGURATION_ERROR",
   MISSING_PUBLIC_API_KEY_ERROR = "MISSING_PUBLIC_API_KEY_ERROR",
   UPGRADE_REQUIRED_ERROR = "UPGRADE_REQUIRED_ERROR",
+  /** 1.x code uses an API that CopilotKit 2.0 removed. See `CopilotKitRemovedApiError`. */
+  REMOVED_API = "REMOVED_API",
 }
 
 const BASE_URL = "https://docs.copilotkit.ai";
@@ -132,9 +131,29 @@ export const ERROR_CONFIG = {
     visibility: ErrorVisibility.DEV_ONLY,
     severity: Severity.INFO,
   },
+  [CopilotKitErrorCode.REMOVED_API]: {
+    statusCode: 400,
+    // CopilotKitRemovedApiError does not read this entry: it extends Error and
+    // links the docs section about its own API in `docsUrl`.
+    troubleshootingUrl: `${BASE_URL}/migrate/removed-apis-2.0#copilotkitremovedapierror`,
+    visibility: ErrorVisibility.BANNER,
+    severity: Severity.CRITICAL,
+  },
 };
 
-export class CopilotKitError extends GraphQLError {
+export interface CopilotKitErrorExtensions {
+  name: string;
+  statusCode: number;
+  code: CopilotKitErrorCode;
+  visibility: ErrorVisibility;
+  severity?: Severity;
+  troubleshootingUrl: string | null;
+  originalError: { message: string; stack?: string };
+}
+
+export class CopilotKitError extends Error {
+  /** Structured error details, kept in the shape GraphQL errors used in 1.x. */
+  extensions: CopilotKitErrorExtensions;
   code: CopilotKitErrorCode;
   statusCode: number;
   severity?: Severity;
@@ -159,22 +178,21 @@ export class CopilotKitError extends GraphQLError {
     const resolvedSeverity =
       severity ?? ("severity" in config ? config.severity : undefined);
 
-    super(message, {
-      extensions: {
-        name,
-        statusCode,
-        code,
-        visibility: resolvedVisibility,
-        severity: resolvedSeverity,
-        troubleshootingUrl:
-          "troubleshootingUrl" in config ? config.troubleshootingUrl : null,
-        originalError: {
-          message,
-          stack: new Error().stack,
-        },
-      },
-    });
+    super(message);
 
+    this.extensions = {
+      name,
+      statusCode,
+      code,
+      visibility: resolvedVisibility,
+      severity: resolvedSeverity,
+      troubleshootingUrl:
+        "troubleshootingUrl" in config ? config.troubleshootingUrl : null,
+      originalError: {
+        message,
+        stack: new Error().stack,
+      },
+    };
     this.code = code;
     this.name = name;
     this.statusCode = statusCode;
@@ -205,36 +223,6 @@ export class CopilotKitMisuseError extends CopilotKitError {
     const finalMessage = docsLink ? `${message}.\n\n${docsLink}` : message;
     super({ message: finalMessage, code });
     this.name = ERROR_NAMES.COPILOT_API_DISCOVERY_ERROR;
-  }
-}
-
-const getVersionMismatchErrorMessage = ({
-  reactCoreVersion,
-  runtimeVersion,
-  runtimeClientGqlVersion,
-}: VersionMismatchResponse) =>
-  `Version mismatch detected: @copilotkit/runtime@${runtimeVersion ?? ""} is not compatible with @copilotkit/react-core@${reactCoreVersion} and @copilotkit/runtime-client-gql@${runtimeClientGqlVersion}. Please ensure all installed copilotkit packages are on the same version.`;
-/**
- * Error thrown when CPK versions does not match
- *
- * @extends CopilotKitError
- */
-export class CopilotKitVersionMismatchError extends CopilotKitError {
-  constructor({
-    reactCoreVersion,
-    runtimeVersion,
-    runtimeClientGqlVersion,
-  }: VersionMismatchResponse) {
-    const code = CopilotKitErrorCode.VERSION_MISMATCH;
-    super({
-      message: getVersionMismatchErrorMessage({
-        reactCoreVersion,
-        runtimeVersion,
-        runtimeClientGqlVersion,
-      }),
-      code,
-    });
-    this.name = ERROR_NAMES.COPILOT_KIT_VERSION_MISMATCH_ERROR;
   }
 }
 
@@ -447,6 +435,91 @@ export class UpgradeRequiredError extends ConfigurationError {
 }
 
 /**
+ * A section of the CopilotKit docs: a page and a heading on it, as a path
+ * from the docs root, for example `/migrate/v2#hook-mapping`. The heading is
+ * required, so that each link lands on the text about its API.
+ */
+export type CopilotKitDocsSection = `/${string}#${string}`;
+
+/**
+ * Something that CopilotKit 2.0 removed from 1.x, and what to do instead.
+ * `removedApiMessage` and `CopilotKitRemovedApiError` take it.
+ */
+export interface CopilotKitRemoval<
+  What extends string = string,
+  Use extends string = string,
+  Docs extends CopilotKitDocsSection = CopilotKitDocsSection,
+> {
+  /**
+   * What 2.0 removed: an export name in double quotes (`"useCopilotAction"`),
+   * or an option, a prop, or a call shape
+   * (`The "serviceAdapter" option of CopilotKitRuntime`).
+   */
+  what: What;
+  /** What to do instead, as one or more full sentences. */
+  use: Use;
+  /** The docs section that explains the replacement. */
+  docs: Docs;
+}
+
+/**
+ * The text of a `CopilotKitRemovedApiError`, and of each warning about a 1.x
+ * option that CopilotKit 2.0 ignores. They all have this format, which tells
+ * a developer or a coding agent what to change:
+ *
+ * `"useCopilotAction" was removed in CopilotKit 2.0. Use useFrontendTool from
+ * @copilotkit/react-core. Run \`npx codemod @copilotkit/v2-migration\` to
+ * update your code. See https://docs.copilotkit.ai/migrate/v2#hook-mapping`
+ *
+ * When each part is a string literal, the return type is the message itself,
+ * so that a type can carry it (see `RemovedApi`).
+ *
+ * @param removal - What was removed, what to use instead, and the docs section.
+ */
+export function removedApiMessage<
+  What extends string,
+  Use extends string,
+  Docs extends CopilotKitDocsSection,
+>({ what, use, docs }: CopilotKitRemoval<What, Use, Docs>) {
+  return `${what} was removed in CopilotKit 2.0. ${use} Run \`npx codemod @copilotkit/v2-migration\` to update your code. See ${BASE_URL}${docs}` as const;
+}
+
+/**
+ * The error that CopilotKit 2.0 throws for 1.x code: a call, `new`, or render
+ * of an export that 2.0 removed, or an option, a prop, or a call shape that
+ * only 1.x accepted. Its message says what to use instead and links to the
+ * docs section about it. `docsUrl` is that link.
+ *
+ * Check for it with `error instanceof CopilotKitRemovedApiError`, or with
+ * `error.code === CopilotKitErrorCode.REMOVED_API`.
+ *
+ * It extends `Error` and not `CopilotKitError`, because the checks that throw
+ * it run in every app: `CopilotKitError` would add the whole `ERROR_CONFIG`
+ * table to each app bundle. For the same reason, the class writes its name and
+ * code as strings and not as `ERROR_NAMES` and `CopilotKitErrorCode` values.
+ *
+ * @example
+ * throw new CopilotKitRemovedApiError({
+ *   what: 'The "serviceAdapter" option of CopilotKitRuntime',
+ *   use: "Pass a model to a BuiltInAgent in agents.",
+ *   docs: "/migrate/v2#update-the-runtime",
+ * });
+ */
+export class CopilotKitRemovedApiError extends Error {
+  /** Always `CopilotKitErrorCode.REMOVED_API`. */
+  readonly code = "REMOVED_API" satisfies `${CopilotKitErrorCode.REMOVED_API}`;
+  /** The docs section about the replacement, as a full URL. */
+  readonly docsUrl: string;
+
+  constructor(removal: CopilotKitRemoval) {
+    super(removedApiMessage(removal));
+    this.name =
+      "CopilotKitRemovedApiError" satisfies typeof ERROR_NAMES.REMOVED_API_ERROR;
+    this.docsUrl = `${BASE_URL}${removal.docs}`;
+  }
+}
+
+/**
  * Checks if an error is already a structured CopilotKit error.
  * This utility centralizes the logic for detecting structured errors across the codebase.
  *
@@ -475,41 +548,6 @@ export function ensureStructuredError<T extends CopilotKitError>(
   converter: (error: any) => T,
 ): T | any {
   return isStructuredCopilotKitError(error) ? error : converter(error);
-}
-
-interface VersionMismatchResponse {
-  runtimeVersion?: string;
-  runtimeClientGqlVersion: string;
-  reactCoreVersion: string;
-}
-
-export async function getPossibleVersionMismatch({
-  runtimeVersion,
-  runtimeClientGqlVersion,
-}: {
-  runtimeVersion?: string;
-  runtimeClientGqlVersion: string;
-}) {
-  if (!runtimeVersion || runtimeVersion === "" || !runtimeClientGqlVersion)
-    return;
-  if (
-    COPILOTKIT_VERSION !== runtimeVersion ||
-    COPILOTKIT_VERSION !== runtimeClientGqlVersion ||
-    runtimeVersion !== runtimeClientGqlVersion
-  ) {
-    return {
-      runtimeVersion,
-      runtimeClientGqlVersion,
-      reactCoreVersion: COPILOTKIT_VERSION,
-      message: getVersionMismatchErrorMessage({
-        runtimeVersion,
-        runtimeClientGqlVersion,
-        reactCoreVersion: COPILOTKIT_VERSION,
-      }),
-    };
-  }
-
-  return;
 }
 
 const resolveLowLevelErrorMessage = ({
@@ -552,6 +590,7 @@ ${getSeeMoreMarkdown(troubleshootingLink)}`;
       return `The server on ${url} could not be found. Check the URL or your network configuration.\n\n${getSeeMoreMarkdown(ERROR_CONFIG[CopilotKitErrorCode.NOT_FOUND].troubleshootingUrl)}`;
     case "ETIMEDOUT":
       return `The connection to ${url} timed out. The server might be overloaded or taking too long to respond.\n\n${getSeeMoreMarkdown(troubleshootingLink)}`;
+    case undefined:
     default:
       return;
   }

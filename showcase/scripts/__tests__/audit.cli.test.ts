@@ -283,7 +283,7 @@ fs.existsSync = function(...args) {
       specs: ["a.spec.ts"],
       qaFiles: ["a.md"],
     });
-    // Intentionally DO NOT create examples/integrations/<mapped> dir so
+    // Intentionally DO NOT create examples/starters/<mapped> dir so
     // findExamplesSource emits a stale-mapping warning.
     const r = runCli(["--json"], {
       env: { SHOWCASE_AUDIT_ROOT: root },

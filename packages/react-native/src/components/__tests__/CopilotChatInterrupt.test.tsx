@@ -9,8 +9,8 @@ import {
 import { describe, expect, it, vi } from "vitest";
 import { EventType, HttpAgent } from "@ag-ui/client";
 import type { RunAgentInput } from "@ag-ui/client";
-import { useCopilotKit } from "@copilotkit/react-core/v2/context";
-import type { CopilotKitCoreReact } from "@copilotkit/react-core/v2/context";
+import { useCopilotKit } from "@copilotkit/react-core/context";
+import type { CopilotKitCoreReact } from "@copilotkit/react-core/context";
 
 // The shared react-native stub passes FlatList props through unused. This one
 // renders the rows and then the footer, which is where CopilotChat draws the

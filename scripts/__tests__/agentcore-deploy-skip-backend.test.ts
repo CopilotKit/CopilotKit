@@ -23,10 +23,7 @@ function runFrontendOnly(scriptName: (typeof DEPLOY_SCRIPTS)[number]) {
   const fakeBin = join(directory, "bin");
   mkdirSync(fakeBin);
   mkdirSync(join(directory, "scripts"));
-  copyFileSync(
-    resolve("examples/integrations/agentcore", scriptName),
-    scriptPath,
-  );
+  copyFileSync(resolve("examples/starters/agentcore", scriptName), scriptPath);
   chmodSync(scriptPath, 0o755);
   writeFileSync(
     join(directory, "config.yaml"),

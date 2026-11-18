@@ -111,6 +111,52 @@ describe("findImportViolations", () => {
     expect(violations[0].reason).toContain("optional peer");
   });
 
+  it("accepts an optional peer in declarations only a subpath export reaches", () => {
+    const fixture = setup({
+      dist: {
+        "index.d.mts": 'export * from "./shared.mjs";',
+        "shared.d.mts": "export type Shared = string;",
+        "agent.d.mts": 'import type { AnyTextAdapter } from "@tanstack/ai";',
+      },
+      manifest: {
+        exports: {
+          ".": { import: "./dist/index.mjs" },
+          "./agent": { import: "./dist/agent.mjs" },
+        },
+        peerDependencies: { "@tanstack/ai": "^1.2.0" },
+        peerDependenciesMeta: { "@tanstack/ai": { optional: true } },
+      },
+    });
+    root = fixture.root;
+
+    expect(findImportViolations(fixture.distDir, fixture.root)).toEqual([]);
+  });
+
+  it("flags an optional peer the root export reaches through a relative import", () => {
+    const fixture = setup({
+      dist: {
+        "index.d.mts": 'export * from "./agent.mjs";',
+        "agent.d.mts": 'import type { AnyTextAdapter } from "@tanstack/ai";',
+      },
+      manifest: {
+        exports: {
+          ".": { import: "./dist/index.mjs" },
+          "./agent": { import: "./dist/agent.mjs" },
+        },
+        peerDependencies: { "@tanstack/ai": "^1.2.0" },
+        peerDependenciesMeta: { "@tanstack/ai": { optional: true } },
+      },
+    });
+    root = fixture.root;
+
+    const violations = findImportViolations(fixture.distDir, fixture.root);
+    expect(violations).toHaveLength(1);
+    expect(violations[0]).toMatchObject({
+      file: "agent.d.mts",
+      specifier: "@tanstack/ai",
+    });
+  });
+
   it("flags a devDependency, which consumers never install", () => {
     const fixture = setup({
       dist: { "index.d.cts": 'import type { X } from "@copilotkit/channels";' },

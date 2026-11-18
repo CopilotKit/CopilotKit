@@ -14,13 +14,28 @@ To read the suggestions and render your own pills, see [`useSuggestions`](/refer
 ## Signature
 
 ```tsx
-import { useConfigureSuggestions } from "@copilotkit/react-core/v2";
+import {
+  useConfigureSuggestions,
+  type DynamicSuggestionsConfig,
+  type StaticSuggestionsConfig,
+  type Suggestion,
+} from "@copilotkit/react-core";
 
-function useConfigureSuggestions(
-  config: SuggestionsConfigInput | null | undefined,
+useConfigureSuggestions satisfies (
+  // SuggestionsConfigInput
+  config:
+    | DynamicSuggestionsConfig
+    // StaticSuggestionsConfigInput: `isLoading` is optional on each suggestion.
+    | (Omit<StaticSuggestionsConfig, "suggestions"> & {
+        suggestions: (Omit<Suggestion, "isLoading"> & { isLoading?: boolean })[];
+      })
+    | null
+    | undefined,
   deps?: ReadonlyArray<unknown>,
-): void;
+) => void;
 ```
+
+`SuggestionsConfigInput` and `StaticSuggestionsConfigInput` are not exported by name. `DynamicSuggestionsConfig`, `StaticSuggestionsConfig`, and `Suggestion` are.
 
 ## Parameters
 
@@ -104,6 +119,8 @@ Used when suggestions are a predefined list.
 ### Static Suggestions
 
 ```tsx
+import { useConfigureSuggestions } from "@copilotkit/react-core";
+
 function WelcomeSuggestions() {
   useConfigureSuggestions({
     suggestions: [
@@ -124,6 +141,8 @@ function WelcomeSuggestions() {
 ### Dynamic Suggestions
 
 ```tsx
+import { useConfigureSuggestions } from "@copilotkit/react-core";
+
 function SmartSuggestions() {
   useConfigureSuggestions({
     instructions:
@@ -141,6 +160,9 @@ function SmartSuggestions() {
 ### Dynamic Suggestions with Dependencies
 
 ```tsx
+import { useState } from "react";
+import { useConfigureSuggestions } from "@copilotkit/react-core";
+
 function ContextualSuggestions() {
   const [topic, setTopic] = useState("general");
 
@@ -165,6 +187,8 @@ function ContextualSuggestions() {
 ### Conditionally Disabling Suggestions
 
 ```tsx
+import { useConfigureSuggestions } from "@copilotkit/react-core";
+
 function ConditionalSuggestions({ enabled }: { enabled: boolean }) {
   useConfigureSuggestions(
     enabled
@@ -181,6 +205,8 @@ function ConditionalSuggestions({ enabled }: { enabled: boolean }) {
 ### Targeting a Specific Agent
 
 ```tsx
+import { useConfigureSuggestions } from "@copilotkit/react-core";
+
 function AgentSpecificSuggestions() {
   useConfigureSuggestions({
     instructions: "Suggest data analysis tasks the user can perform.",

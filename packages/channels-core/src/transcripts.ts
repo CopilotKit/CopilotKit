@@ -75,10 +75,15 @@ export class Transcripts {
       const cutoff = Date.now() - this.retentionMs;
       items = items.filter((e) => e.ts >= cutoff);
     }
-    if (q.platforms)
-      items = items.filter((e) => q.platforms!.includes(e.platform));
+    if (q.platforms) {
+      const platforms = new Set(q.platforms);
+      items = items.filter((e) => platforms.has(e.platform));
+    }
     if (q.threadId) items = items.filter((e) => e.threadId === q.threadId);
-    if (q.roles) items = items.filter((e) => q.roles!.includes(e.role));
+    if (q.roles) {
+      const roles = new Set(q.roles);
+      items = items.filter((e) => roles.has(e.role));
+    }
     if (q.limit !== undefined) items = items.slice(-q.limit);
     return items; // oldest-first
   }

@@ -22,7 +22,7 @@ so the app has one copy of it.
 1. Install the packages:
 
    ```bash
-   npm install @copilotkit/runtime @ag-ui/client@1.0.2 rxjs
+   npm install @copilotkit/runtime @ag-ui/client@1.0.4 rxjs
    ```
 
 2. Run `npm ls @ag-ui/client`. It shows one deduped version.
@@ -74,18 +74,18 @@ The chat components use `default` when you do not name an agent.
 
 ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
 import {
-  CopilotRuntime,
-  createCopilotRuntimeHandler,
+  CopilotKitRuntime,
+  createCopilotKitRuntimeHandler,
   InMemoryAgentRunner,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import { EchoAgent } from "@/lib/echo-agent";
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: { default: new EchoAgent() },
   runner: new InMemoryAgentRunner(),
 });
 
-const handler = createCopilotRuntimeHandler({
+const handler = createCopilotKitRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
 });
@@ -136,7 +136,7 @@ export class SupportAgent extends AbstractAgent {
   }
 
   override clone(): SupportAgent {
-    const copy = super.clone() as SupportAgent;
+    const copy: SupportAgent = super.clone();
     copy.client = this.client;
     return copy;
   }
@@ -201,9 +201,9 @@ subclass. Register an `HttpAgent` that points at the service:
 
 ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
 import { HttpAgent } from "@ag-ui/client";
-import { CopilotRuntime, InMemoryAgentRunner } from "@copilotkit/runtime/v2";
+import { CopilotKitRuntime, InMemoryAgentRunner } from "@copilotkit/runtime";
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: { default: new HttpAgent({ url: process.env.AGENT_URL! }) },
   runner: new InMemoryAgentRunner(),
 });

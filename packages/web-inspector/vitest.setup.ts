@@ -18,7 +18,7 @@
 
 import { beforeEach } from "vitest";
 
-import { createTelemetryEgressGuard } from "./src/lib/testing/telemetry-egress-guard.js";
+import { createTelemetryEgressGuard } from "./src/testing/telemetry-egress-guard.js";
 
 // No test may POST a real `oss.inspector.*` event to the live telemetry sink —
 // see the helper for why no environment variable can cover this.

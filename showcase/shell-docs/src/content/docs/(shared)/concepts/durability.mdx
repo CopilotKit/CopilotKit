@@ -1,0 +1,69 @@
+---
+title: "Shared State, Interrupts, and Durability"
+nav_title: "Durability"
+description: "See what survives a page reload, a dropped connection, and a server restart, and where shared state, threads, and approvals are stored."
+icon: "lucide/ShieldCheck"
+doc_type: explanation
+---
+
+A user reloads the page in the middle of a run, or your server restarts during an approval. Some of the conversation comes back and some of it does not. This page shows where each part is stored, so you can make the parts that matter survive.
+
+The frontend shows the state of a run. The server side keeps it. Do not use React state as the record of a workflow.
+
+## The 30-second version
+
+| Part | Where it is stored | Page reload | Server restart |
+| --- | --- | --- | --- |
+| Messages and events of a thread | The runtime's [`AgentRunner`](/backend/agent-runner) | Replays, if you pass the same `threadId` | Lost with the default runner. Kept with a persisting runner or Intelligence. |
+| `threadId` | The client | A new id, unless you store it and pass it back | Not affected |
+| Shared state (`agent.state`) | The client, sent to the agent on each run | Restored when the thread replays | Same as the thread |
+| A pending `useInterrupt` | The agent run, replayed by the runner | Comes back as pending when the thread replays | Same as the thread |
+| A pending `useHumanInTheLoop` call | Browser memory | Lost | Lost |
+| The execution of the agent | Your agent framework | Not resumed by CopilotKit | Not resumed by CopilotKit |
+
+## Threads and history
+
+Every conversation is a thread with a `threadId`. If the chat mounts without a `threadId`, the client makes a new one. A remount makes a new one again, so a reload starts an empty conversation.
+
+To keep the conversation across a reload:
+
+1. Store the `threadId`, for example in the URL or in your database.
+2. Pass it to the chat as the `threadId` prop.
+3. Configure a server-side store that the runtime can replay from.
+
+The runtime stores history in its runner:
+
+- **`InMemoryAgentRunner`** is the default. It keeps history in process memory. A restart loses it, and other instances cannot read it.
+- **`SqliteAgentRunner`** keeps history in a SQLite file on one instance. Set a real `dbPath`.
+- **`IntelligenceAgentRunner`** keeps history for all instances. CopilotKit Intelligence connects it for you.
+
+The runner classes belong to the TypeScript runtime. For the full lifecycle, read [Thread and history lifecycle](/threads-lifecycle) and [AgentRunner and persistence](/backend/agent-runner).
+
+## Shared state
+
+`agent.state` is a plain object on the client. When you call `agent.setState()`, the agent receives the new value on its next run. State events from the agent update the same object while it runs. When a thread replays after a reload, its state events replay with it. To read and write state, see [Shared state](/shared-state).
+
+## Approvals and interrupts
+
+Use the approval pattern that matches how long the approval must wait:
+
+- **`useInterrupt`** follows an interrupt that the agent emits. After a reload, an interrupt that the thread already holds becomes pending again. This needs a runner that replays the thread. On the Built-in Agent, interrupts are not available.
+- **`useHumanInTheLoop`** pauses on a tool call. The call waits in browser memory. If the user reloads before answering, the answer is lost.
+
+If an approval must survive a reload, use `useInterrupt` on a framework that emits interrupts. See [Human-in-the-loop](/human-in-the-loop).
+
+## Execution after a failure
+
+A replay shows the history of a thread. It does not continue a run that a server failure stopped. Durable execution belongs to your agent framework:
+
+- **LangGraph:** a database checkpointer keeps the graph state across restarts. CopilotKit threads and the checkpointer share only the `threadId`.
+- **Durable execution engines:** Temporal and Restate run your agent code so that a run continues after a crash or a restart. Both list integrations with agent frameworks, for example the OpenAI Agents SDK, Google ADK, and Pydantic AI.
+- **Other frameworks:** use the persistence of the framework.
+
+A durable engine keeps the run alive. CopilotKit shows the run to your users and collects their input. Temporal and Restate have no official AG-UI or CopilotKit integration, so you write the code that connects a workflow run to your AG-UI endpoint.
+
+## More than one device or instance
+
+[AG-UI Streams](/AG-UI-Streams) is a CopilotKit Intelligence feature. With it, a run continues after the browser disconnects, a reconnecting client catches up, and the same thread is delivered to other devices.
+
+Your conversation now survives the events that matter for your app. A good test: start a run, reload the page in the middle of it, and check that the history and any pending interrupt come back.

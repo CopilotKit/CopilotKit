@@ -2,7 +2,7 @@
  * Hooks inside the headless `<CopilotChat agentId>` must use that chat's agent,
  * as they do inside the web CopilotChat. Runs on a REAL `CopilotKitCoreReact`
  * (via `TestCopilotKit`) and the real react-core hooks: mocking
- * `@copilotkit/react-core/v2/headless` (as the sibling chat tests do) would
+ * `@copilotkit/react-core/headless` (as the sibling chat tests do) would
  * stub the chat configuration under test.
  */
 import React from "react";
@@ -12,7 +12,7 @@ import type { AbstractAgent } from "@ag-ui/client";
 import {
   useAgent,
   useCopilotChatConfiguration,
-} from "@copilotkit/react-core/v2/headless";
+} from "@copilotkit/react-core/headless";
 import { CopilotChat, useCopilotChatContext } from "../CopilotChat";
 import { SeededAgent, TestCopilotKit } from "../__mocks__/test-copilotkit";
 

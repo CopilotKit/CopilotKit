@@ -4,16 +4,16 @@ description: Reference for createChannel options, managed providers, handlers, t
 ---
 
 `createChannel(options)` returns the Channel you declare on
-`CopilotRuntime({ channels })`.
+`CopilotKitRuntime({ channels })`.
 
 ```ts title="channel.ts"
-import { createChannel } from "@copilotkit/channels";
-import { makeAgent } from "./agent.js";
+import { createChannel, HttpAgent } from "@copilotkit/channels";
 
 const channel = createChannel({
   name: "support",
   identifyUser: "platform",
-  agent: makeAgent,
+  agent: (threadId) =>
+    new HttpAgent({ url: "http://localhost:8000/agent", threadId }),
 });
 ```
 
@@ -39,7 +39,7 @@ both Slack and Teams for this Channel and keeps each delivery provider-scoped.
 | `render`         | `RenderConfig`                                         | Image-render configuration: `renderer`, `fonts`, `stylesheets`, `width`, `height`, and `allowImageUrl`. To post JSX as an image, set `renderer`. |
 
 One Channel may receive managed Slack and Teams deliveries. Names must be
-unique inside one `CopilotRuntime`.
+unique inside one `CopilotKitRuntime`.
 
 For long-reply defaults, event sanitization, and agent clone requirements, see
 the detailed [`createChannel` options](/reference/channels/functions/createChannel).
@@ -130,6 +130,15 @@ if it is read before the runtime listener starts the Channel.
 ## Message handlers
 
 ```ts title="channel.ts"
+import { createChannel, HttpAgent } from "@copilotkit/channels";
+
+const channel = createChannel({
+  name: "support",
+  identifyUser: "platform",
+  agent: (threadId) =>
+    new HttpAgent({ url: "http://localhost:8000/agent", threadId }),
+});
+
 channel.onMessage(async ({ thread, message }) => {
   await thread.runAgent({
     prompt: message.contentParts?.length
@@ -174,6 +183,20 @@ See the [Slack interactive messages guide](/slack/interactive), the
 Pass tools in `createChannel({ tools })`, or add one before activation:
 
 ```ts title="channel.ts"
+import { createChannel, defineChannelTool } from "@copilotkit/channels";
+import { z } from "zod";
+
+const channel = createChannel({ name: "support", identifyUser: "platform" });
+
+const getIncident = defineChannelTool({
+  name: "get_incident",
+  description: "Read the current status of an incident by its id.",
+  parameters: z.object({ incidentId: z.string() }),
+  async handler({ incidentId }) {
+    return { incidentId, status: "investigating" };
+  },
+});
+
 channel.tool(getIncident);
 ```
 
@@ -204,10 +227,22 @@ Install shutdown handlers before waiting for readiness so a slow or incomplete
 provider setup cannot prevent graceful teardown:
 
 ```ts title="channel.ts"
-const listener = createCopilotNodeListener({ runtime });
+import { createChannel } from "@copilotkit/channels";
+import { CopilotKitIntelligence, CopilotKitRuntime } from "@copilotkit/runtime";
+import { createCopilotKitNodeListener } from "@copilotkit/runtime/node";
 
+const channel = createChannel({ name: "support", identifyUser: "platform" });
+
+const runtime = new CopilotKitRuntime({
+  agents: {},
+  intelligence: new CopilotKitIntelligence({
+    apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
+  }),
+  channels: [channel],
+});
+
+const listener = createCopilotKitNodeListener({ runtime });
 const channels = listener.channels;
-if (!channels) throw new Error("Channels were not configured.");
 
 const shutdown = async () => {
   await channels.stop();

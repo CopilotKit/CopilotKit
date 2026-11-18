@@ -37,16 +37,26 @@ export class IncidentCardComponent implements ToolRenderer<IncidentArgs> {
 }
 ```
 
-```ts
-registerComponent({
-  name: "show_incident",
-  description: "Show one incident from the incident table.",
-  parameters: z.object({
-    id: z.string().describe("The incident id, such as INC-4711"),
-    severity: z.string().describe("One of sev1, sev2, sev3"),
-  }),
-  component: IncidentCardComponent,
-});
+```ts title="src/app/chat.component.ts"
+import { Component } from "@angular/core";
+import { z } from "zod";
+import { registerComponent } from "@copilotkit/angular";
+import { IncidentCardComponent } from "./incident-card.component";
+
+@Component({ selector: "app-chat", template: `` })
+export class ChatComponent {
+  constructor() {
+    registerComponent({
+      name: "show_incident",
+      description: "Show one incident from the incident table.",
+      parameters: z.object({
+        id: z.string().describe("The incident id, such as INC-4711"),
+        severity: z.string().describe("One of sev1, sev2, sev3"),
+      }),
+      component: IncidentCardComponent,
+    });
+  }
+}
 ```
 
 There is no `handler`, and nothing changes in your agent. The tool is declared by

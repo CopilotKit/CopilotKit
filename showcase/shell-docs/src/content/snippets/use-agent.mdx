@@ -2,10 +2,10 @@
   <Step>
     ### Import the hook
 
-    First, import `useAgent` from the v2 package:
+    First, import `useAgent` from `@copilotkit/react-core`:
 
-    ```tsx title="page.tsx"
-    import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
+    ```tsx title="page.tsx" group=use-agent-steps
+    import { useAgent } from "@copilotkit/react-core"; // [!code highlight]
     ```
 
   </Step>
@@ -15,7 +15,7 @@
 
     Call the hook to get a reference to your agent:
 
-    ```tsx title="page.tsx"
+    ```tsx title="page.tsx" group=use-agent-steps
     export function AgentInfo() {
       const { agent } = useAgent(); // [!code highlight]
 
@@ -33,8 +33,13 @@
 
     <Callout type="info">
       Without an `agentId`, the hook uses the agent of the surrounding chat, then the provider's agent, then the agent named `default`. To use another agent, pass its id:
-      ```ts
-      const { agent } = useAgent({ agentId: "myAgent" });
+      ```tsx
+      import { useAgent } from "@copilotkit/react-core";
+
+      export function MyAgentInfo() {
+        const { agent } = useAgent({ agentId: "myAgent" });
+        return <p>Agent ID: {agent.agentId}</p>;
+      }
       ```
     </Callout>
 
@@ -47,16 +52,17 @@
 
     Access the agent's conversation history:
 
-    ```tsx title="page.tsx"
+    ```tsx title="page.tsx" group=use-agent-steps
     export function MessageList() {
       const { agent } = useAgent();
 
       return (
         <div>
-          {/* [!code highlight:6] */}
+          {/* [!code highlight:7] */}
           {agent.messages.map((msg) => (
             <div key={msg.id}>
               <strong>{msg.role}:</strong>
+              {/* Content can also be a list of parts (text, images, ...) */}
               <span>{typeof msg.content === "string" ? msg.content : null}</span>
             </div>
           ))}
@@ -72,7 +78,7 @@
 
     Add a loading indicator when the agent is running:
 
-    ```tsx title="page.tsx"
+    ```tsx title="page.tsx" group=use-agent-steps
     export function AgentStatus() {
       const { agent } = useAgent();
 
@@ -99,10 +105,9 @@
 
     Use `copilotkit.runAgent()` to trigger your agent programmatically:
 
-    ```tsx title="page.tsx"
-    import { useAgent } from "@copilotkit/react-core/v2";
-    import { useCopilotKit } from "@copilotkit/react-core/v2";
-    import { randomUUID } from "@copilotkit/react-core/v2";
+    ```tsx title="page.tsx" group=use-agent-steps
+    import { useCopilotKit } from "@copilotkit/react-core";
+    import { randomUUID } from "@copilotkit/shared";
 
     export function RunAgent() {
       const { agent } = useAgent();
@@ -140,6 +145,8 @@ Agents expose their state through the `agent.state` property. This state is shar
 Access your agent's current state:
 
 ```tsx title="page.tsx"
+import { useAgent } from "@copilotkit/react-core";
+
 export function StateDisplay() {
   const { agent } = useAgent();
 
@@ -167,6 +174,8 @@ Your component automatically re-renders when the agent's state changes.
 Update state that your agent can access:
 
 ```tsx title="page.tsx"
+import { useAgent } from "@copilotkit/react-core";
+
 export function ThemeSelector() {
   const { agent } = useAgent();
 
@@ -199,8 +208,7 @@ You can subscribe to agent events using the `subscribe()` method. This is useful
 
 ```tsx title="page.tsx"
 import { useEffect } from "react";
-import { useAgent } from "@copilotkit/react-core/v2";
-import type { AgentSubscriber } from "@copilotkit/react-core/v2";
+import { useAgent, type AgentSubscriber } from "@copilotkit/react-core";
 
 export function EventLogger() {
   const { agent } = useAgent();

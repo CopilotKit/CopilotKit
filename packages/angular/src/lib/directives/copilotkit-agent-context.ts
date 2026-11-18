@@ -9,6 +9,8 @@ import {
 } from "@angular/core";
 import { CopilotKit } from "../copilotkit";
 import type { Context } from "@ag-ui/client";
+import { ɵserializeContextValue } from "@copilotkit/core";
+import type { ɵAgentContextInput } from "@copilotkit/core";
 
 /**
  * Directive to manage agent context in CopilotKit.
@@ -46,7 +48,7 @@ export class CopilotKitAgentContext implements OnInit, OnChanges, OnDestroy {
    * Context object containing both description and value.
    * If provided, this takes precedence over individual inputs.
    */
-  @Input("copilotkitAgentContext") context?: Context;
+  @Input("copilotkitAgentContext") context?: ɵAgentContextInput;
 
   /**
    * Description of the context.
@@ -117,7 +119,10 @@ export class CopilotKitAgentContext implements OnInit, OnChanges, OnDestroy {
   private getContext(): Context | null {
     // If context object is provided, use it
     if (this.context) {
-      return this.context;
+      return {
+        description: this.context.description,
+        value: ɵserializeContextValue(this.context.value),
+      };
     }
 
     // Otherwise, build from individual inputs
@@ -125,7 +130,7 @@ export class CopilotKitAgentContext implements OnInit, OnChanges, OnDestroy {
     if (this.description !== undefined && this.value !== undefined) {
       return {
         description: this.description,
-        value: this.value,
+        value: ɵserializeContextValue(this.value),
       };
     }
 

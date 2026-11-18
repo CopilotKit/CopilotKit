@@ -15,6 +15,11 @@ import ts from "typescript";
 // `skipLibCheck: true`, so none of it was visible to us. This validator is the
 // counterpart to validate-dts-ambient.ts: that one checks the *shape* of the
 // declarations, this one checks what they *reach for*.
+//
+// Optional peers are the one exception, and only outside the root export's
+// declaration graph: a subpath such as `./agent` exists for the peers it names,
+// so a consumer who imports it installs them. The bare root import stays
+// strict.
 
 /** Modules that must never appear in a published declaration, with the reason. */
 const FORBIDDEN: Record<string, string> = {
@@ -141,6 +146,60 @@ interface Manifest {
   devDependencies?: Record<string, string>;
   peerDependencies?: Record<string, string>;
   peerDependenciesMeta?: Record<string, { optional?: boolean }>;
+  exports?: Record<string, unknown> | string;
+}
+
+/** The declaration file tsdown emits next to a published JavaScript target. */
+function declarationFor(target: string): string {
+  return target
+    .replace(/\.mjs$/, ".d.mts")
+    .replace(/\.cjs$/, ".d.cts")
+    .replace(/\.js$/, ".d.ts");
+}
+
+/**
+ * The declaration files a bare `import "<package>"` loads: the root export's
+ * declarations and every declaration they reach through relative imports.
+ * Undefined when the manifest has no root export to start from.
+ */
+function rootDeclarationFiles(
+  packageRoot: string,
+  manifest: Manifest,
+): Set<string> | undefined {
+  const rootExport =
+    typeof manifest.exports === "string"
+      ? manifest.exports
+      : manifest.exports?.["."];
+  if (!rootExport) return undefined;
+
+  const targets =
+    typeof rootExport === "string"
+      ? [rootExport]
+      : Object.values(rootExport as Record<string, unknown>).filter(
+          (value): value is string => typeof value === "string",
+        );
+  const queue = targets
+    .map((target) => path.resolve(packageRoot, declarationFor(target)))
+    .filter((file) => fs.existsSync(file));
+  const reached = new Set<string>();
+
+  while (queue.length > 0) {
+    const file = queue.pop()!;
+    if (reached.has(file)) continue;
+    reached.add(file);
+    for (const { specifier } of readSpecifiers(file)) {
+      if (!specifier.startsWith(".")) continue;
+      const base = path.resolve(path.dirname(file), specifier);
+      const withoutExt = base.replace(/\.(c|m)?js$/, "");
+      const next = [
+        ...DTS_SUFFIXES.map((s) => withoutExt + s),
+        ...DTS_SUFFIXES.map((s) => path.join(base, "index" + s)),
+        ...(DTS_SUFFIXES.some((s) => base.endsWith(s)) ? [base] : []),
+      ].find((candidate) => fs.existsSync(candidate));
+      if (next) queue.push(next);
+    }
+  }
+  return reached;
 }
 
 /**
@@ -162,6 +221,7 @@ export function findImportViolations(
   const peerMeta = manifest.peerDependenciesMeta ?? {};
 
   const violations: ImportViolation[] = [];
+  const fromRoot = rootDeclarationFiles(packageRoot, manifest);
 
   for (const file of listDeclarationFiles(dir)) {
     for (const { specifier, line } of readSpecifiers(file)) {
@@ -193,6 +253,10 @@ export function findImportViolations(
       const isRequiredPeer = name in peers && !peerMeta[name]?.optional;
 
       if (!isDep && !isRequiredPeer) {
+        // A subpath entry (`./agent`) may name an optional peer in its types:
+        // importing that subpath is the consumer opting in to the peer. The
+        // root export may not, because a bare import must type-check alone.
+        if (name in peers && fromRoot && !fromRoot.has(file)) continue;
         if (name in peers)
           add("optional peer dependency -- consumers may not install it");
         else if (name in devDeps)

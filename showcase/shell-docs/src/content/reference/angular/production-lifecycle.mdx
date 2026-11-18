@@ -66,8 +66,6 @@ manually constructed advanced stores; injected stores clean themselves up.
   failures are not retried automatically.
 - Thread and memory controllers expose errors as signals; mutation promises
   reject so the application can announce or display the failure.
-- A2UI recovery visibility is controlled by `A2UIRecoveryOptions` and may be
-  overridden by authoritative server lifecycle content.
 - MCP Apps validates snapshot content, iframe sources, and JSON-RPC messages.
   Queue timeout, thread replacement, resource, and protocol failures render as
   owned error states rather than escaping into another renderer.
@@ -83,7 +81,7 @@ hydration. Follow these rules:
    operations during server rendering.
 3. Put application-owned `window`, `document`, observer, media-query, and media
    API access behind `isPlatformBrowser` or `afterNextRender`.
-4. Allow A2UI surfaces, Open Generative UI sandboxes, audio recording,
+4. Allow generative UI surfaces, Open Generative UI sandboxes, audio recording,
    and MCP Apps iframes to activate in the browser after hydration.
 5. Do not branch the pre-hydration template on browser globals. Change UI state
    through signals after hydration instead.

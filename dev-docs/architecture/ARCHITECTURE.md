@@ -53,7 +53,7 @@ sequenceDiagram
     participant User
     participant App as Your App
     participant Core as CopilotKitCore
-    participant Runtime as CopilotRuntime
+    participant Runtime as CopilotKitRuntime
     participant Agent as AI Agent
 
     Note over App: Setup (on mount)
@@ -233,8 +233,8 @@ graph LR
 | ---------------------------- | --------------------------- | ---------------------------------------------------- |
 | Custom agent runner          | `@copilotkit/runtime`       | Extend `AgentRunner` abstract class                  |
 | Persistent agent state       | `@copilotkit/sqlite-runner` | `SQLiteAgentRunner`                                  |
-| Request/response middleware  | `CopilotRuntime` options    | `beforeRequestMiddleware` / `afterRequestMiddleware` |
-| Audio transcription          | `CopilotRuntime` options    | `transcriptionService`                               |
+| Request/response middleware  | `CopilotKitRuntime` options | `beforeRequestMiddleware` / `afterRequestMiddleware` |
+| Audio transcription          | `CopilotKitRuntime` options | `transcriptionService`                               |
 | Voice (speech-to-text / TTS) | `@copilotkit/voice`         | Voice services                                       |
 | Build a custom agent         | `@copilotkit/sdk-js`        | LangGraph / LangChain helpers                        |
 

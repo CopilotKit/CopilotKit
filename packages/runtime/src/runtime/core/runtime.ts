@@ -1,0 +1,1366 @@
+import type {
+  MaybePromise,
+  NonEmptyRecord,
+  RuntimeMode,
+} from "@copilotkit/shared";
+import {
+  CopilotKitRemovedApiError,
+  RUNTIME_MODE_SSE,
+  RUNTIME_MODE_INTELLIGENCE,
+  checkRemovedOptions,
+  processEnv,
+} from "@copilotkit/shared";
+import type { RemovedOption } from "@copilotkit/shared";
+import { createLicenseChecker } from "@copilotkit/license-verifier";
+import type { LicenseChecker } from "@copilotkit/license-verifier";
+import { resolveDebugConfig } from "@copilotkit/shared";
+import type { ResolvedDebugConfig, DebugConfig } from "@copilotkit/shared";
+import { resolveForwardHeadersPolicy } from "../handlers/header-utils";
+import { resolveSseKeepAliveIntervalSeconds } from "../handlers/shared/sse-keep-alive";
+import {
+  resolveThreadAccessMode,
+  warnIfThreadListRefused,
+  warnIfThreadOwnershipUnenforced,
+} from "../handlers/shared/thread-access";
+import type {
+  ThreadAccessMode,
+  ThreadsConfig,
+} from "../handlers/shared/thread-access";
+export type {
+  ThreadAccessMode,
+  ThreadsConfig,
+} from "../handlers/shared/thread-access";
+import type {
+  ForwardHeadersConfig,
+  ResolvedForwardHeadersPolicy,
+} from "../handlers/header-utils";
+import type { AbstractAgent } from "@ag-ui/client";
+import type { AnyTextAdapter } from "@tanstack/ai";
+import type { MCPClientConfig } from "@ag-ui/mcp-apps-middleware";
+import type { A2UIMiddlewareConfig } from "@ag-ui/a2ui-middleware";
+import { RUNTIME_PACKAGE_VERSION } from "./package-info";
+import type {
+  BeforeRequestMiddleware,
+  AfterRequestMiddleware,
+} from "./middleware";
+import { createDebugLogger, getRuntimeLogger } from "./logger";
+import type { CopilotKitRuntimeLogger } from "./logger";
+export type { CopilotKitRuntimeLogger } from "./logger";
+import { logRuntimeTelemetryDisclosure } from "../telemetry/disclosure";
+import type { TranscriptionService } from "../transcription-service/transcription-service";
+import { DebugEventBus, isDebugEventFeedEnabled } from "./debug-event-bus";
+import type { AgentRunner } from "../runner/agent-runner";
+import type { IntelligenceAgentRunnerOptions } from "../runner/intelligence";
+import { InMemoryAgentRunner } from "../runner/in-memory";
+import { IntelligenceAgentRunner } from "../runner/intelligence";
+import type { CopilotKitIntelligence } from "../intelligence-platform";
+// Type-only: @copilotkit/channels-core is the pure-ESM type source, so a value import would break this
+// package's CJS output. The channels are validated + activated (wired to delivery
+// transports) by `startChannels` from @copilotkit/channels-intelligence, called
+// by the Channel-listener bootstrap — not here.
+import type { Channel } from "@copilotkit/channels-core";
+import telemetry from "../telemetry/telemetry-client";
+import type { TelemetryCapture } from "../telemetry/telemetry-client";
+
+import {
+  firstNonBlankLicenseToken,
+  firstNonBlankTelemetryId,
+} from "../telemetry/telemetry-identity";
+import {
+  attachRuntimeErrorReporter,
+  getRuntimeErrorReporterFromOptions,
+} from "./runtime-error-reporter";
+import type {
+  CopilotKitRuntimeLearningConfig,
+  CopilotKitRuntimeUser,
+} from "./learning";
+import { assertStableLearningContainerId } from "./learning";
+
+export type {
+  CopilotKitRuntimeUser,
+  CopilotKitRuntimeLearningConfig,
+  CopilotKitRuntimeLearningContext,
+  GetLearningContainerId,
+  LearningContainerSelectorInput,
+  GetTrajectoryLearningContainerIds,
+  TrajectoryLearningContainerSelectorInput,
+} from "./learning";
+
+export const VERSION = RUNTIME_PACKAGE_VERSION;
+
+interface BaseCopilotRuntimeMiddlewareOptions {
+  /** If set, middleware only applies to these named agents. Applies to all agents if omitted. */
+  agents?: string[];
+}
+
+/** Per-server tool policy belongs to the external middleware, and the release the runtime depends on does not support it. */
+export type McpAppsServerConfig = MCPClientConfig & {
+  /** Intelligence-only HTTP/SSE credentials from trusted server config, never iframe input. */
+  headers?: Record<string, string>;
+  /** Agent to bind this server to. If omitted, the server is available to all agents. */
+  agentId?: string;
+};
+
+export interface McpAppsConfig {
+  /** List of MCP server configurations. */
+  servers: McpAppsServerConfig[];
+}
+
+export interface OpenGenerativeUIOptions extends BaseCopilotRuntimeMiddlewareOptions {}
+
+export type OpenGenerativeUIConfig = boolean | OpenGenerativeUIOptions;
+
+/** An A2UI protocol version that an agent speaks. */
+export type A2UIVersion = "0.9" | "1.0";
+
+/**
+ * Options of {@link CopilotRuntimeMiddlewares.generativeUI}.
+ *
+ * The client renders A2UI 1.0 only. An agent that speaks A2UI v0.9 is set
+ * to `"0.9"` with `a2uiVersion`: the runtime then gives it the v0.9 tool and
+ * catalog, and converts its surfaces to 1.0 for the client and the clicks
+ * on them back to v0.9 for the agent.
+ *
+ * @example
+ * ```ts
+ * new CopilotKitRuntime({
+ *   agents: { legacy: legacyAgent, current: currentAgent },
+ *   generativeUI: { a2uiVersion: { legacy: "0.9" } },
+ * });
+ * ```
+ */
+export interface GenerativeUIOptions extends BaseCopilotRuntimeMiddlewareOptions {
+  /**
+   * The A2UI version that the agents speak. Default: `"1.0"`.
+   *
+   * - `"1.0"`: the agent gets the `render_ui` tool and the generative UI
+   *   guide.
+   * - `"0.9"`: the agent gets the `render_a2ui` tool of
+   *   `@ag-ui/a2ui-middleware`, its guide, and the v0.9 component schema of
+   *   the client's catalog. It does not get `render_ui`.
+   * - A record of agent id to version: one version for each agent. An agent
+   *   that is not in the record speaks `"1.0"`.
+   *
+   * For both versions, the runtime converts the v0.9 surfaces that a run
+   * emits (for example, from a tool result) to 1.0, and turns a click on a
+   * converted surface back into a v0.9 action.
+   */
+  a2uiVersion?: A2UIVersion | Record<string, A2UIVersion>;
+  /**
+   * v0.9 agents only. The component schema for `A2UIMiddleware` to add to
+   * the agent's context. It replaces the schema that the runtime makes from
+   * the client's catalog.
+   */
+  schema?: A2UIMiddlewareConfig["schema"];
+  /**
+   * v0.9 agents only. The generation lifecycle options of `A2UIMiddleware`:
+   * `debugExposure`, `showProgressTokens` and `maxAttempts`.
+   */
+  recovery?: A2UIMiddlewareConfig["recovery"];
+  /**
+   * v0.9 agents only. Adds the A2UI render tool to the agent's tools: `true`
+   * adds `render_a2ui`, a string adds it with that name, and `false` adds no
+   * tool. Default: `true` when the client sends a generative UI catalog
+   * with the "tool" transport.
+   */
+  injectA2UITool?: A2UIMiddlewareConfig["injectA2UITool"];
+  /**
+   * v0.9 agents only. The tool names that `A2UIMiddleware` streams into
+   * surfaces. Default: `["render_a2ui"]`.
+   */
+  a2uiToolNames?: A2UIMiddlewareConfig["a2uiToolNames"];
+  /**
+   * v0.9 agents only. The tool names that `A2UIMiddleware` treats as
+   * generation wrappers: a render call inside one of them belongs to it.
+   * Left out, every tool can wrap a render call. Use `[]` when there are no
+   * generation wrappers.
+   */
+  a2uiGenerationToolNames?: A2UIMiddlewareConfig["a2uiGenerationToolNames"];
+  /**
+   * v0.9 agents only. The catalog id of the surfaces that `A2UIMiddleware`
+   * creates from a streamed render tool call. Default: the catalog id of the
+   * component schema in the agent's context.
+   */
+  defaultCatalogId?: A2UIMiddlewareConfig["defaultCatalogId"];
+}
+
+interface CopilotRuntimeMiddlewares {
+  /** Auto-apply MCPAppsMiddleware to agents at run time. */
+  mcpApps?: McpAppsConfig;
+  /** Auto-apply OpenGenerativeUIMiddleware to agents at run time. */
+  openGenerativeUI?: OpenGenerativeUIConfig;
+  /**
+   * CopilotKit generative UI surfaces (A2UI 1.0).
+   *
+   * - Omitted: applied to a run when the React provider sends a
+   *   tool-transport envelope (`forwardedProps.copilotkit.ui`).
+   * - `true`: applied to every run.
+   * - An object: applied to every run of `agents` (all agents when
+   *   omitted). See {@link GenerativeUIOptions}, which also sets the A2UI
+   *   version of each agent with `a2uiVersion`.
+   * - `false`: never applied.
+   *
+   * A run with a markdown-transport envelope never gets it: the model writes
+   * the UI in a2ui code fences, and the client renders them.
+   */
+  generativeUI?: boolean | GenerativeUIOptions;
+  /**
+   * @deprecated Use `generativeUI`. The runtime passes `a2ui` on to
+   * `generativeUI` with `a2uiVersion: "0.9"`, which keeps the v0.9 behavior
+   * for the agents: `a2ui: { agents, injectA2UITool }` works as
+   * `generativeUI: { a2uiVersion: "0.9", agents, injectA2UITool }`. When
+   * `generativeUI` is set too, the runtime uses `generativeUI` and ignores
+   * `a2ui`. See https://docs.copilotkit.ai/generative-ui/components/from-a2ui
+   */
+  a2ui?: Omit<GenerativeUIOptions, "a2uiVersion"> & {
+    /**
+     * `false` turns A2UI off and keeps the other options in place. Omitted
+     * or `true`: on.
+     */
+    enabled?: boolean;
+  };
+}
+
+/**
+ * The `generativeUI` option that the deprecated `a2ui` option stands for: its
+ * options with `a2uiVersion: "0.9"`. `undefined` when `a2ui` is turned off,
+ * or left out (the default).
+ */
+function generativeUIFromA2UI(
+  {
+    enabled = true,
+    ...options
+  }: NonNullable<CopilotRuntimeMiddlewares["a2ui"]> = { enabled: false },
+) {
+  if (!enabled) return undefined;
+  return { ...options, a2uiVersion: "0.9" } satisfies GenerativeUIOptions;
+}
+
+/**
+ * Context passed to agent factory functions for per-request agent resolution.
+ */
+export interface AgentFactoryContext {
+  /** The incoming HTTP request. */
+  request: Request;
+}
+
+/**
+ * A function that dynamically creates agents on a per-request basis.
+ * Useful for multi-tenant scenarios or request-scoped agent configuration.
+ */
+export type AgentsFactory = (
+  ctx: AgentFactoryContext,
+) => MaybePromise<NonEmptyRecord<Record<string, AbstractAgent>>>;
+
+/**
+ * Agents can be provided as:
+ * - A static record of agents
+ * - A Promise that resolves to a record of agents
+ * - A factory function that receives request context and returns agents (or a Promise of agents)
+ */
+export type AgentsConfig =
+  | MaybePromise<NonEmptyRecord<Record<string, AbstractAgent>>>
+  | AgentsFactory;
+
+/**
+ * Resolve an AgentsConfig value to a concrete record of agents.
+ * If the config is a factory function, it is called with the given request context.
+ * Otherwise it is awaited directly (static record or Promise).
+ */
+export async function resolveAgents(
+  agents: AgentsConfig,
+  request?: Request,
+): Promise<Record<string, AbstractAgent>> {
+  if (typeof agents === "function") {
+    if (!request) {
+      throw new Error(
+        "Agent factory function requires a request context, but none was provided.",
+      );
+    }
+    return agents({ request });
+  }
+  return agents;
+}
+
+interface BaseCopilotRuntimeOptions extends CopilotRuntimeMiddlewares {
+  // The 1.x options that 2.0 removed. The constructor of CopilotKitRuntime
+  // throws or warns for each one (checkRuntimeOptions).
+
+  /**
+   * @deprecated Removed in CopilotKit 2.0, and it throws. Run the model in a `BuiltInAgent` in `agents`.
+   * See https://docs.copilotkit.ai/migrate/removed-apis-2.0#runtime-options
+   */
+  serviceAdapter?: never;
+  /**
+   * @deprecated Removed in CopilotKit 2.0, and it throws. Run the model in a `BuiltInAgent` in `agents`.
+   * See https://docs.copilotkit.ai/migrate/removed-apis-2.0#runtime-options
+   */
+  delegateAgentProcessingToServiceAdapter?: never;
+  /**
+   * @deprecated Removed in CopilotKit 2.0, and it throws. Register each agent in `agents`.
+   * See https://docs.copilotkit.ai/migrate/removed-apis-2.0#runtime-options
+   */
+  remoteEndpoints?: never;
+  /**
+   * @deprecated Removed in CopilotKit 2.0, and it throws. Register each agent in `agents`.
+   * See https://docs.copilotkit.ai/migrate/removed-apis-2.0#runtime-options
+   */
+  remoteActions?: never;
+  /**
+   * @deprecated Removed in CopilotKit 2.0, and it throws. Serve the chain as an AG-UI agent in `agents`.
+   * See https://docs.copilotkit.ai/migrate/removed-apis-2.0#runtime-options
+   */
+  langserve?: never;
+  /**
+   * @deprecated Removed in CopilotKit 2.0, and it throws. Give the tools to the agent.
+   * See https://docs.copilotkit.ai/migrate/removed-apis-2.0#runtime-options
+   */
+  actions?: never;
+  /**
+   * @deprecated Removed in CopilotKit 2.0, and it throws. Give MCP clients to a `BuiltInAgent` as `mcp`.
+   * See https://docs.copilotkit.ai/migrate/removed-apis-2.0#runtime-options
+   */
+  mcpServers?: never;
+  /**
+   * @deprecated Removed in CopilotKit 2.0, and it throws. Give MCP clients to a `BuiltInAgent` as `mcp`.
+   * See https://docs.copilotkit.ai/migrate/removed-apis-2.0#runtime-options
+   */
+  createMCPClient?: never;
+  /**
+   * @deprecated Removed in CopilotKit 2.0, and it throws. Use `beforeRequestMiddleware` and `afterRequestMiddleware`, or the `hooks` of `createCopilotKitRuntimeHandler`.
+   * See https://docs.copilotkit.ai/migrate/removed-apis-2.0#runtime-options
+   */
+  middleware?: never;
+  /**
+   * @deprecated Removed in CopilotKit 2.0, and it only warns. Delete it.
+   * See https://docs.copilotkit.ai/migrate/removed-apis-2.0#runtime-options
+   */
+  observability_c?: never;
+  /**
+   * @deprecated Removed in CopilotKit 2.0, and it only warns. Pass `hooks: { onError }` to `createCopilotKitRuntimeHandler`.
+   * See https://docs.copilotkit.ai/migrate/removed-apis-2.0#runtime-options
+   */
+  onError?: never;
+  /**
+   * @deprecated Removed in CopilotKit 2.0, and it only warns. Delete it.
+   * See https://docs.copilotkit.ai/migrate/removed-apis-2.0#runtime-options
+   */
+  onStopGeneration?: never;
+  /**
+   * Map of available agents, or a factory function for per-request agent resolution.
+   *
+   * Static record:
+   * ```ts
+   * agents: { support: new SupportAgent(), technical: new TechnicalAgent() }
+   * ```
+   *
+   * Factory function (called per-request):
+   * ```ts
+   * agents: ({ request }) => {
+   *   const tenantId = request.headers.get("x-tenant-id");
+   *   return { default: createAgentForTenant(tenantId) };
+   * }
+   * ```
+   */
+  agents: AgentsConfig;
+  /** Optional transcription service for audio processing. */
+  transcriptionService?: TranscriptionService;
+  /** Optional *before* middleware – callback function or webhook URL. */
+  beforeRequestMiddleware?: BeforeRequestMiddleware;
+  /** Optional *after* middleware – callback function or webhook URL. */
+  afterRequestMiddleware?: AfterRequestMiddleware;
+  /** Signed license token for server-side feature verification. Falls back to COPILOTKIT_LICENSE_TOKEN env var. */
+  licenseToken?: string;
+  /** Standalone telemetry identity. Falls back to CPK_TELEMETRY_ID before legacy license identity. */
+  telemetryId?: string;
+  /**
+   * Properties added to every telemetry event this runtime sends.
+   *
+   * For what is true of the whole process rather than of one event. A product
+   * built on this runtime can name itself here and then be told apart in the
+   * events that already go, rather than sending events of its own.
+   *
+   * No effect when telemetry is off: nothing is sent, so nothing carries this.
+   */
+  telemetryProperties?: Record<string, unknown>;
+  /**
+   * A capture scope to emit this runtime's telemetry through, instead of one
+   * built from the identity options above.
+   *
+   * @internal Set by the deprecated v1 entrypoint, which delegates every
+   * request to this runtime. Handing its own scope down is what collapses
+   * the duplicate: the v1 entrypoint no longer emits the same events itself,
+   * and the events this runtime sends still reach Segment and still report
+   * the v1 surface. There is no reason for an application to pass this.
+   */
+  ɵtelemetry?: TelemetryCapture;
+  /** Enable debug logging for the event pipeline. */
+  debug?: DebugConfig;
+  /**
+   * Where the runtime writes its logs. Pass pino, `console`, or any object
+   * with pino-style `debug`, `info`, `warn` and `error` methods
+   * (`(message)` or `(fields, message)`). When `debug` is on, debug output
+   * goes to `logger.child({ component: "copilotkit-debug" })`, or to the
+   * logger itself when it has no `child`.
+   *
+   * Without it, the runtime writes to the console, and debug output is JSON
+   * lines on stdout.
+   */
+  logger?: CopilotKitRuntimeLogger;
+  /**
+   * Policy controlling which inbound HTTP headers are forwarded onto the
+   * outgoing agent call. By default a built-in denylist strips known
+   * infrastructure/proxy/platform headers (`x-forwarded-*`, `x-real-ip`,
+   * `x-vercel-*`, `x-copilotcloud-*`, etc.) while `authorization` and custom
+   * `x-*` application headers continue to forward (#5712). Set
+   * `{ useDefaultDenylist: false }` to restore the previous wide-open behavior.
+   */
+  forwardHeaders?: ForwardHeadersConfig;
+  /**
+   * Seconds of silence on an SSE response before the runtime writes a
+   * `: keep-alive` comment, so proxies and browsers with idle timeouts keep
+   * the connection open through long reasoning or tool phases. Comments are
+   * transport frames and never become AG-UI events. `0` disables it.
+   * @default 15
+   */
+  sseKeepAliveIntervalSeconds?: number;
+  /**
+   * Opt-in flag exposing the client-facing memory proxy routes
+   * (`/memories`, `/memories/recall`, `/memories/subscribe`, `/memories/:id`).
+   *
+   * Defaults to `false` — a **secure default**. When off, every `/memories/*`
+   * request 404s as if the route did not exist, so an un-opted-in deployment
+   * reveals nothing about memory even when Intelligence is configured. This does
+   * NOT affect the agent's own server-side memory tooling (`recall_memory` runs
+   * via the Intelligence MCP path, separate from this client REST proxy).
+   *
+   * Flip to `true` to power a client memory inspector (e.g. the dev console's
+   * Memory tab). Existing Intelligence deployments relying on the previously
+   * always-on Learning tab must set this to restore it.
+   *
+   * @deprecated Configure `memory.access` on an Intelligence Runtime. That one
+   * policy enables and limits both agent and browser Memory.
+   */
+  exposeMemoryRoutes?: boolean;
+  /**
+   * How local Threads are shared among callers that `identifyUser` does not
+   * identify, when no Intelligence is configured. Has no effect on an
+   * Intelligence runtime, where the platform scopes Threads per user.
+   *
+   * With `identifyUser`, every Thread operation (list, read, connect, run,
+   * stop, clear) reaches only the caller's own Threads, whatever this says.
+   * Without it, by default (`access: "owner"`), a Thread id works as a
+   * capability: whoever holds it may read, connect to, continue and stop that
+   * Thread, but listing and clearing Threads are refused with HTTP 403.
+   * `access: "open"` also lets every caller list and clear the Threads created
+   * without identity, as in earlier releases. That is insecure for any
+   * deployment that more than one person can reach. A Thread created by an
+   * identified user is never reachable without that identity.
+   */
+  threads?: ThreadsConfig;
+}
+
+export type IdentifyUserCallback = (
+  request: Request,
+) => MaybePromise<CopilotKitRuntimeUser>;
+
+export type MemoryAccess = "none" | "read" | "read-write";
+
+export interface MemoryGrant {
+  readonly user: MemoryAccess;
+  readonly project: MemoryAccess;
+}
+
+export type MemoryConsumer = "agent" | "client";
+
+export interface CopilotKitRuntimeMemoryConfig {
+  /** Resolves immutable Memory access for one authenticated web request. */
+  access(input: {
+    readonly request: Request;
+    readonly user: CopilotKitRuntimeUser;
+    readonly consumer: MemoryConsumer;
+  }): MaybePromise<MemoryGrant | null>;
+}
+
+export interface CopilotKitSseRuntimeOptions extends BaseCopilotRuntimeOptions {
+  /** The runner to use for running agents in SSE mode. */
+  runner?: AgentRunner;
+  /**
+   * Resolves the authenticated user for a request. When set, each Thread
+   * belongs to the user whose request created it, and only that user can list,
+   * read, replay, clear, continue or stop it. The runner must enforce owners
+   * (InMemoryAgentRunner and SqliteAgentRunner do); with a runner that does
+   * not, those requests are refused. See `threads`.
+   *
+   * Listing, reading and clearing Threads over HTTP need a runner that serves
+   * the local Thread endpoints (InMemoryAgentRunner does). SqliteAgentRunner
+   * does not serve them: with it, list and read requests fail and a clear
+   * request does nothing. Its Threads can still be continued, replayed by
+   * connecting, and stopped by their owner.
+   *
+   * Threads that SqliteAgentRunner stored before it recorded owners belong to
+   * nobody: as before the upgrade, whoever holds such a Thread's id can reach
+   * it, and continuing it does not claim it. The runner logs how many it holds
+   * when it opens the database. Every new Thread is owned. InMemoryAgentRunner
+   * keeps no Threads across a restart, so it holds no such Threads.
+   */
+  identifyUser?: IdentifyUserCallback;
+  intelligence?: undefined;
+  generateThreadNames?: undefined;
+  /** Intelligence Channels require the Intelligence runtime; not available in SSE mode. */
+  channels?: undefined;
+}
+
+/** Model configuration for {@link CopilotKitIntelligenceRuntimeOptions.generateThreadNames}. */
+export interface ThreadNameGenerationConfig {
+  /**
+   * The model that writes thread titles, as a TanStack AI text adapter, for
+   * example `openaiText("gpt-5-mini")` from `@tanstack/ai-openai`. The adapter
+   * holds its own API key. A small, fast model is enough.
+   */
+  model: AnyTextAdapter;
+}
+
+interface CopilotIntelligenceRuntimeBaseOptions extends BaseCopilotRuntimeOptions {
+  /** Configures Intelligence mode for durable threads and realtime events. */
+  intelligence: CopilotKitIntelligence;
+  /**
+   * Chooses one stable Learning Container ID for each web or Channel run.
+   * @deprecated Configure `getLearningContainerId` on `CopilotKitIntelligence`.
+   */
+  ɵlearning?: CopilotKitRuntimeLearningConfig;
+  /**
+   * Names each new thread when its first run creates it.
+   *
+   * - `true` (default): the name is the first user message, cut to 8 words.
+   *   No model runs, and the app's agent does not run.
+   * - `{ model }`: the runtime calls that model once, with no tools, for a
+   *   2 to 5 word title. If the call fails, the first user message is used.
+   * - `false`: threads are not named.
+   *
+   * The runtime never runs the app's agent to name a thread, because the
+   * agent's own server-side tools could run and change app data.
+   */
+  generateThreadNames?: boolean | ThreadNameGenerationConfig;
+  /** Max delay (ms) for WebSocket reconnect backoff. @default 10_000 */
+  maxReconnectMs?: number;
+  /** Max delay (ms) for channel rejoin backoff. @default 30_000 */
+  maxRejoinMs?: number;
+  /**
+   * Interval (ms) between Phoenix heartbeats on the runner WebSocket. Keep it
+   * below the idle timeout of any proxy between the runtime and Intelligence.
+   * @default 15_000
+   */
+  heartbeatIntervalMs?: number;
+  /** Called each time Intelligence acknowledges a batch of runner events. */
+  onEventDeliveryStats?: IntelligenceAgentRunnerOptions["onEventDeliveryStats"];
+  /**
+   * Most runner events one run may hold while they wait for Intelligence to
+   * acknowledge them; past it the run fails. @default 50_000
+   */
+  maxPendingEvents?: IntelligenceAgentRunnerOptions["maxPendingEvents"];
+  /** Lock TTL in seconds. Clamped to a maximum of 3600 (1 hour). @default 20 */
+  lockTtlSeconds?: number;
+  /** Custom Redis key prefix for the thread lock. */
+  lockKeyPrefix?: string;
+  /** Interval in seconds at which the runtime renews the thread lock. Clamped to a maximum of 3000 (50 minutes). @default 15 */
+  lockHeartbeatIntervalSeconds?: number;
+  /**
+   * Intelligence Channels declared by this runtime. Each is a
+   * `createChannel({ name })` instance. Only available on the Intelligence runtime
+   * path. Names are validated (required, lowercase kebab-case, unique) and wired
+   * to delivery/egress transports when activated via `startChannels` from
+   * `@copilotkit/channels-intelligence` — not at construction.
+   */
+}
+
+type NonEmptyChannels = readonly [Channel, ...Channel[]];
+
+/** Intelligence runtime options with web identity, Channels, or both. */
+export type CopilotKitIntelligenceRuntimeOptions =
+  CopilotIntelligenceRuntimeBaseOptions &
+    (
+      | {
+          /** Resolves the authenticated user for web requests. */
+          identifyUser: IdentifyUserCallback;
+          /** Enables agent and browser Memory under one request policy. */
+          memory?: CopilotKitRuntimeMemoryConfig;
+          channels?: readonly Channel[];
+        }
+      | {
+          /** Channels-only runtimes expose no functional web surface. */
+          identifyUser?: undefined;
+          memory?: undefined;
+          channels: NonEmptyChannels;
+        }
+    );
+
+export type CopilotKitRuntimeOptions =
+  | CopilotKitSseRuntimeOptions
+  | CopilotKitIntelligenceRuntimeOptions;
+
+export interface CopilotKitRuntimeLike {
+  agents: CopilotKitRuntimeOptions["agents"];
+  transcriptionService: CopilotKitRuntimeOptions["transcriptionService"];
+  beforeRequestMiddleware: CopilotKitRuntimeOptions["beforeRequestMiddleware"];
+  afterRequestMiddleware: CopilotKitRuntimeOptions["afterRequestMiddleware"];
+  runner: AgentRunner;
+  mcpApps: CopilotKitRuntimeOptions["mcpApps"];
+  openGenerativeUI: CopilotKitRuntimeOptions["openGenerativeUI"];
+  generativeUI?: CopilotKitRuntimeOptions["generativeUI"];
+  intelligence?: CopilotKitIntelligence;
+  identifyUser?: IdentifyUserCallback;
+  mode: RuntimeMode;
+  /**
+   * Resolve the license checker, verifying the token on the first call.
+   * Optional so external implementations of this published interface remain
+   * source-compatible; absent or resolving to `undefined` means no license
+   * gating.
+   */
+  getLicenseChecker?(): Promise<LicenseChecker | undefined>;
+  debugEventBus?: DebugEventBus;
+  debug: ResolvedDebugConfig;
+  debugLogger?: CopilotKitRuntimeLogger;
+  /**
+   * The logger the runtime writes to. Optional so external implementations of
+   * this published interface remain source-compatible; a missing value means
+   * the console.
+   */
+  logger?: CopilotKitRuntimeLogger;
+  /**
+   * Runtime-bound telemetry capture. Optional so external implementations of
+   * this published interface remain source-compatible.
+   */
+  telemetry?: TelemetryCapture;
+  /**
+   * Resolved inbound-header forwarding policy read by the /run and /connect call
+   * sites. Optional on the published interface so an external `CopilotKitRuntimeLike`
+   * implementor predating this field stays source-compatible (non-breaking minor
+   * release). Concrete runtimes (`BaseCopilotRuntime`) always resolve and set it;
+   * the call sites coalesce a missing value to the default resolved policy
+   * (`resolveForwardHeadersPolicy(undefined)` — default-on denylist).
+   */
+  forwardHeadersPolicy?: ResolvedForwardHeadersPolicy;
+  /**
+   * Resolved SSE keep-alive interval in seconds; `0` disables it. Optional on
+   * the published interface for the same source-compatibility reason as
+   * `forwardHeadersPolicy`; the SSE call sites fall back to the default.
+   */
+  sseKeepAliveIntervalSeconds?: number;
+  /**
+   * Resolved opt-in flag for the client-facing memory proxy routes. Optional on
+   * the published interface so an external `CopilotKitRuntimeLike` implementor
+   * predating this field stays source-compatible; the dispatcher coalesces a
+   * missing value to `false` (secure default — routes hidden). Concrete runtimes
+   * (`BaseCopilotRuntime`) always resolve and set it.
+   */
+  exposeMemoryRoutes?: boolean;
+  /**
+   * Resolved local Thread access mode. Optional on the published interface so
+   * an external implementor stays source-compatible; a missing value means
+   * the default (`DEFAULT_THREAD_ACCESS`).
+   */
+  threadAccess?: ThreadAccessMode;
+  memory?: CopilotKitRuntimeMemoryConfig;
+  learning?: CopilotKitRuntimeLearningConfig;
+}
+
+export interface CopilotKitSseRuntimeLike extends CopilotKitRuntimeLike {
+  intelligence?: undefined;
+  mode: typeof RUNTIME_MODE_SSE;
+}
+
+export interface CopilotKitIntelligenceRuntimeLike extends CopilotKitRuntimeLike {
+  intelligence: CopilotKitIntelligence;
+  identifyUser?: IdentifyUserCallback;
+  generateThreadNames: boolean | ThreadNameGenerationConfig;
+  lockTtlSeconds: number;
+  lockKeyPrefix?: string;
+  lockHeartbeatIntervalSeconds: number;
+  channels: Channel[];
+  learning?: CopilotKitRuntimeLearningConfig;
+  mode: typeof RUNTIME_MODE_INTELLIGENCE;
+}
+
+abstract class BaseCopilotRuntime implements CopilotKitRuntimeLike {
+  public agents: CopilotKitRuntimeOptions["agents"];
+  public transcriptionService: CopilotKitRuntimeOptions["transcriptionService"];
+  public beforeRequestMiddleware: CopilotKitRuntimeOptions["beforeRequestMiddleware"];
+  public afterRequestMiddleware: CopilotKitRuntimeOptions["afterRequestMiddleware"];
+  public runner: AgentRunner;
+  public mcpApps: CopilotKitRuntimeOptions["mcpApps"];
+  public openGenerativeUI: CopilotKitRuntimeOptions["openGenerativeUI"];
+  public generativeUI: CopilotKitRuntimeOptions["generativeUI"];
+  public readonly debugEventBus?: DebugEventBus;
+  public debug: ResolvedDebugConfig;
+  public debugLogger?: CopilotKitRuntimeLogger;
+  public readonly logger: CopilotKitRuntimeLogger;
+  public readonly telemetry: TelemetryCapture;
+  public readonly forwardHeadersPolicy: ResolvedForwardHeadersPolicy;
+  public readonly sseKeepAliveIntervalSeconds: number;
+  public readonly exposeMemoryRoutes: boolean;
+  public readonly threadAccess: ThreadAccessMode;
+  public readonly memory?: CopilotKitRuntimeMemoryConfig;
+
+  /**
+   * License token resolved once with the env fallback, so telemetry
+   * attribution (below) and subclass feature gating
+   * (CopilotKitIntelligenceRuntime's getLicenseChecker) read the exact same value
+   * instead of each re-applying `?? COPILOTKIT_LICENSE_TOKEN`.
+   */
+  protected readonly resolvedLicenseToken?: string;
+
+  abstract readonly intelligence?: CopilotKitIntelligence;
+  abstract readonly mode: RuntimeMode;
+
+  /** Runtimes without Intelligence do no license gating. */
+  getLicenseChecker(): Promise<LicenseChecker | undefined> {
+    return Promise.resolve(undefined);
+  }
+
+  constructor(options: BaseCopilotRuntimeOptions, runner: AgentRunner) {
+    this.logger = getRuntimeLogger(options);
+    logRuntimeTelemetryDisclosure(this.logger);
+
+    const {
+      agents,
+      transcriptionService,
+      beforeRequestMiddleware,
+      afterRequestMiddleware,
+      mcpApps,
+      openGenerativeUI,
+      a2ui,
+    } = options;
+    // The deprecated `a2ui` option stands for a `generativeUI`. When the app
+    // sets both, `generativeUI` wins.
+    const generativeUIOfA2UI = generativeUIFromA2UI(a2ui);
+    const { generativeUI = generativeUIOfA2UI } = options;
+
+    this.agents = agents;
+    this.transcriptionService = transcriptionService;
+    this.beforeRequestMiddleware = beforeRequestMiddleware;
+    this.afterRequestMiddleware = afterRequestMiddleware;
+    this.mcpApps = mcpApps;
+    this.openGenerativeUI = openGenerativeUI;
+    this.generativeUI = generativeUI;
+    // oxlint-disable-next-line typescript/no-unnecessary-condition -- the package compiles without strictNullChecks, so the type leaves out undefined
+    if (generativeUIOfA2UI && generativeUI !== generativeUIOfA2UI) {
+      this.logger.warn(
+        '[CopilotKit] The runtime has both `generativeUI` and the deprecated `a2ui` option, so it ignores `a2ui`. Move its options into `generativeUI`, with `a2uiVersion: "0.9"` for the agents that write A2UI v0.9. See https://docs.copilotkit.ai/generative-ui/components/from-a2ui',
+      );
+    }
+    this.runner = runner;
+
+    // Resolve the license token once (matching the license-verifier's env
+    // fallback) so telemetry attribution and subclass feature gating share
+    // one value.
+    this.resolvedLicenseToken = firstNonBlankLicenseToken(
+      options.licenseToken,
+      processEnv().COPILOTKIT_LICENSE_TOKEN,
+    );
+
+    // Snapshot identity and sampling authority for this runtime. Capture
+    // scopes share process-level telemetry settings but cannot be rewritten by
+    // another runtime's construction.
+    const resolvedTelemetryId = firstNonBlankTelemetryId(
+      options.telemetryId,
+      processEnv().CPK_TELEMETRY_ID,
+    );
+    this.telemetry =
+      options.ɵtelemetry ??
+      telemetry.createScope(
+        resolvedTelemetryId !== undefined
+          ? { telemetryId: resolvedTelemetryId }
+          : this.resolvedLicenseToken !== undefined
+            ? { licenseToken: this.resolvedLicenseToken }
+            : {},
+      );
+
+    // Set here rather than per event, beside the license token and for the same
+    // reason: it describes the caller, not the call, and every event should
+    // carry it whichever handler fired.
+    if (options.telemetryProperties) {
+      telemetry.setGlobalProperties(options.telemetryProperties);
+    }
+
+    this.debug = resolveDebugConfig(options.debug);
+    if (this.debug.enabled) {
+      this.debugLogger = createDebugLogger(options.logger);
+    }
+    // The debug feed carries every thread's events to any subscriber, so the
+    // bus only exists where the feed is allowed to be served. Resolving
+    // `debug` first keeps the bus and the route gate reading one value.
+    if (isDebugEventFeedEnabled(this.debug)) {
+      this.debugEventBus = new DebugEventBus(this.logger);
+    }
+    // Resolve the inbound-header forwarding policy once (mirroring the
+    // `debug` → `ResolvedDebugConfig` resolve-once above) so both the /run and
+    // /connect call sites read the exact same resolved policy off the runtime
+    // and can never diverge.
+    this.forwardHeadersPolicy = resolveForwardHeadersPolicy(
+      options.forwardHeaders,
+    );
+    this.sseKeepAliveIntervalSeconds = resolveSseKeepAliveIntervalSeconds(
+      options.sseKeepAliveIntervalSeconds,
+    );
+    // Secure default: the client-facing memory proxy routes stay hidden (404)
+    // unless a deployment explicitly opts in.
+    this.memory = (
+      options as { memory?: CopilotKitRuntimeMemoryConfig }
+    ).memory;
+    this.exposeMemoryRoutes =
+      this.memory !== undefined || (options.exposeMemoryRoutes ?? false);
+    this.threadAccess = resolveThreadAccessMode(options.threads);
+  }
+}
+
+export class CopilotKitSseRuntime
+  extends BaseCopilotRuntime
+  implements CopilotKitSseRuntimeLike
+{
+  readonly intelligence = undefined;
+  readonly mode = RUNTIME_MODE_SSE;
+  readonly identifyUser?: IdentifyUserCallback;
+
+  constructor(options: CopilotKitSseRuntimeOptions) {
+    // Runtime guard mirroring the discriminated-union type: the SSE runtime has
+    // no Intelligence delivery path, so `channels` cannot be honored here. The
+    // type forbids it, but a JS / `as any` caller passing `{ agents, channels }`
+    // would otherwise land here and have `channels` silently dropped — fail
+    // loud instead.
+    const channels = (options as { channels?: unknown[] }).channels;
+    if (Array.isArray(channels) && channels.length > 0) {
+      throw new Error(
+        "`channels` requires the Intelligence runtime (pass `intelligence`); " +
+          "Intelligence Channels are not available in SSE mode.",
+      );
+    }
+    if ((options as { ɵlearning?: unknown }).ɵlearning !== undefined) {
+      throw new Error(
+        "`ɵlearning` requires the Intelligence runtime (pass `intelligence`); " +
+          "Learning Containers are not available in SSE mode.",
+      );
+    }
+    if (
+      options.identifyUser !== undefined &&
+      typeof options.identifyUser !== "function"
+    ) {
+      throw new Error("`identifyUser` must be a callback");
+    }
+    super(options, options.runner ?? new InMemoryAgentRunner());
+    this.identifyUser = options.identifyUser;
+    warnIfThreadOwnershipUnenforced(this);
+    warnIfThreadListRefused(this);
+  }
+}
+
+export class CopilotKitIntelligenceRuntime
+  extends BaseCopilotRuntime
+  implements CopilotKitIntelligenceRuntimeLike
+{
+  readonly intelligence: CopilotKitIntelligence;
+  readonly identifyUser?: IdentifyUserCallback;
+  readonly generateThreadNames: boolean | ThreadNameGenerationConfig;
+  readonly lockTtlSeconds: number;
+  readonly lockKeyPrefix?: string;
+  readonly lockHeartbeatIntervalSeconds: number;
+  readonly channels: Channel[];
+  readonly learning?: CopilotKitRuntimeLearningConfig;
+  readonly mode = RUNTIME_MODE_INTELLIGENCE;
+  private licenseCheckerPromise?: Promise<LicenseChecker>;
+
+  /** Maximum allowed lock TTL in seconds (1 hour). */
+  static readonly MAX_LOCK_TTL_SECONDS = 3_600;
+  /** Maximum allowed heartbeat interval in seconds (50 minutes). */
+  static readonly MAX_HEARTBEAT_INTERVAL_SECONDS = 3_000;
+
+  constructor(options: CopilotKitIntelligenceRuntimeOptions) {
+    const rawOptions = options as CopilotIntelligenceRuntimeBaseOptions & {
+      identifyUser?: unknown;
+      channels?: unknown;
+      memory?: unknown;
+      runner?: unknown;
+      ɵlearning?: unknown;
+    };
+    // Runtime guard mirroring the `channels` guard in `CopilotKitSseRuntime`: this
+    // constructor hardcodes `IntelligenceAgentRunner` into its `super()` call,
+    // so a caller-supplied `runner` can never be honored. The type forbids it
+    // (`runner` is declared only on `CopilotKitSseRuntimeOptions`), but that is an
+    // excess-property check — a JS / `as any` / non-literal caller passing
+    // `{ intelligence, runner }` would otherwise land here and have `runner`
+    // silently dropped in favor of the auto-wired one. Fail loud instead.
+    if (rawOptions.runner !== undefined) {
+      throw new Error(
+        "Intelligence Runtime auto-wires its own `runner`; passing `runner` " +
+          "alongside `intelligence` is not supported. Durability is managed by " +
+          "the Intelligence service, so `InMemoryAgentRunner` / a SQLite runner " +
+          "is unnecessary here — drop `runner`, or drop `intelligence` to run " +
+          "in SSE mode with a runner you control.",
+      );
+    }
+    if (
+      rawOptions.identifyUser !== undefined &&
+      typeof rawOptions.identifyUser !== "function"
+    ) {
+      throw new Error("Intelligence Runtime `identifyUser` must be a callback");
+    }
+    if (rawOptions.threads !== undefined) {
+      getRuntimeLogger(options).warn(
+        "[CopilotKit] `threads` has no effect on an Intelligence runtime: the " +
+          "platform scopes threads per user. Remove the option.",
+      );
+    }
+    if (
+      rawOptions.channels !== undefined &&
+      !Array.isArray(rawOptions.channels)
+    ) {
+      throw new Error("Intelligence Runtime `channels` must be an array");
+    }
+    const hasWebIdentity = typeof rawOptions.identifyUser === "function";
+    const hasChannels =
+      Array.isArray(rawOptions.channels) && rawOptions.channels.length > 0;
+    if (!hasWebIdentity && !hasChannels) {
+      throw new Error(
+        "Intelligence Runtime requires web `identifyUser`, at least one Channel, or both surfaces",
+      );
+    }
+    if (
+      rawOptions.memory !== undefined &&
+      (typeof rawOptions.memory !== "object" ||
+        rawOptions.memory === null ||
+        typeof (rawOptions.memory as { access?: unknown }).access !==
+          "function")
+    ) {
+      throw new Error(
+        "Intelligence Runtime `memory.access` must be a callback",
+      );
+    }
+    if (rawOptions.memory !== undefined && !hasWebIdentity) {
+      throw new Error(
+        "Intelligence Runtime web `memory` requires `identifyUser`",
+      );
+    }
+    if (
+      rawOptions.ɵlearning !== undefined &&
+      (typeof rawOptions.ɵlearning !== "object" ||
+        rawOptions.ɵlearning === null ||
+        !(
+          typeof (rawOptions.ɵlearning as { containerId?: unknown })
+            .containerId === "string" ||
+          typeof (rawOptions.ɵlearning as { containerId?: unknown })
+            .containerId === "function"
+        ))
+    ) {
+      throw new Error(
+        "Intelligence Runtime `ɵlearning.containerId` must be a stable ID or callback",
+      );
+    }
+    if (
+      rawOptions.ɵlearning !== undefined &&
+      options.intelligence.ɵgetLearningContainerId?.() !== undefined
+    ) {
+      throw new Error(
+        "Configure Learning Containers with `getLearningContainerId` on `CopilotKitIntelligence`; do not also pass deprecated `ɵlearning` to `CopilotKitRuntime`",
+      );
+    }
+    if (
+      typeof (rawOptions.ɵlearning as { containerId?: unknown } | undefined)
+        ?.containerId === "string"
+    ) {
+      assertStableLearningContainerId(
+        (rawOptions.ɵlearning as { containerId: string }).containerId,
+      );
+    }
+    super(
+      options,
+      new IntelligenceAgentRunner({
+        url: options.intelligence.ɵgetRunnerWsUrl(),
+        authToken: options.intelligence.ɵgetRunnerAuthToken(),
+        maxReconnectMs: options.maxReconnectMs,
+        maxRejoinMs: options.maxRejoinMs,
+        heartbeatIntervalMs: options.heartbeatIntervalMs,
+        logger: getRuntimeLogger(options),
+        onEventDeliveryStats: options.onEventDeliveryStats,
+        maxPendingEvents: options.maxPendingEvents,
+      }),
+    );
+    this.intelligence = options.intelligence;
+    this.learning = options.ɵlearning;
+    this.identifyUser = hasWebIdentity
+      ? (rawOptions.identifyUser as IdentifyUserCallback)
+      : undefined;
+    this.generateThreadNames = options.generateThreadNames ?? true;
+    this.lockTtlSeconds = Math.min(
+      options.lockTtlSeconds ?? 20,
+      CopilotKitIntelligenceRuntime.MAX_LOCK_TTL_SECONDS,
+    );
+    this.lockKeyPrefix = options.lockKeyPrefix;
+    this.lockHeartbeatIntervalSeconds = Math.min(
+      options.lockHeartbeatIntervalSeconds ?? 15,
+      CopilotKitIntelligenceRuntime.MAX_HEARTBEAT_INTERVAL_SECONDS,
+    );
+    // Declared Intelligence Channels. Lowercase kebab-case name-shape validation
+    // (`assertValidChannelNames`) lives in the channels-intelligence launcher —
+    // it can't run here because it's a value import from the pure-ESM
+    // `@copilotkit/channels-intelligence`, which this CJS package must not pull in.
+    // Name UNIQUENESS across declared Channels is enforced by
+    // `ChannelManager.activate()`, not the launcher: the managed path activates
+    // one Channel per launcher call, so the launcher never sees the full set.
+    // Fail fast on the most common misconfiguration (a missing name) right here
+    // at construction, though, rather than only at activation.
+    this.channels = [
+      ...((rawOptions.channels as readonly Channel[] | undefined) ?? []),
+    ];
+    for (const c of this.channels) {
+      if (!c || typeof c !== "object" || !c.name) {
+        throw new Error(
+          "Intelligence Channel is missing a `name` — pass createChannel({ name }) for each Channel in `channels`",
+        );
+      }
+    }
+  }
+
+  /**
+   * Verify the license token on first use, then reuse the result. Not done in
+   * the constructor: edge-safe (Web Crypto) verification is async, and
+   * Cloudflare Workers forbid crypto work in global scope, where runtimes are
+   * usually constructed. Reuses the base-resolved token so feature gating and
+   * telemetry attribution can never disagree.
+   */
+  override getLicenseChecker(): Promise<LicenseChecker> {
+    this.licenseCheckerPromise ??= Promise.resolve().then(() =>
+      createLicenseChecker(this.resolvedLicenseToken ?? ""),
+    );
+    return this.licenseCheckerPromise;
+  }
+}
+
+function hasIntelligenceOptions(
+  options: CopilotKitRuntimeOptions,
+): options is CopilotKitIntelligenceRuntimeOptions {
+  return "intelligence" in options && !!options.intelligence;
+}
+
+export function isIntelligenceRuntime(
+  runtime: CopilotKitRuntimeLike,
+): runtime is CopilotKitIntelligenceRuntimeLike {
+  return runtime.mode === RUNTIME_MODE_INTELLIGENCE && !!runtime.intelligence;
+}
+
+/**
+ * Compile-time phantom brand marking a {@link CopilotKitRuntime} that was
+ * constructed with at least one declared Intelligence Channel. It has no runtime
+ * representation — the shim never sets this property; it exists purely so
+ * `createCopilotKitRuntimeHandler` can tell, at the type level, that the resulting
+ * handler will carry a non-optional `.channels` control surface.
+ */
+export interface RuntimeWithDeclaredChannels {
+  /**
+   * @internal Phantom brand key. Never present at runtime; do not read or set.
+   */
+  readonly __copilotkitChannelsDeclared: true;
+}
+
+/**
+ * Instance shape of the {@link CopilotKitRuntime} compatibility shim. Extends
+ * {@link CopilotKitRuntimeLike} with the Intelligence-only accessors the shim
+ * surfaces (all `undefined` in SSE mode). Declared explicitly so the exported
+ * `CopilotKitRuntime` name resolves as a type as well as a value.
+ */
+export interface CopilotKitRuntime extends CopilotKitRuntimeLike {
+  /** Telemetry capture bound to this runtime's construction-time identity. */
+  telemetry: TelemetryCapture;
+  /** Thread naming configuration; `undefined` in SSE mode. */
+  generateThreadNames?: boolean | ThreadNameGenerationConfig;
+  /** Thread lock TTL in seconds; `undefined` in SSE mode. */
+  lockTtlSeconds?: number;
+  /** Custom Redis key prefix for the thread lock; `undefined` in SSE mode. */
+  lockKeyPrefix?: string;
+  /** Thread lock heartbeat interval in seconds; `undefined` in SSE mode. */
+  lockHeartbeatIntervalSeconds?: number;
+  /** Declared Intelligence Channels; `undefined` in SSE mode. */
+  channels?: Channel[];
+  /** Learning Container selector; `undefined` in SSE mode. */
+  learning?: CopilotKitRuntimeLearningConfig;
+}
+
+/**
+ * Constructor type for the {@link CopilotKitRuntime} compatibility shim.
+ *
+ * The first overload fires when the caller passes `intelligence` together with a
+ * non-empty `channels` tuple: it returns a {@link RuntimeWithDeclaredChannels}-
+ * branded runtime, which `createCopilotKitRuntimeHandler` maps to a handler whose
+ * `.channels` is non-optional. Every other configuration (SSE, or Intelligence
+ * without channels, or an empty `channels: []`) falls through to the second
+ * overload and stays unbranded, so its handler keeps `.channels` optional.
+ *
+ * A class constructor cannot vary its return type across overloads (it is pinned
+ * to the instance type), so the branding lives on this construct-signature
+ * interface instead of on the class itself.
+ */
+export interface CopilotKitRuntimeConstructor {
+  new (
+    options: CopilotIntelligenceRuntimeBaseOptions &
+      (
+        | {
+            identifyUser: IdentifyUserCallback;
+            memory?: CopilotKitRuntimeMemoryConfig;
+            channels: NonEmptyChannels;
+          }
+        | {
+            identifyUser?: undefined;
+            memory?: undefined;
+            channels: NonEmptyChannels;
+          }
+      ),
+  ): CopilotKitRuntime & RuntimeWithDeclaredChannels;
+  new (options: CopilotKitRuntimeOptions): CopilotKitRuntime;
+}
+
+const RUNTIME_OPTIONS_SECTION = "/migrate/removed-apis-2.0#runtime-options";
+
+const REMOTE_AGENTS: RemovedOption = {
+  effect: "throw",
+  use: "Register each agent in agents: a LangGraphAgent from @ag-ui/langgraph for LangGraph Platform, or an AG-UI agent for a Python SDK endpoint.",
+  docs: RUNTIME_OPTIONS_SECTION,
+};
+
+const MCP_SERVERS: RemovedOption = {
+  effect: "throw",
+  use: "Create the MCP clients with createMCPClient from @tanstack/ai-mcp, and give them to a BuiltInAgent as mcp: { clients }.",
+  docs: RUNTIME_OPTIONS_SECTION,
+};
+
+/**
+ * The options of the 1.x `CopilotRuntime` that CopilotKit 2.0 removed. An
+ * option throws when the 1.x code cannot work without it, and warns once in
+ * development when 2.0 only ignores it.
+ */
+const REMOVED_RUNTIME_OPTIONS: Record<string, RemovedOption> = {
+  serviceAdapter: {
+    effect: "throw",
+    use: 'Run the model in a BuiltInAgent from @copilotkit/runtime/agent, and pass it in agents, for example agents: { default: new BuiltInAgent({ model: openaiText("gpt-5") }) }.',
+    docs: RUNTIME_OPTIONS_SECTION,
+  },
+  delegateAgentProcessingToServiceAdapter: {
+    effect: "throw",
+    use: "Delete it. 2.0 has no service adapters: run the model in a BuiltInAgent in agents.",
+    docs: RUNTIME_OPTIONS_SECTION,
+  },
+  remoteEndpoints: REMOTE_AGENTS,
+  remoteActions: REMOTE_AGENTS,
+  langserve: {
+    effect: "throw",
+    use: "Serve the chain as an AG-UI agent, and register it in agents.",
+    docs: RUNTIME_OPTIONS_SECTION,
+  },
+  actions: {
+    effect: "throw",
+    use: "Give the tools to the agent: defineTool tools in the tools of a BuiltInAgent, or the tools of your agent framework.",
+    docs: RUNTIME_OPTIONS_SECTION,
+  },
+  mcpServers: MCP_SERVERS,
+  createMCPClient: MCP_SERVERS,
+  middleware: {
+    effect: "throw",
+    use: "Use beforeRequestMiddleware and afterRequestMiddleware on CopilotKitRuntime, or the hooks option of createCopilotKitRuntimeHandler.",
+    docs: RUNTIME_OPTIONS_SECTION,
+  },
+  observability_c: {
+    effect: "warn",
+    use: "Delete it. 2.0 has no observability hooks in the runtime options.",
+    docs: RUNTIME_OPTIONS_SECTION,
+  },
+  onError: {
+    effect: "warn",
+    use: "To handle errors, pass hooks: { onError } to createCopilotKitRuntimeHandler.",
+    docs: RUNTIME_OPTIONS_SECTION,
+  },
+  onStopGeneration: {
+    effect: "warn",
+    use: "Delete it. 2.0 does not call it.",
+    docs: RUNTIME_OPTIONS_SECTION,
+  },
+};
+
+/**
+ * Checks the options of `CopilotKitRuntime` for the 1.x shapes that 2.0
+ * removed: no options at all (1.x passed the model to the endpoint), and the
+ * options in REMOVED_RUNTIME_OPTIONS.
+ */
+function checkRuntimeOptions(options: unknown) {
+  if (typeof options !== "object" || options === null) {
+    throw new CopilotKitRemovedApiError({
+      what: '"new CopilotRuntime()" without options',
+      use: 'Pass the agents to CopilotKitRuntime, for example new CopilotKitRuntime({ agents: { default: new BuiltInAgent({ model: openaiText("gpt-5") }) } }). The service adapter of the 1.x endpoint is gone.',
+      docs: "/migrate/v2#update-the-runtime",
+    });
+  }
+  checkRemovedOptions(
+    "option of CopilotKitRuntime",
+    options,
+    REMOVED_RUNTIME_OPTIONS,
+  );
+}
+
+/**
+ * Compatibility shim that preserves the legacy `CopilotKitRuntime` entrypoint.
+ * New code should prefer `CopilotKitSseRuntime` or `CopilotKitIntelligenceRuntime`.
+ *
+ * Exported to consumers as the {@link CopilotKitRuntime} value (typed as
+ * {@link CopilotKitRuntimeConstructor}) rather than as a class, so that the
+ * channel-presence brand can flow from construction into the handler type.
+ */
+class CopilotRuntimeShim implements CopilotKitRuntime {
+  private delegate: CopilotKitSseRuntime | CopilotKitIntelligenceRuntime;
+
+  constructor(options: CopilotKitRuntimeOptions) {
+    checkRuntimeOptions(options);
+    this.delegate = hasIntelligenceOptions(options)
+      ? new CopilotKitIntelligenceRuntime(options)
+      : new CopilotKitSseRuntime(options);
+
+    const reporter = getRuntimeErrorReporterFromOptions(options);
+    if (reporter) {
+      attachRuntimeErrorReporter(this, reporter);
+    }
+  }
+
+  get agents(): CopilotKitRuntimeOptions["agents"] {
+    return this.delegate.agents;
+  }
+
+  get transcriptionService(): CopilotKitRuntimeOptions["transcriptionService"] {
+    return this.delegate.transcriptionService;
+  }
+
+  get beforeRequestMiddleware(): CopilotKitRuntimeOptions["beforeRequestMiddleware"] {
+    return this.delegate.beforeRequestMiddleware;
+  }
+
+  get afterRequestMiddleware(): CopilotKitRuntimeOptions["afterRequestMiddleware"] {
+    return this.delegate.afterRequestMiddleware;
+  }
+
+  get runner(): AgentRunner {
+    return this.delegate.runner;
+  }
+
+  get mcpApps(): CopilotKitRuntimeOptions["mcpApps"] {
+    return this.delegate.mcpApps;
+  }
+
+  get openGenerativeUI(): CopilotKitRuntimeOptions["openGenerativeUI"] {
+    return this.delegate.openGenerativeUI;
+  }
+
+  get generativeUI(): CopilotKitRuntimeOptions["generativeUI"] {
+    return this.delegate.generativeUI;
+  }
+
+  get intelligence(): CopilotKitIntelligence | undefined {
+    return this.delegate.intelligence;
+  }
+
+  get generateThreadNames(): boolean | ThreadNameGenerationConfig | undefined {
+    return isIntelligenceRuntime(this.delegate)
+      ? this.delegate.generateThreadNames
+      : undefined;
+  }
+
+  get identifyUser(): IdentifyUserCallback | undefined {
+    return this.delegate.identifyUser;
+  }
+
+  get threadAccess(): ThreadAccessMode {
+    return this.delegate.threadAccess;
+  }
+
+  get lockTtlSeconds(): number | undefined {
+    return isIntelligenceRuntime(this.delegate)
+      ? this.delegate.lockTtlSeconds
+      : undefined;
+  }
+
+  get lockKeyPrefix(): string | undefined {
+    return isIntelligenceRuntime(this.delegate)
+      ? this.delegate.lockKeyPrefix
+      : undefined;
+  }
+
+  get lockHeartbeatIntervalSeconds(): number | undefined {
+    return isIntelligenceRuntime(this.delegate)
+      ? this.delegate.lockHeartbeatIntervalSeconds
+      : undefined;
+  }
+
+  get channels(): Channel[] | undefined {
+    return isIntelligenceRuntime(this.delegate)
+      ? this.delegate.channels
+      : undefined;
+  }
+
+  get learning(): CopilotKitRuntimeLearningConfig | undefined {
+    return isIntelligenceRuntime(this.delegate)
+      ? this.delegate.learning
+      : undefined;
+  }
+
+  get mode(): RuntimeMode {
+    return this.delegate.mode;
+  }
+
+  getLicenseChecker(): Promise<LicenseChecker | undefined> {
+    return this.delegate.getLicenseChecker();
+  }
+
+  get debugEventBus() {
+    return this.delegate.debugEventBus;
+  }
+
+  get debug(): ResolvedDebugConfig {
+    return this.delegate.debug;
+  }
+
+  get debugLogger(): CopilotKitRuntimeLogger | undefined {
+    return this.delegate.debugLogger;
+  }
+
+  get logger(): CopilotKitRuntimeLogger {
+    return this.delegate.logger;
+  }
+
+  get telemetry(): TelemetryCapture {
+    return this.delegate.telemetry;
+  }
+
+  get forwardHeadersPolicy(): ResolvedForwardHeadersPolicy {
+    return this.delegate.forwardHeadersPolicy;
+  }
+
+  get sseKeepAliveIntervalSeconds(): number {
+    return this.delegate.sseKeepAliveIntervalSeconds;
+  }
+
+  get exposeMemoryRoutes(): boolean | undefined {
+    return this.delegate.exposeMemoryRoutes;
+  }
+
+  get memory(): CopilotKitRuntimeMemoryConfig | undefined {
+    return this.delegate.memory;
+  }
+}
+
+/**
+ * The public `CopilotKitRuntime` constructor. Backed by {@link CopilotRuntimeShim}
+ * but typed as {@link CopilotKitRuntimeConstructor} so that constructing with a
+ * non-empty `channels` array yields a {@link RuntimeWithDeclaredChannels}-branded
+ * runtime type.
+ *
+ * The `as unknown as` cast is required (not dishonest widening): the brand is a
+ * phantom, compile-time-only marker with no runtime representation, so the shim
+ * instances legitimately do not carry the brand property. Behavior is identical
+ * to the former `class CopilotKitRuntime` — this only refines the static type.
+ */
+export const CopilotKitRuntime: CopilotKitRuntimeConstructor =
+  CopilotRuntimeShim as unknown as CopilotKitRuntimeConstructor;

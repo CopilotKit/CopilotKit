@@ -1,6 +1,6 @@
 name: test / reskinnable-demo
 
-# The four gates for examples/showcases/reskinnable-demo, plus a resolve check
+# The four gates for examples/demos/reskinnable-demo, plus a resolve check
 # for its Python agent.
 #
 # WHY THIS WORKFLOW EXISTS
@@ -40,12 +40,12 @@ name: test / reskinnable-demo
 on:
   pull_request:
     paths:
-      - "examples/showcases/reskinnable-demo/**"
+      - "examples/demos/reskinnable-demo/**"
       - ".github/workflows/test_reskinnable-demo.yml"
   push:
     branches: [main]
     paths:
-      - "examples/showcases/reskinnable-demo/**"
+      - "examples/demos/reskinnable-demo/**"
       - ".github/workflows/test_reskinnable-demo.yml"
 
 permissions:
@@ -69,7 +69,7 @@ jobs:
       run:
         # Every step runs inside the app. It is NOT a workspace member, so
         # there is no root-level task that reaches it.
-        working-directory: examples/showcases/reskinnable-demo
+        working-directory: examples/demos/reskinnable-demo
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -107,7 +107,7 @@ jobs:
           # THIS APP'S lockfile, not the root one. They are different files
           # since the app left the workspace, and keying on the root lockfile
           # would restore a cache that has none of these canary versions in it.
-          key: ${{ runner.os }}-pnpm-reskin-${{ hashFiles('examples/showcases/reskinnable-demo/pnpm-lock.yaml') }}
+          key: ${{ runner.os }}-pnpm-reskin-${{ hashFiles('examples/demos/reskinnable-demo/pnpm-lock.yaml') }}
           restore-keys: |
             ${{ runner.os }}-pnpm-reskin-
 
@@ -163,7 +163,7 @@ jobs:
     timeout-minutes: 10
     defaults:
       run:
-        working-directory: examples/showcases/reskinnable-demo/agent
+        working-directory: examples/demos/reskinnable-demo/agent
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7

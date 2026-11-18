@@ -9,9 +9,11 @@ import {
   PLATFORM_ID,
   inject,
   isDevMode,
+  signal,
 } from "@angular/core";
 import { shouldEnableInspector } from "@copilotkit/shared";
-import type { WebInspectorElement } from "@copilotkit/web-inspector";
+import { ɵmountInspector } from "@copilotkit/web-inspector/mount";
+import type { ɵInspectorMount } from "@copilotkit/web-inspector/mount";
 
 import { COPILOT_KIT_CONFIG, type CopilotKitConfig } from "./config";
 import { CopilotKit } from "./copilotkit";
@@ -46,67 +48,65 @@ export class CopilotInspector {
   private readonly isDevelopment = inject(
     ɵCOPILOTKIT_INSPECTOR_DEVELOPMENT_MODE,
   );
-  private element: WebInspectorElement | null = null;
-  private ownsElement = false;
-  private destroyed = false;
+  readonly #visible = signal(false);
+  #mount: ɵInspectorMount | null = null;
+  #pendingRequest: AngularInspectorOpenRequest | null = null;
+  #destroyed = false;
 
   readonly shouldRenderInspector = shouldEnableInspector({
     enableInspector: this.config?.enableInspector,
     isBrowser: isPlatformBrowser(this.platformId),
     isDevelopment: this.isDevelopment,
+    hostname: this.document.defaultView?.location.hostname,
   });
 
-  /** Whether Inspector-backed message actions should be shown. */
-  readonly isInspectorEnabled = this.shouldRenderInspector;
+  /**
+   * Whether Inspector-backed message actions should be shown: the Inspector
+   * is mounted and not hidden by a dismissal. Reads a signal, so a `computed`
+   * that reads it follows Inspector visibility.
+   */
+  get isInspectorEnabled() {
+    return this.shouldRenderInspector && this.#visible();
+  }
 
   constructor() {
     this.destroyRef.onDestroy(() => {
-      this.destroyed = true;
-      if (this.ownsElement) this.element?.remove();
-      this.element = null;
+      this.#destroyed = true;
+      this.#mount?.dispose();
+      this.#mount = null;
     });
 
     if (this.shouldRenderInspector) {
-      afterNextRender(() => void this.mount());
+      afterNextRender(() => this.#mountInspector());
     }
   }
 
+  /** Opens the Inspector at a message. A request made before it loads opens once it is ready. */
   openInspector(request: AngularInspectorOpenRequest): void {
-    this.element?.openInspector?.("message_toolbar", request);
+    if (this.#mount) {
+      this.#mount.open(request);
+      return;
+    }
+    this.#pendingRequest = request;
   }
 
-  private async mount(): Promise<void> {
-    try {
-      const mod = await import("@copilotkit/web-inspector");
-      if (this.destroyed) return;
-
-      mod.defineWebInspector?.();
-      const existing = this.document.querySelector<WebInspectorElement>(
-        mod.WEB_INSPECTOR_TAG,
-      );
-      const element =
-        existing ??
-        (this.document.createElement(
-          mod.WEB_INSPECTOR_TAG,
-        ) as WebInspectorElement);
-
-      mod.configureWebInspectorElement(
-        element,
-        this.injector.get(CopilotKit).core,
-        {
+  #mountInspector(): void {
+    if (this.#destroyed) return;
+    const mount = ɵmountInspector(
+      this.document.body,
+      this.injector.get(CopilotKit).core,
+      {
+        load: () => import("@copilotkit/web-inspector"),
+        notificationContext: {
           development: this.isDevelopment,
           framework: "angular",
           sdkVersion: ANGULAR_SDK_VERSION,
         },
-      );
-
-      if (!existing) {
-        this.document.body.appendChild(element);
-        this.ownsElement = true;
-      }
-      this.element = element;
-    } catch (error) {
-      console.error("Failed to load CopilotKit inspector:", error);
-    }
+      },
+    );
+    mount.onVisibility((visible) => this.#visible.set(visible));
+    if (this.#pendingRequest) mount.open(this.#pendingRequest);
+    this.#pendingRequest = null;
+    this.#mount = mount;
   }
 }

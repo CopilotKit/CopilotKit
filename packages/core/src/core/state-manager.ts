@@ -444,6 +444,14 @@ export class StateManager {
     this.rawEventByMessage.delete(agentId);
   }
 
+  /** Unsubscribe from every agent. Called by `CopilotKitCore.dispose`. */
+  dispose(): void {
+    const agentIds = [...this.agentSubscriptions.keys()];
+    for (const agentId of agentIds) {
+      this.unsubscribeFromAgent(agentId);
+    }
+  }
+
   /**
    * Get state for a specific run
    * Returns a deep copy to prevent external mutations

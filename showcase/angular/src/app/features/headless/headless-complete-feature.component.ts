@@ -6,7 +6,7 @@ import {
 } from "@angular/core";
 import { registerFrontendTool } from "@copilotkit/angular";
 import type { AngularToolCall } from "@copilotkit/angular";
-import { z } from "zod";
+import * as z from "zod";
 
 import { FeatureHeaderComponent } from "../feature-header.component";
 import { HeadlessChatController } from "./headless-chat";

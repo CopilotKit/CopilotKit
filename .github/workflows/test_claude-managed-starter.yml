@@ -3,7 +3,7 @@ name: test / Claude Managed Agents starter
 on:
   pull_request:
     paths:
-      - examples/integrations/claude-managed-agents/**
+      - examples/starters/claude-managed-agents/**
       - .github/workflows/test_claude-managed-starter.yml
   workflow_dispatch:
 
@@ -20,7 +20,7 @@ jobs:
     timeout-minutes: 20
     defaults:
       run:
-        working-directory: examples/integrations/claude-managed-agents
+        working-directory: examples/starters/claude-managed-agents
     env:
       COPILOTKIT_TELEMETRY_DISABLED: "true"
       NEXT_TELEMETRY_DISABLED: "1"
@@ -32,7 +32,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: examples/integrations/claude-managed-agents/package-lock.json
+          cache-dependency-path: examples/starters/claude-managed-agents/package-lock.json
       - run: npm ci
       - run: npm run typecheck
       - run: npm run lint
@@ -44,5 +44,5 @@ jobs:
         if: always()
         with:
           name: claude-managed-starter-browser
-          path: examples/integrations/claude-managed-agents/test-results
+          path: examples/starters/claude-managed-agents/test-results
           if-no-files-found: ignore

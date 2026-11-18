@@ -85,6 +85,22 @@ describe("pickActivityRenderer", () => {
     ).toBe(wildcard);
   });
 
+  it("uses a wildcard renderer scoped to another agent", () => {
+    const wildcard = renderer({
+      activityType: "*",
+      agentId: "other-agent",
+      component: WildcardActivityRenderer,
+    });
+
+    expect(
+      pickActivityRenderer({
+        activityType: "unregistered",
+        agentId: "demo-button",
+        renderers: [wildcard],
+      }),
+    ).toBe(wildcard);
+  });
+
   it("returns undefined when nothing matches", () => {
     expect(
       pickActivityRenderer({

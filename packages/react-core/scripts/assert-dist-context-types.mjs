@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 /**
  * Fails the build if the built declarations of
- * `@copilotkit/react-core/v2/generative-ui/native` or `/v2/headless` use a
- * `CopilotKitCoreReact` other than the one `/v2/context` exports.
+ * `@copilotkit/react-core/generative-ui/native` or `/headless` use a
+ * `CopilotKitCoreReact` other than the one `/context` exports.
  *
  * The class has private members, so TypeScript compares it nominally: two
  * declarations of it are not assignable to each other. A consumer that holds
- * the instance from `/v2/context` (the React Native provider does) and hands
+ * the instance from `/context` (the React Native provider does) and hands
  * it to one of those entries gets a type error if the entry's declarations
  * bundle the class into a chunk. The ESM and the CommonJS declarations are
  * emitted by separate passes, so each module mode is checked.
@@ -18,7 +18,7 @@
  *    and collects each copy of the class that the export reaches: a class
  *    named `CopilotKitCoreReact` (or a renamed copy such as
  *    `CopilotKitCoreReact$1` or `CopilotKitCoreReact_1`), or any class with
- *    the same private members. Every such class must be the one `/v2/context`
+ *    the same private members. Every such class must be the one `/context`
  *    exports, wherever that one is declared (`context.d.*` or a shared chunk).
  *    A relative or self-referencing import in those declarations that does
  *    not resolve is reported too, since the type it names becomes `any`.
@@ -27,7 +27,7 @@
  *    name the consumers import from the native entry must still be exported
  *    and still reach the class, so that a stale import cannot pass unchecked.
  * 2. Consumers (`tsc` on `dist-context-types/consumer.{cts,mts}`). They
- *    import the built package by name and pass the `/v2/context` instance to
+ *    import the built package by name and pass the `/context` instance to
  *    those native exports and to the headless class. Negative probes
  *    (`@ts-expect-error`) make the check fail if a type resolved to `any`,
  *    which `skipLibCheck` would otherwise let through.
@@ -79,9 +79,9 @@ const MAX_OUTPUT_BYTES = 64 * 1024 * 1024;
 const QUOTED_LINES = 200;
 
 const PACKAGE = "@copilotkit/react-core";
-const CONTEXT = `${PACKAGE}/v2/context`;
-const NATIVE = `${PACKAGE}/v2/generative-ui/native`;
-const HEADLESS = `${PACKAGE}/v2/headless`;
+const CONTEXT = `${PACKAGE}/context`;
+const NATIVE = `${PACKAGE}/generative-ui/native`;
+const HEADLESS = `${PACKAGE}/headless`;
 const CLASS = "CopilotKitCoreReact";
 // The class under its own name or a bundler's rename of it.
 const CLASS_NAME = /^_*CopilotKitCoreReact(?:[$_]\d+)?$/;
@@ -120,12 +120,9 @@ try {
 // ---------------------------------------------------------------------------
 // The built declarations must exist. A missing file is a build problem, not a
 // type problem.
-const required = [
-  "v2/context",
-  "v2/headless",
-  "v2/generative-ui/native",
-].flatMap((entry) =>
-  Object.keys(MODES).map((ext) => path.join(distDir, `${entry}.d.${ext}`)),
+const required = ["context", "headless", "generative-ui/native"].flatMap(
+  (entry) =>
+    Object.keys(MODES).map((ext) => path.join(distDir, `${entry}.d.${ext}`)),
 );
 const missing = required.filter((file) => !fs.existsSync(file));
 if (missing.length > 0) {
@@ -158,17 +155,17 @@ const identityHint = (ext) =>
       "config's `plugins`, so `externalizeContext` reaches it only through " +
       "`inputOptions: externalizeContextInCjsDts(...)` in tsdown.config.ts. In the main build " +
       "the hook takes an `onlyFrom` regex that must match the declaration module of the " +
-      "entry that exports the class (today `src/v2/generative-ui/native.d.ts`). Widen that " +
+      "entry that exports the class (today `src/generative-ui/native.d.ts`). Widen that " +
       "regex if a new module needs it, but keep the filter: the main build's CommonJS " +
       "declarations also serve the root `.` entry, which `moduleResolution: node10` reads " +
-      "and which cannot resolve the `/v2/context` subpath (attw: InternalResolutionError). " +
+      "and which cannot resolve the `/context` subpath (attw: InternalResolutionError). " +
       "The headless build runs the hook with no filter."
     : "ESM: the `.d.mts` files take the config's `plugins`, so check that the build lists " +
-      "`externalizeContext` in `plugins` and `@copilotkit/react-core/v2/context` in `external`.";
+      "`externalizeContext` in `plugins` and `@copilotkit/react-core/context` in `external`.";
 const annotationHint =
   "An export of the native entry must name the `CopilotKitCoreReact` that it imports from " +
   "`../context` in its own declaration (see `useGenerativeUIRoot` in " +
-  "src/v2/generative-ui/native.ts). Re-exported from a module that imports the class from " +
+  "src/generative-ui/native.ts). Re-exported from a module that imports the class from " +
   "`../lib/react-core`, it is declared with the bundled copy.";
 
 // ---------------------------------------------------------------------------
@@ -360,7 +357,7 @@ for (const [ext, mode] of Object.entries(MODES)) {
   const { source, imports } = consumerImports(mode.consumer);
   consumers[ext] = { source, imports };
 
-  // The class `/v2/context` exports: the one every entry must use.
+  // The class `/context` exports: the one every entry must use.
   const context = imports.get(CONTEXT);
   if (!context?.module) {
     problems.push(
@@ -438,7 +435,7 @@ for (const [ext, mode] of Object.entries(MODES)) {
       problems.push(
         `${mode.label}: these exports of ${entry} take or return ${CLASS}, but ` +
           `${rel(mode.consumer)} does not check them: ${unchecked.join(", ")}. Import each ` +
-          "one in both consumers and pass it the `/v2/context` instance (`core`).",
+          "one in both consumers and pass it the `/context` instance (`core`).",
       );
     }
     const stale = [...imported.names].filter(
@@ -562,7 +559,7 @@ if (result.error?.code === "ENOBUFS") {
   }
   const explain = {
     identity:
-      "the `/v2/context` instance is not assignable to a native or headless export: the " +
+      "the `/context` instance is not assignable to a native or headless export: the " +
       "entry's declarations use a second declaration of CopilotKitCoreReact.",
     any:
       "a negative probe (`@ts-expect-error`) no longer errors: a type it uses resolved to " +
@@ -600,5 +597,5 @@ if (problems.length > 0) {
 
 console.log(
   `${NAME}: OK — the ESM and CommonJS declarations of the native and headless entries ` +
-    "use the CopilotKitCoreReact of /v2/context.",
+    "use the CopilotKitCoreReact of /context.",
 );

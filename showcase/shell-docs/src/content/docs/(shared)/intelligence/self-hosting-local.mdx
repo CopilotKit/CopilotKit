@@ -98,7 +98,7 @@ Run these steps in your app's folder. If you don't have an app yet, create one w
     The runtime does not read these URLs from the environment. Pass them to the Intelligence client in your TypeScript runtime:
 
     ```ts title="Your CopilotKit runtime"
-    import { CopilotKitIntelligence } from "@copilotkit/runtime/v2";
+    import { CopilotKitIntelligence } from "@copilotkit/runtime";
 
     const intelligence = new CopilotKitIntelligence({
       apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,

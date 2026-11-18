@@ -22,7 +22,7 @@
  *   PY_RESULT           needs.publish-python.result
  *   PY_BUILD_RESULT     needs.build-python.result            (catches PyPI build-stage failures)
  *   PY_VER              needs.build-python.outputs.version
- *   SCOPE               needs.build.outputs.scope           ("monorepo" | "angular")
+ *   SCOPE               needs.build.outputs.scope           ("monorepo" | "channels" | ...)
  *   DRY_RUN             inputs.dry-run                       ("true" | "false" | "")
  *   RUN_URL             this workflow run URL
  *   RELEASE_URL         GitHub Release URL (npm release notes)

@@ -1,4 +1,4 @@
-(async () => {
+void (async () => {
   const { pathToFileURL } = require("node:url");
 
   const cjs = require("../dist/index.cjs");

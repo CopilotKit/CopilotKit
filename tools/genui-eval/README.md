@@ -4,7 +4,7 @@ Measures how well models write A2UI with our generative UI prompts, and searches
 
 For each case it builds the client's envelope and markdown context entries, runs the runtime's `GenerativeUIMiddleware` and built-in agent in-process with the model, and mounts the resulting surfaces with the real surface manager and `SurfaceView` in jsdom.
 
-This measures prompt performance on CopilotKit's built-in-agent and React-renderer path. Gemini is called through OpenRouter; Google ADK, `google-genai`, and the A2UI agent SDK's generation, compilation, and recovery paths are not exercised. The renderer does use `@a2ui/web_core`. The checks inspect the initial render; they do not click controls, verify subsequent interactions, or assess screenshots. The judge receives a textual outline. Map and Chart browser dependencies can fail in jsdom, so a passing result is not proof of browser visual quality. Separate integration and browser tests are needed for those claims.
+This measures prompt performance on CopilotKit's built-in-agent and React-renderer path. Gemini is called through OpenRouter; Google ADK, `google-genai`, and the A2UI agent SDK's generation, compilation, and recovery paths are not exercised. The checks inspect the initial render; they do not click controls, verify subsequent interactions, or assess screenshots. The judge receives a textual outline. Map and Chart browser dependencies can fail in jsdom, so a passing result is not proof of browser visual quality. Separate integration and browser tests are needed for those claims.
 
 ## Quick start
 

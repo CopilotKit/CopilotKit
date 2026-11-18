@@ -19,7 +19,7 @@
  * rot this file grew:
  *
  *   - `strands-typescript`, `claude-sdk-python`, `claude-sdk-typescript` —
- *     a REAL starter exists under `examples/integrations/`; nothing probes it
+ *     a REAL starter exists under `examples/starters/`; nothing probes it
  *     yet. Listed in `STARTER_COLUMNS_UNPROBED` (`live-status.ts`) and rendered
  *     as the gray `?` no-data chip, NOT 🚫.
  *   - `crewai-conversational-flows` — RESOLVED (2026-09-15): the smoke matrix's
@@ -31,9 +31,9 @@
  *          — a docs directory named for the STARTER — advertises the SAME
  *          `--framework flows`. The column's manifest and the starter's docs
  *          scaffold one and the same template.
- *       3. Implementation kind matches: `examples/integrations/crewai-flows`'s
+ *       3. Implementation kind matches: `examples/starters/crewai-flows`'s
  *          agent is `crewai.flow.flow.Flow`-based, while
- *          `examples/integrations/crewai-crews`' agent is a `Crew`
+ *          `examples/starters/crewai-crews`' agent is a `Crew`
  *          (`src/latest_ai_development/crew.py`) and its column advertises a
  *          DIFFERENT flag, `--framework crewai-crews`.
  *     It is nevertheless NOT probed: `crewai-flows` is the one smoke-matrix

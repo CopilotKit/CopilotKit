@@ -13,24 +13,29 @@
  */
 
 /**
- * Extracts the light-mode `[data-copilotkit] { ... }` declaration block from the
- * canonical globals.css using a brace-balanced scan.
+ * Extracts the light-mode `:where([data-copilotkit]) { ... }` declaration block
+ * (or a plain `[data-copilotkit] { ... }` one) from the canonical theme.css
+ * using a brace-balanced scan.
  *
  * Taking the first `}` after the opening brace would silently truncate the block
  * if it ever contains a nested brace (a `@media`/nested rule, or a brace inside a
  * value), dropping later tokens. Counting depth finds the matching close brace —
  * the true end of the block — instead.
  *
- * @param css - Full globals.css source text.
+ * @param source - Full theme.css source text.
  * @param sourceLabel - Human-readable source name surfaced in error messages.
  * @returns The block body between (but excluding) the outer braces.
  * @throws If the block cannot be located or its braces are unbalanced.
  */
 export function extractLightThemeBlock(
-  css: string,
+  source: string,
   sourceLabel = "the canonical theme",
 ): string {
-  const start = css.indexOf("[data-copilotkit] {");
+  // Comments can show example rules, such as `[data-copilotkit] { … }`.
+  const css = source.replace(/\/\*[\s\S]*?\*\//g, "");
+  const start = css.search(
+    /(?:^|[\s,}])(?::where\()?\[data-copilotkit\]\)?\s*\{/,
+  );
   if (start === -1) {
     throw new Error(
       `[generate-tokens] Could not find "[data-copilotkit] {" in ${sourceLabel}`,

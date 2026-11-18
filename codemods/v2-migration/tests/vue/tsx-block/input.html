@@ -1,0 +1,10 @@
+<script setup lang="tsx">
+import { OpenGenerativeUIContentSchema } from "@copilotkit/vue";
+
+const props = defineProps<{ value: unknown }>();
+const Preview = () => <div innerHTML={OpenGenerativeUIContentSchema.parse(props.value).html} />;
+</script>
+
+<template>
+  <Preview />
+</template>

@@ -10,7 +10,7 @@ import { fileURLToPath } from "node:url";
  * It must therefore be imported LAZILY. A static `import ... from "express"`
  * anywhere in the graph reachable from `src/index.ts` would make express a hard
  * install requirement of the package's root entry point — and a self-hosted bot
- * that brings its own HTTP server (as `examples/teams` does) would have to
+ * that brings its own HTTP server (as `examples/templates/teams` does) would have to
  * install a package it never calls, or fail at import with a module-not-found.
  *
  * Node reports one missing package at a time, so a static import here also

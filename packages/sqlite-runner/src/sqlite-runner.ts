@@ -4,14 +4,14 @@ import {
   ThreadAlreadyRunningError,
   finalizeRunEvents,
   ɵresolveThreadOwner,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import type {
   AgentRunnerConnectRequest,
   AgentRunnerIsRunningRequest,
   AgentRunnerRunRequest,
   AgentRunnerStopRequest,
   LocalThreadEndpointScope,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import type { Observable } from "rxjs";
 import { ReplaySubject } from "rxjs";
 import type {

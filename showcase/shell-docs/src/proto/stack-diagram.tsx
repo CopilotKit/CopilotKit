@@ -359,6 +359,7 @@ function useTraffic(
     coreRef.current = onCore;
   });
 
+  // react-doctor-disable-next-line react-doctor/no-set-state-after-await-in-effect -- each setter runs after a `cancelled` check that follows its await, and the cleanup sets `cancelled`
   useEffect(() => {
     const g = dot.current;
     if (!live || !g) return;

@@ -171,3 +171,41 @@ async def test_terminal_does_not_reorder_later_agent_events():
 
     events = [event async for event in middleware.transform(source(), {"messages": []})]
     assert [event["type"] for event in events] == ["RUN_FINISHED", "CUSTOM", "RUN_FINISHED"]
+
+
+def test_schema_context_matches_typescript_serialization_and_needs_components():
+    schema = {"components": {"Text": {"required": ["text"]}}}
+    prepared = A2UIMiddleware(A2UIConfig(schema=schema)).prepare({})
+    assert prepared["context"] == [
+        {
+            "description": SCHEMA_DESCRIPTION,
+            "value": '{"components":{"Text":{"required":["text"]}}}',
+        }
+    ]
+    assert A2UIMiddleware(A2UIConfig(schema={"catalogId": "x"})).prepare({})["context"] == []
+
+
+async def test_nothing_paints_before_the_surface_id_arrives():
+    middleware = A2UIMiddleware(A2UIConfig(inject_tool=True))
+    components = [{"id": "root", "component": "Text", "text": "Hi"}]
+
+    async def source():
+        yield {"type": "TOOL_CALL_START", "toolCallId": "call", "toolCallName": "render_a2ui"}
+        yield {
+            "type": "TOOL_CALL_ARGS",
+            "toolCallId": "call",
+            "delta": '{"components":' + json.dumps(components),
+        }
+        yield {"type": "TOOL_CALL_ARGS", "toolCallId": "call", "delta": ',"surfaceId":"late"}'}
+        yield {"type": "RUN_FINISHED"}
+
+    events = [event async for event in middleware.transform(source(), {})]
+    paints = [
+        (index, event)
+        for index, event in enumerate(events)
+        if "a2ui_operations" in event.get("content", {})
+    ]
+    second_args = [i for i, e in enumerate(events) if e["type"] == "TOOL_CALL_ARGS"][1]
+    assert [index for index, _ in paints] == [second_args - 1]
+    operations = paints[0][1]["content"]["a2ui_operations"]
+    assert operations[0]["createSurface"]["surfaceId"] == "late"

@@ -1,0 +1,96 @@
+import { handleIntelligenceConnect } from "./intelligence/connect";
+import { handleSseConnect } from "./sse/connect";
+import { resolveLocalThreadOwner } from "./shared/thread-access";
+import { isIntelligenceRuntime } from "../core/runtime";
+import { getRuntimeLogger } from "../core/logger";
+import { telemetry } from "../telemetry";
+import type { RunAgentParameters as ConnectAgentParameters } from "./shared/agent-utils";
+import {
+  parseConnectRequest,
+  cloneAgentForRequest,
+} from "./shared/agent-utils";
+
+export async function handleConnectAgent({
+  runtime,
+  request,
+  agentId,
+}: ConnectAgentParameters) {
+  const publicApiKey = request.headers.get("x-copilotcloud-public-api-key");
+  void (runtime.telemetry ?? telemetry).capture(
+    "oss.runtime.copilot_request_created",
+    {
+      // Connect carries no run input, so there are no forwarded guardrails
+      // to read — the v1 middleware this replaced reported false here too.
+      "cloud.guardrails.enabled": false,
+      requestType: "connect",
+      "cloud.api_key_provided": !!publicApiKey,
+      ...(publicApiKey ? { "cloud.public_api_key": publicApiKey } : {}),
+    },
+  );
+
+  try {
+    // Runs on BOTH branches deliberately: this is the only place the connect
+    // path validates that `agentId` exists, returning a 404 `Response` for an
+    // unknown agent. The intelligence branch below never re-checks the id (it
+    // hands `agentId` straight to `ɵconnectThread`), so this clone/resolve must
+    // happen before the branch split or unknown agents would slip through. The
+    // SSE branch additionally uses the returned clone's `agent.headers`.
+    const agent = await cloneAgentForRequest(runtime, agentId, request);
+    if (agent instanceof Response) {
+      return agent;
+    }
+
+    // Parse a clone, so `identifyUser` can still read the original body.
+    const connectRequest = await parseConnectRequest(
+      request.clone(),
+      getRuntimeLogger(runtime),
+    );
+    if (connectRequest instanceof Response) {
+      return connectRequest;
+    }
+
+    if (isIntelligenceRuntime(runtime)) {
+      return handleIntelligenceConnect({
+        runtime,
+        request,
+        agentId,
+        threadId: connectRequest.input.threadId,
+      });
+    }
+
+    // Replay only the caller's own thread; another identity's thread replays
+    // like an unknown one.
+    const ownerId = await resolveLocalThreadOwner({
+      runtime,
+      request,
+      operation: "connect",
+    });
+    if (ownerId instanceof Response) return ownerId;
+
+    return handleSseConnect({
+      runtime,
+      request,
+      agentId,
+      threadId: connectRequest.input.threadId,
+      ownerId,
+      // Pass the per-request clone so its server-configured `agent.headers` are
+      // folded into the merged header set threaded into `runner.connect`. That
+      // merge is forward-looking plumbing — no shipped runner consumes
+      // connect-path headers yet; see the note in `sse/connect.ts`.
+      agent,
+    });
+  } catch (error) {
+    getRuntimeLogger(runtime).error({ err: error }, "Error running agent");
+
+    return new Response(
+      JSON.stringify({
+        error: "Failed to run agent",
+        message: error instanceof Error ? error.message : "Unknown error",
+      }),
+      {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      },
+    );
+  }
+}

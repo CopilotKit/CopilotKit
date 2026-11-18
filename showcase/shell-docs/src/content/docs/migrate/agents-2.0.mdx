@@ -1,0 +1,339 @@
+---
+title: Agents and server-side actions in 2.0
+description: Move LangGraph agents, LangGraph Platform and Python SDK endpoints, and server-side actions from the CopilotKit 1.x runtime to AG-UI agents in 2.0.
+---
+
+After the upgrade to 2.0, the runtime code that connects your agents and tools does not build. `@copilotkit/runtime/langgraph` does not exist, and `CopilotKitRuntime` has no `remoteEndpoints` or `actions` option.
+
+In 2.0, every backend is an AG-UI agent. You put each agent in `agents` on `new CopilotKitRuntime(...)`, and `createCopilotKitRuntimeHandler` serves the runtime.
+
+Find your 1.x code in this table, then go to its section:
+
+| Your 1.x code | Section |
+| --- | --- |
+| An import from `@copilotkit/runtime/langgraph` | [LangGraph agents](#langgraph-agents) |
+| `langGraphPlatformEndpoint` in `remoteEndpoints` | [LangGraph Platform](#langgraph-platform) |
+| `copilotKitEndpoint` in `remoteEndpoints`, with a Python `CopilotKitRemoteEndpoint` server | [Python SDK endpoint](#python-sdk-endpoint) |
+| `actions` on the runtime, or `actions=` on `CopilotKitRemoteEndpoint` | [Server-side actions](#server-side-actions) |
+
+The codemod (`npx codemod @copilotkit/v2-migration`) moves the `@copilotkit/runtime/langgraph` imports. It does not rewrite `remoteEndpoints` or `actions`. It marks that runtime with a `TODO(copilotkit-2.0)` comment. For the route handler and the service adapters, see [Update the runtime](/migrate/v2#update-the-runtime).
+
+## LangGraph agents
+
+Your runtime imports `LangGraphAgent` or `LangGraphHttpAgent` from `@copilotkit/runtime/langgraph`. In 2.0, both classes come from `@ag-ui/langgraph`. `@copilotkit/runtime` does not install this package, so install it in your app:
+
+```bash
+npm install @ag-ui/langgraph
+```
+
+Then import the classes from `@ag-ui/langgraph`. The codemod makes this change. The constructor options are the same:
+
+{/* kiira: ignore, shows the v1 code this guide migrates away from */}
+```ts ignore title="Before"
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
+
+const runtime = new CopilotRuntime({
+  agents: {
+    sample_agent: new LangGraphAgent({
+      deploymentUrl: process.env.LANGGRAPH_DEPLOYMENT_URL ?? "http://localhost:8123",
+      graphId: "sample_agent",
+    }),
+  },
+});
+```
+
+```ts title="After"
+import { CopilotKitRuntime } from "@copilotkit/runtime";
+import { LangGraphAgent } from "@ag-ui/langgraph";
+
+const runtime = new CopilotKitRuntime({
+  agents: {
+    sample_agent: new LangGraphAgent({
+      deploymentUrl: process.env.LANGGRAPH_DEPLOYMENT_URL ?? "http://localhost:8123",
+      graphId: "sample_agent",
+    }),
+  },
+});
+```
+
+`CustomEventNames` and the `PredictStateTool` type also come from `@ag-ui/langgraph`. `TextMessageEvents` and `ToolCallEvents` are not in 2.0. They were unions of AG-UI event types, such as `TextMessageStartEvent`. Import those types from `@ag-ui/client`.
+
+Run your type check. When no import from `@copilotkit/runtime/langgraph` is left, the type check passes.
+
+### `CustomEventNames`
+
+In `@ag-ui/langgraph`, the members have different names and different values. Code that compares an event name with a member now compares it with the 2.0 value:
+
+| 1.x member | 1.x value | 2.0 member | 2.0 value |
+| --- | --- | --- | --- |
+| `CopilotKitManuallyEmitMessage` | `copilotkit_manually_emit_message` | `ManuallyEmitMessage` | `manually_emit_message` |
+| `CopilotKitManuallyEmitToolCall` | `copilotkit_manually_emit_tool_call` | `ManuallyEmitToolCall` | `manually_emit_tool_call` |
+| `CopilotKitManuallyEmitIntermediateState` | `copilotkit_manually_emit_intermediate_state` | `ManuallyEmitState` | `manually_emit_state` |
+| `CopilotKitExit` | `copilotkit_exit` | `Exit` | `exit` |
+
+### Events from the CopilotKit SDKs
+
+`LangGraphAgent` turns events with the 2.0 values into chat updates: a message, a state update, or a tool call. The emit helpers of the CopilotKit SDKs send the 1.x values:
+
+- Python: `copilotkit_emit_message`, `copilotkit_emit_state`, and `copilotkit_emit_tool_call`.
+- TypeScript (`@copilotkit/sdk-js/langgraph`): `copilotkitEmitMessage`, `copilotkitEmitState`, and `copilotkitEmitToolCall`.
+
+`LangGraphAgent` does not convert these events. It sends each one to the frontend as a `CUSTOM` event, so the chat does not change.
+
+In a Python graph, you can keep the helpers. Serve the graph with `LangGraphAGUIAgent`, which converts the events on your server. Then register it with `LangGraphHttpAgent`. See [Python SDK endpoint](#python-sdk-endpoint).
+
+In a TypeScript graph, send the event with its 2.0 value. This call replaces `copilotkitEmitState(config, { progress })`:
+
+```ts
+import { dispatchCustomEvent } from "@langchain/core/callbacks/dispatch";
+import type { RunnableConfig } from "@langchain/core/runnables";
+
+export async function emitProgress(config: RunnableConfig, progress: number) {
+  await dispatchCustomEvent("manually_emit_state", { progress }, config);
+}
+```
+
+For a message, send `manually_emit_message` with a `{ message_id, message }` object.
+
+`copilotkit_exit` and `copilotkitExit` have no effect in 2.0, because CopilotKit does not act on the exit event. To react to it, subscribe to the agent with an `onCustomEvent` handler. The event name is `Exit` from `LangGraphAGUIAgent`, and `copilotkit_exit` from `LangGraphAgent`.
+
+## LangGraph Platform
+
+Your 1.x runtime reaches LangGraph Platform with `langGraphPlatformEndpoint` in `remoteEndpoints`. 2.0 has no `remoteEndpoints`. Create one `LangGraphAgent` for each agent in the `agents` list:
+
+{/* kiira: ignore, shows the v1 code this guide migrates away from */}
+```ts ignore title="Before"
+import { CopilotRuntime, langGraphPlatformEndpoint } from "@copilotkit/runtime";
+
+const runtime = new CopilotRuntime({
+  remoteEndpoints: [
+    langGraphPlatformEndpoint({
+      deploymentUrl: process.env.LANGGRAPH_DEPLOYMENT_URL!,
+      langsmithApiKey: process.env.LANGSMITH_API_KEY,
+      agents: [
+        { name: "research_agent", description: "Researches a topic" },
+        { name: "writer_agent", description: "Writes the report" },
+      ],
+    }),
+  ],
+});
+```
+
+```ts title="After"
+import { CopilotKitRuntime } from "@copilotkit/runtime";
+import { LangGraphAgent } from "@ag-ui/langgraph";
+
+const deploymentUrl = process.env.LANGGRAPH_DEPLOYMENT_URL!;
+const langsmithApiKey = process.env.LANGSMITH_API_KEY;
+
+const runtime = new CopilotKitRuntime({
+  agents: {
+    research_agent: new LangGraphAgent({
+      deploymentUrl,
+      langsmithApiKey,
+      graphId: "research_agent",
+      description: "Researches a topic",
+    }),
+    writer_agent: new LangGraphAgent({
+      deploymentUrl,
+      langsmithApiKey,
+      graphId: "writer_agent",
+      description: "Writes the report",
+    }),
+  },
+});
+```
+
+Each 1.x option moves to the agents:
+
+| 1.x | 2.0 |
+| --- | --- |
+| `deploymentUrl`, `langsmithApiKey` | The same options on each `LangGraphAgent` |
+| `name` of an agent | The key in `agents`. Keep the name, so the frontend's `agentId` does not change. |
+| `description` of an agent | `description` on its `LangGraphAgent` |
+| `assistantId` of an agent | No option. `LangGraphAgent` runs the first assistant that the deployment lists for `graphId`. |
+
+Set `graphId` to the key of the graph in `langgraph.json`. Install `@ag-ui/langgraph` as in [LangGraph agents](#langgraph-agents). That section also covers the events that your graph sends.
+
+Send a message to each agent in the chat. Each agent answers from your deployment.
+
+## Python SDK endpoint
+
+Your 1.x runtime reaches a Python server with `copilotKitEndpoint` in `remoteEndpoints`. The server serves a `CopilotKitRemoteEndpoint` with `add_fastapi_endpoint`. The 2.0 runtime does not call this endpoint.
+
+In 2.0, each agent has its own AG-UI endpoint, and the runtime lists each endpoint in `agents`.
+
+### 1. Serve each agent over AG-UI
+
+Install the latest `copilotkit` Python package. It installs `ag-ui-langgraph`, which has `add_langgraph_fastapi_endpoint`. For each LangGraph graph, add an endpoint with `LangGraphAGUIAgent`:
+
+```python title="Before"
+from fastapi import FastAPI
+from copilotkit import CopilotKitRemoteEndpoint, LangGraphAgent
+from copilotkit.integrations.fastapi import add_fastapi_endpoint
+
+from agent import graph
+
+app = FastAPI()
+sdk = CopilotKitRemoteEndpoint(
+    agents=[
+        LangGraphAgent(
+            name="research_agent",
+            description="Researches a topic",
+            graph=graph,
+        ),
+    ],
+)
+add_fastapi_endpoint(app, sdk, "/copilotkit")
+```
+
+```python title="After"
+from fastapi import FastAPI
+from ag_ui_langgraph import add_langgraph_fastapi_endpoint
+from copilotkit import LangGraphAGUIAgent
+
+from agent import graph
+
+app = FastAPI()
+add_langgraph_fastapi_endpoint(
+    app=app,
+    agent=LangGraphAGUIAgent(
+        name="research_agent",
+        description="Researches a topic",
+        graph=graph,
+    ),
+    path="/research_agent",
+)
+```
+
+Give each agent its own `path`. The [LangGraph (FastAPI) quickstart](/langgraph-fastapi/quickstart) has the full server, with the checkpointer that the graph needs.
+
+For an agent from another framework, use the AG-UI endpoint of that framework. See the [CrewAI quickstart](/crewai-crews/quickstart), or [pick your framework](/quickstart).
+
+### 2. Register each agent in the runtime
+
+Add one agent for each endpoint. Use the 1.x agent name as the key, so the frontend's `agentId` does not change:
+
+{/* kiira: ignore, shows the v1 code this guide migrates away from */}
+```ts ignore title="Before"
+import { CopilotRuntime, copilotKitEndpoint } from "@copilotkit/runtime";
+
+const runtime = new CopilotRuntime({
+  remoteEndpoints: [
+    copilotKitEndpoint({ url: "http://localhost:8000/copilotkit" }),
+  ],
+});
+```
+
+```ts title="After"
+import { CopilotKitRuntime } from "@copilotkit/runtime";
+import { LangGraphHttpAgent } from "@ag-ui/langgraph";
+
+const runtime = new CopilotKitRuntime({
+  agents: {
+    research_agent: new LangGraphHttpAgent({
+      url: "http://localhost:8000/research_agent",
+    }),
+  },
+});
+```
+
+For a LangGraph agent, use `LangGraphHttpAgent` from `@ag-ui/langgraph`. It is an `HttpAgent` that also accepts LangGraph interrupt resumes in `forwardedProps.command.resume`. For an agent from another framework, use `HttpAgent` from `@ag-ui/client`. Install the `@ag-ui/client` version that `@copilotkit/runtime` uses (see [Upgrade AG-UI client](/migrate/v2#upgrade-ag-ui-client-if-using-it-directly)).
+
+Start the Python server and the runtime. Then send a message in the chat. The agent answers through its AG-UI endpoint.
+
+## Server-side actions
+
+Your 1.x runtime defines tools in `actions`, or your Python server defines them in `actions=` on `CopilotKitRemoteEndpoint`. 2.0 has no `actions` option. A tool belongs to an agent, and the agent runs it.
+
+### Tools for the Built-in Agent
+
+Define each action with `defineTool`, and pass the tools to `BuiltInAgent`:
+
+{/* kiira: ignore, shows the v1 code this guide migrates away from */}
+```ts ignore title="Before"
+import { CopilotRuntime } from "@copilotkit/runtime";
+
+const runtime = new CopilotRuntime({
+  actions: [
+    {
+      name: "getWeather",
+      description: "Get the weather for a city",
+      parameters: [{ name: "city", type: "string", required: true }],
+      handler: async ({ city }) => ({ city, temperature: 21 }),
+    },
+  ],
+});
+```
+
+```ts title="After"
+import { CopilotKitRuntime } from "@copilotkit/runtime";
+import { BuiltInAgent, defineTool } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
+import { z } from "zod";
+
+const getWeather = defineTool({
+  name: "getWeather",
+  description: "Get the weather for a city",
+  parameters: z.object({ city: z.string() }),
+  execute: async ({ city }) => ({ city, temperature: 21 }),
+});
+
+const runtime = new CopilotKitRuntime({
+  agents: {
+    default: new BuiltInAgent({
+      model: openaiText("gpt-5"),
+      tools: [getWeather],
+      maxSteps: 2,
+    }),
+  },
+});
+```
+
+Make these changes to each action:
+
+- `parameters`: write a Zod schema, not a `Parameter[]` list.
+- `handler`: rename it to `execute`. It gets the arguments after the schema parses them.
+
+Set `maxSteps` to 2 or more. With the default of 1, the tool runs, but the model gets no second call to answer with the result.
+
+If `actions` was a function, build the agent in an `agents` function. The runtime calls it on each request with `{ request }`. For the other tool options, see [Server Tools](/server-tools).
+
+### Tools in an agent framework
+
+An agent from another framework, such as a LangGraph graph, runs its own tools. Define the tool in that framework. Move each `Action` from `actions=` on `CopilotKitRemoteEndpoint` the same way. In a LangGraph graph, an action becomes a LangChain tool:
+
+```python title="Before"
+from copilotkit import Action, CopilotKitRemoteEndpoint
+
+
+async def greet_user(name: str):
+    return f"Hello, {name}!"
+
+
+sdk = CopilotKitRemoteEndpoint(
+    actions=[
+        Action(
+            name="greet_user",
+            description="Greet the user by name",
+            parameters=[{"name": "name", "type": "string", "required": True}],
+            handler=greet_user,
+        ),
+    ],
+)
+```
+
+```python title="After"
+from langchain_core.tools import tool
+
+
+@tool
+def greet_user(name: str) -> str:
+    """Greet the user by name."""
+    return f"Hello, {name}!"
+```
+
+Bind the tool to the model in your graph. Then run it with a `ToolNode`.
+
+Ask the agent a question that needs the tool. The agent calls the tool and answers with the result.

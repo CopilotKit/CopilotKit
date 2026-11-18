@@ -7,27 +7,26 @@
  * the runner's run()/connect() outputs downstream.
  *
  * If these pass, the published package behaves correctly when consumed by
- * a real CopilotRuntime + HttpAgent stack pointed at AWS AgentCore, without
+ * a real CopilotKitRuntime + HttpAgent stack pointed at AWS AgentCore, without
  * requiring AWS, Docker, or a browser.
  */
 import { describe, it, expect } from "vitest";
 import { EMPTY, firstValueFrom } from "rxjs";
 import { toArray } from "rxjs/operators";
-import {
-  AbstractAgent,
-  EventType,
-  type BaseEvent,
-  type Message,
-  type MessagesSnapshotEvent,
-  type RunAgentInput,
-  type RunFinishedEvent,
-  type RunStartedEvent,
-  type ToolCallResultEvent,
+import { AbstractAgent, EventType } from "@ag-ui/client";
+import type {
+  BaseEvent,
+  Message,
+  MessagesSnapshotEvent,
+  RunAgentInput,
+  RunFinishedEvent,
+  RunStartedEvent,
+  ToolCallResultEvent,
 } from "@ag-ui/client";
 import type {
   AgentRunnerConnectRequest,
   AgentRunnerRunRequest,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import { AgentCoreRunner } from "..";
 
 // ---------------------------------------------------------------------------

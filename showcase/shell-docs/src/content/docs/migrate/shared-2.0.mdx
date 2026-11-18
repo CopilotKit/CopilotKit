@@ -1,0 +1,102 @@
+---
+title: Shared helpers and dependencies in 2.0
+description: Update error checks, removed helpers from @copilotkit/shared, and packages that CopilotKit 2.0 no longer installs.
+---
+
+In 2.0, an import from `@copilotkit/shared` can fail, or a package that your app imports is missing. The cause is one of these changes:
+
+- `CopilotKitError` no longer extends `GraphQLError`.
+- `@copilotkit/shared` removes some helpers that only 1.x used.
+- Server-only code moved from `@copilotkit/shared` to `@copilotkit/runtime`.
+- CopilotKit no longer installs some packages for your app.
+
+The codemod changes imports of `@copilotkit/shared/event-transforms`. It does not change the other code. Use the sections below.
+
+## Error checks
+
+`CopilotKitError` extends `Error` in 2.0, not `GraphQLError`. A check with `instanceof GraphQLError` now returns `false` for CopilotKit errors. Use `instanceof CopilotKitError`:
+
+```ts ignore title="Before"
+import { GraphQLError } from "graphql";
+
+if (error instanceof GraphQLError) {
+  console.error(error.extensions.code);
+}
+```
+
+```ts title="After"
+import { CopilotKitError } from "@copilotkit/shared";
+
+export function logErrorCode(error: unknown) {
+  if (error instanceof CopilotKitError) {
+    console.error(error.extensions.code);
+  }
+}
+```
+
+`error.extensions` keeps the same fields, for example `code`, `statusCode`, and `troubleshootingUrl`.
+
+## Removed helpers
+
+| Removed from `@copilotkit/shared` | What to do |
+| --- | --- |
+| `CopilotKitVersionMismatchError`, `getPossibleVersionMismatch` | Delete the code. 2.0 has no GraphQL runtime client to compare versions with. |
+| `executeConditions` and the `Condition` types | Delete the code, or keep your own copy of the function. |
+| `ConsoleColors`, `ConsoleStyles`, `styledConsole`, `logStyled`, `logCopilotKitPlatformMessage`, `publicApiKeyRequired` | Delete the code, or use `console.log` with `%c` styles. |
+| `dataToUUID`, `isValidUUID` | Use `v5` and `validate` from the `uuid` package. |
+| `convertJsonSchemaToZodSchema`, `getZodParameters` | Keep your own copy of the function. `@copilotkit/shared` no longer depends on `zod`. To get a JSON Schema for a v1 `Parameter[]`, use `actionParametersToJsonSchema`, which stays in `@copilotkit/shared`. |
+
+`dataToUUID` made a v5 UUID from a string. To get the same IDs, use the same namespace that `dataToUUID` used:
+
+```ts ignore title="Before"
+import { dataToUUID, isValidUUID } from "@copilotkit/shared";
+
+const id = dataToUUID("order-42");
+const valid = isValidUUID(id);
+```
+
+```ts title="After"
+import { v5, validate } from "uuid";
+
+const NAMESPACE = "e4b01160-ff74-4c6e-9b27-d53cd930fe8e";
+const id = v5("order-42", NAMESPACE);
+const valid = validate(id);
+```
+
+If you passed a second argument to `dataToUUID`, use `v5(namespace, NAMESPACE)` as the namespace. If you passed an object, pass `JSON.stringify(object)` to `v5`.
+
+## Event transforms moved to the runtime
+
+The `@copilotkit/shared/event-transforms` entry point is removed. Import `transformRecordedEvents`, `OpenGenerativeUIMiddleware`, `ArgsParser`, and `A2UIMiddleware` from `@copilotkit/runtime`. The names and behavior did not change.
+
+```ts ignore title="Before"
+import { transformRecordedEvents } from "@copilotkit/shared/event-transforms";
+```
+
+```ts title="After"
+import { transformRecordedEvents } from "@copilotkit/runtime";
+
+export { transformRecordedEvents };
+```
+
+## Telemetry entry point removed
+
+The `@copilotkit/shared/telemetry` entry point and its Segment `TelemetryClient` are removed. `@copilotkit/runtime` has its own telemetry client. The `TelemetryCapture` and `TelemetryIdentity` types are also removed from `@copilotkit/shared`. If your code imports them, delete the import. To turn telemetry off, set `COPILOTKIT_TELEMETRY_DISABLED=true` as before.
+
+## Packages that CopilotKit no longer installs
+
+| Package | Installed in 1.x by |
+| --- | --- |
+| `openai`, `ws` | `@copilotkit/runtime` |
+| `graphql`, `uuid` | `@copilotkit/shared` |
+| `rxjs`, `clarinet`, `@ag-ui/a2ui-middleware` | `@copilotkit/shared` (`@copilotkit/runtime` still installs them) |
+| `@segment/analytics-node` | `@copilotkit/shared` |
+| `zod` | `@copilotkit/shared` (most other CopilotKit packages still install it) |
+
+If your code imports one of these packages, add it to your app:
+
+```bash
+npm install openai
+```
+
+Then run your build again. The import resolves to the package in your app.

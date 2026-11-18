@@ -1,0 +1,11 @@
+<script setup lang="ts">
+import { useAgent, useKatexStyles } from "@copilotkit/vue";
+
+const prompt = <HTMLTextAreaElement>document.querySelector("textarea");
+useKatexStyles();
+const { agent } = useAgent({ agentId: "assistant" });
+</script>
+
+<template>
+  <p>{{ agent.agentId }}: {{ prompt.value }}</p>
+</template>

@@ -1,0 +1,4 @@
+import { copilotStandardCatalogEndpoint } from "../../utils/endpoints";
+import { defineFetchEventHandler } from "../../utils/fetch-handler";
+
+export default defineFetchEventHandler(copilotStandardCatalogEndpoint);

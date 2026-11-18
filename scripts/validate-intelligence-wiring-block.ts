@@ -52,10 +52,10 @@ export const CLOSE_MARKER = "// --- /copilotkit:intelligence ---";
 
 /**
  * The starter every other site is compared against, matching `northStar` in
- * `examples/integrations/_parity/manifest.json`.
+ * `examples/starters/_parity/manifest.json`.
  */
 const NORTH_STAR =
-  "examples/integrations/langgraph-python/src/app/api/copilotkit/[[...slug]]/route.ts";
+  "examples/starters/langgraph-python/src/app/api/copilotkit/[[...slug]]/route.ts";
 
 /** Stands in for the else arm's runner while the rest is compared exactly. */
 const RUNNER_PLACEHOLDER = "«runner»";

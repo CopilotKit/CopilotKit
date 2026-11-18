@@ -20,12 +20,16 @@ Internally the composable wraps `useFrontendTool`. The composable generates a ha
 ## Signature
 
 ```ts
-import { useHumanInTheLoop } from "@copilotkit/vue/v2";
+import type { WatchSource } from "vue";
+import {
+  useHumanInTheLoop,
+  type VueHumanInTheLoop,
+} from "@copilotkit/vue";
 
-function useHumanInTheLoop<T extends Record<string, unknown>>(
+useHumanInTheLoop satisfies <T extends Record<string, unknown>>(
   tool: VueHumanInTheLoop<T>,
   deps?: WatchSource<unknown>[],
-): void;
+) => void;
 ```
 
 ## Parameters
@@ -108,7 +112,7 @@ A common pattern where the agent asks the user to confirm a destructive action.
 
 ```vue
 <script setup lang="ts">
-import { ToolCallStatus } from "@copilotkit/vue/v2";
+import { ToolCallStatus } from "@copilotkit/vue";
 
 defineProps<{
   status: ToolCallStatus;
@@ -159,7 +163,7 @@ Register it from a component in scope of `CopilotKitProvider`:
 
 ```vue
 <script setup lang="ts">
-import { useHumanInTheLoop } from "@copilotkit/vue/v2";
+import { useHumanInTheLoop } from "@copilotkit/vue";
 import { z } from "zod";
 import ConfirmDeletion from "./ConfirmDeletion.vue";
 
@@ -188,7 +192,7 @@ Collect structured input from the user before the agent proceeds. Local form sta
 ```vue
 <script setup lang="ts">
 import { ref } from "vue";
-import { ToolCallStatus } from "@copilotkit/vue/v2";
+import { ToolCallStatus } from "@copilotkit/vue";
 
 defineProps<{
   status: ToolCallStatus;
@@ -242,7 +246,7 @@ Registration:
 
 ```vue
 <script setup lang="ts">
-import { useHumanInTheLoop } from "@copilotkit/vue/v2";
+import { useHumanInTheLoop } from "@copilotkit/vue";
 import { z } from "zod";
 import ShippingAddressForm from "./ShippingAddressForm.vue";
 
@@ -267,7 +271,7 @@ useHumanInTheLoop({
 
 ```vue
 <script setup lang="ts">
-import { ToolCallStatus } from "@copilotkit/vue/v2";
+import { ToolCallStatus } from "@copilotkit/vue";
 
 defineProps<{
   status: ToolCallStatus;
@@ -330,7 +334,7 @@ Registration:
 
 ```vue
 <script setup lang="ts">
-import { useHumanInTheLoop } from "@copilotkit/vue/v2";
+import { useHumanInTheLoop } from "@copilotkit/vue";
 import { z } from "zod";
 import ExpenseApproval from "./ExpenseApproval.vue";
 
@@ -366,7 +370,7 @@ useHumanInTheLoop({
 
 ## ToolCallStatus
 
-The `ToolCallStatus` enum is exported from `@copilotkit/vue/v2` and defines the three phases of tool execution. Its string values are what appear in the render component's `status` prop.
+The `ToolCallStatus` enum is exported from `@copilotkit/vue` and defines the three phases of tool execution. Its string values are what appear in the render component's `status` prop.
 
 | Value                       | String value   | Description                                                                              |
 | --------------------------- | -------------- | ---------------------------------------------------------------------------------------- |

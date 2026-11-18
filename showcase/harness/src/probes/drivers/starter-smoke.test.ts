@@ -60,7 +60,7 @@ import type {
 // 1.59.3 and 1.59.5; verified against
 // `packages/runtime/src/v2/runtime/core/fetch-router.ts` `matchRoute` and
 // the real starter route
-// `examples/integrations/<slug>/src/app/api/copilotkit/[[...slug]]/route.ts`):
+// `examples/starters/<slug>/src/app/api/copilotkit/[[...slug]]/route.ts`):
 //   - health rung: GET `/api/copilotkit/info` → 200 (lightweight runtime
 //     liveness; the deployed starter has NO `/api/health` route).
 //   - agent rung: GET `/api/copilotkit/info` → 200 JSON carrying a `version`.

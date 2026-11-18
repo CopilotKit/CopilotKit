@@ -15,7 +15,7 @@ import type {
   GenerativeUIRejectedOperation,
   GenerativeUISurfaceContent,
 } from "@copilotkit/shared";
-import { useCopilotKit } from "@copilotkit/react-core/v2/context";
+import { useCopilotKit } from "@copilotkit/react-core/context";
 import { TestCopilotKit } from "../__mocks__/test-copilotkit";
 
 vi.mock("react-native", async () =>

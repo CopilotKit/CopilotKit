@@ -18,7 +18,8 @@ export function prepareBuiltinConsumer(source, work) {
     join(tests, "learned-skills-native.test.ts"),
     "utf8",
   )
-    .replace('from "../index"', 'from "@copilotkit/runtime/v2"')
+    .replace('from "../ai-sdk"', 'from "@copilotkit/runtime/agent/ai-sdk"')
+    .replaceAll('from "../index"', 'from "@copilotkit/runtime/agent"')
     .replace(
       '"../../../../intelligence-delivery-core/conformance/snapshots.v1.json"',
       '"./snapshots.v1.json"',
@@ -28,21 +29,18 @@ export function prepareBuiltinConsumer(source, work) {
     join(tests, "learned-skills-types.test.ts"),
     "utf8",
   )
-    .replaceAll('from "../../v2"', 'from "@copilotkit/runtime/v2"')
-    .replaceAll('from "../learned-skills"', 'from "@copilotkit/runtime/v2"');
+    .replaceAll('from "../.."', 'from "@copilotkit/runtime"')
+    .replaceAll('from "../index"', 'from "@copilotkit/runtime/agent"')
+    .replaceAll('from "../learned-skills"', 'from "@copilotkit/runtime/agent"');
   writeFileSync(join(work, "learned-skills-types.test.ts"), types);
   cpSync(join(tests, "test-helpers.ts"), join(work, "test-helpers.ts"));
-  // Only these two pure helpers are used by the native suite. Runtime execution
-  // remains in the installed package and the actual AI SDK streamText pipeline.
-  writeFileSync(
-    join(work, "agent-test-helpers.ts"),
-    `import type { RunAgentInput } from '@ag-ui/client';
-export { collectEvents } from './test-helpers';
-export function createDefaultInput(overrides?: Partial<RunAgentInput>): RunAgentInput {
-  return {threadId:'test-thread',runId:'test-run',messages:[],tools:[],context:[],state:{},forwardedProps:{},...overrides};
-}
-`,
-  );
+  // The helpers build agents from the installed package, so runtime execution
+  // stays in the published BuiltInAgent and its real AI SDK / TanStack AI paths.
+  const helpers = readFileSync(
+    join(tests, "agent-test-helpers.ts"),
+    "utf8",
+  ).replaceAll('from "../index"', 'from "@copilotkit/runtime/agent"');
+  writeFileSync(join(work, "agent-test-helpers.ts"), helpers);
   cpSync(
     join(
       source,

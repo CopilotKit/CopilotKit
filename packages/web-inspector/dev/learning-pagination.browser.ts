@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./browser-test.js";
 import type { Request } from "@playwright/test";
 
 type Transport = "rest" | "single";

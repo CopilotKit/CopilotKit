@@ -1,0 +1,246 @@
+name: test / mutation
+
+# Mutation testing (Stryker) for core, runtime and react-core. It changes the
+# source in small ways and checks that a test fails each time; the score is the
+# share of changes the tests catch. See scripts/mutation/README.md.
+#
+# Too slow for every PR, so it runs weekly and on demand. Stryker's incremental
+# file is cached between runs, so a rerun only retests mutants whose code or
+# covering tests changed. Scheduled runs only fire for workflows on the default
+# branch.
+on:
+  schedule:
+    # Mondays 03:00 UTC.
+    - cron: "0 3 * * 1"
+  workflow_dispatch:
+    inputs:
+      full:
+        description: "Ignore the incremental cache and retest every mutant"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  NODE_OPTIONS: "--max-old-space-size=8192"
+
+jobs:
+  mutation:
+    name: ${{ matrix.shard }}
+    runs-on: depot-ubuntu-24.04-16
+    timeout-minutes: 300
+    # id-token: write is required for Depot OIDC auth (runs-on: depot-ubuntu-*).
+    permissions:
+      contents: read
+      id-token: write
+    strategy:
+      fail-fast: false
+      matrix:
+        # react-core has about 17,800 mutants and slow jsdom tests, so it runs
+        # as three shards to stay under the job timeout. Stryker writes its
+        # incremental file only at the end, so a job that times out caches
+        # nothing. An empty `mutate` uses the package's stryker.config.mjs.
+        include:
+          - shard: core
+            project: "@copilotkit/core"
+            dir: packages/core
+            mutate: ""
+          - shard: runtime
+            project: "@copilotkit/runtime"
+            dir: packages/runtime
+            mutate: ""
+          - shard: react-core-components
+            project: "@copilotkit/react-core"
+            dir: packages/react-core
+            mutate: "src/components/**/*.ts,src/components/**/*.tsx,!src/**/__tests__/**,!src/**/*.test.ts,!src/**/*.test.tsx"
+          - shard: react-core-generative-ui
+            project: "@copilotkit/react-core"
+            dir: packages/react-core
+            mutate: "src/generative-ui/**/*.ts,src/generative-ui/**/*.tsx,!src/**/__tests__/**,!src/**/*.test.ts,!src/**/*.test.tsx"
+          - shard: react-core-rest
+            project: "@copilotkit/react-core"
+            dir: packages/react-core
+            mutate: "src/**/*.ts,src/**/*.tsx,!src/components/**,!src/generative-ui/**,!src/external-reexports.ts,!src/**/__tests__/**,!src/**/*.test.ts,!src/**/*.test.tsx"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        # Omit `version:` so pnpm/action-setup inherits from the repo's
+        # `packageManager` field in package.json (via corepack).
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: Use Node.js 22
+        # Stryker 10 needs Node 22 or newer.
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22.x
+          cache: "pnpm"
+          cache-dependency-path: "**/pnpm-lock.yaml"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Restore Stryker incremental file
+        if: ${{ !inputs.full }}
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ matrix.dir }}/reports/mutation/stryker-incremental.json
+          key: stryker-incremental-${{ matrix.shard }}-${{ github.ref_name }}-${{ github.run_id }}
+          restore-keys: |
+            stryker-incremental-${{ matrix.shard }}-${{ github.ref_name }}-
+            stryker-incremental-${{ matrix.shard }}-
+
+      - name: Run mutation tests
+        env:
+          PROJECT: ${{ matrix.project }}
+          MUTATE: ${{ matrix.mutate }}
+          STRYKER_CONCURRENCY: "14"
+        run: |
+          if [ -n "$MUTATE" ]; then
+            pnpm nx run "$PROJECT:test:mutation" --mutate "$MUTATE"
+          else
+            pnpm nx run "$PROJECT:test:mutation"
+          fi
+
+      - name: Save Stryker incremental file
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ matrix.dir }}/reports/mutation/stryker-incremental.json
+          key: stryker-incremental-${{ matrix.shard }}-${{ github.ref_name }}-${{ github.run_id }}
+
+      # No summary here: a react-core shard alone would call tests idle that
+      # kill mutants in another shard. The report job merges the shards.
+      - name: Upload report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: mutation-report-${{ matrix.shard }}
+          path: |
+            ${{ matrix.dir }}/reports/mutation/mutation.html
+            ${{ matrix.dir }}/reports/mutation/mutation.json
+          retention-days: 30
+          if-no-files-found: warn
+
+  # Merges the shard reports, lists every test that kills no mutant, and keeps
+  # one open issue up to date so the result reaches people.
+  report:
+    name: report
+    needs: mutation
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22.x
+
+      - name: Download shard reports
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: mutation-report-*
+          path: shards
+
+      # A shard that failed or timed out uploads no report. Its package is
+      # summarized from the shards that finished, and the summary says so.
+      - name: Summarize
+        run: |
+          mkdir -p out
+          args=()
+          missing=()
+          for shard in core runtime; do
+            f="shards/mutation-report-$shard/mutation.json"
+            if [ -f "$f" ]; then args+=("packages/$shard=$f"); else missing+=("$shard"); fi
+          done
+          react=()
+          for shard in components generative-ui rest; do
+            f="shards/mutation-report-react-core-$shard/mutation.json"
+            if [ -f "$f" ]; then react+=("$f"); else missing+=("react-core-$shard"); fi
+          done
+          if [ ${#react[@]} -gt 0 ]; then
+            args+=("packages/react-core=$(IFS=,; echo "${react[*]}")")
+          fi
+          {
+            if [ ${#missing[@]} -gt 0 ]; then
+              echo "> [!WARNING]"
+              echo "> These shards have no report, so their numbers are missing or partial: ${missing[*]}."
+              echo
+            fi
+            if [ ${#args[@]} -gt 0 ]; then
+              node scripts/mutation/summarize.mjs --idle-out out/idle-tests.md "${args[@]}"
+            fi
+          } > out/summary.md
+          if [ ${#args[@]} -gt 0 ]; then
+            node scripts/mutation/summarize.mjs --idle-out out/likely-rot.md \
+              --idle-reasons runs-code "${args[@]}" > /dev/null
+          fi
+          cat out/summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload summary
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: mutation-summary
+          path: out/
+          retention-days: 90
+
+      # One open issue holds the latest result. Each run rewrites its body and
+      # comments with the scores, so people who watch the issue get notified.
+      # Runs from other branches only write the job summary.
+      - name: Update the report issue
+        if: ${{ github.ref_name == github.event.repository.default_branch }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TITLE: "Mutation testing: weekly report"
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          {
+            echo "Latest run: $RUN_URL (commit \`${GITHUB_SHA::10}\`)."
+            echo
+            echo "Read [scripts/mutation/README.md]($GITHUB_SERVER_URL/$GH_REPO/blob/$GITHUB_SHA/scripts/mutation/README.md) for what the numbers mean."
+            echo "Every test that kills no mutant, with the reason, is in \`idle-tests.md\` in the run's \`mutation-summary\` artifact."
+            echo
+            cat out/summary.md
+            # Only the likely rot. The full list is too long for an issue.
+            if [ -f out/likely-rot.md ]; then
+              echo
+              cat out/likely-rot.md
+            fi
+          } > out/body.md
+          # GitHub caps an issue body at 65,536 characters.
+          if [ "$(wc -c < out/body.md)" -gt 65000 ]; then
+            head -c 64000 out/body.md > out/body.tmp
+            printf '\n\n_Cut to fit an issue. The full lists are in the run artifact._\n' >> out/body.tmp
+            mv out/body.tmp out/body.md
+          fi
+          number=$(gh issue list --state open --search "in:title \"$TITLE\"" \
+            --json number,title --jq 'map(select(.title == env.TITLE)) | .[0].number // empty')
+          if [ -z "$number" ]; then
+            gh issue create --title "$TITLE" --body-file out/body.md
+          else
+            gh issue edit "$number" --body-file out/body.md
+            {
+              echo "New run: $RUN_URL"
+              echo
+              # The score table is the first block of the summary.
+              grep -m1 -A99 '^| Package |' out/summary.md | sed '/^$/q'
+            } > out/comment.md
+            gh issue comment "$number" --body-file out/comment.md
+          fi

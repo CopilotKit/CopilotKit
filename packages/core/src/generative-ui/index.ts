@@ -10,6 +10,13 @@ export * from "./function-calls";
 export * from "./calc";
 export * from "./resolve";
 export * from "./surface-manager";
+export type {
+  ComponentModel,
+  DataModel,
+  DataSubscription,
+  SurfaceComponentsModel,
+  SurfaceModel,
+} from "./surface-model";
 export * from "./dispatcher";
 export * from "./events";
 export * from "./manifest";

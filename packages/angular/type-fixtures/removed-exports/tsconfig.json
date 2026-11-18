@@ -1,0 +1,21 @@
+{
+  // 1.x code that uses exports that CopilotKit 2.0 removed, compiled against
+  // the BUILT declarations in `dist`. Each `@ts-expect-error` comment names
+  // text that the error must contain. scripts/__tests__/removed-exports-dist.test.ts
+  // checks it after a build.
+  "compilerOptions": {
+    "strict": true,
+    "noEmit": true,
+    "target": "es2022",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "lib": ["es2023", "dom"],
+    "types": [],
+    "skipLibCheck": true,
+    "experimentalDecorators": true,
+    "paths": {
+      "@copilotkit/angular": ["../../dist/types/copilotkit-angular.d.ts"]
+    }
+  },
+  "include": ["consumer.ts"]
+}

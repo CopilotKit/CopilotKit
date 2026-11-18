@@ -23,7 +23,7 @@ export type GenerativeUISlotKind = "single" | "multiple";
  * The schema of the props of a component: any Standard Schema of an object,
  * for example `z.object({ ... })` or `v.object({ ... })`. The model gets
  * the props as JSON Schema, so the schema must give one: Standard JSON
- * Schema (zod 4.2+, ArkType, Valibot with `toStandardJsonSchema`) or zod 3.
+ * Schema (zod 4.2+, ArkType, Valibot with `toStandardJsonSchema`).
  * It must validate synchronously, because props are checked while a
  * surface renders.
  */
@@ -886,8 +886,9 @@ function resolveComponent(
     if (context.state.has(key)) selectors[key] = (state) => state[key];
   }
   const bind = definition.bind ?? {};
+  const propKeySet = new Set(propKeys);
   for (const [key, selector] of Object.entries(bind)) {
-    if (!propKeys.includes(key)) {
+    if (!propKeySet.has(key)) {
       throw new Error(
         `[generativeUI] bind key "${key}" is not a prop of component "${name}" in ${context.where}.`,
       );

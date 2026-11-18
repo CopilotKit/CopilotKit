@@ -2,7 +2,7 @@
 
 This package registers the published `@ag-ui/omnara` adapter with three
 standalone Showcase demos. The canonical standalone starter is
-[`examples/integrations/omnara`](../../../examples/integrations/omnara/README.md).
+[`examples/starters/omnara`](../../../examples/starters/omnara/README.md).
 Read [PARITY_NOTES.md](./PARITY_NOTES.md) before interpreting feature coverage.
 The integration is undeployed and hidden from product docs while hosted proof
 and shared session configuration remain open.

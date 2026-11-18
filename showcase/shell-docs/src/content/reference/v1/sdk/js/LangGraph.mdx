@@ -25,12 +25,15 @@ npm install @copilotkit/sdk-js
 Disable emitting messages and tool calls:
 
 ```typescript
+import type { RunnableConfig } from "@langchain/core/runnables";
 import { copilotkitCustomizeConfig } from "@copilotkit/sdk-js/langgraph";
 
-const customConfig = copilotkitCustomizeConfig(config, {
-  emitMessages: false,
-  emitToolCalls: false,
-});
+function customize(config: RunnableConfig) {
+  return copilotkitCustomizeConfig(config, {
+    emitMessages: false,
+    emitToolCalls: false,
+  });
+}
 ```
 
 To emit a tool call as streaming LangGraph state, pass the destination key in state,
@@ -38,17 +41,20 @@ the tool name and optionally the tool argument. (If you don't pass the argument 
 all arguments are emitted under the state key.)
 
 ```typescript
+import type { RunnableConfig } from "@langchain/core/runnables";
 import { copilotkitCustomizeConfig } from "@copilotkit/sdk-js/langgraph";
 
-const customConfig = copilotkitCustomizeConfig(config, {
-  emitIntermediateState: [
-    {
-      stateKey: "steps",
-      tool: "SearchTool",
-      toolArgument: "steps",
-    },
-  ],
-});
+function customize(config: RunnableConfig) {
+  return copilotkitCustomizeConfig(config, {
+    emitIntermediateState: [
+      {
+        stateKey: "steps",
+        tool: "SearchTool",
+        toolArgument: "steps",
+      },
+    ],
+  });
+}
 ```
 
 ### Parameters
@@ -79,7 +85,10 @@ the run completes.
 
 ```typescript
 import type { RunnableConfig } from "@langchain/core/runnables";
+import type { MessagesAnnotation } from "@langchain/langgraph";
 import { copilotkitExit } from "@copilotkit/sdk-js/langgraph";
+
+type AgentState = typeof MessagesAnnotation.State;
 
 async function myNode(state: AgentState, config: RunnableConfig) {
   await copilotkitExit(config);
@@ -101,11 +110,16 @@ update the user with the current state of the node.
 ### Examples
 
 ```typescript
+import type { RunnableConfig } from "@langchain/core/runnables";
 import { copilotkitEmitState } from "@copilotkit/sdk-js/langgraph";
 
-for (let i = 0; i < 10; i++) {
-  await someLongRunningOperation(i);
-  await copilotkitEmitState(config, { progress: i });
+declare function someLongRunningOperation(step: number): Promise<void>;
+
+async function myNode(config: RunnableConfig) {
+  for (let i = 0; i < 10; i++) {
+    await someLongRunningOperation(i);
+    await copilotkitEmitState(config, { progress: i });
+  }
 }
 ```
 
@@ -127,16 +141,19 @@ Important: You still need to return the messages from the node.
 ### Examples
 
 ```typescript
+import type { RunnableConfig } from "@langchain/core/runnables";
 import { AIMessage } from "@langchain/core/messages";
 import { copilotkitEmitMessage } from "@copilotkit/sdk-js/langgraph";
 
-const message = "Step 1 of 10 complete";
-await copilotkitEmitMessage(config, message);
+async function myNode(config: RunnableConfig) {
+  const message = "Step 1 of 10 complete";
+  await copilotkitEmitMessage(config, message);
 
-// Return the message from the node
-return {
-  messages: [new AIMessage({ content: message })],
-};
+  // Return the message from the node
+  return {
+    messages: [new AIMessage({ content: message })],
+  };
+}
 ```
 
 ### Parameters
@@ -156,12 +173,15 @@ Manually emits a tool call to CopilotKit.
 ### Examples
 
 ```typescript
+import type { RunnableConfig } from "@langchain/core/runnables";
 import { copilotkitEmitToolCall } from "@copilotkit/sdk-js/langgraph";
 
-const autoId = await copilotkitEmitToolCall(config, "SearchTool", { steps: 10 });
+async function myNode(config: RunnableConfig) {
+  const autoId = await copilotkitEmitToolCall(config, "SearchTool", { steps: 10 });
 
-// With a custom ID for correlation/idempotency:
-const customId = await copilotkitEmitToolCall(config, "SearchTool", { steps: 10 }, { toolCallId: "my-custom-id" });
+  // With a custom ID for correlation/idempotency:
+  const customId = await copilotkitEmitToolCall(config, "SearchTool", { steps: 10 }, { toolCallId: "my-custom-id" });
+}
 ```
 
 ### Parameters

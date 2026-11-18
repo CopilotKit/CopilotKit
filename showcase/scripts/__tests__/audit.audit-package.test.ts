@@ -21,8 +21,8 @@ import {
   parseArgs,
   BORN_IN_SHOWCASE,
   SLUG_TO_EXAMPLES,
-  type Anomaly,
 } from "../audit.js";
+import type { Anomaly } from "../audit.js";
 import {
   AUDIT_SCRIPT,
   makeTmpTree,
@@ -85,7 +85,7 @@ describe("auditPackage", () => {
       specs: ["x.spec.ts"],
       qaFiles: ["x.md"],
     });
-    // Intentionally DO NOT create an examples/integrations/ag2 directory.
+    // Intentionally DO NOT create an examples/starters/ag2 directory.
     const cfg = makeConfig(root);
     const a = auditPackage(slug, cfg);
     expect(a.anomalies.some((x) => x.kind === "missing-examples")).toBe(false);
@@ -233,7 +233,7 @@ describe("auditPackage", () => {
       specs: ["x.spec.ts"],
       qaFiles: ["x.md"],
     });
-    // Intentionally DO NOT create the examples/integrations/<mapped> dir.
+    // Intentionally DO NOT create the examples/starters/<mapped> dir.
     const cfg = makeConfig(root);
     const a = auditPackage(mappedSlug, cfg);
     expect(a.warnings.length).toBeGreaterThan(0);
@@ -261,7 +261,7 @@ describe("auditPackage", () => {
     // unreadable. Non-candidate statSync calls fall through to the real
     // implementation so other fixture operations still work.
     const fullPaths = candidates.map((c) =>
-      path.join(root, "examples", "integrations", c),
+      path.join(root, "examples", "starters", c),
     );
     for (const c of candidates) makeExampleDir(root, c);
     const orig = fs.statSync;
@@ -333,7 +333,7 @@ describe("auditPackage", () => {
     const mapped = ["cand-a", "cand-b"] as const;
     for (const c of mapped) makeExampleDir(root, c);
     const fullPaths = mapped.map((c) =>
-      path.join(root, "examples", "integrations", c),
+      path.join(root, "examples", "starters", c),
     );
     const orig = fs.statSync;
     const spy = vi.spyOn(fs, "statSync").mockImplementation(((
@@ -395,7 +395,7 @@ describe("auditPackage", () => {
       cfg,
     );
     expect(r).toMatchObject({
-      source: path.join("examples", "integrations", "cand-hit"),
+      source: path.join("examples", "starters", "cand-hit"),
       unreadableForSlug: false,
     });
   });
@@ -417,7 +417,7 @@ describe("auditPackage", () => {
       qaFiles: ["x.md"],
     });
     const fullPaths = candidates.map((c) =>
-      path.join(root, "examples", "integrations", c),
+      path.join(root, "examples", "starters", c),
     );
     for (const c of candidates) makeExampleDir(root, c);
     const orig = fs.statSync;
@@ -492,7 +492,7 @@ describe("auditPackage", () => {
     });
     for (const c of candidates) makeExampleDir(root, c);
     const fullPaths = candidates.map((c) =>
-      path.join(root, "examples", "integrations", c),
+      path.join(root, "examples", "starters", c),
     );
     const orig = fs.statSync;
     const spy = vi.spyOn(fs, "statSync").mockImplementation(((
@@ -547,7 +547,7 @@ describe("auditPackage", () => {
     const slug = "synthetic-enoent";
     const mapped = ["cand-raced"] as const;
     makeExampleDir(root, "cand-raced");
-    const full = path.join(root, "examples", "integrations", "cand-raced");
+    const full = path.join(root, "examples", "starters", "cand-raced");
     const orig = fs.statSync;
     const spy = vi.spyOn(fs, "statSync").mockImplementation(((
       p: fs.PathLike,
@@ -605,7 +605,7 @@ describe("auditPackage", () => {
     });
     // Write a regular file (not a directory) at every candidate path.
     for (const c of candidates) {
-      const p = path.join(root, "examples", "integrations", c);
+      const p = path.join(root, "examples", "starters", c);
       fs.writeFileSync(p, "stray file, not a directory\n");
     }
     const cfg = makeConfig(root);
@@ -644,7 +644,7 @@ describe("auditPackage", () => {
     // Only create a regular file at the first candidate. The second
     // candidate does not exist at all.
     fs.writeFileSync(
-      path.join(root, "examples", "integrations", "stray-file"),
+      path.join(root, "examples", "starters", "stray-file"),
       "not a dir\n",
     );
     const cfg = makeConfig(root);
@@ -846,7 +846,7 @@ describe("buildReport", () => {
     // `mapped-candidate-not-directory` is the SOLE anomaly on this pkg.
     for (const c of candidates) {
       fs.writeFileSync(
-        path.join(root, "examples", "integrations", c),
+        path.join(root, "examples", "starters", c),
         "stray file, not a directory\n",
       );
     }
@@ -885,7 +885,7 @@ describe("buildReport", () => {
     });
     for (const c of candidates) {
       fs.writeFileSync(
-        path.join(root, "examples", "integrations", c),
+        path.join(root, "examples", "starters", c),
         "stray file, not a directory\n",
       );
     }
@@ -1018,7 +1018,7 @@ describe("auditPackage — direct-caller invariants", () => {
     // reach statSync where we inject).
     for (const c of mapped!) makeExampleDir(root, c);
     const targets = new Set(
-      mapped!.map((c) => path.join(root, "examples", "integrations", c)),
+      mapped!.map((c) => path.join(root, "examples", "starters", c)),
     );
     const orig = fs.statSync;
     const spy = vi.spyOn(fs, "statSync").mockImplementation(((

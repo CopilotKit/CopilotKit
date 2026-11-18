@@ -7,8 +7,8 @@ const read = (path: string) => readFileSync(new URL(path, root), "utf8");
 
 describe("ADK smoke provider isolation", () => {
   it.each([
-    ["examples/integrations/adk/docker-compose.test.yml", "agent"],
-    ["examples/integrations/docker-compose.production-image.yml", "app"],
+    ["examples/starters/adk/docker-compose.test.yml", "agent"],
+    ["examples/starters/docker-compose.production-image.yml", "app"],
   ])(
     "%s sends Gemini requests to aimock with a non-secret key",
     (path, service) => {
@@ -34,11 +34,11 @@ describe("ADK smoke provider isolation", () => {
 
   it.each([
     [
-      "examples/integrations/adk/docker-compose.test.yml",
+      "examples/starters/adk/docker-compose.test.yml",
       ["aimock", "agent", "app"],
     ],
     [
-      "examples/integrations/docker-compose.production-image.yml",
+      "examples/starters/docker-compose.production-image.yml",
       ["aimock", "app"],
     ],
   ])(

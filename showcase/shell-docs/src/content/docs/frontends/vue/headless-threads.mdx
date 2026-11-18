@@ -25,7 +25,7 @@ CopilotKit Rich Threads enable persistent, resumable multi-turn conversations. T
 ## Prerequisites
 
 - A CopilotKit application connected to CopilotKit Intelligence, cloud-hosted or [self-hosted](/intelligence/self-hosting)
-- The current `@copilotkit/vue` v2 package
+- The current `@copilotkit/vue` package
 - A model provider key supported by your runtime
 
 For multi-user applications, configure the runtime to [scope Rich Threads to the signed-in user](/vue/threads-lifecycle#scope-rich-threads-to-the-signed-in-user) before exposing thread lists or lifecycle actions.
@@ -36,16 +36,19 @@ For multi-user applications, configure the runtime to [scope Rich Threads to the
   <Step>
     ### Configure your Runtime with CopilotKit Intelligence
 
-    Your `CopilotRuntime` must be connected to CopilotKit Intelligence before the thread UI can list and resume conversations. CLI-created starters generate this setup; otherwise follow [Connect your runtime to Intelligence](/intelligence/quickstart).
+    Your `CopilotKitRuntime` must be connected to CopilotKit Intelligence before the thread UI can list and resume conversations. CLI-created starters generate this setup; otherwise follow [Connect your runtime to Intelligence](/intelligence/quickstart).
 
     ```typescript title="server.ts"
     import {
       CopilotKitIntelligence,
-      CopilotRuntime,
-    } from "@copilotkit/runtime/v2";
+      CopilotKitRuntime,
+    } from "@copilotkit/runtime";
+    import { BuiltInAgent } from "@copilotkit/runtime/agent";
+    import { openaiText } from "@tanstack/ai-openai";
+    import { verifyAppSession } from "./auth";
 
-    const runtime = new CopilotRuntime({
-      agents: { default: agent },
+    const runtime = new CopilotKitRuntime({
+      agents: { default: new BuiltInAgent({ model: openaiText("gpt-5-mini") }) },
       intelligence: new CopilotKitIntelligence({
         apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
       }),
@@ -55,7 +58,7 @@ For multi-user applications, configure the runtime to [scope Rich Threads to the
         return { id: session.user.id, name: session.user.name };
       },
       // Each new thread is named from its first user message.
-      // For a short title from a model, pass { model: "openai/gpt-5-mini" }.
+      // For a short title from a model, pass { model: openaiText("gpt-5-mini") }.
       // Set to false to disable:
       // generateThreadNames: false,
       // lockTtlSeconds: 20,
@@ -83,7 +86,7 @@ For multi-user applications, configure the runtime to [scope Rich Threads to the
     import {
       useCopilotChatConfiguration,
       useThreads,
-    } from "@copilotkit/vue/v2";
+    } from "@copilotkit/vue";
 
     const config = useCopilotChatConfiguration();
     const {
@@ -130,7 +133,7 @@ For multi-user applications, configure the runtime to [scope Rich Threads to the
       CopilotChat,
       CopilotChatConfigurationProvider,
       CopilotKitProvider,
-    } from "@copilotkit/vue/v2";
+    } from "@copilotkit/vue";
     import ThreadSidebar from "./components/ThreadSidebar.vue";
     </script>
 

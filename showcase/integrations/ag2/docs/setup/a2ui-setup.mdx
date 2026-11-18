@@ -52,23 +52,23 @@ if __name__ == "__main__":
 `A2UIServer` validates every A2UI message the agent produces against the
 component catalog, and retries on validation errors, so malformed UI never
 reaches the client. The `AgUiTransport` then emits the validated messages as an
-AG-UI activity snapshot (`activityType: "a2ui-surface"`), which is the wire
-contract the CopilotKit A2UI renderer consumes.
+AG-UI activity snapshot (`activityType: "a2ui-surface"`). The Copilot Runtime
+converts these v0.9 surfaces to A2UI 1.0, which the browser renders.
 
-Register the AG2 endpoint in your Copilot Runtime and enable A2UI:
+Register the AG2 endpoint in your Copilot Runtime. The agent writes A2UI v0.9, so set `a2uiVersion: "0.9"`:
 
 ```ts title="app/api/copilotkit/route.ts"
 import { HttpAgent } from "@ag-ui/client";
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 
 const runtime = new CopilotRuntime({
   agents: {
     default: new HttpAgent({ url: "http://localhost:8000/" }),
   },
-  a2ui: {},
+  generativeUI: { a2uiVersion: "0.9" },
 });
 
 const handler = createCopilotRuntimeHandler({
@@ -80,8 +80,14 @@ const handler = createCopilotRuntimeHandler({
 export { handler as POST };
 ```
 
-A2UI surfaces from your AG2 agent now render in the chat, and button clicks
-travel back to your `@a2ui_action` handlers through the same connection.
+A2UI surfaces from your AG2 agent now render in the chat. In React and Vue,
+the provider uses the standard catalog, so no frontend code is needed. In
+Angular, add `provideGenerativeUI({ ui: standardUI })`. Button clicks reach
+your `@a2ui_action` handlers as v0.9 user actions, through the same
+connection.
+
+With `protocol_version="v1.0"`, the agent sends A2UI 1.0. Leave out
+`a2uiVersion` then: the runtime passes 1.0 operations through as they are.
 
 <Callout type="info">
   AG2's A2UI transports support protocol versions <code>v0.9</code> (default),

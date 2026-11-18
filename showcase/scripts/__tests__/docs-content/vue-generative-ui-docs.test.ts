@@ -1,7 +1,7 @@
 // Keeps the Vue generative UI docs in step with the code they describe: the
 // reference prop names, the props of the chat slot, the camelCase binding of
 // `generativeUI`, and the names that the examples import from
-// `@copilotkit/vue/v2/generative-ui*`.
+// `@copilotkit/vue/generative-ui*`.
 import fs from "node:fs";
 import path from "node:path";
 
@@ -10,9 +10,9 @@ import { describe, expect, test } from "vitest";
 const REPO_ROOT = path.resolve(import.meta.dirname, "../../../..");
 const CONTENT = "showcase/shell-docs/src/content";
 const REFERENCE = `${CONTENT}/reference/vue`;
-const VUE_GENUI = "packages/vue/src/v2/generative-ui";
+const VUE_GENUI = "packages/vue/src/generative-ui";
 const README = "packages/vue/README.md";
-const DEMO = "examples/v2/vue/demo";
+const DEMO = "examples/dev/by-frontend/vue/demo";
 
 function read(file: string): string {
   return fs.readFileSync(path.join(REPO_ROOT, file), "utf8");
@@ -115,11 +115,11 @@ function exportedNames(file: string): Set<string> {
 }
 
 const ENTRIES: Record<string, string> = {
-  "@copilotkit/vue/v2/generative-ui": `${VUE_GENUI}/index.ts`,
-  "@copilotkit/vue/v2/generative-ui/chart":
-    "packages/vue/src/v2/generative-ui-chart/index.ts",
-  "@copilotkit/vue/v2/generative-ui/map":
-    "packages/vue/src/v2/generative-ui-map/index.ts",
+  "@copilotkit/vue/generative-ui": `${VUE_GENUI}/index.ts`,
+  "@copilotkit/vue/generative-ui/chart":
+    "packages/vue/src/generative-ui-chart/index.ts",
+  "@copilotkit/vue/generative-ui/map":
+    "packages/vue/src/generative-ui-map/index.ts",
 };
 
 describe("Vue generative UI docs", () => {
@@ -191,7 +191,7 @@ describe("Vue generative UI docs", () => {
     expect(offenders).toEqual([]);
   });
 
-  test("every name imported from @copilotkit/vue/v2/generative-ui* is exported", () => {
+  test("every name imported from @copilotkit/vue/generative-ui* is exported", () => {
     const exported = new Map(
       Object.entries(ENTRIES).map(([specifier, file]) => [
         specifier,
@@ -199,7 +199,7 @@ describe("Vue generative UI docs", () => {
       ]),
     );
     const importStatement =
-      /import\s+(?:type\s+)?\{([^}]*)\}\s+from\s+"(@copilotkit\/vue\/v2\/generative-ui[^"]*)"/g;
+      /import\s+(?:type\s+)?\{([^}]*)\}\s+from\s+"(@copilotkit\/vue\/generative-ui[^"]*)"/g;
     const missing: string[] = [];
     let imports = 0;
     for (const file of vueDocsAndExamples()) {

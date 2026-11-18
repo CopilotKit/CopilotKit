@@ -20,6 +20,11 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  # core:build exceeds the default V8 heap on CI and OOMs during "Build
+  # packages"; match the repo's known-good value (used by the e2e workflow).
+  NODE_OPTIONS: "--max-old-space-size=8192"
+
 jobs:
   compat-check:
     runs-on: ubuntu-latest
@@ -49,9 +54,9 @@ jobs:
       - name: Build packages
         run: >
           npx nx run-many -t build
-          --projects=@copilotkit/core,@copilotkit/shared,@copilotkit/react-core,@copilotkit/react-ui,@copilotkit/react-textarea,@copilotkit/runtime-client-gql,@copilotkit/web-inspector,@copilotkit/voice,@copilotkit/a2ui-renderer,@copilotkit/mcp-apps-renderer
+          --projects=@copilotkit/core,@copilotkit/shared,@copilotkit/react-core,@copilotkit/web-inspector,@copilotkit/voice,@copilotkit/mcp-apps-renderer
 
       - name: Run compat-check
         run: >
           npx nx run-many -t compat-check
-          --projects=@copilotkit/core,@copilotkit/shared,@copilotkit/react-core,@copilotkit/react-ui,@copilotkit/react-textarea,@copilotkit/runtime-client-gql,@copilotkit/web-inspector,@copilotkit/voice,@copilotkit/a2ui-renderer,@copilotkit/mcp-apps-renderer
+          --projects=@copilotkit/core,@copilotkit/shared,@copilotkit/react-core,@copilotkit/web-inspector,@copilotkit/voice,@copilotkit/mcp-apps-renderer

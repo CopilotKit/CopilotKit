@@ -4,14 +4,15 @@
  * `lookup_<platform>_user` parameter with, so that no adapter declares a
  * `zod` range (PE-30).
  *
- * The contract it has to honor is "behaves like the Zod object it replaces",
- * so these tests assert against Zod itself rather than against a transcribed
- * expectation. `zod` is a devDependency of this package; nothing published
- * imports it.
+ * The contract it has to honor is "behaves like the Zod 3 object it
+ * replaces". Accept/reject decisions are still checked against Zod itself.
+ * The JSON Schema document and the error text are transcribed from what Zod 3
+ * and `zod-to-json-schema` produced, because the workspace now runs Zod 4,
+ * which words both differently, and the agent must keep seeing the same text.
+ * `zod` is a devDependency of this package; nothing published imports it.
  */
 import { describe, it, expect } from "vitest";
 import { z } from "zod";
-import { zodToJsonSchema } from "zod-to-json-schema";
 import { singleStringParameterSchema } from "./standard-schema.js";
 import type { InferSchemaOutput } from "./standard-schema.js";
 import { toJsonSchema, validateSchema } from "./standard-schema.js";
@@ -29,10 +30,16 @@ const zodEquivalent = z.object({
 });
 
 describe("singleStringParameterSchema", () => {
-  it("emits the JSON Schema document the Zod object emits", () => {
-    expect(toJsonSchema(schema)).toEqual(
-      zodToJsonSchema(zodEquivalent, { $refStrategy: "none" }),
-    );
+  it("emits the JSON Schema document zod-to-json-schema emitted for the Zod 3 object", () => {
+    expect(toJsonSchema(schema)).toEqual({
+      type: "object",
+      properties: {
+        query: { type: "string", minLength: 1, description: DESCRIPTION },
+      },
+      required: ["query"],
+      additionalProperties: false,
+      $schema: "http://json-schema.org/draft-07/schema#",
+    });
   });
 
   it("names the field the caller asked for", () => {
@@ -51,9 +58,8 @@ describe("singleStringParameterSchema", () => {
   it("names this package as the vendor, not zod and not the caller", () => {
     // The Standard Schema `vendor` names the library that produced the
     // schema, which is `channels-core` whichever adapter calls the helper.
-    // It also has to not be "zod": `schemaToJsonSchema` routes a
-    // `vendor: "zod"` schema through `zod-to-json-schema`, and anything else
-    // must carry its own document.
+    // It carries its own document in `~standard.jsonSchema`, so the vendor
+    // tag says nothing about how it converts.
     expect(schema["~standard"].vendor).toBe("@copilotkit/channels-core");
     const renamed = singleStringParameterSchema({
       name: "handle",
@@ -120,41 +126,52 @@ describe("singleStringParameterSchema", () => {
 
   /**
    * The error string is what the agent reads back on a bad tool call, so it
-   * is part of the contract, not an implementation detail. Asserting only
-   * "both reject" let a real divergence through: a missing field reported
-   * "Expected string, received undefined" where Zod reports "Required".
-   * Compare the rendered text, formatted the same way `validateSchema` does.
+   * is part of the contract, not an implementation detail. The expected text
+   * is what Zod 3 rendered for the object this helper replaced, formatted the
+   * way `validateSchema` does.
    */
   it.each([
-    ["a missing field", {}],
-    ["a number field", { query: 42 }],
-    ["a null field", { query: null }],
-    ["an array field", { query: [] }],
-    ["a boolean field", { query: true }],
-    ["an object field", { query: {} }],
-    ["an explicit undefined field", { query: undefined }],
-    ["an empty string", { query: "" }],
-    ["null as the payload", null],
-    ["an array as the payload", []],
-    ["a string as the payload", "ada"],
-    ["a number as the payload", 7],
-  ])("renders the same error text as zod for %s", async (_label, value) => {
+    ["a missing field", {}, "query: Required"],
+    [
+      "a number field",
+      { query: 42 },
+      "query: Expected string, received number",
+    ],
+    ["a null field", { query: null }, "query: Expected string, received null"],
+    ["an array field", { query: [] }, "query: Expected string, received array"],
+    [
+      "a boolean field",
+      { query: true },
+      "query: Expected string, received boolean",
+    ],
+    [
+      "an object field",
+      { query: {} },
+      "query: Expected string, received object",
+    ],
+    ["an explicit undefined field", { query: undefined }, "query: Required"],
+    [
+      "an empty string",
+      { query: "" },
+      "query: String must contain at least 1 character(s)",
+    ],
+    ["null as the payload", null, "(root): Expected object, received null"],
+    ["an array as the payload", [], "(root): Expected object, received array"],
+    [
+      "a string as the payload",
+      "ada",
+      "(root): Expected object, received string",
+    ],
+    ["a number as the payload", 7, "(root): Expected object, received number"],
+  ])("renders the Zod 3 error text for %s", async (_label, value, expected) => {
     const mine = await validateSchema(schema, value);
-    const theirs = zodEquivalent.safeParse(value);
 
-    expect(mine.ok).toBe(theirs.success);
-    expect(theirs.success).toBe(false);
-
-    const zodText = theirs.success
-      ? null
-      : theirs.error.issues
-          .map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`)
-          .join("; ");
-    expect(mine.ok === false && mine.error).toBe(zodText);
+    expect(mine).toEqual({ ok: false, error: expected });
+    expect(zodEquivalent.safeParse(value).success).toBe(false);
   });
 
   /**
-   * `zodToJsonSchema` built a fresh document on every call and
+   * `zod-to-json-schema` built a fresh document on every call and
    * `toAgentToolDescriptors` hands its result straight to the caller, so a
    * consumer that normalizes the schema in place (dropping `$schema` for a
    * provider that rejects it, for instance) must not corrupt later turns.

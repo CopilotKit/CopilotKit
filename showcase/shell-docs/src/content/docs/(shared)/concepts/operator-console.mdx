@@ -1,0 +1,94 @@
+---
+title: "Operator Console Architecture"
+nav_title: "Operator console"
+description: "Build a console for several long-running agents that shows who is working, what each agent is doing, which approvals wait, and how to stop or resume a run."
+icon: "lucide/MonitorCog"
+doc_type: explanation
+---
+
+You run several agents that work for a long time. An operator must see which agent is working, what it does now, and which approvals wait for a person. The operator must also stop or resume a run. A chat window per agent does not give this overview. Build a console with one row per agent, and use CopilotKit to keep each row live.
+
+## The 30-second version
+
+| What the operator needs | What CopilotKit gives you | Read |
+| --- | --- | --- |
+| A list of agents | The agents that you register on the runtime, and `copilotkit.agents` on the client | [Copilot Runtime](/backend/copilot-runtime) |
+| The status of each agent | `agent.isRunning`, updated live by `useAgent` | [useAgent](/reference/hooks/useAgent) |
+| The current work of each agent | `agent.state` and `agent.messages` | [Shared state](/shared-state) |
+| Delegation between agents | A delegation log in agent state | [Sub-agents](/multi-agent/subagents) |
+| Approvals that wait | `useInterrupt`, one for each agent | [useInterrupt](/human-in-the-loop/useInterrupt) |
+| Stop and resume | `copilotkit.stopAgent()` and `copilotkit.runAgent()` | [Programmatic control](/programmatic-control) |
+
+## The architecture
+
+- **The runtime** serves all your agents. You register each one under an id in `agents`. One runner keeps the threads of all of them.
+- **The console** renders one row for each agent. Each row follows its agent with `useAgent` and shows its status, its state, and its pending approvals.
+- **The agents** write their progress and their delegations to their state, so the console can render them.
+
+## Build the console
+
+1. Register each agent on the runtime under its own id.
+2. Render one row for each agent id, as in the React example below.
+3. In each row, show the status, a short summary of `agent.state`, and a **Stop** button.
+4. Add a `useInterrupt` handler for each agent, and collect the pending approvals in one queue.
+5. To resume an interrupted run, call `copilotkit.runAgent({ agent, resume })` with the answer of the operator.
+
+```tsx title="app/console.tsx"
+"use client";
+
+import { UseAgentUpdate, useAgent, useCopilotKit } from "@copilotkit/react-core";
+
+const AGENT_IDS = ["researcher", "writer", "reviewer"];
+
+function AgentRow({ agentId }: { agentId: string }) {
+  const { agent } = useAgent({
+    agentId,
+    updates: [UseAgentUpdate.OnStateChanged, UseAgentUpdate.OnRunStatusChanged],
+  });
+  const { copilotkit } = useCopilotKit();
+
+  return (
+    <tr>
+      <td>{agentId}</td>
+      <td>{agent.isRunning ? "Working" : "Idle"}</td>
+      <td>
+        <code>{JSON.stringify(agent.state)}</code>
+      </td>
+      <td>
+        <button
+          onClick={() => copilotkit.stopAgent({ agent })}
+          disabled={!agent.isRunning}
+        >
+          Stop
+        </button>
+      </td>
+    </tr>
+  );
+}
+
+export function Console() {
+  return (
+    <table>
+      <tbody>
+        {AGENT_IDS.map((id) => (
+          <AgentRow key={id} agentId={id} />
+        ))}
+      </tbody>
+    </table>
+  );
+}
+```
+
+To react to agents that the client registers later, subscribe with `copilotkit.subscribe({ onAgentsChanged })`. See [CopilotKitCore](/reference/core/classes/CopilotKitCore).
+
+## What you build yourself
+
+- **Status for all operators.** `agent.isRunning` is the view of one client. If several operators must see the same status, keep the run status in your backend, or use [AG-UI Streams](/AG-UI-Streams) with CopilotKit Intelligence.
+- **One approval queue.** Each `useInterrupt` follows one agent. Collect their pending interrupts in your own queue component.
+- **Audit and permissions.** Your backend records who stopped or approved what, and which operator can do it. See [Authentication](/auth).
+
+For runs that must continue after a restart, see [Shared State, Interrupts, and Durability](/concepts/durability).
+
+## Debug the console
+
+During development, the [Inspector](/inspector) shows the events of each agent. It is a development tool, not a production console. Start two agents at the same time and stop one of them. When its row changes to **Idle** and the other row stays **Working**, the console works.

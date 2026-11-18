@@ -1,0 +1,37 @@
+"use client";
+
+import type { ReactNode } from "react";
+import { CopilotKitProvider } from "@copilotkit/react-core";
+import { standardUI } from "@copilotkit/react-core/generative-ui";
+import { loadMapLibre } from "@copilotkit/react-core/generative-ui/map";
+
+export type ExampleAgent = "default" | "langgraph";
+export type ExampleTransport = "markdown" | "tool";
+
+export function Providers({
+  children,
+  agent,
+  transport,
+}: {
+  children: ReactNode;
+  agent: ExampleAgent;
+  transport: ExampleTransport;
+}) {
+  return (
+    // useSingleEndpoint={false} selects the REST transport served by the
+    // multi-route runtime in app/api/copilotkit/[[...slug]]/route.ts.
+    //
+    // Both transports use the standard components. "markdown": the agent
+    // writes the operations inside ```a2ui fences in its reply. "tool": the
+    // runtime gives the agent the render_ui tool and streams the surfaces
+    // as activity messages. `map` draws the standard Map with maplibre-gl.
+    <CopilotKitProvider
+      runtimeUrl="/api/copilotkit"
+      useSingleEndpoint={false}
+      agentId={agent}
+      generativeUI={{ ui: standardUI, transport, map: loadMapLibre }}
+    >
+      {children}
+    </CopilotKitProvider>
+  );
+}

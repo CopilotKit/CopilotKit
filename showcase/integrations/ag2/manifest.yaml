@@ -565,4 +565,4 @@ managed_platform:
 starter_validation:
   supported: false
   reason: >-
-    AG2 has no starter template in examples/integrations and is not in the starter-smoke matrix; the integration ships as a showcase app only.
+    AG2 has no starter template in examples/starters and is not in the starter-smoke matrix; the integration ships as a showcase app only.

@@ -3,7 +3,6 @@ import {
   input,
   output,
   ElementRef,
-  AfterViewInit,
   signal,
   computed,
   inject,
@@ -11,8 +10,16 @@ import {
   ViewEncapsulation,
   PLATFORM_ID,
   afterNextRender,
+  afterRenderEffect,
+  untracked,
 } from "@angular/core";
 import { isPlatformBrowser } from "@angular/common";
+import {
+  ɵCOMPOSER_DEFAULT_MAX_ROWS,
+  ɵfitTextareaHeight,
+  ɵmeasureTextarea,
+} from "@copilotkit/core";
+import type { ɵTextareaMetrics } from "@copilotkit/core";
 import { cn } from "../../utils";
 import { injectChatLabels } from "../../chat-config";
 import { injectChatState } from "../../chat-state";
@@ -37,7 +44,7 @@ import { injectChatState } from "../../chat-state";
   template: "",
   styles: [],
 })
-export class CopilotChatTextarea implements AfterViewInit {
+export class CopilotChatTextarea {
   private elementRef = inject(ElementRef<HTMLTextAreaElement>);
   private platformId = inject(PLATFORM_ID);
   get textareaRef() {
@@ -70,19 +77,7 @@ export class CopilotChatTextarea implements AfterViewInit {
   disabled = computed(() => this.inputDisabled() ?? false);
 
   computedClass = computed(() => {
-    const baseClasses = cn(
-      // Layout and sizing
-      "cpk:w-full",
-      // Behavior
-      "cpk:outline-none cpk:resize-none",
-      // Background
-      "cpk:bg-transparent",
-      // Typography
-      "cpk:antialiased cpk:font-regular cpk:leading-relaxed cpk:text-[16px]",
-      // Placeholder styles
-      "cpk:placeholder:text-[#00000077] cpk:dark:placeholder:text-[#fffc]",
-    );
-    return cn(baseClasses, this.inputClass());
+    return cn("cpk-chat-input-textarea", this.inputClass());
   });
 
   constructor() {
@@ -91,13 +86,15 @@ export class CopilotChatTextarea implements AfterViewInit {
         this.elementRef.nativeElement.focus();
       }
     });
-  }
-
-  ngAfterViewInit(): void {
-    if (!isPlatformBrowser(this.platformId)) return;
-
-    this.calculateMaxHeight();
-    this.adjustHeight();
+    // Measure again whenever `inputMaxRows` changes, not only once.
+    afterRenderEffect(() => {
+      this.inputMaxRows();
+      if (!isPlatformBrowser(this.platformId)) return;
+      untracked(() => {
+        this.calculateMaxHeight();
+        this.adjustHeight();
+      });
+    });
   }
 
   onInput(event: Event): void {
@@ -110,57 +107,41 @@ export class CopilotChatTextarea implements AfterViewInit {
     this.adjustHeight();
   }
 
+  /**
+   * Passes every key press to `keyDown`. The chat input decides what Enter
+   * does (send, stop, or nothing during IME composition) and prevents the
+   * line break itself.
+   */
   onKeyDown(event: KeyboardEvent): void {
-    // Check for Enter key without Shift
-    if (event.key === "Enter" && !event.shiftKey) {
-      event.preventDefault();
-      this.keyDown.emit(event);
-    } else {
-      this.keyDown.emit(event);
-    }
+    this.keyDown.emit(event);
   }
 
+  private metrics: ɵTextareaMetrics | null = null;
+
+  /** Measures one row and the height of `inputMaxRows` rows. */
   private calculateMaxHeight(): void {
-    const textarea = this.elementRef.nativeElement;
-    const maxRowsValue = this.inputMaxRows() ?? 5;
-
-    // Save current value
-    const currentValue = textarea.value;
-
-    // Clear content to measure single row height
-    textarea.value = "";
-    textarea.style.height = "auto";
-
-    // Get computed styles to account for padding
-    const computedStyle = window.getComputedStyle(textarea);
-    const paddingTop = parseFloat(computedStyle.paddingTop);
-    const paddingBottom = parseFloat(computedStyle.paddingBottom);
-
-    // Calculate actual content height (without padding)
-    const contentHeight = textarea.scrollHeight - paddingTop - paddingBottom;
-
-    // Calculate max height: content height for maxRows + padding
-    const calculatedMaxHeight =
-      contentHeight * maxRowsValue + paddingTop + paddingBottom;
-    this.maxHeight.set(calculatedMaxHeight);
-
-    // Restore original value
-    textarea.value = currentValue;
-
-    // Adjust height after calculating maxHeight
-    if (currentValue) {
-      this.adjustHeight();
-    }
+    const maxRows = this.inputMaxRows() ?? ɵCOMPOSER_DEFAULT_MAX_ROWS;
+    this.metrics = ɵmeasureTextarea(this.elementRef.nativeElement, maxRows);
+    this.maxHeight.set(this.metrics.maxHeight);
   }
 
-  private adjustHeight(): void {
-    const textarea = this.elementRef.nativeElement;
-    const maxHeightValue = this.maxHeight();
+  private adjustHeight(): number {
+    return ɵfitTextareaHeight(this.elementRef.nativeElement, this.maxHeight());
+  }
 
-    if (maxHeightValue > 0) {
-      textarea.style.height = "auto";
-      textarea.style.height = `${Math.min(textarea.scrollHeight, maxHeightValue)}px`;
+  /**
+   * Fits the height to the text and returns the text's height and the height
+   * of one line, for the input to choose its layout.
+   */
+  measure(): { scrollHeight: number; singleLineHeight: number } {
+    if (!isPlatformBrowser(this.platformId)) {
+      return { scrollHeight: 0, singleLineHeight: 0 };
     }
+    if (!this.metrics?.singleLineHeight) this.calculateMaxHeight();
+    return {
+      scrollHeight: this.adjustHeight(),
+      singleLineHeight: this.metrics?.singleLineHeight ?? 0,
+    };
   }
 
   /**

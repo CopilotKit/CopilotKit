@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./browser-test.js";
 
 for (const transport of ["rest", "single"] as const) {
   test(`restores copied Learning setup over ${transport}`, async ({

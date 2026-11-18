@@ -9,6 +9,14 @@ description: The normalized provider message passed to Channels handlers, includ
 ## Shape
 
 ```ts
+import type {
+  AgentContentPart,
+  ApplicationUser,
+  MessageOperation,
+  MessageRef,
+  ProviderActor,
+} from "@copilotkit/channels/ui";
+
 interface IncomingMessage {
   text: string;
   user: ApplicationUser | null;
@@ -39,14 +47,25 @@ interface IncomingMessage {
 ## Multimodal prompt
 
 ```ts
-const prompt = message.contentParts?.length
-  ? [
-      ...(message.text ? [{ type: "text" as const, text: message.text }] : []),
-      ...message.contentParts,
-    ]
-  : message.text;
+import { createChannel, HttpAgent } from "@copilotkit/channels";
 
-await thread.runAgent({ prompt });
+const channel = createChannel({
+  name: "support",
+  identifyUser: "platform",
+  agent: (threadId) =>
+    new HttpAgent({ url: "http://localhost:8000/agent", threadId }),
+});
+
+channel.onMessage(async ({ thread, message }) => {
+  const prompt = message.contentParts?.length
+    ? [
+        ...(message.text ? [{ type: "text" as const, text: message.text }] : []),
+        ...message.contentParts,
+      ]
+    : message.text;
+
+  await thread.runAgent({ prompt });
+});
 ```
 
 Managed history excludes the current inbound turn. `runAgent()` injects the

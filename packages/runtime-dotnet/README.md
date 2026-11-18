@@ -237,12 +237,15 @@ The platform resolves the stored scope for updates and deletes.
 Memory CRUD, recall, and subscriptions use the runtime's memory routes.
 Thread routes provide reads and mutations. Annotation routes record feedback.
 
-## Enable A2UI and MCP Apps
+## Enable generative UI and MCP Apps
 
 Add UI configuration to `RuntimeOptions`:
 
 ```csharp
-A2UI = new A2UIOptions { InjectTool = true },
+GenerativeUI = new GenerativeUIOptions
+{
+    A2UIVersions = new Dictionary<string, string> { ["legacy"] = "0.9" }
+},
 McpAppsServers =
 [
     new McpAppServer
@@ -258,9 +261,33 @@ McpAppsServers =
 ],
 ```
 
-A2UI validates components and transforms render tools, progressive data, and user actions before persistence.
-It preserves recovery activity states. The agent adapter owns generation retries.
-`A2UIOptions.Agents` restricts A2UI to named agents.
+Generative UI renders A2UI 1.0 surfaces from the catalog that the client sends in `forwardedProps.copilotkit.ui`.
+`GenerativeUI` takes these values:
+
+- `null` (default): generative UI is on for a run whose client sends a "tool" catalog.
+- `new GenerativeUIOptions()`: generative UI is on for every run. `Agents` limits it to named agents.
+- `new GenerativeUIOptions { Enabled = false }`: generative UI is off.
+
+A run whose client asks for the "markdown" transport never gets a render tool.
+`GenerativeUIOptions.FromJson` reads the TypeScript `generativeUI` option (`true`, `false`, or an object).
+
+`A2UIVersion` sets the A2UI version that every agent speaks. The default is `"1.0"`.
+`A2UIVersions` sets one version for each agent. An agent that is not in it speaks `"1.0"`.
+
+- A 1.0 agent gets the `render_ui` tool and the generative UI guide.
+  The runtime validates each streamed operation against the client's catalog before it publishes the operation.
+  A rejected operation goes back to the agent in the tool result.
+- A 0.9 agent gets the `render_a2ui` tool and a v0.9 component schema of the client's catalog.
+  The schema has the 18 basic components and the client's own components.
+  `Schema`, `InjectA2UITool`, `A2UIToolName`, `A2UIToolNames`, `DefaultCatalogId`, `MaxAttempts`, `ShowProgressTokens`, and `DebugExposure` configure the v0.9 middleware.
+
+For both versions, the runtime converts v0.9 surfaces to A2UI 1.0 `generative-ui-surface` events.
+This includes v0.9 operations in a tool result (`{"a2ui_operations": [...]}`).
+A click on a converted surface reaches the agent as `forwardedProps.a2uiAction.userAction`, followed by a `log_a2ui_event` tool call and result.
+The stored thread keeps the click message. `/info` reports `generativeUI`.
+
+The v0.9 middleware validates complete component arrays before publication, then publishes cumulative data snapshots as array items arrive.
+The agent adapter owns generation retries.
 
 MCP Apps discovers UI tools and records tool results as activities.
 Servers use Streamable HTTP endpoints with JSON or SSE responses.

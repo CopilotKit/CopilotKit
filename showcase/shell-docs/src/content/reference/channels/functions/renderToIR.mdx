@@ -9,10 +9,18 @@ array of intrinsic `ChannelNode` values.
 ## Signature
 
 ```ts
-function renderToIR(ui: Renderable): ChannelNode[];
+import {
+  renderToIR,
+  type ChannelNode,
+  type Renderable,
+} from "@copilotkit/channels/ui";
+
+renderToIR satisfies (ui: Renderable) => ChannelNode[];
 ```
 
 ```ts
+import type { ChannelNode } from "@copilotkit/channels/ui";
+
 type Renderable =
   | string
   | ChannelNode

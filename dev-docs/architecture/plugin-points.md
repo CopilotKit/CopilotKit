@@ -313,13 +313,13 @@ type CopilotKitCoreSubscriber = {
 
 **What:** Intercept HTTP requests before they reach the handler. Use for auth, logging, request transformation.
 
-**Where configured:** `CopilotRuntime` constructor — `beforeRequestMiddleware`
+**Where configured:** `CopilotKitRuntime` constructor — `beforeRequestMiddleware`
 
 **Default when not provided:** Requests pass through unchanged.
 
 ```typescript
 type BeforeRequestMiddleware = (params: {
-  runtime: CopilotRuntime;
+  runtime: CopilotKitRuntime;
   request: Request;
   path: string;
 }) => MaybePromise<Request | void>;
@@ -345,13 +345,13 @@ graph LR
 
 **What:** Run code after the response is prepared. Use for logging, metrics, cleanup.
 
-**Where configured:** `CopilotRuntime` constructor — `afterRequestMiddleware`
+**Where configured:** `CopilotKitRuntime` constructor — `afterRequestMiddleware`
 
 **Default when not provided:** No post-processing.
 
 ```typescript
 type AfterRequestMiddleware = (params: {
-  runtime: CopilotRuntime;
+  runtime: CopilotKitRuntime;
   response: Response;
   path: string;
 }) => MaybePromise<void>;
@@ -363,7 +363,7 @@ type AfterRequestMiddleware = (params: {
 
 **What:** Controls how agents are executed and how thread state is managed.
 
-**Where configured:** `CopilotRuntime` constructor — `runner`
+**Where configured:** `CopilotKitRuntime` constructor — `runner`
 
 **Default when not provided:** `InMemoryAgentRunner` — in-process, ephemeral (threads lost on restart).
 
@@ -384,7 +384,7 @@ abstract class AgentRunner {
 
 ```mermaid
 graph TB
-    RT["CopilotRuntime"]
+    RT["CopilotKitRuntime"]
     RUNNER["runner (AgentRunner)"]
 
     RT --> RUNNER
@@ -406,7 +406,7 @@ graph TB
 
 **What:** Convert audio files to text. Enables the `/transcribe` endpoint.
 
-**Where configured:** `CopilotRuntime` constructor — `transcriptionService`
+**Where configured:** `CopilotKitRuntime` constructor — `transcriptionService`
 
 **Default when not provided:** `/transcribe` endpoint returns 404.
 
@@ -484,8 +484,8 @@ graph TB
         URC["useRenderCustomMessages()"]
     end
 
-    subgraph "CopilotRuntime"
-        RT["new CopilotRuntime()"]
+    subgraph "CopilotKitRuntime"
+        RT["new CopilotKitRuntime()"]
         RT --> AGENTS["agents (required)"]
         RT --> RUNNER["runner"]
         RT --> BM["beforeRequestMiddleware"]

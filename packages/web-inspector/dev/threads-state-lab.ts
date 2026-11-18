@@ -278,7 +278,6 @@ function runtimeInfo(
         }),
     ...(options.metadata === false ? {} : { inspectorMetadata: true }),
     suggestions: false,
-    a2uiEnabled: false,
     openGenerativeUIEnabled: false,
     licenseStatus: options.licenseStatus ?? "valid",
     telemetryDisabled: options.telemetryDisabled ?? false,

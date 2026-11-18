@@ -19,9 +19,12 @@ export abstract class ChatState {
   readonly suggestionsLoading = signal(false);
   readonly isTranscribing = signal(false);
 
-  abstract submitInput(value: string): void;
+  abstract submitInput(value: string): void | Promise<void>;
   abstract changeInput(value: string): void;
-  selectSuggestion(_suggestion: Suggestion, _index: number): void {}
+  selectSuggestion(
+    _suggestion: Suggestion,
+    _index: number,
+  ): void | Promise<void> {}
   finishTranscription(_audioBlob: Blob): void | Promise<void> {}
 
   addFile(): void {}

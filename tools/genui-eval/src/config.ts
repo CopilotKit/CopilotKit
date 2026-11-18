@@ -51,7 +51,7 @@ const price = z.object({ input: z.number(), output: z.number() });
 const evalConfig = z
   .object({
     models: z.array(modelEntry).min(1),
-    presets: z.record(preset),
+    presets: z.record(z.string(), preset),
     transports: z.array(z.enum(["markdown", "tool"])).min(1),
     /** The default budget of a run, in USD. */
     budgetUsd: z.number().nonnegative(),
@@ -60,7 +60,7 @@ const evalConfig = z
     /** The fixed reflection model of the optimizer. Never the judge. */
     reflection: z.object({ model: z.string().min(1) }),
     /** Prices by model, for the estimate. Unknown models use `defaultPrice`. */
-    prices: z.record(price).default({}),
+    prices: z.record(z.string(), price).default({}),
     defaultPrice: price.default({ input: 3, output: 15 }),
     /** Parallel samples. */
     concurrency: z.number().int().positive().default(4),

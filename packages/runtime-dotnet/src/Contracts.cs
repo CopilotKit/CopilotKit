@@ -32,7 +32,8 @@ public sealed class RuntimeOptions
     public string ApiKey { get => apiKey ?? Intelligence?.Configuration.ApiKey ?? ""; init => apiKey = value; }
     public required Func<HttpContext, CancellationToken, ValueTask<RuntimeUser?>> IdentifyUser { get; init; }
     public required IReadOnlyDictionary<string, IRuntimeAgent> Agents { get; init; }
-    public A2UIOptions? A2UI { get; init; }
+    /// <summary>Generative UI. Null turns it on only for a run whose client sends a "tool" catalog.</summary>
+    public GenerativeUIOptions? GenerativeUI { get; init; }
     public IReadOnlyList<McpAppServer> McpAppsServers { get; init; } = [];
     public Func<HttpContext, RuntimeUser, CancellationToken, ValueTask<JsonObject?>>? MemoryGrant { get; init; }
     public Func<HttpContext, RuntimeUser, string, JsonObject, CancellationToken, ValueTask<string?>>? LearningContainer { get; init; }
@@ -71,7 +72,7 @@ public sealed class RuntimeOptions
         if (!ApiUrl.IsAbsoluteUri || ApiUrl.Scheme is not ("http" or "https")) throw new ArgumentException("ApiUrl must be HTTP(S).");
         if (!RunnerUrl.IsAbsoluteUri || RunnerUrl.Scheme is not ("ws" or "wss" or "http" or "https")) throw new ArgumentException("RunnerUrl must be a WebSocket URL.");
         if (Agents.Count == 0 || Agents.Any(pair => string.IsNullOrWhiteSpace(pair.Key))) throw new ArgumentException("Register at least one named agent.");
-        if (A2UI is not null && (A2UI.MaxAttempts < 1 || string.IsNullOrWhiteSpace(A2UI.ToolName) || A2UI.DebugExposure is not (null or "hidden" or "collapsed" or "verbose"))) throw new ArgumentException("Invalid A2UI configuration.");
+        GenerativeUI?.Validate();
         foreach (var server in McpAppsServers) server.Validate();
         if (RequestTimeout <= TimeSpan.Zero || AckTimeout <= TimeSpan.Zero || DeliveryTimeout < AckTimeout || LockTtlSeconds < 2 || LockHeartbeatInterval <= TimeSpan.Zero || LockHeartbeatInterval.TotalSeconds >= LockTtlSeconds) throw new ArgumentException("Invalid runtime timing configuration.");
     }

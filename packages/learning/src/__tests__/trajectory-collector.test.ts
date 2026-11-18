@@ -40,7 +40,6 @@ function setup(options: TrajectoryCaptureOptions = {}) {
   const send = vi.fn<(event: TrajectoryEvent) => void>();
   const onError = vi.fn();
   const collector = createTrajectoryCollector({
-    routes: ["/deals", "/deals/:id"],
     send,
     onError,
     ...options,
@@ -122,7 +121,7 @@ describe("Trajectory capture contract", () => {
   });
 
   it("retains unconfigured paths and user edits without Thread enrichment", () => {
-    const { collector, send } = setup({ routes: [] });
+    const { collector, send } = setup();
     collector.start();
     history.pushState(
       null,

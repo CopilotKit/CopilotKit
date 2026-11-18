@@ -197,10 +197,11 @@ export class DiscordAdapter implements PlatformAdapter {
   }
 
   async start(sink: IngressSink): Promise<void> {
-    this.client.once("ready", async () => {
+    this.client.once("ready", () => {
       this.botUserId = this.client.user?.id ?? "";
       this.isReady = true;
-      await this.publishCommands();
+      // publishCommands logs its own failures, so it never rejects.
+      void this.publishCommands();
     });
 
     // Slash commands ack via `deferReply` (a command's initial response is a
@@ -283,7 +284,7 @@ export class DiscordAdapter implements PlatformAdapter {
     // Component interactions: register with the timer-race registry, hand the
     // decoded event to the sink (so a handler can open a modal first), then
     // settle — acking with deferUpdate if the handler never responded.
-    this.client.on("interactionCreate", async (i: any) => {
+    const onInteraction = async (i: any) => {
       if (typeof i?.isButton !== "function") return;
       if (i.isButton() || i.isStringSelectMenu?.()) {
         const triggerId = this.pending.register(i);
@@ -321,6 +322,11 @@ export class DiscordAdapter implements PlatformAdapter {
           console.error("[bot-discord] modal submit ack failed:", err);
         }
       }
+    };
+    // Every await above is guarded (settle swallows ack failures), so the
+    // handler never rejects.
+    this.client.on("interactionCreate", (i: any) => {
+      void onInteraction(i);
     });
 
     await this.client.login(this.opts.botToken);

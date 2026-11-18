@@ -12,7 +12,7 @@ the successor to the Bot Framework SDK.
 The adapter keeps its own Teams/Microsoft 365 credentials (`clientId` /
 `clientSecret` / `tenantId`, or none for anonymous local dev) — in the managed
 path the Channel runs inside a CopilotKit Intelligence-configured
-`CopilotRuntime` (free plan available), which starts and owns the channel's
+`CopilotKitRuntime` (free plan available), which starts and owns the channel's
 lifecycle. Building and operating your own channel runner on the SDK primitives
 is also a supported path.
 
@@ -28,7 +28,7 @@ npx copilotkit@latest channels add --project-id <project-id> --channel-id <chann
 
 That managed path creates a Teams-managed bot and Entra identity; it does not require Azure Bot. The peer manual path uses Teams Developer Portal plus Entra. Both keep provider secrets and one-time app-package bytes out of your project.
 
-Your bot code is otherwise identical — the agent, tools, context, commands, and turn handlers do not change. Only the transport does. See `examples/teams/app/managed.ts` for the same bot wired both ways, and the **copilotkit-channels** skill for the runtime wiring.
+Your bot code is otherwise identical — the agent, tools, context, commands, and turn handlers do not change. Only the transport does. See `examples/templates/teams/app/managed.ts` for the same bot wired both ways, and the **copilotkit-channels** skill for the runtime wiring.
 
 This self-hosted adapter remains fully supported. Choose it when you want the provider connection inside your own infrastructure.
 
@@ -69,8 +69,8 @@ Error [ERR_MODULE_NOT_FOUND]: Cannot find package '@microsoft/agents-hosting'
 ```ts
 import { createChannel } from "@copilotkit/channels";
 import { teams } from "@copilotkit/channels-teams";
-import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime/v2";
-import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
+import { CopilotKitRuntime, CopilotKitIntelligence } from "@copilotkit/runtime";
+import { createCopilotKitNodeListener } from "@copilotkit/runtime/node";
 
 const bot = createChannel({
   name: "support-bot", // project-unique Intelligence Channel name
@@ -81,7 +81,7 @@ const bot = createChannel({
 bot.onMessage(({ thread, message }) => thread.post(`Echo: ${message.text}`));
 
 // The runtime owns the channel's lifecycle — there is no `bot.start()`.
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   intelligence: new CopilotKitIntelligence({
     // apiUrl and wsUrl default to cloud-hosted CopilotKit Intelligence — override
     // both together only for a self-hosted deployment.
@@ -91,7 +91,7 @@ const runtime = new CopilotRuntime({
 });
 
 // Creating the listener starts the Channel's connection.
-const listener = createCopilotNodeListener({ runtime });
+const listener = createCopilotKitNodeListener({ runtime });
 // Optional: await that activation; once settled, POST /api/messages is listening
 // on :3978.
 await listener.channels.ready();
@@ -105,7 +105,7 @@ npx @microsoft/m365agentsplayground   # opens http://localhost:56150
 ```
 
 The Playground connects to `http://127.0.0.1:3978/api/messages` and gives you a
-Teams-like chat UI to test against. See [`examples/teams`](../../examples/teams)
+Teams-like chat UI to test against. See [`examples/templates/teams`](../../examples/templates/teams)
 for a complete, runnable echo bot, and the
 [Microsoft Teams guide](../../showcase/shell-docs/src/content/docs/frontends/teams.mdx)
 for sideloading into real Teams via Azure Bot Service.
@@ -336,7 +336,7 @@ as Message activities carrying the action `data` in `activity.value`;
 to `sink.onInteraction`, which resolves the engine's `awaitChoice` waiter and
 runs the button's `onClick` (e.g. to edit the picker in place). A tool handler
 that calls `await thread.awaitChoice(<Card/>)` therefore gates the agent on a
-human decision; see `examples/teams` for an approve/reject demo. Ingress and
+human decision; see `examples/templates/teams` for an approve/reject demo. Ingress and
 interaction decoding derive the conversation key from one shared helper
 (`conversationKeyOf`) so the waiter always resolves.
 

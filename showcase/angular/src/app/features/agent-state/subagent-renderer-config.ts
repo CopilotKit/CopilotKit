@@ -1,5 +1,5 @@
 import type { RenderToolCallConfig } from "@copilotkit/angular";
-import { z } from "zod";
+import * as z from "zod";
 
 import { SubAgentActivityCard } from "./agent-state-cards";
 import type { SubAgentName } from "./agent-state-model";

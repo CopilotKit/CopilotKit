@@ -27,10 +27,10 @@ Use state rendering when you want to:
 1. On the backend, write the value to a key in the
    [agent state](/shared-state). To stream a tool argument into a state key
    token by token, see [State Streaming](/shared-state/streaming).
-2. On the frontend, import `useAgent` from `@copilotkit/react-core/v2`:
+2. On the frontend, import `useAgent` from `@copilotkit/react-core`:
 
    ```tsx
-   import { useAgent, UseAgentUpdate } from "@copilotkit/react-core/v2";
+   import { useAgent, UseAgentUpdate } from "@copilotkit/react-core";
    ```
 
 3. Subscribe to the agent state. Each time the state changes, your component
@@ -41,7 +41,13 @@ Use state rendering when you want to:
 4. Read the key from `agent.state` and render it:
 
    ```tsx
-   const document = (agent.state as { document?: string }).document ?? "";
+   import { useAgent } from "@copilotkit/react-core";
+
+   export function DocumentView() {
+     const { agent } = useAgent({ agentId: "sample_agent" });
+     const document = (agent.state as { document?: string }).document ?? "";
+     return <article>{document}</article>;
+   }
    ```
 
 To check it, ask the agent to write a short poem. Your component renders the
@@ -52,20 +58,31 @@ the chat's `messageView` slot and add your UI next to the messages. For
 example, to list the searches an agent keeps in a `searches` key:
 
 ```tsx
-<CopilotChat
-  agentId="sample_agent"
-  messageView={{
-    children: ({ messageElements, interruptElement }) => (
-      <div>
-        {messageElements}
-        {state.searches?.map((search, index) => (
-          <div key={index}>{search.done ? "✅" : "❌"} {search.query}</div>
-        ))}
-        {interruptElement}
-      </div>
-    ),
-  }}
-/>
+import { CopilotChat, useAgent } from "@copilotkit/react-core";
+
+type SearchState = { searches?: { query: string; done: boolean }[] };
+
+export function Chat() {
+  const { agent } = useAgent({ agentId: "sample_agent" });
+  const state = agent.state as SearchState;
+
+  return (
+    <CopilotChat
+      agentId="sample_agent"
+      messageView={{
+        children: ({ messageElements, interruptElement }) => (
+          <div>
+            {messageElements}
+            {state.searches?.map((search, index) => (
+              <div key={index}>{search.done ? "✅" : "❌"} {search.query}</div>
+            ))}
+            {interruptElement}
+          </div>
+        ),
+      }}
+    />
+  );
+}
 ```
 
 Here `state` is `agent.state` from `useAgent`.

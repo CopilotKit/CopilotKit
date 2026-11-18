@@ -622,6 +622,39 @@ describe("GenerativeUISurfaceManager", () => {
     });
   });
 
+  it("tells the runtime which surfaces it converted from A2UI v0.9", () => {
+    const manager = new GenerativeUISurfaceManager(ui);
+    manager.ingest(
+      "t1",
+      "default",
+      content([create], { a2uiSourceVersion: "0.9" }),
+    );
+    manager.ingest(
+      "t1",
+      "default",
+      content(
+        [
+          {
+            version: "1.0",
+            createSurface: { surfaceId: "native", catalogId: "shop" },
+          },
+        ],
+        { surfaceId: "native" },
+      ),
+    );
+    expect(manager.describeSurfaces("t1")).toEqual({
+      recs: { target: "recommendations", a2uiSourceVersion: "0.9" },
+      native: { target: "recommendations" },
+    });
+    // A later content of the converted surface keeps the tag.
+    manager.ingest(
+      "t1",
+      "default",
+      content([create, grid([])], { a2uiSourceVersion: "0.9" }),
+    );
+    expect(manager.describeSurfaces("t1").recs?.a2uiSourceVersion).toBe("0.9");
+  });
+
   it("hides deleted surfaces", () => {
     const { manager } = managerWith([create, remove]);
     expect(manager.getSurface("t1", "recs")).toBeUndefined();

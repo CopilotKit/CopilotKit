@@ -1,6 +1,6 @@
 import type { WritableSignal } from "@angular/core";
 import type { FrontendToolConfig } from "@copilotkit/angular";
-import { z } from "zod";
+import * as z from "zod";
 
 type BackgroundToolArgs = {
   background?: string;

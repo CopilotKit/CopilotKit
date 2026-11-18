@@ -1,0 +1,70 @@
+import type { Meta, StoryObj } from "@storybook/react";
+import { CopilotChatSuggestionView } from "@copilotkit/react-core";
+import type { Suggestion } from "@copilotkit/core";
+import { Sparkles } from "lucide-react";
+import { manySuggestions } from "./support/fixtures";
+
+const suggestions: Suggestion[] = [
+  {
+    title: "Summarize this thread",
+    message: "Summarize the latest chat",
+    isLoading: false,
+  },
+  {
+    title: "Draft a reply",
+    message: "Draft a polite follow-up",
+    isLoading: false,
+  },
+  {
+    title: "Create action items",
+    message: "List next steps",
+    isLoading: false,
+  },
+];
+
+const meta = {
+  title: "UI/CopilotChatSuggestionView",
+  component: CopilotChatSuggestionView,
+  args: {
+    suggestions,
+  },
+  parameters: {
+    layout: "centered",
+  },
+} satisfies Meta<typeof CopilotChatSuggestionView>;
+
+export default meta;
+
+type Story = StoryObj<typeof CopilotChatSuggestionView>;
+
+export const Default: Story = {};
+
+export const LoadingSecond: Story = {
+  args: {
+    suggestions: suggestions.map((suggestion, index) =>
+      index === 1 ? { ...suggestion, isLoading: true } : suggestion,
+    ),
+  },
+};
+
+export const CustomSuggestionSlot: Story = {
+  args: {
+    suggestion: {
+      icon: <Sparkles className="h-4 w-4" aria-hidden="true" />,
+    },
+  },
+};
+
+/** Pills overflowing a narrow width: the row scrolls and its edge fades. */
+export const Overflowing: Story = {
+  args: {
+    suggestions: manySuggestions,
+  },
+  decorators: [
+    (Story) => (
+      <div className="w-[420px]">
+        <Story />
+      </div>
+    ),
+  ],
+};

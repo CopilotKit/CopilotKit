@@ -1,0 +1,75 @@
+export * from "./core/runtime";
+
+// Export the generative UI middlewares and surface writer
+export {
+  A2UIV09BridgeMiddleware,
+  GenerativeUIMiddleware,
+  createSurfaceWriter,
+} from "./generative-ui";
+export type { GenerativeUISurfaceWriter } from "./generative-ui";
+
+// Export the A2UI / Open Generative UI middleware and the recorded-event
+// transforms (moved from `@copilotkit/shared/event-transforms` in 2.0)
+export * from "./event-transforms";
+
+// Export agent runners and base types
+export * from "./runner";
+
+// Export transcription services
+export * from "./transcription-service/transcription-service";
+
+// Export CopilotKit Intelligence client and types
+export {
+  CopilotKitIntelligence,
+  PlatformRequestError,
+  LearnedSkillsError,
+  type LearnedSkillsErrorCode,
+  type GetLearnedSkillsSnapshotRequest,
+  type GetLearnedSkillsSnapshotsRequest,
+  type LearnedSkillsBatchResult,
+  type LearnedSkillsSnapshotResult,
+  type CopilotKitIntelligenceConfig,
+  type CreateThreadRequest,
+  type ThreadSummary,
+  type ListThreadsResponse,
+  type SubscribeToThreadsRequest,
+  type SubscribeToThreadsResponse,
+  type UpdateThreadRequest,
+} from "./intelligence-platform";
+
+// Export runs in an Intelligence Thread with no client attached
+export {
+  runAgentInThread,
+  ThreadRunError,
+  type ThreadRunErrorReason,
+  type RunAgentInThreadOptions,
+  type RunAgentInThreadResult,
+  type RunAgentInThreadRuntime,
+} from "./core/thread-run";
+
+// Export framework-agnostic fetch handler
+export { createCopilotKitRuntimeHandler } from "./core/fetch-handler";
+export type {
+  CopilotKitRuntimeHandlerOptions,
+  CopilotKitRuntimeFetchHandler,
+  CopilotKitRuntimeFetchHandlerWithChannels,
+} from "./core/fetch-handler";
+
+// Export hook types
+export type {
+  CopilotKitRuntimeHooks,
+  HookContext,
+  HandlerHookContext,
+  ResponseHookContext,
+  ErrorHookContext,
+  RouteInfo,
+} from "./core/hooks";
+
+// Export CORS config type
+export type { CopilotKitCorsConfig } from "./core/fetch-cors";
+
+// Export Channels control-surface types so consumers can name the type of
+// `handler.channels` (see `core/channel-manager.ts`).
+export type { ChannelsControl, ChannelStatus } from "./core/channel-manager";
+
+export type { experimental } from "./intelligence-platform";

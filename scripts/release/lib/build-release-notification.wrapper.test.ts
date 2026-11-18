@@ -139,16 +139,16 @@ describe("resolvePackageCountSafe", () => {
     expect(resolvePackageCountSafe("")).toBe(0);
   });
 
-  it("returns the real package count for a known scope (angular)", () => {
-    // angular has exactly one package in release.config.json.
-    expect(resolvePackageCountSafe("angular")).toBe(1);
+  it("returns the real package count for a known scope (intelligence-mastra)", () => {
+    // intelligence-mastra has exactly one package in release.config.json.
+    expect(resolvePackageCountSafe("intelligence-mastra")).toBe(1);
   });
 
   it("returns the real package count for the monorepo scope (drift guard)", () => {
-    // Pins the actual count from release.config.json (18). If the package set
+    // Pins the actual count from release.config.json (16). If the package set
     // drifts, this catches the staleness of the hardcoded "16 packages"
     // assertions in build-release-notification.test.ts.
-    expect(resolvePackageCountSafe("monorepo")).toBe(18);
+    expect(resolvePackageCountSafe("monorepo")).toBe(16);
   });
 
   it("returns the real package count for the shared Channels scope (drift guard)", () => {

@@ -140,6 +140,9 @@ class RenderUIArgsScanner {
             expectingValue = false;
           }
           break;
+        case undefined:
+          // Unreachable: `i < text.length`, so `text[i]` is always a char.
+          break;
       }
     }
     this.inString = inString;

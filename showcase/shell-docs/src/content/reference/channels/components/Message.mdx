@@ -28,6 +28,8 @@ The context contains `emoji`, `rawEmoji`, `added`, `user`, `actor`, `thread`,
 it when `user` is `null`.
 
 ```tsx
+import { Message, Section } from "@copilotkit/channels/ui";
+
 <Message
   onReaction={async (emoji, reaction) => {
     const marked = reaction.added && emoji === "eyes";

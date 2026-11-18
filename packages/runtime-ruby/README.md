@@ -324,28 +324,48 @@ subscriptions, annotations, and `/info`. A successful run response means the
 runner joined its authenticated gateway channel, not that the agent finished.
 The frontend receives events through Intelligence.
 
-## Add A2UI or MCP Apps
+## Add generative UI or MCP Apps
 
-Pass a server-owned catalog through `a2ui`:
+Generative UI renders A2UI 1.0 surfaces from the catalog that the client sends in
+`forwardedProps.copilotkit.ui`. Pass `generative_ui` to the runtime:
 
 ```ruby
-a2ui: {
-  'injectA2UITool' => true,
-  'schema' => catalog,
-  'agents' => ['default']
+generative_ui: {
+  'a2uiVersion' => { 'legacy' => '0.9' },
+  'agents' => ['default', 'legacy']
 }
 ```
 
-A string value for `injectA2UITool` selects a custom tool name.
-The `agents` array limits A2UI to named agents. Omit it to include all agents.
-Set `'enabled' => false` to disable A2UI.
+`generative_ui` takes these values:
 
-The middleware adds the render tool and context. It validates complete component
-trees before publishing them, then publishes complete data items as they arrive.
-Browser actions become tool history for the next run. The agent owns model retries.
+- `nil` (default): generative UI is on for a run whose client sends a "tool" catalog.
+- `true`: generative UI is on for every run.
+- A Hash: generative UI is on for every run of `agents`. Omit `agents` to include all agents.
+- `false`: generative UI is off.
 
+A run whose client asks for the "markdown" transport never gets a render tool.
+
+`a2uiVersion` sets the A2UI version that each agent speaks. The default is `'1.0'`.
+A Hash sets one version for each agent. An agent that is not in the Hash speaks `'1.0'`.
+
+- A 1.0 agent gets the `render_ui` tool and the generative UI guide.
+  The runtime validates each streamed operation against the client's catalog before it publishes the operation.
+  A rejected operation goes back to the agent in the tool result.
+- A 0.9 agent gets the `render_a2ui` tool and a v0.9 component schema of the client's catalog.
+  The schema has the 18 basic components and the client's own components.
+  `schema`, `injectA2UITool`, `a2uiToolNames`, `defaultCatalogId`, and `recovery` configure the v0.9 middleware.
+  A string value for `injectA2UITool` selects a custom tool name.
+
+For both versions, the runtime converts v0.9 surfaces to A2UI 1.0 `generative-ui-surface` events.
+This includes v0.9 operations in a tool result (`{"a2ui_operations": [...]}`).
+A click on a converted surface reaches the agent as `forwardedProps.a2uiAction.userAction`,
+followed by a `log_a2ui_event` tool call and result. The stored thread keeps the click message.
+`/info` reports `generativeUI` with `enabled` and, when set, `agents`.
+
+The v0.9 middleware validates complete component trees before publishing them, then
+publishes complete data items as they arrive. The agent owns model retries.
 Set `defaultCatalogId` to select a host catalog. Otherwise, catalog selection uses
-the frontend schema, a streamed non-basic ID, or the basic catalog URL.
+the client's catalog, a streamed non-basic ID, or the basic catalog URL.
 The streaming gate checks component structure and references, not general JSON
 Schema rules or binding resolution.
 

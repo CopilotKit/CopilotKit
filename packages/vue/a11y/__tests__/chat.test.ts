@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, render } from "@testing-library/vue";
 import { defineComponent, nextTick } from "vue";
-import CopilotKitProvider from "../../src/v2/providers/CopilotKitProvider.vue";
-import CopilotPopupView from "../../src/v2/components/chat/CopilotPopupView.vue";
-import CopilotSidebarView from "../../src/v2/components/chat/CopilotSidebarView.vue";
+import CopilotKitProvider from "../../src/providers/CopilotKitProvider.vue";
+import CopilotPopupView from "../../src/components/chat/CopilotPopupView.vue";
+import CopilotSidebarView from "../../src/components/chat/CopilotSidebarView.vue";
 import { observeClicks } from "../../../a11y-test-kit/src/index";
 import { audit } from "../../../a11y-test-kit/src/report";
 

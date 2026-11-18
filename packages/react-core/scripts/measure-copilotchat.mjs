@@ -1,5 +1,5 @@
 // Measures a relative bundle-regression signal for `CopilotChat`: the total
-// gzipped JS that bundling `{ CopilotChat }` from `@copilotkit/react-core/v2`
+// gzipped JS that bundling `{ CopilotChat }` from `@copilotkit/react-core`
 // produces (entry + all code-split chunks).
 //
 // IMPORTANT — this is a relative regression signal, NOT a production figure.
@@ -91,7 +91,7 @@ if (isMain) {
     path.dirname(fileURLToPath(import.meta.url)),
     "..",
   );
-  const entryModule = path.join(pkgRoot, "dist/v2/index.mjs");
+  const entryModule = path.join(pkgRoot, "dist/index.mjs");
   const { totalBytes } = await measureBundle({ entryModule, pkgRoot });
   if (totalBytes === 0) {
     console.error("measure-copilotchat: esbuild produced no output");

@@ -15,8 +15,7 @@ The package requires Vue 3.3 or newer. Your app also needs a Copilot Runtime end
 ```vue
 <!-- App.vue -->
 <script setup lang="ts">
-import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue/v2";
-import "@copilotkit/vue/styles.css";
+import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue";
 </script>
 
 <template>
@@ -28,21 +27,33 @@ import "@copilotkit/vue/styles.css";
 </template>
 ```
 
-Import `@copilotkit/vue/styles.css` once in your app. `CopilotChat` uses the provider's default agent when `agent-id` is omitted. The chat fills its parent, so give that container a height.
+`CopilotChat` adds its own CSS, so you don't import a stylesheet. `CopilotChat` uses the provider's default agent when `agent-id` is omitted. The chat fills its parent, so give that container a height.
 
-## Imports and compatibility
+## Imports and Vue templates
 
-Use the `/v2` subpath for new code:
+Import the provider, the chat components, and the composables from the package root:
 
 ```ts
 import {
   CopilotChat,
   CopilotKitProvider,
   useFrontendTool,
-} from "@copilotkit/vue/v2";
+} from "@copilotkit/vue";
 ```
 
-The root import, `@copilotkit/vue`, re-exports the v2 API and keeps compatibility wrappers for `CopilotKit`, `useCopilotAction`, `useFrontendTool`, and `useCopilotReadable`. The legacy tool wrappers accept `Parameter[]` definitions. Use `/v2` for the current Standard Schema tool APIs, including Zod, Valibot, and ArkType schemas.
+Generative UI has three more entry points:
+
+- `@copilotkit/vue/generative-ui`: `standardUI`, `createGenerativeUI`, and the other generative UI exports.
+- `@copilotkit/vue/generative-ui/chart`: the `GenerativeUIChart` plugin.
+- `@copilotkit/vue/generative-ui/map`: the `GenerativeUIMap` plugin.
+
+The [Generative UI](#generative-ui) section shows how to use them.
+
+The `/v2` subpaths of 1.x (`@copilotkit/vue/v2`, `@copilotkit/vue/v2/generative-ui`, and more) still resolve, as deprecated aliases of these entry points. Move each import to the package root or to its entry point above.
+
+The tool composables, such as `useFrontendTool`, take a Standard Schema for the tool parameters. You can use a Zod, Valibot, or ArkType schema.
+
+`CopilotKit` is an alias of `CopilotKitProvider`, and `CopilotKitProps` is an alias of `CopilotKitProviderProps`. Prefer the `Provider` names.
 
 In Vue templates, camelCase props become kebab-case attributes. For example, `runtimeUrl` is written as `runtime-url`, and boolean or object props use `:` bindings such as `:enable-inspector="false"`. Vue rendering customization uses named and scoped slots where React uses render props.
 
@@ -53,9 +64,8 @@ A text answer is often the wrong answer. With generative UI, the agent renders c
 ```vue
 <!-- App.vue -->
 <script setup lang="ts">
-import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue/v2";
-import { standardUI } from "@copilotkit/vue/v2/generative-ui";
-import "@copilotkit/vue/styles.css";
+import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue";
+import { standardUI } from "@copilotkit/vue/generative-ui";
 </script>
 
 <template>
@@ -72,6 +82,8 @@ import "@copilotkit/vue/styles.css";
 
 Write the binding in camelCase: `:generativeUI`. Vue reads `:generative-ui` as a different prop, so the provider does not get the catalog.
 
+The `a2ui` prop of 1.x is a deprecated alias: `:a2ui="{ catalog, theme }"` works as `:generativeUI="{ ui: catalog, theme }"`. When both props set the same option, `generativeUI` wins.
+
 `standardUI` is the standard catalog. To let the agent render your own components, build a catalog with `createGenerativeUI`.
 
 Charts and maps use optional libraries. Without them, a chart shows a table and a map shows a list of places. To draw charts and maps:
@@ -81,8 +93,8 @@ Charts and maps use optional libraries. Without them, a chart shows a table and 
 
 ```ts
 import { createApp } from "vue";
-import { GenerativeUIChart } from "@copilotkit/vue/v2/generative-ui/chart";
-import { GenerativeUIMap } from "@copilotkit/vue/v2/generative-ui/map";
+import { GenerativeUIChart } from "@copilotkit/vue/generative-ui/chart";
+import { GenerativeUIMap } from "@copilotkit/vue/generative-ui/map";
 import App from "./App.vue";
 
 createApp(App).use(GenerativeUIChart).use(GenerativeUIMap).mount("#app");

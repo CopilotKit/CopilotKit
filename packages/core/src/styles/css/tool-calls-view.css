@@ -1,0 +1,8 @@
+/* CopilotChatToolCallsView, "turn" display: a row per call. The Collapsible
+   bleeds into the gutter so the rows' outset hover background isn't clipped. */
+:where(.cpk-tool-calls-view-turn) {
+  margin-inline: -0.5rem;
+}
+:where(.cpk-tool-calls-view-turn-rows) {
+  padding: 0.375rem 0.5rem;
+}

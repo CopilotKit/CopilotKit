@@ -9,10 +9,10 @@ process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE ??= String(
 if (configuration.telemetryDisabled)
   process.env.COPILOTKIT_TELEMETRY_DISABLED = "true";
 
-const { CopilotIntelligenceRuntime, CopilotKitIntelligence } =
-  await import("@copilotkit/runtime/v2");
-const { createCopilotNodeListener } =
-  await import("@copilotkit/runtime/v2/node");
+const { CopilotKitIntelligenceRuntime, CopilotKitIntelligence } =
+  await import("@copilotkit/runtime");
+const { createCopilotKitNodeListener } =
+  await import("@copilotkit/runtime/node");
 const { HttpAgent } = await import("@ag-ui/client");
 
 const intelligence = new CopilotKitIntelligence({
@@ -20,7 +20,7 @@ const intelligence = new CopilotKitIntelligence({
   apiUrl: configuration.apiUrl,
   wsUrl: configuration.runnerUrl.replace(/\/runner\/?$/, ""),
 });
-const runtime = new CopilotIntelligenceRuntime({
+const runtime = new CopilotKitIntelligenceRuntime({
   intelligence,
   agents: {
     default: new HttpAgent({
@@ -40,10 +40,10 @@ const runtime = new CopilotIntelligenceRuntime({
     : {}),
   telemetryId: configuration.telemetryId,
   licenseToken: configuration.licenseToken,
-  a2ui: configuration.a2ui,
+  generativeUI: configuration.generativeUI,
   mcpApps: configuration.mcpApps,
 });
-const listener = createCopilotNodeListener({
+const listener = createCopilotKitNodeListener({
   runtime,
   basePath: "/copilotkit",
   mode: "multi-route",

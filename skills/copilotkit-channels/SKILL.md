@@ -17,7 +17,7 @@ Managed Channels let an agent answer in Slack or Microsoft Teams. Intelligence o
 
 ## Scope
 
-This skill covers **managed Intelligence Channels**: `CopilotIntelligenceRuntime`, app-api Channel resources, and the realtime gateway.
+This skill covers **managed Intelligence Channels**: `CopilotKitIntelligenceRuntime`, app-api Channel resources, and the realtime gateway.
 
 It does **not** cover the self-hosted `@copilotkit/channels` provider adapters (`@copilotkit/channels-slack`, `-teams`, `-discord`, `-whatsapp`). Those hold provider credentials in your process and talk to the provider directly. Both products use the words "channels" and "Slack", so confirm which one the user means before wiring anything. If they want to hold their own Slack tokens and run their own ingress, they want the adapter packages, not this skill.
 
@@ -58,11 +58,11 @@ For Teams, create the durable Channel draft in Intelligence before provisioning 
 
 - **Guided manual setup:** use Teams Developer Portal and Microsoft Entra, enter write-only credentials, and download the finished package from the browser. The normal path does not need Azure Bot and never asks the user to edit `manifest.json`.
 
-Both paths use the same durable setup state and can replace one another mid-setup. `Files.ReadWrite.All` administrator consent and one **Add to a team** installation are required. A non-admin pause is a successful `blocked` outcome with one approval link and the same resume command; rerunning it must reuse the existing Microsoft app.
+Both paths use the same durable setup state and can replace one another mid-setup. One **Add to a team** installation is required. It grants `ChannelMessage.Read.Group`, which lets the app read channel messages. `Files.Read.All` is optional and needs administrator consent. It lets the agent read files uploaded to a Team channel. Without it, the message still arrives and only the file is left out. A non-admin pause is a successful `blocked` outcome with one approval link and the same resume command; rerunning it must reuse the existing Microsoft app.
 
 Custom icon and package bytes stay in browser/CLI memory or a temporary local directory. Never send them to Intelligence, Redis, or another relay. If an attempt stops before upload, require the user to select custom icons again (or explicitly choose the default kite) and delete every temporary copy on exit.
 
-Treat **Created and installed** narrowly: the Microsoft app exists, encrypted credentials are stored, file and Team message access are approved, and a Team installation was recorded. It is not proof that this runtime is online or that a message was delivered.
+Treat **Created and installed** narrowly: the Microsoft app exists, encrypted credentials are stored, Team message access is approved, and a Team installation was recorded. It is not proof that this runtime is online or that a message was delivered.
 
 ## Customising a scaffolded Channel
 
@@ -179,7 +179,7 @@ Everything from here down is the hand-wiring path — the less-trodden one. If `
 
 A scaffolded project satisfies all four of these already. Before starting, confirm all four. Stop and fix any that fail — each one produces a silent failure rather than an error.
 
-1. **The Intelligence runtime is wired.** `channels` is not available in SSE mode; the type is `channels?: undefined` there. If the project still constructs `CopilotRuntime` with a `runner` and no `intelligence`, connect the project to Intelligence first — `copilotkit login` then `copilotkit project select`, per the **copilotkit-cli** skill.
+1. **The Intelligence runtime is wired.** `channels` is not available in SSE mode; the type is `channels?: undefined` there. If the project still constructs `CopilotKitRuntime` with a `runner` and no `intelligence`, connect the project to Intelligence first. Run `copilotkit login`, then `copilotkit project select`, per the **copilotkit-cli** skill.
 2. **A long-running host.** Activation opens a persistent connection, so the process has to outlive a request. A Next.js route handler on serverless, a Lambda, or an edge function cannot host a Channel. See "Deployment shape" below.
 3. **The hosted environment values are set** — the project API key, and the realtime URL if you are overriding defaults.
 4. **The provider half exists, or is in progress.** The two halves can be done in either order; a Channel simply does not answer until both are done.
@@ -210,12 +210,9 @@ const support = createChannel({
   },
 });
 
-support.onMention(async ({ thread, message }) => {
-  await thread.runAgent({
-    // Channel history does NOT include the in-flight turn, so pass the current
-    // message explicitly -- otherwise the agent runs with zero messages.
-    prompt: message.contentParts?.length ? message.contentParts : message.text,
-  });
+support.onMention(async ({ thread }) => {
+  // Managed history already holds the current message and its attachments.
+  await thread.runAgent();
 });
 ```
 
@@ -224,13 +221,13 @@ The agent is **framework-agnostic**: `agent` accepts any AG-UI `AbstractAgent`, 
 ### Step 3: Pass the Channel to the runtime
 
 ```typescript
-import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime/v2";
+import { CopilotKitRuntime, CopilotKitIntelligence } from "@copilotkit/runtime";
 
 const intelligence = new CopilotKitIntelligence({
   apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
 });
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   // A Channel supplies its own agent, so runtime-hosted agents are optional here.
   agents: {},
   intelligence,
@@ -243,9 +240,9 @@ const runtime = new CopilotRuntime({
 
 ```typescript
 import { createServer } from "node:http";
-import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
+import { createCopilotKitNodeListener } from "@copilotkit/runtime/node";
 
-const listener = createCopilotNodeListener({
+const listener = createCopilotKitNodeListener({
   runtime,
   basePath: "/api/copilotkit",
 });
@@ -261,17 +258,15 @@ await listener.channels.ready({ timeoutMs: 30_000 });
 
 This is the single most misunderstood thing about Channels. Activation is **not** lazy everywhere.
 
-| Mount                                         | Activation                          | Is `ready()` required?   |
-| --------------------------------------------- | ----------------------------------- | ------------------------ |
-| `createCopilotNodeListener`                   | Starts when the listener is created | No — await it to observe |
-| `createCopilotExpressHandler`                 | Starts when the router is created   | No — await it to observe |
-| `createCopilotHonoHandler`                    | Deferred to the first `ready()`     | **Yes**                  |
-| `createCopilotRuntimeHandler` (generic fetch) | Deferred to the first `ready()`     | **Yes**                  |
-| any mount with `activateChannels: false`      | None; no control surface, no socket | Nothing will connect     |
+| Mount                                            | Activation                          | Is `ready()` required?   |
+| ------------------------------------------------ | ----------------------------------- | ------------------------ |
+| `createCopilotKitNodeListener`                   | Starts when the listener is created | No. Await it to observe. |
+| `createCopilotKitRuntimeHandler` (generic fetch) | Deferred to the first `ready()`     | **Yes**                  |
+| any mount with `activateChannels: false`         | None; no control surface, no socket | Nothing will connect     |
 
-The two lifecycle-owning wrappers start on their own because they own their process lifetime — a declared Channel connects because it was declared, and there is no incantation to forget. The fetch and hono handlers defer on purpose: they are the serverless and edge entry points, where an isolate freezes and recycles per request and separate cold starts would mint competing listeners for the same Channel.
+The Node listener starts on its own because it owns its process lifetime. A declared Channel connects because it was declared, and there is no incantation to forget. The fetch handler defers on purpose: it is the serverless and edge entry point, where an isolate freezes and recycles per request and separate cold starts would mint competing listeners for the same Channel.
 
-So the silent failure — a process that serves HTTP, looks healthy, and answers nothing — happens on a **deferring** mount when nothing ever calls `ready()`. On a node or express host, a missing `ready()` is not that failure.
+So the silent failure (a process that serves HTTP, looks healthy, and answers nothing) happens on a **deferring** mount when nothing ever calls `ready()`. On a Node listener host, a missing `ready()` is not that failure.
 
 Two details either way:
 

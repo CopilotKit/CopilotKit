@@ -88,7 +88,7 @@ export default function App() {
 ```
 
 <Callout type="info" title="Peer dependencies of the prebuilt chat">
-  `@copilotkit/react-native/components` needs `@gorhom/bottom-sheet`, `react-native-gesture-handler`, `react-native-reanimated`, and `react-native-streamdown`. If you only use the hooks, import from `/headless` and skip them. See [Import surfaces](/quickstart#import-surfaces).
+  `@copilotkit/react-native/components` needs `@gorhom/bottom-sheet`, `react-native-gesture-handler`, and `react-native-reanimated`. If you only use the hooks, import from `/headless` and skip them. See [Import surfaces](/quickstart#import-surfaces).
 </Callout>
 
 Ask the agent to show only open tasks. "Current filter" changes to `open`, and the agent replies after it reads the `{ applied: true }` result.
@@ -97,19 +97,27 @@ Ask the agent to show only open tasks. "Current filter" changes to `open`, and t
 
 `useFrontendTool` registers the tool once and keeps that `handler`. If the handler reads a value from props or state, it sees the value from the last registration. Pass those values as the second argument, so the tool registers again when they change:
 
-```tsx
-useFrontendTool(
-  {
-    name: "add_task",
-    description: "Add a task to the list that is open on screen.",
-    parameters: z.object({ title: z.string() }),
-    handler: async ({ title }) => {
-      await saveTask(listId, title); // your own storage call
-      return { added: title, listId };
+```tsx title="src/TaskListTools.tsx"
+import { useFrontendTool } from "@copilotkit/react-native/headless";
+import { z } from "zod";
+import { saveTask } from "./storage"; // your own storage call
+
+export function TaskListTools({ listId }: { listId: string }) {
+  useFrontendTool(
+    {
+      name: "add_task",
+      description: "Add a task to the list that is open on screen.",
+      parameters: z.object({ title: z.string() }),
+      handler: async ({ title }) => {
+        await saveTask(listId, title);
+        return { added: title, listId };
+      },
     },
-  },
-  [listId], // [!code highlight]
-);
+    [listId], // [!code highlight]
+  );
+
+  return null;
+}
 ```
 
 A state setter from `useState` never changes, so the first example needs no second argument.

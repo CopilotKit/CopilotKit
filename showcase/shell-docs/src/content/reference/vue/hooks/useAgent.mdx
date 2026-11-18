@@ -16,11 +16,26 @@ The composable returns `{ agent }`, where `agent` is typed as a Vue `shallowRef<
 ## Signature
 
 ```ts
-import { useAgent } from "@copilotkit/vue/v2";
-import type { ShallowRef } from "vue";
+import { useAgent, type UseAgentUpdate } from "@copilotkit/vue";
+import type { MaybeRefOrGetter, ShallowRef } from "vue";
 import type { AbstractAgent } from "@ag-ui/client";
 
-function useAgent(props?: UseAgentProps): {
+// UseAgentProps: bind to a shared agent, or bind a private agent to a thread.
+useAgent satisfies (
+  props?:
+    | {
+        agentId?: MaybeRefOrGetter<string | undefined>;
+        updates?: UseAgentUpdate[];
+        throttleMs?: MaybeRefOrGetter<number | undefined>;
+      }
+    | {
+        agentId: MaybeRefOrGetter<string>;
+        runtimeAgentId: MaybeRefOrGetter<string>;
+        threadId: MaybeRefOrGetter<string>;
+        updates?: UseAgentUpdate[];
+        throttleMs?: MaybeRefOrGetter<number | undefined>;
+      },
+) => {
   agent: ShallowRef<AbstractAgent | null>;
 };
 ```
@@ -92,14 +107,23 @@ Reactive props accept `MaybeRefOrGetter`, so you can pass a plain value, a `ref`
 
       **Example:**
       ```ts
-      const { copilotkit } = useCopilotKit();
+      import { useAgent, useCopilotKit } from "@copilotkit/vue";
 
-      if (agent.value) {
-        const { result, newMessages } = await copilotkit.value.runAgent({
-          agent: agent.value,
-          // Any data your agent reads from the run input.
-          forwardedProps: { source: "refresh-button" },
-        });
+      export function useRefreshAgent() {
+        const { agent } = useAgent();
+        const { copilotkit } = useCopilotKit();
+
+        async function refresh() {
+          if (!agent.value) return;
+          const { result, newMessages } = await copilotkit.value.runAgent({
+            agent: agent.value,
+            // Any data your agent reads from the run input.
+            forwardedProps: { source: "refresh-button" },
+          });
+          console.log(result, newMessages.length);
+        }
+
+        return { refresh };
       }
       ```
     </PropertyReference>
@@ -113,7 +137,7 @@ Reactive props accept `MaybeRefOrGetter`, so you can pass a plain value, a `ref`
 
 ```vue
 <script setup lang="ts">
-import { useAgent } from "@copilotkit/vue/v2";
+import { useAgent } from "@copilotkit/vue";
 
 const { agent } = useAgent();
 </script>
@@ -131,7 +155,7 @@ const { agent } = useAgent();
 
 ```vue
 <script setup lang="ts">
-import { useAgent } from "@copilotkit/vue/v2";
+import { useAgent } from "@copilotkit/vue";
 
 const { agent } = useAgent();
 
@@ -154,7 +178,7 @@ function updateState() {
 ```vue
 <script setup lang="ts">
 import { watchEffect } from "vue";
-import { useAgent } from "@copilotkit/vue/v2";
+import { useAgent } from "@copilotkit/vue";
 
 const { agent } = useAgent();
 
@@ -178,7 +202,7 @@ watchEffect((onCleanup) => {
 
 ```vue
 <script setup lang="ts">
-import { useAgent } from "@copilotkit/vue/v2";
+import { useAgent } from "@copilotkit/vue";
 
 const { agent: primary } = useAgent({ agentId: "primary" });
 const { agent: support } = useAgent({ agentId: "support" });
@@ -197,7 +221,7 @@ const { agent: support } = useAgent({ agentId: "support" });
 ```vue
 <script setup lang="ts">
 import { ref } from "vue";
-import { useAgent } from "@copilotkit/vue/v2";
+import { useAgent } from "@copilotkit/vue";
 
 const threadId = ref("thread-1");
 
@@ -218,7 +242,7 @@ const { agent } = useAgent({
 
 ```vue
 <script setup lang="ts">
-import { useAgent, UseAgentUpdate } from "@copilotkit/vue/v2";
+import { useAgent, UseAgentUpdate } from "@copilotkit/vue";
 
 // Only update when messages change.
 const { agent } = useAgent({
@@ -234,7 +258,7 @@ const { agent } = useAgent({
 ### Throttling High-Frequency Updates
 
 ```ts
-import { useAgent } from "@copilotkit/vue/v2";
+import { useAgent } from "@copilotkit/vue";
 
 // Coalesce streaming message and state updates into at most one update
 // per 100ms. Run lifecycle callbacks still fire immediately.

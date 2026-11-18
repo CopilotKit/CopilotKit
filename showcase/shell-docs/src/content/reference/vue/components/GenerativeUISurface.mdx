@@ -10,7 +10,7 @@ The chat is not always the right place for generated UI. A product grid belongs 
 Until the agent renders into the target, the component shows its default slot.
 
 <Callout type="warn">
-  Generative UI is experimental. Use `GenerativeUISurface` under a
+  Use `GenerativeUISurface` under a
   [`CopilotKitProvider`](/reference/vue/components/CopilotKitProvider) that has
   a [`generativeUI`](/reference/vue/components/CopilotKitProvider)
   config. Outside such a provider, the component throws an error.
@@ -21,7 +21,7 @@ For a full walkthrough, see [Surfaces](/generative-ui/components/surfaces).
 ## Import
 
 ```ts
-import { GenerativeUISurface } from "@copilotkit/vue/v2/generative-ui";
+import { GenerativeUISurface } from "@copilotkit/vue/generative-ui";
 ```
 
 ## Props
@@ -65,7 +65,7 @@ Other attributes, such as `class` and `style`, go to the element around the rend
 
 ```vue
 <script setup lang="ts">
-import { GenerativeUISurface } from "@copilotkit/vue/v2/generative-ui";
+import { GenerativeUISurface } from "@copilotkit/vue/generative-ui";
 import { shopUI } from "./shop-ui";
 import ProductRow from "./ProductRow.vue";
 

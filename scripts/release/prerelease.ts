@@ -26,6 +26,7 @@ import {
   getPackagesForScope,
   pinPrereleaseDependencies,
   prereleaseDistTag,
+  RC_DIST_TAG,
 } from "./lib/versions.js";
 import type { PublishablePackage } from "./lib/versions.js";
 import { ALL_SCOPES, ROOT, loadConfig, resolveScopes } from "./lib/config.js";
@@ -33,6 +34,7 @@ import type { ReleaseScope } from "./lib/config.js";
 import { emitGithubOutputs } from "./lib/github-output.js";
 import { resolvePublishNpm } from "./lib/npm-cli.js";
 import { mapWithConcurrency } from "./lib/concurrency.js";
+import { waitForPublishedVersions } from "./lib/npm-registry.js";
 
 /**
  * How many packages to pack+publish at once. Each one is dominated by a registry
@@ -236,12 +238,25 @@ async function main() {
   }
 
   // The workflow's "Verify publish step emitted version" guard and the
-  // prerelease summary read these from steps.publish.outputs.
+  // prerelease summary read these from steps.publish.outputs. Emit them
+  // before the wait below, which can still fail after every package is live.
   emitGithubOutputs({
     version: publishVersion,
     versions: publishVersions,
     scope: selector,
   });
+
+  // The next release candidate picks its version from npm's version lists, and
+  // npm adds a version to that list some time after `npm publish` returns.
+  // `release / rc` starts the next run only when this one ends, so end it only
+  // when npm lists every version this run published.
+  if (distTag === RC_DIST_TAG) {
+    console.log("\nWaiting until npm lists the published versions...");
+    await waitForPublishedVersions(
+      packages.map((p) => ({ name: p.name, version: p.pkg.version })),
+    );
+    console.log("npm lists every published version.");
+  }
 
   console.log(`\nPrerelease published: ${publishVersions} (tag: ${distTag})`);
 }

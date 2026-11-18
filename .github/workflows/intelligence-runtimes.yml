@@ -38,7 +38,13 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          fetch-depth: 0
+          # A pull_request checkout is GitHub's merge commit, and gate.mjs
+          # diffs it against its first parent, so depth 2 (the merge commit
+          # and both parents) is enough. A full fetch of every branch
+          # sometimes stalled past this job's 5-minute limit. push and
+          # merge_group diff against BASE_SHA, which can be any older commit,
+          # so they keep the full history.
+          fetch-depth: ${{ github.event_name == 'pull_request' && 2 || 0 }}
           persist-credentials: false
       - name: Test gate decisions
         run: node --test tools/runtime-conformance/test/gate.test.mjs

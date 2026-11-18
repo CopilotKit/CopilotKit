@@ -23,7 +23,7 @@ Key benefits:
 
 ## Wire the runtime to your MCP server(s)
 
-Add your MCP server to `mcpApps.servers` on `CopilotRuntime`:
+Add your MCP server to `mcpApps.servers` on `CopilotKitRuntime`:
 
 <Snippet region="runtime-mcpapps-config" />
 
@@ -45,7 +45,7 @@ On an Intelligence runtime, keep `mcpApps` as it is. See
 ## No frontend renderer needed
 
 Unlike custom activity types, the MCP Apps renderer is already registered by
-`CopilotKit`. A plain `<CopilotChat />` is enough;
+`CopilotKitProvider`. A plain `<CopilotChat />` is enough;
 no `renderActivityMessages` prop, no manual
 `useRenderActivityMessage` wiring.
 
@@ -71,18 +71,19 @@ Remove `runner`, then add `intelligence` and `identifyUser`:
 
 ```typescript title="app/api/copilotkit/[[...slug]]/route.ts" doctest="component"
 import {
-  BuiltInAgent,
   CopilotKitIntelligence,
-  CopilotRuntime,
-  createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
+  CopilotKitRuntime,
+  createCopilotKitRuntimeHandler,
+} from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
 
 const agent = new BuiltInAgent({
-  model: "openai/gpt-6-luna",
+  model: openaiText("gpt-6-luna"),
   prompt: "You are a helpful assistant.",
 });
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: { default: agent },
   // Intelligence stores threads and runs. Do not pass `runner` as well.
   intelligence: new CopilotKitIntelligence({
@@ -102,7 +103,7 @@ const runtime = new CopilotRuntime({
   },
 });
 
-const handler = createCopilotRuntimeHandler({
+const handler = createCopilotKitRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
 });
@@ -152,9 +153,16 @@ If you wrote a widget yourself and it needs storage, you can restore
 `allow-same-origin`:
 
 ```tsx
-<CopilotKit runtimeUrl="/api/copilotkit" mcpApps={{ allowSameOriginFallback: true }}>
-  {children}
-</CopilotKit>
+"use client";
+import { CopilotKitProvider } from "@copilotkit/react-core";
+
+export function Providers({ children }: { children: React.ReactNode }) {
+  return (
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" mcpApps={{ allowSameOriginFallback: true }}>
+      {children}
+    </CopilotKitProvider>
+  );
+}
 ```
 
 <Callout type="warn" title="Only for widgets you trust">
@@ -170,14 +178,16 @@ The middleware supports two transport types:
 
 ### HTTP
 
-Use this format to connect to an MCP server that accepts standard HTTP requests:
+Use this format to connect to an MCP server that accepts standard HTTP requests. Add the entry to `mcpApps.servers`:
 
 ```typescript
-{
+import type { McpAppsServerConfig } from "@copilotkit/runtime";
+
+export const httpServer = {
   type: "http",
   url: "http://localhost:3101/mcp",
-  serverId: "my-http-server"
-}
+  serverId: "my-http-server",
+} satisfies McpAppsServerConfig;
 ```
 
 ### SSE
@@ -185,14 +195,16 @@ Use this format to connect to an MCP server that accepts standard HTTP requests:
 Use this format to connect to an MCP server that streams events over a persistent connection:
 
 ```typescript
-{
+import type { McpAppsServerConfig } from "@copilotkit/runtime";
+
+export const sseServer = {
   type: "sse",
   url: "https://mcp.example.com/sse",
   headers: {
-    "Authorization": "Bearer token"
+    Authorization: "Bearer token",
   },
-  serverId: "my-sse-server"
-}
+  serverId: "my-sse-server",
+} satisfies McpAppsServerConfig;
 ```
 
 ## Let a widget tell the model what the user is looking at
@@ -203,6 +215,9 @@ appears in the chat and no run starts; the latest state rides along with the
 next turns of the conversation.
 
 ```ts
+// The widget's `App` from @modelcontextprotocol/ext-apps.
+import { app } from "./widget";
+
 await app.updateModelContext({
   content: [{ type: "text", text: "The user is looking at the Lyon station." }],
   structuredContent: { stationId: "lyon", filter: "available" },
@@ -219,9 +234,19 @@ It is off by default. Turn it on with `mcpApps.modelContext` in React and
 Vue, or `provideMCPApps({ modelContext: true })` in Angular:
 
 ```tsx
-<CopilotKit runtimeUrl="/api/copilotkit" mcpApps={{ modelContext: true }}>
-  {children}
-</CopilotKit>
+import type { ReactNode } from "react";
+import { CopilotKitProvider } from "@copilotkit/react-core";
+
+export function Providers({ children }: { children: ReactNode }) {
+  return (
+    <CopilotKitProvider
+      runtimeUrl="/api/copilotkit"
+      mcpApps={{ modelContext: true }}
+    >
+      {children}
+    </CopilotKitProvider>
+  );
+}
 ```
 
 While it is off, CopilotKit does not announce the capability and answers the

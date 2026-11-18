@@ -115,11 +115,7 @@ func (r *Runtime) run(w http.ResponseWriter, req *http.Request, u User, agentID 
 			return
 		}
 	}
-	a2ui := resolveA2UI(r.config.A2UI, agentID, object(input["forwardedProps"])["a2uiCatalogAvailable"] == true)
-	if a2ui != nil {
-		processA2UIAction(input)
-		messages = input["messages"].([]any)
-	}
+	generative := isGenerativeUIRun(r.config.GenerativeUI, agentID, input["forwardedProps"])
 	servers := []MCPServer{}
 	if r.config.MCPApps != nil {
 		for _, server := range r.config.MCPApps.Servers {
@@ -129,8 +125,8 @@ func (r *Runtime) run(w http.ResponseWriter, req *http.Request, u User, agentID 
 		}
 	}
 	_, proxied := object(input["forwardedProps"])["__proxiedMCPRequest"]
-	if a2ui != nil || len(servers) > 0 || proxied {
-		agent = &uiAgent{next: agent, a2ui: a2ui, mcp: servers}
+	if generative || len(servers) > 0 || proxied {
+		agent = &uiAgent{next: agent, mcp: servers, generative: generative, version: resolveA2UIVersion(r.config.GenerativeUI, agentID), option: r.config.GenerativeUI}
 	}
 	body := map[string]any{"threadId": thread, "runId": runID, "userId": u.ID, "agentId": agentID, "ttlSeconds": int(r.config.LockTTL.Seconds())}
 	if r.config.LearningContainer != nil {

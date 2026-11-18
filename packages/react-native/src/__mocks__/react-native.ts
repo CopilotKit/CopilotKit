@@ -30,6 +30,36 @@ export const ScrollView = createMockComponent("ScrollView");
 export const ActivityIndicator = createMockComponent("ActivityIndicator");
 export const Image = createMockComponent("Image");
 
+// A no-op Animated API. Components such as TypingIndicator create
+// Animated.Value instances and start timing loops at render time; in tests the
+// values never change and the animations never run.
+class AnimatedValue {
+  constructor(private value: number) {}
+  setValue(value: number) {
+    this.value = value;
+  }
+  interpolate({ outputRange }: { outputRange: unknown[] }) {
+    return outputRange[0];
+  }
+}
+
+const noopAnimation = () => ({
+  start: () => {},
+  stop: () => {},
+  reset: () => {},
+});
+
+export const Animated = {
+  Value: AnimatedValue,
+  View: createMockComponent("Animated.View"),
+  Text: createMockComponent("Animated.Text"),
+  timing: noopAnimation,
+  sequence: noopAnimation,
+  parallel: noopAnimation,
+  loop: noopAnimation,
+  delay: noopAnimation,
+};
+
 export const Platform = {
   OS: "ios" as const,
   select: <T>(obj: { ios?: T; android?: T; default?: T }): T | undefined =>
@@ -49,4 +79,5 @@ export default {
   ActivityIndicator,
   Image,
   Platform,
+  Animated,
 };

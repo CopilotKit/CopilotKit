@@ -57,8 +57,12 @@ describe("packageNameOf", () => {
 });
 
 describe("isDedicatedEntry", () => {
-  it("treats a matching path segment as dedicated", () => {
+  it("treats a matching last path segment as dedicated", () => {
     expect(isDedicatedEntry("./v2/express", "express")).toBe(true);
+  });
+
+  it("does not treat a parent segment as dedicated", () => {
+    expect(isDedicatedEntry("./express/v2", "express")).toBe(false);
   });
 
   it("does not treat a barrel as dedicated", () => {
@@ -71,6 +75,22 @@ describe("isDedicatedEntry", () => {
       false,
     );
     expect(isDedicatedEntry("./core", "@langchain/core")).toBe(true);
+  });
+
+  it("treats ./agent/ai-sdk as dedicated to the ai package", () => {
+    expect(isDedicatedEntry("./agent/ai-sdk", "ai")).toBe(true);
+  });
+
+  it("does not extend the ai-sdk alias to a scoped peer with the same leaf", () => {
+    expect(isDedicatedEntry("./agent/ai-sdk", "@tanstack/ai")).toBe(false);
+  });
+
+  it("does not treat ./agent as dedicated to an ai package", () => {
+    // `@tanstack/ai` is a dependency of the runtime, not a peer, so `./agent`
+    // needs no exemption for it.
+    expect(isDedicatedEntry("./agent", "@tanstack/ai")).toBe(false);
+    expect(isDedicatedEntry("./agent", "ai")).toBe(false);
+    expect(isDedicatedEntry("./agent", "@tanstack/ai-openai")).toBe(false);
   });
 });
 
@@ -201,6 +221,37 @@ describe("findPeerViolations", () => {
     const violations = findPeerViolations(root);
     expect(violations).toHaveLength(1);
     expect(violations[0]).toMatchObject({ entry: "./v2", format: "cjs" });
+  });
+
+  it("follows the default file of a { types, default } target", () => {
+    // The `/v2` aliases name their declarations next to their JavaScript.
+    const root = setup({
+      dist: {
+        "v2/index.mjs": 'import express from "express";\nexport { express };',
+        "v2/index.cjs":
+          'const express = require("express");\nmodule.exports = { express };',
+      },
+      manifest: {
+        ...OPTIONAL_EXPRESS,
+        exports: {
+          "./v2": {
+            import: {
+              types: "./dist/v2/index.d.mts",
+              default: "./dist/v2/index.mjs",
+            },
+            require: {
+              types: "./dist/v2/index.d.cts",
+              default: "./dist/v2/index.cjs",
+            },
+          },
+        },
+      },
+    });
+
+    const violations = findPeerViolations(root);
+    expect(violations).toHaveLength(2);
+    expect(violations[0]).toMatchObject({ entry: "./v2", format: "esm" });
+    expect(violations[1]).toMatchObject({ entry: "./v2", format: "cjs" });
   });
 
   it("allows the entry point dedicated to that peer", () => {

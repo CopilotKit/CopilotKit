@@ -1,0 +1,258 @@
+import { defineComponent, h, inject, ref } from "vue";
+import type { WatchSource } from "vue";
+import type { Component, VNodeChild } from "vue";
+import {
+  ɵadaptDefaultToolCallRenderProps as adaptRendererProps,
+  ɵgetToolCallBadge,
+  ɵnormalizeToolCallStatus,
+  ɵstringifyToolCallAttr,
+  ɵstringifyToolCallPayload,
+} from "@copilotkit/core";
+import type {
+  ɵDefaultToolCallRenderProps,
+  ɵRawToolCallRenderProps,
+} from "@copilotkit/core";
+import { useRenderTool } from "./use-render-tool";
+import { ToolCallGroupContextKey } from "../components/chat/tool-call-display-context";
+import { ToolCallRow } from "../components/chat/tool-call-group-parts";
+import { useChatLabels } from "../components/chat/use-chat-labels";
+
+type DefaultRenderProps = ɵDefaultToolCallRenderProps;
+type AdaptInput = ɵRawToolCallRenderProps;
+
+const DefaultToolCallRenderer = defineComponent({
+  props: {
+    name: {
+      type: String,
+      required: true,
+    },
+    toolCallId: {
+      type: String,
+      required: true,
+    },
+    parameters: {
+      type: null,
+      required: false,
+      default: undefined,
+    },
+    status: {
+      type: String as () => "inProgress" | "executing" | "complete",
+      required: true,
+    },
+    result: {
+      // Typeless on purpose: the renderer body handles both string results
+      // and structured (object) results via `ɵstringifyToolCallPayload`. Declaring
+      // `type: String` would trip Vue's dev-mode prop-type warning on every
+      // non-string result and make the defensive branch unreachable.
+      type: null,
+      required: false,
+      default: undefined,
+    },
+  },
+  setup(props) {
+    const isExpanded = ref(false);
+    const groupContext = inject(ToolCallGroupContextKey, null);
+    const labels = useChatLabels();
+
+    return () => {
+      const group = groupContext?.value;
+      // A status a newer runtime could send reads "unknown".
+      const cardStatus = ɵnormalizeToolCallStatus(props.status);
+      // Inside a group of calls, a row that fits the group instead of a card.
+      if (group) {
+        return h(ToolCallRow, {
+          "data-testid": "copilot-tool-render",
+          "data-tool-name": props.name,
+          "data-tool-call-id": props.toolCallId,
+          "data-status": cardStatus,
+          "data-args": ɵstringifyToolCallAttr(props.parameters),
+          "data-result": ɵstringifyToolCallAttr(props.result),
+          name: props.name,
+          parameters: props.parameters,
+          result: props.result,
+          status: group.statusById.get(props.toolCallId) ?? "done",
+          appearance: group.appearance,
+        });
+      }
+
+      const { tone, labelKey } = ɵgetToolCallBadge(cardStatus);
+      const statusLabel = labels.value[labelKey];
+
+      // Markup and classes match React's DefaultToolCallRenderer; styles live
+      // in @copilotkit/core (default-tool-call.css).
+      return h(
+        "div",
+        {
+          "data-testid": "copilot-tool-render",
+          "data-tool-name": props.name,
+          "data-tool-call-id": props.toolCallId,
+          "data-status": cardStatus,
+          "data-args": ɵstringifyToolCallAttr(props.parameters),
+          "data-result": ɵstringifyToolCallAttr(props.result),
+          class: "cpk-default-tool-call",
+        },
+        [
+          h("div", { class: "cpk-default-tool-call-card" }, [
+            h(
+              "button",
+              {
+                type: "button",
+                "aria-expanded": String(isExpanded.value),
+                onClick: () => {
+                  isExpanded.value = !isExpanded.value;
+                },
+                class: "cpk-default-tool-call-header",
+                style: { font: "inherit" },
+              },
+              [
+                h("div", { class: "cpk-default-tool-call-title" }, [
+                  h(
+                    "svg",
+                    {
+                      class: [
+                        "cpk-default-tool-call-chevron",
+                        isExpanded.value &&
+                          "cpk-default-tool-call-chevron-open",
+                      ],
+                      fill: "none",
+                      viewBox: "0 0 24 24",
+                      "stroke-width": 2,
+                      stroke: "currentColor",
+                    },
+                    [
+                      h("path", {
+                        "stroke-linecap": "round",
+                        "stroke-linejoin": "round",
+                        d: "M8.25 4.5l7.5 7.5-7.5 7.5",
+                      }),
+                    ],
+                  ),
+                  h("span", {
+                    class: `cpk-default-tool-call-dot cpk-default-tool-call-dot-${tone}`,
+                  }),
+                  h(
+                    "span",
+                    {
+                      "data-testid": "copilot-tool-render-name",
+                      class: "cpk-default-tool-call-name",
+                    },
+                    props.name,
+                  ),
+                ]),
+                h(
+                  "span",
+                  {
+                    "data-testid": "copilot-tool-render-status",
+                    class: `cpk-default-tool-call-badge cpk-default-tool-call-badge-${tone}`,
+                  },
+                  statusLabel,
+                ),
+              ],
+            ),
+            isExpanded.value
+              ? h("div", { class: "cpk-default-tool-call-details" }, [
+                  h("div", [
+                    h(
+                      "div",
+                      { class: "cpk-default-tool-call-label" },
+                      labels.value.toolCallArgumentsLabel,
+                    ),
+                    h(
+                      "pre",
+                      { class: "cpk-default-tool-call-code" },
+                      ɵstringifyToolCallPayload(props.parameters ?? {}),
+                    ),
+                  ]),
+                  props.result !== undefined
+                    ? h("div", [
+                        h(
+                          "div",
+                          { class: "cpk-default-tool-call-label" },
+                          labels.value.toolCallResultLabel,
+                        ),
+                        h(
+                          "pre",
+                          { class: "cpk-default-tool-call-code" },
+                          ɵstringifyToolCallPayload(props.result),
+                        ),
+                      ])
+                    : null,
+                ])
+              : null,
+          ]),
+        ],
+      );
+    };
+  },
+});
+
+export function useDefaultRenderTool(
+  config?: {
+    render?:
+      | ((props: DefaultRenderProps) => VNodeChild)
+      | Component<DefaultRenderProps>;
+    /**
+     * Let the chat group calls your `render` draws, like it groups the
+     * built-in card's (see `toolCallDisplay` on `CopilotChatMessageView`).
+     * Off by default for a custom `render`, since it may draw nothing.
+     */
+    group?: boolean;
+  },
+  deps?: WatchSource<unknown>[],
+): void {
+  const userRender = config?.render;
+
+  // When the user supplies a function render, wrap it so they receive the
+  // documented {@link DefaultRenderProps} shape regardless of whether the
+  // call site passes `args + enum status` (CopilotChatToolCallsView's core
+  // path) or `parameters + string status` (an already-adapted call site).
+  // Component-typed renders are also wrapped — Vue would bind whatever attrs
+  // the call site passes, which means a component-typed render would receive
+  // the raw `{ args, status: <enum> }` shape instead of the documented
+  // `{ parameters, status: <string-union> }` shape. Wrap so the user
+  // component sees `DefaultRenderProps`.
+  let registeredRender:
+    | ((props: DefaultRenderProps) => VNodeChild)
+    | Component<DefaultRenderProps>;
+
+  if (typeof userRender === "function") {
+    const fn = userRender as (props: DefaultRenderProps) => VNodeChild;
+    registeredRender = ((rawProps: AdaptInput) => {
+      const adapted = adaptRendererProps(rawProps);
+      return fn(adapted);
+    }) as (props: DefaultRenderProps) => VNodeChild;
+  } else if (userRender) {
+    const userComponent = userRender;
+    registeredRender = ((rawProps: AdaptInput) => {
+      const adapted = adaptRendererProps(rawProps);
+      return h(userComponent as Component, {
+        name: adapted.name,
+        toolCallId: adapted.toolCallId,
+        parameters: adapted.parameters,
+        status: adapted.status,
+        result: adapted.result,
+      });
+    }) as (props: DefaultRenderProps) => VNodeChild;
+  } else {
+    registeredRender = ((rawProps: AdaptInput) => {
+      const adapted = adaptRendererProps(rawProps);
+      return h(DefaultToolCallRenderer, {
+        name: adapted.name,
+        toolCallId: adapted.toolCallId,
+        parameters: adapted.parameters,
+        status: adapted.status,
+        result: adapted.result,
+      });
+    }) as (props: DefaultRenderProps) => VNodeChild;
+  }
+
+  useRenderTool(
+    {
+      name: "*",
+      render: registeredRender,
+      // The built-in card draws a row inside a group; a custom render opts in.
+      group: userRender ? config?.group === true : true,
+    },
+    deps,
+  );
+}

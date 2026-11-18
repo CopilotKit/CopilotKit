@@ -6,9 +6,9 @@ description: "API reference for @copilotkit/vue: the CopilotKit provider, prebui
 `@copilotkit/vue` brings CopilotKit to Vue 3. It ships a [provider](/reference/vue/components/CopilotKitProvider), a set of prebuilt chat components, and composables that mirror the React SDK. Everything is built on the [AG-UI](https://docs.ag-ui.com) agent protocol.
 
 <Callout type="info">
-  The v2 API lives under the `/v2` subpath, the same convention as the React
-  SDK (`@copilotkit/react-core/v2`). Import the provider, components, and composables from
-  `@copilotkit/vue/v2`.
+  Import the provider, components, and composables from the package root,
+  `@copilotkit/vue`. The `/v2` subpath of 1.x is a deprecated alias of the
+  package root.
 </Callout>
 
 ## Installation
@@ -19,11 +19,28 @@ npm install @copilotkit/vue
 
 ## Styling
 
-When using the prebuilt UI components, import the stylesheet once at your app entry point:
+The prebuilt UI components include their own styles. You don't import a stylesheet. `CopilotChat`, `CopilotPopup`, and `CopilotSidebar` add one `<style>` tag to the page, and it is included in server-rendered HTML, such as Nuxt's.
 
-```ts
-import "@copilotkit/vue/styles.css";
+If you render other components without a chat surface, add `<CopilotKitStyles />` once, inside `CopilotKitProvider`. If your Content-Security-Policy limits `style-src` to a nonce, pass it as `<CopilotKitProvider :nonce="nonce">`.
+
+### Load the CSS as a cached file
+
+The `<style>` tag is part of your JavaScript, so browsers cache it with your app's code. Server-rendered pages also send it in the HTML of each full page load. To have browsers cache the CSS as its own file, import it and turn off the `<style>` tag:
+
+```vue
+<script setup lang="ts">
+import { CopilotKitProvider } from "@copilotkit/vue";
+import "@copilotkit/core/styles.css";
+</script>
+
+<template>
+  <CopilotKitProvider runtime-url="/api/copilotkit" :inject-styles="false">
+    <slot />
+  </CopilotKitProvider>
+</template>
 ```
+
+This is optional. Your bundler must support CSS imports, as Vite and Nuxt do.
 
 ## Provider setup
 
@@ -31,8 +48,7 @@ Wrap your app (or a sub-tree) with [`CopilotKitProvider`](/reference/vue/compone
 
 ```vue
 <script setup lang="ts">
-import { CopilotKitProvider, CopilotChat } from "@copilotkit/vue/v2";
-import "@copilotkit/vue/styles.css";
+import { CopilotKitProvider, CopilotChat } from "@copilotkit/vue";
 </script>
 
 <template>
@@ -68,7 +84,7 @@ A few patterns recur across this reference and differ from the React SDK:
   [`useGenerativeUIState`](/reference/vue/hooks/useGenerativeUIState), and
   [`useGenerativeUIFunction`](/reference/vue/hooks/useGenerativeUIFunction).
   Import the component and the composables from
-  `@copilotkit/vue/v2/generative-ui`.
+  `@copilotkit/vue/generative-ui`.
 </Callout>
 
 <Cards>

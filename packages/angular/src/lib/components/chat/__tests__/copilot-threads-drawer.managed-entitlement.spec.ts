@@ -9,6 +9,7 @@ import type {
   RuntimeEntitlementResponse,
   RuntimeLicenseStatus,
 } from "@copilotkit/shared";
+import { CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";
 import { expect, test, vi } from "vitest";
 import { CopilotKit } from "../../../copilotkit";
 import type { InjectThreadsInput, InjectThreadsResult } from "../../../threads";
@@ -70,6 +71,7 @@ type LicensedDrawerElement = HTMLElement & {
 
 interface ManagedEntitlementSetup {
   authority: {
+    connectionStatus: WritableSignal<CopilotKitCoreRuntimeConnectionStatus>;
     licenseStatus: WritableSignal<RuntimeLicenseStatus | undefined>;
     retryPending: WritableSignal<boolean>;
     runtimeEntitlements: WritableSignal<RuntimeEntitlementResponse | undefined>;
@@ -97,7 +99,11 @@ function setupManagedEntitlement(
   const licenseStatusSignal = signal(licenseStatus);
   const runtimeEntitlementsSignal = signal(runtimeEntitlements);
   const retryPendingSignal = signal(runtimeEntitlementRetryPending);
+  const connectionStatusSignal = signal(
+    CopilotKitCoreRuntimeConnectionStatus.Connecting,
+  );
   const fakeCopilotKit = {
+    runtimeConnectionStatus: connectionStatusSignal.asReadonly(),
     licenseStatus: licenseStatusSignal.asReadonly(),
     runtimeEntitlements: runtimeEntitlementsSignal.asReadonly(),
     runtimeEntitlementRetryPending: retryPendingSignal.asReadonly(),
@@ -124,6 +130,7 @@ function setupManagedEntitlement(
 
   return {
     authority: {
+      connectionStatus: connectionStatusSignal,
       licenseStatus: licenseStatusSignal,
       retryPending: retryPendingSignal,
       runtimeEntitlements: runtimeEntitlementsSignal,
@@ -290,6 +297,29 @@ test("an inactive self-hosted entitlement keeps Angular's valid legacy fallback"
 
     expect(threadsEnabled()).toBe(true);
     expect(drawer.licensed).toBe(true);
+  } finally {
+    dispose();
+  }
+});
+
+test("a runtime that connects without reporting a license ends Angular's loading", async () => {
+  const { authority, dispose, drawer, fixture, threadsEnabled } =
+    setupManagedEntitlement(undefined, undefined);
+
+  try {
+    await fixture.whenStable();
+    expect(drawer.loading).toBe(true);
+
+    // A runtime without Intelligence reports no license status at all.
+    authority.connectionStatus.set(
+      CopilotKitCoreRuntimeConnectionStatus.Connected,
+    );
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(threadsEnabled()).toBe(true);
+    expect(drawer.licensed).toBe(true);
+    expect(drawer.loading).toBe(false);
   } finally {
     dispose();
   }

@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import ts from "typescript";
 import { describe, it, expect } from "vitest";
 
-// Apps reach channels-core through `@copilotkit/runtime/v2`, and app bundlers
+// Apps reach channels-core through `@copilotkit/runtime`, and app bundlers
 // follow every literal import, `import()` included. If a module behind the
 // main entry points reaches Takumi, every app bundles its native `.node`
 // binary, or fails to resolve the optional peer. Only the opt-in `./takumi`

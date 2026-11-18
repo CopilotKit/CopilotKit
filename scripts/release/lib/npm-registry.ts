@@ -5,11 +5,16 @@ const REGISTRY = "https://registry.npmjs.org";
  *
  * Any other failure throws. A caller picking the next version from this list
  * must not guess, or it hands out a version npm will refuse.
+ *
+ * npm's CDN keeps a version list for up to five minutes. A unique query string
+ * skips that copy, so a version published since is not missed.
  */
 export async function fetchPublishedVersions(name: string): Promise<string[]> {
-  const response = await fetch(`${REGISTRY}/${name.replace("/", "%2f")}`, {
+  const url = `${REGISTRY}/${name.replace("/", "%2f")}?fresh=${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const response = await fetch(url, {
     // The abbreviated packument: versions without readmes or full manifests.
     headers: { accept: "application/vnd.npm.install-v1+json" },
+    cache: "no-store",
   });
   if (response.status === 404) return [];
   if (!response.ok) {
@@ -26,4 +31,51 @@ export async function fetchPublishedVersions(name: string): Promise<string[]> {
     );
   }
   return Object.keys(versions);
+}
+
+/**
+ * Waits until npm lists each `name@version`.
+ *
+ * `npm publish` returns before npm adds the version to the package's version
+ * list, sometimes minutes before. A release-candidate run that starts in that
+ * window reads the old list and picks the same version again, which npm then
+ * refuses. Waiting here keeps the next run from starting until npm lists this
+ * run's versions.
+ *
+ * A failed registry read counts as "not listed yet" and is read again on the
+ * next poll. Only the timeout throws.
+ */
+export async function waitForPublishedVersions(
+  packages: { name: string; version: string }[],
+  { timeoutMs = 10 * 60_000, intervalMs = 10_000 } = {},
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  let missing = packages;
+  let lastError: unknown;
+  for (;;) {
+    const listed = await Promise.all(
+      missing.map(async (p) => {
+        // The packages are already published, so a failed read is not a
+        // reason to stop. Count the package as not listed and read it again.
+        try {
+          return (await fetchPublishedVersions(p.name)).includes(p.version);
+        } catch (error) {
+          lastError = error;
+          return false;
+        }
+      }),
+    );
+    missing = missing.filter((_, i) => !listed[i]);
+    if (missing.length === 0) return;
+    if (Date.now() >= deadline) {
+      const cause =
+        lastError === undefined
+          ? ""
+          : ` The last registry read failed: ${lastError instanceof Error ? lastError.message : String(lastError)}`;
+      throw new Error(
+        `npm does not list ${missing.map((p) => `${p.name}@${p.version}`).join(", ")} yet. They are published, but the next release candidate can pick the same version until npm lists them.${cause}`,
+      );
+    }
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
 }

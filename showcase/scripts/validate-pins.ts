@@ -3,7 +3,7 @@
  *
  * Enforces showcase-internal pin discipline. The historical mode that
  * compared `showcase/integrations/<slug>` against the external
- * `examples/integrations/<source>` Dojo has been REMOVED: showcase and
+ * `examples/starters/<source>` Dojo has been REMOVED: showcase and
  * the external Dojo are intentionally divergent products on independent
  * release cadences and a cross-product pin-parity gate was backwards.
  *
@@ -182,7 +182,7 @@ function paths() {
     // EXAMPLES_DIR is retained for the legacy `resolveExampleDir` /
     // `collectDojoDeps` helpers (still exported for non-validateAll
     // consumers). validateAll no longer reads it.
-    EXAMPLES_DIR: path.join(repoRoot, "examples", "integrations"),
+    EXAMPLES_DIR: path.join(repoRoot, "examples", "starters"),
     PACKAGES_DIR: path.join(repoRoot, "showcase", "integrations"),
     CANONICAL_PINS_FILE: path.join(
       repoRoot,
@@ -371,7 +371,7 @@ function resolveExampleDirDetailed(
     const dir = path.join(EXAMPLES_DIR, fallback);
     if (existsAsDir(dir)) return { exampleDir: dir };
     // Display relative to REPO_ROOT so the WARN line reads
-    // `examples/integrations/<name>` rather than the ambiguous
+    // `examples/starters/<name>` rather than the ambiguous
     // `integrations/<name>` (which hides where the missing dir is).
     missingFallbackTarget = path.relative(REPO_ROOT, dir);
   }
@@ -1297,7 +1297,7 @@ function parsePyprojectToml(file: string): DepMap {
 
 /**
  * Shape returned by `collectDepsFromDir` — used for both the Dojo side
- * (examples/integrations/<source>) and the showcase side
+ * (examples/starters/<source>) and the showcase side
  * (showcase/integrations/<slug>). Both sides walk the same
  * DEP_FILE_CANDIDATES list; the structure of the result is identical.
  *

@@ -180,7 +180,7 @@ describe("formatViolations", () => {
 });
 
 describe("live tree", () => {
-  it("examples/integrations/* @copilotkit pins match the monorepo release version", () => {
+  it("examples/starters/* @copilotkit pins match the monorepo release version", () => {
     const repoRoot = path.resolve(__dirname, "..", "..");
     const reactCorePkg = JSON.parse(
       fs.readFileSync(
@@ -191,7 +191,7 @@ describe("live tree", () => {
     const expectedVersion = reactCorePkg.version;
     const violations = validatePins({
       expectedVersion,
-      integrationsDir: path.join(repoRoot, "examples", "integrations"),
+      integrationsDir: path.join(repoRoot, "examples", "starters"),
     });
     if (violations.length > 0) {
       console.error(formatViolations(violations, expectedVersion));

@@ -177,6 +177,39 @@ describe("ɵInterruptState", () => {
       interruptValue: { requestId: "request-1" },
     });
   });
+
+  it("returns the same pending snapshot until the interrupt set changes", () => {
+    const state = new ɵInterruptState();
+    state.setStandard([interrupt("one")]);
+
+    const first = state.pending;
+    state.resolve(undefined, "missing");
+    expect(state.pending).toBe(first);
+    expect(first).toEqual({ kind: "standard", interrupts: [interrupt("one")] });
+
+    state.setStandard([interrupt("two")]);
+    expect(state.pending).not.toBe(first);
+    expect(state.pending).toEqual({
+      kind: "standard",
+      interrupts: [interrupt("two")],
+    });
+
+    state.clear();
+    expect(state.pending).toBeNull();
+  });
+
+  it("does not let a caller change the pending interrupts", () => {
+    const state = new ɵInterruptState();
+    const source = [interrupt("one")];
+    state.setStandard(source);
+    source.push(interrupt("two"));
+
+    const pending = state.pending;
+    const interrupts = pending?.kind === "standard" ? pending.interrupts : [];
+
+    expect(Object.isFrozen(interrupts)).toBe(true);
+    expect(interrupts).toEqual([interrupt("one")]);
+  });
 });
 
 describe("structured saved results", () => {

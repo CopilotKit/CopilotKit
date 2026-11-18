@@ -28,7 +28,7 @@ The demos use `@json-render/react` and `@json-render/core` 0.18.0, with Zod 4 fo
 1. Copy `catalog.ts` and `registry.tsx`. `catalog.ts` defines component names and Zod prop schemas with `defineCatalog`. `registry.tsx` uses `defineRegistry(catalog, ...)` to bind those names to React components.
 2. Copy `json-render-renderer.tsx`. It parses the assistant content and falls back to the normal assistant message until it can parse a spec:
 
-   ```tsx title="json-render-renderer.tsx (excerpt)"
+   ```tsx ignore title="json-render-renderer.tsx (excerpt)"
    export function JsonRenderAssistantMessage(
      props: CopilotChatAssistantMessageProps,
    ) {
@@ -52,12 +52,16 @@ The demos use `@json-render/react` and `@json-render/core` 0.18.0, with Zod 4 fo
 3. Install the renderer in the `assistantMessage` slot of `CopilotChat`:
 
    ```tsx title="chat.tsx"
-   <CopilotChat
-     messageView={{
-       assistantMessage:
-         JsonRenderAssistantMessage as unknown as typeof CopilotChatAssistantMessage,
-     }}
-   />
+   import { CopilotChat } from "@copilotkit/react-core";
+   import { JsonRenderAssistantMessage } from "./json-render-renderer";
+
+   export function Chat() {
+     return (
+       <CopilotChat
+         messageView={{ assistantMessage: JsonRenderAssistantMessage }}
+       />
+     );
+   }
    ```
 
 4. Tell the agent to answer with one `{ root, elements }` object, as shown in [Backend](#backend).

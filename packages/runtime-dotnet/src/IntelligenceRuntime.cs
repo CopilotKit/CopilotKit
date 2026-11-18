@@ -190,17 +190,12 @@ public sealed class IntelligenceRuntime : IAsyncDisposable
         var info = new JsonObject
         {
             ["version"] = "0.1.0-rc.1", ["mode"] = "intelligence", ["agents"] = agents,
-            ["audioFileTranscriptionEnabled"] = false, ["a2uiEnabled"] = options.A2UI?.Enabled == true, ["openGenerativeUIEnabled"] = false,
+            ["audioFileTranscriptionEnabled"] = false, ["openGenerativeUIEnabled"] = false, ["generativeUI"] = GenerativeUI.Info(options.GenerativeUI),
             ["threadEndpoints"] = new JsonObject { ["list"] = true, ["inspect"] = true, ["mutations"] = true, ["realtimeMetadata"] = true },
             ["intelligence"] = new JsonObject { ["wsUrl"] = options.ClientUrl.ToString().TrimEnd('/') },
             ["suggestions"] = false, ["inspectorMetadata"] = true, ["telemetryDisabled"] = telemetry.Disabled, ["runtimeEntitlements"] = JsonSerializer.SerializeToNode(entitlement),
             ["licenseStatus"] = entitlement.Entitlement?.Active == true ? "valid" : entitlement.Error?.Retryable == true ? "unknown" : "none"
         };
-        if (options.A2UI?.Enabled == true)
-        {
-            info["a2ui"] = new JsonObject { ["enabled"] = true };
-            if (options.A2UI.Agents is not null) info["a2ui"]!["agents"] = new JsonArray(options.A2UI.Agents.Select(agent => (JsonNode?)JsonValue.Create(agent)).ToArray());
-        }
         return info;
     }
 
@@ -223,12 +218,28 @@ public sealed class IntelligenceRuntime : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// Wraps an agent in the middleware of one run. The order matches the TypeScript runtime, outermost first:
+    /// the v0.9 bridge, A2UI v0.9, MCP Apps, then <c>render_ui</c>. Only the agent side gets the bridged input;
+    /// the stored thread keeps the client's input.
+    /// </summary>
+    internal static IRuntimeAgent ConfigureAgent(IRuntimeAgent agent, string agentId, JsonObject input, GenerativeUIOptions? generativeUI, Func<IRuntimeAgent, IRuntimeAgent>? mcpApps)
+    {
+        var forwarded = input["forwardedProps"];
+        var generative = GenerativeUI.IsRun(generativeUI, agentId, forwarded);
+        var version = GenerativeUI.ResolveVersion(generativeUI, agentId);
+        // A v0.9 agent gets render_a2ui instead of render_ui.
+        if (generative && version == "1.0" && GenerativeUI.ReadToolManifest(forwarded) is { } manifest) agent = new GenerativeUIAgent(agent, manifest);
+        if (mcpApps is not null) agent = mcpApps(agent);
+        if (generative) agent = new A2UIV09BridgeAgent(new A2UIAgent(agent, GenerativeUI.A2UIOptionsFor(generativeUI, version, forwarded)), version);
+        return agent;
+    }
+
     private async Task<JsonObject> StartRunCoreAsync(HttpContext context, RuntimeUser user, string agentId, IRuntimeAgent agent, JsonObject input, CancellationToken ct)
     {
         var mcpServers = options.McpAppsServers.Where(server => server.AgentId is null || server.AgentId == agentId).ToList();
-        if (mcpServers.Count > 0 || input["forwardedProps"]?["__proxiedMCPRequest"] is not null) agent = new McpAppsAgent(agent, mcpServers, mcpHttp, name => telemetry.Record(name, "agent.run"));
-        var providerCatalog = input["forwardedProps"]?["a2uiCatalogAvailable"] is JsonValue catalog && catalog.TryGetValue<bool>(out var hasCatalog) && hasCatalog;
-        if (options.A2UI?.Enabled != false && (options.A2UI is not null || providerCatalog) && (options.A2UI?.Agents is null || options.A2UI.Agents.Contains(agentId))) agent = new A2UIAgent(agent, options.A2UI ?? new A2UIOptions(), providerCatalog);
+        agent = ConfigureAgent(agent, agentId, input, options.GenerativeUI,
+            mcpServers.Count > 0 || input["forwardedProps"]?["__proxiedMCPRequest"] is not null ? next => new McpAppsAgent(next, mcpServers, mcpHttp, name => telemetry.Record(name, "agent.run")) : null);
         var thread = RuntimeValidation.RequiredString(input, "threadId"); var run = RuntimeValidation.RequiredString(input, "runId");
         var container = options.LearningContainer is null ? null : await options.LearningContainer(context, user, agentId, input, ct);
         var create = new JsonObject { ["threadId"] = thread, ["userId"] = user.Id, ["agentId"] = agentId };

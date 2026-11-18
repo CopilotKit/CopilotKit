@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  BUILT_IN_AGENT_ADAPTERS,
   CHANNELS_INTELLIGENCE,
   createRuntimeConsumerManifest,
+  declaredRanges,
   RUNTIME,
   workspaceDependencyClosure,
 } from "../lib/pack-workspace.js";
@@ -128,6 +130,30 @@ describe("createRuntimeConsumerManifest", () => {
     }
   });
 
+  it("installs only the runtime when no LLM packages are asked for", () => {
+    // The root entry must load with no LLM package installed.
+    expect(manifest.dependencies).toEqual({
+      [RUNTIME]: "file:/tmp/tarballs/copilotkit-runtime-1.63.2.tgz",
+    });
+  });
+
+  it("installs the given LLM packages next to the runtime", () => {
+    const withPeers = createRuntimeConsumerManifest({
+      runtimeTarball: "/tmp/tarballs/copilotkit-runtime-1.63.2.tgz",
+      packageManager: "pnpm@10.33.4",
+      overrides,
+      llmPackages: {
+        "@tanstack/ai-openai": "^1.1.1",
+        ai: ">=6.0.104",
+      },
+    });
+    expect(withPeers.dependencies).toEqual({
+      [RUNTIME]: "file:/tmp/tarballs/copilotkit-runtime-1.63.2.tgz",
+      "@tanstack/ai-openai": "^1.1.1",
+      ai: ">=6.0.104",
+    });
+  });
+
   it("omits the overrides block when nothing needs pinning", () => {
     expect(
       createRuntimeConsumerManifest({
@@ -136,5 +162,41 @@ describe("createRuntimeConsumerManifest", () => {
         overrides: new Map(),
       }),
     ).not.toHaveProperty("pnpm");
+  });
+});
+
+describe("declaredRanges", () => {
+  const packedRuntime = {
+    name: RUNTIME,
+    version: "2.0.0",
+    devDependencies: {
+      "@tanstack/ai-openai": "^1.1.1",
+    },
+    peerDependencies: { ai: ">=6.0.104" },
+  };
+
+  it("returns the peer range the runtime declares for /agent/ai-sdk", () => {
+    expect(declaredRanges(packedRuntime, "peerDependencies", ["ai"])).toEqual({
+      ai: ">=6.0.104",
+    });
+  });
+
+  it("returns the adapter range the runtime tests against", () => {
+    expect(
+      declaredRanges(packedRuntime, "devDependencies", BUILT_IN_AGENT_ADAPTERS),
+    ).toEqual({ "@tanstack/ai-openai": "^1.1.1" });
+  });
+
+  it("throws when the adapter is not declared in the asked field", () => {
+    // The adapter is not a peer, so reading it from the peers must fail.
+    expect(() =>
+      declaredRanges(
+        packedRuntime,
+        "peerDependencies",
+        BUILT_IN_AGENT_ADAPTERS,
+      ),
+    ).toThrow(
+      `${RUNTIME} must declare @tanstack/ai-openai in peerDependencies`,
+    );
   });
 });

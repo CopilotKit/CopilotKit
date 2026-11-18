@@ -23,6 +23,7 @@ The attachment APIs come from the package root, `@copilotkit/react-native`, not 
 
   ```tsx
   import * as FileSystem from "expo-file-system/legacy";
+  import type { NativeFileInput } from "@copilotkit/react-native";
 
   const attachments = {
     enabled: true,
@@ -119,16 +120,23 @@ Tap **Attach**, pick a photo, type a question, and tap **Send**. The thumbnail c
 `attachments` takes a `NativeAttachmentsConfig`:
 
 ```tsx
-<CopilotChat
-  attachments={{
-    enabled: true,
-    // Omit `accept` to allow all file types (default: "*/*").
-    accept: "image/*,application/pdf",
-    maxSize: 10 * 1024 * 1024, // 10MB (default: 20MB)
-  }}
->
-  <Composer />
-</CopilotChat>
+import { CopilotChat } from "@copilotkit/react-native";
+import { Composer } from "./Composer"; // the composer from the quick start
+
+export function ChatScreen() {
+  return (
+    <CopilotChat
+      attachments={{
+        enabled: true,
+        // Omit `accept` to allow all file types (default: "*/*").
+        accept: "image/*,application/pdf",
+        maxSize: 10 * 1024 * 1024, // 10MB (default: 20MB)
+      }}
+    >
+      <Composer />
+    </CopilotChat>
+  );
+}
 ```
 
 | Option | Type | Default | Description |
@@ -165,26 +173,33 @@ By default, the file is read as base64 with `expo-file-system` and sent inline i
 `onUpload` receives the `NativeFileInput` and returns an `AttachmentUploadResult`: `{ type: "data", value, mimeType }` for inline base64, or `{ type: "url", value, mimeType? }` for a hosted file.
 
 ```tsx
-<CopilotChat
-  attachments={{
-    enabled: true,
-    onUpload: async (file) => {
-      const body = new FormData();
-      // React Native's FormData takes a { uri, name, type } object for a file.
-      body.append("file", { uri: file.uri, name: file.name, type: file.mimeType } as any);
-      const res = await fetch("https://your-api.example.com/upload", { method: "POST", body });
-      const { url } = await res.json();
-      return {
-        type: "url",
-        value: url,
-        mimeType: file.mimeType,
-        metadata: { uploadedBy: currentUserId },
-      };
-    },
-  }}
->
-  <Composer />
-</CopilotChat>
+import { CopilotChat } from "@copilotkit/react-native";
+import { Composer } from "./Composer"; // the composer from the quick start
+
+export function ChatScreen({ currentUserId }: { currentUserId: string }) {
+  return (
+    <CopilotChat
+      attachments={{
+        enabled: true,
+        onUpload: async (file) => {
+          const body = new FormData();
+          // React Native's FormData takes a { uri, name, type } object for a file.
+          body.append("file", { uri: file.uri, name: file.name, type: file.mimeType } as any);
+          const res = await fetch("https://your-api.example.com/upload", { method: "POST", body });
+          const { url } = await res.json();
+          return {
+            type: "url",
+            value: url,
+            mimeType: file.mimeType,
+            metadata: { uploadedBy: currentUserId },
+          };
+        },
+      }}
+    >
+      <Composer />
+    </CopilotChat>
+  );
+}
 ```
 
 `metadata` is optional. It is merged into the content part that the agent receives. The filename is always added for you.
@@ -195,21 +210,27 @@ Use `onUploadFailed` to react when a file is rejected or its upload fails, for e
 
 ```tsx
 import { Alert } from "react-native";
+import { CopilotChat } from "@copilotkit/react-native";
+import { Composer } from "./Composer"; // the composer from the quick start
 
-<CopilotChat
-  attachments={{
-    enabled: true,
-    accept: "image/*",
-    maxSize: 5 * 1024 * 1024,
-    onUploadFailed: (error) => {
-      // error.reason: "file-too-large" | "invalid-type" | "upload-failed"
-      // error.file: the NativeFileInput
-      Alert.alert("Can't attach file", error.message);
-    },
-  }}
->
-  <Composer />
-</CopilotChat>
+export function ChatScreen() {
+  return (
+    <CopilotChat
+      attachments={{
+        enabled: true,
+        accept: "image/*",
+        maxSize: 5 * 1024 * 1024,
+        onUploadFailed: (error) => {
+          // error.reason: "file-too-large" | "invalid-type" | "upload-failed"
+          // error.file: the NativeFileInput
+          Alert.alert("Can't attach file", error.message);
+        },
+      }}
+    >
+      <Composer />
+    </CopilotChat>
+  );
+}
 ```
 
 | Reason | When it fires |

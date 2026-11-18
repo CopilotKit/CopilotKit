@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./browser-test.js";
 import type { Page } from "@playwright/test";
 
 import { LEARNING_WORKBENCH_SCENARIOS } from "./learning-state-fixtures.js";

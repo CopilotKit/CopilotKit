@@ -125,7 +125,6 @@ export function learningRuntimeInfo(state: LearningLabState): RuntimeInfo {
     },
     audioFileTranscriptionEnabled: false,
     suggestions: false,
-    a2uiEnabled: false,
     openGenerativeUIEnabled: false,
     telemetryDisabled: true,
     ...(state !== "landing"

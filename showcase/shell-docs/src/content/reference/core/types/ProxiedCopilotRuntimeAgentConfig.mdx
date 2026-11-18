@@ -5,7 +5,7 @@ description: "Configuration object for constructing a ProxiedCopilotRuntimeAgent
 
 ## Overview
 
-`ProxiedCopilotRuntimeAgentConfig` is the constructor argument for [`ProxiedCopilotRuntimeAgent`](/reference/core/classes/ProxiedCopilotRuntimeAgent). It extends AG-UI's `HttpAgentConfig` (omitting `url`, which is derived from `runtimeUrl`) and adds the routing, transport, and runtime-mode fields the proxy needs to reach a CopilotRuntime.
+`ProxiedCopilotRuntimeAgentConfig` is the constructor argument for [`ProxiedCopilotRuntimeAgent`](/reference/core/classes/ProxiedCopilotRuntimeAgent). It extends AG-UI's `HttpAgentConfig` (omitting `url`, which is derived from `runtimeUrl`) and adds the routing, transport, and runtime-mode fields the proxy needs to reach a CopilotKitRuntime.
 
 ## Import
 
@@ -15,25 +15,32 @@ import type { ProxiedCopilotRuntimeAgentConfig } from "@copilotkit/core";
 
 ## Definition
 
+`ProxiedCopilotRuntimeAgentConfig` extends `Omit<HttpAgentConfig, "url">` from `@ag-ui/client`. This object sets every field the proxy adds, plus `agentId` and `headers` from `HttpAgentConfig`:
+
 ```ts
-interface ProxiedCopilotRuntimeAgentConfig
-  extends Omit<HttpAgentConfig, "url"> {
-  runtimeUrl?: string;
-  transport?: CopilotRuntimeTransport;
-  credentials?: RequestCredentials;
-  runtimeMode?: RuntimeMode | "pending";
-  intelligence?: IntelligenceRuntimeInfo;
-  capabilities?: AgentCapabilities;
-  debug?: ResolvedDebugConfig;
-  runtimeAgentId?: string;
-  messageFilter?: CopilotKitMessageFilter;
-}
+import type { ProxiedCopilotRuntimeAgentConfig } from "@copilotkit/core";
+
+const config = {
+  // From HttpAgentConfig
+  agentId: "default",
+  headers: { "X-Tenant": "acme" },
+  // Added by ProxiedCopilotRuntimeAgentConfig
+  runtimeUrl: "/api/copilotkit",
+  transport: "auto",
+  credentials: "include",
+  runtimeMode: "pending",
+  intelligence: { wsUrl: "wss://intelligence.example.com/socket" },
+  capabilities: { tools: { supported: true } },
+  debug: { enabled: true, events: true, lifecycle: true, verbose: false },
+  runtimeAgentId: "default",
+  messageFilter: (messages) => messages.slice(-10),
+} satisfies ProxiedCopilotRuntimeAgentConfig;
 ```
 
 ## Properties
 
 <PropertyReference name="runtimeUrl" type="string">
-  Base URL of the CopilotRuntime. The agent's request URL is derived from this value and the resolved transport.
+  Base URL of the CopilotKitRuntime. The agent's request URL is derived from this value and the resolved transport.
 </PropertyReference>
 
 <PropertyReference name="transport" type='"rest" | "single" | "auto"' default="auto">
@@ -65,7 +72,7 @@ interface ProxiedCopilotRuntimeAgentConfig
 </PropertyReference>
 
 <PropertyReference name="messageFilter" type="CopilotKitMessageFilter">
-  Rewrites the outbound message list before each HTTP `run` or `connect` request. Not applied in Intelligence mode.
+  Rewrites the outbound message list before each HTTP `run` or `connect` request. Not applied in Intelligence mode. See the `messageFilter` option of [CopilotKitCoreConfig](/reference/core/types/CopilotKitCoreConfig).
 </PropertyReference>
 
 ## Usage

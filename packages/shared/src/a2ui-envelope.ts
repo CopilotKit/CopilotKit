@@ -201,7 +201,8 @@ function isSurfaceEntry(value: unknown): value is GenerativeUISurfaceSummary {
     (value.rejected === undefined || isRejectionList(value.rejected)) &&
     (value.status === undefined ||
       value.status === "deleted" ||
-      value.status === "failed")
+      value.status === "failed") &&
+    (value.a2uiSourceVersion === undefined || value.a2uiSourceVersion === "0.9")
   );
 }
 
@@ -283,7 +284,8 @@ export function readCopilotKitUIEnvelope(forwardedProps: unknown) {
  */
 export function envelopeToManifest(envelope: CopilotKitUIEnvelope) {
   const { supportedCatalogIds, inlineCatalogs } = envelope["1.0"];
-  const catalogId = supportedCatalogIds[0];
+  // `readCopilotKitUIEnvelope` only accepts a non-empty `supportedCatalogIds`.
+  const catalogId = supportedCatalogIds[0]!;
   const catalog = inlineCatalogs?.find(
     (entry) => entry.catalogId === catalogId,
   );

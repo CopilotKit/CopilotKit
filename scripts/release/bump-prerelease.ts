@@ -8,9 +8,11 @@
  * Every scope bumped in one invocation shares a single prerelease id, so a
  * multi-scope canary is one identifiable set of versions.
  *
- * `--rc <X.Y.Z>` bumps one scope to the next unpublished release candidate of
- * that version (`X.Y.Z-rc.N`) instead of a canary. release / rc passes the
- * name of the release-line branch it runs on (e.g. `2.0.0`).
+ * `--rc <X.Y.Z>` bumps to the next unpublished release candidate of that
+ * version (`X.Y.Z-rc.N`) instead of a canary. release / rc passes the name of
+ * the release-line branch it runs on (e.g. `2.0.0`) with `--scope all`: the
+ * monorepo scope gets `X.Y.Z-rc.N`, and every other scope gets a candidate of
+ * its own next minor (see nextCompanionRcBase).
  *
  * Usage: tsx scripts/release/bump-prerelease.ts --scope <scope from release.config.json | all> [--suffix <label> | --rc <X.Y.Z>]
  */
@@ -21,6 +23,7 @@ import {
   computePrereleaseVersion,
   computeNextRcVersion,
   assertRcBaseAhead,
+  nextCompanionRcBase,
   resolvePrereleaseId,
   bumpPackages,
   findCrossScopePins,
@@ -59,21 +62,22 @@ function warnOnCrossScopePins(scopes: ReturnType<typeof resolveScopes>): void {
   }
 }
 
+/** Every version any of the scope's packages has published. */
+async function fetchScopeVersions(scope: ReleaseScope): Promise<string[]> {
+  return (
+    await Promise.all(
+      getPackagesForScope(scope).map((p) => fetchPublishedVersions(p.name)),
+    )
+  ).flat();
+}
+
 /**
  * The next `<base>-rc.N` none of the scope's packages has published yet.
  *
  * Refuses once `base` itself is out: a release line's branch outlives its
  * stable release, and RCs of a shipped version would only confuse installs.
  */
-async function resolveNextRcVersion(
-  scope: ReleaseScope,
-  base: string,
-): Promise<string> {
-  const published = (
-    await Promise.all(
-      getPackagesForScope(scope).map((p) => fetchPublishedVersions(p.name)),
-    )
-  ).flat();
+function resolveNextRcVersion(base: string, published: string[]): string {
   if (published.includes(base)) {
     throw new Error(
       `${base} is already released; there is nothing left to publish release candidates for.`,
@@ -107,21 +111,34 @@ async function main() {
   }
 
   if (rcIdx !== -1) {
-    // An RC names one version, and the scopes carry independent version lines.
-    if (selector === ALL_SCOPES || suffixIdx !== -1) {
-      console.error("--rc takes a single scope and no --suffix.");
+    if (suffixIdx !== -1) {
+      console.error("--rc takes no --suffix.");
       process.exit(1);
     }
     if (!rcBase || !/^\d+\.\d+\.\d+$/.test(rcBase)) {
       console.error(`--rc needs a stable X.Y.Z version (got '${rcBase}').`);
       process.exit(1);
     }
-    const [scope] = scopes;
-    assertRcBaseAhead(rcBase, getCurrentVersion(scope));
-    const version = await resolveNextRcVersion(scope, rcBase);
-    console.log(`[${scope}] release candidate: ${version}`);
-    const updated = bumpPackages(scope, version);
-    console.log(`Bumped ${updated.length} packages to ${version}`);
+    // The base names the release line, which one scope carries: the scope
+    // selected, or the monorepo under scope=all. The other scopes of an `all`
+    // run ship a candidate of their own next minor, so the runtime's channel
+    // dependencies resolve to code from this commit, not main's last release.
+    const lineScope: ReleaseScope =
+      selector === ALL_SCOPES ? "monorepo" : scopes[0];
+    for (const scope of scopes) {
+      const published = await fetchScopeVersions(scope);
+      const current = getCurrentVersion(scope);
+      let base = rcBase;
+      if (scope === lineScope) {
+        assertRcBaseAhead(rcBase, current);
+      } else {
+        base = nextCompanionRcBase(current, published);
+      }
+      const version = resolveNextRcVersion(base, published);
+      console.log(`[${scope}] release candidate: ${version}`);
+      const updated = bumpPackages(scope, version);
+      console.log(`Bumped ${updated.length} packages to ${version}`);
+    }
     warnOnCrossScopePins(scopes);
     return;
   }

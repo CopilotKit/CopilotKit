@@ -113,7 +113,7 @@ function V1DeprecationNotice() {
       <Link href={notice.migrationHref}>
         Read the v1 to v2 migration guide.
       </Link>{" "}
-      <Link href={notice.exportMapHref}>Open the complete export map.</Link>
+      <Link href={notice.hookMappingHref}>Open the v1 to v2 hook mapping.</Link>
     </Callout>
   );
 }

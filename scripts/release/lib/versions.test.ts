@@ -8,6 +8,7 @@ import {
   computePrereleaseVersion,
   computeNextRcVersion,
   assertRcBaseAhead,
+  nextCompanionRcBase,
   prereleaseDistTag,
   resolvePrereleaseId,
   bumpPackages,
@@ -217,6 +218,30 @@ describe("assertRcBaseAhead", () => {
     expect(() => assertRcBaseAhead("1.82.9", "1.83.0-canary.1")).toThrow(
       /not ahead/,
     );
+  });
+});
+
+describe("nextCompanionRcBase", () => {
+  it("targets the next minor of the workspace version", () => {
+    expect(nextCompanionRcBase("0.12.0", ["0.11.1", "0.12.0"])).toBe("0.13.0");
+  });
+
+  it("stays ahead of a stable release main published after the branch", () => {
+    // The 2.0.0 branch still says 0.12.0, but main has shipped 0.13.0 since.
+    expect(nextCompanionRcBase("0.12.0", ["0.12.0", "0.13.0"])).toBe("0.14.0");
+  });
+
+  it("ignores prereleases, which do not take the version number", () => {
+    expect(
+      nextCompanionRcBase("0.12.0", ["0.13.0-rc.4", "0.13.0-canary.17"]),
+    ).toBe("0.13.0");
+  });
+
+  it("gives a candidate that can be published right away", () => {
+    // The previous run's candidates exist; the next number follows them.
+    const published = ["0.12.0", "0.13.0-rc.0", "0.13.0-rc.1"];
+    const base = nextCompanionRcBase("0.12.0", published);
+    expect(computeNextRcVersion(base, published)).toBe("0.13.0-rc.2");
   });
 });
 

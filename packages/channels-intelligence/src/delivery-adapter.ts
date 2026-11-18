@@ -576,8 +576,11 @@ export class DeliveryAdapter implements PlatformAdapter {
     } else {
       this.interruptedRuns.delete(threadId);
     }
-    if (result.deliveryError !== undefined) {
-      throw result.deliveryError;
+    const { deliveryError } = result;
+    if (deliveryError !== undefined) {
+      throw deliveryError instanceof Error
+        ? deliveryError
+        : new Error(String(deliveryError), { cause: deliveryError });
     }
     return result;
   }

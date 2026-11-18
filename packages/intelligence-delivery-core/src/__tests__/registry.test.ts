@@ -1,8 +1,8 @@
 import {
   CopilotKitIntelligence,
   LearnedSkillsError,
-} from "@copilotkit/runtime/v2";
-import type { LearnedSkillsSnapshotResult } from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
+import type { LearnedSkillsSnapshotResult } from "@copilotkit/runtime";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import fixtures from "../../conformance/snapshots.v1.json";
 import { SkillRegistry } from "../index.js";

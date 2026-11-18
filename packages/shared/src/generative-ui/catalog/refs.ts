@@ -1,4 +1,4 @@
-import { z } from "zod";
+import * as z from "zod";
 import { A2UI_CHILD_LIST_MARK, A2UI_COMPONENT_ID_MARK } from "../base";
 
 /**
@@ -33,15 +33,16 @@ export interface GenerativeUIChildNode {
   readonly [childNodeBrand]: true;
 }
 
-type ChildSchema<TNode> = z.ZodEffects<z.ZodString, TNode, string>;
-type ChildListSchema<TNode> = z.ZodEffects<
-  z.ZodUnion<
-    [
-      z.ZodArray<z.ZodString>,
-      z.ZodObject<{ componentId: z.ZodString; path: z.ZodString }>,
-    ]
-  >,
-  TNode
+type ChildListInput = z.ZodUnion<
+  readonly [
+    z.ZodArray<z.ZodString>,
+    z.ZodObject<{ componentId: z.ZodString; path: z.ZodString }>,
+  ]
+>;
+type ChildSchema<TNode> = z.ZodPipe<z.ZodString, z.ZodTransform<TNode, string>>;
+type ChildListSchema<TNode> = z.ZodPipe<
+  ChildListInput,
+  z.ZodTransform<TNode, z.output<ChildListInput>>
 >;
 
 // Without a type argument, `child()` gives `GenerativeUIChildNode`. A

@@ -5,7 +5,7 @@ import {
 } from "@modelcontextprotocol/ext-apps/app-bridge";
 import type { AbstractAgent } from "@ag-ui/client";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import { z } from "zod";
+import * as z from "zod";
 import { randomUUID } from "@copilotkit/shared";
 import { buildSandboxHTML, ɵmcpAppSandboxFlags } from "./sandbox";
 import {
@@ -138,7 +138,7 @@ const CopilotKitUiMessageSchema = z.object({
       followUp: z.boolean().optional(),
       _meta: z.record(z.string(), z.any()).optional(),
     })
-    .passthrough(),
+    .loose(),
 });
 
 /** A resource fetched from the MCP server via the agent proxy. */
@@ -432,9 +432,7 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
   // mounted after the shared agent moved to another thread must not write
   // into the new conversation. Off unless the frontend opted in.
   const modelContextStore =
-    settings.modelContext === true && ɵsupportsModelContext(host)
-      ? host
-      : undefined;
+    settings.modelContext && ɵsupportsModelContext(host) ? host : undefined;
   const boundAgent = getAgent();
   const boundAgentId = boundAgent?.agentId;
   const boundThreadId = boundAgent?.threadId;
@@ -447,7 +445,7 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
   // keep one a frontend passed in its options without the opt-in and the
   // storage behind it.
   const { updateModelContext: _ignored, ...capabilitiesWithoutModelContext } =
-    settings.hostCapabilities as Record<string, unknown>;
+    settings.hostCapabilities;
   const hostCapabilities = modelContextStore
     ? {
         ...capabilitiesWithoutModelContext,
@@ -929,6 +927,7 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
       // the host can store it; otherwise the widget gets "method not found"
       // instead of an acknowledgement for context that is never kept.
       if (modelContextStore) {
+        // oxlint-disable-next-line typescript/require-await -- async so a refused update rejects, which the bridge answers as a JSON-RPC error
         bridge.onupdatemodelcontext = async (params) => {
           if (disposed) {
             throw new McpModelContextError(

@@ -1,0 +1,110 @@
+---
+title: "Harness Workspace Architecture"
+nav_title: "Harness workspace"
+description: "Build a workspace around a coding or research agent harness, with plans, artifacts, tool calls, sub-agents, approvals, and runs that people can stop and resume."
+icon: "lucide/LayoutPanelLeft"
+doc_type: explanation
+---
+
+A coding or research agent does long work in many steps. People who use it must see the plan, read what it produced, approve risky steps, and come back later. A chat window alone does not show this. Build a workspace with one panel for each job, and use CopilotKit to carry the run to every panel.
+
+## The 30-second version
+
+| What people need | What CopilotKit gives you | Read |
+| --- | --- | --- |
+| See the plan and its progress | Agent state, rendered live with `useAgent` | [State rendering](/generative-ui/state-rendering) |
+| Read artifacts that the agent produced | Agent state, or a tool call that you render | [Shared state](/shared-state) |
+| Watch tool calls | `useRenderTool` and `useDefaultRenderTool` | [Tool rendering](/generative-ui/tool-rendering) |
+| Follow sub-agents | A delegation log in agent state | [Sub-agents](/multi-agent/subagents) |
+| See the reasoning of the model | Reasoning messages in the chat | [Reasoning](/generative-ui/reasoning) |
+| Approve risky steps | `useInterrupt` and `useHumanInTheLoop` | [Human-in-the-loop](/human-in-the-loop) |
+| Stop a run, and start it from code | `copilotkit.stopAgent()` and `copilotkit.runAgent()` | [Programmatic control](/programmatic-control) |
+| Leave and resume later | A stored `threadId` and a persisting runner | [Durability](/concepts/durability) |
+
+## The architecture
+
+Three parts work together:
+
+- **The harness agent** plans, calls tools, and gives tasks to sub-agents. It writes the plan, the artifacts, and the delegations to its state, so the frontend can render them.
+- **The CopilotKit runtime** connects the frontend to the agent over AG-UI. Its runner keeps each thread, so a client can connect again.
+- **The workspace frontend** renders each part of the agent state in its own panel, next to the chat.
+
+## Build the workspace
+
+1. Give the agent state a shape for each panel, for example `plan`, `artifacts`, and `delegations`.
+2. Make the agent write to those keys as it works. See [State rendering](/generative-ui/state-rendering) for your framework.
+3. Render each key in its own panel, as in the React example below.
+4. Render the tool calls in the chat with `useRenderTool`.
+5. Gate risky steps with an [interrupt](/human-in-the-loop/useInterrupt).
+6. Store the `threadId` and configure a persisting runner, so people can leave and come back.
+
+```tsx title="app/workspace.tsx"
+"use client";
+
+import {
+  CopilotChat,
+  UseAgentUpdate,
+  useAgent,
+  useCopilotKit,
+} from "@copilotkit/react-core";
+
+type Step = { id: string; title: string; status: "pending" | "running" | "done" };
+type Artifact = { id: string; name: string; content: string };
+type WorkspaceState = { plan?: Step[]; artifacts?: Artifact[] };
+
+export function Workspace({ threadId }: { threadId: string }) {
+  const { agent } = useAgent({
+    agentId: "harness",
+    updates: [UseAgentUpdate.OnStateChanged, UseAgentUpdate.OnRunStatusChanged],
+  });
+  const { copilotkit } = useCopilotKit();
+  const state = agent.state as WorkspaceState;
+
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr 1fr", gap: 16 }}>
+      <ol>
+        {(state.plan ?? []).map((step) => (
+          <li key={step.id}>
+            {step.status}: {step.title}
+          </li>
+        ))}
+      </ol>
+
+      <CopilotChat agentId="harness" threadId={threadId} />
+
+      <aside>
+        <button
+          onClick={() => copilotkit.stopAgent({ agent })}
+          disabled={!agent.isRunning}
+        >
+          Stop
+        </button>
+        {(state.artifacts ?? []).map((artifact) => (
+          <details key={artifact.id}>
+            <summary>{artifact.name}</summary>
+            <pre>{artifact.content}</pre>
+          </details>
+        ))}
+      </aside>
+    </div>
+  );
+}
+```
+
+The chat sets the thread on the `harness` agent, so every panel reads the same run.
+
+## What you build yourself
+
+CopilotKit carries the run. These parts are specific to your harness:
+
+- **Artifact storage.** Large files and diffs belong in your own store. Put a reference in agent state, not the full content.
+- **Trace navigation.** A tree of sub-agents and tool calls is your own panel. Build it from the delegation log and the tool calls.
+- **Workspace snapshots.** If people must restore files or a sandbox, your backend saves and restores them.
+
+For a complete example with approvals, diffs, and a side panel, see the [Google Antigravity cookbook](/cookbook/google-antigravity).
+
+To start from a finished workspace, use [OpenBot](https://open.bot). It is the open-source (MIT) CopilotKit template for a workspace where people work with AI coworkers. Each coworker can have its own browser, files, and tools. OpenBot needs a CopilotKit Intelligence project for threads and memory.
+
+## Debug the workspace
+
+During development, the [Inspector](/inspector) shows each AG-UI event, tool call, and state change of the run. Open it next to your workspace and run one task from start to finish. When the plan, the artifacts, and the chat update together, the workspace works.

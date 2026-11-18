@@ -19,12 +19,17 @@ The configuration is registered while the composable's reactive scope is active 
 ## Signature
 
 ```ts
-import { useConfigureSuggestions } from "@copilotkit/vue/v2";
+import type { WatchSource } from "vue";
+import {
+  useConfigureSuggestions,
+  type DynamicSuggestionsConfig,
+  type StaticSuggestionsConfig,
+} from "@copilotkit/vue";
 
-function useConfigureSuggestions(
-  config: SuggestionsConfigInput | null | undefined,
+useConfigureSuggestions satisfies (
+  config: DynamicSuggestionsConfig | StaticSuggestionsConfig | null | undefined,
   deps?: WatchSource<unknown>[],
-): void;
+) => void;
 ```
 
 ## Parameters
@@ -110,7 +115,7 @@ Used when suggestions are a predefined list.
 
 ```vue
 <script setup lang="ts">
-import { useConfigureSuggestions } from "@copilotkit/vue/v2";
+import { useConfigureSuggestions } from "@copilotkit/vue";
 
 useConfigureSuggestions({
   suggestions: [
@@ -131,7 +136,7 @@ useConfigureSuggestions({
 
 ```vue
 <script setup lang="ts">
-import { useConfigureSuggestions } from "@copilotkit/vue/v2";
+import { useConfigureSuggestions } from "@copilotkit/vue";
 
 useConfigureSuggestions({
   instructions:
@@ -156,7 +161,7 @@ underlying reactive state changes.
 ```vue
 <script setup lang="ts">
 import { ref } from "vue";
-import { useConfigureSuggestions } from "@copilotkit/vue/v2";
+import { useConfigureSuggestions } from "@copilotkit/vue";
 
 const reloadKey = ref(0);
 
@@ -196,7 +201,7 @@ configuration.
 ```vue
 <script setup lang="ts">
 import { computed } from "vue";
-import { useConfigureSuggestions } from "@copilotkit/vue/v2";
+import { useConfigureSuggestions } from "@copilotkit/vue";
 
 const props = defineProps<{ enabled: boolean }>();
 
@@ -225,7 +230,7 @@ useConfigureSuggestions(
 
 ```vue
 <script setup lang="ts">
-import { useConfigureSuggestions } from "@copilotkit/vue/v2";
+import { useConfigureSuggestions } from "@copilotkit/vue";
 
 useConfigureSuggestions({
   instructions: "Suggest data analysis tasks the user can perform.",

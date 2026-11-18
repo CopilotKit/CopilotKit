@@ -181,6 +181,20 @@ describe("readCopilotKitUIEnvelope", () => {
     expect(readUI(envelope)).toEqual(envelope);
   });
 
+  it("reads a surface that the runtime converted from A2UI v0.9", () => {
+    const envelope = createEnvelope({
+      extensions: {
+        copilotkit_surfaces: {
+          plans: { target: "chat", a2uiSourceVersion: "0.9" },
+        },
+      },
+    });
+    expect(readUI(envelope)).toEqual(envelope);
+    expect(envelopeToManifest(readUI(envelope)!).surfaces).toEqual({
+      plans: { target: "chat", a2uiSourceVersion: "0.9" },
+    });
+  });
+
   it("returns undefined when there is no envelope", () => {
     expect(readCopilotKitUIEnvelope(undefined)).toBeUndefined();
     expect(readCopilotKitUIEnvelope("copilotkit")).toBeUndefined();
@@ -288,6 +302,12 @@ describe("readCopilotKitUIEnvelope", () => {
       "an unknown surface status",
       withExtension("copilotkit_surfaces", {
         cart: { target: "chat", status: "closed" },
+      }),
+    ],
+    [
+      "an unknown surface source version",
+      withExtension("copilotkit_surfaces", {
+        cart: { target: "chat", a2uiSourceVersion: "1.0" },
       }),
     ],
     [

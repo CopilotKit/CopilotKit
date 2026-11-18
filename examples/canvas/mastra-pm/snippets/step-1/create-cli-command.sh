@@ -1,1 +1,0 @@
-npx create-ag-ui-app@latest

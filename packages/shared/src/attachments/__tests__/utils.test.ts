@@ -4,6 +4,7 @@ import {
   exceedsMaxSize,
   matchesAcceptFilter,
   getSourceUrl,
+  generateVideoThumbnail,
 } from "../utils";
 
 // ---------------------------------------------------------------------------
@@ -210,5 +211,26 @@ describe("getSourceUrl", () => {
 
   it("returns no address for a provider file handle", () => {
     expect(getSourceUrl({ type: "file", value: "file-abc123" })).toBe("");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// generateVideoThumbnail
+// ---------------------------------------------------------------------------
+
+describe("generateVideoThumbnail", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("returns undefined for a file that is not a Blob, such as a React Native file", async () => {
+    vi.stubGlobal("document", { createElement: () => ({}) });
+    const nativeVideo = {
+      name: "clip.mp4",
+      size: 1,
+      type: "video/mp4",
+    } as unknown as File;
+
+    await expect(generateVideoThumbnail(nativeVideo)).resolves.toBeUndefined();
   });
 });

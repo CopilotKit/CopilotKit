@@ -136,6 +136,22 @@ export function createRunEventFinalizer(): RunEventFinalizer {
         terminalEventObserved = true;
         clearOpen();
         break;
+      case EventType.TEXT_MESSAGE_CONTENT:
+      case EventType.TEXT_MESSAGE_CHUNK:
+      case EventType.TOOL_CALL_ARGS:
+      case EventType.TOOL_CALL_CHUNK:
+      case EventType.STATE_SNAPSHOT:
+      case EventType.STATE_DELTA:
+      case EventType.MESSAGES_SNAPSHOT:
+      case EventType.ACTIVITY_SNAPSHOT:
+      case EventType.ACTIVITY_DELTA:
+      case EventType.RAW:
+      case EventType.CUSTOM:
+      case EventType.STEP_STARTED:
+      case EventType.STEP_FINISHED:
+      case EventType.REASONING_MESSAGE_CONTENT:
+      case EventType.REASONING_MESSAGE_CHUNK:
+      case EventType.REASONING_ENCRYPTED_VALUE:
       default:
         break;
     }

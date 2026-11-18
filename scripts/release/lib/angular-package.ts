@@ -262,7 +262,10 @@ export function createAngularConsumerManifest({
       express: "^5.1.0",
       rxjs: testedRxjs,
       tslib: "^2.8.1",
-      zod: "^3.25.75",
+      // Match the zod major of @copilotkit/angular. @ag-ui/client takes zod as a
+      // peer, so a zod 3 app gets a second client copy and its agents do not
+      // type-check against the one CopilotKit uses.
+      zod: "^4.2.0",
     },
     devDependencies: {
       "@angular/build": support.cli,

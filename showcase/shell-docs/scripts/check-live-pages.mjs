@@ -95,6 +95,36 @@ async function worker() {
   }
 }
 await Promise.all(Array.from({ length: 3 }, worker));
+
+// A framework landing's Markdown (`/<framework>.md`) is the same page as its
+// HTML, so its H1 is the HTML <title>. The built-in agent's landing is the
+// docs home.
+const decode = (s) =>
+  s
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&#x27;|&#39;/g, "'");
+const landings = [...new Set(Object.values(FOLDER_SLUG))].filter(
+  (slug) => slug !== "built-in-agent" && `/${slug}`.includes(filter),
+);
+for (const slug of landings) {
+  const get = (path) =>
+    fetch(base + path, { signal: AbortSignal.timeout(300_000) }).then((res) =>
+      res.ok ? res.text() : "",
+    );
+  try {
+    const [html, md] = await Promise.all([get(`/${slug}`), get(`/${slug}.md`)]);
+    const title = decode(html.match(/<title>([^<]*)<\/title>/)?.[1] ?? "");
+    const h1 = md.match(/^# (.*)$/m)?.[1] ?? "";
+    if (title !== h1) {
+      failures.push(`MD /${slug}.md starts "# ${h1}", the page is "${title}"`);
+    }
+  } catch (err) {
+    failures.push(`ERR /${slug}.md ${err.message}`);
+  }
+  done++;
+}
+
 console.log(failures.sort().join("\n"));
 console.log(`[check-live-pages] ${done - failures.length}/${done} ok`);
 process.exitCode = failures.length ? 1 : 0;

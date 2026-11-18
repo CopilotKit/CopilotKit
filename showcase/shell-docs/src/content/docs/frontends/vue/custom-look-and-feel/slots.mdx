@@ -38,7 +38,7 @@ screen can still submit a message through the existing chat:
 
 ```vue title="SupportChat.vue"
 <script setup lang="ts">
-import { CopilotChat } from "@copilotkit/vue/v2";
+import { CopilotChat } from "@copilotkit/vue";
 </script>
 
 <template>
@@ -67,7 +67,7 @@ import {
   CopilotChat,
   CopilotChatAssistantMessage,
   CopilotChatMessageView,
-} from "@copilotkit/vue/v2";
+} from "@copilotkit/vue";
 </script>
 
 <template>
@@ -122,13 +122,14 @@ alone:
 ## Tailwind Classes
 
 Add `class` to the chat component you compose inside the scoped slot, or add
-classes to your own markup:
+classes to your own markup. With Tailwind v4, add `!` to a class on a
+CopilotKit component, so that it overrides the CopilotKit CSS:
 
 ```vue
 <CopilotChat>
   <template #message-view="{ messages, isRunning }">
     <CopilotChatMessageView
-      class="rounded-xl bg-gray-50 p-4 dark:bg-gray-900"
+      class="rounded-xl! bg-gray-50! p-4! dark:bg-gray-900!"
       :messages="messages"
       :is-running="isRunning"
     />

@@ -17,7 +17,7 @@ const recipes = [
   ...globSync("showcase/{*,integrations/*}/Dockerfile", { cwd: root }).filter(
     (path) => path !== "showcase/pocketbase/Dockerfile",
   ),
-  ...starters.map(({ slug }) => `examples/integrations/${slug}/Dockerfile`),
+  ...starters.map(({ slug }) => `examples/starters/${slug}/Dockerfile`),
 ];
 
 test("covers every Showcase Node image and the twelve deployed starters", () => {
@@ -200,7 +200,7 @@ test("PR starter filter executes Bash/jq with its exact standalone context", () 
     detectSteps.find((step) => step.id === "filter")!.with!.filters!,
   ) as Record<string, string[]>;
   expect(filters.starter_langgraph_js).toEqual([
-    "examples/integrations/langgraph-js/**",
+    "examples/starters/langgraph-js/**",
   ]);
   const result = runBuildMatrix(
     ["starter_langgraph_js"],
@@ -210,12 +210,12 @@ test("PR starter filter executes Bash/jq with its exact standalone context", () 
   expect(result.matrix).toEqual([
     expect.objectContaining({
       dispatch_name: "starter-langgraph-js",
-      context: "examples/integrations/langgraph-js",
+      context: "examples/starters/langgraph-js",
       dockerfile: "",
     }),
   ]);
   expect(matrixRecipePaths(result.matrix)).toEqual([
-    "examples/integrations/langgraph-js/Dockerfile",
+    "examples/starters/langgraph-js/Dockerfile",
   ]);
   expect(result.has_changes).toBe("true");
   expect(result.needs_angular).toBe("false");

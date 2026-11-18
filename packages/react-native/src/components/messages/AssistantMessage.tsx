@@ -2,12 +2,15 @@ import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import type { ViewStyle } from "react-native";
 import { CopilotMarkdown } from "../Markdown";
+import {
+  useMarkdownRenderer,
+  isNativeComponentRenderer,
+} from "../MarkdownRendererContext";
 import { TypingIndicator } from "./TypingIndicator";
 import { formatTimestamp } from "./utils";
 
 // ─── Colors ──────────────────────────────────────────────────────────────────
 const ASSISTANT_BUBBLE_BG = "#F0F0F0";
-const ASSISTANT_TEXT_COLOR = "#1A1A1A";
 const TIMESTAMP_COLOR = "#999999";
 
 /**
@@ -36,10 +39,27 @@ export function AssistantMessage({
   timestamp,
   style,
 }: AssistantMessageProps) {
+  // Honor a provider-level markdown renderer (CopilotKitProvider's
+  // `markdownRenderer` prop), falling back to the built-in CopilotMarkdown.
+  // This is the React Native arm of the slot -> provider -> built-in
+  // resolution order documented in the migration guide.
+  const provided = useMarkdownRenderer();
   return (
     <View style={[styles.container, style]}>
       <View style={styles.bubble}>
-        {content ? <CopilotMarkdown content={content} /> : null}
+        {content ? (
+          isNativeComponentRenderer(provided) ? (
+            React.createElement(provided, { content, isStreaming: isLoading })
+          ) : provided ? (
+            <CopilotMarkdown
+              content={content}
+              style={provided.style}
+              streamingAnimation={provided.animate}
+            />
+          ) : (
+            <CopilotMarkdown content={content} />
+          )
+        ) : null}
         {isLoading ? <TypingIndicator /> : null}
       </View>
       {timestamp && (

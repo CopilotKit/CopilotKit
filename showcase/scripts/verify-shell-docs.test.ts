@@ -2,7 +2,8 @@ import { describe, it, expect } from "vitest";
 import { runBuildCheck } from "./verify-shell-docs.js";
 import { checkInlineDemoRefs } from "./verify-shell-docs.js";
 import { checkSnippetRegions } from "./verify-shell-docs.js";
-import { checkInternalLinks } from "./verify-shell-docs.js";
+import { buildKnownRoutes, checkInternalLinks } from "./verify-shell-docs.js";
+import type { SiteFiles } from "./verify-shell-docs.js";
 import { checkImportPaths } from "./verify-shell-docs.js";
 import { checkComponentImports } from "./verify-shell-docs.js";
 import { checkClaudeQuickstarts } from "./verify-shell-docs.js";
@@ -169,27 +170,102 @@ describe("checkUnexpectedMultiFileRegionSources", () => {
   });
 });
 
+const NO_SITE: SiteFiles = {
+  sitemap: [],
+  docsFiles: [],
+  referenceFiles: [],
+  catalogComponents: [],
+  publicFiles: [],
+  scopes: [],
+};
+const PASS = { name: "internal-links", status: "pass", messages: [] };
+
+function checkLinks(links: string[], site: Partial<SiteFiles>, page = "a.mdx") {
+  return checkInternalLinks({
+    pages: [
+      { path: page, body: links.map((link) => `[link](${link})`).join("\n") },
+    ],
+    knownRoutes: buildKnownRoutes({ ...NO_SITE, ...site }),
+  });
+}
+
+function deadLinks(...messages: string[]) {
+  return { name: "internal-links", status: "fail", messages };
+}
+
 describe("checkInternalLinks", () => {
   it("fails when an internal link does not resolve to a known page", () => {
-    const pages = [{ path: "a.mdx", body: "[link](/does-not-exist)" }];
-    const knownRoutes = new Set(["/a", "/b"]);
-    const result = checkInternalLinks({ pages, knownRoutes });
-    expect(result.status).toBe("fail");
-    expect(result.messages.join(" ")).toContain("/does-not-exist");
+    expect(checkLinks(["/does-not-exist"], { sitemap: ["/a", "/b"] })).toEqual(
+      deadLinks('a.mdx: dead link "/does-not-exist"'),
+    );
   });
 
   it("ignores external links", () => {
-    const pages = [{ path: "a.mdx", body: "[link](https://example.com)" }];
-    const knownRoutes = new Set<string>();
-    const result = checkInternalLinks({ pages, knownRoutes });
-    expect(result.status).toBe("pass");
+    expect(checkLinks(["https://example.com"], {})).toEqual(PASS);
   });
 
   it("strips fragments and queries before resolution", () => {
-    const pages = [{ path: "a.mdx", body: "[link](/a#section?q=1)" }];
-    const knownRoutes = new Set(["/a"]);
-    const result = checkInternalLinks({ pages, knownRoutes });
-    expect(result.status).toBe("pass");
+    expect(checkLinks(["/a#section?q=1"], { sitemap: ["/a"] })).toEqual(PASS);
+  });
+
+  it("passes for a page that the sitemap lists at its own URL", () => {
+    const site = {
+      sitemap: ["/mastra/background-tasks"],
+      docsFiles: ["integrations/mastra/background-tasks.mdx"],
+    };
+    expect(checkLinks(["/mastra/background-tasks"], site)).toEqual(PASS);
+  });
+
+  it("passes for docs and reference pages linked by their file path", () => {
+    const site = {
+      docsFiles: ["(shared)/(other)/telemetry/index.mdx", "channels/tools.mdx"],
+      referenceFiles: ["index.mdx", "hooks/useAgent.mdx"],
+    };
+    const links = [
+      "/telemetry",
+      "/channels/tools",
+      "/reference",
+      "/reference/hooks/useAgent",
+    ];
+    expect(checkLinks(links, site)).toEqual(PASS);
+  });
+
+  it("knows the catalog's component pages by slug, and the files in public", () => {
+    const site = {
+      catalogComponents: ["TextField"],
+      publicFiles: ["images/cloud-hosted/ready.png"],
+    };
+    const links = [
+      "/generative-ui/components/standard-catalog/text-field",
+      "/generative-ui/components/standard-catalog/textfield",
+      "/images/cloud-hosted/ready.png",
+    ];
+    expect(checkLinks(links, site)).toEqual(
+      deadLinks(
+        'a.mdx: dead link "/generative-ui/components/standard-catalog/textfield"',
+      ),
+    );
+  });
+
+  it("accepts a frontend and a framework in front of a page, and no other segment", () => {
+    const site = {
+      docsFiles: ["frontend-tools.mdx"],
+      scopes: ["vue", "mastra"],
+    };
+    const links = ["/vue/mastra/frontend-tools", "/langroid/frontend-tools"];
+    expect(checkLinks(links, site)).toEqual(
+      deadLinks('a.mdx: dead link "/langroid/frontend-tools"'),
+    );
+  });
+
+  it("opens a channel guide link in the reader's channel, Slack and Teams", () => {
+    const page = "channels/capabilities.mdx";
+    const both = { sitemap: ["/slack/connect", "/teams/connect"] };
+    const slackOnly = { sitemap: ["/slack/connect"] };
+    expect(checkLinks(["/connect"], both, page)).toEqual(PASS);
+    expect(checkLinks(["/connect"], slackOnly, page)).toEqual(
+      deadLinks('channels/capabilities.mdx: dead link "/connect"'),
+    );
   });
 });
 
@@ -260,17 +336,49 @@ describe("checkComponentImports", () => {
   });
 });
 
+// The Next.js frontend that both Claude quickstarts share. Only the agent name
+// differs between the Python page and the TypeScript page.
+function frontendSnippets(agentName: string): string {
+  return `
+    \`\`\`bash
+    curl http://localhost:8000/health
+    npm install @copilotkit/runtime @copilotkit/react-core @ag-ui/client
+    \`\`\`
+
+    \`\`\`ts title="app/api/copilotkit/route.ts"
+    import { HttpAgent } from "@ag-ui/client";
+    import { CopilotKitRuntime, createCopilotKitRuntimeHandler } from "@copilotkit/runtime";
+    const runtime = new CopilotKitRuntime({ agents: { ${agentName}: new HttpAgent({ url: process.env.AGENT_URL ?? "http://localhost:8000" }) } });
+    const handler = createCopilotKitRuntimeHandler({ runtime, basePath: "/api/copilotkit", mode: "single-route" });
+    export const POST = (req: NextRequest) => handler(req);
+    \`\`\`
+
+    \`\`\`tsx title="app/providers.tsx"
+    import { CopilotKitProvider } from "@copilotkit/react-core";
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" agentId="${agentName}">{children}</CopilotKitProvider>
+    \`\`\`
+
+    \`\`\`tsx title="app/layout.tsx"
+    import { Providers } from "./providers";
+    <Providers>{children}</Providers>
+    \`\`\`
+
+    \`\`\`tsx title="app/page.tsx"
+    import { CopilotSidebar } from "@copilotkit/react-core";
+    \`\`\``;
+}
+
 describe("checkClaudeQuickstarts", () => {
   const validPythonQuickstart = `
 <TailoredContent className="step" id="agent">
   <TailoredContentOption id="starter" title="Start from scratch" description="starter">
     npx copilotkit@latest init --framework claude-sdk-python
-    - \`src/agent_server.py\` - backend
-    - \`src/agents/claude_agent_sdk_adapter.py\` - adapter
-    - \`src/app/api/copilotkit/route.ts\` - runtime
+    - \`agent/main.py\` - agent server
+    - \`agent/src/agent.py\` - agent
+    - \`src/app/api/copilotkit/[[...slug]]/route.ts\` - runtime
     ANTHROPIC_API_KEY=your_anthropic_api_key
     ANTHROPIC_MODEL=claude-opus-4-8
-    AGENT_URL=http://localhost:8000
+    The runtime route defaults to \`AGENT_URL=http://localhost:8000\`.
   </TailoredContentOption>
   <TailoredContentOption id="bring-your-own" title="Use an existing agent" description="byoa">
     \`\`\`bash
@@ -300,28 +408,7 @@ describe("checkClaudeQuickstarts", () => {
                 yield EventEncoder().encode(RunErrorEvent(type=EventType.RUN_ERROR, message=str(exc)))
         return StreamingResponse(event_stream(), media_type="text/event-stream")
     \`\`\`
-
-    \`\`\`bash
-    curl http://localhost:8000/health
-    npm install @copilotkit/runtime @copilotkit/react-core @ag-ui/client
-    \`\`\`
-
-    \`\`\`ts title="app/api/copilotkit/route.ts"
-    import { HttpAgent } from "@ag-ui/client";
-    import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime/v2";
-    const runtime = new CopilotRuntime({ agents: { claude_agent: new HttpAgent({ url: process.env.AGENT_URL ?? "http://localhost:8000" }) } });
-    const handler = createCopilotRuntimeHandler({ runtime, basePath: "/api/copilotkit", mode: "single-route" });
-    export const POST = (req: NextRequest) => handler(req);
-    \`\`\`
-
-    \`\`\`tsx title="app/layout.tsx"
-    import { CopilotKit } from "@copilotkit/react-core/v2";
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="claude_agent" />
-    \`\`\`
-
-    \`\`\`tsx title="app/page.tsx"
-    import { CopilotSidebar } from "@copilotkit/react-core/v2";
-    \`\`\`
+${frontendSnippets("claude_agent")}
   </TailoredContentOption>
 </TailoredContent>
 
@@ -334,12 +421,13 @@ describe("checkClaudeQuickstarts", () => {
 <TailoredContent className="step" id="agent">
   <TailoredContentOption id="starter" title="Start from scratch" description="starter">
     npx copilotkit@latest init --framework claude-sdk-typescript
-    - \`src/agent_server.ts\` - backend
-    - \`src/app/api/copilotkit/route.ts\` - runtime
+    - \`agent/src/server.ts\` - agent server
+    - \`agent/src/agent.ts\` - agent
+    - \`src/app/api/copilotkit/[[...slug]]/route.ts\` - runtime
     - \`src/app/page.tsx\` - frontend
     ANTHROPIC_API_KEY=your_anthropic_api_key
     CLAUDE_MODEL=claude-opus-4-8
-    AGENT_URL=http://localhost:8000
+    - \`AGENT_URL\` is how the runtime route reaches the agent. The default is \`http://localhost:8000\`.
   </TailoredContentOption>
   <TailoredContentOption id="bring-your-own" title="Use an existing agent" description="byoa">
     \`\`\`bash
@@ -366,28 +454,7 @@ describe("checkClaudeQuickstarts", () => {
     app.get("/health", (_req, res) => res.json({ status: "ok" }));
     app.listen(process.env.AGENT_PORT ?? 8000);
     \`\`\`
-
-    \`\`\`bash
-    curl http://localhost:8000/health
-    npm install @copilotkit/runtime @copilotkit/react-core @ag-ui/client
-    \`\`\`
-
-    \`\`\`ts title="app/api/copilotkit/route.ts"
-    import { HttpAgent } from "@ag-ui/client";
-    import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime/v2";
-    const runtime = new CopilotRuntime({ agents: { claude_agent: new HttpAgent({ url: process.env.AGENT_URL ?? "http://localhost:8000" }) } });
-    const handler = createCopilotRuntimeHandler({ runtime, basePath: "/api/copilotkit", mode: "single-route" });
-    export const POST = (req: NextRequest) => handler(req);
-    \`\`\`
-
-    \`\`\`tsx title="app/layout.tsx"
-    import { CopilotKit } from "@copilotkit/react-core/v2";
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="claude_agent" />
-    \`\`\`
-
-    \`\`\`tsx title="app/page.tsx"
-    import { CopilotSidebar } from "@copilotkit/react-core/v2";
-    \`\`\`
+${frontendSnippets("default")}
   </TailoredContentOption>
 </TailoredContent>
 
@@ -396,7 +463,13 @@ describe("checkClaudeQuickstarts", () => {
 <FrameworkSetup concept="agent-setup" />
 `;
 
-  function runWith(overrides: Partial<Record<string, string>> = {}) {
+  interface QuickstartOverrides {
+    python?: string;
+    typescript?: string;
+    starterFileExists?: (framework: string, filePath: string) => boolean;
+  }
+
+  function runWith(overrides: QuickstartOverrides = {}) {
     return checkClaudeQuickstarts({
       pages: [
         {
@@ -410,7 +483,7 @@ describe("checkClaudeQuickstarts", () => {
       ],
       setupSource: () =>
         "### Bridge Claude Agent SDK to AG-UI\n```ts\nClaudeAgentAdapter\n```",
-      starterFileExists: () => true,
+      starterFileExists: overrides.starterFileExists ?? (() => true),
     });
   }
 
@@ -420,26 +493,83 @@ describe("checkClaudeQuickstarts", () => {
     expect(result.status).toBe("pass");
   });
 
-  it("fails when a documented starter file is not present in the extracted starter", () => {
-    const result = checkClaudeQuickstarts({
-      pages: [
-        {
-          path: "integrations/claude-sdk-python/quickstart.mdx",
-          body: validPythonQuickstart,
-        },
-        {
-          path: "integrations/claude-sdk-typescript/quickstart.mdx",
-          body: validTypeScriptQuickstart,
-        },
-      ],
-      setupSource: () =>
-        "### Bridge Claude Agent SDK to AG-UI\n```ts\nClaudeAgentAdapter\n```",
-      starterFileExists: (_slug, filePath) =>
-        filePath !== "src/agent_server.py",
+  it("fails when a documented starter file is not in the starter", () => {
+    const result = runWith({
+      starterFileExists: (_framework, filePath) => filePath !== "agent/main.py",
     });
 
-    expect(result.status).toBe("fail");
-    expect(result.messages.join(" ")).toContain("src/agent_server.py");
+    expect(result.messages).toEqual([
+      "integrations/claude-sdk-python/quickstart.mdx: documented starter file not found in examples/starters/claude-sdk-python: agent/main.py",
+    ]);
+  });
+
+  it("fails when the page names the AGENT_URL default only in the route snippet", () => {
+    const result = runWith({
+      python: validPythonQuickstart.replace(
+        "    The runtime route defaults to `AGENT_URL=http://localhost:8000`.\n",
+        "",
+      ),
+    });
+
+    expect(result.messages).toEqual([
+      "integrations/claude-sdk-python/quickstart.mdx: missing AGENT_URL default http://localhost:8000",
+    ]);
+  });
+
+  it("fails when the runtime route uses the removed CopilotRuntime names from /v2", () => {
+    const result = runWith({
+      python: validPythonQuickstart
+        .replace(/CopilotKitRuntime/g, "CopilotRuntime")
+        .replace(
+          'from "@copilotkit/runtime";',
+          'from "@copilotkit/runtime/v2";',
+        ),
+    });
+
+    expect(result.messages).toEqual([
+      "integrations/claude-sdk-python/quickstart.mdx: app/api/copilotkit/route.ts missing CopilotKitRuntime",
+      "integrations/claude-sdk-python/quickstart.mdx: app/api/copilotkit/route.ts missing createCopilotKitRuntimeHandler",
+      "integrations/claude-sdk-python/quickstart.mdx: app/api/copilotkit/route.ts missing root runtime entrypoint",
+    ]);
+  });
+
+  it("fails when the provider imports the /v2 React entrypoint", () => {
+    const result = runWith({
+      python: validPythonQuickstart.replace(
+        'import { CopilotKitProvider } from "@copilotkit/react-core";',
+        'import { CopilotKitProvider } from "@copilotkit/react-core/v2";',
+      ),
+    });
+
+    expect(result.messages).toEqual([
+      "integrations/claude-sdk-python/quickstart.mdx: app/providers.tsx missing root React entrypoint",
+    ]);
+  });
+
+  it("fails when the provider targets an agent that the runtime route does not register", () => {
+    const result = runWith({
+      typescript: validTypeScriptQuickstart.replace(
+        'agentId="default"',
+        'agentId="claude_agent"',
+      ),
+    });
+
+    expect(result.messages).toEqual([
+      'integrations/claude-sdk-typescript/quickstart.mdx: app/providers.tsx missing agentId="default"',
+    ]);
+  });
+
+  it("fails when the layout does not render the providers", () => {
+    const result = runWith({
+      python: validPythonQuickstart.replace(
+        "<Providers>{children}</Providers>",
+        "{children}",
+      ),
+    });
+
+    expect(result.messages).toEqual([
+      "integrations/claude-sdk-python/quickstart.mdx: app/layout.tsx missing Providers wrapper",
+    ]);
   });
 
   it("fails when the TypeScript BYOA server negotiates protobuf but writes SSE bytes", () => {

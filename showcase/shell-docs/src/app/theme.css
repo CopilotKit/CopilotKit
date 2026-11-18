@@ -487,6 +487,16 @@ html .copilotKitChat:hover ::-webkit-scrollbar-thumb {
   --fd-header-height: 40px;
 }
 
+/*
+ * The Home Layout's navbar sticks under the release-candidate banner
+ * (src/components/channel-banner.tsx), as Spacious' header does. Fumadocs'
+ * Banner sets --fd-banner-height. Without the banner it is unset, and the
+ * navbar keeps top: 0.
+ */
+#nd-nav {
+  top: var(--fd-banner-height, 0px);
+}
+
 @layer utilities {
   /* Code blocks sit in a quiet grey well: one of grey's accent jobs. */
   /* Code is a white window (ink in dark mode) on its stage (src/components/brand/stage.tsx). */

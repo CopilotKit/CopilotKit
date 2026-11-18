@@ -168,7 +168,7 @@ test("creates an exact packed Angular consumer without framework overrides", () 
       express: "^5.1.0",
       rxjs: "7.8.1",
       tslib: "^2.8.1",
-      zod: "^3.25.75",
+      zod: "^4.2.0",
     },
     devDependencies: {
       "@angular/build": "22.0.0",

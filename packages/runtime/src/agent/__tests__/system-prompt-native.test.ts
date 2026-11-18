@@ -1,77 +1,73 @@
 import { describe, expect, it } from "vitest";
-import { MockLanguageModelV3, simulateReadableStream } from "ai/test";
-import { EventType } from "@ag-ui/client";
-import { BuiltInAgent } from "../index";
-import { collectEvents, createDefaultInput } from "./agent-test-helpers";
+import type { RunAgentInput } from "@ag-ui/client";
+import { runClassicAgent } from "./agent-test-helpers";
+import type { ClassicTestConfig } from "./agent-test-helpers";
 
-type StreamPart =
-  Awaited<
-    ReturnType<MockLanguageModelV3["doStream"]>
-  >["stream"] extends ReadableStream<infer Part>
-    ? Part
-    : never;
-
-function textModel() {
-  return new MockLanguageModelV3({
-    doStream: async () => ({
-      stream: simulateReadableStream<StreamPart>({
-        chunks: [
-          { type: "text-start", id: "t1" },
-          { type: "text-delta", id: "t1", delta: "Hi!" },
-          { type: "text-end", id: "t1" },
-          {
-            type: "finish",
-            finishReason: { unified: "stop", raw: "stop" },
-            usage: {
-              inputTokens: {
-                total: 1,
-                noCache: 1,
-                cacheRead: 0,
-                cacheWrite: 0,
-              },
-              outputTokens: { total: 1, text: 1, reasoning: 0 },
-            },
-          },
-        ],
-      }),
-    }),
-  });
+/** Runs a classic agent once and returns the one model request it made. */
+async function firstRequest(
+  config: ClassicTestConfig,
+  input?: Partial<RunAgentInput>,
+) {
+  const { requests } = await runClassicAgent(config, [{ text: "Hi!" }], input);
+  expect(requests).toHaveLength(1);
+  return requests[0];
 }
 
-describe("BuiltInAgent system prompt through the real streamText", () => {
+describe("BuiltInAgent system prompt through the real chat()", () => {
   it("sends the prompt when the run has no conversation messages", async () => {
-    const model = textModel();
-    const agent = new BuiltInAgent({ model, prompt: "Greet the user." });
+    const request = await firstRequest({ prompt: "Greet the user." });
 
-    const events = await collectEvents(agent.run(createDefaultInput()));
-
-    expect(events.some((event) => event.type === EventType.RUN_ERROR)).toBe(
-      false,
-    );
-    expect(model.doStreamCalls).toHaveLength(1);
-    expect(model.doStreamCalls[0].prompt).toEqual([
-      { role: "system", content: "Greet the user." },
-    ]);
+    expect(request.systemPrompts).toEqual(["Greet the user."]);
+    expect(request.messages).toEqual([]);
   });
 
   it("sends the prompt ahead of the conversation", async () => {
-    const model = textModel();
-    const agent = new BuiltInAgent({ model, prompt: "Be brief." });
-
-    const events = await collectEvents(
-      agent.run(
-        createDefaultInput({
-          messages: [{ id: "user", role: "user", content: "Hello" }],
-        }),
-      ),
+    const request = await firstRequest(
+      { prompt: "Be brief." },
+      { messages: [{ id: "user", role: "user", content: "Hello" }] },
     );
 
-    expect(events.some((event) => event.type === EventType.RUN_ERROR)).toBe(
-      false,
+    expect(request.systemPrompts).toEqual(["Be brief."]);
+    expect(request.messages).toEqual([{ role: "user", content: "Hello" }]);
+  });
+
+  it("sends forwarded system and developer messages as system prompts after the agent prompt", async () => {
+    const request = await firstRequest(
+      {
+        prompt: "Be brief.",
+        forwardSystemMessages: true,
+        forwardDeveloperMessages: true,
+      },
+      {
+        messages: [
+          { id: "system", role: "system", content: "Answer in French." },
+          { id: "developer", role: "developer", content: "Use metric units." },
+          { id: "user", role: "user", content: "Hello" },
+        ],
+      },
     );
-    expect(model.doStreamCalls[0].prompt).toEqual([
-      { role: "system", content: "Be brief." },
-      { role: "user", content: [{ type: "text", text: "Hello" }] },
+
+    expect(request.systemPrompts).toEqual([
+      "Be brief.",
+      "Answer in French.",
+      "Use metric units.",
     ]);
+    expect(request.messages).toEqual([{ role: "user", content: "Hello" }]);
+  });
+
+  it("drops system and developer messages unless forwarding is on", async () => {
+    const request = await firstRequest(
+      { prompt: "Be brief." },
+      {
+        messages: [
+          { id: "system", role: "system", content: "Answer in French." },
+          { id: "developer", role: "developer", content: "Use metric units." },
+          { id: "user", role: "user", content: "Hello" },
+        ],
+      },
+    );
+
+    expect(request.systemPrompts).toEqual(["Be brief."]);
+    expect(request.messages).toEqual([{ role: "user", content: "Hello" }]);
   });
 });

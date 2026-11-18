@@ -13,7 +13,7 @@ description: "Read agent.state with useAgent and render it in your main view or 
 ```vue title="src/components/Canvas.vue"
 <script setup lang="ts">
 import { computed, watchEffect } from "vue";
-import { useAgent, UseAgentUpdate } from "@copilotkit/vue/v2";
+import { useAgent, UseAgentUpdate } from "@copilotkit/vue";
 
 type CanvasState = {
   title: string;
@@ -76,7 +76,7 @@ The agent lives on `CopilotKitProvider`, so the chat surface and your main-view 
 
 ```vue title="src/App.vue"
 <script setup lang="ts">
-import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue/v2";
+import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue";
 import Canvas from "./components/Canvas.vue";
 </script>
 
@@ -99,11 +99,21 @@ import Canvas from "./components/Canvas.vue";
 The same agent exposes `setState`, so your canvas can be interactive rather than a read-only mirror. A click handler can push a new value that the agent reads on its next turn:
 
 ```ts
+// Inside <script setup lang="ts"> of Canvas.vue
+import { useAgent } from "@copilotkit/vue";
+
+type CanvasState = {
+  title: string;
+  items: { id: string; label: string; done: boolean }[];
+};
+
+const { agent } = useAgent();
+
 function toggleItem(id: string) {
   const currentAgent = agent.value;
   if (!currentAgent) return;
 
-  const current = (currentAgent.state ?? {}) as Partial<CanvasState>;
+  const current: Partial<CanvasState> = currentAgent.state ?? {};
   currentAgent.setState({
     ...current,
     items: (current.items ?? []).map((item) =>

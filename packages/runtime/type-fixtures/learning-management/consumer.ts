@@ -1,7 +1,4 @@
-import type {
-  CopilotKitIntelligence,
-  experimental,
-} from "@copilotkit/runtime/v2";
+import type { CopilotKitIntelligence, experimental } from "@copilotkit/runtime";
 
 type IsAny<T> = 0 extends 1 & T ? true : false;
 type ExpectFalse<T extends false> = T;
@@ -59,7 +56,7 @@ import {
   learningCandidateDetailSchema,
   learningCandidateReviewSchema,
   learningInsightEvidenceSchema,
-} from "../../src/v2/runtime/intelligence-platform/learning-management";
+} from "../../src/runtime/intelligence-platform/learning-management";
 export const schemas: [
   z.ZodType<experimental.LearningContainer>,
   z.ZodType<experimental.LearningContainerPage>,

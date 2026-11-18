@@ -81,6 +81,20 @@ your agent, tools, or business logic into CopilotKit.
 | Tools and approval business logic      | Runtime registration, health, and reconnects  |
 | Deployment, logs, and application auth | Conversation-history delivery to the listener |
 
+To see what Slack, Teams, Discord, and WhatsApp each support before you build, read [Capabilities and limits](/channels/capabilities).
+
+## Channels or the Vercel Chat SDK?
+
+Both put an agent into Slack and Microsoft Teams. The Vercel Chat SDK is an open-source TypeScript library for chat bots. One codebase serves Slack, Teams, Google Chat, Discord, Telegram, WhatsApp, and more. You run its webhook handlers and a state store (Redis or PostgreSQL in production), and you write the bot logic. It posts any text stream, for example from the AI SDK.
+
+| Pick the Chat SDK when | Pick Channels when |
+| --- | --- |
+| You write the bot logic yourself in TypeScript. | You already have an agent on LangGraph, Mastra, or another framework that speaks [AG-UI](/agentic-protocols/ag-ui). |
+| You want one codebase for many chat platforms. | The same agent also runs in your web app with CopilotKit. |
+| You run the webhooks, the platform credentials, and the state store. | CopilotKit Intelligence holds the platform credentials, the delivery state, and the reconnects. |
+
+To build your own channel runner instead, use the open-source Channels SDK. You then run the durable-data layer yourself, as described above.
+
 ## Production self-hosting: Run CopilotKit Intelligence in your own infrastructure
 
 Production self-hosting keeps your Channels configuration, provider credentials,

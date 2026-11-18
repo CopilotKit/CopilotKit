@@ -6,7 +6,7 @@ description: "React hook that returns a renderer function for tool calls in the 
 ## Overview
 
 <Callout type="warn" title="Same name, different API than v1">
-  The v2 `useRenderToolCall` (this page, from `@copilotkit/react-core/v2`) is a **no-argument hook** that *returns* a renderer function for consuming tool calls. It is **not** the v1 [`useRenderToolCall`](/reference/v1/hooks/useRenderToolCall), which takes a `{ name, parameters, render }` config object to *register* a renderer. To register renderers for existing backend tools in v2, use [`useRenderTool`](/reference/hooks/useRenderTool).
+  The 2.0 `useRenderToolCall` (this page, from `@copilotkit/react-core`) is a **no-argument hook** that *returns* a renderer function for consuming tool calls. It is **not** the v1 `useRenderToolCall`, which takes a `{ name, parameters, render }` config object to *register* a renderer. To register renderers for existing backend tools in 2.0, use [`useRenderTool`](/reference/hooks/useRenderTool).
 </Callout>
 
 `useRenderToolCall` returns a renderer function that maps tool calls to React elements. The returned function:
@@ -23,17 +23,25 @@ This hook is primarily used by chat UI components to display visual feedback for
 ## Signature
 
 ```tsx
-import { useRenderToolCall } from "@copilotkit/react-core/v2";
+import type { ReactElement } from "react";
+import {
+  useRenderToolCall,
+  type ToolCall,
+  type ToolMessage,
+} from "@copilotkit/react-core";
 
-function useRenderToolCall(): (
-  props: UseRenderToolCallProps,
-) => React.ReactElement | null;
+useRenderToolCall satisfies () => (
+  // UseRenderToolCallProps
+  props: { toolCall: ToolCall; toolMessage?: ToolMessage },
+) => ReactElement | null;
 ```
+
+The props type is named `UseRenderToolCallProps` in the source, but the package does not export it.
 
 ## Return Value
 
 <PropertyReference name="renderer" type="(props: UseRenderToolCallProps) => React.ReactElement | null">
-  A function that accepts tool call props and returns a React element or `null`.
+  A function that accepts tool call props and returns a React element, or `null` when no renderer matches the tool.
 
   <PropertyReference name="props" type="UseRenderToolCallProps" required>
     The input object describing the tool call to render.
@@ -61,7 +69,7 @@ The renderer determines the `ToolCallStatus` based on the inputs:
 
 ## ToolCallStatus
 
-The `ToolCallStatus` enum is exported from `@copilotkit/react-core/v2`:
+The `ToolCallStatus` enum is exported from `@copilotkit/react-core`:
 
 | Value                       | Description                                          |
 | --------------------------- | ---------------------------------------------------- |
@@ -73,23 +81,37 @@ The `ToolCallStatus` enum is exported from `@copilotkit/react-core/v2`:
 
 ### Using the Renderer in a Custom Chat Component
 
+An assistant message lists its tool calls in `toolCalls`. The result of each call arrives later as a `tool` message whose `toolCallId` matches the call.
+
 ```tsx
-function CustomChatMessage({ message }) {
+import {
+  useAgent,
+  useRenderToolCall,
+  type ToolMessage,
+} from "@copilotkit/react-core";
+
+function ToolCallList() {
+  const { agent } = useAgent();
   const renderToolCall = useRenderToolCall();
 
-  if (message.type === "tool_call") {
-    // Returns your named renderer, the wildcard ("*") renderer, or null
-    // when neither matches.
-    const element = renderToolCall({
-      toolCall: message.toolCall,
-      toolMessage: message.toolMessage,
-    });
-    if (!element) return null;
-
-    return <div className="tool-call-container">{element}</div>;
-  }
-
-  return <div>{message.content}</div>;
+  return (
+    <div>
+      {agent.messages.map((message) =>
+        message.role === "assistant"
+          ? message.toolCalls?.map((toolCall) => {
+              const toolMessage = agent.messages.find(
+                (candidate): candidate is ToolMessage =>
+                  candidate.role === "tool" &&
+                  candidate.toolCallId === toolCall.id,
+              );
+              // Your registered renderer, the wildcard ("*") renderer,
+              // or null when neither is registered.
+              return renderToolCall({ toolCall, toolMessage });
+            })
+          : null,
+      )}
+    </div>
+  );
 }
 ```
 

@@ -2,7 +2,9 @@ import { defineConfig } from "tsdown";
 
 export default defineConfig([
   {
-    entry: ["src/index.ts"],
+    // `mount` holds no runtime import of `index`, so adapters can import it
+    // eagerly and still load the Inspector itself as a lazy chunk.
+    entry: { index: "src/index.ts", mount: "src/shell/mount.ts" },
     format: ["esm", "cjs"],
     dts: true,
     sourcemap: true,
@@ -35,8 +37,6 @@ export default defineConfig([
         "lit/decorators.js": "LitDecorators",
         "lit/directives/style-map.js": "LitDirectivesStyleMap",
         "lit/directives/unsafe-html.js": "LitDirectivesUnsafeHtml",
-        marked: "marked",
-        lucide: "lucide",
         "@copilotkit/core": "CopilotKitCore",
         "@copilotkit/shared": "CopilotKitShared",
       };

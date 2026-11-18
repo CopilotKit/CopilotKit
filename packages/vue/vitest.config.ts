@@ -6,18 +6,23 @@ export default defineConfig({
   plugins: [vue()],
   test: {
     environment: "jsdom",
-    setupFiles: ["./src/v2/__tests__/setup.ts"],
+    setupFiles: ["./src/__tests__/setup.ts"],
     include: ["**/__tests__/**/*.test.ts"],
     globals: true,
     reporters: [["default", { summary: false }]],
   },
   resolve: {
-    alias: {
-      "@": resolve(__dirname, "./src"),
-      "@copilotkit/web-inspector": resolve(
-        __dirname,
-        "./src/v2/__tests__/mocks/web-inspector.ts",
-      ),
-    },
+    // Exact match, so the real `@copilotkit/web-inspector/mount` subpath
+    // still resolves while the Inspector bundle itself is mocked.
+    alias: [
+      { find: "@", replacement: resolve(__dirname, "./src") },
+      {
+        find: /^@copilotkit\/web-inspector$/,
+        replacement: resolve(
+          __dirname,
+          "./src/__tests__/mocks/web-inspector.ts",
+        ),
+      },
+    ],
   },
 });

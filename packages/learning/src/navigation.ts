@@ -50,7 +50,6 @@ function toNavigationType(value: unknown): NavigationType {
  */
 export function installNavigationCapture(params: {
   emit: Emit;
-  routes?: string[];
   redact?: Redactor;
 }) {
   const { emit, redact = createRedactor() } = params;

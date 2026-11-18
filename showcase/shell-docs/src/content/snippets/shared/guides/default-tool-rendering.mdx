@@ -5,7 +5,7 @@ Some tool calls have no renderer of their own, such as MCP tools. To show them i
 - Providing a generic fallback UI for unexpected tools
 
 ```tsx title="app/page.tsx"
-import { useDefaultRenderTool } from "@copilotkit/react-core/v2"; // [!code highlight]
+import { useDefaultRenderTool } from "@copilotkit/react-core"; // [!code highlight]
 // ...
 
 const YourMainContent = () => {
@@ -20,7 +20,7 @@ const YourMainContent = () => {
             {name}
           </span>
           {status === "complete" && result && (
-            <pre>{JSON.stringify(result, null, 2)}</pre>
+            <pre>{result}</pre>
           )}
         </div>
       );
@@ -31,8 +31,8 @@ const YourMainContent = () => {
 ```
 
 <Callout type="info">
-  Unlike [`useRenderTool`](/reference/v2/hooks/useRenderTool) with a `name`,
+  Unlike [`useRenderTool`](/reference/hooks/useRenderTool) with a `name`,
   which targets one tool,
-  [`useDefaultRenderTool`](/reference/v2/hooks/useDefaultRenderTool) catches
+  [`useDefaultRenderTool`](/reference/hooks/useDefaultRenderTool) catches
   **all** tools that have no renderer of their own.
 </Callout>

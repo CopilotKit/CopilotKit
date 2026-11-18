@@ -1,7 +1,7 @@
-import { describe, it, expect } from "vitest";
+import { afterEach, describe, it, expect, vi } from "vitest";
 import { convertInputToTanStackAI } from "../converters/tanstack";
 import { createDefaultInput } from "./agent-test-helpers";
-import type { Message, InputContent } from "@ag-ui/client";
+import type { Message, InputContent, ToolMessage } from "@ag-ui/client";
 
 /**
  * Helper: build a user message with the given content parts, run through
@@ -9,7 +9,7 @@ import type { Message, InputContent } from "@ag-ui/client";
  */
 function convertUserContent(content: string | InputContent[]) {
   const input = createDefaultInput({
-    messages: [{ role: "user", content } as Message],
+    messages: [{ id: "u1", role: "user", content }],
   });
   const { messages } = convertInputToTanStackAI(input);
   return messages[0];
@@ -266,13 +266,14 @@ describe("convertInputToTanStackAI — multimodal", () => {
     const input = createDefaultInput({
       messages: [
         {
+          id: "u1",
           role: "user",
           content: [
             { type: "text", text: "Look at this" },
             { type: "image", source: dataSource("imgdata", "image/png") },
           ],
-        } as Message,
-        { role: "assistant", content: "I see an image" } as Message,
+        },
+        { id: "a1", role: "assistant", content: "I see an image" },
       ],
     });
     const { messages } = convertInputToTanStackAI(input);
@@ -280,5 +281,76 @@ describe("convertInputToTanStackAI — multimodal", () => {
     expect(Array.isArray(messages[0].content)).toBe(true);
     // Assistant message should keep string content
     expect(messages[1].content).toBe("I see an image");
+  });
+});
+
+/**
+ * Converts one tool result with `keepToolResultMedia` (BuiltInAgent classic
+ * mode) and returns the converted tool message content.
+ */
+function convertToolResult(content: ToolMessage["content"]) {
+  const input = createDefaultInput({
+    messages: [{ id: "t1", role: "tool", toolCallId: "call-1", content }],
+  });
+  const { messages } = convertInputToTanStackAI(input, {
+    keepToolResultMedia: true,
+  });
+  return messages[0].content;
+}
+
+describe("convertInputToTanStackAI: tool results with keepToolResultMedia", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("joins text parts and puts a URL part's URL on its own line", () => {
+    const content = convertToolResult([
+      { type: "text", text: "ans" },
+      { type: "text", text: "wer" },
+      { type: "image", source: urlSource("https://example.com/x.png") },
+      { type: "text", text: "done" },
+    ]);
+    expect(content).toBe("answer\nhttps://example.com/x.png\ndone");
+  });
+
+  it("keeps inline media as parts after the text", () => {
+    const content = convertToolResult([
+      { type: "text", text: "chart:" },
+      { type: "image", source: dataSource("iVBORw0KGgo=", "image/png") },
+    ]);
+    expect(content).toEqual([
+      { type: "text", content: "chart:" },
+      {
+        type: "image",
+        source: { type: "data", value: "iVBORw0KGgo=", mimeType: "image/png" },
+      },
+    ]);
+  });
+
+  it("returns media alone when the result has no text", () => {
+    const content = convertToolResult([
+      { type: "audio", source: dataSource("UklGRg==", "audio/wav") },
+    ]);
+    expect(content).toEqual([
+      {
+        type: "audio",
+        source: { type: "data", value: "UklGRg==", mimeType: "audio/wav" },
+      },
+    ]);
+  });
+
+  it("drops a provider file handle with a warning and answers with an empty string", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const content = convertToolResult([
+      {
+        type: "document",
+        source: { type: "file", value: "file-abc123" },
+      },
+    ]);
+    expect(content).toBe("");
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0][0]).toContain(
+      "Dropping a document part in a tool result that references a provider file handle",
+    );
   });
 });

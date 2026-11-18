@@ -81,14 +81,14 @@ test("deduplicates a symbol imported twice in one file", () => {
 
 test("the deprecated set is derived from the packages, not listed here", () => {
   const derived = deprecatedSymbolsByImportPath();
+  // In 2.0 the only v1 entrypoints left are the deprecated sdk-js ones; the
+  // react-core and runtime v1 APIs were removed, not deprecated.
   assert.ok(
-    derived.size >= 8,
+    derived.size >= 3,
     `expected the v1 entrypoints, got ${derived.size}`,
   );
-  // The symbol the original incident taught, on both entrypoints that export it.
-  assert.ok(derived.get("@copilotkit/runtime")?.has("LangGraphHttpAgent"));
   assert.ok(
-    derived.get("@copilotkit/runtime/langgraph")?.has("LangGraphHttpAgent"),
+    derived.get("@copilotkit/sdk-js/langchain")?.has("copilotkitEmitState"),
   );
 });
 

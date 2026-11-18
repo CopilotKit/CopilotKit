@@ -143,7 +143,10 @@ export const INLINE_MARKDOWN =
   selector: "div[copilotGenerativeUIMarkdown]",
   imports: [CopilotChatAssistantMessageRenderer],
   template: `
-    <copilot-chat-assistant-message-renderer [content]="text()" />
+    <copilot-chat-assistant-message-renderer
+      [content]="text()"
+      [isStreaming]="streaming() ?? false"
+    />
   `,
   host: { class: "a2ui-markdown", "data-a2ui-std": "" },
 })

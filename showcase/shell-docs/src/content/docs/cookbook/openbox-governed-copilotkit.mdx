@@ -6,7 +6,7 @@ showIcon: true
 doc_type: how-to
 ---
 
-[OpenBox](https://openbox.ai) is a runtime governance layer for AI agents: it sits between your agent and the actions it wants to take, evaluating every tool call against your policies before it executes. This recipe wraps a [CopilotKit](https://www.copilotkit.ai/) V2 runtime and a **LangGraph** agent with OpenBox so each action is governed — allowed, redacted, sent for **human approval**, or blocked — and every decision is streamed back to the browser and rendered as a generative UI card.
+[OpenBox](https://openbox.ai) is a runtime governance layer for AI agents: it sits between your agent and the actions it wants to take, evaluating every tool call against your policies before it executes. This recipe wraps a [CopilotKit](https://www.copilotkit.ai/) runtime and a **LangGraph** agent with OpenBox so each action is governed — allowed, redacted, sent for **human approval**, or blocked — and every decision is streamed back to the browser and rendered as a generative UI card.
 
 The example is a **governed business assistant**: it triages operations queues, drafts customer updates and exception reports, prepares vendor handoffs, issues service credits, and more — ten governed actions in all, each produced by a **governed LLM generation** step. Every request is checked by OpenBox first, so money movement is held for a human Approve/Reject, goal-drifting exports are blocked, and critical payment-control changes halt the session outright.
 
@@ -14,7 +14,7 @@ The example is a **governed business assistant**: it triages operations queues, 
 <Accordion title="In a hurry? Build it with a coding agent — paste this prompt">
 
 ```text
-Add OpenBox runtime governance to a CopilotKit V2 + LangGraph agent so every
+Add OpenBox runtime governance to a CopilotKit + LangGraph agent so every
 tool call is evaluated against policies before it runs. Requirements:
 
 - A TypeScript LangGraph agent (graph id "openbox_copilotkit_agent") built with
@@ -26,8 +26,8 @@ tool call is evaluated against policies before it runs. Requirements:
   `createGovernedCopilotTool` from `@openbox-ai/openbox-sdk/copilotkit`, sharing
   one adapter with the middleware. Put `createOpenBoxGovernanceMiddleware()`
   FIRST in the middleware array, before `copilotkitMiddleware`.
-- A Next.js frontend whose `/api/copilotkit` route hosts a CopilotKit V2
-  `CopilotRuntime` wrapped by `createOpenBoxCopilotRuntime`, with the same
+- A Next.js frontend whose `/api/copilotkit` route hosts a CopilotKit
+  `CopilotKitRuntime` wrapped by `createOpenBoxCopilotRuntime`, with the same
   `selfGovernedToolNames` as the agent. Add a `/api/openbox/approvals/decide`
   route built with `createOpenBoxApprovalRoute` that validates a
   { governanceEventId, decision: "approve" | "reject" } body and posts it back
@@ -59,14 +59,14 @@ Walk me through it step by step, starting with the agent and its governed tools.
 - An **approval route** (`/api/openbox/approvals/decide`) lets the UI post an Approve/Reject decision back to OpenBox Core, which resumes (or halts) the paused tool run.
 - Every decision is appended to an immutable audit trail in OpenBox Core, and each verdict streams to CopilotKit as a **generative UI** governance card alongside the chat.
 
-<img alt="Architecture of the governed stack: the browser's CopilotKit chat calls the CopilotRuntime over /api/copilotkit; the runtime is wrapped by createOpenBoxCopilotRuntime and talks to the LangGraph agent over AG-UI, where the OpenBox governance middleware runs first; both the runtime and the agent send every tool call down to OpenBox Core, which evaluates policies, holds approvals, keeps an immutable audit trail, and returns a verdict (allow, redact, approve, block, or halt); approvals flow from the browser back to OpenBox Core via /api/openbox/approvals/decide." src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNzYwIiBoZWlnaHQ9IjQwMCIgdmlld0JveD0iMCAwIDc2MCA0MDAiIHJvbGU9ImltZyIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8dGl0bGU+SG93IE9wZW5Cb3ggZ292ZXJucyBlYWNoIHRvb2wgY2FsbCBpbiB0aGUgQ29waWxvdEtpdCArIExhbmdHcmFwaCBzdGFjazwvdGl0bGU+CiAgPGRlc2M+VGhlIGJyb3dzZXIncyBDb3BpbG90S2l0IGNoYXQgY2FsbHMgdGhlIENvcGlsb3RSdW50aW1lIG92ZXIgL2FwaS9jb3BpbG90a2l0OyB0aGUgcnVudGltZSBpcyB3cmFwcGVkIGJ5IGNyZWF0ZU9wZW5Cb3hDb3BpbG90UnVudGltZSBhbmQgdGFsa3MgdG8gdGhlIExhbmdHcmFwaCBhZ2VudCBvdmVyIEFHLVVJLCB3aGVyZSB0aGUgT3BlbkJveCBnb3Zlcm5hbmNlIG1pZGRsZXdhcmUgcnVucyBmaXJzdC4gQm90aCB0aGUgcnVudGltZSBhbmQgdGhlIGFnZW50IHNlbmQgZXZlcnkgdG9vbCBjYWxsIGRvd24gdG8gT3BlbkJveCBDb3JlLCB3aGljaCBldmFsdWF0ZXMgcG9saWNpZXMgYW5kIHJldHVybnMgYSB2ZXJkaWN0IChhbGxvdywgcmVkYWN0LCBhcHByb3ZlLCBibG9jaywgb3IgaGFsdCkuIEFwcHJvdmFscyBmbG93IGZyb20gdGhlIGJyb3dzZXIgYmFjayB0byBPcGVuQm94IENvcmUgdmlhIC9hcGkvb3BlbmJveC9hcHByb3ZhbHMvZGVjaWRlLjwvZGVzYz4KICA8c3R5bGU+CiAgICB0ZXh0IHsgZm9udC1mYW1pbHk6IC1hcHBsZS1zeXN0ZW0sIEJsaW5rTWFjU3lzdGVtRm9udCwgIlNlZ29lIFVJIiwgUm9ib3RvLCBIZWx2ZXRpY2EsIEFyaWFsLCBzYW5zLXNlcmlmOyB9CiAgICAuaCB7IGZvbnQtc2l6ZTogMTVweDsgZm9udC13ZWlnaHQ6IDYwMDsgfQogICAgLnMgeyBmb250LXNpemU6IDExLjVweDsgZm9udC13ZWlnaHQ6IDQwMDsgfQogICAgLmxibCB7IGZvbnQtc2l6ZTogMTFweDsgZm9udC13ZWlnaHQ6IDUwMDsgZmlsbDogIzQ3NTU2OTsgfQogICAgLmxibHMgeyBmb250LXNpemU6IDEwcHg7IGZvbnQtd2VpZ2h0OiA0MDA7IGZpbGw6ICM2NDc0OGI7IH0KICA8L3N0eWxlPgoKICA8cmVjdCB4PSIwLjUiIHk9IjAuNSIgd2lkdGg9Ijc1OSIgaGVpZ2h0PSIzOTkiIHJ4PSIxNCIgZmlsbD0iI2ZmZmZmZiIgc3Ryb2tlPSIjZTVlN2ViIi8+CgogIDxkZWZzPgogICAgPG1hcmtlciBpZD0iYXJyIiB2aWV3Qm94PSIwIDAgMTAgMTAiIHJlZlg9IjkiIHJlZlk9IjUiIG1hcmtlcldpZHRoPSI3IiBtYXJrZXJIZWlnaHQ9IjciIG9yaWVudD0iYXV0by1zdGFydC1yZXZlcnNlIj4KICAgICAgPHBhdGggZD0iTTAsMCBMMTAsNSBMMCwxMCB6IiBmaWxsPSIjOTRhM2I4Ii8+CiAgICA8L21hcmtlcj4KICAgIDxtYXJrZXIgaWQ9ImFyckciIHZpZXdCb3g9IjAgMCAxMCAxMCIgcmVmWD0iOSIgcmVmWT0iNSIgbWFya2VyV2lkdGg9IjciIG1hcmtlckhlaWdodD0iNyIgb3JpZW50PSJhdXRvLXN0YXJ0LXJldmVyc2UiPgogICAgICA8cGF0aCBkPSJNMCwwIEwxMCw1IEwwLDEwIHoiIGZpbGw9IiMxMGI5ODEiLz4KICAgIDwvbWFya2VyPgogICAgPG1hcmtlciBpZD0iYXJySSIgdmlld0JveD0iMCAwIDEwIDEwIiByZWZYPSI5IiByZWZZPSI1IiBtYXJrZXJXaWR0aD0iNyIgbWFya2VySGVpZ2h0PSI3IiBvcmllbnQ9ImF1dG8tc3RhcnQtcmV2ZXJzZSI+CiAgICAgIDxwYXRoIGQ9Ik0wLDAgTDEwLDUgTDAsMTAgeiIgZmlsbD0iIzYzNjZmMSIvPgogICAgPC9tYXJrZXI+CiAgPC9kZWZzPgoKICA8IS0tIEJyb3dzZXIgLS0+CiAgPHJlY3QgeD0iMjQiIHk9IjU2IiB3aWR0aD0iMTk2IiBoZWlnaHQ9Ijk0IiByeD0iMTAiIGZpbGw9IiNlZWYyZmYiIHN0cm9rZT0iIzYzNjZmMSIvPgogIDx0ZXh0IGNsYXNzPSJoIiB4PSIxMjIiIHk9IjkyIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjMzczMGEzIj5Db3BpbG90S2l0IGNoYXQ8L3RleHQ+CiAgPHRleHQgY2xhc3M9InMiIHg9IjEyMiIgeT0iMTEyIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjNDMzOGNhIj5nb3Zlcm5hbmNlIGNhcmRzPC90ZXh0PgogIDx0ZXh0IGNsYXNzPSJzIiB4PSIxMjIiIHk9IjEyOCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzQzMzhjYSI+QXBwcm92ZSAvIFJlamVjdDwvdGV4dD4KCiAgPCEtLSBSdW50aW1lIC0tPgogIDxyZWN0IHg9IjI4MiIgeT0iNTYiIHdpZHRoPSIxOTYiIGhlaWdodD0iOTQiIHJ4PSIxMCIgZmlsbD0iI2VmZjZmZiIgc3Ryb2tlPSIjM2I4MmY2Ii8+CiAgPHRleHQgY2xhc3M9ImgiIHg9IjM4MCIgeT0iOTIiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiMxZTNhOGEiPkNvcGlsb3RSdW50aW1lPC90ZXh0PgogIDx0ZXh0IGNsYXNzPSJzIiB4PSIzODAiIHk9IjExMiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzFkNGVkOCI+d3JhcHBlZCBieTwvdGV4dD4KICA8dGV4dCBjbGFzcz0icyIgeD0iMzgwIiB5PSIxMjgiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiMxZDRlZDgiPmNyZWF0ZU9wZW5Cb3hDb3BpbG90UnVudGltZTwvdGV4dD4KCiAgPCEtLSBBZ2VudCAtLT4KICA8cmVjdCB4PSI1NDAiIHk9IjU2IiB3aWR0aD0iMTk2IiBoZWlnaHQ9Ijk0IiByeD0iMTAiIGZpbGw9IiNmMWY1ZjkiIHN0cm9rZT0iIzk0YTNiOCIvPgogIDx0ZXh0IGNsYXNzPSJoIiB4PSI2MzgiIHk9IjkyIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjMGYxNzJhIj5MYW5nR3JhcGggYWdlbnQ8L3RleHQ+CiAgPHRleHQgY2xhc3M9InMiIHg9IjYzOCIgeT0iMTEyIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjNDc1NTY5Ij5PcGVuQm94IG1pZGRsZXdhcmU8L3RleHQ+CiAgPHRleHQgY2xhc3M9InMiIHg9IjYzOCIgeT0iMTI4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjNDc1NTY5Ij5ydW5zIEZJUlNUPC90ZXh0PgoKICA8IS0tIEJyb3dzZXIgPC0+IFJ1bnRpbWUgLS0+CiAgPGxpbmUgeDE9IjIyMCIgeTE9IjkyIiB4Mj0iMjgwIiB5Mj0iOTIiIHN0cm9rZT0iIzk0YTNiOCIgbWFya2VyLWVuZD0idXJsKCNhcnIpIi8+CiAgPHRleHQgY2xhc3M9ImxibHMiIHg9IjI1MCIgeT0iODQiIHRleHQtYW5jaG9yPSJtaWRkbGUiPi9hcGkvY29waWxvdGtpdDwvdGV4dD4KICA8bGluZSB4MT0iMjgwIiB5MT0iMTIwIiB4Mj0iMjIwIiB5Mj0iMTIwIiBzdHJva2U9IiM5NGEzYjgiIG1hcmtlci1lbmQ9InVybCgjYXJyKSIvPgogIDx0ZXh0IGNsYXNzPSJsYmxzIiB4PSIyNTAiIHk9IjEzNiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+Z2VuIFVJIGNhcmQ8L3RleHQ+CgogIDwhLS0gUnVudGltZSAtPiBBZ2VudCAtLT4KICA8bGluZSB4MT0iNDc4IiB5MT0iMTAzIiB4Mj0iNTM4IiB5Mj0iMTAzIiBzdHJva2U9IiM5NGEzYjgiIG1hcmtlci1lbmQ9InVybCgjYXJyKSIvPgogIDx0ZXh0IGNsYXNzPSJsYmxzIiB4PSI1MDgiIHk9Ijk1IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5BRy1VSTwvdGV4dD4KCiAgPCEtLSBPcGVuQm94IENvcmUgLS0+CiAgPHJlY3QgeD0iMjgyIiB5PSIyNTIiIHdpZHRoPSI0NTQiIGhlaWdodD0iODYiIHJ4PSIxMCIgZmlsbD0iI2VjZmRmNSIgc3Ryb2tlPSIjMTBiOTgxIi8+CiAgPHRleHQgY2xhc3M9ImgiIHg9IjUwOSIgeT0iMjg4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjMDY1ZjQ2Ij5PcGVuQm94IENvcmU8L3RleHQ+CiAgPHRleHQgY2xhc3M9InMiIHg9IjUwOSIgeT0iMzEwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjMDQ3ODU3Ij5ldmFsdWF0ZXMgcG9saWNpZXMgwrcgaG9sZHMgYXBwcm92YWxzIMK3IGltbXV0YWJsZSBhdWRpdCB0cmFpbDwvdGV4dD4KCiAgPCEtLSBSdW50aW1lIGRvd24gdG8gQ29yZSAodG9vbCBjYWxsKSArIHZlcmRpY3QgdXAgLS0+CiAgPGxpbmUgeDE9IjQwNCIgeTE9IjE1MCIgeDI9IjQwNCIgeTI9IjI1MCIgc3Ryb2tlPSIjMTBiOTgxIiBzdHJva2UtZGFzaGFycmF5PSI1IDQiIG1hcmtlci1lbmQ9InVybCgjYXJyRykiLz4KICA8dGV4dCBjbGFzcz0ibGJsIiB4PSI0MTIiIHk9IjE4NiIgdGV4dC1hbmNob3I9InN0YXJ0Ij5ldmVyeSB0b29sIGNhbGw8L3RleHQ+CiAgPGxpbmUgeDE9IjM1NiIgeTE9IjI1MCIgeDI9IjM1NiIgeTI9IjE1MCIgc3Ryb2tlPSIjMTBiOTgxIiBzdHJva2UtZGFzaGFycmF5PSI1IDQiIG1hcmtlci1lbmQ9InVybCgjYXJyRykiLz4KICA8dGV4dCBjbGFzcz0ibGJsIiB4PSIzNDgiIHk9IjIwOCIgdGV4dC1hbmNob3I9ImVuZCI+dmVyZGljdDwvdGV4dD4KCiAgPCEtLSBBZ2VudCBkb3duIHRvIENvcmUgKHRvb2wgY2FsbCkgLS0+CiAgPGxpbmUgeDE9IjYzOCIgeTE9IjE1MCIgeDI9IjYzOCIgeTI9IjI1MCIgc3Ryb2tlPSIjMTBiOTgxIiBzdHJva2UtZGFzaGFycmF5PSI1IDQiIG1hcmtlci1lbmQ9InVybCgjYXJyRykiLz4KICA8dGV4dCBjbGFzcz0ibGJsIiB4PSI2NDYiIHk9IjIwMCIgdGV4dC1hbmNob3I9InN0YXJ0Ij5ldmVyeSB0b29sIGNhbGw8L3RleHQ+CgogIDwhLS0gdmVyZGljdCBsZWdlbmQgdW5kZXIgY29yZSAtLT4KICA8dGV4dCBjbGFzcz0ibGJscyIgeD0iNTA5IiB5PSIzMzAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiMwNDc4NTciPnZlcmRpY3Q6IGFsbG93IMK3IHJlZGFjdCDCtyBhcHByb3ZlIMK3IGJsb2NrIMK3IGhhbHQ8L3RleHQ+CgogIDwhLS0gQXBwcm92ZSAvIFJlamVjdCBmcm9tIEJyb3dzZXIgdG8gQ29yZSAtLT4KICA8cGF0aCBkPSJNMTEwLDE1MCBMMTEwLDI5NSBMMjgwLDI5NSIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjNjM2NmYxIiBzdHJva2UtZGFzaGFycmF5PSI1IDQiIG1hcmtlci1lbmQ9InVybCgjYXJySSkiLz4KICA8dGV4dCBjbGFzcz0ibGJsIiB4PSIxMTgiIHk9IjIwMCIgdGV4dC1hbmNob3I9InN0YXJ0IiBmaWxsPSIjNGY0NmU1Ij5BcHByb3ZlIC8gUmVqZWN0PC90ZXh0PgogIDx0ZXh0IGNsYXNzPSJsYmxzIiB4PSIxMTgiIHk9IjIxNiIgdGV4dC1hbmNob3I9InN0YXJ0IiBmaWxsPSIjNjM2NmYxIj4vYXBpL29wZW5ib3gvYXBwcm92YWxzL2RlY2lkZTwvdGV4dD4KPC9zdmc+Cg==" />
+<img alt="Architecture of the governed stack: the browser's CopilotKit chat calls the CopilotKitRuntime over /api/copilotkit; the runtime is wrapped by createOpenBoxCopilotRuntime and talks to the LangGraph agent over AG-UI, where the OpenBox governance middleware runs first; both the runtime and the agent send every tool call down to OpenBox Core, which evaluates policies, holds approvals, keeps an immutable audit trail, and returns a verdict (allow, redact, approve, block, or halt); approvals flow from the browser back to OpenBox Core via /api/openbox/approvals/decide." src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNzYwIiBoZWlnaHQ9IjQwMCIgdmlld0JveD0iMCAwIDc2MCA0MDAiIHJvbGU9ImltZyIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8dGl0bGU+SG93IE9wZW5Cb3ggZ292ZXJucyBlYWNoIHRvb2wgY2FsbCBpbiB0aGUgQ29waWxvdEtpdCArIExhbmdHcmFwaCBzdGFjazwvdGl0bGU+CiAgPGRlc2M+VGhlIGJyb3dzZXIncyBDb3BpbG90S2l0IGNoYXQgY2FsbHMgdGhlIENvcGlsb3RSdW50aW1lIG92ZXIgL2FwaS9jb3BpbG90a2l0OyB0aGUgcnVudGltZSBpcyB3cmFwcGVkIGJ5IGNyZWF0ZU9wZW5Cb3hDb3BpbG90UnVudGltZSBhbmQgdGFsa3MgdG8gdGhlIExhbmdHcmFwaCBhZ2VudCBvdmVyIEFHLVVJLCB3aGVyZSB0aGUgT3BlbkJveCBnb3Zlcm5hbmNlIG1pZGRsZXdhcmUgcnVucyBmaXJzdC4gQm90aCB0aGUgcnVudGltZSBhbmQgdGhlIGFnZW50IHNlbmQgZXZlcnkgdG9vbCBjYWxsIGRvd24gdG8gT3BlbkJveCBDb3JlLCB3aGljaCBldmFsdWF0ZXMgcG9saWNpZXMgYW5kIHJldHVybnMgYSB2ZXJkaWN0IChhbGxvdywgcmVkYWN0LCBhcHByb3ZlLCBibG9jaywgb3IgaGFsdCkuIEFwcHJvdmFscyBmbG93IGZyb20gdGhlIGJyb3dzZXIgYmFjayB0byBPcGVuQm94IENvcmUgdmlhIC9hcGkvb3BlbmJveC9hcHByb3ZhbHMvZGVjaWRlLjwvZGVzYz4KICA8c3R5bGU+CiAgICB0ZXh0IHsgZm9udC1mYW1pbHk6IC1hcHBsZS1zeXN0ZW0sIEJsaW5rTWFjU3lzdGVtRm9udCwgIlNlZ29lIFVJIiwgUm9ib3RvLCBIZWx2ZXRpY2EsIEFyaWFsLCBzYW5zLXNlcmlmOyB9CiAgICAuaCB7IGZvbnQtc2l6ZTogMTVweDsgZm9udC13ZWlnaHQ6IDYwMDsgfQogICAgLnMgeyBmb250LXNpemU6IDExLjVweDsgZm9udC13ZWlnaHQ6IDQwMDsgfQogICAgLmxibCB7IGZvbnQtc2l6ZTogMTFweDsgZm9udC13ZWlnaHQ6IDUwMDsgZmlsbDogIzQ3NTU2OTsgfQogICAgLmxibHMgeyBmb250LXNpemU6IDEwcHg7IGZvbnQtd2VpZ2h0OiA0MDA7IGZpbGw6ICM2NDc0OGI7IH0KICA8L3N0eWxlPgoKICA8cmVjdCB4PSIwLjUiIHk9IjAuNSIgd2lkdGg9Ijc1OSIgaGVpZ2h0PSIzOTkiIHJ4PSIxNCIgZmlsbD0iI2ZmZmZmZiIgc3Ryb2tlPSIjZTVlN2ViIi8+CgogIDxkZWZzPgogICAgPG1hcmtlciBpZD0iYXJyIiB2aWV3Qm94PSIwIDAgMTAgMTAiIHJlZlg9IjkiIHJlZlk9IjUiIG1hcmtlcldpZHRoPSI3IiBtYXJrZXJIZWlnaHQ9IjciIG9yaWVudD0iYXV0by1zdGFydC1yZXZlcnNlIj4KICAgICAgPHBhdGggZD0iTTAsMCBMMTAsNSBMMCwxMCB6IiBmaWxsPSIjOTRhM2I4Ii8+CiAgICA8L21hcmtlcj4KICAgIDxtYXJrZXIgaWQ9ImFyckciIHZpZXdCb3g9IjAgMCAxMCAxMCIgcmVmWD0iOSIgcmVmWT0iNSIgbWFya2VyV2lkdGg9IjciIG1hcmtlckhlaWdodD0iNyIgb3JpZW50PSJhdXRvLXN0YXJ0LXJldmVyc2UiPgogICAgICA8cGF0aCBkPSJNMCwwIEwxMCw1IEwwLDEwIHoiIGZpbGw9IiMxMGI5ODEiLz4KICAgIDwvbWFya2VyPgogICAgPG1hcmtlciBpZD0iYXJySSIgdmlld0JveD0iMCAwIDEwIDEwIiByZWZYPSI5IiByZWZZPSI1IiBtYXJrZXJXaWR0aD0iNyIgbWFya2VySGVpZ2h0PSI3IiBvcmllbnQ9ImF1dG8tc3RhcnQtcmV2ZXJzZSI+CiAgICAgIDxwYXRoIGQ9Ik0wLDAgTDEwLDUgTDAsMTAgeiIgZmlsbD0iIzYzNjZmMSIvPgogICAgPC9tYXJrZXI+CiAgPC9kZWZzPgoKICA8IS0tIEJyb3dzZXIgLS0+CiAgPHJlY3QgeD0iMjQiIHk9IjU2IiB3aWR0aD0iMTk2IiBoZWlnaHQ9Ijk0IiByeD0iMTAiIGZpbGw9IiNlZWYyZmYiIHN0cm9rZT0iIzYzNjZmMSIvPgogIDx0ZXh0IGNsYXNzPSJoIiB4PSIxMjIiIHk9IjkyIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjMzczMGEzIj5Db3BpbG90S2l0IGNoYXQ8L3RleHQ+CiAgPHRleHQgY2xhc3M9InMiIHg9IjEyMiIgeT0iMTEyIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjNDMzOGNhIj5nb3Zlcm5hbmNlIGNhcmRzPC90ZXh0PgogIDx0ZXh0IGNsYXNzPSJzIiB4PSIxMjIiIHk9IjEyOCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzQzMzhjYSI+QXBwcm92ZSAvIFJlamVjdDwvdGV4dD4KCiAgPCEtLSBSdW50aW1lIC0tPgogIDxyZWN0IHg9IjI4MiIgeT0iNTYiIHdpZHRoPSIxOTYiIGhlaWdodD0iOTQiIHJ4PSIxMCIgZmlsbD0iI2VmZjZmZiIgc3Ryb2tlPSIjM2I4MmY2Ii8+CiAgPHRleHQgY2xhc3M9ImgiIHg9IjM4MCIgeT0iOTIiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiMxZTNhOGEiPkNvcGlsb3RSdW50aW1lPC90ZXh0PgogIDx0ZXh0IGNsYXNzPSJzIiB4PSIzODAiIHk9IjExMiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzFkNGVkOCI+d3JhcHBlZCBieTwvdGV4dD4KICA8dGV4dCBjbGFzcz0icyIgeD0iMzgwIiB5PSIxMjgiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiMxZDRlZDgiPmNyZWF0ZU9wZW5Cb3hDb3BpbG90UnVudGltZTwvdGV4dD4KCiAgPCEtLSBBZ2VudCAtLT4KICA8cmVjdCB4PSI1NDAiIHk9IjU2IiB3aWR0aD0iMTk2IiBoZWlnaHQ9Ijk0IiByeD0iMTAiIGZpbGw9IiNmMWY1ZjkiIHN0cm9rZT0iIzk0YTNiOCIvPgogIDx0ZXh0IGNsYXNzPSJoIiB4PSI2MzgiIHk9IjkyIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjMGYxNzJhIj5MYW5nR3JhcGggYWdlbnQ8L3RleHQ+CiAgPHRleHQgY2xhc3M9InMiIHg9IjYzOCIgeT0iMTEyIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjNDc1NTY5Ij5PcGVuQm94IG1pZGRsZXdhcmU8L3RleHQ+CiAgPHRleHQgY2xhc3M9InMiIHg9IjYzOCIgeT0iMTI4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjNDc1NTY5Ij5ydW5zIEZJUlNUPC90ZXh0PgoKICA8IS0tIEJyb3dzZXIgPC0+IFJ1bnRpbWUgLS0+CiAgPGxpbmUgeDE9IjIyMCIgeTE9IjkyIiB4Mj0iMjgwIiB5Mj0iOTIiIHN0cm9rZT0iIzk0YTNiOCIgbWFya2VyLWVuZD0idXJsKCNhcnIpIi8+CiAgPHRleHQgY2xhc3M9ImxibHMiIHg9IjI1MCIgeT0iODQiIHRleHQtYW5jaG9yPSJtaWRkbGUiPi9hcGkvY29waWxvdGtpdDwvdGV4dD4KICA8bGluZSB4MT0iMjgwIiB5MT0iMTIwIiB4Mj0iMjIwIiB5Mj0iMTIwIiBzdHJva2U9IiM5NGEzYjgiIG1hcmtlci1lbmQ9InVybCgjYXJyKSIvPgogIDx0ZXh0IGNsYXNzPSJsYmxzIiB4PSIyNTAiIHk9IjEzNiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+Z2VuIFVJIGNhcmQ8L3RleHQ+CgogIDwhLS0gUnVudGltZSAtPiBBZ2VudCAtLT4KICA8bGluZSB4MT0iNDc4IiB5MT0iMTAzIiB4Mj0iNTM4IiB5Mj0iMTAzIiBzdHJva2U9IiM5NGEzYjgiIG1hcmtlci1lbmQ9InVybCgjYXJyKSIvPgogIDx0ZXh0IGNsYXNzPSJsYmxzIiB4PSI1MDgiIHk9Ijk1IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5BRy1VSTwvdGV4dD4KCiAgPCEtLSBPcGVuQm94IENvcmUgLS0+CiAgPHJlY3QgeD0iMjgyIiB5PSIyNTIiIHdpZHRoPSI0NTQiIGhlaWdodD0iODYiIHJ4PSIxMCIgZmlsbD0iI2VjZmRmNSIgc3Ryb2tlPSIjMTBiOTgxIi8+CiAgPHRleHQgY2xhc3M9ImgiIHg9IjUwOSIgeT0iMjg4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjMDY1ZjQ2Ij5PcGVuQm94IENvcmU8L3RleHQ+CiAgPHRleHQgY2xhc3M9InMiIHg9IjUwOSIgeT0iMzEwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjMDQ3ODU3Ij5ldmFsdWF0ZXMgcG9saWNpZXMgwrcgaG9sZHMgYXBwcm92YWxzIMK3IGltbXV0YWJsZSBhdWRpdCB0cmFpbDwvdGV4dD4KCiAgPCEtLSBSdW50aW1lIGRvd24gdG8gQ29yZSAodG9vbCBjYWxsKSArIHZlcmRpY3QgdXAgLS0+CiAgPGxpbmUgeDE9IjQwNCIgeTE9IjE1MCIgeDI9IjQwNCIgeTI9IjI1MCIgc3Ryb2tlPSIjMTBiOTgxIiBzdHJva2UtZGFzaGFycmF5PSI1IDQiIG1hcmtlci1lbmQ9InVybCgjYXJyRykiLz4KICA8dGV4dCBjbGFzcz0ibGJsIiB4PSI0MTIiIHk9IjE4NiIgdGV4dC1hbmNob3I9InN0YXJ0Ij5ldmVyeSB0b29sIGNhbGw8L3RleHQ+CiAgPGxpbmUgeDE9IjM1NiIgeTE9IjI1MCIgeDI9IjM1NiIgeTI9IjE1MCIgc3Ryb2tlPSIjMTBiOTgxIiBzdHJva2UtZGFzaGFycmF5PSI1IDQiIG1hcmtlci1lbmQ9InVybCgjYXJyRykiLz4KICA8dGV4dCBjbGFzcz0ibGJsIiB4PSIzNDgiIHk9IjIwOCIgdGV4dC1hbmNob3I9ImVuZCI+dmVyZGljdDwvdGV4dD4KCiAgPCEtLSBBZ2VudCBkb3duIHRvIENvcmUgKHRvb2wgY2FsbCkgLS0+CiAgPGxpbmUgeDE9IjYzOCIgeTE9IjE1MCIgeDI9IjYzOCIgeTI9IjI1MCIgc3Ryb2tlPSIjMTBiOTgxIiBzdHJva2UtZGFzaGFycmF5PSI1IDQiIG1hcmtlci1lbmQ9InVybCgjYXJyRykiLz4KICA8dGV4dCBjbGFzcz0ibGJsIiB4PSI2NDYiIHk9IjIwMCIgdGV4dC1hbmNob3I9InN0YXJ0Ij5ldmVyeSB0b29sIGNhbGw8L3RleHQ+CgogIDwhLS0gdmVyZGljdCBsZWdlbmQgdW5kZXIgY29yZSAtLT4KICA8dGV4dCBjbGFzcz0ibGJscyIgeD0iNTA5IiB5PSIzMzAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiMwNDc4NTciPnZlcmRpY3Q6IGFsbG93IMK3IHJlZGFjdCDCtyBhcHByb3ZlIMK3IGJsb2NrIMK3IGhhbHQ8L3RleHQ+CgogIDwhLS0gQXBwcm92ZSAvIFJlamVjdCBmcm9tIEJyb3dzZXIgdG8gQ29yZSAtLT4KICA8cGF0aCBkPSJNMTEwLDE1MCBMMTEwLDI5NSBMMjgwLDI5NSIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjNjM2NmYxIiBzdHJva2UtZGFzaGFycmF5PSI1IDQiIG1hcmtlci1lbmQ9InVybCgjYXJySSkiLz4KICA8dGV4dCBjbGFzcz0ibGJsIiB4PSIxMTgiIHk9IjIwMCIgdGV4dC1hbmNob3I9InN0YXJ0IiBmaWxsPSIjNGY0NmU1Ij5BcHByb3ZlIC8gUmVqZWN0PC90ZXh0PgogIDx0ZXh0IGNsYXNzPSJsYmxzIiB4PSIxMTgiIHk9IjIxNiIgdGV4dC1hbmNob3I9InN0YXJ0IiBmaWxsPSIjNjM2NmYxIj4vYXBpL29wZW5ib3gvYXBwcm92YWxzL2RlY2lkZTwvdGV4dD4KPC9zdmc+Cg==" />
 
 ## The stack
 
 | Layer | What it does | Where it lives |
 | --- | --- | --- |
 | **OpenBox** | Evaluates every tool call against your policies (allow / redact / approve / block / halt), records an immutable audit trail, and signs agent identity. | `createOpenBoxCopilotRuntime` (frontend) + `createOpenBoxGovernanceMiddleware` (agent) |
-| **CopilotKit** | Hosts the V2 runtime, streams the conversation, and renders each governance verdict as a generative UI card. | `frontend/` — `/api/copilotkit` route + the chat page |
+| **CopilotKit** | Hosts the runtime, streams the conversation, and renders each governance verdict as a generative UI card. | `frontend/` — `/api/copilotkit` route + the chat page |
 | **LangGraph** | Runs the agent: a routing system prompt classifies the request and calls exactly one governed tool (with `parallel_tool_calls: false`), whose generated business result is itself governed. | `agent/` — `openbox_copilotkit_agent` graph |
 
 ## Run it
@@ -88,7 +88,7 @@ There is no offline mock — every prompt sends a real tool call to your OpenBox
 
 ```bash
 git clone https://github.com/CopilotKit/CopilotKit.git
-cd CopilotKit/examples/showcases/openbox-governed-copilotkit
+cd CopilotKit/examples/demos/openbox-governed-copilotkit
 
 cd agent
 npm install
@@ -188,18 +188,35 @@ When you click **Approve** on the service credit, the UI posts to `/api/openbox/
 
 ## The key pieces, in code
 
-The frontend's `/api/copilotkit` route hosts the CopilotKit V2 runtime and wraps it with `createOpenBoxCopilotRuntime`, so every agent run is governed at the runtime boundary:
+The frontend's `/api/copilotkit` route hosts the CopilotKit runtime and wraps it with `createOpenBoxCopilotRuntime`, so every agent run is governed at the runtime boundary:
 
-```ts title="frontend/src/app/api/copilotkit/[[...slug]]/route.ts"
-const runtime = new CopilotRuntime({
-  agents: { default: defaultAgent },
-  runner,
-  a2ui: { injectA2UITool: false },
+{/* kiira: ignore, @openbox-ai/openbox-sdk 0.1.1 types the governed `runtime` as Record<string, any>, which createCopilotKitRuntimeHandler rejects. Remove once the SDK ships CopilotKit 2.0 types. */}
+```ts ignore title="frontend/src/app/api/copilotkit/[[...slug]]/route.ts"
+import {
+  CopilotKitRuntime,
+  createCopilotKitRuntimeHandler,
+  InMemoryAgentRunner,
+} from "@copilotkit/runtime";
+import { LangGraphAgent } from "@ag-ui/langgraph";
+import {
+  createOpenBoxCopilotKitAdapter,
+  createOpenBoxCopilotRuntime,
+} from "@openbox-ai/openbox-sdk/copilotkit";
+
+const defaultAgent = new LangGraphAgent({
+  deploymentUrl: process.env.LANGGRAPH_DEPLOYMENT_URL ?? "http://localhost:8123",
+  graphId: "openbox_copilotkit_agent",
 });
 
+const runtime = new CopilotKitRuntime({
+  agents: { default: defaultAgent },
+  runner: new InMemoryAgentRunner(),
+  generativeUI: { a2uiVersion: "0.9", injectA2UITool: false },
+});
+
+// Governs the runtime's own runner, so every run of "default" goes through OpenBox.
 const openboxRuntime = createOpenBoxCopilotRuntime({ // [!code highlight]
   runtime,
-  runner: runner as any,
   agents: ["default"],
   adapter: createOpenBoxCopilotKitAdapter({
     agentWorkflowType: "CopilotKitRuntime",
@@ -214,16 +231,27 @@ const openboxRuntime = createOpenBoxCopilotRuntime({ // [!code highlight]
   }),
 });
 
-const handler = createCopilotRuntimeHandler({
-  runtime: openboxRuntime.runtime as any,
+const handler = createCopilotKitRuntimeHandler({
+  runtime: openboxRuntime.runtime,
   basePath: "/api/copilotkit",
-  hooks: openboxRuntime.hooks as any,
+  hooks: openboxRuntime.hooks,
 });
+
+export const GET = handler;
+export const POST = handler;
 ```
 
 In the agent graph, the OpenBox governance middleware runs **first**, ahead of CopilotKit's — so a tool call is evaluated before anything else sees it. The `systemPrompt` is a routing prompt: it maps each natural-language request to exactly one of the ten governed actions, and the model runs with `parallel_tool_calls: false` so a request can never fan out into multiple ungoverned tool calls:
 
 ```ts title="agent/src/agent.ts"
+import { createAgent } from "langchain";
+import { copilotkitMiddleware } from "@copilotkit/sdk-js/langgraph";
+import { createOpenBoxGovernanceMiddleware } from "./openbox_middleware";
+import { createConfiguredChatOpenAI } from "./model";
+import { AgentStateSchema } from "./state";
+import { systemPrompt } from "./prompt";
+import { tools } from "./tools";
+
 const model = createConfiguredChatOpenAI({
   modelKwargs: { parallel_tool_calls: false }, // [!code highlight]
 });
@@ -242,6 +270,20 @@ export const graph = createAgent({
 Each governed business action is declared with `createGovernedCopilotTool`. OpenBox governs the input and output around a **governed LLM generation** step — `executionArtifact` calls the model to produce a fresh, realistic business result (a queue, an exception report, a credit memo), which OpenBox then re-evaluates before release. `normalizeInput` canonicalizes the request (for example, routing a disguised identifier export to `export_governance_identifiers`), `spanProfile` shapes the OpenTelemetry span per action, and `onTimingEvent` streams timing back to the UI. The tool shares the same adapter as the middleware so one user task maps to one OpenBox session:
 
 ```ts title="agent/src/openbox_action_governance.ts"
+import {
+  createGovernedCopilotTool,
+  type OpenBoxCopilotResumeInput,
+} from "@openbox-ai/openbox-sdk/copilotkit";
+import { openBoxCopilotKitAdapter } from "./openbox_adapter";
+import {
+  emitOpenBoxTimingEvent,
+  executionArtifact,
+  normalizeGovernedInput,
+  spanProfile,
+  type GovernedActionArtifact,
+  type GovernedActionInput,
+} from "./governed_actions";
+
 const governedCopilotTool = createGovernedCopilotTool< // [!code highlight]
   GovernedActionInput,
   GovernedActionArtifact | undefined
@@ -255,11 +297,14 @@ const governedCopilotTool = createGovernedCopilotTool< // [!code highlight]
   onTimingEvent: emitOpenBoxTimingEvent,
 });
 
-export async function governAction(input, config) {
+export async function governAction(input: GovernedActionInput, config?: unknown) {
   return governedCopilotTool.execute(input, config);
 }
 
-export async function resumeGovernedAction(input, config) {
+export async function resumeGovernedAction(
+  input: GovernedActionInput & OpenBoxCopilotResumeInput,
+  config?: unknown,
+) {
   return governedCopilotTool.resume(input, config);
 }
 ```
@@ -267,6 +312,10 @@ export async function resumeGovernedAction(input, config) {
 When the human clicks Approve, the approval route posts the decision back to OpenBox Core via `createOpenBoxApprovalRoute` — the backend key stays server-only:
 
 ```ts title="frontend/src/app/api/openbox/approvals/decide/route.ts"
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import { createOpenBoxApprovalRoute } from "@openbox-ai/openbox-sdk/copilotkit";
+
 const DecisionSchema = z.object({
   governanceEventId: z.string().min(1),
   decision: z.enum(["approve", "reject"]), // [!code highlight]
@@ -297,6 +346,6 @@ export async function POST(request: Request) {
 
 ## Get the code
 
-Full source to follow — the runnable showcase (the `agent/` LangGraph service with OpenBox middleware and the `frontend/` CopilotKit V2 chat with the wrapped runtime and approval route) will be published under `examples/showcases/openbox-governed-copilotkit`.
+Full source to follow — the runnable showcase (the `agent/` LangGraph service with OpenBox middleware and the `frontend/` CopilotKit chat with the wrapped runtime and approval route) will be published under `examples/demos/openbox-governed-copilotkit`.
 
 For the upstream OpenBox × CopilotKit integration this recipe is based on, see the reference repo: [OpenBox-AI/openbox-x-copilotkit](https://github.com/OpenBox-AI/openbox-x-copilotkit).

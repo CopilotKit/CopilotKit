@@ -3,7 +3,7 @@
  *
  * Walks showcase/integrations/* and emits a human-readable coverage report
  * comparing declared demos vs. e2e spec files vs. QA markdown, plus
- * deployment status and examples/integrations provenance.
+ * deployment status and examples/starters provenance.
  *
  * Usage:
  *   npx tsx showcase/scripts/audit.ts
@@ -42,11 +42,8 @@
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import {
-  parseManifest,
-  type Manifest,
-  type ParsedManifest,
-} from "./lib/manifest.js";
+import { parseManifest } from "./lib/manifest.js";
+import type { Manifest, ParsedManifest } from "./lib/manifest.js";
 import { BORN_IN_SHOWCASE, SLUG_TO_EXAMPLES } from "./lib/slug-map.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -304,10 +301,10 @@ function buildCliConfig(): AuditConfig {
       throw new UnreadableDirError(envRoot, new Error(msg, { cause: e }));
     }
     // Tests: SHOWCASE_AUDIT_ROOT=/tmp/fixture → /tmp/fixture/packages,
-    // /tmp/fixture/examples/integrations, repoRoot = /tmp/fixture.
+    // /tmp/fixture/examples/starters, repoRoot = /tmp/fixture.
     return {
       packagesDir: path.join(envRoot, "integrations"),
-      examplesIntegrationsDir: path.join(envRoot, "examples", "integrations"),
+      examplesIntegrationsDir: path.join(envRoot, "examples", "starters"),
       repoRoot: envRoot,
     };
   }
@@ -315,7 +312,7 @@ function buildCliConfig(): AuditConfig {
   const repoRoot = path.resolve(showcaseRoot, "..");
   return {
     packagesDir: path.join(showcaseRoot, "integrations"),
-    examplesIntegrationsDir: path.join(repoRoot, "examples", "integrations"),
+    examplesIntegrationsDir: path.join(repoRoot, "examples", "starters"),
     repoRoot,
   };
 }
@@ -479,7 +476,7 @@ interface ExamplesSourceResult {
 }
 
 /**
- * Resolve a showcase slug to its examples/integrations counterpart.
+ * Resolve a showcase slug to its examples/starters counterpart.
  * Returns a structured {@link ExamplesSourceResult} — the `source` is
  * null if no candidate exists (which is OK for born-in-showcase
  * packages) and `unreadableForSlug` is the classification signal used
@@ -871,11 +868,11 @@ function anomalyMessage(a: Anomaly): string {
       // more explicit string for structured consumers.
       return `deployed=${a.state === "explicit-false" ? "false" : "unset"}`;
     case "missing-examples":
-      return "no examples/integrations counterpart";
+      return "no examples/starters counterpart";
     case "unreadable-examples":
-      return `examples/integrations candidates unreadable for "${a.slug}" → [${a.candidates.join(", ")}]`;
+      return `examples/starters candidates unreadable for "${a.slug}" → [${a.candidates.join(", ")}]`;
     case "mapped-candidate-not-directory":
-      return `examples/integrations candidate(s) for "${a.slug}" exist but are not directories → [${a.candidates.join(", ")}]`;
+      return `examples/starters candidate(s) for "${a.slug}" exist but are not directories → [${a.candidates.join(", ")}]`;
   }
 }
 
@@ -1094,7 +1091,7 @@ function renderAnomalySection(report: AuditReport): string {
 
   if (missingExamples.length > 0) {
     lines.push("");
-    lines.push("  No examples/integrations counterpart:");
+    lines.push("  No examples/starters counterpart:");
     for (const slug of missingExamples) {
       lines.push(`    - ${slug}`);
     }

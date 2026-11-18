@@ -1,15 +1,15 @@
 // An ESM consumer: under node16 resolution a `.mts` file resolves the
 // `import` condition, so these imports read the `.d.mts` declarations.
 // `scripts/assert-dist-context-types.mjs` runs tsc on it after each build.
-import type { CopilotKitCoreReact } from "@copilotkit/react-core/v2/context";
-import type { CopilotKitCoreReact as HeadlessCopilotKitCoreReact } from "@copilotkit/react-core/v2/headless";
+import type { CopilotKitCoreReact } from "@copilotkit/react-core/context";
+import type { CopilotKitCoreReact as HeadlessCopilotKitCoreReact } from "@copilotkit/react-core/headless";
 // Import every export of the native entry that takes or returns the class:
 // the script fails if the built entry has one that is not imported here.
-import { useGenerativeUIRoot } from "@copilotkit/react-core/v2/generative-ui/native";
+import { useGenerativeUIRoot } from "@copilotkit/react-core/generative-ui/native";
 
 declare const core: CopilotKitCoreReact;
 
-// The instance a React Native provider holds comes from `/v2/context`. The
+// The instance a React Native provider holds comes from `/context`. The
 // entries must accept it: `CopilotKitCoreReact` has private members, so a
 // second declaration of the class (a bundled chunk) would not be assignable.
 export const runtime = useGenerativeUIRoot(core, undefined);

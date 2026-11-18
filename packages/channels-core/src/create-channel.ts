@@ -1909,7 +1909,9 @@ export function createChannel<
           );
           const registerResults = await Promise.allSettled(
             startedAdapterIndexes.map((index) =>
-              adapters[index]!.registerCommands?.(commandSpecs),
+              Promise.resolve(
+                adapters[index]!.registerCommands?.(commandSpecs),
+              ),
             ),
           );
           registerResults.forEach((r, resultIndex) => {

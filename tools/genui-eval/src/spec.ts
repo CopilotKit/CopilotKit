@@ -43,7 +43,7 @@ const specFile = z
       })
       .partial()
       .strict(),
-    descriptions: z.record(z.string()),
+    descriptions: z.record(z.string(), z.string()),
   })
   .partial()
   .strict();

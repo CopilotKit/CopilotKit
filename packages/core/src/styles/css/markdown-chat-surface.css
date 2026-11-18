@@ -1,0 +1,15 @@
+:where(.cpk-markdown-chat-surface) {
+  position: relative;
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  flex-direction: column;
+  margin-block: 1rem;
+}
+:where(.cpk-markdown-chat-surface-error) {
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  line-height: calc(1 / 0.75);
+  color: oklch(57.7% 0.245 27.325);
+}

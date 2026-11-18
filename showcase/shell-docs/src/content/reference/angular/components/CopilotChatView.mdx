@@ -76,6 +76,10 @@ export class ChatComponent extends ChatState {
   Whether an explicit thread id was provided. When true, the welcome screen is suppressed even with no messages (the conversation is being resumed).
 </PropertyReference>
 
+<PropertyReference name="toolCallDisplay" type='"grouped" | "line" | "stacked" | "separate"' default='"grouped"'>
+  How assistant messages show tool calls. The value goes to the message view. See [`CopilotChatMessageView`](/reference/angular/components/CopilotChatMessageView) for the options.
+</PropertyReference>
+
 ### Slot inputs
 
 The view forwards message, input, scroll-button, input-container, feather, and disclaimer slots.

@@ -6,7 +6,7 @@
 //   - Every other framework dep is an exact pin (no ^/~/>=/latest/...).
 //   - Workspace refs are skipped, not failed.
 //
-// The validator no longer reads `examples/integrations/` — that
+// The validator no longer reads `examples/starters/` — that
 // cross-product comparison was retired. These tests are the single
 // authoritative test surface for the new invariant.
 
@@ -292,11 +292,11 @@ describe("showcase-internal canonical-pin invariant", () => {
     expect(report.fail).toEqual([]);
   });
 
-  it("does NOT depend on examples/integrations — passes with the dir entirely absent", () => {
+  it("does NOT depend on examples/starters — passes with the dir entirely absent", () => {
     const fx = makeFixture({});
     repoRoot = fx.repoRoot;
     process.env.VALIDATE_PINS_REPO_ROOT = fx.repoRoot;
-    // Notably: do NOT create examples/integrations.
+    // Notably: do NOT create examples/starters.
     write(
       path.join(fx.pkgsDir, "mastra", "package.json"),
       JSON.stringify({

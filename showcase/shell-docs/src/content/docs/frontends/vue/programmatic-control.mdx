@@ -32,7 +32,7 @@ The canonical pattern is to append a user message with `agent.addMessage`, then 
 ```vue title="src/components/AgentTrigger.vue"
 <script setup lang="ts">
 import { toRaw } from "vue";
-import { useAgent, useCopilotKit } from "@copilotkit/vue/v2";
+import { useAgent, useCopilotKit } from "@copilotkit/vue";
 
 const { agent } = useAgent({ agentId: "sales" });
 const { copilotkit } = useCopilotKit();
@@ -69,7 +69,7 @@ function stop() {
 
 ```vue title="src/App.vue"
 <script setup lang="ts">
-import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue/v2";
+import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue";
 import AgentTrigger from "./components/AgentTrigger.vue";
 </script>
 
@@ -95,7 +95,11 @@ Both methods trigger the agent, but they operate at different levels:
 `agent.subscribe(subscriber)` returns `{ unsubscribe }`. The subscriber accepts every AG-UI lifecycle callback: `onCustomEvent`, `onRunStartedEvent`, `onRunFinalized`, `onRunFailed`, and the streaming deltas. Use it to drive progress UI, forward events to analytics, or inspect framework pause/resume events.
 
 ```ts
+// Inside <script setup lang="ts">
 import { watch } from "vue";
+import { useAgent } from "@copilotkit/vue";
+
+const { agent } = useAgent();
 
 watch(
   agent,
@@ -119,6 +123,9 @@ watch(
 For product UI, use `useInterrupt({ renderInChat: false })`. It subscribes to the standard AG-UI interrupt outcome and the `on_interrupt` custom event that the LangGraph adapter sends by default, stages the pending interrupt until finalization, and exposes `resolve` / `cancel` methods that resume through `copilotkit.runAgent`:
 
 ```ts
+// Inside <script setup lang="ts">
+import { useInterrupt } from "@copilotkit/vue";
+
 const { slotProps } = useInterrupt({
   agentId: "sales",
   renderInChat: false,

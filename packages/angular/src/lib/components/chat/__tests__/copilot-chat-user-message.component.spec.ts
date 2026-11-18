@@ -1,11 +1,8 @@
-import {
-  EnvironmentInjector,
-  runInInjectionContext,
-  computed,
-} from "@angular/core";
 import { TestBed } from "@angular/core/testing";
+import type { ComponentFixture } from "@angular/core/testing";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CopilotChatUserMessage } from "../copilot-chat-user-message";
+import { CopilotChatUserMessageBranchNavigation } from "../copilot-chat-user-message-branch-navigation";
 import type { UserMessage } from "../copilot-chat-user-message.types";
 
 const sampleMessage: UserMessage = {
@@ -14,91 +11,159 @@ const sampleMessage: UserMessage = {
   content: "Hello from user",
 };
 
-describe("CopilotChatUserMessage", () => {
-  let injector: EnvironmentInjector;
-  let component: CopilotChatUserMessage;
+const branchNavigationIn = (fixture: ComponentFixture<unknown>) =>
+  fixture.nativeElement.querySelector(
+    '[data-testid="copilot-branch-navigation"]',
+  );
 
-  beforeEach(() => {
+describe("CopilotChatUserMessage", () => {
+  let fixture: ComponentFixture<CopilotChatUserMessage>;
+
+  /** Renders the message with branch inputs and returns the fixture. */
+  function render(inputs: {
+    message?: UserMessage;
+    numberOfBranches?: number;
+    branchSwitchEnabled?: boolean;
+  }) {
+    fixture.componentRef.setInput("message", inputs.message ?? sampleMessage);
+    if (inputs.numberOfBranches !== undefined)
+      fixture.componentRef.setInput(
+        "numberOfBranches",
+        inputs.numberOfBranches,
+      );
+    if (inputs.branchSwitchEnabled !== undefined)
+      fixture.componentRef.setInput(
+        "branchSwitchEnabled",
+        inputs.branchSwitchEnabled,
+      );
+    fixture.detectChanges();
+    return fixture;
+  }
+
+  beforeEach(async () => {
     TestBed.resetTestingModule();
-    TestBed.configureTestingModule({});
-    injector = TestBed.inject(EnvironmentInjector);
-    component = runInInjectionContext(
-      injector,
-      () => new CopilotChatUserMessage(),
-    );
-    (component as any).message = () => sampleMessage;
+    await TestBed.configureTestingModule({
+      imports: [CopilotChatUserMessage],
+    }).compileComponents();
+    fixture = TestBed.createComponent(CopilotChatUserMessage);
   });
 
   it("emits edit events when handleEdit is invoked", () => {
+    render({});
     const editSpy = vi.fn();
-    component.editMessage.subscribe(editSpy);
+    fixture.componentInstance.editMessage.subscribe(editSpy);
 
-    component.handleEdit();
+    fixture.componentInstance.handleEdit();
     expect(editSpy).toHaveBeenCalledWith({ message: sampleMessage });
   });
 
   it("exposes stable cross-frontend message classes", () => {
-    expect(component.computedClass()).toContain("copilotKitMessage");
-    expect(component.computedClass()).toContain("copilotKitUserMessage");
+    const { computedClass } = render({}).componentInstance;
+    expect(computedClass()).toContain("copilotKitMessage");
+    expect(computedClass()).toContain("copilotKitUserMessage");
   });
 
-  it("indicates when branch navigation should be shown", () => {
-    (component as any).numberOfBranches = () => 3;
-    component.showBranchNavigation = computed(
-      () => ((component as any).numberOfBranches() ?? 1) > 1,
-    );
-    expect(component.showBranchNavigation()).toBe(true);
+  describe("branch navigation", () => {
+    it("shows with more than one branch by default", () => {
+      expect(
+        branchNavigationIn(render({ numberOfBranches: 3 })),
+      ).not.toBeNull();
+    });
 
-    (component as any).numberOfBranches = () => 1;
-    component.showBranchNavigation = computed(
-      () => ((component as any).numberOfBranches() ?? 1) > 1,
-    );
-    expect(component.showBranchNavigation()).toBe(false);
+    it("hides with one branch", () => {
+      expect(branchNavigationIn(render({ numberOfBranches: 1 }))).toBeNull();
+    });
+
+    it("shows when branch switching is enabled", () => {
+      expect(
+        branchNavigationIn(
+          render({ numberOfBranches: 3, branchSwitchEnabled: true }),
+        ),
+      ).not.toBeNull();
+    });
+
+    it("hides when branch switching is disabled", () => {
+      expect(
+        branchNavigationIn(
+          render({ numberOfBranches: 3, branchSwitchEnabled: false }),
+        ),
+      ).toBeNull();
+    });
   });
 
   it("forwards branch navigation events", () => {
+    render({});
     const switchSpy = vi.fn();
-    component.switchToBranch.subscribe(switchSpy);
+    fixture.componentInstance.switchToBranch.subscribe(switchSpy);
 
     const payload = {
       branchIndex: 2,
       numberOfBranches: 3,
       message: sampleMessage,
     };
-    component.handleSwitchToBranch(payload);
+    fixture.componentInstance.handleSwitchToBranch(payload);
     expect(switchSpy).toHaveBeenCalledWith(payload);
   });
 
   it("splits multimodal user content into text and attachment previews", () => {
-    (component as any).message = () => ({
-      id: "msg-2",
-      role: "user",
-      content: [
-        { type: "text", text: "Please inspect this" },
-        {
-          type: "image",
-          source: {
-            type: "data",
-            value: "data:image/png;base64,AAAA",
-            mimeType: "image/png",
+    const { componentInstance } = render({
+      message: {
+        id: "msg-2",
+        role: "user",
+        content: [
+          { type: "text", text: "Please inspect this" },
+          {
+            type: "image",
+            source: {
+              type: "data",
+              value: "data:image/png;base64,AAAA",
+              mimeType: "image/png",
+            },
+            metadata: { filename: "chart.png" },
           },
-          metadata: { filename: "chart.png" },
-        },
-        {
-          type: "document",
-          source: {
-            type: "data",
-            value: "data:application/pdf;base64,AAAA",
-            mimeType: "application/pdf",
+          {
+            type: "document",
+            source: {
+              type: "data",
+              value: "data:application/pdf;base64,AAAA",
+              mimeType: "application/pdf",
+            },
+            metadata: { filename: "report.pdf" },
           },
-          metadata: { filename: "report.pdf" },
-        },
-      ],
+        ],
+      },
     });
 
-    expect(component.flattenedContent()).toBe("Please inspect this");
-    expect(component.mediaParts()).toHaveLength(2);
-    expect(component.filenameFor(component.mediaParts()[0])).toBe("chart.png");
-    expect(component.filenameFor(component.mediaParts()[1])).toBe("report.pdf");
+    const media = componentInstance.mediaParts();
+    expect(componentInstance.flattenedContent()).toBe("Please inspect this");
+    expect(media).toHaveLength(2);
+    expect(componentInstance.filenameFor(media[0]!)).toBe("chart.png");
+    expect(componentInstance.filenameFor(media[1]!)).toBe("report.pdf");
+  });
+});
+
+describe("CopilotChatUserMessageBranchNavigation", () => {
+  async function renderNavigation(branchSwitchEnabled?: boolean) {
+    TestBed.resetTestingModule();
+    await TestBed.configureTestingModule({
+      imports: [CopilotChatUserMessageBranchNavigation],
+    }).compileComponents();
+    const fixture = TestBed.createComponent(
+      CopilotChatUserMessageBranchNavigation,
+    );
+    fixture.componentRef.setInput("message", sampleMessage);
+    fixture.componentRef.setInput("numberOfBranches", 2);
+    if (branchSwitchEnabled !== undefined)
+      fixture.componentRef.setInput("branchSwitchEnabled", branchSwitchEnabled);
+    fixture.detectChanges();
+    return fixture;
+  }
+
+  it("shows by default with more than one branch", async () => {
+    expect(branchNavigationIn(await renderNavigation())).not.toBeNull();
+  });
+
+  it("hides when branch switching is disabled", async () => {
+    expect(branchNavigationIn(await renderNavigation(false))).toBeNull();
   });
 });

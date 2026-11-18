@@ -134,6 +134,6 @@ test("without a host renderer the built-in highlighted block stays", async () =>
   const detail = await mountWithOpenToolCall();
   const body = detail.shadowRoot!.querySelector(".cpk-td__tool-body")!;
 
-  expect(body.querySelectorAll("pre.cpk-json-block")).toHaveLength(2);
+  expect(body.querySelectorAll("cpk-inspector-json-viewer")).toHaveLength(2);
   expect(body.querySelector("cpk-json-block")).toBeNull();
 });

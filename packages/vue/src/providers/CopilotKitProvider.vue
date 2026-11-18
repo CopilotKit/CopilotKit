@@ -1,0 +1,670 @@
+<script setup lang="ts">
+import {
+  computed,
+  h,
+  onMounted,
+  onUnmounted,
+  provide,
+  ref,
+  shallowRef,
+  toRaw,
+  triggerRef,
+  watch,
+} from "vue";
+import type { Component, FunctionalComponent } from "vue";
+import {
+  ɵLearningAutoStarter,
+  ɵassembleActivityRenderers,
+  ɵassembleHumanInTheLoop,
+  ɵassembleProviderToolRenderers,
+  ɵassembleProviderTools,
+  ɵcheckRemovedProviderProps,
+  ɵhitlRenderProps,
+  ɵresolveGenerativeUIDefault,
+  ɵstableArrayPropWarning,
+  ɵtoLearningConfig,
+} from "@copilotkit/core";
+import type {
+  CopilotKitHeadersSource,
+  FrontendTool,
+  ɵHumanInTheLoopRegistry,
+  ɵRuntimeInfo,
+  ɵStableArrayProp,
+} from "@copilotkit/core";
+import {
+  ɵaddOpenGenerativeUIContexts,
+  ɵcreateOpenGenerativeUITool,
+  ɵisOpenGenerativeUIActive,
+  ɵpublicKeyHeaderDefaults,
+  ɵreportProviderConfigDiagnostics,
+  ɵresolveLicenseState,
+  ɵresolveProviderConfig,
+  ɵwithHeaderDefaults,
+} from "@copilotkit/core";
+import { shouldEnableInspector } from "@copilotkit/shared";
+import { CopilotKitCoreVue } from "../lib/vue-core";
+import {
+  OpenGenerativeUIActivityRenderer,
+  OpenGenerativeUIActivityType,
+  OpenGenerativeUIContentSchema,
+  OpenGenerativeUIToolRenderer,
+} from "../components/OpenGenerativeUIRenderer";
+import {
+  MCPAppsActivityContentSchema,
+  MCPAppsActivityRenderer,
+  MCPAppsActivityType,
+} from "../components/MCPAppsActivityRenderer";
+import {
+  createGenerativeUIActivityRenderer,
+  createGenerativeUIFunctionCallActivityRenderer,
+  registerGenerativeUIToolCallRenderer,
+} from "../generative-ui/chat";
+import type { GenerativeUI } from "../generative-ui/catalog";
+import { GenerativeUIRuntimeKey } from "../generative-ui/runtime-context";
+import type { GenerativeUIConfig } from "../generative-ui/runtime-context";
+import { useGenerativeUIRoot } from "../generative-ui/use-generative-ui-root";
+import {
+  CopilotKitKey,
+  CopilotStyleOptionsKey,
+  InspectorKey,
+  SandboxFunctionsKey,
+} from "./keys";
+import type { VueInspectorOpenRequest } from "./keys";
+import { MARKDOWN_RENDERER_KEY } from "./markdown-renderer";
+import { LicenseContextKey } from "./license-context";
+import CopilotKitInspector from "../components/CopilotKitInspector.vue";
+import LicenseWarningBanner from "../components/LicenseWarningBanner.vue";
+import type { CopilotKitProviderProps } from "./CopilotKitProvider.types";
+import type {
+  SandboxFunction,
+  VueActivityMessageRenderer,
+  VueFrontendTool,
+  VueToolCallRenderer,
+  VueToolCallRendererRenderProps,
+} from "../types";
+
+/**
+ * The MCP Apps renderer with `mcpApps.allowSameOriginFallback` and
+ * `mcpApps.modelContext` applied. Built once per combination, so a new
+ * `mcpApps` object with the same flags does not remount every widget.
+ */
+const configuredMCPAppsRenderers = new Map<string, FunctionalComponent>();
+function mcpAppsRendererFor(
+  allowSameOriginFallback: boolean,
+  modelContext: boolean,
+): Component {
+  if (!allowSameOriginFallback && !modelContext) return MCPAppsActivityRenderer;
+  const key = `${allowSameOriginFallback}:${modelContext}`;
+  let renderer = configuredMCPAppsRenderers.get(key);
+  if (!renderer) {
+    renderer = (_, { attrs }) =>
+      h(MCPAppsActivityRenderer as Component, {
+        ...attrs,
+        allowSameOriginFallback,
+        modelContext,
+      });
+    configuredMCPAppsRenderers.set(key, renderer);
+  }
+  return renderer;
+}
+
+const props = withDefaults(defineProps<CopilotKitProviderProps>(), {
+  headers: () => ({}),
+  properties: () => ({}),
+  agents__unsafe_dev_only: () => ({}),
+  selfManagedAgents: () => ({}),
+  frontendTools: () => [],
+  humanInTheLoop: () => [],
+  renderCustomMessages: () => [],
+  renderActivityMessages: () => [],
+  openGenerativeUI: undefined,
+  useSingleEndpoint: undefined,
+  generativeUI: undefined,
+  a2ui: undefined,
+  mcpApps: undefined,
+  enableInspector: undefined,
+  nonce: undefined,
+  injectStyles: true,
+  // A missing boolean prop would otherwise read as `false`.
+  learning: undefined,
+});
+
+// The props of the 1.x `<CopilotKit>` that 2.0 removed throw, or warn once in
+// development.
+ɵcheckRemovedProviderProps(props);
+
+provide(
+  CopilotStyleOptionsKey,
+  computed(() => ({ nonce: props.nonce, inject: props.injectStyles })),
+);
+
+const shouldRenderInspector = ref(false);
+// Follows the Inspector's own show/hide, so message actions that open it are
+// hidden while a temporary dismissal hides it.
+const inspectorVisible = ref(false);
+
+function updateInspectorVisibility(): void {
+  shouldRenderInspector.value = shouldEnableInspector({
+    enableInspector: props.enableInspector,
+    isBrowser: true,
+    isDevelopment: process.env.NODE_ENV === "development",
+    hostname: window.location?.hostname,
+  });
+}
+
+onMounted(updateInspectorVisibility);
+watch(() => props.enableInspector, updateInspectorVisibility);
+
+const inspectorOpenRequest = ref<VueInspectorOpenRequest | null>(null);
+const isInspectorEnabled = computed(
+  () => shouldRenderInspector.value && inspectorVisible.value,
+);
+
+function openInspector(request: VueInspectorOpenRequest) {
+  inspectorOpenRequest.value = { ...request };
+}
+
+provide(InspectorKey, {
+  isInspectorEnabled,
+  openInspector,
+});
+
+// Props that come from reactive state arrive as deep proxies. Zod 4 schemas
+// break behind a Vue proxy (their `_zod` property is read-only and
+// non-configurable), so read tools and renderers through their raw objects.
+const rawEntries = <T>(entries: readonly T[] | undefined): T[] =>
+  [...toRaw(entries ?? [])].map((entry) => toRaw(entry));
+
+// Array props must keep their identity; core decides when a change warns
+// (for `renderToolCalls`, only a change of the agentId:name pairs).
+const stableArrayProps: Record<
+  ɵStableArrayProp,
+  () => readonly unknown[] | undefined
+> = {
+  renderToolCalls: () => props.renderToolCalls,
+  frontendTools: () => props.frontendTools,
+  humanInTheLoop: () => props.humanInTheLoop,
+  renderCustomMessages: () => props.renderCustomMessages,
+  renderActivityMessages: () => props.renderActivityMessages,
+  sandboxFunctions: () => props.openGenerativeUI?.sandboxFunctions,
+};
+for (const [name, read] of Object.entries(stableArrayProps)) {
+  const initial = read();
+  watch(read, (next) => {
+    const warning = ɵstableArrayPropWarning(
+      name as ɵStableArrayProp,
+      initial,
+      next,
+    );
+    if (warning) console.error(warning);
+  });
+}
+
+// Key fallback, Copilot Cloud URL, transport and agent merge all come from
+// core.
+const resolvedConfig = computed(() =>
+  ɵresolveProviderConfig({
+    runtimeUrl: props.runtimeUrl,
+    publicApiKey: props.publicApiKey,
+    publicLicenseKey: props.publicLicenseKey,
+    useSingleEndpoint: props.useSingleEndpoint,
+    agents__unsafe_dev_only: props.agents__unsafe_dev_only,
+    selfManagedAgents: props.selfManagedAgents,
+    properties: props.properties,
+  }),
+);
+// Strings, so dependents only re-run when the value really changes.
+const resolvedPublicKey = computed(() => resolvedConfig.value.publicKey);
+const chatApiEndpoint = computed(() => resolvedConfig.value.runtimeUrl);
+const runtimeTransport = computed(() => resolvedConfig.value.runtimeTransport);
+const mergedAgents = computed(() => resolvedConfig.value.agents);
+
+// Whether `headers` is a builder, as its own computed so that a re-render
+// merely passing a NEW function of the same kind (e.g. a fresh inline arrow)
+// doesn't propagate: this computed's VALUE doesn't change, so Vue never marks
+// `headersSource` below dirty on that account. Reading `props.headers`
+// directly inside `headersSource` would defeat this — its exact identity
+// would then be tracked there instead.
+const isHeadersBuilder = computed(() => typeof props.headers === "function");
+
+// Stable for the component's lifetime: reads `props.headers` fresh on every
+// call, so it is always current at send time (#1937), never during render.
+// The read below can return a sync record or an async promise depending on
+// what `props.headers` happens to be at call time, which
+// `CopilotKitHeadersSource`'s shape can't express in one function signature
+// (sync-only OR async-only) — same rationale as the cast inside
+// `ɵwithHeaderDefaults`.
+const latestHeaders = (() =>
+  typeof props.headers === "function"
+    ? props.headers()
+    : props.headers) as () => Record<string, string>;
+
+// The source handed to core. A record keeps today's identity semantics (its
+// own reference changes propagate); a builder is represented by the stable
+// `latestHeaders` above, so only `isHeadersBuilder` and `resolvedPublicKey`
+// actually drive recomputation.
+const headersSource = computed<CopilotKitHeadersSource>(() =>
+  ɵwithHeaderDefaults(
+    isHeadersBuilder.value ? latestHeaders : props.headers,
+    ɵpublicKeyHeaderDefaults(resolvedPublicKey.value),
+  ),
+);
+
+// Throws in production for a missing runtime config; otherwise warns, once
+// per provider for each message.
+const loggedDiagnostics = new Set<string>();
+watch(
+  () => resolvedConfig.value.diagnostics,
+  (diagnostics) => {
+    ɵreportProviderConfigDiagnostics(diagnostics, {
+      isProduction: process.env.NODE_ENV === "production",
+      logged: loggedDiagnostics,
+    });
+  },
+  { immediate: true },
+);
+
+type FrontendToolRender = NonNullable<VueFrontendTool["render"]>;
+
+// The tools and tool-call renderers for core (assembly rules from core).
+// Human-in-the-loop renders are wrapped once per `humanInTheLoop` change: a
+// new wrapper is a new component type, so Vue would remount the card.
+const humanInTheLoopAssembly = computed(() =>
+  ɵassembleHumanInTheLoop<FrontendToolRender, unknown>({
+    humanInTheLoop: rawEntries(props.humanInTheLoop),
+    // Core parks each call by tool call id until the render responds. The core
+    // is created further down, so read its registry lazily.
+    humanInTheLoopRegistry: (): ɵHumanInTheLoopRegistry =>
+      copilotkit.value.ɵhumanInTheLoop,
+    wrapHumanInTheLoopRender: (ToolComponent, tool, registry) =>
+      ((renderProps: VueToolCallRendererRenderProps<unknown>) =>
+        h(
+          ToolComponent as Parameters<typeof h>[0],
+          ɵhitlRenderProps(renderProps, tool, registry()),
+        )) as FrontendToolRender,
+  }),
+);
+const allTools = computed<FrontendTool[]>(() =>
+  ɵassembleProviderTools({
+    frontendTools: rawEntries(props.frontendTools),
+    builtInFrontendTools: builtInFrontendTools.value,
+    humanInTheLoop: humanInTheLoopAssembly.value,
+  }),
+);
+const allRenderToolCalls = computed(
+  () =>
+    ɵassembleProviderToolRenderers({
+      renderToolCalls: rawEntries(props.renderToolCalls),
+      frontendTools: rawEntries(props.frontendTools),
+      builtInFrontendTools: builtInFrontendTools.value,
+      humanInTheLoop: humanInTheLoopAssembly.value,
+    }) as VueToolCallRenderer<unknown>[],
+);
+
+const allRenderCustomMessages = computed(
+  () => props.renderCustomMessages ?? [],
+);
+// Core's runtime info snapshot, projected from the core watcher below.
+const runtimeInfo = shallowRef<ɵRuntimeInfo | null>(null);
+const runtimeOpenGenerativeUIEnabled = computed(
+  () => runtimeInfo.value?.openGenerativeUIEnabled ?? false,
+);
+const runtimeLicenseStatus = computed(() => runtimeInfo.value?.licenseStatus);
+const runtimeEntitlements = computed(
+  () => runtimeInfo.value?.runtimeEntitlements,
+);
+const runtimeEntitlementRetryPending = computed(
+  () => runtimeInfo.value?.runtimeEntitlementRetryPending ?? false,
+);
+const openGenerativeUIActive = computed(() =>
+  ɵisOpenGenerativeUIActive({
+    runtimeEnabled: runtimeOpenGenerativeUIEnabled.value,
+    configured: !!props.openGenerativeUI,
+  }),
+);
+// The deprecated `a2ui` prop goes to `generativeUI`, which wins for an
+// option that both set. Without a `ui` from either prop, `a2ui.theme` goes to
+// the standard UI below.
+const generativeUIProp = computed<GenerativeUIConfig | undefined>(() => {
+  const { generativeUI, a2ui } = props;
+  const ui = generativeUI?.ui ?? a2ui?.catalog;
+  if (!a2ui || !ui) return generativeUI;
+  return { ...generativeUI, ui, theme: generativeUI?.theme ?? a2ui.theme };
+});
+// Without a `generativeUI` UI of the app, the provider falls back to the
+// standard UI when the runtime turns generative UI on (rule from core).
+const generativeUIDefault = computed(() =>
+  ɵresolveGenerativeUIDefault({
+    runtimeEnabled: runtimeInfo.value?.generativeUIEnabled ?? false,
+    runtimeAgents: runtimeInfo.value?.generativeUIAgents,
+    hasUI: !!generativeUIProp.value?.ui,
+  }),
+);
+// The standard UI is loaded only for the fallback, so an app that does not
+// use generative UI never downloads its components.
+const standardUI = shallowRef<GenerativeUI | undefined>(undefined);
+let standardUILoad: Promise<void> | undefined;
+watch(
+  () => generativeUIDefault.value.active,
+  (active) => {
+    if (!active || standardUILoad) return;
+    standardUILoad = import("../generative-ui/standard").then(
+      (module) => {
+        standardUI.value = module.standardUI;
+      },
+      (error: unknown) => {
+        standardUILoad = undefined;
+        console.error("[generativeUI] could not load the standard UI:", error);
+      },
+    );
+  },
+  { immediate: true },
+);
+const generativeUIConfig = computed<GenerativeUIConfig | undefined>(() => {
+  if (generativeUIProp.value) return generativeUIProp.value;
+  const fallback = generativeUIDefault.value;
+  if (!fallback.active || !standardUI.value) return undefined;
+  return {
+    ui: standardUI.value,
+    agentIds: fallback.agentIds,
+    theme: props.a2ui?.theme,
+  };
+});
+const generativeUIActive = computed(() => !!generativeUIConfig.value?.ui);
+const resolvedProperties = computed(() => resolvedConfig.value.properties);
+const sandboxFunctions = computed<readonly SandboxFunction[]>(() =>
+  rawEntries(props.openGenerativeUI?.sandboxFunctions),
+);
+const builtInFrontendTools = computed<VueFrontendTool[]>(() => {
+  if (!openGenerativeUIActive.value) return [];
+  return [
+    {
+      ...ɵcreateOpenGenerativeUITool(),
+      render:
+        OpenGenerativeUIToolRenderer as unknown as VueFrontendTool["render"],
+    } as VueFrontendTool,
+  ];
+});
+
+// The app's activity renderers, then the built-in ones (order from core).
+const allRenderActivityMessages = computed(() =>
+  ɵassembleActivityRenderers<VueActivityMessageRenderer<unknown>>({
+    app: rawEntries(props.renderActivityMessages),
+    builtIns: [
+      {
+        activityType: MCPAppsActivityType,
+        content: MCPAppsActivityContentSchema,
+        render: mcpAppsRendererFor(
+          props.mcpApps?.allowSameOriginFallback === true,
+          props.mcpApps?.modelContext === true,
+        ) as unknown as VueActivityMessageRenderer<unknown>["render"],
+      },
+      openGenerativeUIActive.value && {
+        activityType: OpenGenerativeUIActivityType,
+        content: OpenGenerativeUIContentSchema,
+        render:
+          OpenGenerativeUIActivityRenderer as unknown as VueActivityMessageRenderer<unknown>["render"],
+      },
+      generativeUIActive.value && createGenerativeUIActivityRenderer(),
+      generativeUIActive.value &&
+        createGenerativeUIFunctionCallActivityRenderer(),
+    ],
+  }),
+);
+
+const learningConfig = computed(() => ɵtoLearningConfig(props.learning));
+
+const createCopilotKit = () =>
+  new CopilotKitCoreVue({
+    runtimeUrl: chatApiEndpoint.value,
+    // `/info` starts from `onMounted` (`connect()` below), so server-side
+    // setup never fetches it.
+    deferInitialConnection: true,
+    runtimeTransport: runtimeTransport.value,
+    headers: headersSource.value,
+    credentials: props.credentials,
+    messageFilter: props.messageFilter,
+    properties: resolvedProperties.value,
+    agents__unsafe_dev_only: mergedAgents.value,
+    tools: allTools.value,
+    renderToolCalls: allRenderToolCalls.value,
+    renderActivityMessages: allRenderActivityMessages.value,
+    renderCustomMessages: allRenderCustomMessages.value,
+    debug: props.debug,
+    // Set at construction so child hooks can read it on first render. Core
+    // validates it.
+    defaultThrottleMs: props.defaultThrottleMs,
+    onError: props.onError,
+    learning: learningConfig.value,
+  });
+
+const copilotkit = shallowRef<CopilotKitCoreVue>(createCopilotKit());
+const didMountRef = ref(false);
+
+const executingToolCallIds = ref<ReadonlySet<string>>(new Set());
+
+watch(
+  copilotkit,
+  (core, _, onCleanup) => {
+    // Core keeps a call executing until its result is in the messages, so
+    // the status never drops back to in-progress between the two.
+    executingToolCallIds.value = core.executingToolCallIds;
+    const sub1 = core.subscribe({
+      onExecutingToolCallsChanged: ({ executingToolCallIds: ids }) => {
+        const hasFinishedCall = ids.size < executingToolCallIds.value.size;
+        executingToolCallIds.value = ids;
+        // Core adds the result to `agent.messages` without a messages event,
+        // so re-read the agents once a call finishes. Not on start: that
+        // re-runs the agent subscriptions mid-run and drops a pending update.
+        if (hasFinishedCall) triggerRef(copilotkit);
+      },
+    });
+    const sub2 = core.subscribe({
+      onRenderToolCallsChanged: () => {
+        triggerRef(copilotkit);
+      },
+    });
+    const sub3 = core.subscribe({
+      onRenderCustomMessagesChanged: () => {
+        triggerRef(copilotkit);
+      },
+      onRenderActivityMessagesChanged: () => {
+        triggerRef(copilotkit);
+      },
+    });
+    runtimeInfo.value = core.ɵruntimeInfo;
+    const unsubscribeRuntimeInfo = core.ɵsubscribeToRuntimeInfo(() => {
+      runtimeInfo.value = core.ɵruntimeInfo;
+    });
+    // Consumers read runtime getters off `copilotkit` directly, so every
+    // status event invalidates them.
+    const sub4 = core.subscribe({
+      onRuntimeConnectionStatusChanged: () => {
+        triggerRef(copilotkit);
+      },
+    });
+    // `onHeadersChanged` fires only from a real `setHeaders()` call (a new
+    // source), never from a builder resolving a new token — same generation
+    // core bumps. Without this, nothing pokes Vue's reactivity when a source
+    // change lands: `ɵheadersGeneration` is a plain property read, not a
+    // ref/reactive value, so `headersKey` (use-threads.ts) and the
+    // HttpAgent watcher (use-agent.ts) only re-read it when SOME OTHER
+    // trigger happens to fire around the same time (#1937).
+    const sub6 = core.subscribe({
+      onHeadersChanged: () => {
+        triggerRef(copilotkit);
+      },
+    });
+    onCleanup(() => {
+      sub1.unsubscribe();
+      sub2.unsubscribe();
+      sub3.unsubscribe();
+      sub4.unsubscribe();
+      unsubscribeRuntimeInfo();
+      sub6.unsubscribe();
+    });
+  },
+  { immediate: true },
+);
+
+watch([allTools], ([tools]) => {
+  if (!didMountRef.value) return;
+  copilotkit.value.setTools(tools);
+});
+
+watch([allRenderToolCalls], ([renderToolCalls]) => {
+  if (!didMountRef.value) return;
+  copilotkit.value.setRenderToolCalls(renderToolCalls);
+});
+
+watch([allRenderCustomMessages], ([renderCustomMessages]) => {
+  if (!didMountRef.value) return;
+  copilotkit.value.setRenderCustomMessages(renderCustomMessages);
+});
+
+watch([allRenderActivityMessages], ([renderActivityMessages]) => {
+  if (!didMountRef.value) return;
+  copilotkit.value.setRenderActivityMessages(renderActivityMessages);
+});
+
+// Every setter is a no-op when its value did not change (`setHeaders` too, for
+// the same builder or an equal record, see #1937), so this can pass every key.
+function syncRuntimeConfig() {
+  copilotkit.value.ɵupdateConfig({
+    messageFilter: props.messageFilter,
+    runtimeUrl: chatApiEndpoint.value,
+    runtimeTransport: runtimeTransport.value,
+    headers: headersSource.value,
+    credentials: props.credentials,
+    properties: resolvedProperties.value,
+    agents__unsafe_dev_only: mergedAgents.value,
+    debug: props.debug,
+    defaultThrottleMs: props.defaultThrottleMs,
+  });
+}
+
+watch(
+  () => props.onError,
+  (onError) => copilotkit.value.setErrorHandler(onError),
+);
+
+watch(
+  [
+    () => chatApiEndpoint.value,
+    () => headersSource.value,
+    () => props.credentials,
+    () => props.messageFilter,
+    () => resolvedProperties.value,
+    () => mergedAgents.value,
+    () => runtimeTransport.value,
+    () => props.debug,
+  ],
+  () => {
+    if (!didMountRef.value) return;
+    syncRuntimeConfig();
+  },
+);
+
+watch(
+  () => props.defaultThrottleMs,
+  (defaultThrottleMs) => {
+    if (!didMountRef.value) return;
+    copilotkit.value.ɵupdateConfig({ defaultThrottleMs });
+    triggerRef(copilotkit);
+  },
+);
+
+onMounted(() => {
+  syncRuntimeConfig();
+  // The constructor deferred `/info`; start it now that we are in the browser
+  // (`onMounted` never runs during SSR). Idempotent.
+  copilotkit.value.connect();
+  runtimeInfo.value = copilotkit.value.ɵruntimeInfo;
+  didMountRef.value = true;
+  // After the runtime URL is set, so CopilotKit's own runtime traffic is never
+  // captured. The provider's onUnmounted disposes the starter (stops capture).
+  watch(
+    () => props.learning,
+    (learning) => learningStarter.update(learning),
+    {
+      immediate: true,
+    },
+  );
+});
+
+const learningStarter = new ɵLearningAutoStarter(copilotkit.value);
+
+// Native generative UI: the surface manager, the envelope of each run, and
+// the `render_ui` renderer that keeps a wildcard tool renderer from showing
+// the raw arguments. The envelope goes in as scoped properties, so
+// `setProperties` in `syncRuntimeConfig` does not replace it.
+const generativeUIRuntime = useGenerativeUIRoot(
+  copilotkit,
+  () => generativeUIConfig.value,
+);
+provide(GenerativeUIRuntimeKey, generativeUIRuntime);
+registerGenerativeUIToolCallRenderer(
+  copilotkit,
+  () => generativeUIActive.value,
+);
+
+watch(
+  [
+    openGenerativeUIActive,
+    sandboxFunctions,
+    () => props.openGenerativeUI?.designSkill,
+  ],
+  ([active, functions, designSkill], _previous, onCleanup) => {
+    if (!active) return;
+
+    onCleanup(
+      ɵaddOpenGenerativeUIContexts(copilotkit.value, {
+        designSkill,
+        sandboxFunctions: functions,
+      }),
+    );
+  },
+  { immediate: true },
+);
+
+provide(CopilotKitKey, {
+  copilotkit,
+  executingToolCallIds,
+});
+provide(SandboxFunctionsKey, sandboxFunctions);
+provide(MARKDOWN_RENDERER_KEY, props.markdownRenderer);
+
+// License context and banner, from the runtime license status and the
+// structured entitlement response.
+const licenseState = computed(() =>
+  ɵresolveLicenseState({
+    status: runtimeLicenseStatus.value,
+    entitlements: runtimeEntitlements.value,
+    retryPending: runtimeEntitlementRetryPending.value,
+    publicKey: resolvedPublicKey.value,
+  }),
+);
+const licenseContextValue = computed(() => licenseState.value.context);
+provide(LicenseContextKey, licenseContextValue);
+const licenseBannerType = computed(() => licenseState.value.bannerType);
+
+// The provider created this core, so it stops the core's runs, timers and
+// subscriptions. `onUnmounted` runs after the children unmount, so their
+// cleanup still reaches a live core.
+onUnmounted(() => {
+  learningStarter.dispose();
+  copilotkit.value.dispose();
+});
+</script>
+
+<template>
+  <slot />
+  <CopilotKitInspector
+    v-if="shouldRenderInspector"
+    :core="copilotkit"
+    :open-request="inspectorOpenRequest"
+    @visibility-change="inspectorVisible = $event"
+  />
+  <!-- License warnings — driven by server-reported status -->
+  <LicenseWarningBanner v-if="licenseBannerType" :type="licenseBannerType" />
+</template>

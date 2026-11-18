@@ -74,10 +74,11 @@ async function openChat({
   nextCount = count,
   standalone = false,
   variedRows = false,
+  prependCount = 1,
 }) {
   const page = await browser.newPage({ viewport: { width: 900, height: 800 } });
   await page.goto(
-    `${baseURL}/?count=${count}&mode=${mode}&nextCount=${nextCount}&standalone=${standalone}&variedRows=${variedRows}`,
+    `${baseURL}/?count=${count}&mode=${mode}&nextCount=${nextCount}&standalone=${standalone}&variedRows=${variedRows}&prependCount=${prependCount}`,
   );
   await page.locator('[data-testid="copilot-message-list"]').waitFor();
   await page.waitForFunction(() => {
@@ -249,6 +250,65 @@ test("pin-to-bottom preserves a scrolled-up reader across host hiding without vi
       `reader moved to bottom: ${JSON.stringify({ before, after })}`,
     );
     assert.ok(Math.abs(after.scrollTop - before.scrollTop) < 250);
+  } finally {
+    await page.close();
+  }
+});
+
+/** The first row in view: its anchor key and its offset from the viewport top. */
+async function readingRow(page) {
+  return page.evaluate(() => {
+    const el = window.__chatScroll;
+    const viewport = el.getBoundingClientRect();
+    const row = [...el.querySelectorAll("[data-scroll-anchor]")].find((r) => {
+      const bounds = r.getBoundingClientRect();
+      return bounds.bottom > viewport.top && bounds.top < viewport.bottom;
+    });
+    return row
+      ? {
+          key: row.dataset.scrollAnchor,
+          offset: row.getBoundingClientRect().top - viewport.top,
+        }
+      : null;
+  });
+}
+
+test("virtualized history prepend keeps the reader's row in place", async () => {
+  const page = await openChat({
+    count: 80,
+    mode: "pin-to-bottom",
+    prependCount: 70,
+  });
+  try {
+    const before = await scrollAway(page);
+    assert.notEqual(
+      before.firstRow,
+      null,
+      "this regression needs the virtual list",
+    );
+    const anchor = await readingRow(page);
+    assert.ok(anchor, "no row is in view");
+    await page.locator("#prepend").click();
+    await page.waitForTimeout(900);
+    const after = await page.evaluate((key) => {
+      const el = window.__chatScroll;
+      const row = el.querySelector(`[data-scroll-anchor="${CSS.escape(key)}"]`);
+      return {
+        fromBottom: el.scrollHeight - el.clientHeight - el.scrollTop,
+        offset: row
+          ? row.getBoundingClientRect().top - el.getBoundingClientRect().top
+          : null,
+      };
+    }, anchor.key);
+    assert.notEqual(
+      after.offset,
+      null,
+      `the reader's row left the view: ${JSON.stringify({ anchor, after })}`,
+    );
+    assert.ok(
+      Math.abs(after.offset - anchor.offset) < 4,
+      `the reader's row moved: ${JSON.stringify({ anchor, after })}`,
+    );
   } finally {
     await page.close();
   }

@@ -2,10 +2,8 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import {
-  pnpmPackagesDiscoverySource,
-  type PnpmPackageRecord,
-} from "./pnpm-packages.js";
+import { pnpmPackagesDiscoverySource } from "./pnpm-packages.js";
+import type { PnpmPackageRecord } from "./pnpm-packages.js";
 import {
   DiscoverySourceNotFoundError,
   DiscoverySourceSchemaError,
@@ -410,7 +408,7 @@ describe("pnpmPackagesDiscoverySource", () => {
     // A real example app under the deep-glob path — proves we don't crash
     // on it and don't (wrongly) include it given the packages/ prefix.
     await writeFile(
-      "examples/v2/react/apps/demo/package.json",
+      "examples/dev/by-frontend/react/apps/demo/package.json",
       JSON.stringify({ name: "demo-app", version: "0.0.0" }),
     );
     const records = await pnpmPackagesDiscoverySource.enumerate(BASE_CTX, {

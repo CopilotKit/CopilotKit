@@ -2,11 +2,12 @@ import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
-  computed,
+  NgZone,
   inject,
   input,
   signal,
 } from "@angular/core";
+import { ɵPlaceholderCycler } from "@copilotkit/core";
 import type { AngularToolCall, ToolRenderer } from "../../tools";
 import type { GenerateSandboxedUiArgs } from "../../open-generative-ui";
 import { explicitEffect } from "../../explicit-effect";
@@ -39,54 +40,27 @@ export class CopilotOpenGenerativeUIToolRenderer implements ToolRenderer<Generat
   readonly toolCall =
     input.required<AngularToolCall<GenerateSandboxedUiArgs>>();
 
-  private readonly visibleMessageIndex = signal(0);
-  private readonly destroyRef = inject(DestroyRef);
-  private previousMessageCount = 0;
-  private interval: ReturnType<typeof setInterval> | undefined;
-
-  protected readonly visibleMessage = computed(() => {
-    const call = this.toolCall();
-    if (call.status === "complete") return undefined;
-
-    const messages = call.args.placeholderMessages;
-    if (!messages?.length) return undefined;
-
-    return messages[this.visibleMessageIndex()] ?? messages[0];
-  });
+  readonly #cycler = new ɵPlaceholderCycler();
+  protected readonly visibleMessage = signal(
+    this.#cycler.getSnapshot().message,
+  );
 
   constructor() {
-    this.destroyRef.onDestroy(() => this.clearTimer());
-
-    explicitEffect(this.toolCall, (call, onCleanup) => {
-      const messages = call.args.placeholderMessages;
-      this.clearTimer();
-
-      if (!messages?.length) {
-        this.previousMessageCount = 0;
-        this.visibleMessageIndex.set(0);
-        return;
-      }
-
-      if (messages.length !== this.previousMessageCount) {
-        this.previousMessageCount = messages.length;
-        this.visibleMessageIndex.set(messages.length - 1);
-      }
-
-      if (call.status === "complete") return;
-
-      this.interval = setInterval(() => {
-        this.visibleMessageIndex.update(
-          (index) => (index + 1) % messages.length,
-        );
-      }, 5000);
-
-      onCleanup(() => this.clearTimer());
+    const zone = inject(NgZone);
+    const unsubscribe = this.#cycler.subscribe(() =>
+      zone.run(() =>
+        this.visibleMessage.set(this.#cycler.getSnapshot().message),
+      ),
+    );
+    inject(DestroyRef).onDestroy(() => {
+      unsubscribe();
+      this.#cycler.dispose();
     });
-  }
-
-  private clearTimer(): void {
-    if (this.interval === undefined) return;
-    clearInterval(this.interval);
-    this.interval = undefined;
+    explicitEffect(this.toolCall, (call) =>
+      this.#cycler.update(
+        call.args.placeholderMessages,
+        call.status === "complete",
+      ),
+    );
   }
 }

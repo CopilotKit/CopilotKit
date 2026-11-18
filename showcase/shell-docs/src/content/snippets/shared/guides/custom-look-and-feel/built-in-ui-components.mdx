@@ -2,16 +2,6 @@
 
 <Steps>
   <Step>
-    ### Import the default styles
-
-    Import the default styles in your root component (typically `layout.tsx`) :
-
-    ```tsx filename="layout.tsx"
-    import "@copilotkit/react-core/v2/styles.css";
-    ```
-
-  </Step>
-  <Step>
     ### Choose your component
     CopilotKit has three chat components. They have the same features and different layouts. Pick one:
 
@@ -34,12 +24,18 @@
     Import the component and render it in your page:
 
     ```tsx filename="page.tsx"
-    import { CopilotChat } from "@copilotkit/react-core/v2";
+    import { CopilotChat, CopilotSidebar, CopilotPopup } from "@copilotkit/react-core";
 
-    // Or use CopilotSidebar or CopilotPopup the same way.
-    return <div>
-      <CopilotChat />
-    </div>
+    // Pick the one component you chose above.
+    export default function Page() {
+      return (
+        <div>
+          <CopilotChat />
+          <CopilotSidebar />
+          <CopilotPopup />
+        </div>
+      );
+    }
     ```
 
   </Step>

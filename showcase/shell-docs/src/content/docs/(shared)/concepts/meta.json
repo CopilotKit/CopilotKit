@@ -2,7 +2,11 @@
   "title": "Concepts",
   "pages": [
     "architecture",
+    "when-to-use",
     "generative-ui-overview",
-    "oss-vs-enterprise"
+    "oss-vs-enterprise",
+    "durability",
+    "harness-workspace",
+    "operator-console"
   ]
 }

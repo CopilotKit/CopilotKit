@@ -14,6 +14,7 @@ import { CopilotChatViewDisclaimer } from "./copilot-chat-view-disclaimer";
 import { cn } from "../../utils";
 import { ChatState } from "../../chat-state";
 import { CopilotChatAttachmentQueue } from "./copilot-chat-attachment-queue";
+import { hostStyles } from "../host-styles";
 
 /**
  * InputContainer component for CopilotChatView
@@ -25,6 +26,7 @@ import { CopilotChatAttachmentQueue } from "./copilot-chat-attachment-queue";
   imports: [CopilotSlot, CopilotChatAttachmentQueue],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
+  styles: [hostStyles],
   providers: [
     {
       provide: ElementRef,
@@ -32,26 +34,23 @@ import { CopilotChatAttachmentQueue } from "./copilot-chat-attachment-queue";
     },
   ],
   template: `
-    <div [class]="computedClass">
-      <!-- Input component -->
+    <div data-testid="copilot-input-overlay" [class]="computedClass">
       @if ((chatState?.attachments() ?? []).length > 0) {
-        <div class="cpk:max-w-3xl cpk:mx-auto cpk:w-full cpk:pointer-events-auto">
+        <div class="cpk-chat-view-attachments">
           <copilot-chat-attachment-queue
             [attachments]="chatState?.attachments() ?? []"
-            inputClass="cpk:px-4"
+            inputClass="cpk-chat-view-attachment-queue"
             (removeAttachment)="chatState?.removeAttachment($event)"
           />
         </div>
       }
 
-      <div class="cpk:max-w-3xl cpk:mx-auto cpk:py-0 cpk:px-4 cpk:@3xl:px-0">
-        <copilot-slot
-          [slot]="input()"
-          [context]="{ inputClass: inputClass() }"
-          [defaultComponent]="defaultInputComponent"
-        >
-        </copilot-slot>
-      </div>
+      <copilot-slot
+        [slot]="input()"
+        [context]="{ inputClass: inputClass() }"
+        [defaultComponent]="defaultInputComponent"
+      >
+      </copilot-slot>
 
       <!-- Disclaimer - always rendered like in React -->
       <copilot-slot
@@ -60,11 +59,6 @@ import { CopilotChatAttachmentQueue } from "./copilot-chat-attachment-queue";
         [defaultComponent]="defaultDisclaimerComponent"
       >
       </copilot-slot>
-
-      <!-- Bottom gap inside the overlay, so the measured height that the
-           scroll view reserves includes it and content never slides under
-           the input. -->
-      <div class="cpk:h-6" aria-hidden="true"></div>
     </div>
   `,
 })
@@ -91,9 +85,6 @@ export class CopilotChatViewInputContainer extends ElementRef {
   }
 
   get computedClass(): string {
-    return cn(
-      "cpk:absolute cpk:bottom-0 cpk:left-0 cpk:right-0 cpk:z-20",
-      this.inputContainerClass(),
-    );
+    return cn("cpk-chat-view-input-overlay", this.inputContainerClass());
   }
 }

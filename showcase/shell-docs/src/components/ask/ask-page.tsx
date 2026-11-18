@@ -85,8 +85,13 @@ function AskWorkspace() {
   }, [agent, isReady]);
 
   return (
+    // The screen under the navbar, and under the release-candidate banner
+    // when there is one (src/components/channel-banner.tsx).
     <div
-      className={cn("h-[calc(100dvh-3.5rem)] bg-fd-background", styles.page)}
+      className={cn(
+        "h-[calc(100dvh-3.5rem-var(--fd-banner-height,0px))] bg-fd-background",
+        styles.page,
+      )}
     >
       <div
         className="grid h-full min-h-0 transition-[grid-template-columns] duration-500 ease-[cubic-bezier(0.25,1,0.5,1)] motion-reduce:transition-none max-lg:grid-cols-1!"

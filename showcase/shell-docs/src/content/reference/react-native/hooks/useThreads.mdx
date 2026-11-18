@@ -5,18 +5,25 @@ description: "React hook for listing, managing, and syncing conversation threads
 
 ## Overview
 
-`useThreads` is a React hook for managing conversation threads in CopilotKit Intelligence. It fetches the thread list for a given agent, keeps it synchronized in realtime via WebSocket, and exposes mutation methods for renaming, archiving, and deleting threads. For a full walkthrough, see [Headless Threads](/headless-threads).
+`useThreads` is a React hook for managing conversation threads. It fetches the thread list for a given agent, keeps it synchronized in realtime via WebSocket, and exposes mutation methods for renaming, archiving, and deleting threads. For a full walkthrough, see [Headless Threads](/headless-threads).
 
 <Callout type="warn">
-  Thread persistence runs in CopilotKit Intelligence, which is
-  accessed with a `publicLicenseKey`. That key is **not yet supported on React
-  Native** (see [`CopilotKitProvider`](/reference/react-native/components/CopilotKitProvider)),
-  so `useThreads` is documented here for API parity but is not yet usable on
-  React Native.
+  On React Native, `useThreads` can only list threads. Rename, archive, delete,
+  and realtime updates need CopilotKit Intelligence, which is accessed with a
+  `publicLicenseKey`. That key is **not yet supported on React Native** (see
+  [`CopilotKitProvider`](/reference/react-native/components/CopilotKitProvider)).
 </Callout>
 
+The thread list works with a runtime that uses the default `InMemoryAgentRunner`:
+
+- Pass `identifyUser`, or `threads: { access: "open" }`, to `CopilotKitRuntime` to allow listing.
+- The list lives in process memory, so a restart clears it.
+- `SqliteAgentRunner` and custom runners serve no thread list.
+
+For the routes behind each case, see [Runtime endpoints](/backend/runtime-endpoints).
+
 <Callout type="info">
-  Re-exported from `@copilotkit/react-core/v2`, identical to the [React (V2) `useThreads`](/reference/v2/hooks/useThreads). The only difference is the import path.
+  Re-exported from `@copilotkit/react-core`, identical to the [React `useThreads`](/reference/hooks/useThreads). The only difference is the import path.
 </Callout>
 
 Threads are sorted by most recent run first. The hook supports cursor-based pagination when a `limit` is provided.
@@ -24,9 +31,13 @@ Threads are sorted by most recent run first. The hook supports cursor-based pagi
 ## Signature
 
 ```tsx
-import { useThreads } from "@copilotkit/react-native";
+import {
+  useThreads,
+  type UseThreadsInput,
+  type UseThreadsResult,
+} from "@copilotkit/react-native";
 
-function useThreads(input: UseThreadsInput): UseThreadsResult
+useThreads satisfies (input: UseThreadsInput) => UseThreadsResult;
 ```
 
 ## Parameters

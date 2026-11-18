@@ -5,7 +5,7 @@ import * as path from "node:path";
 import { describe, expect, test } from "vitest";
 
 const repoRoot = path.resolve(__dirname, "..", "..");
-const integrationsDir = path.join(repoRoot, "examples", "integrations");
+const integrationsDir = path.join(repoRoot, "examples", "starters");
 
 /**
  * The starters the CopilotKit CLI clones for a developer

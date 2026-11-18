@@ -9,13 +9,22 @@ argument type from its Standard Schema.
 ## Signature
 
 ```ts
-function defineChannelTool<Schema extends ObjectSchema>(
+import {
+  defineChannelTool,
+  type ChannelTool,
+  type ObjectSchema,
+} from "@copilotkit/channels";
+
+defineChannelTool satisfies <Schema extends ObjectSchema>(
   tool: ChannelTool<Schema>,
-): ChannelTool<Schema>;
+) => ChannelTool<Schema>;
 ```
 
 ```ts
-interface ChannelTool<Schema extends ObjectSchema> {
+import type { ChannelToolContext, ObjectSchema } from "@copilotkit/channels";
+import type { InferSchemaOutput } from "@copilotkit/shared";
+
+interface ChannelTool<Schema extends ObjectSchema = ObjectSchema> {
   name: string;
   description: string;
   parameters: Schema;
@@ -31,6 +40,7 @@ interface ChannelTool<Schema extends ObjectSchema> {
 ```ts title="tools.ts"
 import { defineChannelTool } from "@copilotkit/channels";
 import { z } from "zod";
+import { incidents } from "./incidents.js";
 
 export const getIncident = defineChannelTool({
   name: "get_incident",

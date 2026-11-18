@@ -1,0 +1,93 @@
+:where(.cpk-user-message) {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  padding-top: 2.5rem;
+}
+:where(.cpk-user-message-container) {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+:where(.cpk-user-message-attachments) {
+  display: flex;
+  max-width: 100%;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+/* The text keeps the body color, size and line height of Tailwind's `prose`
+   (and `prose-invert` in dark mode). */
+:where(.cpk-user-message-bubble) {
+  position: relative;
+  display: inline-block;
+  max-width: 80%;
+  border-radius: 18px;
+  background-color: var(--muted);
+  padding: 0.375rem 1rem;
+  white-space: pre-wrap;
+  color: oklch(37.3% 0.034 259.733);
+  font-size: 1rem;
+  line-height: 1.75;
+}
+:where(.cpk-user-message-bubble[data-multiline]) {
+  padding-block: 0.75rem;
+}
+:where(.dark .cpk-user-message-bubble) {
+  color: oklch(87.2% 0.01 258.338);
+}
+
+/* Shows while the pointer is over the message. */
+:where(.cpk-user-message-toolbar) {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: flex-end;
+  margin-top: 4px;
+  margin-right: -5px;
+  background-color: transparent;
+  visibility: hidden;
+}
+@media (hover: hover) {
+  :where(
+    .cpk-user-message:hover .cpk-user-message-toolbar,
+    .cpk-user-message-container:hover .cpk-user-message-toolbar
+  ) {
+    visibility: visible;
+  }
+}
+:where(.cpk-user-message-toolbar-items) {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.25rem;
+}
+:where(.cpk-user-message-toolbar-icon) {
+  width: 18px;
+  height: 18px;
+}
+
+:where(.cpk-user-message-branch-navigation) {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+:where(.cpk-user-message-branch-button) {
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+}
+:where(.cpk-user-message-branch-icon) {
+  width: 20px;
+  height: 20px;
+}
+:where(.cpk-user-message-branch-counter) {
+  padding-inline: 0;
+  font-size: 0.875rem;
+  line-height: calc(1.25 / 0.875);
+  font-weight: 500;
+  color: var(--muted-foreground);
+}

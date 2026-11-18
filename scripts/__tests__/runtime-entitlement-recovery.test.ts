@@ -4,11 +4,11 @@ import {
   CopilotKitCore,
   CopilotKitCoreRuntimeConnectionStatus,
 } from "../../packages/core/src/core";
-import type { CopilotIntelligenceRuntimeLike } from "../../packages/runtime/src/v2/runtime/core/runtime";
-import { InMemoryAgentRunner } from "../../packages/runtime/src/v2/runtime/runner/in-memory";
-import { resolveForwardHeadersPolicy } from "../../packages/runtime/src/v2/runtime/handlers/header-utils";
-import { handleGetRuntimeInfo } from "../../packages/runtime/src/v2/runtime/handlers/get-runtime-info";
-import { CopilotKitIntelligence } from "../../packages/runtime/src/v2/runtime/intelligence-platform/client";
+import type { CopilotKitIntelligenceRuntimeLike } from "../../packages/runtime/src/runtime/core/runtime";
+import { InMemoryAgentRunner } from "../../packages/runtime/src/runtime/runner/in-memory";
+import { resolveForwardHeadersPolicy } from "../../packages/runtime/src/runtime/handlers/header-utils";
+import { handleGetRuntimeInfo } from "../../packages/runtime/src/runtime/handlers/get-runtime-info";
+import { CopilotKitIntelligence } from "../../packages/runtime/src/runtime/intelligence-platform/client";
 
 const INACTIVE_ENTITLEMENTS_TRANSPORT = {
   organizationId: "org-private",
@@ -29,7 +29,7 @@ const ACTIVE_ENTITLEMENTS_TRANSPORT = {
 /** Build the smallest real Intelligence Runtime accepted by the `/info` handler. */
 function createRuntime(
   intelligence: CopilotKitIntelligence,
-): CopilotIntelligenceRuntimeLike {
+): CopilotKitIntelligenceRuntimeLike {
   return {
     agents: {},
     transcriptionService: undefined,

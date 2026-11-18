@@ -2,6 +2,11 @@
 require 'set'
 module CopilotKit
   # A2UI 0.9 transform compatible with middleware 0.0.10. State belongs to one run.
+  #
+  # The runtime applies it per run from the `generative_ui` option (see `generative_ui.rb`):
+  # fully configured for an agent that speaks A2UI v0.9, and for extraction of
+  # `{"a2ui_operations": [...]}` tool results only for a 1.0 agent. Its `a2ui-surface`
+  # output is converted to A2UI 1.0 surfaces by `A2UIUpgrade::ActivityUpgrader`.
   class A2UI
     SCHEMA_CONTEXT = 'A2UI Component Schema — available components for generating UI surfaces. Use these component names and properties when creating A2UI operations.'
     BASIC_CATALOG = 'https://a2ui.org/specification/v0_9/basic_catalog.json'
@@ -32,11 +37,11 @@ module CopilotKit
         ] }
         text = "User performed action \"#{action.fetch('name', 'unknown_action')}\" on surface \"#{action.fetch('surfaceId', 'unknown_surface')}\""
         text += " (component: #{action['sourceComponentId']})" if action['sourceComponentId']
-        text += '. Context: ' + JSON.generate(action.fetch('context', {}))
+        text += '. Context: ' + JSON.generate(action['context'] || {})
         result['messages'] << { 'id' => SecureRandom.uuid, 'role' => 'tool', 'toolCallId' => id, 'content' => text }
       end
       result['context'] ||= []
-      if @config['schema'] && !@config['schema'].empty?
+      if components?(@config['schema'])
         result['context'].reject! { |context| context['description'] == SCHEMA_CONTEXT }
         result['context'] << { 'description' => SCHEMA_CONTEXT, 'value' => JSON.generate(@config['schema']) }
       end
@@ -109,6 +114,13 @@ module CopilotKit
     end
 
     private
+
+    # Only a schema with components reaches the agent, as in the TypeScript middleware.
+    def components?(schema)
+      return !schema.empty? if schema.is_a?(Array)
+      components = schema.is_a?(Hash) ? schema['components'] : nil
+      (components.is_a?(Hash) || components.is_a?(Array) || components.is_a?(String)) && !components.empty?
+    end
 
     def tool
       { 'name' => @tool_name, 'description' => 'Render a dynamic A2UI v0.9 surface with structured parameters. Follow the A2UI render tool usage guide provided in context.',

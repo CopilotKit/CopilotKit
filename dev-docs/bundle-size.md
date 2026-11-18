@@ -73,7 +73,7 @@ pnpm --filter <pkg> size
 
 The other **six** packages in the CI glob have no `.size-limit.json` and no `size` script (4 + 6 is the 10 packages the workflow's `pattern` covers):
 
-- `shared`, `runtime-client-gql`, `web-inspector`, `voice`, `a2ui-renderer` — unbundled (they emit re-export barrels with separate chunk files); tracked by the CI glob only.
+- `shared`, `runtime-client-gql`, `web-inspector`, `voice` — unbundled (they emit re-export barrels with separate chunk files); tracked by the CI glob only.
 - `react-native` — multi-entry with every runtime dep external, so the glob measures each entry plus its shared chunks. It has no size-limit config either, but it does ship a bespoke `size:headless` script (`scripts/measure-headless.mjs`, an esbuild signal rather than size-limit — see Tier 1 above, including the three paths on which it exits non-zero), run in CI and locally via `pnpm --filter @copilotkit/react-native size:headless`.
 
 > **Node version requirement:** `size-limit@12.1.0` requires Node 20, 22, or 24+ (`^20 || ^22 || >=24`). Running `pnpm --filter <pkg> size` on Node 18 will produce an `EBADENGINE` error.

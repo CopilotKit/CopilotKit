@@ -54,19 +54,37 @@ export function readFileAsBase64(file: File): Promise<string> {
 
 /**
  * Generate a thumbnail data URL from a video file by capturing a frame near the start (at 0.1s).
- * Returns undefined if thumbnail generation fails or if called outside a browser environment.
+ * Returns undefined if thumbnail generation fails, if called outside a browser environment,
+ * or if `file` is not a `Blob` the browser can read (React Native for web passes a
+ * native file's description). Never rejects.
  */
 export function generateVideoThumbnail(
   file: File,
 ): Promise<string | undefined> {
-  if (typeof document === "undefined") {
+  if (
+    typeof document === "undefined" ||
+    typeof Blob === "undefined" ||
+    !(file instanceof Blob)
+  ) {
     return Promise.resolve(undefined);
   }
   return new Promise((resolve) => {
     let resolved = false;
-    const video = document.createElement("video");
-    const canvas = document.createElement("canvas");
-    const url = URL.createObjectURL(file);
+    let url: string;
+    let video: HTMLVideoElement;
+    let canvas: HTMLCanvasElement;
+    try {
+      video = document.createElement("video");
+      canvas = document.createElement("canvas");
+      url = URL.createObjectURL(file);
+    } catch (error) {
+      console.warn(
+        `[CopilotKit] generateVideoThumbnail: could not read file "${file.name}"`,
+        error,
+      );
+      resolve(undefined);
+      return;
+    }
 
     const cleanup = (result: string | undefined) => {
       if (resolved) return;

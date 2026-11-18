@@ -22,7 +22,7 @@ Use this prompt to connect your Vue app to Copilot Runtime with the selected age
 
 - An OpenAI API key (or another model provider supported by [Model Selection](/model-selection))
 - Vue 3.3+
-- Node.js 20+
+- Node.js 20.19.3+ or 22.13+
 
 ## Getting started
 
@@ -46,19 +46,19 @@ Use this prompt to connect your Vue app to Copilot Runtime with the selected age
         <Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn']}>
             <Tab value="npm">
                 ```bash
-                npm install @copilotkit/vue @copilotkit/runtime
+                npm install @copilotkit/vue @copilotkit/runtime @tanstack/ai-openai
                 npm install -D tsx typescript @types/node
                 ```
             </Tab>
             <Tab value="pnpm">
                 ```bash
-                pnpm add @copilotkit/vue @copilotkit/runtime
+                pnpm add @copilotkit/vue @copilotkit/runtime @tanstack/ai-openai
                 pnpm add -D tsx typescript @types/node
                 ```
             </Tab>
             <Tab value="yarn">
                 ```bash
-                yarn add @copilotkit/vue @copilotkit/runtime
+                yarn add @copilotkit/vue @copilotkit/runtime @tanstack/ai-openai
                 yarn add -D tsx typescript @types/node
                 ```
             </Tab>
@@ -82,13 +82,15 @@ Use this prompt to connect your Vue app to Copilot Runtime with the selected age
 
         ```ts title="server.ts"
         import { createServer } from "node:http";
-        import { BuiltInAgent, CopilotRuntime } from "@copilotkit/runtime/v2";
-        import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
+        import { CopilotKitRuntime } from "@copilotkit/runtime";
+        import { BuiltInAgent } from "@copilotkit/runtime/agent";
+        import { openaiText } from "@tanstack/ai-openai";
+        import { createCopilotKitNodeListener } from "@copilotkit/runtime/node";
 
-        const runtime = new CopilotRuntime({
+        const runtime = new CopilotKitRuntime({
           agents: {
             default: new BuiltInAgent({
-              model: "openai:gpt-6-luna",
+              model: openaiText("gpt-6-luna"),
               prompt: "You are a helpful assistant for a Vue app.",
             }),
           },
@@ -97,7 +99,7 @@ Use this prompt to connect your Vue app to Copilot Runtime with the selected age
         const port = Number(process.env.PORT ?? 8200);
 
         createServer(
-          createCopilotNodeListener({
+          createCopilotKitNodeListener({
             runtime,
             basePath: "/api/copilotkit",
             cors: true,
@@ -110,21 +112,8 @@ Use this prompt to connect your Vue app to Copilot Runtime with the selected age
         ```
 
         <Callout type="info" title="Vite and Copilot Runtime run on separate origins">
-          Vite serves the Vue app (usually on `http://localhost:5173`) while the runtime server runs on `http://localhost:8200`. Because the browser calls across those origins, `cors: true` is required for local development. `createCopilotNodeListener` does not enable CORS by default.
+          Vite serves the Vue app (usually on `http://localhost:5173`) while the runtime server runs on `http://localhost:8200`. Because the browser calls across those origins, `cors: true` is required for local development. `createCopilotKitNodeListener` does not enable CORS by default.
         </Callout>
-    </Step>
-    <Step>
-        ### Import the styles
-
-        Import the package stylesheet once in your app entry. It's self-contained, so the chat renders without any other CSS.
-
-        ```ts title="src/main.ts"
-        import { createApp } from "vue";
-        import App from "./App.vue";
-        import "@copilotkit/vue/styles.css"; // [!code highlight]
-
-        createApp(App).mount("#app");
-        ```
     </Step>
     <Step>
         ### Connect to Copilot Runtime
@@ -133,7 +122,7 @@ Use this prompt to connect your Vue app to Copilot Runtime with the selected age
 
         ```vue title="src/App.vue"
         <script setup lang="ts">
-        import { CopilotKitProvider, CopilotChat } from "@copilotkit/vue/v2"; // [!code highlight]
+        import { CopilotKitProvider, CopilotChat } from "@copilotkit/vue"; // [!code highlight]
         </script>
 
         <template>
@@ -172,9 +161,8 @@ Use this prompt to connect your Vue app to Copilot Runtime with the selected age
 
         <Accordions className="mb-4">
             <Accordion title="Troubleshooting">
-                - **Chat renders unstyled**: Make sure you imported `@copilotkit/vue/styles.css` in your app entry.
                 - **No response from the agent**: Confirm the runtime server is running and `http://localhost:8200/api/copilotkit/info` returns agent information.
-                - **CORS errors**: The Vite app and the runtime server use different origins. Keep `cors: true` in `createCopilotNodeListener` for local development. It is CORS-disabled by default. Configure an explicit allowed origin before deploying.
+                - **CORS errors**: The Vite app and the runtime server use different origins. Keep `cors: true` in `createCopilotKitNodeListener` for local development. It is CORS-disabled by default. Configure an explicit allowed origin before deploying.
                 - **Model auth errors**: Confirm `OPENAI_API_KEY` is set in the terminal running `npx tsx server.ts`.
             </Accordion>
         </Accordions>
@@ -190,6 +178,6 @@ Use this prompt to connect your Vue app to Copilot Runtime with the selected age
 - [Generative UI](/vue/generative-ui/tool-based): render a tool result as a card or another interactive surface instead of plain text.
 - [AG-UI Streams](/vue/AG-UI-Streams): persist conversations and work with the thread API directly.
 - [Threads Drawer](/vue/prebuilt-components/copilot-threads-drawer): add a ready-made thread switcher beside the chat.
-- [Vue API reference](/reference/vue): find the current `@copilotkit/vue/v2` component and composable APIs.
+- [Vue API reference](/reference/vue): find the current `@copilotkit/vue` component and composable APIs.
 
 The Vue reference also covers slot-based customization, thread management, interrupts, and lazy-loaded custom elements for SSR.

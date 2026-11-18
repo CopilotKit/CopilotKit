@@ -1,8 +1,8 @@
 import {
   CopilotKitIntelligence,
   LearnedSkillsError,
-} from "@copilotkit/runtime/v2";
-import type { LearnedSkillsErrorCode } from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
+import type { LearnedSkillsErrorCode } from "@copilotkit/runtime";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import lifecycle from "../../conformance/lifecycle.v1.json";
 import snapshots from "../../conformance/snapshots.v1.json";

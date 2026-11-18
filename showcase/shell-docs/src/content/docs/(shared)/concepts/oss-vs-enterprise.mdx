@@ -9,6 +9,8 @@ CopilotKit's **open-source SDKs and TypeScript runtime** connect your frontend t
 
 The TypeScript runtime is the default, most fully featured implementation and the only runtime that works without Intelligence. Python, Go, Ruby, and C#/.NET runtimes require cloud-hosted or self-hosted Intelligence. Their source is also open source; the distinction is the service they require. See [Runtime languages](/backend/copilot-runtime#runtime-languages) to choose a server implementation.
 
+To decide whether CopilotKit fits your project at all, read [When to Use CopilotKit](/concepts/when-to-use).
+
 ## The 30-second version
 
 - **The open-source packages are enough for** building a working agentic application with framework-native APIs, prebuilt chat, frontend tools, gen-UI, and any AG-UI integration. The license is MIT. The packages run anywhere.
@@ -50,9 +52,9 @@ Everything you need to build a working agentic app, with no external service fro
 
 </FrontendOnly>
 
-- **Runtime**: `@copilotkit/runtime`, the request handler that mounts in your application server. Framework-agnostic core plus thin adapters for Express, Hono, Bun, Deno, Cloudflare Workers.
+- **Runtime**: `@copilotkit/runtime`, the request handler that mounts in your application server. A framework-agnostic Fetch handler and Node listener that run in Express, Hono, Bun, Deno, Cloudflare Workers, and other servers.
 - **AG-UI protocol**: open standard for communication between agents and frontends. Typed events for text, tool calls, state, reasoning, and run lifecycle. Transport-agnostic.
-- **Built-in Agent**: `BuiltInAgent` runs an in-process agent loop (OpenAI / Anthropic / Google / any AI-SDK model) without requiring an external framework.
+- **Built-in Agent**: `BuiltInAgent` runs an in-process agent loop (OpenAI, Anthropic, Google, or any TanStack AI text adapter) without an external framework.
 - **Integrations**: first-party adapters for LangGraph (Python / TypeScript / FastAPI), Mastra, CrewAI, Pydantic AI, Microsoft Agent Framework, AWS Strands, Google ADK, and others.
 - **Generative UI primitives**: tool rendering, state rendering, headless APIs, and framework-native theming.
 

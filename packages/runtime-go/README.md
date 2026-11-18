@@ -361,7 +361,7 @@ CORS does not replace authentication.
 `LockTTL` defaults to 20 seconds. `HeartbeatInterval` defaults to 15 seconds and
 must be positive and shorter than `LockTTL`.
 
-## MCP Apps and A2UI
+## MCP Apps and generative UI
 
 Register MCP Apps servers with trusted server-side credentials:
 
@@ -386,25 +386,45 @@ ping configured servers. They bypass the agent.
 Gateway replay preserves runtime events. It does not undo or deduplicate
 external MCP side effects. Design side-effecting tools for safe retries.
 
-Enable A2UI tool injection with your component catalog:
+Generative UI renders A2UI 1.0 surfaces from the catalog that the client sends in
+`forwardedProps.copilotkit.ui`. `GenerativeUI` takes these values:
+
+- `nil` (default): generative UI is on for a run whose client sends a "tool" catalog.
+- `&copilotkit.GenerativeUIConfig{...}`: generative UI is on for every run of `Agents`
+  (all agents when `Agents` is `nil`).
+- `&copilotkit.GenerativeUIConfig{Disabled: true}`: generative UI is off.
+
+A run whose client asks for the "markdown" transport never gets a render tool.
+In JSON, the option also accepts `true` and `false`, as in the TypeScript runtime.
 
 ```go
-A2UI: &copilotkit.A2UIConfig{
-    InjectA2UITool: true,
-    Schema: catalog,
-    Agents: []string{"default"},
+GenerativeUI: &copilotkit.GenerativeUIConfig{
+    A2UIVersions: map[string]string{"legacy": "0.9"},
 },
 ```
 
-`InjectA2UITool` accepts `true` for `render_a2ui` or a custom tool-name string.
-`Enabled` accepts a boolean pointer. An explicit `false` overrides frontend
-catalog defaults.
+`A2UIVersion` sets the A2UI version that every agent speaks. The default is `"1.0"`.
+`A2UIVersions` sets one version for each agent instead. An agent that is not in the map speaks `"1.0"`.
 
-Component arrays become visible after structural and catalog validation.
-Data items stream progressively. User actions become tool history.
+- A 1.0 agent gets the `render_ui` tool and the generative UI guide.
+  The runtime validates each streamed operation against the client's catalog before it publishes the operation.
+  A rejected operation goes back to the agent in the tool result.
+- A 0.9 agent gets the `render_a2ui` tool and a v0.9 component schema of the client's catalog.
+  The schema has the 18 basic components and the client's own components.
+  `Schema`, `InjectA2UITool`, `A2UIToolNames`, `DefaultCatalogID`, and `Recovery` configure the v0.9 middleware.
+  `InjectA2UITool` accepts `true` for `render_a2ui` or a custom tool-name string.
+  When it is `nil`, the agent gets the tool for a run whose client sends a "tool" catalog.
+
+For both versions, the runtime converts v0.9 surfaces to A2UI 1.0 `generative-ui-surface` events.
+This includes v0.9 operations in a tool result (`{"a2ui_operations": [...]}`).
+A click on a converted surface reaches the agent as `forwardedProps.a2uiAction.userAction`, followed by a `log_a2ui_event` tool call and result.
+The stored thread keeps the click message.
+`/info` reports `generativeUI: {"enabled": ..., "agents": [...]}`.
+
+The v0.9 middleware validates complete component arrays before publication, then publishes cumulative data snapshots as array items arrive.
 Validation covers IDs, roots, required properties, child references, and cycles.
-Use your agent or model adapter for additional JSON Schema validation and
-generation retries.
+The `Schema` configuration describes A2UI components, not arbitrary JSON Schema validation.
+Use your agent or model adapter for additional JSON Schema validation and generation retries.
 
 ## Telemetry
 

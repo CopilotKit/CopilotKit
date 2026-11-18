@@ -16,6 +16,11 @@ export class ThreadStoreRegistry {
 
   constructor(private core: CopilotKitCore) {}
 
+  /** The core's friend API, which the public `CopilotKitCore` type hides. */
+  private get friends() {
+    return this.core as unknown as CopilotKitCoreFriendsAccess;
+  }
+
   register(agentId: string, store: ɵThreadStore): void {
     if (agentId in this._stores) {
       // Capture the previous store before deleting it. `notifyUnregistered`
@@ -56,10 +61,7 @@ export class ThreadStoreRegistry {
   private watchDeletions(agentId: string, store: ɵThreadStore): void {
     const subscription = store.subscribeToThreadDeletions?.((threadId) => {
       if (!threadId) return;
-      (this.core as unknown as CopilotKitCoreFriendsAccess).removeThreadContext(
-        agentId,
-        threadId,
-      );
+      this.friends.removeThreadContext(agentId, threadId);
     });
     if (subscription) this._deletionSubscriptions[agentId] = subscription;
   }
@@ -91,9 +93,7 @@ export class ThreadStoreRegistry {
     agentId: string,
     store: ɵThreadStore,
   ): Promise<void> {
-    await (
-      this.core as unknown as CopilotKitCoreFriendsAccess
-    ).notifySubscribers(
+    await this.friends.notifySubscribers(
       (subscriber: CopilotKitCoreSubscriber) =>
         subscriber.onThreadStoreRegistered?.({
           copilotkit: this.core,
@@ -108,9 +108,7 @@ export class ThreadStoreRegistry {
     agentId: string,
     prevStore: ɵThreadStore,
   ): Promise<void> {
-    await (
-      this.core as unknown as CopilotKitCoreFriendsAccess
-    ).notifySubscribers(
+    await this.friends.notifySubscribers(
       (subscriber: CopilotKitCoreSubscriber) =>
         subscriber.onThreadStoreUnregistered?.({
           copilotkit: this.core,

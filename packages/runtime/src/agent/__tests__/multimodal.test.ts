@@ -1,16 +1,19 @@
 import { describe, it, expect, vi } from "vitest";
-import { convertMessagesToVercelAISDKMessages } from "../index";
+import { convertMessagesToVercelAISDKMessages } from "../ai-sdk";
 import type { Message, ContentPart } from "@ag-ui/client";
-import type { ToolModelMessage, ToolResultPart, UserModelMessage } from "ai";
+import { runClassicAgent } from "./agent-test-helpers";
 
 /**
  * Helper: build a user message with the given content parts and convert it.
- * Returns the converted UserModelMessage for assertion.
+ * Returns the converted user message for assertion.
  */
 function convertUserContent(content: string | ContentPart[]) {
   const messages: Message[] = [{ id: "1", role: "user", content }];
-  const result = convertMessagesToVercelAISDKMessages(messages);
-  return result[0] as UserModelMessage;
+  const [message] = convertMessagesToVercelAISDKMessages(messages);
+  if (message.role !== "user") {
+    throw new Error(`Expected a user message, got ${message.role}`);
+  }
+  return message;
 }
 
 /** Shorthand factories for AG-UI input parts */
@@ -22,7 +25,7 @@ function urlSource(value: string, mimeType?: string) {
   return { type: "url" as const, value, ...(mimeType ? { mimeType } : {}) };
 }
 
-describe("convertMessagesToVercelAISDKMessages — multimodal", () => {
+describe("convertMessagesToVercelAISDKMessages: multimodal", () => {
   it("passes through plain string user content", () => {
     const result = convertUserContent("Hello");
     expect(result).toEqual({ role: "user", content: "Hello" });
@@ -135,10 +138,15 @@ describe("convertMessagesToVercelAISDKMessages — multimodal", () => {
         },
         { id: "t1", role: "tool", toolCallId: "tc-1", content },
       ];
-      const result = convertMessagesToVercelAISDKMessages(messages);
-      const tool = result[1] as ToolModelMessage;
-      expect(tool.role).toBe("tool");
-      return tool.content[0] as ToolResultPart;
+      const tool = convertMessagesToVercelAISDKMessages(messages)[1];
+      if (tool.role !== "tool") {
+        throw new Error(`Expected a tool message, got ${tool.role}`);
+      }
+      const [part] = tool.content;
+      if (part.type !== "tool-result") {
+        throw new Error(`Expected a tool result, got ${part.type}`);
+      }
+      return part;
     }
 
     it("passes a string result through as text output", () => {
@@ -258,5 +266,91 @@ describe("convertMessagesToVercelAISDKMessages — multimodal", () => {
     expect(result.content).toEqual([{ type: "text", text: "look" }]);
     expect(warn).toHaveBeenCalledTimes(1);
     warn.mockRestore();
+  });
+});
+
+// Classic mode converts AG-UI messages for TanStack AI chat(). The converter
+// matrix lives in multimodal-tanstack.test.ts; these pin that a classic run
+// hands the converted parts to the model, tool-result media included.
+describe("BuiltInAgent classic run: multimodal content reaches the model", () => {
+  it("sends user image parts to the model as TanStack parts", async () => {
+    const { requests } = await runClassicAgent({}, [{ text: "A cat." }], {
+      messages: [
+        {
+          id: "u1",
+          role: "user",
+          content: [
+            { type: "text", text: "What is this?" },
+            { type: "image", source: dataSource("iVBORw0KGgo=", "image/png") },
+          ],
+        },
+      ],
+    });
+
+    expect(requests[0].messages).toEqual([
+      {
+        role: "user",
+        content: [
+          { type: "text", content: "What is this?" },
+          {
+            type: "image",
+            source: {
+              type: "data",
+              value: "iVBORw0KGgo=",
+              mimeType: "image/png",
+            },
+          },
+        ],
+      },
+    ]);
+  });
+
+  it("keeps inline media in a tool result instead of flattening it to text", async () => {
+    const { requests } = await runClassicAgent({}, [{ text: "Paid." }], {
+      messages: [
+        { id: "u1", role: "user", content: "Show the invoice." },
+        {
+          id: "a1",
+          role: "assistant",
+          toolCalls: [
+            {
+              id: "tc-1",
+              type: "function",
+              function: { name: "get_invoice", arguments: "{}" },
+            },
+          ],
+        },
+        {
+          id: "t1",
+          role: "tool",
+          toolCallId: "tc-1",
+          content: [
+            { type: "text", text: "Invoice attached." },
+            {
+              type: "document",
+              source: dataSource("JVBERi0x", "application/pdf"),
+            },
+          ],
+        },
+      ],
+    });
+
+    const toolMessage = requests[0].messages.find(
+      (message) => message.role === "tool",
+    );
+    expect(toolMessage).toMatchObject({
+      toolCallId: "tc-1",
+      content: [
+        { type: "text", content: "Invoice attached." },
+        {
+          type: "document",
+          source: {
+            type: "data",
+            value: "JVBERi0x",
+            mimeType: "application/pdf",
+          },
+        },
+      ],
+    });
   });
 });

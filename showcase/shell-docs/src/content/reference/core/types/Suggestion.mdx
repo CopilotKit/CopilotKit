@@ -16,12 +16,14 @@ import type { Suggestion } from "@copilotkit/core";
 ## Definition
 
 ```ts
-type Suggestion = {
-  title: string;
-  message: string;
-  isLoading: boolean;
-  className?: string;
-};
+import type { Suggestion } from "@copilotkit/core";
+
+const suggestion = {
+  title: "Summarize",
+  message: "Summarize the current document",
+  isLoading: false,
+  className: "my-suggestion",
+} satisfies Suggestion;
 ```
 
 ## Properties

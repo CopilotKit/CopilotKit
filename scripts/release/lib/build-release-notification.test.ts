@@ -6,7 +6,8 @@ const RUN_URL = "https://github.com/CopilotKit/CopilotKit/actions/runs/123";
 const RELEASE_URL =
   "https://github.com/CopilotKit/CopilotKit/releases/tag/v1.2.3";
 const NPM_URL = "https://www.npmjs.com/org/copilotkit";
-const ANGULAR_NPM_URL = "https://www.npmjs.com/package/@copilotkit/angular";
+const MASTRA_NPM_URL =
+  "https://www.npmjs.com/package/@copilotkit/intelligence-mastra";
 const PY_URL = "https://pypi.org/project/copilotkit/0.9.0/";
 
 // A neutral baseline where nothing has acted. Each test overrides only the
@@ -131,20 +132,20 @@ describe("buildReleaseNotification", () => {
     expect(r.message).not.toContain("<|");
   });
 
-  it("angular scope uses the angular package npm URL", () => {
+  it("a single-package scope uses the npm URL it is given", () => {
     const r = buildReleaseNotification(
       base({
         mode: "stable",
         npmResult: "success",
         npmVer: "2.0.0",
         buildResult: "success",
-        scope: "angular",
+        scope: "intelligence-mastra",
         packageCount: 1,
-        npmUrl: ANGULAR_NPM_URL,
+        npmUrl: MASTRA_NPM_URL,
       }),
     );
-    expect(r.message).toContain(`<${ANGULAR_NPM_URL}|npm>`);
-    expect(r.message).toContain("*CopilotKit angular v2.0.0*");
+    expect(r.message).toContain(`<${MASTRA_NPM_URL}|npm>`);
+    expect(r.message).toContain("*CopilotKit intelligence-mastra v2.0.0*");
     expect(r.message).toContain("(`latest`, 1 package)");
   });
 

@@ -19,9 +19,12 @@ Capabilities are populated from the runtime `/info` response at connection time.
 ## Signature
 
 ```ts
-import { useCapabilities } from "@copilotkit/vue/v2";
+import type { ComputedRef } from "vue";
+import { useCapabilities, type AgentCapabilities } from "@copilotkit/vue";
 
-function useCapabilities(agentId?: string): ComputedRef<AgentCapabilities | undefined>
+useCapabilities satisfies (
+  agentId?: string,
+) => ComputedRef<AgentCapabilities | undefined>;
 ```
 
 ## Parameters
@@ -88,7 +91,7 @@ function useCapabilities(agentId?: string): ComputedRef<AgentCapabilities | unde
 
 ```vue title="ToolPanel.vue"
 <script setup lang="ts">
-import { useCapabilities } from "@copilotkit/vue/v2";
+import { useCapabilities } from "@copilotkit/vue";
 
 const capabilities = useCapabilities();
 </script>
@@ -108,7 +111,7 @@ const capabilities = useCapabilities();
 
 ```vue title="AgentInfo.vue"
 <script setup lang="ts">
-import { useCapabilities } from "@copilotkit/vue/v2";
+import { useCapabilities } from "@copilotkit/vue";
 
 const props = defineProps<{ agentId: string }>();
 
@@ -131,7 +134,7 @@ Because the composable returns a `ComputedRef`, access the value with `.value` o
 
 ```ts
 import { watch } from "vue";
-import { useCapabilities } from "@copilotkit/vue/v2";
+import { useCapabilities } from "@copilotkit/vue";
 
 const capabilities = useCapabilities();
 

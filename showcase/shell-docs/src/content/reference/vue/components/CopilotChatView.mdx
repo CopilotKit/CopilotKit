@@ -13,7 +13,7 @@ Every visual piece of `CopilotChatView` is exposed as a named **slot**, so you c
 
 ```vue
 <script setup lang="ts">
-import { CopilotChatView } from "@copilotkit/vue/v2";
+import { CopilotChatView } from "@copilotkit/vue";
 </script>
 ```
 
@@ -28,7 +28,7 @@ import { CopilotChatView } from "@copilotkit/vue/v2";
 ```vue
 <script setup lang="ts">
 import { ref } from "vue";
-import { CopilotChatView } from "@copilotkit/vue/v2";
+import { CopilotChatView } from "@copilotkit/vue";
 import type { Message } from "@ag-ui/core";
 
 const messages = ref<Message[]>([]);
@@ -55,6 +55,14 @@ function handleSubmit(value: string) {
   Array of conversation messages to display. When wired into an agent these are
   managed for you. When using `CopilotChatView` standalone, supply the messages
   yourself, for example from [`useAgent`](/reference/vue/hooks/useAgent).
+</PropertyReference>
+
+<PropertyReference name="toolCallDisplay" type='"grouped" | "line" | "stacked" | "turn" | "separate"' default='"grouped"'>
+  How tool calls show. Passed to the message view. See [`CopilotChatMessageView`](/reference/vue/components/CopilotChatMessageView#toolcalldisplay).
+</PropertyReference>
+
+<PropertyReference name="messageFeedback" type="boolean" default="true">
+  Whether reply thumbs record ratings for Automatic Learning once a Trajectory has started. Passed to the message view.
 </PropertyReference>
 
 <PropertyReference name="autoScroll" type='AutoScrollMode | boolean' default="true">
@@ -274,7 +282,7 @@ that the default implementation also consumes, so a replacement can reuse them.
 ```vue
 <script setup lang="ts">
 import { ref } from "vue";
-import { CopilotChatView } from "@copilotkit/vue/v2";
+import { CopilotChatView } from "@copilotkit/vue";
 import type { Message } from "@ag-ui/core";
 
 const messages = ref<Message[]>([]);
@@ -291,7 +299,7 @@ const isRunning = ref(false);
 ```vue
 <script setup lang="ts">
 import { ref } from "vue";
-import { CopilotChatView } from "@copilotkit/vue/v2";
+import { CopilotChatView } from "@copilotkit/vue";
 
 const inputValue = ref("");
 
@@ -318,7 +326,7 @@ function handleSubmit(value: string) {
 
 ```vue
 <script setup lang="ts">
-import { CopilotChatView } from "@copilotkit/vue/v2";
+import { CopilotChatView } from "@copilotkit/vue";
 </script>
 
 <template>
@@ -338,7 +346,7 @@ import { CopilotChatView } from "@copilotkit/vue/v2";
 
 ```vue
 <script setup lang="ts">
-import { CopilotChatView } from "@copilotkit/vue/v2";
+import { CopilotChatView } from "@copilotkit/vue";
 </script>
 
 <template>

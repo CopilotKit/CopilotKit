@@ -10,7 +10,7 @@ This guide shows how to use multiple agents in CopilotKit — from basic routing
 sequenceDiagram
     participant React as React App
     participant Core as CopilotKitCore
-    participant Runtime as CopilotRuntime
+    participant Runtime as CopilotKitRuntime
     participant Research as Research Agent
     participant Coding as Coding Agent
 
@@ -43,10 +43,10 @@ sequenceDiagram
 ## Backend: Register Multiple Agents
 
 ```typescript
-import { CopilotRuntime } from "@copilotkit/runtime";
+import { CopilotKitRuntime } from "@copilotkit/runtime";
 import { createCopilotEndpointExpress } from "@copilotkit/runtime/express";
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: {
     // Each key is the agent ID
     default: generalAgent, // Fallback agent
@@ -66,12 +66,14 @@ An agent's ID is the key used to register it in the runtime. This ID determines 
 For example:
 
 ```typescript
-import { BuiltInAgent, CopilotRuntime } from "@copilotkit/runtime";
+import { CopilotKitRuntime } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: {
     research: new BuiltInAgent({
-      model: "openai/gpt-5-mini",
+      model: openaiText("gpt-5-mini"),
       name: "Research Assistant",
     }),
   },
@@ -195,7 +197,7 @@ useAgent(); // Uses "default"
 useAgent({ agentId: "default" }); // Explicit
 
 // Your backend must have a "default" agent:
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: {
     default: myAgent, // This is required if any component omits agentId
   },
@@ -211,7 +213,7 @@ On mount, the frontend fetches available agents from the runtime:
 ```mermaid
 sequenceDiagram
     participant Core as CopilotKitCore
-    participant Runtime as CopilotRuntime
+    participant Runtime as CopilotKitRuntime
 
     Core->>Runtime: GET /info
     Runtime-->>Core: { agents: { research: { description: "..." }, coding: { description: "..." } } }
@@ -362,27 +364,28 @@ Each thread maintains its own:
 ### Backend
 
 ```typescript
-import { CopilotRuntime } from "@copilotkit/runtime";
+import { CopilotKitRuntime } from "@copilotkit/runtime";
 import { createCopilotEndpointExpress } from "@copilotkit/runtime/express";
-import { BuiltInAgent } from "@copilotkit/runtime/v2";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
 
 const agents = {
   default: new BuiltInAgent({
-    model: "openai/gpt-6-luna",
-    systemPrompt: "You are a general assistant.",
+    model: openaiText("gpt-6-luna"),
+    prompt: "You are a general assistant.",
   }),
   research: new BuiltInAgent({
-    model: "openai/gpt-6-luna",
-    systemPrompt:
+    model: openaiText("gpt-6-luna"),
+    prompt:
       "You are a research specialist. Search for papers and summarize findings.",
   }),
   coding: new BuiltInAgent({
-    model: "openai/gpt-6-luna",
-    systemPrompt: "You are a coding expert. Write clean, tested code.",
+    model: openaiText("gpt-6-luna"),
+    prompt: "You are a coding expert. Write clean, tested code.",
   }),
 };
 
-const runtime = new CopilotRuntime({ agents });
+const runtime = new CopilotKitRuntime({ agents });
 app.use("/api/copilotkit", createCopilotEndpointExpress({ runtime }));
 ```
 

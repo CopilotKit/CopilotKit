@@ -4,7 +4,7 @@
 #
 # WHY (PE-140)
 # ------------
-# Nothing used to install the starters under examples/integrations/. The
+# Nothing used to install the starters under examples/starters/. The
 # lefthook pre-commit hook tests packages/** only, and the starters are not
 # pnpm workspace members and have no nx targets. test_smoke-starter.yml builds
 # fourteen of the twenty-two in docker; this script covers the rest, which is
@@ -24,9 +24,9 @@ set -uo pipefail
 
 STARTER="${1:?usage: starter-clean-install.sh <starter-slug>}"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-DIR="$REPO_ROOT/examples/integrations/$STARTER"
+DIR="$REPO_ROOT/examples/starters/$STARTER"
 
-[ -d "$DIR" ] || { echo "::error::no such starter: examples/integrations/$STARTER"; exit 1; }
+[ -d "$DIR" ] || { echo "::error::no such starter: examples/starters/$STARTER"; exit 1; }
 
 FAILURES=0
 KNOWN_BROKEN_FILE="$REPO_ROOT/.github/scripts/starter-clean-install-known-broken.txt"
@@ -46,7 +46,7 @@ is_known_broken() {
 
 fail() {
   local manifest="$1" problem="$2"
-  local rel="examples/integrations/${manifest#"$REPO_ROOT/examples/integrations/"}"
+  local rel="examples/starters/${manifest#"$REPO_ROOT/examples/starters/"}"
   echo ""
   if is_known_broken "$rel"; then
     echo "::warning::starter \"$STARTER\" is a KNOWN broken starter (see .github/scripts/starter-clean-install-known-broken.txt)"

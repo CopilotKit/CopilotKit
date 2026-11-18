@@ -6,6 +6,8 @@ description: The serializable intermediate representation between Channels JSX a
 `ChannelNode` is the intermediate representation produced by Channels JSX.
 
 ```ts
+import type { ComponentFn } from "@copilotkit/channels/ui";
+
 interface ChannelNode {
   type: string | ComponentFn | symbol;
   props: Record<string, unknown>;

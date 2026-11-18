@@ -1,0 +1,187 @@
+---
+title: Providers in 2.0
+description: Check how the CopilotKit providers log errors, end their core, and connect to the runtime in 2.0.
+---
+
+In 2.0, the CopilotKit provider can log errors that were silent. It can also end its core earlier, or connect to the runtime at a different time. In Angular, `provideCopilotKit` and `updateRuntime` also read some options differently. The cause is one of these changes:
+
+- CopilotKit logs each error when you do not give an `onError` handler.
+- The React and React Native providers dispose their core when they unmount.
+- Vue and Angular start the runtime connection only in the browser.
+- Angular reads `licenseKey`, a missing runtime, and `updateRuntime` the same way as React and Vue.
+
+The codemod does not change this code. Use the sections below.
+
+## Errors without `onError`
+
+If you do not give an `onError` handler, CopilotKit logs each error with `console.error`:
+
+```text
+[CopilotKit] Error (runtime_info_fetch_failed): Error: ...
+```
+
+In 1.x, React logged these errors. Vue, Angular, and a `CopilotKitCore` that you create yourself did not log them.
+
+If a test fails on `console.error`, or if you send errors to your own logger, give an `onError` handler. The handler replaces the log.
+
+In Vue:
+
+```vue title="App.vue"
+<script setup lang="ts">
+import type { CopilotKitCoreErrorEvent } from "@copilotkit/core";
+import { CopilotKitProvider } from "@copilotkit/vue";
+
+function reportError({ code, error }: CopilotKitCoreErrorEvent) {
+  console.warn(code, error);
+}
+</script>
+
+<template>
+  <CopilotKitProvider runtime-url="/api/copilotkit" :on-error="reportError">
+    <slot />
+  </CopilotKitProvider>
+</template>
+```
+
+In Angular, `provideCopilotKit` now has an `onError` option:
+
+```ts title="src/app/app.config.ts"
+import { ApplicationConfig } from "@angular/core";
+import { provideCopilotKit } from "@copilotkit/angular";
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideCopilotKit({
+      runtimeUrl: "/api/copilotkit",
+      onError: ({ code, error }) => console.warn(code, error),
+    }),
+  ],
+};
+```
+
+On a `CopilotKitCore` that you create yourself, pass `onError`, or call `setErrorHandler` later:
+
+```ts title="core.ts"
+import { CopilotKitCore } from "@copilotkit/core";
+
+const copilotkit = new CopilotKitCore({
+  runtimeUrl: "/api/copilotkit",
+  onError: ({ code, error }) => console.warn(code, error),
+});
+
+copilotkit.setErrorHandler(undefined); // log errors again
+```
+
+## The React provider disposes its core
+
+`<CopilotKitProvider>` in React and React Native now disposes its `CopilotKitCore` when it unmounts. Dispose stops the runs, the timers, and the subscriptions of that core. In 1.x, the core stayed alive after the provider unmounted.
+
+This change affects your app if it keeps the core from `useCopilotKit()` outside the provider, for example in a store. The app then uses that core after the provider unmounts.
+
+To update your code:
+
+1. Read the core with `useCopilotKit()` in a component inside the provider.
+2. If your app unmounts the provider on navigation, move the provider above your routes.
+
+```tsx title="app/layout.tsx"
+import { CopilotKitProvider } from "@copilotkit/react-core";
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en">
+      <body>
+        <CopilotKitProvider runtimeUrl="/api/copilotkit">
+          {children}
+        </CopilotKitProvider>
+      </body>
+    </html>
+  );
+}
+```
+
+React StrictMode mounts the provider two times in development. The provider keeps the same core through this second mount.
+
+## Runtime connection in Vue and Angular
+
+The provider asks the runtime for its `/info` data when it connects. Vue and Angular now start this request only in the browser:
+
+- **Vue:** The request starts when `<CopilotKitProvider>` mounts. Server-side rendering does not send it.
+- **Angular:** The request starts when the `CopilotKit` service is created in the browser. Server-side rendering does not send it.
+
+On the server, the connection status stays `disconnected`. React already worked this way.
+
+If a Vue test creates the provider and expects a request to `/info`, mount the provider in the test.
+
+## Angular: `licenseKey` and the runtime URL
+
+If you set `licenseKey` and no `runtimeUrl`, Angular now connects to Copilot Cloud. React and Vue do the same with `publicApiKey`.
+
+If your app sets `runtimeUrl` later with `updateRuntime`, set it in `provideCopilotKit`:
+
+```ts ignore title="Before"
+provideCopilotKit({ licenseKey: "ck_pub_..." });
+// Later:
+copilotKit.updateRuntime({ runtimeUrl: "/api/copilotkit" });
+```
+
+```ts title="After"
+import { provideCopilotKit } from "@copilotkit/angular";
+
+export const copilotKitProviders = provideCopilotKit({
+  licenseKey: "ck_pub_...",
+  runtimeUrl: "/api/copilotkit",
+});
+```
+
+Angular now sends every `licenseKey` value in the `X-CopilotCloud-Public-Api-Key` header. In 1.x, Angular did not send a key that did not start with `ck_pub_`. If your app sets a placeholder value, remove it.
+
+## Angular: a missing runtime throws in production
+
+`provideCopilotKit` now needs one of these options:
+
+- `runtimeUrl`
+- `licenseKey`
+- `agents` or `selfManagedAgents`
+
+Without one of them, CopilotKit throws `Missing required prop: 'runtimeUrl' or 'publicApiKey' or 'publicLicenseKey'` in production. In development mode, it logs the same text as a warning. React and Vue already worked this way.
+
+If your app gets the runtime URL later, give a `runtimeUrl` at startup. Then change it with `updateRuntime`.
+
+## Angular: `updateRuntime`
+
+Two options of `updateRuntime` work differently:
+
+- **`runtimeUrl: undefined`** removes the runtime URL. In 1.x, `updateRuntime` ignored it.
+- **`agents` and `selfManagedAgents`** each replace only their own set. The other set keeps the value from the last `updateRuntime` call. In 1.x, the other set went back to the value from `provideCopilotKit`.
+
+If a value can be `undefined`, do not pass its key. For example, pass `runtimeUrl` only when there is a new URL:
+
+```ts ignore title="Before"
+copilotKit.updateRuntime({ runtimeUrl: nextUrl, headers });
+```
+
+```ts title="After"
+import type { CopilotKit } from "@copilotkit/angular";
+
+export function updateHeaders(
+  copilotKit: CopilotKit,
+  headers: Record<string, string>,
+  nextUrl?: string,
+) {
+  copilotKit.updateRuntime({
+    headers,
+    ...(nextUrl ? { runtimeUrl: nextUrl } : {}),
+  });
+}
+```
+
+`provideCopilotKit` and `updateRuntime` also take new options: `runtimeTransport`, `debug`, and `defaultThrottleMs`. `onError` is a `provideCopilotKit` option.
+
+## Console messages in Vue
+
+Vue now shows these console messages, the same as React:
+
+- **`renderToolCalls`:** If the list of tool names changes after mount, the provider logs `renderToolCalls must be a stable array`.
+- **`defaultThrottleMs`:** An invalid value logs one message that starts with `CopilotKitCore.setDefaultThrottleMs`. The message that started with `CopilotKitProvider: defaultThrottleMs` is removed.
+
+If a test looks for the earlier message, update it to the text above.

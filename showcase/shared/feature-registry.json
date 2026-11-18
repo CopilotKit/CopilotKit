@@ -60,7 +60,7 @@
       "id": "beautiful-chat",
       "name": "Beautiful Chat",
       "category": "dev-ex",
-      "description": "Canonical polished starter chat (same as /examples/integrations/langgraph-python)",
+      "description": "Canonical polished starter chat (same as /examples/starters/langgraph-python)",
       "kind": "primary",
       "og_docs_url": "https://docs.copilotkit.ai/agentic-chat-ui",
       "shell_docs_path": "/agentic-chat-ui"

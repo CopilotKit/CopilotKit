@@ -1,12 +1,22 @@
-// V1 compat entry -- re-exports v2 with backward-compat wrappers
-export * from "./v2";
+// Re-export core (framework-agnostic)
+export * from "@copilotkit/core";
+export * from "@ag-ui/client";
+// AG-UI 1.0 moved the zod validators from `@ag-ui/client` to this subpath.
+// Re-export them so existing imports keep working. Both modules export
+// PROTOCOL_VERSION, so name it once to keep it from being ambiguous.
+export * from "@ag-ui/core/schemas";
+export { PROTOCOL_VERSION } from "@ag-ui/client";
 
-// V1 wrapper overrides (these shadow v2 exports where the API differs)
-export { useCopilotAction } from "./hooks";
-export type { FrontendAction, CatchAllFrontendAction } from "./hooks";
-export { useFrontendTool } from "./hooks";
-export type { UseFrontendToolArgs } from "./hooks";
-export { useCopilotReadable } from "./hooks";
-export type { UseCopilotReadableOptions } from "./hooks";
-export { CopilotKit } from "./components/copilot-provider";
-export type { CopilotKitProps } from "./components/copilot-provider";
+// Local V2 vue code
+export * from "./components";
+export * from "./hooks";
+export * from "./providers";
+export { CopilotKitStyles } from "./styles/CopilotKitStyles";
+export * from "./types";
+export * from "./lib/vue-core";
+export * from "./lib/processPartialHtml";
+
+// Stand-ins for the 1.x exports that 2.0 removed: each one fails with the
+// replacement when code uses it. A star export, so that a stand-in that
+// collides with a real export fails the type check instead of hiding it.
+export * from "./removed-exports";

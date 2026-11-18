@@ -71,6 +71,7 @@ objects by reference, but that behavior is not portable.
 
 ```ts
 import { runStateStoreConformance } from "@copilotkit/channels/testing";
+import { createPostgresStateStore } from "./postgres-state-store.js";
 
 runStateStoreConformance("postgres", () => createPostgresStateStore());
 ```

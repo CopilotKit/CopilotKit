@@ -24,7 +24,6 @@ function setup() {
   const events: Captured[] = [];
   uninstall = installNavigationCapture({
     emit: (name, value) => events.push({ name, value }),
-    routes: ["/learning/deals/:id"],
   });
   return events;
 }

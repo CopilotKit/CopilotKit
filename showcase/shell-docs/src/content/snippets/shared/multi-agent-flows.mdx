@@ -13,15 +13,25 @@ As your agentic application grows, delegation of sub-tasks to other agents can h
 
 ## How does CopilotKit support this?
 
-Each chat talks to one agent. Set the agent with the `agent` prop on the `CopilotKit` provider:
+Each chat talks to one agent. Set the agent with the `agentId` prop on the `CopilotKitProvider`:
 
 ```tsx
-// [!code word:agent]
-<CopilotKit runtimeUrl="<copilot-runtime-url>" agent="<the-name-of-the-agent>">
-  {/* Your application components */}
-</CopilotKit>
+// [!code word:agentId]
+import type { ReactNode } from "react";
+import { CopilotKitProvider } from "@copilotkit/react-core";
+
+export function Providers({ children }: { children: ReactNode }) {
+  return (
+    <CopilotKitProvider
+      runtimeUrl="<copilot-runtime-url>"
+      agentId="<the-name-of-the-agent>"
+    >
+      {children}
+    </CopilotKitProvider>
+  );
+}
 ```
 
-Without the `agent` prop, CopilotKit uses the agent named `default`.
+Without `agentId`, CopilotKit uses the agent named `default`.
 
 To use several agents in one app, give each chat component or `useAgent` hook its own `agentId`.

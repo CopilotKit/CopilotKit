@@ -12,10 +12,21 @@ Suggestions are configured via [`useConfigureSuggestions`](/reference/hooks/useC
 ## Signature
 
 ```tsx
-import { useSuggestions } from "@copilotkit/react-core/v2";
+import { useSuggestions, type Suggestion } from "@copilotkit/react-core";
 
-function useSuggestions(options?: UseSuggestionsOptions): UseSuggestionsResult;
+useSuggestions satisfies (
+  // UseSuggestionsOptions
+  options?: { agentId?: string },
+) => {
+  // UseSuggestionsResult
+  suggestions: Suggestion[];
+  reloadSuggestions: () => void;
+  clearSuggestions: () => void;
+  isLoading: boolean;
+};
 ```
+
+`UseSuggestionsOptions` and `UseSuggestionsResult` are the type names in the source. The package does not export them.
 
 ## Parameters
 
@@ -61,6 +72,8 @@ function useSuggestions(options?: UseSuggestionsOptions): UseSuggestionsResult;
 ### Basic Usage
 
 ```tsx
+import { useSuggestions } from "@copilotkit/react-core";
+
 function SuggestionsList() {
   const { suggestions, isLoading } = useSuggestions();
 
@@ -84,6 +97,8 @@ function SuggestionsList() {
 ### With Reload and Clear Controls
 
 ```tsx
+import { useSuggestions } from "@copilotkit/react-core";
+
 function SuggestionsPanel() {
   const { suggestions, reloadSuggestions, clearSuggestions, isLoading } =
     useSuggestions();
@@ -109,6 +124,8 @@ function SuggestionsPanel() {
 ### Targeting a Specific Agent
 
 ```tsx
+import { useSuggestions } from "@copilotkit/react-core";
+
 function AgentSuggestions() {
   const { suggestions } = useSuggestions({ agentId: "support-agent" });
 

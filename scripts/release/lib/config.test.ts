@@ -122,7 +122,7 @@ describe.each(["intelligence-langgraph", "intelligence-mastra"] as const)(
 );
 
 it("keeps unrelated scopes limited to their published package paths", () => {
-  for (const scope of ["monorepo", "angular", "channels"] as const) {
+  for (const scope of ["monorepo", "channels"] as const) {
     expect(getScopePathspecs(scope)).toEqual(
       getScopeConfig(scope).packages.map(
         (name) => `packages/${name.split("/")[1]}`,

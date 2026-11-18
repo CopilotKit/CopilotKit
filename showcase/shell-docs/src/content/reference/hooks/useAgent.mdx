@@ -12,18 +12,32 @@ description: "React hook for accessing AG-UI agent instances"
 ## Signature
 
 ```tsx
-import { useAgent } from "@copilotkit/react-core/v2";
+import {
+  useAgent,
+  UseAgentUpdate,
+  type AbstractAgent,
+} from "@copilotkit/react-core";
 
-function useAgent(options?: UseAgentProps): {
+useAgent satisfies (
+  options?: {
+    updates?: UseAgentUpdate[];
+    throttleMs?: number;
+  } & (
+    | { agentId?: string; threadId?: undefined; runtimeAgentId?: undefined }
+    | { agentId: string; runtimeAgentId: string; threadId: string }
+  ),
+) => {
   agent: AbstractAgent;
   isReady: boolean;
 };
 ```
 
+The options type is `UseAgentProps`. The package does not export it by name.
+
 For fully headless UI that does not import the built-in chat rendering stack, import the hook from the headless entry:
 
 ```tsx
-import { useAgent } from "@copilotkit/react-core/v2/headless";
+import { useAgent } from "@copilotkit/react-core/headless";
 ```
 
 ## Two valid shapes
@@ -31,17 +45,25 @@ import { useAgent } from "@copilotkit/react-core/v2/headless";
 The options object admits exactly two shapes, and the type rejects everything in between:
 
 ```tsx
+import { useAgent } from "@copilotkit/react-core";
+
 // Bind to an agent — the shared instance from the registry. The thread comes
 // from the surrounding chat configuration.
-const { agent } = useAgent();
-const { agent } = useAgent({ agentId: "default" });
+function SharedAgent() {
+  // `useAgent()` with no options resolves the same agent id as below.
+  const { agent } = useAgent({ agentId: "default" });
+  return <div>{agent.messages.length} messages</div>;
+}
 
 // Bind a private agent to a thread — all three properties are required.
-const { agent } = useAgent({
-  agentId: "chat-1",          // local id to register the private agent under
-  runtimeAgentId: "default",  // the runtime agent it routes to
-  threadId: "thread-abc",     // the thread to pin it to
-});
+function ThreadAgent() {
+  const { agent } = useAgent({
+    agentId: "chat-1", // local id to register the private agent under
+    runtimeAgentId: "default", // the runtime agent it routes to
+    threadId: "thread-abc", // the thread to pin it to
+  });
+  return <div>{agent.messages.length} messages</div>;
+}
 ```
 
 <Callout type="warn">
@@ -137,13 +159,23 @@ hook gets its own instance instead of a shared one.
 
       **Example:**
       ```tsx
-      const { copilotkit } = useCopilotKit();
+      import { useAgent, useCopilotKit } from "@copilotkit/react-core";
 
-      const { result, newMessages } = await copilotkit.runAgent({
-        agent,
-        // Any data your agent reads from the run input.
-        forwardedProps: { source: "refresh-button" },
-      });
+      function RefreshButton() {
+        const { agent } = useAgent();
+        const { copilotkit } = useCopilotKit();
+
+        const refresh = async () => {
+          const { result, newMessages } = await copilotkit.runAgent({
+            agent,
+            // Any data your agent reads from the run input.
+            forwardedProps: { source: "refresh-button" },
+          });
+          console.log(result, newMessages.length);
+        };
+
+        return <button onClick={refresh}>Refresh</button>;
+      }
       ```
     </PropertyReference>
 
@@ -169,6 +201,8 @@ hook gets its own instance instead of a shared one.
 ### Basic Usage
 
 ```tsx
+import { useAgent } from "@copilotkit/react-core";
+
 function AgentStatus() {
   const { agent } = useAgent();
 
@@ -185,6 +219,8 @@ function AgentStatus() {
 ### Accessing and Updating State
 
 ```tsx
+import { useAgent } from "@copilotkit/react-core";
+
 function StateController() {
   const { agent } = useAgent();
 
@@ -202,6 +238,9 @@ function StateController() {
 ### Event Subscription
 
 ```tsx
+import { useEffect } from "react";
+import { useAgent } from "@copilotkit/react-core";
+
 function EventListener() {
   const { agent, isReady } = useAgent();
 
@@ -227,6 +266,8 @@ function EventListener() {
 ### Multiple Agents
 
 ```tsx
+import { useAgent } from "@copilotkit/react-core";
+
 function MultiAgentView() {
   const { agent: primary } = useAgent({ agentId: "primary" });
   const { agent: support } = useAgent({ agentId: "support" });
@@ -245,6 +286,8 @@ function MultiAgentView() {
 Use the thread-scoped form when one runtime agent needs multiple independent frontend instances, for example one per open conversation. The local `agentId` must be unique in the current provider.
 
 ```tsx
+import { useAgent } from "@copilotkit/react-core";
+
 function ThreadPreview({ threadId }: { threadId: string }) {
   const { agent, isReady } = useAgent({
     agentId: `preview-${threadId}`,
@@ -262,7 +305,7 @@ function ThreadPreview({ threadId }: { threadId: string }) {
 ### Optimizing Re-renders
 
 ```tsx
-import { useAgent, UseAgentUpdate } from "@copilotkit/react-core/v2";
+import { useAgent, UseAgentUpdate } from "@copilotkit/react-core";
 
 // Only re-render when messages change
 function MessageCount() {

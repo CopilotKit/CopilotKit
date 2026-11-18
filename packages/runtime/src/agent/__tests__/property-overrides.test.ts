@@ -1,599 +1,367 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { BasicAgent } from "../index";
+/**
+ * `forwardedProps` overrides. A run may replace `model`, `toolChoice`,
+ * `prompt`, or `modelOptions`, but only the ones the agent lists in
+ * `overridableProperties`, and only with a value of the right shape. The
+ * fake model records what `chat()` sent it. A forwarded model name goes
+ * through the agent's `resolveModel`, which returns an adapter or
+ * `{ adapter, modelOptions, reasoning }`.
+ */
+import { describe, it, expect, vi, afterEach } from "vitest";
 import type { RunAgentInput } from "@ag-ui/client";
-import { streamText } from "ai";
-import { mockStreamTextResponse, finish, collectEvents } from "./test-helpers";
+import {
+  collectEvents,
+  createAgent,
+  createClassicAgent,
+  createDefaultInput,
+  createFakeModel,
+  runClassicAgent,
+} from "./agent-test-helpers";
+import type { ClassicTestConfig } from "./agent-test-helpers";
 
-// Mock the ai module
-vi.mock("ai", () => ({
-  streamText: vi.fn(),
-  tool: vi.fn((config) => config),
-}));
+type FakeModel = ReturnType<typeof createFakeModel>["model"];
+type ResolveModelResult = ReturnType<
+  NonNullable<ClassicTestConfig["resolveModel"]>
+>;
 
-// Mock the SDK clients
-vi.mock("@ai-sdk/openai", () => ({
-  createOpenAI: vi.fn(() => (modelId: string) => ({
-    modelId,
-    provider: "openai",
-  })),
-}));
+/** Runs the agent with `forwardedProps` and returns the one model request. */
+async function requestWith(
+  config: ClassicTestConfig,
+  forwardedProps: RunAgentInput["forwardedProps"],
+) {
+  const { requests } = await runClassicAgent(config, [{}], { forwardedProps });
+  expect(requests).toHaveLength(1);
+  return requests[0]!;
+}
 
-vi.mock("@ai-sdk/anthropic", () => ({
-  createAnthropic: vi.fn(() => (modelId: string) => ({
-    modelId,
-    provider: "anthropic",
-  })),
-}));
+/** Silences `console.warn` for one test and returns the spy. */
+function spyOnWarn() {
+  return vi.spyOn(console, "warn").mockImplementation(() => {});
+}
 
-describe("Property Overrides - Edge Cases", () => {
-  const originalEnv = process.env;
+/**
+ * A classic agent whose `resolveModel` maps `"fast"` to a second fake model,
+ * or to what `resolveFast` returns for it. Returns both models' requests, so
+ * a test can see which one ran.
+ */
+function agentWithFastModel(
+  config: ClassicTestConfig = {},
+  resolveFast: (fast: FakeModel) => ResolveModelResult = (fast) => fast,
+) {
+  const fast = createFakeModel([{ text: "fast" }, { text: "fast" }]);
+  const configured = createClassicAgent(
+    {
+      overridableProperties: ["model"],
+      resolveModel: (name) =>
+        name === "fast" ? resolveFast(fast.model) : undefined,
+      ...config,
+    },
+    [{}, {}],
+  );
+  return {
+    agent: configured.agent,
+    configuredRequests: configured.requests,
+    fastRequests: fast.requests,
+  };
+}
 
-  beforeEach(() => {
-    vi.clearAllMocks();
-    process.env = { ...originalEnv };
-    process.env.OPENAI_API_KEY = "test-key";
-    process.env.ANTHROPIC_API_KEY = "test-key";
-  });
+/** Runs `agent` once per `runIds` entry with `forwardedProps`. */
+async function runWith(
+  agent: ReturnType<typeof createClassicAgent>["agent"],
+  forwardedProps: RunAgentInput["forwardedProps"],
+  runIds = ["run1"],
+) {
+  for (const runId of runIds) {
+    await collectEvents(
+      agent.run(createDefaultInput({ forwardedProps, runId })),
+    );
+  }
+}
 
+describe("Property overrides", () => {
   afterEach(() => {
-    process.env = originalEnv;
+    vi.restoreAllMocks();
   });
 
-  describe("Model Override", () => {
-    it("should override model when allowed", async () => {
-      const agent = new BasicAgent({
-        model: "openai/gpt-4o",
-        overridableProperties: ["model"],
-      });
+  describe("model", () => {
+    it("runs the adapter that resolveModel returns for the forwarded name", async () => {
+      const { agent, configuredRequests, fastRequests } = agentWithFastModel();
 
-      vi.mocked(streamText).mockReturnValue(
-        mockStreamTextResponse([finish()]) as any,
-      );
+      await runWith(agent, { model: "fast" });
 
-      const input: RunAgentInput = {
-        threadId: "thread1",
-        runId: "run1",
-        messages: [],
-        tools: [],
-        context: [],
-        state: {},
-        forwardedProps: { model: "anthropic/claude-sonnet-4.5" },
-      };
-
-      await collectEvents(agent["run"](input));
-
-      const callArgs = vi.mocked(streamText).mock.calls[0][0];
-      const model = callArgs.model as { provider: string; modelId: string };
-      expect(model.provider).toBe("anthropic");
-      expect(model.modelId).toBe("claude-sonnet-4.5");
+      expect(fastRequests).toHaveLength(1);
+      expect(configuredRequests).toHaveLength(0);
     });
 
-    it("should accept LanguageModel instance for override", async () => {
-      const agent = new BasicAgent({
-        model: "openai/gpt-4o",
-        overridableProperties: ["model"],
-      });
+    it("a clone keeps resolveModel", async () => {
+      const { agent, configuredRequests, fastRequests } = agentWithFastModel();
 
-      vi.mocked(streamText).mockReturnValue(
-        mockStreamTextResponse([finish()]) as any,
-      );
+      await runWith(agent.clone(), { model: "fast" });
 
-      const customModel = {
-        modelId: "custom-model",
-        provider: "custom",
-      };
-
-      const input: RunAgentInput = {
-        threadId: "thread1",
-        runId: "run1",
-        messages: [],
-        tools: [],
-        context: [],
-        state: {},
-        forwardedProps: { model: customModel },
-      };
-
-      await collectEvents(agent["run"](input));
-
-      const callArgs = vi.mocked(streamText).mock.calls[0][0];
-      expect(callArgs.model).toBe(customModel);
+      expect(fastRequests).toHaveLength(1);
+      expect(configuredRequests).toHaveLength(0);
     });
 
-    it("should ignore invalid model override types", async () => {
-      const agent = new BasicAgent({
-        model: "openai/gpt-4o",
-        overridableProperties: ["model"],
-      });
+    it.each([
+      [
+        "resolveModel returns undefined",
+        {},
+        "resolveModel returned undefined for it",
+      ],
+      [
+        "the agent has no resolveModel",
+        { resolveModel: undefined },
+        "the agent has no resolveModel",
+      ],
+    ])(
+      "keeps the configured adapter and warns once when %s",
+      async (_case, config, reason) => {
+        const warn = spyOnWarn();
+        const { agent, configuredRequests } = agentWithFastModel(config);
 
-      vi.mocked(streamText).mockReturnValue(
-        mockStreamTextResponse([finish()]) as any,
-      );
+        await runWith(agent, { model: "slow" }, ["run1", "run2"]);
 
-      const input: RunAgentInput = {
-        threadId: "thread1",
-        runId: "run1",
-        messages: [],
-        tools: [],
-        context: [],
-        state: {},
-        forwardedProps: { model: 123 }, // Invalid type
-      };
+        expect(configuredRequests).toHaveLength(2);
+        expect(warn.mock.calls).toEqual([
+          [
+            `[CopilotKit] Ignoring the forwarded model "slow": ${reason}. The run uses the configured model adapter.`,
+          ],
+        ]);
+      },
+    );
 
-      await collectEvents(agent["run"](input));
+    it.each([
+      ["model is not overridable", { overridableProperties: [] }, "fast"],
+      ["the forwarded model is not a string", {}, { modelId: "fast" }],
+    ])(
+      "keeps the configured adapter without a warning when %s",
+      async (_case, config, model) => {
+        const warn = spyOnWarn();
+        const { agent, configuredRequests, fastRequests } =
+          agentWithFastModel(config);
 
-      const callArgs = vi.mocked(streamText).mock.calls[0][0];
-      expect((callArgs.model as { modelId: string }).modelId).toBe("gpt-4o"); // Original value
-    });
+        await runWith(agent, { model });
+
+        expect(configuredRequests).toHaveLength(1);
+        expect(fastRequests).toHaveLength(0);
+        expect(warn).not.toHaveBeenCalled();
+      },
+    );
   });
 
-  describe("ToolChoice Override", () => {
-    it("should override with 'auto'", async () => {
-      const agent = new BasicAgent({
-        model: "openai/gpt-4o",
-        toolChoice: "required",
-        overridableProperties: ["toolChoice"],
-      });
+  describe("model options of a resolved model", () => {
+    const config: ClassicTestConfig = {
+      modelOptions: { temperature: 0.5 },
+      reasoning: "high",
+    };
+    const HIGH = { level: "high", summary: true };
 
-      vi.mocked(streamText).mockReturnValue(
-        mockStreamTextResponse([finish()]) as any,
+    /** Runs with the forwarded model "fast" and returns the fast model's one request. */
+    async function fastRequest(
+      resolveFast: (fast: FakeModel) => ResolveModelResult,
+      overrides: { config?: ClassicTestConfig; forwardedProps?: object } = {},
+    ) {
+      const { agent, fastRequests } = agentWithFastModel(
+        { ...config, ...overrides.config },
+        resolveFast,
       );
+      await runWith(agent, { model: "fast", ...overrides.forwardedProps });
+      expect(fastRequests).toHaveLength(1);
+      return fastRequests[0]!;
+    }
 
-      const input: RunAgentInput = {
-        threadId: "thread1",
-        runId: "run1",
-        messages: [],
-        tools: [],
-        context: [],
-        state: {},
-        forwardedProps: { toolChoice: "auto" },
-      };
+    it("keeps the configured modelOptions and reasoning for a bare adapter", async () => {
+      const request = await fastRequest((fast) => fast);
 
-      await collectEvents(agent["run"](input));
-
-      const callArgs = vi.mocked(streamText).mock.calls[0][0];
-      expect(callArgs.toolChoice).toBe("auto");
+      expect(request.modelOptions).toEqual({ temperature: 0.5 });
+      expect(request.reasoning).toEqual(HIGH);
     });
 
-    it("should override with 'required'", async () => {
-      const agent = new BasicAgent({
-        model: "openai/gpt-4o",
-        toolChoice: "auto",
-        overridableProperties: ["toolChoice"],
-      });
+    it("uses the modelOptions and reasoning of a { adapter, ... } result", async () => {
+      const request = await fastRequest((fast) => ({
+        adapter: fast,
+        modelOptions: { temperature: 0.1 },
+        reasoning: "low",
+      }));
 
-      vi.mocked(streamText).mockReturnValue(
-        mockStreamTextResponse([finish()]) as any,
-      );
-
-      const input: RunAgentInput = {
-        threadId: "thread1",
-        runId: "run1",
-        messages: [],
-        tools: [],
-        context: [],
-        state: {},
-        forwardedProps: { toolChoice: "required" },
-      };
-
-      await collectEvents(agent["run"](input));
-
-      const callArgs = vi.mocked(streamText).mock.calls[0][0];
-      expect(callArgs.toolChoice).toBe("required");
+      expect(request.modelOptions).toEqual({ temperature: 0.1 });
+      expect(request.reasoning).toEqual({ level: "low", summary: true });
     });
 
-    it("should override with 'none'", async () => {
-      const agent = new BasicAgent({
-        model: "openai/gpt-4o",
-        toolChoice: "auto",
-        overridableProperties: ["toolChoice"],
-      });
+    it("drops the configured modelOptions and reasoning for a { adapter } result without them", async () => {
+      const request = await fastRequest((fast) => ({ adapter: fast }));
 
-      vi.mocked(streamText).mockReturnValue(
-        mockStreamTextResponse([finish()]) as any,
-      );
-
-      const input: RunAgentInput = {
-        threadId: "thread1",
-        runId: "run1",
-        messages: [],
-        tools: [],
-        context: [],
-        state: {},
-        forwardedProps: { toolChoice: "none" },
-      };
-
-      await collectEvents(agent["run"](input));
-
-      const callArgs = vi.mocked(streamText).mock.calls[0][0];
-      expect(callArgs.toolChoice).toBe("none");
+      expect(request.modelOptions).toBeUndefined();
+      expect(request.reasoning).toBeUndefined();
     });
 
-    it("should override with specific tool selection", async () => {
-      const agent = new BasicAgent({
-        model: "openai/gpt-4o",
-        toolChoice: "auto",
-        overridableProperties: ["toolChoice"],
-      });
-
-      vi.mocked(streamText).mockReturnValue(
-        mockStreamTextResponse([finish()]) as any,
-      );
-
-      const input: RunAgentInput = {
-        threadId: "thread1",
-        runId: "run1",
-        messages: [],
-        tools: [],
-        context: [],
-        state: {},
-        forwardedProps: {
-          toolChoice: { type: "tool", toolName: "specificTool" },
+    it("lets a forwarded modelOptions replace the result's modelOptions", async () => {
+      const request = await fastRequest(
+        (fast) => ({ adapter: fast, modelOptions: { temperature: 0.1 } }),
+        {
+          config: { overridableProperties: ["model", "modelOptions"] },
+          forwardedProps: { modelOptions: { temperature: 0.9 } },
         },
-      };
+      );
 
-      await collectEvents(agent["run"](input));
+      expect(request.modelOptions).toEqual({ temperature: 0.9 });
+    });
+  });
 
-      const callArgs = vi.mocked(streamText).mock.calls[0][0];
-      expect(callArgs.toolChoice).toEqual({
+  describe("toolChoice", () => {
+    const config: ClassicTestConfig = {
+      toolChoice: { type: "tool", name: "lookup" },
+      overridableProperties: ["toolChoice"],
+    };
+
+    it.each(["auto", "required", "none"])(
+      "overrides with %j",
+      async (toolChoice) => {
+        const request = await requestWith(config, { toolChoice });
+
+        expect(request.toolChoice).toBe(toolChoice);
+      },
+    );
+
+    it("overrides with a specific tool, given in AI SDK shape", async () => {
+      const request = await requestWith(
+        { ...config, toolChoice: "auto" },
+        { toolChoice: { type: "tool", toolName: "specificTool" } },
+      );
+
+      expect(request.toolChoice).toEqual({
         type: "tool",
-        toolName: "specificTool",
+        name: "specificTool",
       });
     });
 
-    it("should ignore invalid toolChoice values", async () => {
-      const agent = new BasicAgent({
-        model: "openai/gpt-4o",
-        toolChoice: "auto",
-        overridableProperties: ["toolChoice"],
-      });
+    it("keeps the configured value for an invalid toolChoice", async () => {
+      const request = await requestWith(config, { toolChoice: "invalid" });
 
-      vi.mocked(streamText).mockReturnValue(
-        mockStreamTextResponse([finish()]) as any,
-      );
-
-      const input: RunAgentInput = {
-        threadId: "thread1",
-        runId: "run1",
-        messages: [],
-        tools: [],
-        context: [],
-        state: {},
-        forwardedProps: { toolChoice: "invalid" },
-      };
-
-      await collectEvents(agent["run"](input));
-
-      const callArgs = vi.mocked(streamText).mock.calls[0][0];
-      expect(callArgs.toolChoice).toBe("auto"); // Original value
+      expect(request.toolChoice).toEqual({ type: "tool", name: "lookup" });
     });
   });
 
-  describe("StopSequences Override", () => {
-    it("should override stopSequences with valid array", async () => {
-      const agent = new BasicAgent({
-        model: "openai/gpt-4o",
-        stopSequences: ["STOP"],
-        overridableProperties: ["stopSequences"],
+  describe("prompt", () => {
+    const config: ClassicTestConfig = {
+      prompt: "Config prompt.",
+      overridableProperties: ["prompt"],
+    };
+
+    it("sends the forwarded prompt instead of the configured one", async () => {
+      const request = await requestWith(config, {
+        prompt: "Forwarded prompt.",
       });
 
-      vi.mocked(streamText).mockReturnValue(
-        mockStreamTextResponse([finish()]) as any,
-      );
-
-      const input: RunAgentInput = {
-        threadId: "thread1",
-        runId: "run1",
-        messages: [],
-        tools: [],
-        context: [],
-        state: {},
-        forwardedProps: { stopSequences: ["END", "FINISH"] },
-      };
-
-      await collectEvents(agent["run"](input));
-
-      const callArgs = vi.mocked(streamText).mock.calls[0][0];
-      expect(callArgs.stopSequences).toEqual(["END", "FINISH"]);
+      expect(request.systemPrompts).toEqual(["Forwarded prompt."]);
     });
 
-    it("should ignore stopSequences with non-string elements", async () => {
-      const agent = new BasicAgent({
-        model: "openai/gpt-4o",
-        stopSequences: ["STOP"],
-        overridableProperties: ["stopSequences"],
-      });
+    it("keeps the configured prompt when the forwarded one is not a string", async () => {
+      const request = await requestWith(config, { prompt: 42 });
 
-      vi.mocked(streamText).mockReturnValue(
-        mockStreamTextResponse([finish()]) as any,
-      );
-
-      const input: RunAgentInput = {
-        threadId: "thread1",
-        runId: "run1",
-        messages: [],
-        tools: [],
-        context: [],
-        state: {},
-        forwardedProps: { stopSequences: ["STOP", 123, "END"] as any },
-      };
-
-      await collectEvents(agent["run"](input));
-
-      const callArgs = vi.mocked(streamText).mock.calls[0][0];
-      expect(callArgs.stopSequences).toEqual(["STOP"]); // Original value
-    });
-
-    it("should ignore non-array stopSequences", async () => {
-      const agent = new BasicAgent({
-        model: "openai/gpt-4o",
-        stopSequences: ["STOP"],
-        overridableProperties: ["stopSequences"],
-      });
-
-      vi.mocked(streamText).mockReturnValue(
-        mockStreamTextResponse([finish()]) as any,
-      );
-
-      const input: RunAgentInput = {
-        threadId: "thread1",
-        runId: "run1",
-        messages: [],
-        tools: [],
-        context: [],
-        state: {},
-        forwardedProps: { stopSequences: "STOP" as any },
-      };
-
-      await collectEvents(agent["run"](input));
-
-      const callArgs = vi.mocked(streamText).mock.calls[0][0];
-      expect(callArgs.stopSequences).toEqual(["STOP"]); // Original value
+      expect(request.systemPrompts).toEqual(["Config prompt."]);
     });
   });
 
-  describe("Numeric Property Overrides", () => {
-    it("should override all numeric properties when allowed", async () => {
-      const agent = new BasicAgent({
-        model: "openai/gpt-4o",
-        maxOutputTokens: 100,
-        temperature: 0.5,
-        topP: 0.9,
-        topK: 50,
-        presencePenalty: 0.0,
-        frequencyPenalty: 0.0,
-        seed: 123,
-        maxRetries: 3,
-        overridableProperties: [
-          "maxOutputTokens",
-          "temperature",
-          "topP",
-          "topK",
-          "presencePenalty",
-          "frequencyPenalty",
-          "seed",
-          "maxRetries",
-        ],
+  describe("modelOptions", () => {
+    const config: ClassicTestConfig = {
+      modelOptions: { temperature: 0.5, max_output_tokens: 100 },
+      overridableProperties: ["modelOptions"],
+    };
+
+    it("replaces the configured modelOptions as a whole, without merging", async () => {
+      const request = await requestWith(config, {
+        modelOptions: { temperature: 0.9 },
       });
 
-      vi.mocked(streamText).mockReturnValue(
-        mockStreamTextResponse([finish()]) as any,
-      );
-
-      const input: RunAgentInput = {
-        threadId: "thread1",
-        runId: "run1",
-        messages: [],
-        tools: [],
-        context: [],
-        state: {},
-        forwardedProps: {
-          maxOutputTokens: 500,
-          temperature: 0.8,
-          topP: 0.95,
-          topK: 100,
-          presencePenalty: 0.5,
-          frequencyPenalty: 0.5,
-          seed: 456,
-          maxRetries: 5,
-        },
-      };
-
-      await collectEvents(agent["run"](input));
-
-      const callArgs = vi.mocked(streamText).mock.calls[0][0];
-      expect(callArgs.maxOutputTokens).toBe(500);
-      expect(callArgs.temperature).toBe(0.8);
-      expect(callArgs.topP).toBe(0.95);
-      expect(callArgs.topK).toBe(100);
-      expect(callArgs.presencePenalty).toBe(0.5);
-      expect(callArgs.frequencyPenalty).toBe(0.5);
-      expect(callArgs.seed).toBe(456);
-      expect(callArgs.maxRetries).toBe(5);
+      expect(request.modelOptions).toEqual({ temperature: 0.9 });
     });
 
-    it("should ignore non-numeric values for numeric properties", async () => {
-      const agent = new BasicAgent({
-        model: "openai/gpt-4o",
-        temperature: 0.5,
-        overridableProperties: ["temperature"],
+    it("keeps the configured modelOptions when the forwarded value is not an object", async () => {
+      const request = await requestWith(config, {
+        modelOptions: [{ temperature: 0.9 }],
       });
 
-      vi.mocked(streamText).mockReturnValue(
-        mockStreamTextResponse([finish()]) as any,
-      );
+      expect(request.modelOptions).toEqual({
+        temperature: 0.5,
+        max_output_tokens: 100,
+      });
+    });
 
-      const input: RunAgentInput = {
-        threadId: "thread1",
-        runId: "run1",
-        messages: [],
-        tools: [],
-        context: [],
-        state: {},
-        forwardedProps: { temperature: "high" as any },
-      };
+    it("ignores the removed top-level sampling fields", async () => {
+      const request = await requestWith(config, {
+        temperature: 0.9,
+        maxOutputTokens: 500,
+      });
 
-      await collectEvents(agent["run"](input));
-
-      const callArgs = vi.mocked(streamText).mock.calls[0][0];
-      expect(callArgs.temperature).toBe(0.5); // Original value
+      expect(request.modelOptions).toEqual({
+        temperature: 0.5,
+        max_output_tokens: 100,
+      });
     });
   });
 
-  describe("Multiple Property Overrides", () => {
-    it("should only override allowed properties", async () => {
-      const agent = new BasicAgent({
-        model: "openai/gpt-4o",
-        temperature: 0.5,
-        topP: 0.9,
-        maxOutputTokens: 100,
-        overridableProperties: ["temperature"], // Only temperature is overridable
+  describe("Multiple property overrides", () => {
+    const config: ClassicTestConfig = {
+      prompt: "Config prompt.",
+      toolChoice: "auto",
+      modelOptions: { temperature: 0.5 },
+      overridableProperties: ["toolChoice"],
+    };
+
+    it("only overrides the properties in overridableProperties", async () => {
+      const request = await requestWith(config, {
+        toolChoice: "none",
+        prompt: "Forwarded prompt.",
+        modelOptions: { temperature: 0.9 },
       });
 
-      vi.mocked(streamText).mockReturnValue(
-        mockStreamTextResponse([finish()]) as any,
-      );
-
-      const input: RunAgentInput = {
-        threadId: "thread1",
-        runId: "run1",
-        messages: [],
-        tools: [],
-        context: [],
-        state: {},
-        forwardedProps: {
-          temperature: 0.9,
-          topP: 0.5,
-          maxOutputTokens: 500,
-        },
-      };
-
-      await collectEvents(agent["run"](input));
-
-      const callArgs = vi.mocked(streamText).mock.calls[0][0];
-      expect(callArgs.temperature).toBe(0.9); // Overridden
-      expect(callArgs.topP).toBe(0.9); // Original
-      expect(callArgs.maxOutputTokens).toBe(100); // Original
+      expect(request.toolChoice).toBe("none");
+      expect(request.systemPrompts).toEqual(["Config prompt."]);
+      expect(request.modelOptions).toEqual({ temperature: 0.5 });
     });
 
-    it("should handle undefined forwardedProps", async () => {
-      const agent = new BasicAgent({
-        model: "openai/gpt-4o",
-        temperature: 0.5,
-        overridableProperties: ["temperature"],
-      });
+    it.each([
+      ["undefined", undefined],
+      ["not an object", "not an object"],
+    ])(
+      "uses the configured values when forwardedProps is %s",
+      async (_case, forwardedProps) => {
+        const request = await requestWith(
+          { ...config, overridableProperties: ["toolChoice", "modelOptions"] },
+          forwardedProps,
+        );
 
-      vi.mocked(streamText).mockReturnValue(
-        mockStreamTextResponse([finish()]) as any,
-      );
-
-      const input: RunAgentInput = {
-        threadId: "thread1",
-        runId: "run1",
-        messages: [],
-        tools: [],
-        context: [],
-        state: {},
-        // No forwardedProps
-      };
-
-      await collectEvents(agent["run"](input));
-
-      const callArgs = vi.mocked(streamText).mock.calls[0][0];
-      expect(callArgs.temperature).toBe(0.5); // Original value
-    });
-
-    it("should handle non-object forwardedProps", async () => {
-      const agent = new BasicAgent({
-        model: "openai/gpt-4o",
-        temperature: 0.5,
-        overridableProperties: ["temperature"],
-      });
-
-      vi.mocked(streamText).mockReturnValue(
-        mockStreamTextResponse([finish()]) as any,
-      );
-
-      const input: RunAgentInput = {
-        threadId: "thread1",
-        runId: "run1",
-        messages: [],
-        tools: [],
-        context: [],
-        state: {},
-        forwardedProps: "not an object" as any,
-      };
-
-      await collectEvents(agent["run"](input));
-
-      const callArgs = vi.mocked(streamText).mock.calls[0][0];
-      expect(callArgs.temperature).toBe(0.5); // Original value
-    });
-
-    it("should handle undefined property values in forwardedProps", async () => {
-      const agent = new BasicAgent({
-        model: "openai/gpt-4o",
-        temperature: 0.5,
-        overridableProperties: ["temperature"],
-      });
-
-      vi.mocked(streamText).mockReturnValue(
-        mockStreamTextResponse([finish()]) as any,
-      );
-
-      const input: RunAgentInput = {
-        threadId: "thread1",
-        runId: "run1",
-        messages: [],
-        tools: [],
-        context: [],
-        state: {},
-        forwardedProps: { temperature: undefined },
-      };
-
-      await collectEvents(agent["run"](input));
-
-      const callArgs = vi.mocked(streamText).mock.calls[0][0];
-      expect(callArgs.temperature).toBe(0.5); // Original value (undefined is ignored)
-    });
+        expect(request.toolChoice).toBe("auto");
+        expect(request.modelOptions).toEqual({ temperature: 0.5 });
+      },
+    );
   });
 
-  describe("canOverride method", () => {
-    it("should return true for overridable properties", () => {
-      const agent = new BasicAgent({
-        model: "openai/gpt-4o",
-        overridableProperties: ["temperature", "topP"],
+  describe("canOverride", () => {
+    it("returns true only for the listed properties", () => {
+      const { agent } = createClassicAgent({
+        overridableProperties: ["prompt", "modelOptions"],
       });
 
-      expect(agent.canOverride("temperature")).toBe(true);
-      expect(agent.canOverride("topP")).toBe(true);
+      expect(agent.canOverride("prompt")).toBe(true);
+      expect(agent.canOverride("modelOptions")).toBe(true);
+      expect(agent.canOverride("model")).toBe(false);
+      expect(agent.canOverride("toolChoice")).toBe(false);
     });
 
-    it("should return false for non-overridable properties", () => {
-      const agent = new BasicAgent({
-        model: "openai/gpt-4o",
-        overridableProperties: ["temperature"],
-      });
+    it.each([
+      ["overridableProperties is undefined", {}],
+      ["overridableProperties is empty", { overridableProperties: [] }],
+    ])("returns false when %s", (_case, config) => {
+      const { agent } = createClassicAgent(config);
 
-      expect(agent.canOverride("topP")).toBe(false);
-      expect(agent.canOverride("seed")).toBe(false);
+      expect(agent.canOverride("model")).toBe(false);
     });
 
-    it("should return false when overridableProperties is undefined", () => {
-      const agent = new BasicAgent({
-        model: "openai/gpt-4o",
-      });
+    it("returns false for a factory agent", () => {
+      const agent = createAgent("custom", []);
 
-      expect(agent.canOverride("temperature")).toBe(false);
-      expect(agent.canOverride("topP")).toBe(false);
-    });
-
-    it("should return false when overridableProperties is empty array", () => {
-      const agent = new BasicAgent({
-        model: "openai/gpt-4o",
-        overridableProperties: [],
-      });
-
-      expect(agent.canOverride("temperature")).toBe(false);
+      expect(agent.canOverride("model")).toBe(false);
     });
   });
 });

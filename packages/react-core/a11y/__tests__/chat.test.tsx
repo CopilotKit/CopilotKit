@@ -1,9 +1,9 @@
 import React from "react";
 import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, render } from "@testing-library/react";
-import { CopilotKitProvider } from "../../src/v2/providers/CopilotKitProvider";
-import { CopilotPopupView } from "../../src/v2/components/chat/CopilotPopupView";
-import { CopilotSidebarView } from "../../src/v2/components/chat/CopilotSidebarView";
+import { CopilotKitProvider } from "../../src/providers/CopilotKitProvider";
+import { CopilotPopupView } from "../../src/components/chat/CopilotPopupView";
+import { CopilotSidebarView } from "../../src/components/chat/CopilotSidebarView";
 import { observeClicks } from "../../../a11y-test-kit/src/index";
 import { audit } from "../../../a11y-test-kit/src/report";
 

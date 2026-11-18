@@ -12,13 +12,18 @@ This hook is built on top of `useFrontendTool` with an internally managed handle
 ## Signature
 
 ```tsx
-import { useHumanInTheLoop } from "@copilotkit/react-core/v2";
+import {
+  useHumanInTheLoop,
+  type ReactHumanInTheLoop,
+} from "@copilotkit/react-core";
 
-function useHumanInTheLoop<T extends Record<string, unknown>>(
+useHumanInTheLoop satisfies <T extends Record<string, unknown>>(
   tool: ReactHumanInTheLoop<T>,
   deps?: ReadonlyArray<unknown>,
-): void;
+) => void;
 ```
+
+`ReactHumanInTheLoop<T>` takes the same fields as [`ReactFrontendTool<T>`](/reference/hooks/useFrontendTool#parameters), except `handler`, and requires `render`.
 
 ## Parameters
 
@@ -35,15 +40,20 @@ function useHumanInTheLoop<T extends Record<string, unknown>>(
   when to call it (e.g., "Ask the user to confirm before deleting records").
 </PropertyReference>
 
-<PropertyReference name="parameters" type="StandardSchemaV1">
-  A Standard Schema (for example Zod 3.24+, Valibot v1+, or ArkType v2+) that
-  defines the arguments the agent passes to the tool. These
-  arguments are forwarded to the render component so you can build context-aware
-  UI.
+<PropertyReference name="parameters" type="StandardSchemaV1<any, T>">
+  A Standard Schema (for example Zod, Valibot v1+, or ArkType v2+) that
+  defines the arguments the agent passes to the tool. These arguments are
+  forwarded to the render component so you can build context-aware UI.
 </PropertyReference>
 
   <PropertyReference name="render" type="React.ComponentType<RenderProps>" required>
-    A React component that drives the human interaction. The component receives different props depending on the current status:
+    A React component that drives the human interaction. In every status, the component receives:
+    - `name: string` -- the tool name
+    - `description: string` -- the tool description
+    - `toolCallId: string` -- the AG-UI tool call ID, unique per request. Use it to match this request with runtime attribution, such as the agent ID that `onToolExecutionStart` reports.
+    - `agentId?: string` -- the agent this tool was registered to, or `undefined` for a tool with no `agentId`. This is the registration scope, not necessarily the (sub)agent that called the tool.
+
+    The other props depend on the current status:
 
     **When `status` is `ToolCallStatus.InProgress`:**
     - `args: Partial<T>` -- partially streamed arguments
@@ -63,7 +73,7 @@ function useHumanInTheLoop<T extends Record<string, unknown>>(
   </PropertyReference>
 
   <PropertyReference name="available" type="boolean" default="true">
-    Set to `false` to hide the tool from the agent without unregistering it.
+    Whether the agent can call the tool. Set it to `false` to temporarily prevent the agent from requesting human input through this tool, without unregistering it.
   </PropertyReference>
 </PropertyReference>
 
@@ -80,7 +90,7 @@ function useHumanInTheLoop<T extends Record<string, unknown>>(
 
 ## ToolCallStatus
 
-The `ToolCallStatus` enum is exported from `@copilotkit/react-core/v2` and defines the three phases of tool execution:
+The `ToolCallStatus` enum is exported from `@copilotkit/react-core` and defines the three phases of tool execution:
 
 | Value                       | Description                                                                                 |
 | --------------------------- | ------------------------------------------------------------------------------------------- |
@@ -95,8 +105,8 @@ The `ToolCallStatus` enum is exported from `@copilotkit/react-core/v2` and defin
 A common pattern where the agent asks the user to confirm a destructive action.
 
 ```tsx
-import { useHumanInTheLoop, ToolCallStatus } from "@copilotkit/react-core/v2";
 import { z } from "zod";
+import { ToolCallStatus, useHumanInTheLoop } from "@copilotkit/react-core";
 
 function DeleteConfirmation() {
   useHumanInTheLoop(
@@ -163,6 +173,10 @@ function DeleteConfirmation() {
 Collect structured input from the user before the agent proceeds.
 
 ```tsx
+import { useState } from "react";
+import { z } from "zod";
+import { ToolCallStatus, useHumanInTheLoop } from "@copilotkit/react-core";
+
 function ShippingAddressForm() {
   useHumanInTheLoop(
     {
@@ -241,6 +255,9 @@ function ShippingAddressForm() {
 ### Approval Workflow with Context
 
 ```tsx
+import { z } from "zod";
+import { ToolCallStatus, useHumanInTheLoop } from "@copilotkit/react-core";
+
 function ExpenseApproval() {
   useHumanInTheLoop(
     {

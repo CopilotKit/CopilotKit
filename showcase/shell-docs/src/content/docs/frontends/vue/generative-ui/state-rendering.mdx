@@ -25,7 +25,7 @@ On the frontend, subscribe to the agent's state. Each time the backend forwards 
 ```vue title="src/components/ResearchProgress.vue"
 <script setup lang="ts">
 import { computed } from "vue";
-import { useAgent, UseAgentUpdate } from "@copilotkit/vue/v2";
+import { useAgent, UseAgentUpdate } from "@copilotkit/vue";
 
 type ResearchState = { status?: string; draft?: string; completed?: number; total?: number };
 
@@ -48,7 +48,7 @@ const state = computed(() => (agent.value?.state ?? {}) as ResearchState);
 
 ```vue title="src/App.vue"
 <script setup lang="ts">
-import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue/v2";
+import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue";
 import ResearchProgress from "./components/ResearchProgress.vue";
 </script>
 

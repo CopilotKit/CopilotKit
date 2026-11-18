@@ -5,7 +5,7 @@ description: "Configuration object passed to the CopilotKitCore constructor."
 
 ## Overview
 
-`CopilotKitCoreConfig` is the configuration object accepted by the [`CopilotKitCore`](/reference/core/classes/CopilotKitCore) constructor. It wires the core to a CopilotRuntime endpoint and seeds it with frontend tools, suggestions, request headers, and forwarded properties.
+`CopilotKitCoreConfig` is the configuration object accepted by the [`CopilotKitCore`](/reference/core/classes/CopilotKitCore) constructor. It wires the core to a CopilotKitRuntime endpoint and seeds it with frontend tools, suggestions, request headers, and forwarded properties.
 
 ## Import
 
@@ -15,40 +15,47 @@ import type { CopilotKitCoreConfig } from "@copilotkit/core";
 
 ## Definition
 
+Every field is optional. This object sets each one except `learning`, so the `satisfies` check fails if a documented field drifts from the shipped type:
+
 ```ts
-interface CopilotKitCoreConfig {
-  runtimeUrl?: string;
-  runtimeTransport?: CopilotRuntimeTransport;
-  deferInitialConnection?: boolean;
-  agents__unsafe_dev_only?: Record<string, AbstractAgent>;
-  headers?: CopilotKitHeadersSource;
-  credentials?: RequestCredentials;
-  messageFilter?: CopilotKitMessageFilter;
-  properties?: Record<string, unknown>;
-  tools?: FrontendTool<any>[];
-  suggestionsConfig?: SuggestionsConfig[];
-  debug?: DebugConfig;
-  learning?: LearningConfig;
-}
+import type { CopilotKitCoreConfig } from "@copilotkit/core";
+
+const config = {
+  runtimeUrl: "/api/copilotkit",
+  runtimeTransport: "auto",
+  deferInitialConnection: false,
+  agents__unsafe_dev_only: {},
+  headers: () => ({
+    Authorization: `Bearer ${localStorage.getItem("token") ?? ""}`,
+  }),
+  credentials: "include",
+  messageFilter: (messages) => messages.slice(-10),
+  properties: { userId: "user_123" },
+  tools: [],
+  suggestionsConfig: [{ instructions: "Suggest next steps", maxSuggestions: 3 }],
+  debug: { events: true, lifecycle: true },
+} satisfies CopilotKitCoreConfig;
 ```
 
 ## Properties
 
 <PropertyReference name="runtimeUrl" type="string">
-  The endpoint of the CopilotRuntime.
+  The endpoint of the CopilotKitRuntime.
 </PropertyReference>
 
 <PropertyReference name="runtimeTransport" type='"rest" | "single" | "auto"' default="auto">
-  Transport style for CopilotRuntime endpoints. `"auto"` probes REST and falls back to single-route.
+  Transport style for CopilotKitRuntime endpoints. `"auto"` probes REST and falls back to single-route.
 </PropertyReference>
 
 <PropertyReference name="deferInitialConnection" type="boolean" default="false">
-  When `true`, the constructor does not start the `/info` connection. Call
-  `connect()` to start it.
+  When `true`, the constructor stores the runtime settings but does not start
+  the `/info` request. Call `connect()` to start it, for example from a
+  commit-phase effect, so that a core built and discarded during render does
+  not send duplicate `/info` requests.
 </PropertyReference>
 
 <PropertyReference name="agents__unsafe_dev_only" type="Record<string, AbstractAgent>">
-  Mapping from agent name to its `AbstractAgent` instance. For development only. Production requires a CopilotRuntime.
+  Mapping from agent name to its `AbstractAgent` instance. For development only. Production requires a CopilotKitRuntime.
 </PropertyReference>
 
 <PropertyReference name="headers" type="CopilotKitHeadersSource" default="{}">

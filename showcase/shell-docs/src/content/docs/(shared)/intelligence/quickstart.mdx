@@ -70,19 +70,23 @@ Before you start, have a working CopilotKit frontend and agent. The TypeScript t
 
     Add an Intelligence client. The client is the same for every agent framework.
 
-    ```ts title="Your CopilotKit runtime"
+    ```ts title="Your CopilotKit runtime" group=intelligence-runtime
     import {
       CopilotKitIntelligence,
-      CopilotRuntime,
-    } from "@copilotkit/runtime/v2";
+      CopilotKitRuntime,
+    } from "@copilotkit/runtime";
+    import { BuiltInAgent } from "@copilotkit/runtime/agent";
+    import { openaiText } from "@tanstack/ai-openai";
+    import { authenticateApplicationUser } from "./auth";
 
     // Create the Intelligence client with your project API key. Keep this key on the server.
     const intelligence = new CopilotKitIntelligence({
       apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
     });
 
-    const runtime = new CopilotRuntime({
-      agents,
+    const runtime = new CopilotKitRuntime({
+      // Your existing agent registration
+      agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
       // Pass the Intelligence client to the runtime
       intelligence,
       // Identify the user from a verified session or token
@@ -112,8 +116,9 @@ Before you start, have a working CopilotKit frontend and agent. The TypeScript t
 
     An open-source runtime often passes `runner`. That option chooses where runs are stored. Intelligence stores the runs itself. Remove `runner` when you add `intelligence`.
 
-    ```ts
-    const runtime = new CopilotRuntime({
+    {/* kiira: ignore, a diff that shows the `runner` line to remove; TypeScript rejects `runner` with `intelligence` on purpose, and the checked setup above is the result */}
+    ```ts ignore
+    const runtime = new CopilotKitRuntime({
       agents,
       runner: new InMemoryAgentRunner(), // [!code --]
       intelligence, // [!code ++]
@@ -136,10 +141,10 @@ Before you start, have a working CopilotKit frontend and agent. The TypeScript t
 
     Create one handler and mount it for all runtime subpaths and HTTP methods in the server you already use. For Next.js, use a catch-all route:
 
-    ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
-    import { createCopilotRuntimeHandler } from "@copilotkit/runtime/v2";
+    ```ts title="app/api/copilotkit/[[...slug]]/route.ts" group=intelligence-runtime
+    import { createCopilotKitRuntimeHandler } from "@copilotkit/runtime";
 
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime,
       basePath: "/api/copilotkit",
     });
@@ -186,7 +191,8 @@ Before you start, have a working CopilotKit frontend and agent. The TypeScript t
       Set `useSingleEndpoint={false}` for the multi-route servers above. If you kept an existing TypeScript single-route server, keep `useSingleEndpoint={true}` instead.
 
       ```tsx title="Your CopilotKit provider"
-      import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+      import { CopilotKitProvider } from "@copilotkit/react-core";
+      import { YourApp } from "./YourApp";
 
       export function App() {
         return (
@@ -226,7 +232,7 @@ Before you start, have a working CopilotKit frontend and agent. The TypeScript t
 
       ```vue title="src/App.vue"
       <script setup lang="ts">
-      import { CopilotKitProvider } from "@copilotkit/vue/v2";
+      import { CopilotKitProvider } from "@copilotkit/vue";
       import YourApp from "./YourApp.vue";
       </script>
 
@@ -332,6 +338,8 @@ All runtimes default to cloud-hosted Intelligence. For self-hosting, replace the
 Set both `apiUrl` and `wsUrl` on `CopilotKitIntelligence`. Pass a bare WebSocket base; the client appends `/runner` and `/client`.
 
 ```ts
+import { CopilotKitIntelligence } from "@copilotkit/runtime";
+
 const intelligence = new CopilotKitIntelligence({
   apiUrl: "https://api.intelligence.internal",
   wsUrl: "wss://realtime.intelligence.internal",
@@ -401,7 +409,7 @@ Install steps are on [Self-host on Kubernetes](/intelligence/self-hosting) and [
 
 <Accordions>
   <Accordion title="Chat works, and the project has no thread">
-    In TypeScript, check that `intelligence` was passed to `CopilotRuntime`; otherwise it stays in SSE mode. The other runtimes have no SSE-only fallback. Check their server diagnostics and Intelligence endpoint settings.
+    In TypeScript, check that `intelligence` was passed to `CopilotKitRuntime`; otherwise it stays in SSE mode. The other runtimes have no SSE-only fallback. Check their server diagnostics and Intelligence endpoint settings.
   </Accordion>
   <Accordion title="An auth error on the first request">
     `CPK_INTELLIGENCE_API_KEY` is empty, or it belongs to another project. Copy the key from the `.env` that `project select` wrote into the environment of the runtime process. Then restart the runtime.

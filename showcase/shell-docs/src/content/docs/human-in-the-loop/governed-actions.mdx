@@ -1,40 +1,56 @@
 ---
-title: Governed Action Approval UI
+title: Approve Agent Actions Before They Run
+nav_title: Approve Actions
 icon: "lucide/ShieldCheck"
-description: Gate side-effecting agent actions with an approval UI before they execute.
+description: Stop your agent before it sends an email, writes a record, or calls a write API, and run the action only after the user approves it.
 hideTOC: true
 ---
 
-## What is this?
+Your agent can call tools that change real data: send an email, update a
+record, create a ticket, apply a discount, or call any write API. A wrong call
+is hard to undo. This page shows how to stop each risky call, show the user
+exactly what the agent wants to do, and run the call only after the user
+approves it.
 
-Some agent actions are safe to run immediately, while others should be
-blocked or paused for user approval before they create side effects. A
-governed action approval UI gives the user a clear checkpoint:
+CopilotKit draws the approval card in your app. The pause comes from your
+agent:
 
-- **What** the agent wants to do
-- **Why** it wants to do it
-- **Which reference or policy decision** produced the verdict
-- **What happens next** if the user approves or rejects it
+| Your agent | How it pauses | Does a pending approval survive a page reload? |
+| --- | --- | --- |
+| LangGraph | The tool calls `interrupt()`. The UI uses [`useInterrupt`](#inline-approval-with-useinterrupt). | Yes, when the runtime's runner replays the thread. |
+| Mastra or CrewAI Flows | A `suspend()` call or a `@human_feedback` step. The UI uses `useInterrupt`. | Yes, when the runtime's runner replays the thread. |
+| Any agent that calls tools, including the Built-in Agent | The model calls a frontend approval tool. The UI uses [`useHumanInTheLoop`](#tool-call-approval-with-usehumanintheloop). | No. The call waits in browser memory. |
 
-Use this pattern when the agent proposes an action such as sending an
-email, updating a record, creating a ticket, applying a discount, or
-calling any write API.
+To see what else survives a reload or a restart, read
+[Durability](/concepts/durability).
+
+Each approval card gives the user four facts:
+
+- **What** the agent wants to do.
+- **Why** it wants to do it.
+- **Which reference or policy decision** produced the verdict.
+- **What happens next** if the user approves or rejects it.
 
 ## Action envelope
 
 Keep the approval payload small, serializable, and vendor-neutral. The
 agent or backend can attach any policy engine result to the action as long
-as the UI receives the same basic envelope:
+as the UI receives the same basic envelope. Define it as a Zod schema, so the
+UI can validate the payload it receives and derive the type from it:
 
-```ts
-type GovernedAction = {
-  id: string;
-  summary: string;
-  tool: string;
-  reference: string;
-  verdict: "allow" | "deny" | "require_approval";
-  arguments: Record<string, unknown>;
-};
+```ts group=governed-actions
+import { z } from "zod";
+
+const governedActionSchema = z.object({
+  id: z.string(),
+  summary: z.string(),
+  tool: z.string(),
+  reference: z.string(),
+  verdict: z.enum(["allow", "deny", "require_approval"]),
+  arguments: z.record(z.string(), z.unknown()),
+});
+
+type GovernedAction = z.infer<typeof governedActionSchema>;
 ```
 
 The frontend should handle each verdict deterministically:
@@ -51,19 +67,22 @@ If your runtime can pause an agent run, model the approval as an interrupt.
 The agent proposes the action, the UI renders the checkpoint, and the run
 resumes with the user's decision:
 
-```tsx
+```tsx group=governed-actions
 import { useEffect } from "react";
-import { useInterrupt } from "@copilotkit/react-core/v2";
+import { useInterrupt } from "@copilotkit/react-core";
 
 function GovernedActionApproval() {
   useInterrupt({
     render: ({ event, interrupt, resolve, cancel }) => {
-      const action = (interrupt?.metadata?.action ??
-        parseInterruptValue(event.value)?.action) as GovernedAction | undefined;
+      const parsed = governedActionSchema.safeParse(
+        interrupt?.metadata?.action ?? parseInterruptValue(event.value)?.action,
+      );
 
-      if (!action) {
-        return null;
+      if (!parsed.success) {
+        return <></>;
       }
+
+      const action = parsed.data;
 
       return (
         <GovernedActionCard
@@ -213,18 +232,8 @@ with interrupts, see the [HITL Overview](../human-in-the-loop). The model asks t
 your UI renders the card, and the tool result tells the agent whether it
 may continue:
 
-```tsx
-import { ToolCallStatus, useHumanInTheLoop } from "@copilotkit/react-core/v2";
-import { z } from "zod";
-
-const governedActionSchema = z.object({
-  id: z.string(),
-  summary: z.string(),
-  tool: z.string(),
-  reference: z.string(),
-  verdict: z.enum(["allow", "deny", "require_approval"]),
-  arguments: z.record(z.unknown()),
-});
+```tsx group=governed-actions
+import { ToolCallStatus, useHumanInTheLoop } from "@copilotkit/react-core";
 
 function GovernedActionTool() {
   useHumanInTheLoop(

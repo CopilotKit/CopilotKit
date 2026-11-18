@@ -54,7 +54,6 @@ function isAbortError(error: unknown) {
 /** Records browser-visible request/response data without consuming the app's bodies. */
 export function installNetworkCapture(params: {
   emit: Emit;
-  routes?: string[];
   ignoreUrls: (string | RegExp)[];
   redact?: Redactor;
 }) {

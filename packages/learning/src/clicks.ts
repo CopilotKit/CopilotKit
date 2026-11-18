@@ -361,7 +361,8 @@ function clickLabel(element: Element, redact: Redactor): string | undefined {
 /** A `<label>`'s own text: fields inside it, and their values and options, are left out. */
 function captionText(label: HTMLLabelElement) {
   if (label.closest("[data-copilotkit-ignore]") !== null) return "";
-  const copy = label.cloneNode(true) as Element;
+  const copy = label.cloneNode(true);
+  if (!(copy instanceof Element)) return "";
   for (const field of Array.from(copy.querySelectorAll(EDITABLE)))
     field.remove();
   return safeText(copy, false);
@@ -380,7 +381,10 @@ export function fieldLabel(
 ): string | undefined {
   const labels =
     "labels" in element && element.labels instanceof NodeList
-      ? Array.from(element.labels as NodeListOf<HTMLLabelElement>)
+      ? Array.from(element.labels).filter(
+          (label): label is HTMLLabelElement =>
+            label instanceof HTMLLabelElement,
+        )
       : [];
   const caption = firstLabel(
     [

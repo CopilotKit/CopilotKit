@@ -1,7 +1,7 @@
 name: static / starter deps
 
 # The static half of PE-140. Reads the dependency manifests of every starter
-# under examples/integrations/ and fails on a declaration that cannot be
+# under examples/starters/ and fails on a declaration that cannot be
 # trusted: a floating npm tag, a Python dependency with no version constraint,
 # a peer dependency that only exists because npm auto-installed it, or a
 # LangGraph starter lock outside its Intelligence adapter's range (PE-369).
@@ -21,7 +21,7 @@ on:
     # violation. The unconditional `push: main` run above is the
     # backstop for anything that lands another way.
     paths:
-      - "examples/integrations/**"
+      - "examples/starters/**"
       - "packages/intelligence-langgraph/package.json"
       - "packages/intelligence-langgraph-python/pyproject.toml"
       - "scripts/validate-starter-deps.mjs"

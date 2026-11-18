@@ -106,7 +106,7 @@ re-author the affected fixture by hand following the existing pattern:
    pnpm --filter @copilotkit/showcase-scripts test aimock-fixtures
    ```
    Note: the existing `aimock-fixtures.test.ts` discovers fixtures from
-   `showcase/aimock/`, `examples/integrations/*/fixtures/`, and
+   `showcase/aimock/`, `examples/starters/*/fixtures/`, and
    `scripts/doc-tests/fixtures/` — it does **not** currently scan
    `showcase/harness/fixtures/d5/`. Either extend that test's globs in the same
    PR that lands the D5 driver, or run `loadFixtureFile` + `validateFixtures`

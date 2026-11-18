@@ -38,7 +38,7 @@ for _candidate in _SCHEMA_CANDIDATES:
 if _flight_schema is None:
     try:
         _fallback = Path(__file__).resolve().parents[4] / (
-            "examples/integrations/langgraph-python/apps/agent/src/a2ui/schemas/flight_schema.json"
+            "examples/starters/langgraph-python/apps/agent/src/a2ui/schemas/flight_schema.json"
         )
         if _fallback.exists():
             with open(_fallback) as _f:

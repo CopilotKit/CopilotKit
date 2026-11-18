@@ -4,7 +4,7 @@
 .github/config-allowlist.txt @tylerslaton @jpr5 @ranst91 @marthakelly @mme
 
 # Showcases — demo team owns these alongside core dev
-examples/showcases/ @CopilotKit/demo @tylerslaton @jpr5 @ranst91 @marthakelly @mme
+examples/demos/ @CopilotKit/demo @tylerslaton @jpr5 @ranst91 @marthakelly @mme
 
 # Community packages — lightly supported, community-maintained (see community/README.md).
 # Each package adds its own line BELOW this one naming its maintainer; a later,

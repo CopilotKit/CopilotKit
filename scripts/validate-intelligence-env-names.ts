@@ -71,14 +71,14 @@ const ALIAS = "COPILOTKIT_API_KEY";
  * matched and skipped by prefix rather than listed here.
  */
 const ALIAS_ALLOWLIST = [
-  "examples/slack/.env.example",
-  "examples/slack/README.md",
-  "examples/slack/app/index.ts",
-  "examples/slack/app/managed.ts",
-  "examples/slack/app/managed.test.ts",
-  "examples/teams/.env.example",
-  "examples/teams/README.md",
-  "examples/teams/app/index.tsx",
+  "examples/templates/slack/.env.example",
+  "examples/templates/slack/README.md",
+  "examples/templates/slack/app/index.ts",
+  "examples/templates/slack/app/managed.ts",
+  "examples/templates/slack/app/managed.test.ts",
+  "examples/templates/teams/.env.example",
+  "examples/templates/teams/README.md",
+  "examples/templates/teams/app/index.tsx",
   "scripts/validate-intelligence-env-names.ts",
   // The importer genuinely accepts both names; these lines document that.
   "showcase/shell-docs/src/content/docs/integrations/adk/threads-import.mdx",
@@ -141,8 +141,8 @@ const MANAGED_URL_FALLBACK_ALLOWLIST = [
   // Playwright harnesses that stand up a local Intelligence on dedicated ports
   // and drive it with a seed key. Here the fallback is the point: resolving to
   // the managed hosts would aim an offline test suite at production.
-  "examples/showcases/banking/playwright.config.ts",
-  "examples/showcases/reskinnable-demo/playwright.config.ts",
+  "examples/demos/banking/playwright.config.ts",
+  "examples/demos/reskinnable-demo/playwright.config.ts",
 ];
 
 /**
@@ -180,12 +180,12 @@ const MANAGED_URL_ENV_FILE_REASON =
  * so naming one is correct there.
  */
 const MANAGED_URL_ENV_FILE_ALLOWLIST = [
-  "examples/integrations/agentcore/docker/.env.example",
+  "examples/starters/agentcore/docker/.env.example",
   // Local demo stacks, each pinned to its own vendored docker-compose ports and
   // seeded org key so the two can run side by side. Both name a local
   // deployment on purpose; neither is a managed-service starting point.
-  "examples/showcases/banking/.env.example",
-  "examples/showcases/reskinnable-demo/.env.example",
+  "examples/demos/banking/.env.example",
+  "examples/demos/reskinnable-demo/.env.example",
 ];
 
 /**

@@ -13,7 +13,7 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[5]
 SOURCES = [
-    "examples/integrations/crewai-crews/agent/src/latest_ai_development/crew.py",
+    "examples/starters/crewai-crews/agent/src/latest_ai_development/crew.py",
     "showcase/integrations/crewai-crews/src/agents/crew.py",
     "showcase/integrations/crewai-conversational-flows/src/agents/crew.py",
 ]

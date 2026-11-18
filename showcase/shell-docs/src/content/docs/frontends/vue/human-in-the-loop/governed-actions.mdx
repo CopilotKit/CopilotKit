@@ -20,7 +20,7 @@ Use this pattern when the agent proposes an action such as sending an email, upd
 
 Keep the approval payload small, serializable, and vendor-neutral. The agent or backend can attach any policy engine result to the action as long as the UI receives the same basic envelope:
 
-```ts
+```ts group=governed-actions
 type GovernedAction = {
   id: string;
   summary: string;
@@ -46,7 +46,7 @@ If your runtime can pause an agent run, model the approval as an interrupt. The 
 ```vue title="src/components/GovernedActionApproval.vue"
 <script setup lang="ts">
 import { computed, watchEffect } from "vue";
-import { useInterrupt } from "@copilotkit/vue/v2";
+import { useInterrupt } from "@copilotkit/vue";
 
 type GovernedAction = {
   id: string;
@@ -106,7 +106,9 @@ watchEffect(() => {
 
 On resume, the agent should execute only when it receives an approved response for the same action id and reference:
 
-```ts
+```ts group=governed-actions
+import { executeSideEffect } from "./side-effects";
+
 type ApprovalResponse = {
   approved: boolean;
   actionId: string;
@@ -139,7 +141,7 @@ For LLM-initiated pauses, register the approval checkpoint as a human-in-the-loo
 ```vue title="src/components/GovernedActionTool.vue"
 <script setup lang="ts">
 import { z } from "zod";
-import { useHumanInTheLoop } from "@copilotkit/vue/v2";
+import { useHumanInTheLoop } from "@copilotkit/vue";
 import GovernedActionCard from "./GovernedActionCard.vue";
 
 const governedActionSchema = z.object({
@@ -220,7 +222,7 @@ Both composables must run in components beneath `CopilotKitProvider`:
 
 ```vue title="src/App.vue"
 <script setup lang="ts">
-import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue/v2";
+import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue";
 import GovernedActionApproval from "./components/GovernedActionApproval.vue";
 import GovernedActionTool from "./components/GovernedActionTool.vue";
 </script>

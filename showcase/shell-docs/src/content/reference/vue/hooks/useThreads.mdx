@@ -28,9 +28,13 @@ The hook returns normalized thread records with only the fields the Vue UI consu
 ## Signature
 
 ```ts
-import { useThreads } from "@copilotkit/vue/v2";
+import {
+  useThreads,
+  type UseThreadsInput,
+  type UseThreadsResult,
+} from "@copilotkit/vue";
 
-function useThreads(input: UseThreadsInput): UseThreadsResult;
+useThreads satisfies (input: UseThreadsInput) => UseThreadsResult;
 ```
 
 ## Parameters
@@ -78,7 +82,8 @@ function useThreads(input: UseThreadsInput): UseThreadsResult;
 
   <PropertyReference name="listError" type="Ref<Error | null>">
     The latest list or mutation error from the thread store, excluding runtime
-    and configuration errors.
+    and configuration errors. It also reports a runtime that refuses to list
+    threads because the caller has no identity (no `identifyUser`).
   </PropertyReference>
 
   <PropertyReference name="fetchMoreError" type="Ref<Error | null>">
@@ -136,7 +141,7 @@ function useThreads(input: UseThreadsInput): UseThreadsResult;
 ```vue
 <script setup lang="ts">
 import { computed } from "vue";
-import { useThreads } from "@copilotkit/vue/v2";
+import { useThreads } from "@copilotkit/vue";
 
 const { threads, isLoading, listError, refetchThreads } = useThreads({
   agentId: "support-agent",
@@ -154,7 +159,7 @@ const activeThreads = computed(() =>
 
 ```vue
 <script setup lang="ts">
-import { useThreads } from "@copilotkit/vue/v2";
+import { useThreads } from "@copilotkit/vue";
 
 const { hasMoreThreads, fetchMoreThreads, fetchMoreError } = useThreads({
   agentId: "support-agent",

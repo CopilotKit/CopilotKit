@@ -16,7 +16,6 @@ import { StyleSheet, View } from "react-native";
 import BottomSheet, {
   BottomSheetBackdrop,
   BottomSheetFlatList,
-  BottomSheetView,
 } from "@gorhom/bottom-sheet";
 import type { BottomSheetBackdropProps } from "@gorhom/bottom-sheet";
 import { CopilotChat } from "./CopilotChat";
@@ -35,7 +34,11 @@ export interface CopilotModalProps {
 
   /**
    * Bottom-sheet snap points.
-   * @default ['50%', '90%']
+   *
+   * The default is one snap point because the message input is pinned to the
+   * bottom of the chat. The chat always fills the sheet at its highest snap
+   * point, so a lower snap point pushes the input below the screen.
+   * @default ['90%']
    */
   snapPoints?: (string | number)[];
 
@@ -104,7 +107,7 @@ export const CopilotModal = forwardRef<CopilotModalRef, CopilotModalProps>(
 
     // Stable snap-points array
     const snapPoints = useMemo(
-      () => snapPointsProp ?? ["50%", "90%"],
+      () => snapPointsProp ?? ["90%"],
       [snapPointsProp],
     );
 
@@ -169,6 +172,9 @@ export const CopilotModal = forwardRef<CopilotModalRef, CopilotModalProps>(
         ref={bottomSheetRef}
         index={-1}
         snapPoints={snapPoints}
+        // The chat fills the sheet (flex: 1), so the sheet cannot take its
+        // height from the content. Size it from the snap points instead.
+        enableDynamicSizing={false}
         enablePanDownToClose
         backdropComponent={renderBackdrop}
         onClose={handleClose}
@@ -177,13 +183,15 @@ export const CopilotModal = forwardRef<CopilotModalRef, CopilotModalProps>(
         backgroundStyle={styles.sheetBackground}
         handleIndicatorStyle={styles.handleIndicator}
       >
-        <BottomSheetView style={styles.contentContainer}>
+        {/* A plain View: BottomSheetView is absolutely positioned with no
+            bottom edge, so flex: 1 cannot make it fill the sheet. */}
+        <View style={styles.contentContainer}>
           <CopilotChat
             {...chatProps}
             FlatListComponent={BottomSheetFlatList}
             disableKeyboardAvoiding
           />
-        </BottomSheetView>
+        </View>
       </BottomSheet>
     );
   },

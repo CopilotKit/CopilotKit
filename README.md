@@ -79,7 +79,7 @@ npx copilotkit@latest skills install
 <br />
 
 ```bash
-npm install @copilotkit/react-core @copilotkit/runtime
+npm install @copilotkit/react-core @copilotkit/runtime @tanstack/ai-openai
 ```
 
 ```bash
@@ -90,16 +90,17 @@ OPENAI_API_KEY=your_openai_api_key
 ```ts
 // app/api/copilotkit/[[...slug]]/route.ts
 import {
-  CopilotRuntime,
-  createCopilotRuntimeHandler,
-  BuiltInAgent,
-} from "@copilotkit/runtime/v2";
+  CopilotKitRuntime,
+  createCopilotKitRuntimeHandler,
+} from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
 
-const runtime = new CopilotRuntime({
-  agents: { default: new BuiltInAgent({ model: "openai:gpt-6-luna" }) },
+const runtime = new CopilotKitRuntime({
+  agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
 });
 
-const handler = createCopilotRuntimeHandler({
+const handler = createCopilotKitRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
 });
@@ -109,8 +110,7 @@ export { handler as GET, handler as POST, handler as PATCH, handler as DELETE };
 ```tsx
 // app/page.tsx
 "use client";
-import { CopilotKitProvider, CopilotSidebar } from "@copilotkit/react-core/v2";
-import "@copilotkit/react-core/v2/styles.css";
+import { CopilotKitProvider, CopilotSidebar } from "@copilotkit/react-core";
 
 export default function Page() {
   return (
@@ -157,7 +157,7 @@ https://github.com/user-attachments/assets/72b7b4f3-b6e7-460c-a932-5746fe3c8db3
 Every component is built on hooks you can use directly. `useAgent` sits right on top of AG-UI and gives you programmatic control of the agent connection.
 
 ```tsx
-import { useAgent } from "@copilotkit/react-core/v2";
+import { useAgent } from "@copilotkit/react-core";
 
 function CityPicker() {
   const { agent } = useAgent({ agentId: "my_agent" });
@@ -183,7 +183,7 @@ https://github.com/user-attachments/assets/3cfacac0-4ffd-457a-96f9-d7951e4ab7b6
 | **[Declarative](https://docs.copilotkit.ai/generative-ui/a2ui?ref=github_readme)**             | describes UI as a structured spec your app renders | A2UI                       |
 | **[Open-ended](https://docs.copilotkit.ai/generative-ui/mcp-apps?ref=github_readme)**          | ships a full interface that runs in a sandbox      | MCP Apps                   |
 
-Want to go deeper? The [Generative UI educational repo](https://github.com/CopilotKit/CopilotKit/tree/main/examples/showcases/generative-ui) walks through all three.
+Want to go deeper? The [Generative UI educational repo](https://github.com/CopilotKit/CopilotKit/tree/main/examples/demos/generative-ui) walks through all three.
 
 ## Works with your stack
 

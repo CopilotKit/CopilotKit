@@ -4,55 +4,110 @@ icon: "lucide/Cpu"
 description: "Choose and configure models for your Built-in Agent."
 ---
 
-The Built-in Agent uses the [Vercel AI SDK](https://sdk.vercel.ai), so you can use
-built-in model strings or pass any custom AI SDK model.
+Your agent needs a model. Pass a [TanStack AI](https://tanstack.com/ai) text
+adapter as `model`. The adapter holds the provider settings: the API key, the
+base URL, and the client options.
+
+```typescript
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
+
+const agent = new BuiltInAgent({
+  model: openaiText("gpt-6-luna"),
+});
+```
+
+## Install the packages
+
+The runtime installs `@tanstack/ai`. Install the adapter package for your provider:
+
+```npm
+npm install @tanstack/ai-openai
+```
+
+| Provider          | Package                  | Adapter                | API key from                                   |
+| ----------------- | ------------------------ | ---------------------- | ---------------------------------------------- |
+| OpenAI            | `@tanstack/ai-openai`    | `openaiText`           | `OPENAI_API_KEY`                               |
+| Anthropic         | `@tanstack/ai-anthropic` | `anthropicText`        | `ANTHROPIC_API_KEY`                            |
+| Google Gemini     | `@tanstack/ai-gemini`    | `geminiText`           | `GOOGLE_API_KEY`, then `GEMINI_API_KEY`        |
+| Google Vertex AI  | `@tanstack/ai-vertex`    | `vertexText`           | Google Cloud project, or `GOOGLE_VERTEX_API_KEY` |
+| OpenAI-compatible | `@tanstack/ai-openai`    | `openaiCompatibleText` | The config that you pass                       |
+
+The adapter is a normal import, so the agent also works in a bundled server, on
+Vercel, and on Cloudflare Workers.
 
 ## Supported Models
 
-Specify a model using the `"provider:model"` format. `"provider/model"` also works.
-
-The tables list the models these docs use. The quickstart uses `openai:gpt-6-luna`.
-The Built-in Agent sends the model id to the provider unchanged, so other model ids
-from the same provider also work.
+Give the adapter the provider's model id. The adapter types list the model ids
+that each package knows, so your editor completes them. The tables list the
+models that these docs use.
 
 ### OpenAI
 
-| Model        | Specifier             |
-| ------------ | --------------------- |
-| GPT-6 Luna | `openai:gpt-6-luna` |
+| Model        | Adapter                      |
+| ------------ | ---------------------------- |
+| GPT-6 Luna   | `openaiText("gpt-6-luna")`   |
+| GPT-5.5      | `openaiText("gpt-5.5")`      |
+| GPT-5.4 Mini | `openaiText("gpt-5.4-mini")` |
+| GPT-5.2      | `openaiText("gpt-5.2")`      |
+| GPT-5        | `openaiText("gpt-5")`        |
+| GPT-5 Mini   | `openaiText("gpt-5-mini")`   |
+| GPT-4.1      | `openaiText("gpt-4.1")`      |
+| GPT-4.1 Mini | `openaiText("gpt-4.1-mini")` |
+| GPT-4.1 Nano | `openaiText("gpt-4.1-nano")` |
+| GPT-4o       | `openaiText("gpt-4o")`       |
+| GPT-4o Mini  | `openaiText("gpt-4o-mini")`  |
+| o3-mini      | `openaiText("o3-mini")`      |
+| o4-mini      | `openaiText("o4-mini")`      |
 
 ```typescript
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
+
 const agent = new BuiltInAgent({
-  model: "openai:gpt-6-luna",
+  model: openaiText("gpt-6-luna"),
 });
 ```
+
+`openaiText` uses the Responses API. For the Chat Completions API, use
+`openaiChatCompletions` from the same package.
 
 ### Anthropic
 
-| Model             | Specifier                     |
-| ----------------- | ----------------------------- |
-| Claude Opus 4.8   | `anthropic:claude-opus-4-8`   |
-| Claude Sonnet 4.6 | `anthropic:claude-sonnet-4-6` |
-| Claude Haiku 4.5  | `anthropic:claude-haiku-4-5`  |
-| Claude Sonnet 4.5 | `anthropic:claude-sonnet-4-5` |
+Install `@tanstack/ai-anthropic`.
+
+| Model             | Adapter                                |
+| ----------------- | -------------------------------------- |
+| Claude Opus 4.8   | `anthropicText("claude-opus-4-8")`     |
+| Claude Sonnet 4.6 | `anthropicText("claude-sonnet-4-6")`   |
+| Claude Haiku 4.5  | `anthropicText("claude-haiku-4-5")`    |
+| Claude Sonnet 4.5 | `anthropicText("claude-sonnet-4-5")`   |
 
 ```typescript
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { anthropicText } from "@tanstack/ai-anthropic";
+
 const agent = new BuiltInAgent({
-  model: "anthropic:claude-sonnet-4-6",
+  model: anthropicText("claude-sonnet-4-6"),
 });
 ```
 
-### Google
+### Google Gemini
 
-| Model                 | Specifier                      |
-| --------------------- | ------------------------------ |
-| Gemini 3.8 Flash      | `google:gemini-3.8-flash`      |
-| Gemini 3.5 Flash      | `google:gemini-3.5-flash`      |
-| Gemini 3.5 Flash Lite | `google:gemini-3.5-flash-lite` |
+Install `@tanstack/ai-gemini`.
+
+| Model                 | Adapter                                 |
+| --------------------- | --------------------------------------- |
+| Gemini 3.8 Flash      | `geminiText("gemini-3.8-flash")`        |
+| Gemini 3.5 Flash      | `geminiText("gemini-3.5-flash")`        |
+| Gemini 3.5 Flash Lite | `geminiText("gemini-3.5-flash-lite")`   |
 
 ```typescript
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { geminiText } from "@tanstack/ai-gemini";
+
 const agent = new BuiltInAgent({
-  model: "google:gemini-3.8-flash",
+  model: geminiText("gemini-3.8-flash"),
 });
 ```
 
@@ -61,22 +116,48 @@ new API keys access to the Gemini 2.5 models. A key that used them before can
 still call them, but a new key gets a 404. See Google's
 [model list](https://ai.google.dev/gemini-api/docs/models).
 
-### MiniMax
+### Google Vertex AI
 
-| Model        | Specifier              |
-| ------------ | ---------------------- |
-| MiniMax M3   | `minimax:MiniMax-M3`   |
-| MiniMax M2.7 | `minimax:MiniMax-M2.7` |
+Install `@tanstack/ai-vertex`. Vertex AI uses your Google Cloud credentials.
+Set `GOOGLE_CLOUD_PROJECT` and `GOOGLE_CLOUD_LOCATION`, or set
+`GOOGLE_VERTEX_API_KEY`.
 
 ```typescript
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { vertexText } from "@tanstack/ai-vertex";
+
 const agent = new BuiltInAgent({
-  model: "minimax:MiniMax-M3",
+  model: vertexText("gemini-3.8-flash"),
 });
 ```
 
+### MiniMax
+
+Install `@tanstack/ai-openai`. MiniMax serves an OpenAI-compatible API, so use
+`openaiCompatibleText` with the MiniMax base URL:
+
+| Model        | Model id         |
+| ------------ | ---------------- |
+| MiniMax M3   | `"MiniMax-M3"`   |
+| MiniMax M2.7 | `"MiniMax-M2.7"` |
+
+```typescript
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiCompatibleText } from "@tanstack/ai-openai/compatible";
+
+const agent = new BuiltInAgent({
+  model: openaiCompatibleText("MiniMax-M3", {
+    baseURL: "https://api.minimax.io/v1",
+    apiKey: process.env.MINIMAX_API_KEY!,
+  }),
+});
+```
+
+For the China endpoint, use `https://api.minimaxi.com/v1` as `baseURL`.
+
 ## Environment Variables
 
-Set the API key for your chosen provider:
+Set the API key for your provider:
 
 ```bash
 # OpenAI
@@ -85,194 +166,208 @@ OPENAI_API_KEY=sk-...
 # Anthropic
 ANTHROPIC_API_KEY=sk-ant-...
 
-# Google
+# Google Gemini
 GOOGLE_API_KEY=...
-
-# MiniMax
-MINIMAX_API_KEY=...
-
-# Optional: use the China endpoint
-MINIMAX_BASE_URL=https://api.minimaxi.com/v1
 ```
 
-### OpenAI-compatible endpoints
+If the variable is missing, the adapter throws an error when you create it. The
+error names the variable to set.
 
-To send `openai:` model strings to another OpenAI-compatible endpoint, set
-`OPENAI_BASE_URL`:
+## Configure the provider
 
-```bash
-OPENAI_BASE_URL=https://api.groq.com/openai/v1
-OPENAI_API_KEY=gsk_...
-```
+Each adapter takes a config object as its second argument. Put the provider
+settings there.
 
-The Built-in Agent picks the OpenAI API from that host:
-
-- OpenAI (`api.openai.com`, `*.api.openai.com`) and Azure OpenAI hosts use the
-  Responses API.
-- Any other host uses the Chat Completions API, because most OpenAI-compatible
-  servers serve only `/chat/completions`. The runtime logs this on the first run.
-
-To choose the API yourself, set `COPILOTKIT_OPENAI_API` to `responses` or
-`chat`. For example, a proxy in front of OpenAI (such as LiteLLM or Portkey)
-needs `responses` to keep Responses-only features, such as reasoning summaries:
-
-```bash
-OPENAI_BASE_URL=https://my-gateway.example.com/v1
-COPILOTKIT_OPENAI_API=responses
-```
-
-Alternatively, pass the API key directly in your configuration:
+To pass the API key yourself, use the `create*` helper of the package. It takes
+the key as its second argument:
 
 ```typescript
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { createOpenaiChat } from "@tanstack/ai-openai"; // [!code highlight]
+
 const agent = new BuiltInAgent({
-  model: "openai:gpt-6-luna",
-  apiKey: process.env.MY_OPENAI_KEY, // [!code highlight]
+  model: createOpenaiChat("gpt-6-luna", process.env.MY_OPENAI_KEY!, { // [!code highlight:3]
+    organization: "org-my-team",
+  }),
 });
 ```
 
-## Custom Models (AI SDK)
+The other packages have the same helper: `createAnthropicChat` and
+`createGeminiChat`.
 
-To use a provider that model strings do not cover, or to configure the provider yourself (for example, a custom base URL), pass any Vercel AI SDK `LanguageModel` instance directly.
-First, install the provider package from its `ai-v6` release line:
-
-```npm
-npm install @ai-sdk/openai@ai-v6
-```
-
-<Callout type="warn" title="Install the ai-v6 version of each @ai-sdk provider">
-  The Built-in Agent runs on AI SDK 6 (`ai@6`), which needs `@ai-sdk/*` provider
-  packages from the 3.x line. Add `@ai-v6` to every provider you install, for example
-  `npm install @ai-sdk/azure@ai-v6`.
-</Callout>
+To send requests through a proxy, set `baseURL`:
 
 ```typescript
-import { BuiltInAgent } from "@copilotkit/runtime/v2";
-import { createOpenAI } from "@ai-sdk/openai"; // [!code highlight]
-
-const openai = createOpenAI({
-  // [!code highlight]
-  apiKey: process.env.OPENAI_API_KEY, // [!code highlight]
-}); // [!code highlight]
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { anthropicText } from "@tanstack/ai-anthropic";
 
 const agent = new BuiltInAgent({
-  model: openai("my-fine-tuned-model"), // [!code highlight]
+  model: anthropicText("claude-sonnet-4-6", {
+    baseURL: "https://my-proxy.example.com", // [!code highlight]
+  }),
 });
 ```
 
-This works with any AI SDK provider, including Azure OpenAI, AWS Bedrock, and
-Ollama. For an OpenAI-compatible endpoint, read the next section first.
+## Reasoning
+
+Some tasks need the model to think longer before it answers. Set `reasoning` to
+a level:
 
 ```typescript
-import { createAzure } from "@ai-sdk/azure";
-
-const azure = createAzure({
-  resourceName: "my-resource",
-  apiKey: process.env.AZURE_API_KEY,
-});
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
 
 const agent = new BuiltInAgent({
-  model: azure("my-deployment"),
+  model: openaiText("gpt-6-luna"),
+  reasoning: "high", // [!code highlight]
 });
 ```
 
-### OpenAI-compatible providers: use `provider.chat(model)`
+Only the levels of your model type-check. For example, `gpt-6-luna` has `"off"`,
+`"low"`, `"medium"`, `"high"`, `"xhigh"`, and `"max"`. If you do not set `reasoning`, the
+provider default applies. `"off"` turns thinking off.
 
-`@ai-sdk/openai` 3.x sends a bare `provider(model)` call to the OpenAI
-**Responses** API (`POST {baseURL}/responses`). Many OpenAI-compatible
-providers do not serve that endpoint. They serve only the Chat Completions API
-(`POST {baseURL}/chat/completions`). When you point `createOpenAI` at such a
-provider and call `provider(model)`, the agent run fails with an error from
-the provider, such as a 404.
-
-Call `provider.chat(model)` instead. It sends the request to the Chat
-Completions API:
+For more control, pass an object:
 
 ```typescript
-import { BuiltInAgent } from "@copilotkit/runtime/v2";
-import { createOpenAI } from "@ai-sdk/openai";
-
-const provider = createOpenAI({
-  apiKey: process.env.PROVIDER_API_KEY,
-  baseURL: "https://api.example-provider.com/v1",
-});
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { anthropicText } from "@tanstack/ai-anthropic";
 
 const agent = new BuiltInAgent({
-  model: provider.chat("provider-model-id"), // [!code highlight]
+  model: anthropicText("claude-sonnet-4-6"),
+  reasoning: { level: "high", summary: false, budgetTokens: 8000 }, // [!code highlight]
 });
 ```
 
-Use the bare `provider(model)` form only when the host serves the Responses
-API, such as OpenAI itself or a proxy that forwards to OpenAI. The
-`"openai:..."` model strings do not have this problem: with `OPENAI_BASE_URL`
-set to a host that is not OpenAI or Azure, the Built-in Agent picks the Chat
-Completions API for you (see
-[OpenAI-compatible endpoints](#openai-compatible-endpoints)).
+- `level`: one of the levels of the model.
+- `summary`: stream the thinking text to the frontend. Default `true`.
+- `budgetTokens`: an exact thinking budget. It type-checks only on models that
+  take a budget, such as Claude Sonnet 4.6.
 
 ## OpenRouter, proxies, and bring-your-own LLM
 
-Anything that exposes an **OpenAI-compatible** API, including [OpenRouter](https://openrouter.ai),
-a self-hosted gateway, an internal LLM proxy, [Ollama](https://ollama.com), [Together](https://together.ai),
-[Groq](https://groq.com), [Novita](https://novita.ai), or your own fine-tuned endpoint, works through the same
-`createOpenAI({ baseURL })` pattern shown in [Custom Models](#custom-models-ai-sdk)
-above. Point `baseURL` at the provider's OpenAI-compatible route and pass your key:
+Use `openaiCompatibleText` for any server with an OpenAI-compatible API. For
+example: [OpenRouter](https://openrouter.ai), [Together](https://together.ai),
+[Groq](https://groq.com), [Novita](https://novita.ai), [Ollama](https://ollama.com),
+a self-hosted gateway, an internal LLM proxy, or your own fine-tuned endpoint.
+It sends requests to the Chat Completions API:
 
 ```typescript
-import { BuiltInAgent } from "@copilotkit/runtime/v2";
-import { createOpenAI } from "@ai-sdk/openai"; // [!code highlight]
-
-// OpenRouter: one key, hundreds of models behind an OpenAI-compatible API
-const openrouter = createOpenAI({
-  // [!code highlight]
-  apiKey: process.env.OPENROUTER_API_KEY, // [!code highlight]
-  baseURL: "https://openrouter.ai/api/v1", // [!code highlight]
-}); // [!code highlight]
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiCompatibleText } from "@tanstack/ai-openai/compatible"; // [!code highlight]
 
 const agent = new BuiltInAgent({
-  model: openrouter.chat("anthropic/claude-sonnet-4-6"), // [!code highlight]
+  model: openaiCompatibleText("anthropic/claude-sonnet-4-6", { // [!code highlight:4]
+    baseURL: "https://openrouter.ai/api/v1",
+    apiKey: process.env.OPENROUTER_API_KEY!,
+  }),
 });
 ```
 
-The same shape works for any OpenAI-compatible proxy. Swap the `baseURL` and key.
-There is no CopilotKit-specific provider to install. Install
-`@ai-sdk/openai@ai-v6` as shown in [Custom Models](#custom-models-ai-sdk). If the
-AI SDK can talk to it, the Built-in Agent can use it.
+If the endpoint serves the Responses API, add `api: "responses"`.
 
-<Callout type="warn" title="The model is set on the agent">
-  CopilotKit does **not** expose a cloud-hosted endpoint for choosing or
-  switching the model at request time. The model is configured **on the agent**,
-  either as a `"provider:model"` string or an AI SDK `LanguageModel` instance:
+## Switch models from the frontend
+
+Sometimes the user picks the model, for example "fast" or "smart" in a menu. The
+frontend sends a model name, and your `resolveModel` function turns that name
+into a model.
+
+1. On the agent, list `"model"` in `overridableProperties` and add
+   `resolveModel`:
+
+   ```typescript
+   import { BuiltInAgent } from "@copilotkit/runtime/agent";
+   import { openaiText } from "@tanstack/ai-openai";
+
+   const agent = new BuiltInAgent({
+     model: openaiText("gpt-5.4-mini"),
+     overridableProperties: ["model"], // [!code highlight:11]
+     resolveModel: (name) => {
+       switch (name) {
+         case "fast":
+           return openaiText("gpt-5.4-mini");
+         case "smart":
+           return openaiText("gpt-6-luna");
+         default:
+           return undefined;
+       }
+     },
+   });
+   ```
+
+2. On the frontend, send the name as the `model` property:
+
+   ```tsx
+   import { CopilotChat, CopilotKitProvider } from "@copilotkit/react-core";
+
+   export default function Page() {
+     return (
+       <CopilotKitProvider runtimeUrl="/api/copilotkit" properties={{ model: "smart" }}>
+         <CopilotChat />
+       </CopilotKitProvider>
+     );
+   }
+   ```
+
+The run now uses GPT-6 Luna. `resolveModel` can return three things:
+
+- An adapter: the run uses it with the configured `modelOptions` and
+  `reasoning`.
+- The result of `createChatOptions(...)`: the run uses its adapter, and its
+  `modelOptions` and `reasoning` replace the configured ones.
+- `undefined`: the run uses the configured `model`. The agent logs one warning.
+  The same happens when the agent has no `resolveModel`.
+
+### Give each model its own options
+
+The configured `modelOptions` and `reasoning` are typed for the configured
+model. When a name picks a model from another provider, give that model its own
+options. Build them with `createChatOptions` from `@tanstack/ai`, so that the
+new adapter types them. Your code imports `@tanstack/ai` here, so add it to
+your dependencies:
 
 ```typescript
-new BuiltInAgent({ model: "openai:gpt-6-luna" }); // built-in string
-new BuiltInAgent({ model: openrouter.chat("...") }); // any LanguageModel
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { createChatOptions } from "@tanstack/ai"; // [!code highlight]
+import { openaiText } from "@tanstack/ai-openai";
+import { anthropicText } from "@tanstack/ai-anthropic";
+
+const agent = new BuiltInAgent({
+  model: openaiText("gpt-6-luna"),
+  modelOptions: { verbosity: "low" },
+  overridableProperties: ["model"],
+  resolveModel: (name) => {
+    switch (name) {
+      case "fast":
+        return openaiText("gpt-5.4-mini");
+      case "smart":
+        return createChatOptions({ // [!code highlight:5]
+          adapter: anthropicText("claude-sonnet-4-6"),
+          modelOptions: { max_tokens: 8000 },
+          reasoning: { level: "high", budgetTokens: 4000 },
+        });
+      default:
+        return undefined;
+    }
+  },
+});
 ```
 
-To let each request pick the model, add `overridableProperties: ["model"]` to
-the agent. The frontend then sends `model` in the provider's `properties`, which
-reach the agent as `forwardedProps`. See
-[Overridable properties](/advanced-configuration#overridable-properties).
-The agent then runs any provider and model the browser names, on your server's
-keys. To limit the choice, check `forwardedProps.model` against your own list in
-a [factory](/backend/custom-agent#with-forwardedprops) instead.
-Otherwise, construct the agent with the desired `model` on your own backend.
-For full control over the runtime you can also use a
-[Custom Agent](/backend/custom-agent).
+The "smart" run now uses Claude Sonnet 4.6 with its own options. It does not
+get `verbosity`, which is an OpenAI option. The tools stay as configured,
+provider tools too.
 
-</Callout>
+Only the names that `resolveModel` accepts can change the model. The frontend
+cannot send an API key or a base URL.
 
-## How it works
+## Use an AI SDK model
 
-The Built-in Agent resolves model strings to AI SDK provider instances:
+To run a Vercel AI SDK model, such as `openai("gpt-6-luna")` from
+`@ai-sdk/openai`, use an AI SDK factory. You write the `streamText()` call, and
+the Built-in Agent streams it to the frontend. See
+[Use any model router](/backend/custom-agent).
 
-| Model string                    | AI SDK provider     | Resolved call                    |
-| ------------------------------- | ------------------- | -------------------------------- |
-| GPT-6 Luna | `openai:gpt-6-luna` |
-| `"anthropic:claude-sonnet-4-6"` | `@ai-sdk/anthropic` | `anthropic("claude-sonnet-4-6")` |
-| `"google:gemini-3.8-flash"`     | `@ai-sdk/google`    | `google("gemini-3.8-flash")`     |
-
-Both `"provider:model"` and `"provider/model"` separators are supported and work identically.
-
-<Callout type="info" title="Need a different AI SDK or full control?">
-  The [Custom Agent](/backend/custom-agent) lets you bring your own AI SDK,
-  TanStack AI, or any custom LLM backend while CopilotKit handles the rest.
+<Callout type="info" title="Need full control of the model call?">
+  The [Custom Agent](/backend/custom-agent) lets you write the AI SDK, TanStack
+  AI, or custom LLM call yourself, while CopilotKit handles the rest.
 </Callout>

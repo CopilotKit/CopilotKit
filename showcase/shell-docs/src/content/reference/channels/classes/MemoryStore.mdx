@@ -7,14 +7,15 @@ description: The built-in process-local StateStore used when a Channel has no ex
 process.
 
 ```ts
-import { MemoryStore } from "@copilotkit/channels";
+import { createChannel, HttpAgent, MemoryStore } from "@copilotkit/channels";
 
 const store = new MemoryStore();
 
 const channel = createChannel({
   name: "support-slack",
   identifyUser: "platform",
-  agent: makeAgent,
+  agent: (threadId) =>
+    new HttpAgent({ url: "http://localhost:8000/agent", threadId }),
   store: { adapter: store },
 });
 ```

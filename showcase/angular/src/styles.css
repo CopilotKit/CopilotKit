@@ -268,7 +268,8 @@ showcase-root {
   display: block;
   margin: 0.5rem 0;
   padding: 1rem;
-  border-left: 3px solid #2563eb;
+  border: 1px solid light-dark(#bfdbfe, rgb(30 64 175 / 60%));
+  border-radius: 0.5rem;
   background: light-dark(#eff6ff, rgb(23 37 84 / 40%));
 }
 
@@ -527,7 +528,9 @@ showcase-root {
   flex-wrap: wrap;
   width: 100%;
 }
-.beautiful-row > div {
+/* Children render with layout-transparent hosts, so size what they render. */
+.beautiful-row > :not([style*="display: contents"]),
+.beautiful-row > [style*="display: contents"] > * {
   flex: 1 1 16rem;
   min-width: 0;
 }
@@ -736,6 +739,7 @@ showcase-root {
 }
 
 .showcase-tool-card.haiku p {
+  /* impeccable-disable-next-line design-system-font -- the haiku demo card sets its poem in a serif on purpose */
   font-family: ui-serif, Georgia, serif;
   font-size: 1rem;
 }

@@ -3,8 +3,8 @@ import { cleanup, fireEvent, waitFor } from "@testing-library/react";
 import fixtures from "../../../a11y-test-kit/fixtures.json";
 import { observeClicks } from "../../../a11y-test-kit/src/index";
 import { audit } from "../../../a11y-test-kit/src/report";
-import { renderSurface } from "../../src/v2/generative-ui/standard/__tests__/render";
-import { standardUI } from "../../src/v2/generative-ui/standard";
+import { renderSurface } from "../../src/generative-ui/standard/__tests__/render";
+import { standardUI } from "../../src/generative-ui/standard";
 
 const initialDir = document.documentElement.getAttribute("dir");
 afterEach(() => {

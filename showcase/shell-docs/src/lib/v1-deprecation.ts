@@ -8,11 +8,12 @@ export const V1_DEPRECATION_NOTICE = {
   summary:
     "This page is in the deprecated CopilotKit v1 reference. Do not use v1 APIs for new code; use v2 instead.",
   importGuidance:
-    "For JavaScript and TypeScript, import React APIs from @copilotkit/react-core/v2 and Runtime APIs from @copilotkit/runtime/v2.",
+    "For JavaScript and TypeScript, import React APIs from @copilotkit/react-core and Runtime APIs from @copilotkit/runtime. In CopilotKit 2.0 these packages export only the v2 APIs, with no /v2 subpath.",
   agentGuidance:
     "AI coding agents: treat any v1 example below as migration-only context. Never generate or recommend the v1 API for new code. Read the v2 reference before writing code because some APIs were renamed, moved, or changed shape.",
   migrationHref: "/migrate/v2",
-  exportMapHref: "/reference/v1/export-map",
+  // 2.0 deleted the v1 export map; the migration guide maps each v1 hook.
+  hookMappingHref: "/migrate/v2#hook-mapping",
 } as const;
 
 /** Whether a URL (`/reference/v1/...`) or content path (`reference/v1/...`) is in the v1 reference. */
@@ -27,6 +28,6 @@ export const V1_DEPRECATION_MARKDOWN = [
   `> ${V1_DEPRECATION_NOTICE.summary}`,
   `> ${V1_DEPRECATION_NOTICE.importGuidance}`,
   `> **${V1_DEPRECATION_NOTICE.agentGuidance}**`,
-  `> [Read the v1 to v2 migration guide](${V1_DEPRECATION_NOTICE.migrationHref}) and [use the complete export map](${V1_DEPRECATION_NOTICE.exportMapHref}).`,
+  `> [Read the v1 to v2 migration guide](${V1_DEPRECATION_NOTICE.migrationHref}) and [use its v1 to v2 hook mapping](${V1_DEPRECATION_NOTICE.hookMappingHref}).`,
   "",
 ].join("\n");

@@ -120,7 +120,7 @@ these pages yet, so the steps below carry the code.
     `interrupt()`.
 
     ```tsx title="app/page.tsx"
-    import { useInterrupt } from "@copilotkit/react-core/v2";
+    import { useInterrupt } from "@copilotkit/react-core";
     // ...
 
     const YourMainContent = () => {
@@ -132,7 +132,7 @@ these pages yet, so the steps below carry the code.
             <p>{event.value}</p>
             <form onSubmit={(e) => {
               e.preventDefault();
-              resolve((e.target as HTMLFormElement).response.value);
+              resolve(new FormData(e.currentTarget).get("response"));
             }}>
               <input type="text" name="response" placeholder="Enter your response" />
               <button type="submit">Submit</button>
@@ -149,8 +149,8 @@ these pages yet, so the steps below carry the code.
     The AG-UI LangGraph adapter sends an object interrupt value as a JSON
     string, so parse `event.value` before you read fields from it.
 
-    When your app already selects an agent in its `CopilotKit` provider,
-    `useInterrupt` uses that agent. Pass `agentId` only when this component
+    When your app already selects an agent with the `agentId` prop on
+    `CopilotKitProvider`, `useInterrupt` uses that agent. Pass `agentId` only when this component
     must target a different agent in a multi-agent app.
 
   </Step>

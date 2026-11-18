@@ -20,9 +20,13 @@ For a full walkthrough, see the [Angular Headless Threads guide](/angular/headle
 ## Signature
 
 ```ts
-import { injectThreads } from "@copilotkit/angular";
+import {
+  injectThreads,
+  type InjectThreadsInput,
+  type InjectThreadsResult,
+} from "@copilotkit/angular";
 
-function injectThreads(input: InjectThreadsInput): InjectThreadsResult;
+injectThreads satisfies (input: InjectThreadsInput) => InjectThreadsResult;
 ```
 
 ## Input

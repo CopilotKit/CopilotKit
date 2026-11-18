@@ -185,10 +185,12 @@ export function ExamplesPlayground() {
 
   return (
     // One plain page in the home's centered column (the navbar's width): the
-    // examples down the left, and the demo in a card filling the rest.
+    // examples down the left, and the demo in a card filling the rest. It
+    // fills the screen under the navbar, and under the release-candidate
+    // banner when there is one.
     <div
       data-playground
-      className="mx-auto flex w-full max-w-(--fd-layout-width) flex-1 flex-col bg-background lg:h-[calc(100dvh-3.5rem)] lg:flex-none lg:flex-row"
+      className="mx-auto flex w-full max-w-(--fd-layout-width) flex-1 flex-col bg-background lg:h-[calc(100dvh-3.5rem-var(--fd-banner-height,0px))] lg:flex-none lg:flex-row"
     >
       {/* The examples, as the docs' sidebar */}
       <aside className="flex min-h-0 flex-col text-sm lg:w-[268px] lg:shrink-0">

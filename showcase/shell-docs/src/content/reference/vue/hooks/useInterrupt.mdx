@@ -19,11 +19,15 @@ For an `on_interrupt` custom event, `event.value` is the event value, typed by t
 ## Signature
 
 ```ts
-import { useInterrupt } from "@copilotkit/vue/v2";
+import {
+  useInterrupt,
+  type UseInterruptConfig,
+  type UseInterruptResult,
+} from "@copilotkit/vue";
 
-function useInterrupt<TValue = unknown, TResult = never>(
+useInterrupt satisfies <TValue = unknown, TResult = never>(
   config?: UseInterruptConfig<TValue, TResult>,
-): UseInterruptResult<TValue, TResult>;
+) => UseInterruptResult<TValue, TResult>;
 ```
 
 ## Parameters
@@ -136,7 +140,7 @@ function useInterrupt<TValue = unknown, TResult = never>(
 
 ```vue
 <script setup lang="ts">
-import { CopilotChat, useInterrupt } from "@copilotkit/vue/v2";
+import { CopilotChat, useInterrupt } from "@copilotkit/vue";
 
 interface Approval {
   question: string;
@@ -164,7 +168,7 @@ useInterrupt<Approval>();
 
 ```vue
 <script setup lang="ts">
-import { useInterrupt } from "@copilotkit/vue/v2";
+import { useInterrupt } from "@copilotkit/vue";
 
 const { interrupt, result, hasInterrupt, resolve } = useInterrupt<
   string,
@@ -189,7 +193,7 @@ const { interrupt, result, hasInterrupt, resolve } = useInterrupt<
 ### Reading reactive state in script
 
 ```ts
-import { useInterrupt } from "@copilotkit/vue/v2";
+import { useInterrupt } from "@copilotkit/vue";
 
 const { interrupt, hasInterrupt, result, cancel, resolve } = useInterrupt({
   handler: ({ event }) => ({ label: String(event.value) }),

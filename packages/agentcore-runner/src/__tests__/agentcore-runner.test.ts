@@ -1,8 +1,9 @@
 import { describe, it, expect } from "vitest";
 import { firstValueFrom } from "rxjs";
 import { toArray } from "rxjs/operators";
-import { EventType, type MessagesSnapshotEvent } from "@ag-ui/client";
-import type { AgentRunnerConnectRequest } from "@copilotkit/runtime/v2";
+import { EventType } from "@ag-ui/client";
+import type { MessagesSnapshotEvent } from "@ag-ui/client";
+import type { AgentRunnerConnectRequest } from "@copilotkit/runtime";
 import { AgentCoreRunner } from "..";
 
 describe("AgentCoreRunner.connect()", () => {

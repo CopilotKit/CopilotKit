@@ -1,206 +1,279 @@
-import { Component, signal, Type } from "@angular/core";
+import { Component, input } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
+import { z } from "zod";
 import {
   registerComponent,
   registerRenderToolCall,
   registerFrontendTool,
   registerHumanInTheLoop,
 } from "../../tools";
+import type { AngularToolCall, HumanInTheLoopToolCall } from "../../tools";
 import { CopilotKit } from "../../copilotkit";
-import { z } from "zod";
-
-class CopilotKitStub {
-  addRenderToolCall = vi.fn();
-  addFrontendTool = vi.fn();
-  removeTool = vi.fn();
-  addHumanInTheLoop = vi.fn();
-}
+import { provideCopilotKit } from "../../config";
+import type { CopilotKitConfig } from "../../config";
 
 @Component({ standalone: true, template: "", selector: "dummy-tool" })
-class DummyToolComponent {}
+class DummyToolComponent {
+  readonly toolCall = input.required<AngularToolCall>();
+}
+
+@Component({ standalone: true, template: "", selector: "dummy-approval" })
+class DummyApprovalComponent {
+  readonly toolCall = input.required<HumanInTheLoopToolCall>();
+}
+
+const noArgs = z.object({});
+
+function setUp(config: Partial<CopilotKitConfig> = {}) {
+  TestBed.configureTestingModule({
+    providers: [
+      provideCopilotKit({
+        licenseKey: "ck_pub_00000000000000000000000000000000",
+        ...config,
+      }),
+    ],
+  });
+  return TestBed.inject(CopilotKit);
+}
+
+/** Mounts a host whose constructor runs `register`, as a directive would. */
+function mountHost(register: () => void) {
+  @Component({ standalone: true, template: "" })
+  class HostComponent {
+    constructor() {
+      register();
+    }
+  }
+  return TestBed.createComponent(HostComponent);
+}
 
 describe("tool registration helpers", () => {
-  let copilotKitStub: CopilotKitStub;
+  afterEach(() => TestBed.resetTestingModule());
 
-  beforeEach(() => {
-    TestBed.resetTestingModule();
-    copilotKitStub = new CopilotKitStub();
-    TestBed.configureTestingModule({
-      providers: [{ provide: CopilotKit, useValue: copilotKitStub }],
+  it("adds a renderer while the host lives and removes it on destroy", () => {
+    const copilotKit = setUp();
+    const fixture = mountHost(() =>
+      registerRenderToolCall({
+        name: "tool",
+        args: noArgs,
+        component: DummyToolComponent,
+      }),
+    );
+
+    expect(copilotKit.toolCallRenderConfigs().map((c) => c.name)).toEqual([
+      "tool",
+    ]);
+
+    fixture.destroy();
+    expect(copilotKit.toolCallRenderConfigs()).toEqual([]);
+  });
+
+  it("keeps a frontend tool with the same name when a renderer is removed", () => {
+    const copilotKit = setUp();
+    const toolFixture = mountHost(() =>
+      registerFrontendTool({
+        name: "tool",
+        description: "Frontend tool",
+        parameters: noArgs,
+      }),
+    );
+    const rendererFixture = mountHost(() =>
+      registerRenderToolCall({
+        name: "tool",
+        args: noArgs,
+        component: DummyToolComponent,
+      }),
+    );
+
+    rendererFixture.destroy();
+
+    expect(copilotKit.core.getTool({ toolName: "tool" })?.description).toBe(
+      "Frontend tool",
+    );
+    toolFixture.destroy();
+  });
+
+  it("adds a frontend tool while the host lives and removes it on destroy", () => {
+    const copilotKit = setUp();
+    const fixture = mountHost(() =>
+      registerFrontendTool({
+        name: "client-tool",
+        description: "Client tool",
+        parameters: noArgs,
+        component: DummyToolComponent,
+        handler: async () => "handled",
+      }),
+    );
+
+    expect(
+      copilotKit.core.getTool({ toolName: "client-tool" })?.description,
+    ).toBe("Client tool");
+    expect(copilotKit.clientToolCallRenderConfigs()[0]?.component).toBe(
+      DummyToolComponent,
+    );
+
+    fixture.destroy();
+    expect(
+      copilotKit.core.getTool({ toolName: "client-tool" }),
+    ).toBeUndefined();
+    expect(copilotKit.clientToolCallRenderConfigs()).toEqual([]);
+  });
+
+  it("gives a config tool back when a frontend tool that hid it is removed", () => {
+    const copilotKit = setUp({
+      tools: [
+        {
+          name: "search",
+          description: "Config search",
+          parameters: noArgs,
+        },
+      ],
     });
-  });
+    const fixture = mountHost(() =>
+      registerFrontendTool({
+        name: "search",
+        description: "Page search",
+        parameters: noArgs,
+        handler: async () => "page",
+      }),
+    );
 
-  it("registers and cleans up renderers", () => {
-    @Component({ standalone: true, template: "" })
-    class HostComponent {
-      constructor() {
-        registerRenderToolCall({
-          name: "tool",
-          args: z.object({ value: z.string() }),
-          component: DummyToolComponent as Type<any>,
-        });
-      }
-    }
-
-    const fixture = TestBed.createComponent(HostComponent);
-    expect(copilotKitStub.addRenderToolCall).toHaveBeenCalledWith(
-      expect.objectContaining({ name: "tool" }),
+    expect(copilotKit.core.getTool({ toolName: "search" })?.description).toBe(
+      "Page search",
     );
 
     fixture.destroy();
-    expect(copilotKitStub.removeTool).toHaveBeenCalledWith("tool", undefined);
+    expect(copilotKit.core.getTool({ toolName: "search" })?.description).toBe(
+      "Config search",
+    );
   });
 
-  it("registers client tools and removes them on destroy", async () => {
-    const handler = vi.fn(async () => "handled");
-
-    @Component({ standalone: true, template: "" })
-    class HostComponent {
-      constructor() {
-        registerFrontendTool({
-          name: "client-tool",
-          description: "",
-          args: z.object({}),
-          component: DummyToolComponent as Type<any>,
-          handler,
-        });
-      }
+  it("draws the newest frontend tool's component, and the older one after it is removed", () => {
+    const copilotKit = setUp();
+    @Component({ standalone: true, template: "", selector: "newer-tool" })
+    class NewerToolComponent {
+      readonly toolCall = input.required<AngularToolCall>();
     }
-
-    const fixture = TestBed.createComponent(HostComponent);
-    expect(copilotKitStub.addFrontendTool).toHaveBeenCalledWith(
-      expect.objectContaining({ name: "client-tool" }),
+    mountHost(() =>
+      registerFrontendTool({
+        name: "show",
+        description: "Older",
+        parameters: noArgs,
+        component: DummyToolComponent,
+      }),
+    );
+    const newer = mountHost(() =>
+      registerFrontendTool({
+        name: "show",
+        description: "Newer",
+        parameters: noArgs,
+        component: NewerToolComponent,
+      }),
     );
 
-    const added = copilotKitStub.addFrontendTool.mock.calls.at(-1)![0];
-    await added.handler({});
-    expect(handler).toHaveBeenCalled();
+    expect(copilotKit.clientToolCallRenderConfigs()[0]?.component).toBe(
+      NewerToolComponent,
+    );
+
+    newer.destroy();
+    expect(
+      copilotKit.clientToolCallRenderConfigs().map((c) => c.component),
+    ).toEqual([DummyToolComponent]);
+    expect(copilotKit.core.getTool({ toolName: "show" })?.description).toBe(
+      "Older",
+    );
+  });
+
+  it("adds a human-in-the-loop tool while the host lives and removes it on destroy", () => {
+    const copilotKit = setUp();
+    const fixture = mountHost(() =>
+      registerHumanInTheLoop({
+        name: "approval",
+        description: "Ask for approval",
+        parameters: noArgs,
+        component: DummyApprovalComponent,
+      }),
+    );
+
+    expect(copilotKit.core.getTool({ toolName: "approval" })?.type).toBe(
+      "human-in-the-loop",
+    );
+    expect(
+      copilotKit.humanInTheLoopToolRenderConfigs().map((c) => c.name),
+    ).toEqual(["approval"]);
 
     fixture.destroy();
-    expect(copilotKitStub.removeTool).toHaveBeenCalledWith(
-      "client-tool",
-      undefined,
-    );
+    expect(copilotKit.core.getTool({ toolName: "approval" })).toBeUndefined();
+    expect(copilotKit.humanInTheLoopToolRenderConfigs()).toEqual([]);
   });
 
-  it("registers human-in-the-loop tools and removes them on destroy", () => {
-    @Component({ standalone: true, template: "" })
-    class HostComponent {
-      constructor() {
-        registerHumanInTheLoop({
-          name: "approval",
-          args: z.object({}),
-          component: DummyToolComponent as Type<any>,
-          toolCall: signal({
-            args: {},
-            status: "in-progress",
-            result: undefined,
-          }),
-        });
-      }
-    }
-
-    const fixture = TestBed.createComponent(HostComponent);
-    expect(copilotKitStub.addHumanInTheLoop).toHaveBeenCalledWith(
-      expect.objectContaining({ name: "approval" }),
-    );
-
-    fixture.destroy();
-    expect(copilotKitStub.removeTool).toHaveBeenCalledWith(
-      "approval",
-      undefined,
-    );
-  });
   describe("registerComponent", () => {
+    function registerIncident(
+      overrides: { description?: string; agentId?: string } = {},
+    ) {
+      return mountHost(() =>
+        registerComponent({
+          name: "show_incident",
+          parameters: z.object({ id: z.string() }),
+          component: DummyToolComponent,
+          ...overrides,
+        }),
+      );
+    }
+
     it("registers a frontend tool that renders the component and runs nothing", () => {
-      @Component({ standalone: true, template: "" })
-      class HostComponent {
-        constructor() {
-          registerComponent({
-            name: "show_incident",
-            parameters: z.object({ id: z.string() }),
-            component: DummyToolComponent as Type<any>,
-          });
-        }
-      }
+      const copilotKit = setUp();
+      registerIncident();
 
-      TestBed.createComponent(HostComponent);
-
-      const added = copilotKitStub.addFrontendTool.mock.calls.at(-1)![0];
-      expect(added.name).toBe("show_incident");
-      expect(added.component).toBe(DummyToolComponent);
+      const tool = copilotKit.core.getTool({ toolName: "show_incident" });
+      expect(copilotKit.clientToolCallRenderConfigs()[0]?.component).toBe(
+        DummyToolComponent,
+      );
       // Display-only: the agent gets a tool it can call, and calling it runs no
       // application code. A stub handler would put a fabricated result in the
       // thread; core already inserts an empty tool result for a handler-less tool.
-      expect("handler" in added).toBe(false);
+      expect(tool?.handler).toBeUndefined();
     });
 
     it("describes the tool to the model as a component to display", () => {
-      @Component({ standalone: true, template: "" })
-      class HostComponent {
-        constructor() {
-          registerComponent({
-            name: "show_incident",
-            description: "Shows one incident from the incident table.",
-            parameters: z.object({ id: z.string() }),
-            component: DummyToolComponent as Type<any>,
-          });
-        }
-      }
+      const copilotKit = setUp();
+      registerIncident({
+        description: "Shows one incident from the incident table.",
+      });
 
-      TestBed.createComponent(HostComponent);
-
-      const added = copilotKitStub.addFrontendTool.mock.calls.at(-1)![0];
       // Same prefix react-core and vue build, so one agent prompt reads the same
       // whichever frontend registered the component.
-      expect(added.description).toBe(
+      expect(
+        copilotKit.core.getTool({ toolName: "show_incident" })?.description,
+      ).toBe(
         'Use this tool to display the "show_incident" component in the chat. This tool renders a visual UI component for the user.\n\nShows one incident from the incident table.',
       );
     });
 
     it("carries the model-facing description with no caller description", () => {
-      @Component({ standalone: true, template: "" })
-      class HostComponent {
-        constructor() {
-          registerComponent({
-            name: "show_incident",
-            parameters: z.object({ id: z.string() }),
-            component: DummyToolComponent as Type<any>,
-          });
-        }
-      }
+      const copilotKit = setUp();
+      registerIncident();
 
-      TestBed.createComponent(HostComponent);
-
-      const added = copilotKitStub.addFrontendTool.mock.calls.at(-1)![0];
-      expect(added.description).toBe(
+      expect(
+        copilotKit.core.getTool({ toolName: "show_incident" })?.description,
+      ).toBe(
         'Use this tool to display the "show_incident" component in the chat. This tool renders a visual UI component for the user.',
       );
     });
 
     it("scopes to an agent and removes that scoped tool on destroy", () => {
-      @Component({ standalone: true, template: "" })
-      class HostComponent {
-        constructor() {
-          registerComponent({
-            name: "show_incident",
-            parameters: z.object({ id: z.string() }),
-            component: DummyToolComponent as Type<any>,
-            agentId: "support-agent",
-          });
-        }
-      }
+      const copilotKit = setUp();
+      const fixture = registerIncident({ agentId: "support-agent" });
+      const scoped = {
+        toolName: "show_incident",
+        agentId: "support-agent",
+      };
 
-      const fixture = TestBed.createComponent(HostComponent);
-      const added = copilotKitStub.addFrontendTool.mock.calls.at(-1)![0];
-      expect(added.agentId).toBe("support-agent");
+      expect(copilotKit.core.getTool(scoped)?.agentId).toBe("support-agent");
 
       fixture.destroy();
-      expect(copilotKitStub.removeTool).toHaveBeenCalledWith(
-        "show_incident",
-        "support-agent",
-      );
+      expect(copilotKit.core.getTool(scoped)).toBeUndefined();
     });
   });
 });

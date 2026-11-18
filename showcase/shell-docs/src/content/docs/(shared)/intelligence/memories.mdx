@@ -223,7 +223,17 @@ Configure `memory.access` whenever either surface is on.
 </Callout>
 
 ```ts title="runtime.ts"
-const runtime = new CopilotRuntime({
+import { CopilotKitIntelligence, CopilotKitRuntime } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
+import { isFreePlan, resolveUser } from "./auth";
+
+const intelligence = new CopilotKitIntelligence({
+  apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
+});
+
+const runtime = new CopilotKitRuntime({
+  agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
   intelligence,
   identifyUser: async (request) => resolveUser(request),
   memory: {
@@ -326,7 +336,7 @@ runtime-authenticated user. It hydrates from a REST snapshot and then stays
 current from realtime deltas.
 
 ```tsx title="components/memory-list.tsx"
-import { useMemories } from "@copilotkit/react-core/v2";
+import { useMemories } from "@copilotkit/react-core";
 
 export function MemoryList() {
   const { memories, isLoading, isAvailable, removeMemory } = useMemories();
@@ -415,7 +425,7 @@ for the exported surface.
 <FrontendOnly frontend="vue">
 ### Vue
 
-`@copilotkit/vue/v2` does not yet export a reactive memory controller equivalent
+`@copilotkit/vue` does not yet export a reactive memory controller equivalent
 to React's `useMemories()`. Use the REST routes below from a trusted backend, or
 let an agent use the MCP tools; do not put a project API key in the browser.
 </FrontendOnly>

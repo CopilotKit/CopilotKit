@@ -1,6 +1,5 @@
 import { spawnSync } from "child_process";
 import fs from "fs";
-import os from "os";
 import path from "path";
 import { fileURLToPath } from "url";
 import { glob } from "glob";
@@ -320,9 +319,105 @@ export function checkDuplicateRegionSources(): CheckResult {
 
 const MD_LINK_RE = /\[[^\]]*\]\((\/[^)\s]*)\)/g;
 
+/** What shell-docs serves, as lists of URLs, files, and names. */
+export interface SiteFiles {
+  /** page-inventory.json's `sitemap`: every page at its own URL. */
+  sitemap: string[];
+  /** Page files under src/content/docs (`channels/tools.mdx`). */
+  docsFiles: string[];
+  /** Page files under src/content/reference (`hooks/useAgent.mdx`). */
+  referenceFiles: string[];
+  /** The standard catalog's component names (`TextField`). */
+  catalogComponents: string[];
+  /** Files under public/ (`images/navbar/quickstart.png`). */
+  publicFiles: string[];
+  /** URL segments that name a frontend or a framework (`vue`, `mastra`). */
+  scopes: string[];
+}
+
+export interface KnownRoutes {
+  /** The URLs a link can name as written. */
+  routes: Set<string>;
+  /** Segments a link can put in front of a known URL (`/vue/mastra/...`). */
+  scopes: Set<string>;
+}
+
+const CATALOG_PAGES = "/generative-ui/components/standard-catalog";
+
+// `(shared)/(other)/telemetry/index.mdx` is `/telemetry`: route groups and
+// `index` are not in the URL.
+function contentRoute(prefix: string, file: string): string {
+  const segments = file
+    .replace(/\.mdx$/, "")
+    .split("/")
+    .filter((segment) => !/^\(.+\)$/.test(segment));
+  if (segments.at(-1) === "index") segments.pop();
+  return [prefix, ...segments].join("/") || "/";
+}
+
+// Mirrors catalogComponentSlug in shell-docs: `TextField` is `text-field`.
+function catalogSlug(name: string): string {
+  return name
+    .replace(/([a-z0-9])([A-Z])/g, "$1-$2")
+    .replace(/([A-Z])([A-Z][a-z])/g, "$1-$2")
+    .toLowerCase();
+}
+
+export function buildKnownRoutes(site: SiteFiles): KnownRoutes {
+  const routes = new Set(["/", ...site.sitemap]);
+  // A content file's own path opens its page too: `/channels/tools` opens
+  // the reader's channel guide, and `/reference/hooks/useAgent` is
+  // `/reference/v2/hooks/useAgent`.
+  for (const file of site.docsFiles) routes.add(contentRoute("", file));
+  for (const file of site.referenceFiles) {
+    routes.add(contentRoute("/reference", file));
+  }
+  // The site makes these pages from the catalog, so the sitemap leaves them
+  // out. A part (`GridItem`) has no page of its own, but passes here.
+  for (const name of site.catalogComponents) {
+    routes.add(`${CATALOG_PAGES}/${catalogSlug(name)}`);
+  }
+  for (const file of site.publicFiles) routes.add(`/${file}`);
+  return { routes, scopes: new Set(site.scopes) };
+}
+
+// `/vue/mastra/frontend-tools` is `/frontend-tools` for a Vue reader on
+// Mastra, so a link can put scopes in front of a known URL.
+function isKnownRoute(route: string, known: KnownRoutes): boolean {
+  let rest = route;
+  while (!known.routes.has(rest)) {
+    const [first, ...tail] = rest.slice(1).split("/");
+    if (!known.scopes.has(first)) return false;
+    rest = `/${tail.join("/")}`;
+  }
+  return true;
+}
+
+// The site keeps a link in its reader's frontend: on a Vue page,
+// `/frontend-tools` opens `/vue/frontend-tools`. The channel guide is read
+// in Slack and in Teams, so its links must open in both.
+function readerFrontends(pagePath: string): string[] {
+  if (pagePath.startsWith("channels/")) return ["slack", "teams"];
+  const frontend = /^frontends\/([^/]+)\//.exec(pagePath)?.[1];
+  return frontend ? [frontend] : [];
+}
+
+function linkOpens(
+  route: string,
+  pagePath: string,
+  known: KnownRoutes,
+): boolean {
+  if (isKnownRoute(route, known)) return true;
+  const frontends = readerFrontends(pagePath);
+  return (
+    frontends.length > 0 &&
+    frontends.every((frontend) => isKnownRoute(`/${frontend}${route}`, known))
+  );
+}
+
 export function checkInternalLinks(input: {
   pages: PageInput[];
-  knownRoutes: Set<string>;
+  knownRoutes: KnownRoutes;
 }): CheckResult {
   const failures: string[] = [];
   for (const page of input.pages) {
@@ -332,7 +427,7 @@ export function checkInternalLinks(input: {
     while ((m = MD_LINK_RE.exec(body)) !== null) {
       const raw = m[1];
       const cleaned = raw.split("#")[0].split("?")[0];
-      if (!input.knownRoutes.has(cleaned)) {
+      if (!linkOpens(cleaned, page.path, input.knownRoutes)) {
         failures.push(`${page.path}: dead link "${raw}"`);
       }
     }
@@ -422,33 +517,59 @@ function loadDemoContent(): DemoContent {
   return JSON.parse(fs.readFileSync(p, "utf-8")) as DemoContent;
 }
 
-function loadKnownRoutes(): Set<string> {
-  const docsRoot = path.join(
-    REPO_ROOT,
-    "showcase",
-    "shell-docs",
-    "src",
-    "content",
-    "docs",
+// The catalog's samples list their components as `covers: ["Grid", "GridItem"]`.
+// Read as text: Node loads samples.ts as CommonJS, so an import of it fails.
+function loadCatalogComponents(): string[] {
+  const samples = fs.readFileSync(
+    path.join(
+      REPO_ROOT,
+      "showcase",
+      "shared",
+      "generative-ui-catalog",
+      "samples.ts",
+    ),
+    "utf-8",
   );
-  const files = glob.sync("**/*.mdx", { cwd: docsRoot });
-  const routes = new Set<string>();
-  for (const rel of files) {
-    const noExt = rel.replace(/\.mdx$/, "");
-    const noIndex = noExt.endsWith("/index")
-      ? noExt.slice(0, -"/index".length)
-      : noExt;
-    // Strip route-group segments like (other), (foo) — they are removed
-    // from the URL by Fumadocs/Next.js. Mirrors normalizeSlugForUrl in
-    // the route groups Fumadocs drops from URLs.
-    const normalized = noIndex
-      .split("/")
-      .filter((seg) => !/^\(.+\)$/.test(seg))
-      .join("/");
-    routes.add(normalized === "" ? "/" : "/" + normalized);
-  }
-  routes.add("/"); // root
-  return routes;
+  return [...samples.matchAll(/covers:\s*\[([^\]]*)\]/g)].flatMap((covers) =>
+    [...covers[1].matchAll(/"([^"]+)"/g)].map((name) => name[1]),
+  );
+}
+
+function loadKnownRoutes(): KnownRoutes {
+  const shellDocs = path.join(REPO_ROOT, "showcase", "shell-docs");
+  const docs = path.join(shellDocs, "src", "content", "docs");
+  const readJson = (file: string): unknown =>
+    JSON.parse(fs.readFileSync(path.join(shellDocs, file), "utf-8"));
+  // CI keeps the inventory's sitemap in step with the site's own.
+  const { sitemap } = readJson("page-inventory.json") as { sitemap: string[] };
+  const docsModes = readJson("src/data/docs-modes.json") as Record<
+    string,
+    string
+  >;
+  const folders = (dir: string) =>
+    fs
+      .readdirSync(path.join(docs, dir), { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name);
+  return buildKnownRoutes({
+    sitemap,
+    docsFiles: glob.sync("**/*.mdx", { cwd: docs }),
+    referenceFiles: glob.sync("**/*.mdx", {
+      cwd: path.join(shellDocs, "src", "content", "reference"),
+    }),
+    catalogComponents: loadCatalogComponents(),
+    publicFiles: glob.sync("**/*", {
+      cwd: path.join(shellDocs, "public"),
+      nodir: true,
+    }),
+    // A framework's docs folder names it too: `/langgraph/...` opens the
+    // reader's LangGraph. Hidden frameworks have no pages.
+    scopes: [
+      ...folders("frontends"),
+      ...folders("integrations"),
+      ...Object.keys(docsModes).filter((slug) => docsModes[slug] !== "hidden"),
+    ],
+  });
 }
 
 function aliasExists(importPath: string): boolean {
@@ -533,10 +654,13 @@ const CLAUDE_QUICKSTARTS = [
     path: "integrations/claude-sdk-python/quickstart.mdx",
     title: "Python",
     modelEnvLine: "ANTHROPIC_MODEL=claude-opus-4-8",
+    // The agent that the runtime route registers and the provider targets.
+    agentName: "claude_agent",
+    // The starter files that the page names, relative to the starter root.
     requiredStarterFiles: [
-      "src/agent_server.py",
-      "src/agents/claude_agent_sdk_adapter.py",
-      "src/app/api/copilotkit/route.ts",
+      "agent/main.py",
+      "agent/src/agent.py",
+      "src/app/api/copilotkit/[[...slug]]/route.ts",
     ],
   },
   {
@@ -544,9 +668,11 @@ const CLAUDE_QUICKSTARTS = [
     path: "integrations/claude-sdk-typescript/quickstart.mdx",
     title: "TypeScript",
     modelEnvLine: "CLAUDE_MODEL=claude-opus-4-8",
+    agentName: "default",
     requiredStarterFiles: [
-      "src/agent_server.ts",
-      "src/app/api/copilotkit/route.ts",
+      "agent/src/server.ts",
+      "agent/src/agent.ts",
+      "src/app/api/copilotkit/[[...slug]]/route.ts",
       "src/app/page.tsx",
     ],
   },
@@ -730,12 +856,14 @@ export function checkClaudeQuickstarts(input: {
       config.modelEnvLine,
       "Claude model env var",
     );
-    addMissing(
+    // Only inline code in the prose matches. The route snippet's
+    // `process.env.AGENT_URL ?? "http://localhost:8000"` does not.
+    addMissingRegex(
       failures,
       page.path,
       page.body,
-      "AGENT_URL=http://localhost:8000",
-      "agent URL default",
+      /`AGENT_URL[=`][^\n]*http:\/\/localhost:8000/,
+      "AGENT_URL default http://localhost:8000",
     );
     addMissing(
       failures,
@@ -755,7 +883,7 @@ export function checkClaudeQuickstarts(input: {
       );
       if (!starterFileExists(config.slug, filePath)) {
         failures.push(
-          `${page.path}: documented starter file not found after extraction: ${filePath}`,
+          `${page.path}: documented starter file not found in examples/starters/${config.slug}: ${filePath}`,
         );
       }
     }
@@ -779,15 +907,16 @@ export function checkClaudeQuickstarts(input: {
       "app/api/copilotkit/route.ts",
       [
         ["HttpAgent", "HttpAgent"],
-        ["CopilotRuntime", "CopilotRuntime"],
-        // The v2 fetch handler in single-route mode. These assertions used to
-        // require `ExperimentalEmptyAdapter` +
-        // `copilotRuntimeNextJSAppRouterEndpoint`, which pinned both pages to
-        // the v1 entrypoint. Single-route keeps the route POST-only at the
-        // plain `route.ts` path — matching the starter these pages document,
-        // so `requiredStarterFiles` below is unchanged.
-        ["createCopilotRuntimeHandler", "createCopilotRuntimeHandler"],
-        ['from "@copilotkit/runtime/v2"', "v2 runtime entrypoint"],
+        [
+          `${config.agentName}: new HttpAgent`,
+          `registration of agent ${config.agentName}`,
+        ],
+        // `new` because createCopilotKitRuntimeHandler also contains the name.
+        ["new CopilotKitRuntime(", "CopilotKitRuntime"],
+        // Single-route mode keeps the route POST-only at the plain `route.ts`
+        // path.
+        ["createCopilotKitRuntimeHandler", "createCopilotKitRuntimeHandler"],
+        ['from "@copilotkit/runtime"', "root runtime entrypoint"],
         ['mode: "single-route"', "single-route mode"],
         ["export const POST", "POST export"],
         ['"http://localhost:8000"', "localhost agent URL"],
@@ -796,12 +925,19 @@ export function checkClaudeQuickstarts(input: {
     checkBlockContains(
       failures,
       page.path,
+      findTitledBlock(blocks, "app/providers.tsx"),
+      "app/providers.tsx",
+      [
+        ['from "@copilotkit/react-core"', "root React entrypoint"],
+        [`agentId="${config.agentName}"`, `agentId="${config.agentName}"`],
+      ],
+    );
+    checkBlockContains(
+      failures,
+      page.path,
       findTitledBlock(blocks, "app/layout.tsx"),
       "app/layout.tsx",
-      [
-        ['@copilotkit/react-core/v2"', "v2 React entrypoint"],
-        ['agent="claude_agent"', "agent prop"],
-      ],
+      [["<Providers>", "Providers wrapper"]],
     );
     checkBlockContains(
       failures,
@@ -940,55 +1076,11 @@ function loadSetupContent(): SetupContentLite {
   return JSON.parse(fs.readFileSync(p, "utf-8")) as SetupContentLite;
 }
 
-function createExtractedStarterResolver(): {
-  starterFileExists: (framework: string, filePath: string) => boolean;
-  cleanup: () => void;
-  errors: string[];
-} {
-  const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "claude-quickstarts-"));
-  const cache = new Map<string, Set<string>>();
-  const errors: string[] = [];
-
-  function load(framework: string): Set<string> {
-    const cached = cache.get(framework);
-    if (cached) return cached;
-
-    const outDir = path.join(tmpRoot, framework);
-    const result = spawnSync(
-      "npx",
-      ["tsx", "extract-starter.ts", framework, outDir],
-      {
-        cwd: __dirname,
-        encoding: "utf-8",
-      },
-    );
-    if (result.status !== 0) {
-      errors.push(
-        `${framework}: starter extraction failed: ${[
-          result.stdout,
-          result.stderr,
-        ]
-          .filter(Boolean)
-          .join("\n")}`,
-      );
-      const empty = new Set<string>();
-      cache.set(framework, empty);
-      return empty;
-    }
-
-    const files = glob
-      .sync("**/*", { cwd: outDir, nodir: true, dot: true })
-      .map((file) => file.split(path.sep).join("/"));
-    const fileSet = new Set(files);
-    cache.set(framework, fileSet);
-    return fileSet;
-  }
-
-  return {
-    starterFileExists: (framework, filePath) => load(framework).has(filePath),
-    cleanup: () => fs.rmSync(tmpRoot, { recursive: true, force: true }),
-    errors,
-  };
+// Each quickstart's starter is the app in examples/starters/<slug>.
+function starterHasFile(framework: string, filePath: string): boolean {
+  return fs.existsSync(
+    path.join(REPO_ROOT, "examples", "starters", framework, filePath),
+  );
 }
 
 async function main() {
@@ -998,48 +1090,33 @@ async function main() {
   const demoContent = loadDemoContent();
   const setupContent = loadSetupContent();
   const knownRoutes = loadKnownRoutes();
-  const starterResolver = createExtractedStarterResolver();
+
+  const results: CheckResult[] = [
+    runBuildCheck({ skipExecution: skipBuild }),
+    checkInlineDemoRefs({ pages, registry }),
+    checkSnippetRegions({ pages, demoContent }),
+    checkDuplicateRegionSources(),
+    checkInternalLinks({ pages, knownRoutes }),
+    checkImportPaths({ pages, existsOnDisk: aliasExists }),
+    checkComponentImports({ pages }),
+    checkClaudeQuickstarts({
+      pages,
+      setupSource: (framework, concept) =>
+        setupContent.concepts[`${framework}::${concept}`]?.source ?? null,
+      starterFileExists: starterHasFile,
+    }),
+    runEssentialContentCheck(pages),
+  ];
 
   let failed = false;
-  // Always clean up the extraction temp dir, even if a check throws — cleanup
-  // runs in finally, and process.exit is deferred until after it so the exit
-  // can't skip the finally block.
-  try {
-    const results: CheckResult[] = [
-      runBuildCheck({ skipExecution: skipBuild }),
-      checkInlineDemoRefs({ pages, registry }),
-      checkSnippetRegions({ pages, demoContent }),
-      checkDuplicateRegionSources(),
-      checkInternalLinks({ pages, knownRoutes }),
-      checkImportPaths({ pages, existsOnDisk: aliasExists }),
-      checkComponentImports({ pages }),
-      checkClaudeQuickstarts({
-        pages,
-        setupSource: (framework, concept) =>
-          setupContent.concepts[`${framework}::${concept}`]?.source ?? null,
-        starterFileExists: starterResolver.starterFileExists,
-      }),
-      runEssentialContentCheck(pages),
-    ];
-    if (starterResolver.errors.length > 0) {
-      results.push({
-        name: "starter-extraction",
-        status: "fail",
-        messages: starterResolver.errors,
-      });
+  for (const r of results) {
+    const tag =
+      r.status === "pass" ? "PASS" : r.status === "fail" ? "FAIL" : "SKIP";
+    console.log(`[${tag}] ${r.name}`);
+    for (const msg of r.messages) {
+      console.log(`  ${msg}`);
     }
-
-    for (const r of results) {
-      const tag =
-        r.status === "pass" ? "PASS" : r.status === "fail" ? "FAIL" : "SKIP";
-      console.log(`[${tag}] ${r.name}`);
-      for (const msg of r.messages) {
-        console.log(`  ${msg}`);
-      }
-      if (r.status === "fail") failed = true;
-    }
-  } finally {
-    starterResolver.cleanup();
+    if (r.status === "fail") failed = true;
   }
 
   process.exit(failed ? 1 : 0);

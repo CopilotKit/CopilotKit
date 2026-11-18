@@ -10,7 +10,7 @@ description: "Vue composable for registering a client-side tool with an optional
 The composable manages the full registration lifecycle: it registers the tool (and its optional renderer) immediately, re-runs the registration when reactive dependencies change, and removes the tool automatically when the owning scope is disposed. Parameter schemas are defined with a [Standard Schema](https://standardschema.dev) such as a [Zod](https://zod.dev) object, for the advertised tool schema and TypeScript inference. Runtime arguments are JSON-parsed but are not validated against that schema.
 
 <Callout type="info">
-  Import from the `/v2` subpath: `@copilotkit/vue/v2`. Like all CopilotKit
+  Import from the package root, `@copilotkit/vue`. Like all CopilotKit
   composables, `useFrontendTool` must be called from within a component that is a
   descendant of [`CopilotKitProvider`](/reference/vue/components/CopilotKitProvider).
 </Callout>
@@ -19,12 +19,12 @@ The composable manages the full registration lifecycle: it registers the tool (a
 
 ```ts
 import type { WatchSource } from "vue";
-import { useFrontendTool } from "@copilotkit/vue/v2";
+import { useFrontendTool, type VueFrontendTool } from "@copilotkit/vue";
 
-function useFrontendTool<T extends Record<string, unknown>>(
+useFrontendTool satisfies <T extends Record<string, unknown>>(
   tool: VueFrontendTool<T>,
   deps?: WatchSource<unknown>[],
-): void;
+) => void;
 ```
 
 ## Parameters
@@ -35,7 +35,7 @@ function useFrontendTool<T extends Record<string, unknown>>(
   <PropertyReference name="name" type="string" required>
     A unique name for the tool. The agent references this name when deciding to
     call the tool. If a tool with this name is already registered (for the same
-    `agentId`), the existing registration is overridden and a warning is logged.
+    `agentId`), this tool replaces it until the component scope is disposed.
   </PropertyReference>
 
   <PropertyReference name="description" type="string">
@@ -67,7 +67,7 @@ function useFrontendTool<T extends Record<string, unknown>>(
     Long-running handlers can check `signal.aborted` or pass `signal` to
     `fetch` to cancel cooperatively. The resolved value is surfaced back to the
     agent as the tool result. `FrontendToolHandlerContext` is exported from
-    `@copilotkit/vue/v2`.
+    `@copilotkit/vue`.
   </PropertyReference>
 
   <PropertyReference
@@ -127,7 +127,7 @@ function useFrontendTool<T extends Record<string, unknown>>(
 ## Behavior
 
 - **Immediate registration.** The tool is registered as soon as the composable runs (the underlying `watch` uses `{ immediate: true }`).
-- **Duplicate handling.** If a tool with the same `name` already exists for the same `agentId`, the previous registration is removed, the new one is added, and an override warning is logged. Only one tool per name (per agent) is active at a time.
+- **Same name.** If a tool with the same `name` already exists for the same `agentId`, the new tool is active until its scope is disposed. Then the earlier tool is active again. This also applies to a tool that you pass to `CopilotKitProvider`.
 - **Renderer registration.** When `render` is provided, it is registered as a tool call renderer. The renderer is registered even when `parameters` is omitted, so parameter-free tools (for example confirm dialogs) can still render UI in the chat.
 - **Reactivity.** The registration re-runs when `tool.name`, `tool.available`, or any `deps` watch source changes. Pass changing reactive values through `deps`.
 - **WebMCP registration.** With `webmcp` set, the tool is also registered on `document.modelContext` and removed with the tool. The tool needs a `description` for this (WebMCP rejects tools without one).
@@ -143,7 +143,7 @@ function useFrontendTool<T extends Record<string, unknown>>(
 <script setup lang="ts">
 import { ref } from "vue";
 import { z } from "zod";
-import { useFrontendTool } from "@copilotkit/vue/v2";
+import { useFrontendTool } from "@copilotkit/vue";
 
 const todos = ref<string[]>([]);
 
@@ -175,7 +175,7 @@ Provide a `render` component to visualize the tool call in chat. The component r
 ```vue
 <!-- WeatherToolView.vue -->
 <script setup lang="ts">
-import { ToolCallStatus } from "@copilotkit/vue/v2";
+import { ToolCallStatus } from "@copilotkit/vue";
 
 defineProps<{
   name: string;
@@ -202,7 +202,7 @@ defineProps<{
 <!-- App.vue -->
 <script setup lang="ts">
 import { z } from "zod";
-import { useFrontendTool } from "@copilotkit/vue/v2";
+import { useFrontendTool } from "@copilotkit/vue";
 import WeatherToolView from "./WeatherToolView.vue";
 
 useFrontendTool({
@@ -231,7 +231,7 @@ Expose `available` as a getter that reads a reactive value. The registration wat
 <script setup lang="ts">
 import { computed, toRef } from "vue";
 import { z } from "zod";
-import { useFrontendTool } from "@copilotkit/vue/v2";
+import { useFrontendTool } from "@copilotkit/vue";
 
 const props = defineProps<{ isAdmin: boolean }>();
 const isAdmin = toRef(props, "isAdmin");

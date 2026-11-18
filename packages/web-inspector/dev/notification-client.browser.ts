@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./browser-test.js";
 
 test("workbench only simulates the client and preserves unknown versions in links", async ({
   page,

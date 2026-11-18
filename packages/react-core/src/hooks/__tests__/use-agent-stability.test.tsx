@@ -1,0 +1,278 @@
+import React from "react";
+import { render } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import type { AbstractAgent } from "@ag-ui/client";
+import { useCopilotKit } from "../../context";
+import { MockStepwiseAgent } from "../../__tests__/utils/test-helpers";
+import { useAgent } from "../use-agent";
+import {
+  CopilotKitCoreRuntimeConnectionStatus,
+  ProxiedCopilotRuntimeAgent,
+} from "@copilotkit/core";
+
+/** Core's `ɵruntimeInfo` snapshot, built from a fake core's runtime fields. */
+function runtimeInfoOf(core: {
+  runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus;
+  threadEndpoints?: unknown;
+  intelligence?: unknown;
+}) {
+  return {
+    status: core.runtimeConnectionStatus,
+    threadEndpoints: core.threadEndpoints,
+    intelligence: core.intelligence,
+  };
+}
+
+// Mock the CopilotKit context to control copilotkit state directly
+vi.mock("../../context", () => ({
+  useCopilotKit: vi.fn(),
+  useDefaultAgentId: vi.fn(() => undefined),
+}));
+
+const mockUseCopilotKit = useCopilotKit as ReturnType<typeof vi.fn>;
+
+/**
+ * Tests for useAgent referential stability during runtime connection lifecycle.
+ *
+ * Bug: useAgent creates multiple ProxiedCopilotRuntimeAgent instances during
+ * Disconnected→Connecting→Connected transitions because the useMemo recalculates
+ * on every dependency change and creates a new agent each time.
+ */
+describe("useAgent stability during runtime connection", () => {
+  let mockCopilotkit: {
+    getAgent: ReturnType<typeof vi.fn>;
+    runtimeUrl: string | undefined;
+    readonly ɵruntimeInfo: unknown;
+    runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus;
+    runtimeTransport: string;
+    credentials: RequestCredentials | undefined;
+    headers: Record<string, string>;
+    agents: Record<string, AbstractAgent>;
+    applyHeadersToAgent: (agent: AbstractAgent) => void;
+    subscribeToAgentWithOptions: (
+      agent: AbstractAgent,
+      subscriber: any,
+    ) => { unsubscribe: () => void };
+  };
+
+  beforeEach(() => {
+    mockCopilotkit = {
+      getAgent: vi.fn(() => undefined),
+      runtimeUrl: "http://localhost:3000/api/copilotkit",
+      get ɵruntimeInfo() {
+        return runtimeInfoOf(this);
+      },
+      runtimeConnectionStatus:
+        CopilotKitCoreRuntimeConnectionStatus.Disconnected,
+      runtimeTransport: "rest",
+      credentials: undefined,
+      headers: {},
+      agents: {},
+      // Additive stand-in for core's merge (core headers ON TOP of the
+      // agent's own). These tests only assert agent identity / threadId and
+      // never remove a header, so this approximation is sufficient; it does
+      // NOT model core's frozen construction-time baseline.
+      applyHeadersToAgent: (agent) => {
+        const target = agent as { headers?: Record<string, string> };
+        if (target.headers) {
+          target.headers = { ...target.headers, ...mockCopilotkit.headers };
+        }
+      },
+      subscribeToAgentWithOptions: (agent, subscriber) =>
+        agent.subscribe(subscriber),
+    };
+
+    mockUseCopilotKit.mockReturnValue({
+      copilotkit: mockCopilotkit,
+      executingToolCallIds: new Set(),
+    });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("should reuse the same provisional agent across re-renders during Disconnected→Connecting", () => {
+    const agentInstances: AbstractAgent[] = [];
+
+    function AgentTracker() {
+      const { agent } = useAgent({ agentId: "test-agent" });
+      if (
+        agentInstances.length === 0 ||
+        agentInstances[agentInstances.length - 1] !== agent
+      ) {
+        agentInstances.push(agent);
+      }
+      return <div>{agent.threadId}</div>;
+    }
+
+    // Render 1: Disconnected — creates provisional agent
+    const { rerender } = render(<AgentTracker />);
+    expect(agentInstances.length).toBe(1);
+    const provisionalThreadId = agentInstances[0]!.threadId;
+
+    // Render 2: Connecting — should reuse same provisional agent
+    mockCopilotkit.runtimeConnectionStatus =
+      CopilotKitCoreRuntimeConnectionStatus.Connecting;
+    rerender(<AgentTracker />);
+
+    // BUG: Current code creates a new agent instance here (agentInstances.length === 2)
+    // FIX: Should still be 1 (same provisional reused)
+    expect(agentInstances.length).toBe(1);
+    expect(agentInstances[0]!.threadId).toBe(provisionalThreadId);
+  });
+
+  it("should reuse provisional agent when headers change during connecting", () => {
+    const agentInstances: AbstractAgent[] = [];
+
+    function AgentTracker() {
+      const { agent } = useAgent({ agentId: "test-agent" });
+      if (
+        agentInstances.length === 0 ||
+        agentInstances[agentInstances.length - 1] !== agent
+      ) {
+        agentInstances.push(agent);
+      }
+      return <div>{agent.threadId}</div>;
+    }
+
+    // Render 1: Disconnected
+    const { rerender } = render(<AgentTracker />);
+    expect(agentInstances.length).toBe(1);
+
+    // Render 2: Connecting
+    mockCopilotkit.runtimeConnectionStatus =
+      CopilotKitCoreRuntimeConnectionStatus.Connecting;
+    rerender(<AgentTracker />);
+
+    // Render 3: Headers change (e.g., auth token set)
+    mockCopilotkit.headers = { "X-CopilotCloud-Public-Api-Key": "test-key" };
+    rerender(<AgentTracker />);
+
+    // Render 4: Another minor change
+    mockCopilotkit.headers = {
+      "X-CopilotCloud-Public-Api-Key": "test-key",
+      "X-Custom": "value",
+    };
+    rerender(<AgentTracker />);
+
+    // BUG: Current code creates a new agent on each re-render (agentInstances.length >= 3)
+    // FIX: Should still be 1 (same provisional reused throughout connecting phase)
+    expect(agentInstances.length).toBe(1);
+  });
+
+  it("should keep credentials current on the cached provisional agent", () => {
+    mockCopilotkit.credentials = "include";
+    const agentInstances: AbstractAgent[] = [];
+
+    function AgentTracker() {
+      const { agent } = useAgent({ agentId: "test-agent" });
+      if (
+        agentInstances.length === 0 ||
+        agentInstances[agentInstances.length - 1] !== agent
+      ) {
+        agentInstances.push(agent);
+      }
+      return null;
+    }
+
+    const { rerender } = render(<AgentTracker />);
+
+    expect(agentInstances).toHaveLength(1);
+    expect(agentInstances[0]).toBeInstanceOf(ProxiedCopilotRuntimeAgent);
+    expect((agentInstances[0] as ProxiedCopilotRuntimeAgent).credentials).toBe(
+      "include",
+    );
+
+    mockCopilotkit.credentials = "omit";
+    rerender(<AgentTracker />);
+
+    expect(agentInstances).toHaveLength(1);
+    expect((agentInstances[0] as ProxiedCopilotRuntimeAgent).credentials).toBe(
+      "omit",
+    );
+  });
+
+  it("should keep the same agent instance across the full Disconnected→Connected lifecycle", () => {
+    const agentInstances: AbstractAgent[] = [];
+
+    function AgentTracker() {
+      const { agent } = useAgent({ agentId: "test-agent" });
+      if (
+        agentInstances.length === 0 ||
+        agentInstances[agentInstances.length - 1] !== agent
+      ) {
+        agentInstances.push(agent);
+      }
+      return <div>{agent.threadId}</div>;
+    }
+
+    // Phase 1: Disconnected — provisional created
+    const { rerender } = render(<AgentTracker />);
+
+    // Phase 2: Connecting
+    mockCopilotkit.runtimeConnectionStatus =
+      CopilotKitCoreRuntimeConnectionStatus.Connecting;
+    rerender(<AgentTracker />);
+
+    // Phase 3: Headers change during connecting
+    mockCopilotkit.headers = { "X-Auth": "token" };
+    rerender(<AgentTracker />);
+
+    // Phase 4: Connected — registered agent now available
+    const registeredAgent = new MockStepwiseAgent();
+    registeredAgent.agentId = "test-agent";
+    registeredAgent.description = "Agent from /info";
+
+    mockCopilotkit.getAgent.mockReturnValue(registeredAgent);
+    mockCopilotkit.runtimeConnectionStatus =
+      CopilotKitCoreRuntimeConnectionStatus.Connected;
+    mockCopilotkit.agents = { "test-agent": registeredAgent };
+    rerender(<AgentTracker />);
+
+    // Phase 5: agents notification (separate re-render in real app)
+    rerender(<AgentTracker />);
+
+    // 2 instances: 1 provisional (Disconnected/Connecting) + 1 registered (Connected).
+    // The provisional is stable across all pre-connection renders.
+    // CopilotChat's connect guard ensures connect fires only once (when Connected),
+    // so the agent reference change doesn't cause a duplicate connect.
+    expect(agentInstances.length).toBe(2);
+    // First instance was the provisional. The hand-off then syncs it with
+    // the registered agent, so its threadId follows the registered one.
+    expect(agentInstances[0]).toBeInstanceOf(ProxiedCopilotRuntimeAgent);
+    expect(agentInstances[0]!.threadId).toBe(registeredAgent.threadId);
+    // Second instance is the registered agent
+    expect(agentInstances[1]).toBe(registeredAgent);
+  });
+
+  it("should return local dev agents directly without a provisional", () => {
+    const localAgent = new MockStepwiseAgent();
+    localAgent.agentId = "local-agent";
+
+    // Simulate agents__unsafe_dev_only: no runtimeUrl, agent found immediately
+    mockCopilotkit.runtimeUrl = undefined;
+    mockCopilotkit.getAgent.mockReturnValue(localAgent);
+    mockCopilotkit.agents = { "local-agent": localAgent };
+
+    const agentInstances: AbstractAgent[] = [];
+
+    function AgentTracker() {
+      const { agent } = useAgent({ agentId: "local-agent" });
+      if (
+        agentInstances.length === 0 ||
+        agentInstances[agentInstances.length - 1] !== agent
+      ) {
+        agentInstances.push(agent);
+      }
+      return <div>{agent.threadId}</div>;
+    }
+
+    const { rerender } = render(<AgentTracker />);
+    rerender(<AgentTracker />);
+
+    // Local agent is returned directly — exactly 1 instance, the original
+    expect(agentInstances.length).toBe(1);
+    expect(agentInstances[0]).toBe(localAgent);
+  });
+});

@@ -1,5 +1,4 @@
 import { TestBed } from "@angular/core/testing";
-import { ComponentModel } from "@a2ui/web_core/v0_9";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CopilotGenerativeUISurfaceView } from "../surface-view";
 import {
@@ -204,9 +203,11 @@ describe("CopilotGenerativeUISurfaceView", () => {
     ]);
     view.runtime.manager
       .getSurface(THREAD_ID, SURFACE_ID)!
-      .model.componentsModel.addComponent(
-        new ComponentModel("loop", "Grid", { children: ["loop"] }),
-      );
+      .model.componentsModel.addComponent({
+        id: "loop",
+        type: "Grid",
+        properties: { children: ["loop"] },
+      });
     view.update(updateDataModel("/tick", 1));
     expect(alertText(view.container)).toContain("cyclic reference to loop");
   });
@@ -218,9 +219,11 @@ describe("CopilotGenerativeUISurfaceView", () => {
     ]);
     view.runtime.manager
       .getSurface(THREAD_ID, SURFACE_ID)!
-      .model.componentsModel.addComponent(
-        new ComponentModel("odd", "Nope", {}),
-      );
+      .model.componentsModel.addComponent({
+        id: "odd",
+        type: "Nope",
+        properties: {},
+      });
     view.update(updateDataModel("/tick", 1));
     expect(alertText(view.container)).toContain('unknown component "Nope"');
   });

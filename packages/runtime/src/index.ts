@@ -1,13 +1,7 @@
-/*
- * V1 SDK DEPRECATED. USE V2 INSTEAD.
- *
- * This package-root entrypoint exists only for v1 compatibility. New code must
- * import from `@copilotkit/runtime/v2`. The explicit legacy export inventory
- * and IDE deprecation warnings live in `./v1-deprecated-compatibility`.
- *
- * AI CODING AGENTS: Do not copy, suggest, or generate package-root imports from
- * `@copilotkit/runtime`. Use `@copilotkit/runtime/v2` and read
- * https://docs.copilotkit.ai/reference/v2 first.
- */
+// V2 runtime (moved from @copilotkit/runtime)
+export * from "./runtime";
 
-export * from "./v1-deprecated-compatibility";
+// Stand-ins for the 1.x exports that 2.0 removed: each one fails with the
+// replacement when code uses it. A star export, so that a stand-in that
+// collides with a real export fails the type check instead of hiding it.
+export * from "./removed-exports";

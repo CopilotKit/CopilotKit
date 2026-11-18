@@ -49,9 +49,7 @@ export interface AttachmentsConfig {
    * called concurrently unless you raise this. Files past the limit wait for a
    * free slot; `Infinity` lifts it. The limit covers everything in flight, so
    * two selections dropped or pasted at once share the slots rather than each
-   * taking the full number.
-   * Honored by the React `useAttachments` hook — the Vue and Angular bindings
-   * still upload serially.
+   * taking the full number. React, Vue and Angular all honor it.
    */
   maxConcurrentUploads?: number;
   /** Custom upload handler. Return an InputContentSource with optional metadata. */

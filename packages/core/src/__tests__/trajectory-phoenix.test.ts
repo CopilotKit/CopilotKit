@@ -109,7 +109,7 @@ beforeEach(() => {
     runtimeUrl: "https://runtime.invalid/copilotkit",
     runtimeTransport: "single",
     deferInitialConnection: true,
-    learning: { routes: ["/deals"], onError },
+    learning: { onError },
   });
 });
 

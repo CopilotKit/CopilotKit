@@ -1,4 +1,4 @@
-import { CopilotKitIntelligence } from "@copilotkit/runtime/v2";
+import { CopilotKitIntelligence } from "@copilotkit/runtime";
 import { describe, expect, it, vi } from "vitest";
 import { resolveRegistryConfig } from "../index.js";
 
