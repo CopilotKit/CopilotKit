@@ -75,6 +75,8 @@ For a short summary title (2 to 5 words), give the runtime a model:
 ```ts
 import { CopilotKitRuntime } from "@copilotkit/runtime";
 import { openaiText } from "@tanstack/ai-openai";
+// Your agents, Intelligence client, and user lookup from the quickstart.
+import { agents, intelligence, resolveUser } from "./copilotkit";
 
 const runtime = new CopilotKitRuntime({
   agents,

@@ -215,6 +215,9 @@ appears in the chat and no run starts; the latest state rides along with the
 next turns of the conversation.
 
 ```ts
+// The widget's `App` from @modelcontextprotocol/ext-apps.
+import { app } from "./widget";
+
 await app.updateModelContext({
   content: [{ type: "text", text: "The user is looking at the Lyon station." }],
   structuredContent: { stationId: "lyon", filter: "available" },
@@ -231,9 +234,19 @@ It is off by default. Turn it on with `mcpApps.modelContext` in React and
 Vue, or `provideMCPApps({ modelContext: true })` in Angular:
 
 ```tsx
-<CopilotKit runtimeUrl="/api/copilotkit" mcpApps={{ modelContext: true }}>
-  {children}
-</CopilotKit>
+import type { ReactNode } from "react";
+import { CopilotKitProvider } from "@copilotkit/react-core";
+
+export function Providers({ children }: { children: ReactNode }) {
+  return (
+    <CopilotKitProvider
+      runtimeUrl="/api/copilotkit"
+      mcpApps={{ modelContext: true }}
+    >
+      {children}
+    </CopilotKitProvider>
+  );
+}
 ```
 
 While it is off, CopilotKit does not announce the capability and answers the
