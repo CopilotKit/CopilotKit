@@ -570,7 +570,6 @@ export interface RunAgentInThreadResult {
  *
  * @example
  * ```ts
- * import { randomUUID } from "node:crypto";
  * import { runAgentInThread } from "@copilotkit/runtime";
  * import { BuiltInAgent } from "@copilotkit/runtime/agent";
  * import { openaiText } from "@tanstack/ai-openai";
@@ -581,7 +580,9 @@ export interface RunAgentInThreadResult {
  *   agentId: "assistant",
  *   threadId,
  *   userId,
- *   messages: [{ id: randomUUID(), role: "user", content: "Summarise today" }],
+ *   messages: [
+ *     { id: crypto.randomUUID(), role: "user", content: "Summarise today" },
+ *   ],
  *   signal: AbortSignal.timeout(5 * 60_000),
  * });
  * ```
