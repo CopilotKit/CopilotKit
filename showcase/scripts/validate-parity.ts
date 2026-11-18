@@ -57,10 +57,10 @@ const DEFAULT_PACKAGES_DIR = path.join(ROOT, "integrations");
  * Baseline expected demo count per package. Packages that deviate from
  * this are flagged as warnings (e.g. ones being built out).
  *
- * RECIPROCAL: the CI workflow .github/workflows/showcase_validate.yml
- * reads `baselineDemoCount` from showcase/scripts/fail-baseline.json
- * when enforcing the per-package e2e-spec-count floor — there is no
- * hardcoded MIN in the workflow anymore. Keep this default in sync
+ * RECIPROCAL: showcase_validate.yml runs validate-e2e-coverage.ts, which
+ * reads `baselineDemoCount` from showcase/scripts/fail-baseline.json for
+ * the legacy e2e-spec-count floor. Explicit `shared-d6` integrations use
+ * structural shared-probe/fixture inventory instead. Keep this default in sync
  * with `baselineDemoCount` in fail-baseline.json; if one moves,
  * move both. The sync is enforced by
  * __tests__/baseline-sync.test.ts so drift is caught in CI rather than

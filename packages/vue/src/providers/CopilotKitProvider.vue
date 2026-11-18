@@ -82,12 +82,30 @@ import type {
   VueToolCallRendererRenderProps,
 } from "../types";
 
-/** The MCP Apps renderer with `mcpApps.allowSameOriginFallback` applied. */
-const SameOriginMCPAppsActivityRenderer: FunctionalComponent = (_, { attrs }) =>
-  h(MCPAppsActivityRenderer as Component, {
-    ...attrs,
-    allowSameOriginFallback: true,
-  });
+/**
+ * The MCP Apps renderer with `mcpApps.allowSameOriginFallback` and
+ * `mcpApps.modelContext` applied. Built once per combination, so a new
+ * `mcpApps` object with the same flags does not remount every widget.
+ */
+const configuredMCPAppsRenderers = new Map<string, FunctionalComponent>();
+function mcpAppsRendererFor(
+  allowSameOriginFallback: boolean,
+  modelContext: boolean,
+): Component {
+  if (!allowSameOriginFallback && !modelContext) return MCPAppsActivityRenderer;
+  const key = `${allowSameOriginFallback}:${modelContext}`;
+  let renderer = configuredMCPAppsRenderers.get(key);
+  if (!renderer) {
+    renderer = (_, { attrs }) =>
+      h(MCPAppsActivityRenderer as Component, {
+        ...attrs,
+        allowSameOriginFallback,
+        modelContext,
+      });
+    configuredMCPAppsRenderers.set(key, renderer);
+  }
+  return renderer;
+}
 
 const props = withDefaults(defineProps<CopilotKitProviderProps>(), {
   headers: () => ({}),
@@ -371,9 +389,10 @@ const allRenderActivityMessages = computed(() =>
       {
         activityType: MCPAppsActivityType,
         content: MCPAppsActivityContentSchema,
-        render: (props.mcpApps?.allowSameOriginFallback
-          ? SameOriginMCPAppsActivityRenderer
-          : MCPAppsActivityRenderer) as unknown as VueActivityMessageRenderer<unknown>["render"],
+        render: mcpAppsRendererFor(
+          props.mcpApps?.allowSameOriginFallback === true,
+          props.mcpApps?.modelContext === true,
+        ) as unknown as VueActivityMessageRenderer<unknown>["render"],
       },
       openGenerativeUIActive.value && {
         activityType: OpenGenerativeUIActivityType,

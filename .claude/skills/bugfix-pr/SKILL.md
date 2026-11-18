@@ -194,7 +194,7 @@ Allow:
 
 - The fix
 - The test that is the repro
-- Docs for the now-correct behavior (`docs` skill still applies)
+- Docs for the now-correct behavior (`write-cpk-docs` skill still applies)
 
 This repo has no changesets. A `.changeset/*` file in a fix PR is a keep fail.
 

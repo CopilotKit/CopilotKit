@@ -15,7 +15,7 @@ import {
   CodeBlockTabsTrigger,
 } from "fumadocs-ui/components/codeblock";
 import { ServerCodeBlock } from "fumadocs-ui/components/codeblock.rsc";
-import { STAGE_WINDOW, Stage } from "@/components/brand/stage";
+import { STAGE_WINDOW, CodeFrame } from "@/components/brand/stage";
 import { brandDark, brandLight } from "@/proto/code-theme";
 import { DocsCode } from "../code";
 import { getDemoRecord } from "../data";
@@ -159,7 +159,7 @@ export function DemoSource({
   }
 
   return (
-    <Stage className={className ?? "my-6"}>
+    <CodeFrame className={className ?? "my-6"}>
       <CodeBlockTabs
         defaultValue={files[0].filename}
         className={`my-0 overflow-hidden ${STAGE_WINDOW}`}
@@ -181,6 +181,6 @@ export function DemoSource({
           </CodeBlockTab>
         ))}
       </CodeBlockTabs>
-    </Stage>
+    </CodeFrame>
   );
 }
