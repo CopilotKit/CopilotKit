@@ -105,6 +105,40 @@ describe("waitForPublishedVersions", () => {
     expect(calls["@copilotkit/core"]).toBe(1);
   });
 
+  it("reads again after a failed registry read", async () => {
+    let calls = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        calls++;
+        if (calls === 1) return new Response("", { status: 503 });
+        if (calls === 2) throw new TypeError("fetch failed");
+        return new Response(
+          JSON.stringify({ versions: { "2.0.0-rc.58": {} } }),
+          { status: 200 },
+        );
+      }),
+    );
+    await waitForPublishedVersions(
+      [{ name: "@copilotkit/core", version: "2.0.0-rc.58" }],
+      { timeoutMs: 1_000, intervalMs: 1 },
+    );
+    expect(calls).toBe(3);
+  });
+
+  it("names the last registry error when time runs out", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response("", { status: 503 })),
+    );
+    await expect(
+      waitForPublishedVersions(
+        [{ name: "@copilotkit/core", version: "2.0.0-rc.58" }],
+        { timeoutMs: 20, intervalMs: 1 },
+      ),
+    ).rejects.toThrow(/@copilotkit\/core@2\.0\.0-rc\.58.*returned 503/);
+  });
+
   it("names the versions npm still does not list when time runs out", async () => {
     stubRegistry({ "@copilotkit/channels": [["0.13.0-rc.1"]] });
     await expect(

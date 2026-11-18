@@ -237,6 +237,15 @@ async function main() {
     );
   }
 
+  // The workflow's "Verify publish step emitted version" guard and the
+  // prerelease summary read these from steps.publish.outputs. Emit them
+  // before the wait below, which can still fail after every package is live.
+  emitGithubOutputs({
+    version: publishVersion,
+    versions: publishVersions,
+    scope: selector,
+  });
+
   // The next release candidate picks its version from npm's version lists, and
   // npm adds a version to that list some time after `npm publish` returns.
   // `release / rc` starts the next run only when this one ends, so end it only
@@ -248,14 +257,6 @@ async function main() {
     );
     console.log("npm lists every published version.");
   }
-
-  // The workflow's "Verify publish step emitted version" guard and the
-  // prerelease summary read these from steps.publish.outputs.
-  emitGithubOutputs({
-    version: publishVersion,
-    versions: publishVersions,
-    scope: selector,
-  });
 
   console.log(`\nPrerelease published: ${publishVersions} (tag: ${distTag})`);
 }
