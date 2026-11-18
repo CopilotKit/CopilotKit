@@ -159,6 +159,20 @@ interface ThreadSessionCursorState {
    * dropped, but it moves the cursor, which has to follow the replay forward.
    */
   catchingUp: boolean;
+  /**
+   * True once this catch-up passed on a snapshot the app had not seen, such as
+   * one from another tab's run. It replaced the app's messages or state with
+   * an earlier point of the replay, so the repeats after it apply again.
+   */
+  viewReplaced: boolean;
+}
+
+/** Whether `event` replaces the app's messages or state instead of adding to them. */
+function replacesView(event: BaseEvent): boolean {
+  return (
+    event.type === EventType.MESSAGES_SNAPSHOT ||
+    event.type === EventType.STATE_SNAPSHOT
+  );
 }
 
 /**
@@ -939,6 +953,7 @@ export class IntelligenceAgent extends AbstractAgent {
           unnumberedIds: new Set<string>(),
         },
         catchingUp: shownBeforeRewind !== undefined,
+        viewReplaced: false,
       };
       // The replay that repeats what an earlier session passed on has ended.
       const endCatchUp = () => {
@@ -1234,6 +1249,12 @@ export class IntelligenceAgent extends AbstractAgent {
           const eventId = this.readEventId(payload);
           if (eventId === null) return true;
           if (this.markDelivered(sessionCursor.delivered, eventId, payload)) {
+            if (sessionCursor.catchingUp && replacesView(payload)) {
+              sessionCursor.viewReplaced = true;
+            }
+            return true;
+          }
+          if (sessionCursor.catchingUp && sessionCursor.viewReplaced) {
             return true;
           }
           this.debugLogger?.lifecycle(

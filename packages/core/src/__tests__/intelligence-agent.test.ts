@@ -780,6 +780,118 @@ describe("IntelligenceAgent", () => {
       expect(getChannel(agent)!.params.last_seen_event_id).toBe("event-4");
     });
 
+    describe("when the next connect brings a snapshot from a run the app has not seen", () => {
+      const runEvent = (
+        runId: string,
+        seq: number,
+        fields: { type: EventType } & Record<string, unknown>,
+      ): BaseEvent => ({
+        threadId: "thread-1",
+        runId,
+        metadata: { cpki_event_id: `${runId}-${seq}`, cpki_event_seq: seq },
+        ...fields,
+      });
+
+      // The app connects, another tab then runs `other-run` on the thread, and
+      // the app's own run shows `ownRun` before its replay fails. The next
+      // connect replays the thread from the app's cursor: `other-run` first.
+      const recover = async (otherRun: BaseEvent[], ownRun: BaseEvent[]) => {
+        const agent = createAgent();
+        setThreadIdForTest(agent, "thread-1");
+        const connected = agent.connectAgent({ runId: "run-0" });
+        await waitForConnection(agent);
+        const firstChannel = getChannel(agent)!;
+        firstChannel.triggerJoin("ok");
+        firstChannel.serverPush(
+          "ag_ui_event",
+          runEvent("run-0", 1, { type: EventType.RUN_FINISHED }),
+        );
+        firstChannel.serverPush("replay_complete", {});
+        firstChannel.serverPush("stream_idle", {});
+        await connected;
+
+        const run = agent.runAgent({ runId: "run-1" }).catch(() => {});
+        await waitForConnection(agent);
+        const runChannel = getChannel(agent)!;
+        runChannel.triggerJoin("ok");
+        for (const event of ownRun) {
+          runChannel.serverPush("ag_ui_event", event);
+          await flushAsyncWork();
+        }
+        runChannel.serverPush("replay_failed", { reason: "run_replay_gap" });
+        await run;
+
+        const reconnected = agent.connectAgent({ runId: "run-2" });
+        await waitForConnection(agent);
+        const channel = getChannel(agent)!;
+        channel.triggerJoin("ok");
+        for (const event of [...otherRun, ...ownRun]) {
+          channel.serverPush("ag_ui_event", event);
+        }
+        channel.serverPush("replay_complete", {});
+        channel.serverPush("stream_idle", {});
+        await reconnected;
+        return agent;
+      };
+
+      it("keeps the app's own reply after the other run's messages snapshot", async () => {
+        const agent = await recover(
+          [
+            runEvent("other-run", 1, { type: EventType.RUN_STARTED }),
+            runEvent("other-run", 2, {
+              type: EventType.MESSAGES_SNAPSHOT,
+              messages: [
+                { id: "other-reply", role: "assistant", content: "Hi there" },
+              ],
+            }),
+            runEvent("other-run", 3, { type: EventType.RUN_FINISHED }),
+          ],
+          [
+            runEvent("run-1", 1, { type: EventType.RUN_STARTED }),
+            runEvent("run-1", 2, {
+              type: EventType.TEXT_MESSAGE_START,
+              messageId: "reply",
+              role: "assistant",
+            }),
+            runEvent("run-1", 3, {
+              type: EventType.TEXT_MESSAGE_CONTENT,
+              messageId: "reply",
+              delta: "Hello",
+            }),
+          ],
+        );
+
+        expect(
+          agent.messages.map((message) => [message.id, message.content]),
+        ).toEqual([
+          ["other-reply", "Hi there"],
+          ["reply", "Hello"],
+        ]);
+      });
+
+      it("ends with the state of the app's own run, which came last", async () => {
+        const agent = await recover(
+          [
+            runEvent("other-run", 1, { type: EventType.RUN_STARTED }),
+            runEvent("other-run", 2, {
+              type: EventType.STATE_SNAPSHOT,
+              snapshot: { step: "other" },
+            }),
+            runEvent("other-run", 3, { type: EventType.RUN_FINISHED }),
+          ],
+          [
+            runEvent("run-1", 1, { type: EventType.RUN_STARTED }),
+            runEvent("run-1", 2, {
+              type: EventType.STATE_SNAPSHOT,
+              snapshot: { step: "own" },
+            }),
+          ],
+        );
+
+        expect(agent.state).toEqual({ step: "own" });
+      });
+    });
+
     it("names the client's run in the replay error when the credentials omit it", async () => {
       mockFetch.mockResolvedValueOnce(
         await jsonResponse(runtimeCredentials({ runId: null })),
