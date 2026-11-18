@@ -31,6 +31,13 @@ ARG BRANCH=unknown
 ENV NEXT_PUBLIC_COMMIT_SHA=${COMMIT_SHA}
 ENV NEXT_PUBLIC_BRANCH=${BRANCH}
 
+# The docs' release line (src/lib/docs-channel.ts). `vnext` builds the docs of
+# the next major release: a banner on every page, and no search indexing. The
+# build inlines it. Railway passes a service variable to a Dockerfile build
+# only as a build arg. Unset, the image is docs.copilotkit.ai.
+ARG DOCS_CHANNEL=
+ENV DOCS_CHANNEL=${DOCS_CHANNEL}
+
 # `npm run build` runs prebuild (showcase-data) first.
 RUN npm run build
 
@@ -57,6 +64,9 @@ CMD ["node", "server.js"]
 # Fail the build if any base or install path regresses the accepted Node runtime.
 RUN test "$(node --version)" = "v22.23.4"
 
+# The smoke test below checks robots.txt against the build's release line.
+ARG DOCS_CHANNEL=
+
 # Start the server from the final filesystem and fetch pages that render on
 # request: `next build` prerenders only a handful, so a module missing from
 # this stage, or a page that throws while rendering, would otherwise first
@@ -71,6 +81,10 @@ import { setTimeout as delay } from 'node:timers/promises';
 const server = spawn(process.execPath, ['server.js'], {
   stdio: 'inherit', env: { ...process.env, HOSTNAME: '127.0.0.1' },
 });
+
+// The next major release's docs must keep crawlers out, and the live docs
+// must point them at the sitemap (src/app/robots.ts).
+const vnext = process.env.DOCS_CHANNEL?.trim().toLowerCase() === 'vnext';
 
 try {
   const deadline = Date.now() + 30_000;
@@ -100,6 +114,7 @@ try {
     ['/generative-ui/components/standard-catalog/button', '<title>Button</title>'],
     // What verify-deploy's docs driver checks on every environment.
     ['/api/telemetry/config', '"posthogKey"'],
+    ['/robots.txt', vnext ? 'Disallow: /\n' : 'Sitemap: '],
   ]) {
     const response = await fetch(`http://127.0.0.1:10000${path}`, {
       redirect: 'error', signal: AbortSignal.timeout(15_000),
