@@ -12,6 +12,7 @@ import {
   ɵassembleHumanInTheLoop,
   ɵassembleProviderToolRenderers,
   ɵassembleProviderTools,
+  ɵcheckRemovedProviderProps,
   ɵhitlRenderProps,
   ɵstableArrayPropWarning,
   ɵtoLearningConfig,
@@ -273,7 +274,12 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   defaultThrottleMs,
   debug,
   learning,
+  ...otherProps
 }) => {
+  // The props of the 1.x `<CopilotKit>` that 2.0 removed throw, or warn once
+  // in development.
+  ɵcheckRemovedProviderProps(otherProps);
+
   // Memoized so a stable `learning` object keeps a stable config after
   // `autoStart` is removed.
   const learningConfig = useMemo(() => ɵtoLearningConfig(learning), [learning]);

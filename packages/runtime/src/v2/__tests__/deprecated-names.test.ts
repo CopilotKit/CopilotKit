@@ -75,10 +75,15 @@ const runtimeWithChannel = () =>
   });
 
 describe("@copilotkit/runtime/v2", () => {
-  test("exports every export of the root, with the same value", () => {
-    for (const [name, value] of Object.entries(root)) {
-      expect(Reflect.get(v2, name), name).toBe(value);
-    }
+  test("exports every export of the root, with the same value, except CopilotRuntime", () => {
+    // The root's CopilotRuntime is the 1.x class, which 2.0 removed, so it
+    // throws. 1.x code that imports CopilotRuntime from /v2 already uses the
+    // 2.0 API, so /v2 keeps it working (see the next tests).
+    const differing = Object.keys(root).filter(
+      (name) => Reflect.get(v2, name) !== Reflect.get(root, name),
+    );
+
+    expect(differing).toEqual(["CopilotRuntime"]);
   });
 
   test("exports the Built-in Agent values of 1.x from @copilotkit/runtime/agent", () => {

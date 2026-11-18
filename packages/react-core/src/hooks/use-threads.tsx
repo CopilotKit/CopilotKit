@@ -1,5 +1,6 @@
 import { useCopilotKit } from "../context";
 import { ɵThreadsController, ɵcreateThreadStore } from "@copilotkit/core";
+import { CopilotKitRemovedApiError } from "@copilotkit/shared";
 import type { ɵThreadSummary } from "@copilotkit/core";
 import { useEffect, useState, useSyncExternalStore } from "react";
 
@@ -158,6 +159,11 @@ export interface UseThreadsResult {
  * `deleteThread`) return promises that resolve once the platform confirms the
  * operation and reject with an `Error` on failure.
  *
+ * In 1.x, `useThreads()` returned the current thread. A call without
+ * arguments throws a `CopilotKitRemovedApiError`, and so does a read of
+ * `threadId`, `setThreadId`, or `isThreadIdExplicit` on the result. Read the
+ * current thread from `useCopilotChatConfiguration()`.
+ *
  * @param input - Agent identifier and optional list controls.
  * @returns Thread list state and stable mutation callbacks.
  *
@@ -186,12 +192,9 @@ export interface UseThreadsResult {
  * }
  * ```
  */
-export function useThreads({
-  agentId,
-  includeArchived,
-  limit,
-  enabled = true,
-}: UseThreadsInput): UseThreadsResult {
+export function useThreads(input: UseThreadsInput): UseThreadsResult {
+  checkThreadsInput(input);
+  const { agentId, includeArchived, limit, enabled = true } = input;
   const { copilotkit } = useCopilotKit();
 
   // Core's ɵThreadsController owns the view model: thread projection, the
@@ -254,7 +257,7 @@ export function useThreads({
     deleteThread,
   } = controller;
 
-  return {
+  return withRemovedThreadFields({
     threads,
     isLoading,
     error,
@@ -270,5 +273,49 @@ export function useThreads({
     archiveThread,
     unarchiveThread,
     deleteThread,
-  };
+  });
+}
+
+const USE_THREADS_SECTION = "/migrate/removed-apis-2.0#usethreads";
+
+/** Throws for the 1.x call `useThreads()`, which has no input. */
+function checkThreadsInput(input: unknown) {
+  if (input !== undefined) return;
+  throw new CopilotKitRemovedApiError({
+    what: '"useThreads()" without arguments',
+    use: "useThreads({ agentId }) lists the threads of an agent. To read or set the current thread, use useCopilotChatConfiguration() from @copilotkit/react-core.",
+    docs: USE_THREADS_SECTION,
+  });
+}
+
+/** The fields of the 1.x `useThreads()` result, and what to use in 2.0. */
+const REMOVED_THREAD_FIELDS = {
+  threadId:
+    "Read threadId from useCopilotChatConfiguration() of @copilotkit/react-core.",
+  setThreadId:
+    "Call setActiveThreadId(threadId) on useCopilotChatConfiguration() of @copilotkit/react-core.",
+  isThreadIdExplicit:
+    "Read hasExplicitThreadId from useCopilotChatConfiguration() of @copilotkit/react-core.",
+};
+
+/**
+ * Adds a getter that throws a `CopilotKitRemovedApiError` for each field of
+ * the 1.x result. The getters are not enumerable, so a spread, a JSON copy,
+ * or devtools do not call them.
+ */
+function withRemovedThreadFields(result: UseThreadsResult) {
+  const fields = Object.entries(REMOVED_THREAD_FIELDS);
+  for (const [field, use] of fields) {
+    Object.defineProperty(result, field, {
+      enumerable: false,
+      get() {
+        throw new CopilotKitRemovedApiError({
+          what: `"${field}" from useThreads`,
+          use: `${use} useThreads({ agentId }) lists the threads of an agent.`,
+          docs: USE_THREADS_SECTION,
+        });
+      },
+    });
+  }
+  return result;
 }

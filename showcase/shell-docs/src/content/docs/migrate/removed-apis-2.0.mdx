@@ -37,7 +37,115 @@ If your code still uses a 1.x export that 2.0 removed, it throws a `CopilotKitRe
 
 TypeScript shows the same message as a type error where the code uses the export, and your editor marks the import as deprecated. Do what the message says, or run the codemod.
 
-The error is a `CopilotKitError` with the code `REMOVED_API`. A removed constant, object, or React context has no stand-in, because code reads it without a call. An import of one fails the build.
+The error has the code `REMOVED_API`, and its `docsUrl` property links the section about the API. It extends `Error`, not `CopilotKitError`, so `error instanceof CopilotKitError` does not match it. A removed constant, object, or React context has no stand-in, because code reads it without a call. An import of one fails the build.
+
+## 1.x props, options, and arguments
+
+Some 2.0 APIs keep the name of a 1.x API, but take other props, options, or arguments. If your code passes a 1.x one that cannot work in 2.0, it throws a `CopilotKitRemovedApiError`. If 2.0 only ignores it, a warning shows one time in development. TypeScript rejects a value for each removed option, and your editor marks it as deprecated.
+
+### Provider props
+
+In React and Vue, `CopilotKit` is an alias of `CopilotKitProvider`. These 1.x props are removed:
+
+| Prop | In 2.0 | What to do |
+| --- | --- | --- |
+| `threadId` | Throws | Pass `threadId` to `<CopilotChat>`, or to `<CopilotChatConfigurationProvider>` around the chat. |
+| `agent` | Throws | Rename it to `agentId`. |
+| `guardrails_c`, `cloudRestrictToTopic` | Throws | Restrict the topics in your agent, for example in its prompt. |
+| `authConfig_c` | Throws | Show your own sign-in screen before you render the provider. |
+| `forwardedParameters` | Warns | Set the model parameters on the agent, for example `modelOptions` on a `BuiltInAgent`. |
+| `transcribeAudioUrl`, `textToSpeechUrl` | Warns | Delete them. Voice input goes through the transcription service of the runtime. |
+| `showDevConsole` | Warns | Delete it. See [`showDevConsole`](#showdevconsole). |
+
+### Tool parameters as a list
+
+`useFrontendTool` and `useHumanInTheLoop` take a Standard Schema for `parameters`, such as `z.object(...)`, in React and in Vue. A 1.x `Parameter[]` list throws. Write the list as a schema:
+
+```tsx ignore title="Before"
+useFrontendTool({
+  name: "sayHello",
+  parameters: [{ name: "name", type: "string", required: true }],
+  handler: async ({ name }) => `Hello, ${name}!`,
+});
+```
+
+```tsx title="After"
+import { useFrontendTool } from "@copilotkit/react-core";
+import { z } from "zod";
+
+export function Greeter() {
+  useFrontendTool({
+    name: "sayHello",
+    parameters: z.object({ name: z.string() }),
+    handler: async ({ name }) => `Hello, ${name}!`,
+  });
+  return null;
+}
+```
+
+### `useRenderToolCall` with arguments
+
+In 1.x, `useRenderToolCall(tool, deps)` registered a renderer for a tool. In 2.0, `useRenderToolCall()` takes no arguments and returns a function that renders a tool call. A call with arguments throws. To register a renderer, use `useRenderTool`:
+
+```tsx
+import { useRenderTool } from "@copilotkit/react-core";
+import { z } from "zod";
+
+export function WeatherCard() {
+  useRenderTool({
+    name: "showWeather",
+    parameters: z.object({ city: z.string() }),
+    render: ({ parameters }) => <p>Weather in {parameters.city}</p>,
+  });
+  return null;
+}
+```
+
+### `useThreads`
+
+In 1.x, `useThreads()` returned the current thread. In 2.0, `useThreads({ agentId })` lists the threads of an agent. A call without arguments throws, and so does a read of `threadId`, `setThreadId`, or `isThreadIdExplicit` on its result. Read the current thread from `useCopilotChatConfiguration()`:
+
+| 1.x `useThreads()` | 2.0 `useCopilotChatConfiguration()` |
+| --- | --- |
+| `threadId` | `threadId` |
+| `setThreadId(id)` | `setActiveThreadId(id)` |
+| `isThreadIdExplicit` | `hasExplicitThreadId` |
+
+```tsx
+import { useCopilotChatConfiguration } from "@copilotkit/react-core";
+
+export function ThreadPicker({ threadIds }: { threadIds: string[] }) {
+  const configuration = useCopilotChatConfiguration();
+  return (
+    <select
+      value={configuration?.threadId}
+      onChange={(event) => configuration?.setActiveThreadId(event.target.value)}
+    >
+      {threadIds.map((id) => (
+        <option key={id}>{id}</option>
+      ))}
+    </select>
+  );
+}
+```
+
+### Runtime options
+
+`CopilotKitRuntime` throws for these 1.x options, and so does the deprecated `CopilotRuntime` alias of `@copilotkit/runtime/v2`:
+
+| Option | What to do |
+| --- | --- |
+| `serviceAdapter`, `delegateAgentProcessingToServiceAdapter` | Run the model in a `BuiltInAgent`. See [Update the runtime](/migrate/v2#update-the-runtime). |
+| `remoteEndpoints`, `remoteActions`, `langserve` | Register each agent in `agents`. See [Agents and server-side actions in 2.0](/migrate/agents-2.0#langgraph-platform). |
+| `actions` | Give the tools to the agent. See [Server-side actions](/migrate/agents-2.0#server-side-actions). |
+| `mcpServers`, `createMCPClient` | Give the MCP clients to a `BuiltInAgent` as `mcp`. See [Replace `mcpServers` with `mcp`](/migrate/runtime-2.0#4-replace-mcpservers-with-mcp). |
+| `middleware` | Use `beforeRequestMiddleware` and `afterRequestMiddleware`, or the `hooks` option of `createCopilotKitRuntimeHandler`. |
+
+It warns one time in development for `observability_c`, `onError`, and `onStopGeneration`, which it ignores. To handle errors, pass `hooks: { onError }` to `createCopilotKitRuntimeHandler`.
+
+### `_setOverride` in Angular
+
+`CopilotChatConfiguration` has no `_setOverride` in 2.0. A call of `_setOverride` throws. If a subclass overrides it, a warning shows one time in development, because 2.0 does not call it. Move the code into overrides of `setActiveThreadId` and `startNewThread`. See [Chat configuration](/migrate/chat-2.0#chat-configuration).
 
 ## Runtime
 

@@ -1,11 +1,18 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   CopilotKitError,
   CopilotKitErrorCode,
   CopilotKitRemovedApiError,
+  ERROR_NAMES,
+  isStructuredCopilotKitError,
   removedApiMessage,
 } from "../errors";
-import { removedApi } from "../removed-api";
+import {
+  checkRemovedOptions,
+  removedApi,
+  warnRemovedApiOnce,
+} from "../removed-api";
+import type { RemovedOption } from "../removed-api";
 
 const SERVICE_ADAPTER_MESSAGE =
   'The "serviceAdapter" option of CopilotKitRuntime was removed in CopilotKit 2.0. Pass a model to a BuiltInAgent. Run `npx codemod @copilotkit/v2-migration` to update your code. See https://docs.copilotkit.ai/migrate/v2#update-the-runtime';
@@ -48,17 +55,22 @@ describe("CopilotKitRemovedApiError", () => {
     docs: "/migrate/v2#update-the-runtime",
   });
 
-  it("is a CopilotKitError with the REMOVED_API code", () => {
-    expect(error).toBeInstanceOf(CopilotKitError);
-    expect(error.name).toBe("CopilotKitRemovedApiError");
+  it("is an Error with the REMOVED_API code", () => {
+    expect(error).toBeInstanceOf(Error);
+    expect(error.name).toBe(ERROR_NAMES.REMOVED_API_ERROR);
     expect(error.code).toBe(CopilotKitErrorCode.REMOVED_API);
-    expect(error.extensions.code).toBe(CopilotKitErrorCode.REMOVED_API);
-    expect(error.statusCode).toBe(400);
+  });
+
+  // It is not a CopilotKitError, so that it does not add the error table to
+  // each app bundle. The name keeps it a structured CopilotKit error.
+  it("is not a CopilotKitError, but counts as a structured CopilotKit error", () => {
+    expect(error).not.toBeInstanceOf(CopilotKitError);
+    expect(isStructuredCopilotKitError(error)).toBe(true);
   });
 
   it("carries the message and links the docs section of the API", () => {
     expect(error.message).toBe(SERVICE_ADAPTER_MESSAGE);
-    expect(error.extensions.troubleshootingUrl).toBe(
+    expect(error.docsUrl).toBe(
       "https://docs.copilotkit.ai/migrate/v2#update-the-runtime",
     );
   });
@@ -90,5 +102,83 @@ describe("removedApi", () => {
 
   it("has the name of the removed export", () => {
     expect(stub.name).toBe("useCopilotAction");
+  });
+});
+
+describe("checkRemovedOptions", () => {
+  // Each test uses its own names: a warning is written once per process.
+  const removed: Record<string, RemovedOption> = {
+    threadId: {
+      effect: "throw",
+      use: "Pass threadId to CopilotChat.",
+      docs: "/migrate/removed-apis-2.0#provider-props",
+    },
+    textToSpeechUrl: {
+      effect: "warn",
+      use: "Voice goes through the runtime.",
+      docs: "/migrate/removed-apis-2.0#provider-props",
+    },
+  };
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("throws the removal error for an option that cannot work", () => {
+    const error = thrownBy(() =>
+      checkRemovedOptions("prop of CopilotKit", { threadId: "t1" }, removed),
+    );
+
+    expect(error).toBeInstanceOf(CopilotKitRemovedApiError);
+    expect(error).toHaveProperty(
+      "message",
+      'The "threadId" prop of CopilotKit was removed in CopilotKit 2.0. Pass threadId to CopilotChat. Run `npx codemod @copilotkit/v2-migration` to update your code. See https://docs.copilotkit.ai/migrate/removed-apis-2.0#provider-props',
+    );
+  });
+
+  it("warns once, in development, for an option that 2.0 ignores", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const options = { textToSpeechUrl: "/api/tts" };
+
+    checkRemovedOptions("prop of CopilotKit", options, removed);
+    checkRemovedOptions("prop of CopilotKit", options, removed);
+
+    expect(warn.mock.calls).toEqual([
+      [
+        'The "textToSpeechUrl" prop of CopilotKit was removed in CopilotKit 2.0. Voice goes through the runtime. Run `npx codemod @copilotkit/v2-migration` to update your code. See https://docs.copilotkit.ai/migrate/removed-apis-2.0#provider-props',
+      ],
+    ]);
+  });
+
+  it("does nothing for options that are not set", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    checkRemovedOptions(
+      "prop of CopilotKit",
+      { runtimeUrl: "/api/copilotkit", threadId: undefined },
+      removed,
+    );
+
+    expect(warn).not.toHaveBeenCalled();
+  });
+});
+
+describe("warnRemovedApiOnce", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
+  });
+
+  it("stays quiet in production", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    warnRemovedApiOnce({
+      what: 'The "observability_c" option of CopilotKitRuntime',
+      use: "Delete it.",
+      docs: "/migrate/removed-apis-2.0#runtime-options",
+    });
+
+    expect(warn).not.toHaveBeenCalled();
   });
 });

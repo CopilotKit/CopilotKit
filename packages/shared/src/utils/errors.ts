@@ -133,7 +133,8 @@ export const ERROR_CONFIG = {
   },
   [CopilotKitErrorCode.REMOVED_API]: {
     statusCode: 400,
-    // Each CopilotKitRemovedApiError replaces this with the section about its API.
+    // CopilotKitRemovedApiError does not read this entry: it extends Error and
+    // links the docs section about its own API in `docsUrl`.
     troubleshootingUrl: `${BASE_URL}/migrate/removed-apis-2.0#copilotkitremovedapierror`,
     visibility: ErrorVisibility.BANNER,
     severity: Severity.CRITICAL,
@@ -487,10 +488,15 @@ export function removedApiMessage<
  * The error that CopilotKit 2.0 throws for 1.x code: a call, `new`, or render
  * of an export that 2.0 removed, or an option, a prop, or a call shape that
  * only 1.x accepted. Its message says what to use instead and links to the
- * docs section about it. `extensions.troubleshootingUrl` is that link.
+ * docs section about it. `docsUrl` is that link.
  *
  * Check for it with `error instanceof CopilotKitRemovedApiError`, or with
  * `error.code === CopilotKitErrorCode.REMOVED_API`.
+ *
+ * It extends `Error` and not `CopilotKitError`, because the checks that throw
+ * it run in every app: `CopilotKitError` would add the whole `ERROR_CONFIG`
+ * table to each app bundle. For the same reason, the class writes its name and
+ * code as strings and not as `ERROR_NAMES` and `CopilotKitErrorCode` values.
  *
  * @example
  * throw new CopilotKitRemovedApiError({
@@ -499,14 +505,17 @@ export function removedApiMessage<
  *   docs: "/migrate/v2#update-the-runtime",
  * });
  */
-export class CopilotKitRemovedApiError extends CopilotKitError {
+export class CopilotKitRemovedApiError extends Error {
+  /** Always `CopilotKitErrorCode.REMOVED_API`. */
+  readonly code = "REMOVED_API" satisfies `${CopilotKitErrorCode.REMOVED_API}`;
+  /** The docs section about the replacement, as a full URL. */
+  readonly docsUrl: string;
+
   constructor(removal: CopilotKitRemoval) {
-    super({
-      message: removedApiMessage(removal),
-      code: CopilotKitErrorCode.REMOVED_API,
-    });
-    this.name = ERROR_NAMES.REMOVED_API_ERROR;
-    this.extensions.troubleshootingUrl = `${BASE_URL}${removal.docs}`;
+    super(removedApiMessage(removal));
+    this.name =
+      "CopilotKitRemovedApiError" satisfies typeof ERROR_NAMES.REMOVED_API_ERROR;
+    this.docsUrl = `${BASE_URL}${removal.docs}`;
   }
 }
 

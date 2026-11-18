@@ -1,5 +1,5 @@
 import { watch } from "vue";
-import { ɵregisterFrontendTools } from "@copilotkit/core";
+import { ɵcheckToolParameters, ɵregisterFrontendTools } from "@copilotkit/core";
 import type { WatchSource } from "vue";
 import { useCopilotKit } from "../providers/useCopilotKit";
 import type { VueFrontendTool } from "../types";
@@ -31,6 +31,7 @@ export function useFrontendTool<T extends Record<string, unknown>>(
   tool: VueFrontendTool<T>,
   deps?: WatchSource<unknown>[],
 ) {
+  ɵcheckToolParameters("useFrontendTool", tool.parameters);
   const { copilotkit } = useCopilotKit();
   const extraDeps = deps ?? EMPTY_DEPS;
 

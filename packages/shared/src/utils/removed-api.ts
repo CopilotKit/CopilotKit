@@ -1,5 +1,5 @@
-import { CopilotKitRemovedApiError } from "./errors";
-import type { CopilotKitDocsSection, removedApiMessage } from "./errors";
+import { CopilotKitRemovedApiError, removedApiMessage } from "./errors";
+import type { CopilotKitDocsSection, CopilotKitRemoval } from "./errors";
 
 /**
  * The message of a `CopilotKitRemovedApiError`, as a type. When each part is
@@ -83,4 +83,78 @@ export function removedApi<
   const stub: unknown = removedExport;
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- on purpose: the function must stay callable at run time, and its type must not be, see above
   return stub as RemovedApi<RemovedApiMessage<`"${Name}"`, Use, Docs>>;
+}
+
+/** The messages that `warnRemovedApiOnce` has written. */
+const warnedRemovals = new Set<string>();
+
+/** Whether the code runs in development, as bundlers set `NODE_ENV`. */
+function isDevelopment() {
+  try {
+    return process.env.NODE_ENV !== "production";
+  } catch {
+    // No `process`, and no bundler that replaced the expression: the code is
+    // not in a development build, so it stays quiet.
+    return false;
+  }
+}
+
+/**
+ * Warns once, in development, about 1.x code that CopilotKit 2.0 ignores.
+ * The warning has the format of `removedApiMessage`. Each message warns once
+ * per page or process.
+ *
+ * @param removal - What was removed, what to use instead, and the docs section.
+ */
+export function warnRemovedApiOnce(removal: CopilotKitRemoval) {
+  if (!isDevelopment()) return;
+  const message = removedApiMessage(removal);
+  if (warnedRemovals.has(message)) return;
+  warnedRemovals.add(message);
+  console.warn(message);
+}
+
+/** A 1.x option, prop, or argument that CopilotKit 2.0 removed. */
+export interface RemovedOption {
+  /**
+   * `"throw"` when the 1.x code cannot work in 2.0: it throws a
+   * `CopilotKitRemovedApiError`. `"warn"` when 2.0 only ignores the option:
+   * it warns once, in development.
+   */
+  effect: "throw" | "warn";
+  /** What to do instead, as one or more full sentences. */
+  use: string;
+  /** The docs section about the replacement. */
+  docs: CopilotKitDocsSection;
+}
+
+/**
+ * Checks `options` for 1.x options that CopilotKit 2.0 removed. For each one
+ * that is set, it throws a `CopilotKitRemovedApiError` or warns once in
+ * development, as its entry in `removed` says. An option that is `undefined`
+ * is not set.
+ *
+ * @param subject - What the options belong to, such as `prop of CopilotKit`.
+ * The message starts with `The "threadId" prop of CopilotKit was removed in
+ * CopilotKit 2.0.`
+ * @param options - The options, props, or arguments that the code passed.
+ * @param removed - The removed options, by name.
+ *
+ * @example
+ * checkRemovedOptions("option of CopilotKitRuntime", options, {
+ *   serviceAdapter: { effect: "throw", use: "...", docs: "/migrate/v2#update-the-runtime" },
+ * });
+ */
+export function checkRemovedOptions(
+  subject: string,
+  options: object,
+  removed: Record<string, RemovedOption>,
+) {
+  const entries = Object.entries(removed);
+  for (const [name, { effect, use, docs }] of entries) {
+    if (Reflect.get(options, name) === undefined) continue;
+    const removal = { what: `The "${name}" ${subject}`, use, docs };
+    if (effect === "throw") throw new CopilotKitRemovedApiError(removal);
+    warnRemovedApiOnce(removal);
+  }
 }

@@ -1,7 +1,11 @@
 import { onScopeDispose } from "vue";
 import type { WatchSource } from "vue";
 import { h } from "vue";
-import { ɵbuildHumanInTheLoopTool, ɵhitlRenderProps } from "@copilotkit/core";
+import {
+  ɵbuildHumanInTheLoopTool,
+  ɵcheckToolParameters,
+  ɵhitlRenderProps,
+} from "@copilotkit/core";
 import { useCopilotKit } from "../providers/useCopilotKit";
 import { useFrontendTool } from "./use-frontend-tool";
 import type {
@@ -31,6 +35,7 @@ export function useHumanInTheLoop<T extends Record<string, unknown>>(
   tool: VueHumanInTheLoop<T>,
   deps?: WatchSource<unknown>[],
 ) {
+  ɵcheckToolParameters("useHumanInTheLoop", tool.parameters);
   const { copilotkit } = useCopilotKit();
   const registry = () => copilotkit.value.ɵhumanInTheLoop;
 

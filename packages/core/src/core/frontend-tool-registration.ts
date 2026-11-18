@@ -1,3 +1,4 @@
+import { CopilotKitRemovedApiError } from "@copilotkit/shared";
 import type { FrontendTool } from "../types";
 import type { CopilotKitCore } from "./core";
 
@@ -84,4 +85,22 @@ export function ɵregisterFrontendTools<
   return () => {
     for (const unregister of unregisters) unregister();
   };
+}
+
+/**
+ * @internal Throws a `CopilotKitRemovedApiError` when a tool hook gets the 1.x
+ * `Parameter[]` list for `parameters`. 2.0 takes a Standard Schema, and a list
+ * cannot describe the tool to the agent. React and Vue call it in
+ * `useFrontendTool` and `useHumanInTheLoop`.
+ *
+ * @param hook - The name of the hook, for the message.
+ * @param parameters - The `parameters` that the code passed.
+ */
+export function ɵcheckToolParameters(hook: string, parameters: unknown) {
+  if (!Array.isArray(parameters)) return;
+  throw new CopilotKitRemovedApiError({
+    what: `A Parameter[] list in "parameters" of ${hook}`,
+    use: "Pass a Zod 4 / Standard Schema instead, for example parameters: z.object({ name: z.string() }).",
+    docs: "/migrate/removed-apis-2.0#tool-parameters-as-a-list",
+  });
 }

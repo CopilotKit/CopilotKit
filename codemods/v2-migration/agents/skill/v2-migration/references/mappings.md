@@ -86,7 +86,7 @@ function Confirmation() {
 
 ### `useRenderToolCall` → `useRenderTool`
 
-Registers a renderer for a tool that runs on the backend. The 2.0 hook named `useRenderToolCall` is a different, low-level API.
+Registers a renderer for a tool that runs on the backend. The 2.0 hook named `useRenderToolCall` is a different, low-level API: it takes no arguments, and a call with the 1.x arguments throws.
 
 ```tsx
 import { useRenderTool } from "@copilotkit/react-core";
@@ -135,6 +135,25 @@ function Suggestions() {
 ### `useCoAgent`, `useCoAgentStateRender`, `useCopilotChat` → `useAgent`
 
 `useAgent` returns the agent: its messages, its state, and the methods that run it. Read https://docs.copilotkit.ai/reference/v2/hooks/useAgent and rewrite each use against it.
+
+### `useThreads()` for the current thread → `useCopilotChatConfiguration`
+
+In 1.x, `useThreads()` returned the current thread. In 2.0, `useThreads({ agentId })` lists the threads of an agent. A call without arguments throws, and so does a read of a 1.x field from the result:
+
+| v1 field of `useThreads()` | 2.0, on `useCopilotChatConfiguration()` |
+| -------------------------- | --------------------------------------- |
+| `threadId`                 | `threadId`                              |
+| `setThreadId(threadId)`    | `setActiveThreadId(threadId)`           |
+| `isThreadIdExplicit`       | `hasExplicitThreadId`                   |
+
+```tsx
+import { useCopilotChatConfiguration } from "@copilotkit/react-core";
+
+function ThreadLabel() {
+  const config = useCopilotChatConfiguration();
+  return <span>{config?.threadId}</span>;
+}
+```
 
 ## Components
 

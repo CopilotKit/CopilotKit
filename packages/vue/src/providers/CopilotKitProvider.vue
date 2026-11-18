@@ -18,6 +18,7 @@ import {
   ɵassembleHumanInTheLoop,
   ɵassembleProviderToolRenderers,
   ɵassembleProviderTools,
+  ɵcheckRemovedProviderProps,
   ɵhitlRenderProps,
   ɵresolveGenerativeUIDefault,
   ɵstableArrayPropWarning,
@@ -127,6 +128,10 @@ const props = withDefaults(defineProps<CopilotKitProviderProps>(), {
   // A missing boolean prop would otherwise read as `false`.
   learning: undefined,
 });
+
+// The props of the 1.x `<CopilotKit>` that 2.0 removed throw, or warn once in
+// development.
+ɵcheckRemovedProviderProps(props);
 
 provide(
   CopilotStyleOptionsKey,

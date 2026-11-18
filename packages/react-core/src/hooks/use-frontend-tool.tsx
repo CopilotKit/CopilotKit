@@ -1,5 +1,5 @@
 import { useLayoutEffect } from "react";
-import { ɵregisterFrontendTools } from "@copilotkit/core";
+import { ɵcheckToolParameters, ɵregisterFrontendTools } from "@copilotkit/core";
 import { useCopilotKit } from "../context";
 import type { ReactFrontendTool } from "../types/frontend-tool";
 import { useDepsVersion } from "./tool-registration";
@@ -31,6 +31,7 @@ import { useDepsVersion } from "./tool-registration";
 export function useFrontendTool<
   T extends Record<string, unknown> = Record<string, unknown>,
 >(tool: ReactFrontendTool<T>, deps?: ReadonlyArray<unknown>) {
+  ɵcheckToolParameters("useFrontendTool", tool.parameters);
   const { copilotkit } = useCopilotKit();
   // Plain data in `deps` compares by value, everything else by identity; see
   // useDepsVersion. Only the resulting number enters the effect's dependency

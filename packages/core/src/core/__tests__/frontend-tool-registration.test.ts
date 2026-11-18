@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { z } from "zod";
 import { CopilotKitCore } from "../core";
-import { ɵregisterFrontendTools } from "../frontend-tool-registration";
+import {
+  ɵcheckToolParameters,
+  ɵregisterFrontendTools,
+} from "../frontend-tool-registration";
 import type { ɵFrontendToolRenderer } from "../frontend-tool-registration";
 
 type Tool = {
@@ -71,5 +75,29 @@ describe("ɵregisterFrontendTools", () => {
 
     unregister();
     expect(core.getTool({ toolName: "search" })?.description).toBe("provider");
+  });
+});
+
+describe("ɵcheckToolParameters", () => {
+  it("throws the removal error for a 1.x Parameter[] list", () => {
+    const parameters = [{ name: "city", type: "string" }];
+
+    expect(() => ɵcheckToolParameters("useFrontendTool", parameters)).toThrow(
+      expect.objectContaining({
+        name: "CopilotKitRemovedApiError",
+        code: "REMOVED_API",
+        message:
+          'A Parameter[] list in "parameters" of useFrontendTool was removed in CopilotKit 2.0. Pass a Zod 4 / Standard Schema instead, for example parameters: z.object({ name: z.string() }). Run `npx codemod @copilotkit/v2-migration` to update your code. See https://docs.copilotkit.ai/migrate/removed-apis-2.0#tool-parameters-as-a-list',
+      }),
+    );
+  });
+
+  it("accepts a Standard Schema, and a tool without parameters", () => {
+    const schema = z.object({ city: z.string() });
+
+    expect(() => ɵcheckToolParameters("useFrontendTool", schema)).not.toThrow();
+    expect(() =>
+      ɵcheckToolParameters("useFrontendTool", undefined),
+    ).not.toThrow();
   });
 });

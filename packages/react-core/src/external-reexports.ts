@@ -156,6 +156,8 @@ export {
   ɵbuildUserMessage,
   ɵbuildUserMessageContent,
   ɵcanPreviewDocument,
+  ɵcheckRemovedProviderProps,
+  ɵcheckToolParameters,
   ɵclampSlashIndex,
   ɵclearAgentInterruptState,
   ɵclearAgentThreadCursors,

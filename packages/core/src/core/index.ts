@@ -62,6 +62,7 @@ export {
   ɵCOPILOT_CLOUD_PUBLIC_API_KEY_HEADER,
   ɵCOPILOT_CLOUD_RUNTIME_URL,
   ɵSTABLE_ARRAY_WARNINGS,
+  ɵcheckRemovedProviderProps,
   ɵpublicKeyHeaderDefaults,
   ɵreportProviderConfigDiagnostics,
   ɵresolveProviderConfig,
@@ -99,7 +100,10 @@ export type {
   ɵProviderToolRenderer,
   ɵStableArrayProp,
 } from "./provider-config";
-export { ɵregisterFrontendTools } from "./frontend-tool-registration";
+export {
+  ɵcheckToolParameters,
+  ɵregisterFrontendTools,
+} from "./frontend-tool-registration";
 export type { ɵFrontendToolRenderer } from "./frontend-tool-registration";
 // Tool result content (internal)
 export { isContentPart as ɵisContentPart } from "./tool-result-content";

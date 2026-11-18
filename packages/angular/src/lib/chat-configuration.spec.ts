@@ -167,3 +167,67 @@ test("token and direct class injection resolve the same instance", () => {
   ]);
   expect(viaToken).toBe(viaClass);
 });
+
+/** The removal warnings among the calls of a `console.warn` spy. */
+function removalWarnings(warn: { mock: { calls: unknown[][] } }) {
+  return warn.mock.calls
+    .map(([message]) => message)
+    .filter(
+      (message) =>
+        typeof message === "string" &&
+        message.includes("was removed in CopilotKit 2.0."),
+    );
+}
+
+test("_setOverride throws the removal error, which points to setActiveThreadId", () => {
+  TestBed.configureTestingModule({
+    providers: [provideCopilotChatConfiguration()],
+  });
+  const c = TestBed.runInInjectionContext(() => injectChatConfiguration());
+
+  // @ts-expect-error -- 2.0 types the 1.x arguments as never
+  expect(() => c._setOverride("picked-1", true)).toThrow(
+    expect.objectContaining({
+      name: "CopilotKitRemovedApiError",
+      code: "REMOVED_API",
+      message:
+        '"_setOverride" of CopilotChatConfiguration was removed in CopilotKit 2.0. Call setActiveThreadId(threadId, { explicit }) instead. Run `npx codemod @copilotkit/v2-migration` to update your code. See https://docs.copilotkit.ai/migrate/removed-apis-2.0#_setoverride-in-angular',
+    }),
+  );
+});
+
+test("a subclass that overrides _setOverride warns once, in development", () => {
+  const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+  class LegacyChatConfiguration extends CopilotChatConfiguration {
+    // @ts-expect-error -- 2.0 types _setOverride as never, so that the override fails
+    override _setOverride(threadId: string) {
+      this.setActiveThreadId(threadId);
+    }
+  }
+  TestBed.configureTestingModule({
+    providers: [provideCopilotChatConfiguration()],
+  });
+
+  TestBed.runInInjectionContext(() => [
+    new LegacyChatConfiguration(),
+    new LegacyChatConfiguration(),
+  ]);
+
+  expect(removalWarnings(warn)).toEqual([
+    'An override of "_setOverride" in a subclass of CopilotChatConfiguration was removed in CopilotKit 2.0. 2.0 does not call _setOverride. Move the code into overrides of setActiveThreadId and startNewThread. Run `npx codemod @copilotkit/v2-migration` to update your code. See https://docs.copilotkit.ai/migrate/removed-apis-2.0#_setoverride-in-angular',
+  ]);
+  warn.mockRestore();
+});
+
+test("the 2.0 chat configuration does not warn about _setOverride", () => {
+  const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+  TestBed.configureTestingModule({
+    providers: [provideCopilotChatConfiguration()],
+  });
+
+  const c = TestBed.runInInjectionContext(() => injectChatConfiguration());
+
+  expect(c.threadId()).toBeTruthy();
+  expect(removalWarnings(warn)).toEqual([]);
+  warn.mockRestore();
+});

@@ -3,6 +3,7 @@ import { HttpAgent } from "@ag-ui/client";
 import {
   ɵCOPILOT_CLOUD_PUBLIC_API_KEY_HEADER,
   ɵCOPILOT_CLOUD_RUNTIME_URL,
+  ɵcheckRemovedProviderProps,
   ɵpublicKeyHeaderDefaults,
   ɵreportProviderConfigDiagnostics,
   ɵresolveGenerativeUIDefault,
@@ -276,5 +277,64 @@ describe("ɵresolveGenerativeUIDefault", () => {
         hasUI: false,
       }),
     ).toEqual({ active: false });
+  });
+});
+
+/** The start of the message for a removed prop. */
+function removedProp(prop: string) {
+  return `The "${prop}" prop of CopilotKit was removed in CopilotKit 2.0.`;
+}
+
+describe("ɵcheckRemovedProviderProps", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it("throws the removal error for threadId, with the replacement", () => {
+    expect(() => ɵcheckRemovedProviderProps({ threadId: "thread-1" })).toThrow(
+      expect.objectContaining({
+        name: "CopilotKitRemovedApiError",
+        code: "REMOVED_API",
+        message:
+          'The "threadId" prop of CopilotKit was removed in CopilotKit 2.0. Pass threadId to <CopilotChat>, or to <CopilotChatConfigurationProvider> around the chat. Run `npx codemod @copilotkit/v2-migration` to update your code. See https://docs.copilotkit.ai/migrate/removed-apis-2.0#provider-props',
+      }),
+    );
+  });
+
+  it.each(["agent", "guardrails_c", "cloudRestrictToTopic", "authConfig_c"])(
+    "throws the removal error for %s, which cannot work in 2.0",
+    (prop) => {
+      expect(() => ɵcheckRemovedProviderProps({ [prop]: "value" })).toThrow(
+        expect.objectContaining({
+          code: "REMOVED_API",
+          message: expect.stringContaining(removedProp(prop)),
+        }),
+      );
+    },
+  );
+
+  it.each([
+    "forwardedParameters",
+    "transcribeAudioUrl",
+    "textToSpeechUrl",
+    "showDevConsole",
+  ])("only warns for %s, which 2.0 ignores", (prop) => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    ɵcheckRemovedProviderProps({ [prop]: "value" });
+
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining(removedProp(prop)),
+    );
+  });
+
+  it("neither throws nor warns for the props of 2.0", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    ɵcheckRemovedProviderProps({
+      runtimeUrl: "/api/copilotkit",
+      headers: { Authorization: "Bearer token" },
+      properties: { userId: "user-1" },
+    });
+
+    expect(warn).not.toHaveBeenCalled();
   });
 });
