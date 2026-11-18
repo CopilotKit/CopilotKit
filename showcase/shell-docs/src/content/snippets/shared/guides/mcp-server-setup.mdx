@@ -8,6 +8,8 @@ development environment, it enables AI assistants to:
 - Give your AI agents a user interface
 - Help you implement CopilotKit features correctly
 
+Use `https://mcp.copilotkit.ai/mcp` (Streamable HTTP) when your tool supports it. Use `https://mcp.copilotkit.ai/sse` only for tools that need SSE. Each tab below shows a URL that works with that tool.
+
 Pick your coding tool, then follow its steps:
 
 <Tabs groupId="coding-agent" items={['Cursor', 'Claude Web', 'Claude Desktop', 'Claude Code', 'Windsurf', 'Cline', 'GitHub Copilot', 'Codex', 'Other']} default="Cursor" persist>
@@ -170,6 +172,8 @@ Pick your coding tool, then follow its steps:
 
     copilotkit-mcp: https://mcp.copilotkit.ai/sse (SSE) - ✓ Connected
     ```
+
+    A project-scoped server first shows `Pending approval`. Start `claude` in the project and approve the server, then run `claude mcp list` again.
 
     <div className="mt-4 p-4 rounded-lg bg-muted">
       <div className="font-medium text-sm mb-2">Server Name Requirements</div>

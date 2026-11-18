@@ -9,21 +9,21 @@ When the backend agent pauses for input, `injectInterrupt` gives you a typed
 controller for the pending decision. For the default controller on the agent
 store, see [Headless Interrupts](/angular/human-in-the-loop/headless).
 
+<Callout type="info" title="Before you start: an agent that interrupts">
+  You need an agent that pauses with an AG-UI interrupt, for example a LangGraph
+  agent that calls `interrupt()`, or a `BuiltInAgent` factory that calls
+  `ctx.interrupt()`. The quickstart's Built-in Agent never interrupts. Place
+  `<app-interrupt-panel />` next to a `<copilot-chat />` for the same agent, so
+  a chat message can start the run.
+</Callout>
+
 ## Handle an interrupt with a typed controller
 
 `injectInterrupt` subscribes to one agent and exposes the pending decision as
 signals. It supports standard AG-UI interrupts and the legacy
-`on_interrupt` custom event. Use it when the store default is not enough. For example, you need a
-typed payload, an `enabled` filter, or a `handler` that prepares data for the
-view.
-
-<Callout type="warn">
-  Do not render an `injectInterrupt` controller and
-  `store().interruptController` for the same decision. Both independently
-  observe the agent, so the same interrupt becomes visible in both and two UI
-  actions could attempt to resume it. Render only the specialized controller
-  when you need filtering or typed handling.
-</Callout>
+`on_interrupt` custom event. Use it when the store default is not enough. For
+example, you need a typed payload, an `enabled` filter, or a `handler` that
+prepares data for the view.
 
 ```ts title="src/app/interrupt-panel.component.ts"
 import { Component } from "@angular/core";
@@ -38,7 +38,7 @@ type ReviewRequest = {
   selector: "app-interrupt-panel",
   template: `
     @if (controller.event(); as event) {
-      @let request = asReviewRequest(event.value);
+      @let request = asReviewRequest(controller.interrupt()?.metadata ?? event.value);
       <section aria-labelledby="review-title">
         <h2 id="review-title">{{ request.title ?? "Review required" }}</h2>
 
@@ -77,9 +77,31 @@ export class InterruptPanelComponent {
 }
 ```
 
+Where the payload lives depends on the event type:
+
+- **Standard AG-UI interrupt**: your agent puts custom data, such as `title`
+  and `choices`, in `interrupt.metadata`, and the prompt in
+  `interrupt.message`. Read them from `controller.interrupt()`.
+- **Legacy `on_interrupt` event**: `event.value` holds the payload.
+
+Send a message that makes the agent pause. The panel shows the title and one
+button per choice. Click a choice, and the run resumes with `{ choiceId }`.
+
+<Callout type="warn">
+  Do not render an `injectInterrupt` controller and
+  `store().interruptController` for the same decision. Both independently
+  observe the agent, so the same interrupt becomes visible in both and two UI
+  actions could attempt to resume it. Render only the specialized controller
+  when you need filtering or typed handling.
+</Callout>
+
 The controller clears stale decisions when the thread changes. Calls to
 `resolve` or `cancel` share one in-flight resume promise, so a double click
 does not start two resume runs.
+
+Legacy `on_interrupt` events cannot be cancelled. For them, `cancel()` only
+dismisses the panel locally. To resume the agent, call `resolve()` with a
+rejection payload.
 
 Use the controller's `enabled` option when several components listen to the
 same agent and each should accept only certain interrupt payloads. Use

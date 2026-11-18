@@ -39,47 +39,103 @@ export class MediaChatComponent {
 }
 ```
 
+Render `<app-media-chat />` in your root component (`src/app/app.ts`) in place
+of `<copilot-chat />`, and add `MediaChatComponent` to its `imports`. The
+composer now has an attach button, and you can also drag, drop, or paste files.
+
 Without `onUpload`, files are read as base64. Supply `onUpload` to place large
 files in your own storage and return a URL. The selected model and backend must
 support each content type you allow.
 
-## Configure attachments
-
-Define an `AttachmentsConfig` and bind it to the chat surface. The runnable
-Showcase accepts images and PDFs up to 10 MiB:
-
-<AngularSnippet region="multimodal-attachments" />
-
-Expose the config as a field on your chat component:
-
-```ts
-protected readonly multimodalAttachments = MULTIMODAL_ATTACHMENTS;
-```
-
-Then bind the field in the template:
-
-```html title="media-chat.component.html"
-<copilot-chat [attachments]="multimodalAttachments" />
-```
-
-The `accept` value filters the file picker and `maxSize` provides immediate
-client feedback. They are not server-side security controls. Validate file
-type, size, and content again wherever uploads are stored or processed. Use
-the configuration's upload callbacks when files should go to object storage
-instead of traveling inline with a message.
+The `accept` value filters the file picker and `maxSize` gives immediate client
+feedback. They are not server-side security controls. Validate file type, size,
+and content again wherever uploads are stored or processed.
 
 ## Send media programmatically
 
-For a bundled sample or custom uploader, add a user message whose `content`
-contains normal AG-UI content parts. The Showcase constructs a text part plus
-an image or document part:
+For a bundled sample or a custom uploader, add a user message whose `content`
+holds AG-UI content parts, then run the agent. The message has a text part plus
+an `image` part (for images) or a `document` part (for PDFs and other
+documents).
 
-<AngularSnippet region="multimodal-message" />
+1. Create `src/app/media-model.ts` with the two types the helper uses:
 
-Add that message to the selected agent and run the agent. Keep the MIME type
-authoritative: use an `image` part for images and a `document` part for PDFs
-and other documents. The chosen model and backend converter must support each
-MIME type you accept.
+   ```ts title="src/app/media-model.ts"
+   export interface SampleSpec {
+     filename: string;
+     mimeType: string;
+     autoPrompt: string;
+   }
+
+   export interface MediaAgentMessage {
+     id?: string;
+     role: string;
+     content?: readonly unknown[];
+   }
+   ```
+
+2. Add this helper to the end of the same file. It builds the message from
+   base64 file data:
+
+   <AngularSnippet region="multimodal-message" />
+
+3. Add the message to the agent and run it. This component sends a small red
+   PNG when you click the button:
+
+   ```ts title="src/app/send-sample.component.ts"
+   import { Component, inject } from "@angular/core";
+   import { CopilotKit, injectAgentStore } from "@copilotkit/angular";
+   import { createMultimodalMessage } from "./media-model";
+
+   const RED_SQUARE_PNG =
+     "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAF0lEQVR4nGP4z8BAEiJN9aiGUQ1DSgMAkPn/Afnh+ngAAAAASUVORK5CYII=";
+
+   @Component({
+     selector: "app-send-sample",
+     template: `<button type="button" (click)="send()">Send sample image</button>`,
+   })
+   export class SendSampleComponent {
+     private readonly copilotKit = inject(CopilotKit);
+     private readonly store = injectAgentStore("default");
+
+     protected async send(): Promise<void> {
+       const agent = this.store().agent;
+       const message = createMultimodalMessage(
+         {
+           filename: "red.png",
+           mimeType: "image/png",
+           autoPrompt: "Describe this image",
+         },
+         RED_SQUARE_PNG,
+         80,
+         crypto.randomUUID(),
+       );
+       agent.addMessage(message as Parameters<typeof agent.addMessage>[0]);
+       await this.copilotKit.core.runAgent({ agent });
+     }
+   }
+   ```
+
+4. Add `SendSampleComponent` to the root component's `imports` and render
+   `<app-send-sample />` next to the chat.
+
+Click **Send sample image**. The chat shows your prompt with the image, and the
+agent replies about it. The chosen model and backend converter must support
+each MIME type you send.
+
+<Callout type="warn" title="TS2739 on `runAgent({ agent })`">
+  `@copilotkit/angular` 0.6.0 pins `@ag-ui/client` 1.0.2, and the
+  `@copilotkit/core` it installs pins 1.0.5. The two `AbstractAgent` types then
+  differ, and `ng serve` fails with `TS2739` on the `runAgent` line. Make both
+  use one version. Add this to `package.json` and run `npm install`:
+
+  ```json title="package.json"
+  "overrides": {
+    "@ag-ui/client": "1.0.5",
+    "@ag-ui/core": "1.0.5"
+  }
+  ```
+</Callout>
 
 ## Next steps
 

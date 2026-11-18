@@ -72,15 +72,23 @@ export function TaskBoard() {
 }
 ```
 
-`INITIAL_BOARD_STATE` is initial state that the UI owns in this example. It makes the board visible before the agent writes state. The effect sets only `undefined` fields and keeps all other state. If the backend owns the initial state, define it in the shared-state setup for your framework.
+`INITIAL_BOARD_STATE` is initial state that the UI owns in this example. It makes the board visible before the agent writes state. The effect sets only `undefined` fields and keeps all other state. If your agent owns the initial state, set it in the agent (see [Shared State](/shared-state)). With the Built-in Agent, the UI-owned default above is the usual pattern.
 
 `isReady` is `false` while the runtime connects. Until then, `agent` is a placeholder that is swapped for the real agent, so the effect waits for it.
 
-Each time the agent changes its state, whether from a tool call, a step in your agent, or a [streamed update](/shared-state/streaming), `useAgent` re-renders this component with the new values. The chat can be in a bottom sheet, a drawer, or absent entirely. Your board updates the same way.
+Each time the agent changes its state, whether from a tool call or a step in your agent<WhenFrameworkSupports feature="shared-state-streaming"> or a [streamed update](/shared-state/streaming)</WhenFrameworkSupports>, `useAgent` re-renders this component with the new values. The chat can be in a bottom sheet, a drawer, or absent entirely. Your board updates the same way.
 
 ## Put it anywhere in your layout
 
-The agent lives on `CopilotKitProvider`, so the chat and your screens are two consumers of the same agent. A typical layout shows the board as the main screen and the chat in a bottom sheet:
+The agent lives on `CopilotKitProvider`, so the chat and your screens are two consumers of the same agent. A typical layout shows the board as the main screen and the chat in a bottom sheet.
+
+`CopilotModal` comes from `@copilotkit/react-native/components`, which needs native peers. Install them first:
+
+```bash
+npx expo install react-native-gesture-handler react-native-reanimated react-native-worklets @gorhom/bottom-sheet react-native-streamdown
+```
+
+In a bare React Native CLI app, see [Native peers for the rendered chat](/quickstart#native-peers-for-the-rendered-chat).
 
 ```tsx title="App.tsx"
 import { useRef } from "react";
@@ -124,7 +132,8 @@ If the agent must only read a UI value, and never write it, use [agent read-only
 - **Target a specific agent** with `useAgent({ agentId: "research-agent" })` when you have more than one. The default is the agent named `"default"`.
 - **Throttle high-frequency updates** with `useAgent({ throttleMs })` if a streaming run re-renders a heavy screen too often. `defaultThrottleMs` on `CopilotKitProvider` sets it for every `useAgent`.
 - **Treat `agent.state` as possibly partial** while a run is in progress. Guard with defaults (as above), so half-streamed state doesn't crash your render.
+- **Hide the state tool in the chat.** The Built-in Agent writes state through its `AGUISendStateSnapshot` tool, and the rendered chat shows that call as "Called: AGUISendStateSnapshot". To hide it, register a renderer that draws nothing: `useRenderTool({ name: "AGUISendStateSnapshot", parameters: z.object({}), render: () => null })`.
 
 ## Try it
 
-Ask the agent to add a task called "Write the launch post". A new item appears on the board. Then tap an item to mark it done, and ask the agent which tasks are done. The agent names the item that you marked.
+Ask the agent to add a task called "Write the launch post". The agent writes the new state with a tool call, and a new item appears on the board. Then tap an item to mark it done, and ask the agent which tasks are done. The agent names the item that you marked.

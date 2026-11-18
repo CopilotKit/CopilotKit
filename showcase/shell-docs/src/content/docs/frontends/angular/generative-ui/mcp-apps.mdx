@@ -5,24 +5,65 @@ icon: "lucide/Monitor"
 doc_type: how-to
 ---
 
-Add `provideMCPApps()` from `@copilotkit/angular/mcp-apps` when an MCP server
-returns an interactive app resource.
+An MCP App is an MCP server tool that comes with its own UI. When the agent
+calls the tool, the chat shows that UI in a sandboxed iframe. You set this up in
+two places: Copilot Runtime connects to the MCP server, and the Angular app
+renders the result.
+
+Your MCP server needs a tool that declares `_meta.ui.resourceUri`, and an HTML
+resource at that URI. See [MCP Apps](/generative-ui/mcp-apps) for how the server
+side works.
+
+## Connect Copilot Runtime to the MCP server
+
+Add your server to `mcpApps.servers` in the quickstart's `server.ts`:
+
+```ts title="server.ts"
+const runtime = new CopilotRuntime({
+  agents: {
+    default: new BuiltInAgent({
+      model: "openai:gpt-6-luna",
+      prompt: "You are a helpful assistant for an Angular app.",
+    }),
+  },
+  // [!code highlight:5]
+  mcpApps: {
+    servers: [
+      { type: "http", url: "https://your-mcp-server.example/mcp", serverId: "my-app" },
+    ],
+  },
+});
+```
+
+Copilot Runtime connects to the MCP server and gives its tools to the agent.
+Keep `serverId` stable, so apps saved in earlier threads still restore.
+
+## Render MCP Apps in the chat
+
+Add `provideMCPApps()` from `@copilotkit/angular/mcp-apps`. Keep the
+`runtimeUrl` from the [Angular quickstart](/angular):
 
 ```ts title="src/app/app.config.ts"
 import { ApplicationConfig } from "@angular/core";
 import { provideCopilotKit } from "@copilotkit/angular";
-import { provideMCPApps } from "@copilotkit/angular/mcp-apps";
+import { provideMCPApps } from "@copilotkit/angular/mcp-apps"; // [!code highlight]
 
 export const appConfig: ApplicationConfig = {
   providers: [
-    provideCopilotKit({ runtimeUrl: "/api/copilotkit" }),
-    provideMCPApps(),
+    provideCopilotKit({ runtimeUrl: "http://localhost:8200/api/copilotkit" }),
+    provideMCPApps(), // [!code highlight]
   ],
 };
 ```
 
 MCP resource and tool requests travel through the selected AG-UI agent. The
 browser provider does not take a server URL.
+
+## Check the result
+
+Restart the runtime. Then ask the agent to use a tool from your MCP server. The
+tool's app renders in a sandboxed iframe in the chat, and you can click its
+controls.
 
 ## Next steps
 

@@ -1,6 +1,7 @@
 ---
 title: "Showing status while a method runs"
 icon: "lucide/Radio"
+description: "Show a status line while a Flow method does slow work."
 ---
 
 ## What is this?
@@ -76,18 +77,30 @@ Use this when a method does slow work before it answers and you want to:
     </Step>
     <Step>
         ### Show the status in your UI
-        Read `status` from the agent state with `useAgent`. Use the agent ID that you registered in your runtime.
+        Read `status` from the agent state with `useAgent`. With no arguments, `useAgent()` returns the agent that your provider selects (its `agent` prop). To read another agent, pass `useAgent({ agentId: "<your agent name>" })`.
 
-        ```tsx title="app/page.tsx"
+        ```tsx title="app/agent-status.tsx"
+        "use client";
+
         import { useAgent } from "@copilotkit/react-core/v2";
 
         export function AgentStatus() {
-          const { agent } = useAgent({ agentId: "sample_agent" });
+          const { agent } = useAgent();
           const status = (agent.state as { status?: string } | undefined)?.status;
 
           if (!status) return null;
           return <p>{status}</p>;
         }
+        ```
+
+        Render `<AgentStatus />` next to your chat, for example above `<CopilotChat />` in `app/page.tsx`:
+
+        ```tsx title="app/page.tsx"
+        import { AgentStatus } from "./agent-status";
+
+        // ...
+        <AgentStatus />
+        <CopilotChat />
         ```
     </Step>
     <Step>

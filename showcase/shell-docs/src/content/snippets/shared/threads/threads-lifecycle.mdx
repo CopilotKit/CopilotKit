@@ -27,7 +27,8 @@ When you don't supply one, CopilotKit mints a `threadId` **on the client, at mou
 import { CopilotChat } from "@copilotkit/react-core/v2";
 
 // You control the id: history replays for it, and it's stable across remounts.
-<CopilotChat agentId="my-agent" threadId={myThreadId} />
+// myThreadId comes from your app, for example a route param or your database.
+<CopilotChat threadId={myThreadId} />
 ```
 
 <Callout type="warn">
@@ -41,7 +42,7 @@ History is restored in one of two ways:
 **1. Server-side replay.** When a chat mounts with an *explicit* `threadId`, the client sets `agent.threadId` and calls `connectAgent()`, which replays that thread's persisted event history back into the UI, with no manual message wiring:
 
 ```tsx title="History replays for a known threadId (given a server-side store)"
-<CopilotChat agentId="my-agent" threadId={someExistingThreadId} />
+<CopilotChat threadId={someExistingThreadId} />
 ```
 
 <Callout type="warn">
@@ -56,7 +57,7 @@ For a *fresh* (non-explicit) thread, for example after `startNewThread()`, there
 import { useAgent } from "@copilotkit/react-core/v2";
 
 function MyComponent() {
-  const { agent } = useAgent({ agentId: "my-agent" });
+  const { agent } = useAgent(); // the "default" agent; pass { agentId } for another one
 
   // Read the current conversation
   const messages = agent.messages;
@@ -135,7 +136,7 @@ Set the active thread to restore its history, or start a fresh conversation:
 ```tsx title="Switch or start a thread"
 import { useCopilotChatConfiguration } from "@copilotkit/react-core/v2";
 
-function ThreadControls() {
+function ThreadControls({ existingId }: { existingId: string }) {
   const config = useCopilotChatConfiguration();
 
   return (
@@ -150,6 +151,17 @@ function ThreadControls() {
     </>
   );
 }
+```
+
+`useCopilotChatConfiguration()` returns `null` outside a `<CopilotChatConfigurationProvider>`. `<CopilotKitProvider>` does not add one, and the provider that `<CopilotChat>` creates covers only the chat. Controls rendered next to the chat then see `null`, and the buttons do nothing. Wrap the controls and the chat in one provider:
+
+```tsx title="Share one configuration between the controls and the chat"
+import { CopilotChat, CopilotChatConfigurationProvider } from "@copilotkit/react-core/v2";
+
+<CopilotChatConfigurationProvider>
+  <ThreadControls existingId={savedThreadId} />
+  <CopilotChat />
+</CopilotChatConfigurationProvider>
 ```
 
 - `setActiveThreadId(threadId, { explicit })`: `explicit: true` (the default) treats it as a known thread and replays its history, while `explicit: false` shows the welcome screen.
@@ -168,8 +180,11 @@ A common ask: intercept the user's first message to mint a thread via your own b
 **Recommended: mint up front and drive the id.** Create your thread when the user starts a new conversation (for example, on a "New chat" action, or lazily right before you render the chat), then hand the id to CopilotKit:
 
 ```tsx title="Mint your thread, then drive it"
+// Inside a component under <CopilotChatConfigurationProvider>:
+const config = useCopilotChatConfiguration();
+
 async function startConversation() {
-  const { id } = await myApi.createThread(); // your backend
+  const { id } = await myApi.createThread(); // myApi: your backend
   config?.setActiveThreadId(id, { explicit: true });
   // or render <CopilotChat threadId={id} />
 }
@@ -181,7 +196,7 @@ async function startConversation() {
 import { CopilotChatInput, randomUUID, useAgent } from "@copilotkit/react-core/v2";
 
 function MyInput() {
-  const { agent } = useAgent({ agentId: "my-agent" });
+  const { agent } = useAgent();
 
   return (
     <CopilotChatInput

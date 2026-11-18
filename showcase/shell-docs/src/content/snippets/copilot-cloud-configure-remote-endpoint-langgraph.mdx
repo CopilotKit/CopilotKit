@@ -9,10 +9,11 @@ You'll need a LangSmith API key which you can get with [this guide](https://docs
 <Accordions>
 <Accordion title="Using LangGraph Studio">
 
-    If you're using a local deployment from LangGraph Studio, you'll need to open a tunnel to your LangGraph Studio deployment URL.
+    If you're using a local deployment from LangGraph Studio, expose its port with a tunnel tool such as
+    [ngrok](https://ngrok.com/docs/getting-started/), and use the public URL as the deployment URL.
 
     ```bash
-    npx copilotkit@latest dev --port <port_number>
+    ngrok http <port_number>
     ```
 
 </Accordion>

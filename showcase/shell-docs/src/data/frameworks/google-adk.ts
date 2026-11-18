@@ -55,7 +55,7 @@ const data: FrameworkOverviewData = {
   connect: {
     intro:
       "Your agent keeps running as its own Python service, with the AG-UI bridge from ag_ui_adk in front of it. CopilotKit reaches that service over HTTP, so nothing inside the agent changes.",
-    filename: "app/api/copilotkit/route.ts",
+    filename: "app/api/copilotkit/[[...slug]]/route.ts",
     language: "ts",
     code: `import {
   CopilotRuntime,

@@ -30,18 +30,77 @@ Use frontend tools when your agent needs to:
 
 ## How it works in code
 
-<FrameworkSetup concept="frontend-tools-setup" />
-
 Register a frontend tool with `useFrontendTool`. Give it a name, a Zod schema for parameters, and a handler. The agent can then call it like any other tool and your frontend runs it in the browser.
 
-<Snippet region="frontend-tool-registration" title="frontend/src/app/page.tsx: useFrontendTool" />
+Add `zod` to your app:
+
+```bash
+npm install zod
+```
+
+This page lets the agent change the page background. It uses the
+`CopilotKitProvider` from the [quickstart](/quickstart) in `app/layout.tsx`:
+
+```tsx title="app/page.tsx"
+"use client";
+
+import { useState } from "react";
+import { CopilotSidebar, useFrontendTool } from "@copilotkit/react-core/v2";
+import { z } from "zod";
+
+export default function Page() {
+  const [background, setBackground] = useState("#ffffff");
+
+  useFrontendTool({ // [!code highlight:12]
+    name: "change_background",
+    description:
+      "Change the page background. Accepts any CSS background value, such as a color or a gradient.",
+    parameters: z.object({
+      background: z.string().describe("The CSS background value. Prefer gradients."),
+    }),
+    handler: async ({ background }) => {
+      setBackground(background);
+      return { status: "success" };
+    },
+  });
+
+  return (
+    <div style={{ background, minHeight: "100vh" }}>
+      <CopilotSidebar />
+    </div>
+  );
+}
+```
 
 The handler receives the parsed, type-safe parameters and can do anything
 the browser can: update state, call an API, touch the DOM. Its return value
 is sent back to the agent as the tool result so the model can reason about
 what happened.
 
-<Snippet region="frontend-tool-handler" title="frontend/src/app/page.tsx: handler body" />
+### Connect the tool to your agent
+
+The Copilot Runtime forwards the tool to your agent on every run. Set up your
+agent so the model gets the forwarded tools:
+
+<FrameworkSetup concept="frontend-tools-setup" />
+
+Name the tool in your agent's system prompt, so the model knows when to call
+it. For `change_background`:
+
+```text
+When the user asks to change the page background, call `change_background` with a CSS color or gradient.
+```
+
+With the Built-in Agent, the `prompts.ts` in the setup above is for a chart
+tool (`render_bar_chart`). For this page, put the line above in
+`SYSTEM_PROMPT` instead:
+
+```ts title="app/api/copilotkit/prompts.ts"
+export const SYSTEM_PROMPT = `When the user asks to change the page background, call \`change_background\` with a CSS color or gradient.`;
+```
+
+Then import it at the top of your route, which passes it as `prompt: SYSTEM_PROMPT`:
+`import { SYSTEM_PROMPT } from "../prompts";`.
 
 Ask the agent to change the background to a blue gradient. The page background changes, and the agent gets `{ status: "success" }` as the tool result.
 

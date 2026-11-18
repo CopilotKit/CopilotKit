@@ -240,7 +240,11 @@ function StateController() {
   const { agent } = useAgent();
 
   return (
-    <button onClick={() => agent.setState({ ...agent.state, count: 1 })}>
+    <button
+      onClick={() =>
+        agent.setState({ ...agent.state, count: (agent.state.count ?? 0) + 1 })
+      }
+    >
       Increment
     </button>
   );
@@ -249,10 +253,11 @@ function StateController() {
 
 ### Event Subscription
 
+Put `agent` in the effect's dependency array. With a `runtimeUrl`, the hook first returns a stand-in agent, then the real one. A subscription on the stand-in never sees run events.
+
 ```tsx
 import { useEffect } from "react";
 import { useAgent } from "@copilotkit/react-core/v2";
-import type { AgentSubscriber } from "@ag-ui/client";
 
 function EventListener() {
   const { agent } = useAgent();
@@ -264,7 +269,7 @@ function EventListener() {
     });
 
     return unsubscribe;
-  }, []);
+  }, [agent]); // re-subscribe when the stand-in agent changes to the real one
 
   return null;
 }
@@ -291,6 +296,7 @@ function MultiAgentView() {
 Control when your component re-renders using the `updates` parameter:
 
 ```tsx
+import { useEffect } from "react";
 import { useAgent, UseAgentUpdate } from "@copilotkit/react-core/v2";
 
 // Only re-render when messages change
@@ -322,6 +328,6 @@ function ManualSubscription() {
 ## Behavior
 
 - **Automatic Re-renders**: Component re-renders when agent state, messages, or execution status changes (configurable via `updates` parameter)
-- **Error Handling**: Throws error if no agent exists with specified `agentId`
+- **Error Handling**: Throws if no agent with the given `agentId` exists and no `runtimeUrl` is set, or if the runtime connects without that agent. While the runtime connects, or after a runtime error, it returns a stand-in agent and `isReady` is `false`.
 - **State Synchronization**: State updates via `setState()` are immediately available to both app and agent
 - **Event Subscriptions**: Subscribe/unsubscribe pattern for lifecycle and custom events

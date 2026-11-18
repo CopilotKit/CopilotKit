@@ -85,15 +85,47 @@ At the start of every turn, the agent reads the latest config. Then it rebuilds 
 ## How it works
 
 <FrontendOnly frontend="react">
-Pass the typed object as `properties` on `<CopilotKit>`:
+Hold the config in React state and pass it as `properties` on `<CopilotKit>`:
 
-```tsx title="frontend/src/app/page.tsx: config flows through the provider"
-<CopilotKit
-  runtimeUrl="/api/copilotkit"
-  properties={{ tone, expertise, responseLength }}
->
-  <Demo />
-</CopilotKit>
+```tsx title="app/page.tsx: config flows through the provider"
+"use client";
+
+import { useState } from "react";
+import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
+
+export default function Page() {
+  const [tone, setTone] = useState("casual");
+  const [expertise, setExpertise] = useState("intermediate");
+  const [responseLength, setResponseLength] = useState("medium");
+
+  return (
+    <div>
+      <select value={tone} onChange={(e) => setTone(e.target.value)}>
+        <option value="casual">casual</option>
+        <option value="formal">formal</option>
+      </select>
+      <select value={expertise} onChange={(e) => setExpertise(e.target.value)}>
+        <option value="beginner">beginner</option>
+        <option value="intermediate">intermediate</option>
+        <option value="expert">expert</option>
+      </select>
+      <select
+        value={responseLength}
+        onChange={(e) => setResponseLength(e.target.value)}
+      >
+        <option value="short">short</option>
+        <option value="medium">medium</option>
+        <option value="long">long</option>
+      </select>
+      <CopilotKit
+        runtimeUrl="/api/copilotkit"
+        properties={{ tone, expertise, responseLength }}
+      >
+        <CopilotChat />
+      </CopilotKit>
+    </div>
+  );
+}
 ```
 </FrontendOnly>
 
@@ -127,12 +159,26 @@ export class AgentConfigComponent {
 ```
 </FrontendOnly>
 
-The runtime hands the same object to the agent factory on every call as `input.forwardedProps`. The factory uses those fields to build a system prompt, then returns the model stream for that turn:
+The runtime hands the same object to the agent factory on every call as `input.forwardedProps`. The factory uses those fields to build a system prompt, then returns the model stream for that turn.
 
-```ts title="backend/agent factory: builds the system prompt per turn"
+The factory uses TanStack AI. Install it next to the runtime:
+
+```bash
+npm install @tanstack/ai @tanstack/ai-openai
+```
+
+```ts title="app/api/copilotkit/agent.ts: builds the system prompt per turn"
 import { BuiltInAgent, convertInputToTanStackAI } from "@copilotkit/runtime/v2";
 import { chat } from "@tanstack/ai";
 import { openaiText } from "@tanstack/ai-openai";
+
+function buildSystemPrompt(
+  tone = "casual",
+  expertise = "intermediate",
+  responseLength = "medium",
+) {
+  return `You are a helpful assistant. Use a ${tone} tone, write for a ${expertise} reader, and keep answers ${responseLength}.`;
+}
 
 export const agentConfigAgent = new BuiltInAgent({
   type: "tanstack",
@@ -154,6 +200,30 @@ export const agentConfigAgent = new BuiltInAgent({
     });
   },
 });
+```
+
+Register the agent in your runtime route. `<CopilotChat />` talks to the agent named `default`:
+
+```ts title="app/api/copilotkit/[[...slug]]/route.ts"
+import {
+  CopilotRuntime,
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
+import { agentConfigAgent } from "../agent";
+
+const runtime = new CopilotRuntime({
+  agents: { default: agentConfigAgent },
+});
+
+const handler = createCopilotRuntimeHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+});
+
+export const GET = handler;
+export const POST = handler;
+export const PATCH = handler;
+export const DELETE = handler;
 ```
 
 </WhenFrameworkHas>

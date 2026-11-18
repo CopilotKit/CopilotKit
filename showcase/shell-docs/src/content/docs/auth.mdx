@@ -26,19 +26,27 @@ The runtime hooks on this page use the TypeScript API. Python, Go, Ruby, and C#/
 
 ## Frontend
 
-Pass your token via the `headers` prop on `<CopilotKit>`. CopilotKit forwards every request with that header attached.
+Pass your token via the `headers` prop on `<CopilotKitProvider>`. CopilotKit forwards every request with that header attached.
 
-```tsx title="frontend/src/app/page.tsx"
-import { CopilotKit } from "@copilotkit/react-core/v2";
+```tsx title="app/providers.tsx"
+"use client";
 
-<CopilotKit
-  runtimeUrl="/api/copilotkit"
-  headers={{
-    Authorization: `Bearer ${userToken}`,
-  }}
->
-  <YourApp />
-</CopilotKit>
+import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+
+export function Providers({ children }: { children: React.ReactNode }) {
+  const userToken = useUserToken(); // your auth provider's token, for example from your session hook
+
+  return (
+    <CopilotKitProvider
+      runtimeUrl="/api/copilotkit"
+      headers={{
+        Authorization: `Bearer ${userToken}`,
+      }}
+    >
+      {children}
+    </CopilotKitProvider>
+  );
+}
 ```
 
 ## Backend
@@ -52,6 +60,7 @@ import {
   createCopilotRuntimeHandler,
 } from "@copilotkit/runtime/v2";
 
+// myAgent is your agent, for example new BuiltInAgent({ model: "openai/gpt-6-luna" })
 const runtime = new CopilotRuntime({ agents: { default: myAgent } });
 
 const handler = createCopilotRuntimeHandler({
@@ -67,7 +76,8 @@ const handler = createCopilotRuntimeHandler({
         );
       }
       const token = authHeader.slice("Bearer ".length);
-      const user = verifyJwt(token); // your validation
+      // verifyJwt is your own JWT check. Throw a 401 Response if it fails.
+      const user = verifyJwt(token);
       // attach user to request-scoped context here
     },
   },
@@ -79,7 +89,7 @@ export const PATCH = (req: NextRequest) => handler(req);
 export const DELETE = (req: NextRequest) => handler(req);
 ```
 
-To check the gate, remove `headers` from `<CopilotKit>` and reload the page. The requests to `/api/copilotkit` return `401`. Put the header back and send a message. The agent replies.
+To check the gate, remove `headers` from `<CopilotKitProvider>` and reload the page. The requests to `/api/copilotkit` return `401`. Put the header back and send a message. The agent replies.
 
 Coming from v1? See [Migrate to v2](/migrate/v2).
 
@@ -479,14 +489,43 @@ Examples that validate against a single shared secret are for local demos only. 
 
 ## Tool gating
 
-The most common reason to wire auth is so individual tools can decline to run. Read the resolved user inside the tool's handler and bail if the role doesn't match:
+The most common reason to wire auth is so individual tools can decline to run. Read the resolved user inside the tool and refuse if the role doesn't match.
 
-```python
-def delete_record(record_id: str, *, user: User):
-    if "admin" not in user.permissions:
-        raise PermissionError("admin role required")
-    # do the delete
+With the TypeScript runtime and the Built-in Agent, pass `agents` as a function. The runtime calls it for each request, so you can verify the user there and give the tools that user:
+
+```ts title="app/api/copilotkit/[[...slug]]/route.ts"
+import { BuiltInAgent, CopilotRuntime, defineTool } from "@copilotkit/runtime/v2";
+import { z } from "zod";
+
+const runtime = new CopilotRuntime({
+  agents: async ({ request }) => {
+    const user = await verifyRequest(request); // your own check, as above
+
+    return {
+      default: new BuiltInAgent({
+        model: "openai/gpt-6-luna",
+        maxSteps: 3,
+        tools: [
+          defineTool({
+            name: "delete_record",
+            description: "Delete a record by id.",
+            parameters: z.object({ recordId: z.string() }),
+            execute: async ({ recordId }) => {
+              if (!user?.permissions.includes("admin")) {
+                return { error: "admin role required" };
+              }
+              // do the delete
+              return { deleted: recordId };
+            },
+          }),
+        ],
+      }),
+    };
+  },
+});
 ```
+
+With a Python agent, read the user where the Backend section above puts it (for example `config["configurable"]["langgraph_auth_user"]` on LangGraph Platform), and do the same check inside the tool.
 
 This composes with [Human in the loop](/human-in-the-loop): gate on auth first, surface a confirmation card next, execute last.
 
@@ -595,6 +634,7 @@ const handler = createCopilotRuntimeHandler({
 
     onBeforeHandler: async ({ request, route }) => {
       const user = await verifyRequest(request);
+      if (!user) throw new Response("Unauthorized", { status: 401 });
 
       // Routes that name a thread directly.
       if ("threadId" in route) {

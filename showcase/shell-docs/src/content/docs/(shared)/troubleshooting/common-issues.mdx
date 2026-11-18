@@ -1,6 +1,6 @@
 ---
 title: Common Copilot Issues
-description: Network errors, endpoint not found, tunnel timeouts, and other common issues when wiring up CopilotKit with the Built-in Agent.
+description: Network errors, endpoint not found, empty replies, and other common issues when wiring up CopilotKit with the Built-in Agent.
 icon: "lucide/LifeBuoy"
 ---
 
@@ -16,18 +16,20 @@ Verify the configured `runtimeUrl`.
 
 <FrontendOnly frontend="react">
 ```tsx
-<CopilotKit runtimeUrl="/api/copilotkit">
+<CopilotKitProvider runtimeUrl="/api/copilotkit">
   {/* Your app */}
-</CopilotKit>
+</CopilotKitProvider>
 ```
 
 Or, if you're using CopilotCloud:
 
 ```tsx
-<CopilotKit publicApiKey="<your-copilot-cloud-public-api-key>">
+<CopilotKitProvider publicApiKey="<your-copilot-cloud-public-api-key>">
   {/* Your app */}
-</CopilotKit>
+</CopilotKitProvider>
 ```
+
+`CopilotKitProvider` comes from `@copilotkit/react-core/v2`.
 </FrontendOnly>
 
 <FrontendOnly frontend="angular">
@@ -79,13 +81,19 @@ Make sure your backend:
 - Is reachable from your frontend
 - Isn't blocked by CORS or a firewall
 
+Check that the runtime answers. A `GET` to its `/info` endpoint lists your agents:
+
+```bash
+curl http://localhost:3000/api/copilotkit/info
+```
+
 Revisit the [quickstart](../quickstart) if you want to double-check your setup.
 </Accordion>
 </Accordions>
 
-## "Remote Endpoint not found" error
+## "Remote Endpoint not found" error (legacy v1)
 
-If you see `Failed to find or contact remote endpoint at url ...` (error code `REMOTE_ENDPOINT_NOT_FOUND`), the runtime cannot reach the `/info` endpoint.
+This section applies only to the deprecated v1 `remoteEndpoints` setup with the Python SDK. If you see `Failed to find or contact remote endpoint at url ...` (error code `REMOTE_ENDPOINT_NOT_FOUND`), the runtime cannot reach the `/info` endpoint.
 
 <Accordions>
 <Accordion title="Check your FastAPI / backend setup">
@@ -113,35 +121,13 @@ If you see a different response, check your server logs.
 </Accordion>
 </Accordions>
 
-## Tunnel creation hangs
-
-If the tunnel creation process spins indefinitely, your router or ISP might be blocking the tunnel service.
-
-<Accordions>
-<Accordion title="Router / ISP blocking tunnel connections">
-Verify connectivity:
-
-```bash
-ping tunnels.devcopilotkit.com
-curl -I https://tunnels.devcopilotkit.com
-telnet tunnels.devcopilotkit.com 443
-```
-
-If any of these fail:
-
-- Check your router security settings
-- Contact your ISP to see if they're blocking the connection
-- Try a different network to confirm
-</Accordion>
-</Accordions>
-
 ## The Built-in Agent responds with an empty message
 
 The cause is usually one of these:
 
 - The LLM model string isn't supported by the runtime's provider. Check it against [Model Selection](/built-in-agent/model-selection).
 - The Built-in Agent's `prompt` is empty and the user message gives it nothing useful to do. Give the agent a system prompt.
-- A frontend tool is throwing during its handler and the agent is treating the empty result as the turn output. See [Error Debugging](./error-debugging) for the `tool_handler_failed` code.
+- A frontend tool throws in its handler. CopilotKit reports `tool_handler_failed` and does not send the result back to the agent, so the turn ends with no reply. To let the agent answer, catch errors in the handler and return a result such as `{ error: "..." }`. See [Error Debugging](./error-debugging).
 
 ## Tools I registered don't show up
 
@@ -212,7 +198,12 @@ process runs with a small `--max-old-space-size`, or your threads carry unusuall
 large payloads, lower the limits:
 
 ```ts
-new InMemoryAgentRunner({ maxThreads: 200, maxBytes: 64 * 1024 ** 2 });
+import { CopilotRuntime, InMemoryAgentRunner } from "@copilotkit/runtime/v2";
+
+const runtime = new CopilotRuntime({
+  agents: { default: myAgent },
+  runner: new InMemoryAgentRunner({ maxThreads: 200, maxBytes: 64 * 1024 ** 2 }),
+});
 ```
 
 See [bounding in-memory history](/backend/agent-runner#bounding-in-memory-history)

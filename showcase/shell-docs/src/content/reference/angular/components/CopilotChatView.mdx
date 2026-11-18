@@ -105,7 +105,7 @@ The view forwards message, input, scroll-button, input-container, feather, and d
 </PropertyReference>
 
 <PropertyReference name="assistantMessageClass" type="string">
-  CSS classes for each assistant message. The default `CopilotChatAssistantMessage` adds them to its container. A custom assistant-message component or template receives them as `inputClass`.
+  CSS classes for each assistant message. A custom assistant-message component or template receives them as `inputClass`. The default `CopilotChatAssistantMessage` adds them to its container in releases after 0.6.0. In 0.6.0 they have no effect on the default component.
 </PropertyReference>
 
 <PropertyReference name="reasoningMessageComponent" type="Type<any>">

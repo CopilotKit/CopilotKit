@@ -12,7 +12,7 @@ There are two:
 
 | Skill | Use it to |
 | --- | --- |
-| `copilotkit` | Answer any CopilotKit question from current docs and source. It fetches the docs as Markdown, and uses the `copilotkit-docs` MCP server when the plugin provides it |
+| `copilotkit` | Answer any CopilotKit question from current docs and source. It fetches the docs as Markdown. When the CopilotKit Claude Code plugin is installed, it also uses the plugin's `copilotkit-docs` MCP server |
 | `copilotkit-cli` | Drive the CLI: scaffold a project, connect Intelligence, and prove a project's wiring with `copilotkit verify` before debugging by hand |
 
 You don't need to pick between them. Your agent loads whichever fits the task. The [skills directory](https://github.com/CopilotKit/CopilotKit/tree/main/skills) also holds a few procedure skills, such as setting up a Slack Channel, which walk through steps that span several systems.
@@ -24,8 +24,10 @@ You don't need to pick between them. Your agent loads whichever fits the task. T
     Run this from the root of the project you're building in:
 
     ```bash
-    npx skills add CopilotKit/CopilotKit/skills -y
+    npx skills add CopilotKit/CopilotKit/skills -s copilotkit copilotkit-cli -y
     ```
+
+    `-s` picks the two skills above. To add the Channels skills too, add `copilotkit-channels channels-setup setup-slack-channel` after `-s`.
 
     This installs the skills into your project, where any coding agent working there (Claude Code, Codex, Cursor, or Gemini CLI) discovers them automatically. There's no per-agent configuration to do.
 

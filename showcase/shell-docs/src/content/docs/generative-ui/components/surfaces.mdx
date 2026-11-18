@@ -16,13 +16,17 @@ A **surface** is one piece of generated UI. Each surface renders in a **target**
 
 ## Add a page target
 
-Wrap an area of your page in a target. Give it an id, and tell the agent what the area is for:
+Wrap an area of your page in a target. Give it an id, and tell the agent what the area is for. The examples use the `shopUI` catalog from [Catalogs](/generative-ui/components/catalogs).
+
+The provider's catalog decides what renders, so give the provider the same catalog: `generativeUI={{ ui: shopUI }}` in React, `:generativeUI="{ ui: shopUI }"` in Vue, `provideGenerativeUI({ ui: shopUI })` in Angular, `<GenerativeUIProvider ui={shopUI}>` on React Native. The `ui` prop of a target only types its `components`. With `standardUI` on the provider, every `ProductGrid` and `ProductCard` operation is dropped. To keep the standard components too, combine both in `createGenerativeUI({ id: "acme/app@1", extends: [standardUI, shopUI], components: {} })`, and pass that catalog to the provider and to the target's `ui`.
 
 <Tabs groupId="frontend_framework" items={["React", "Angular", "React Native", "Vue"]} persist>
   <Tab value="React">
-    ```tsx title="app/page.tsx"
+    ```tsx title="app/featured-products.tsx"
+    "use client";
     import { GenerativeUISurface } from "@copilotkit/react-core/v2/generative-ui";
     import { shopUI } from "./catalog";
+    import { ProductRow, type Product } from "./product-row";
 
     export function FeaturedProducts({ products }: { products: Product[] }) {
       return (
@@ -36,6 +40,8 @@ Wrap an area of your page in a target. Give it an id, and tell the agent what th
       );
     }
     ```
+
+    `ProductRow` is your existing product row, and `Product` its item type. Render `<FeaturedProducts products={products} />` on a client page (`"use client"`), next to your chat.
   </Tab>
   <Tab value="Angular">
     ```ts title="src/app/featured-products.component.ts"
@@ -430,7 +436,7 @@ On every run, the agent gets:
 - The targets that are mounted, with their descriptions and component limits, and the chat target.
 - The surfaces that already exist, so it can update one in place instead of building a new one.
 - The values the user typed into a surface. The agent cannot write over those values.
-- The operations that the runtime or the app (the browser, or the React Native app) rejected, with the reason, so the agent can fix them.
+- The operations that the runtime or the app (the browser, or the React Native app) rejected, with the reason. The agent reads them on its next run and can fix them then.
 
 To see the same data, open the **Surfaces** tab of the Generative UI pane in Inspector. If a surface stays empty, see [When something does not render](/generative-ui/components#when-something-does-not-render).
 

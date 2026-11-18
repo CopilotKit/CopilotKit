@@ -16,15 +16,19 @@ record per user across Slack and Teams. Pick the source by what you need:
 | Store workflow progress                             | `thread.state()`                                                        |
 | Meet application deletion or retention requirements | A durable SDK transcript store plus your provider/Intelligence policies |
 
-Managed conversation history rebuilds the current provider thread for the
-agent. SDK transcripts are an application-owned record, keyed by identity, that
-can span providers and conversations. They are not interchangeable.
+The terms on this page:
+
+- **Managed conversation history**: the recent messages of the current Slack or Teams conversation. Intelligence fetches them and gives them to the agent on each turn.
+- **Provider thread**: the native Slack or Teams conversation that `thread` points to.
+- **SDK transcripts**: an optional record that your application owns. It is keyed by user identity and can span providers and conversations.
+
+Managed conversation history and SDK transcripts are not interchangeable.
 
 ## Use managed conversation history
 
 On each delivered turn, Intelligence fetches recent messages for that native
-conversation and seeds a fresh agent instance. The default history limit in the
-managed adapter is 20 messages.
+conversation and seeds a fresh agent instance. Intelligence decides how many
+recent messages it returns. The SDK accepts up to 100 messages per turn.
 
 The managed conversation history already holds the current turn, with its
 text and hydrated attachments. Call `runAgent()` without a `prompt` to answer
@@ -43,13 +47,17 @@ between threads can leak or overwrite history.
 ## Read the current provider thread
 
 `thread.getMessages()` returns a best-effort, oldest-first text view of recent
-history:
+history. Call it inside a handler, where `thread` is available:
 
-```ts title="read-thread.ts"
-const messages = await thread.getMessages();
-const transcript = messages
-  .map((message) => `${message.isBot ? "Agent" : "User"}: ${message.text}`)
-  .join("\n");
+```ts title="channel.ts"
+channel.onMessage(async ({ thread }) => {
+  const messages = await thread.getMessages();
+  const transcript = messages
+    .map((message) => `${message.isBot ? "Agent" : "User"}: ${message.text}`)
+    .join("\n");
+  console.log(transcript);
+  await thread.runAgent();
+});
 ```
 
 On the managed path, `getMessages()` throws when the history fetch fails. Catch
@@ -80,8 +88,14 @@ import { accounts } from "./accounts.js";
 import { makeAgent } from "./agent.js";
 import { durableStateStore } from "./state-store.js";
 
+function required(name: string): string {
+  const value = process.env[name];
+  if (!value) throw new Error(`Missing ${name}`);
+  return value;
+}
+
 const channel = createChannel({
-  name: process.env.CHANNEL_CODE,
+  name: required("CHANNEL_CODE"),
   identifyUser: async ({ provider, actor }) => {
     const account = await accounts.findByExternalIdentity({
       provider,
@@ -110,8 +124,14 @@ import { accounts } from "./accounts.js";
 import { makeAgent } from "./agent.js";
 import { durableStateStore } from "./state-store.js";
 
+function required(name: string): string {
+  const value = process.env[name];
+  if (!value) throw new Error(`Missing ${name}`);
+  return value;
+}
+
 const channel = createChannel({
-  name: process.env.CHANNEL_CODE,
+  name: required("CHANNEL_CODE"),
   identifyUser: async ({ provider, actor }) => {
     const account = await accounts.findByExternalIdentity({
       provider,
@@ -131,6 +151,11 @@ const channel = createChannel({
 ```
 
 </FrontendOnly>
+
+Two imports in this file are yours to supply:
+
+- `accounts` is your own user directory.
+- `durableStateStore` is any durable `StateStore`. See [Persistence and scaling](/channels/persistence-and-scaling). For a local test, use `export const durableStateStore = new MemoryStore();` with `MemoryStore` from `@copilotkit/channels`.
 
 Provider user ids are not cross-platform identities. Resolve them to a stable
 application user id, verified email, or another identity your application
@@ -172,8 +197,8 @@ const { deleted } = await channel.transcripts.delete({
 });
 ```
 
-`list()` returns entries oldest-first. You can filter by platform, thread id, or
-role. Managed entries use the native `"slack"` or `"teams"` provider. Resolve
+`list()` returns entries oldest-first. Filter with `platforms: ["slack"]`,
+`threadId`, or `roles: ["user"]`. Managed entries use the native `"slack"` or `"teams"` provider. Resolve
 cross-provider identity through the application `userId`. Use the platform
 filter only when you intentionally want one provider's entries.
 

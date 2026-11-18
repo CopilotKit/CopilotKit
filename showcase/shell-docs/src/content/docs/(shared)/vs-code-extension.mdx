@@ -6,7 +6,7 @@ description: Preview supported CopilotKit UI sources, A2UI catalog components, a
 You want to see your render hooks, A2UI components, or agent events without running the whole app. The CopilotKit VS Code extension shows each one in your editor. Install it once and you get three sidebars under the CopilotKit activity-bar icon:
 
 <FrontendOnly frontend="react">
-- **CopilotKit Hooks**: discover every call to `useCopilotAction`, `useRenderTool`, `useCoAgentStateRender`, and other render hooks in your workspace, and live-preview their `render` components with auto-generated form controls.
+- **CopilotKit Hooks**: discover every call to `useRenderTool`, `useFrontendTool`, `useHumanInTheLoop`, `useComponent`, and other render hooks in your workspace (including the deprecated v1 hooks such as `useCopilotAction`), and live-preview their `render` components with auto-generated form controls.
 </FrontendOnly>
 <FrontendOnly frontend="angular">
 - **CopilotKit Hooks**: currently targets hook-based frontend source. For Angular component examples, use the Angular feature catalog and linked Showcase source.
@@ -52,7 +52,7 @@ Each is a self-contained tool. Pick the one that matches what you're working on.
 <FrontendOnly frontend="react">
 ## Hook Explorer
 
-You have a file that calls `useCopilotAction`, `useRenderTool`, or any other render-capable CopilotKit hook, and you want to iterate on the `render` prop. The **CopilotKit Hooks** sidebar lists every call-site in your workspace. Clicking one opens a live preview panel where the `render` output is driven by a form built from your hook's declared parameters.
+You have a file that calls `useRenderTool`, `useHumanInTheLoop`, or any other render-capable CopilotKit hook, and you want to iterate on the `render` prop. The **CopilotKit Hooks** sidebar lists every call-site in your workspace. Clicking one opens a live preview panel where the `render` output is driven by a form built from your hook's declared parameters.
 
 Other features:
 
@@ -107,8 +107,8 @@ Fixtures are named test-data scenarios. Create a fixture file next to your compo
   "default": {
     "surfaceId": "preview",
     "messages": [
-      { "beginRendering": { "surfaceId": "preview", "root": "root" } },
-      { "surfaceUpdate": { "surfaceId": "preview", "components": [] } }
+      { "version": "v0.9", "createSurface": { "surfaceId": "preview", "catalogId": "copilotkit://custom-catalog" } },
+      { "version": "v0.9", "updateComponents": { "surfaceId": "preview", "components": [] } }
     ]
   },
   "empty state": {
@@ -125,8 +125,8 @@ export default {
   "default": {
     surfaceId: "preview",
     messages: [
-      { beginRendering: { surfaceId: "preview", root: "root" } },
-      { surfaceUpdate: { surfaceId: "preview", components: [] } },
+      { version: "v0.9", createSurface: { surfaceId: "preview", catalogId: "copilotkit://custom-catalog" } },
+      { version: "v0.9", updateComponents: { surfaceId: "preview", components: [] } },
     ],
   },
   "empty state": {
@@ -139,6 +139,8 @@ export default {
 </Tabs>
 
 Each top-level key is a named fixture. Switch between them from the fixture dropdown inside the preview panel.
+
+Fixture messages use A2UI v0.9: `createSurface` first, then `updateComponents` and `updateDataModel`. Set `catalogId` to the id of your catalog. `createCatalog` uses `copilotkit://custom-catalog` when you do not pass a `catalogId`.
 </Step>
 </Steps>
 
@@ -148,7 +150,13 @@ Each top-level key is a named fixture. Switch between them from the fixture drop
 
 ## AG-UI Inspector
 
-You're running Copilot Runtime and something in an agent interaction is off: a tool call isn't firing, a state delta is wrong, or the run ends before the UI settles. The **AG-UI Inspector** sidebar opens a dedicated SSE connection to `{runtimeUrl}/cpk-debug-events` and renders every event in a filterable, color-coded stream. Click any event row to expand the full JSON payload. That path is relative to the base path the runtime is mounted at. In the AG-UI Inspector sidebar, enter the full runtime URL (for example `http://localhost:3000/api/copilotkit`), not only the origin.
+You're running Copilot Runtime and something in an agent interaction is off: a tool call isn't firing, a state delta is wrong, or the run ends before the UI settles. The **AG-UI Inspector** sidebar opens a dedicated SSE connection to `{runtimeUrl}/cpk-debug-events` and renders every event in a filterable, color-coded stream. Click any event row to expand the full JSON payload. That path is relative to the base path the runtime is mounted at. In the AG-UI Inspector sidebar, enter the full runtime URL, not only the origin. For example:
+
+```text
+http://localhost:3000/api/copilotkit
+```
+
+The runtime serves this feed only when `NODE_ENV` is `development` (for example under `next dev`) or when you turn on [runtime debug mode](/troubleshooting/debug-mode). Otherwise the endpoint returns 404 and the sidebar shows no events.
 
 <Callout type="info">
   Full walkthrough, event-type color reference, and production guard details: [AG-UI Event Inspector](/troubleshooting/event-inspector).

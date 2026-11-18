@@ -12,6 +12,12 @@ snippet_cell: gen-ui-tool-based
 
 A display component is a React component that your agent can call as a tool. When the agent calls the tool, CopilotKit renders your component directly in the chat with the tool's arguments as props. You do not write a handler, and the user does not need to do anything.
 
+The chart in this example uses Recharts and Zod. Install them first:
+
+```bash
+npm install recharts zod
+```
+
 <Tabs items={['page.tsx', 'chart.tsx']}>
   <Tab value="page.tsx">
 ```tsx
@@ -73,9 +79,20 @@ Use a display component when you want to:
 
 <FrameworkSetup concept="frontend-tools-setup" />
 
+<WhenFrameworkHas flag="agent_config_pattern" equals="runtime-properties">
+
+To use these steps with the `showChart` example at the top of this page:
+
+- In `prompts.ts`, name `showChart`, the tool you registered with `useComponent`, in place of the demo's `render_bar_chart`.
+- In `route.ts`, add `import { SYSTEM_PROMPT } from "../prompts";`.
+- In factory mode, import `SYSTEM_PROMPT` from `./prompts` in `factory.ts` and pass `system: SYSTEM_PROMPT` to `streamText`. Export the agent, and register it in your route as `agents: { default: agent }`.
+
+</WhenFrameworkHas>
+
 The display component receives the tool's arguments as typed props and
-mounts inline in the chat. Below is the bar chart from the demo. The
-agent sends the data, and the component draws it.
+mounts inline in the chat. Below is the bar chart from the demo, for
+reference: the `showChart` example at the top of this page is the one to
+copy. The agent sends the data, and the component draws it.
 
 <Snippet
   region="bar-chart-renderer"

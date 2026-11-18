@@ -4,8 +4,6 @@ description: "Surface errors visually in development, and wire programmatic erro
 icon: "lucide/TriangleAlert"
 ---
 
-# How to debug errors
-
 When a run fails, you need to see the error while you develop and send it to your error tracker in production. Turn on the dev console for development. The dev console shows error banners and toasts in your app. Then add an `onError` handler for production.
 
 ## Quick setup
@@ -27,17 +25,13 @@ export default function App() {
 
 `showDevConsole` is deprecated. It still turns on the error banners and toasts of the dev console. For the Inspector, use `enableInspector`.
 
-To check the setup, stop your runtime and reload the page. An error banner appears. Click **Show Details** to see the code `runtime_info_fetch_failed`.
+The banners come from the `<CopilotKit>` component. `<CopilotKitProvider>` accepts `showDevConsole` but ignores it. If your app uses `<CopilotKitProvider>` (as the quickstart does), replace it with `<CopilotKit>` while you debug, or use [`onError`](#programmatic-error-handling) to show your own message.
+
+To check the setup, set `runtimeUrl` to a route that does not exist, for example `/api/copilotkit-off`, and reload the page. An error banner appears. Click **Show Details** to see the code `runtime_info_fetch_failed`.
 
 <Callout type="warn">
 Do not show the dev console in production. It exposes internal error details to end users.
 </Callout>
-
-## When to use development debugging
-
-- **Local development**: errors appear immediately in your UI
-- **Quick debugging**: no setup required, works by default
-- **Testing**: verify error handling during development
 
 ## Programmatic error handling
 
@@ -57,7 +51,7 @@ import { CopilotKitProvider } from "@copilotkit/react-core/v2";
     // event.error   — the Error object
     // event.context — additional context (agentId, toolName, etc.)
     console.error(`[CopilotKit ${event.code}]`, event.error.message);
-    errorTracker.capture(event);
+    errorTracker.capture(event); // replace with your error tracker
   }}
 >
   <App />
@@ -66,22 +60,32 @@ import { CopilotKitProvider } from "@copilotkit/react-core/v2";
 
 ### Chat-level error handling
 
-Scoped to a specific chat's agent. It fires **in addition to** the provider-level handler:
+Scoped to a specific chat's agent. It fires **in addition to** the provider-level handler. It also receives errors that have no agent, such as `runtime_info_fetch_failed`:
 
 ```tsx
 import { CopilotChat } from "@copilotkit/react-core/v2";
 
 <CopilotChat
-  agentId="my-agent"
   onError={(event) => {
-    showToast(`Agent error: ${event.error.message}`);
+    // The prop type also allows a DOM error event, so check for `code` first.
+    if ("code" in event) {
+      showToast(`Agent error: ${event.error.message}`); // your toast function
+    }
   }}
 />;
 ```
 
 ### Errors replayed from thread history
 
-Connecting to an existing thread replays its history, including a `RUN_ERROR` from an earlier run. `onError` receives that error with the code `agent_run_error_event`, like a live failure. `event.context.phase` tells them apart: `"live"` for a run happening now, `"replay"` for thread history, and `"unknown"` when the connection can't tell.
+<Callout type="info">
+Requires `@copilotkit/react-core` 1.89.0 or later. In earlier versions `event.context.phase` is not set.
+</Callout>
+
+Connecting to an existing thread replays its history, including a `RUN_ERROR` from an earlier run. `onError` receives that error with the code `agent_run_error_event`, like a live failure. `event.context.phase` tells them apart:
+
+- `"live"`: a run happening now.
+- `"replay"`: thread history. Only threads stored in [CopilotKit Intelligence](/intelligence/overview) report this value.
+- `"unknown"`: the connection can't tell. A self-hosted Copilot Runtime (for example the default in-memory runner) sends replayed errors as `"unknown"`, so they still reach your banner.
 
 If your handler shows a banner, skip only `"replay"`. Keep `"unknown"` visible, so a live failure is never hidden:
 
@@ -101,14 +105,16 @@ import {
     ) {
       return; // An earlier run's failure, replayed on connect.
     }
-    showErrorBanner(event.error.message);
+    showErrorBanner(event.error.message); // your banner function
   }}
 >
   <App />
 </CopilotKitProvider>;
 ```
 
-### Error codes
+### Common error codes
+
+The full list is the `CopilotKitCoreErrorCode` enum, exported from `@copilotkit/react-core/v2`.
 
 | Code | Description |
 |------|-------------|
@@ -119,6 +125,11 @@ import {
 | `agent_run_error_event` | Agent emitted a `RUN_ERROR` event |
 | `tool_argument_parse_failed` | Tool call arguments were not valid JSON |
 | `tool_handler_failed` | A frontend tool handler threw |
+| `tool_not_found` | A tool call or `runTool()` named a tool that is not registered |
+| `agent_not_found` | `runTool()` named an `agentId` that is not registered |
+| `agent_thread_locked` | Another run is active on the same thread |
+| `header_resolution_failed` | Your `headers` function threw or returned something other than an object. The request was not sent |
+| `subscriber_callback_failed` | A subscriber callback threw |
 
 <Callout type="info">
 To see every event your agent emits and where events drop, open the [Inspector](../inspector). When a run fails, the launcher turns red. Click the launcher to open the pane for the failure. The pane shows the agent, the tool if one failed, and the error.

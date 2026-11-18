@@ -57,6 +57,16 @@ Then add that data to the agent's messages in your AG-UI server, as shown below.
 
         <Tabs groupId="language_microsoft-agent-framework_agent" items={['.NET', 'Python']} persist>
           <Tab value=".NET">
+            <Callout type="info">
+              Context registered with `useAgentContext` is forwarded in `RunAgentInput.Context` as `AGUIContext` entries. `TryGetRunAgentInput` reads that `RunAgentInput` from the chat options.
+            </Callout>
+
+            <Callout type="tip">
+              **Configuration & Error Handling**: This example uses `OPENAI_API_KEY` for configuration. Set it with user secrets or an environment variable. For production deployments, add appropriate error handling and consider using the [Quickstart](/quickstart) or [Authentication](/auth) guides for complete setup patterns.
+            </Callout>
+
+            This `Program.cs` replaces the quickstart's file and keeps its port, `8000`.
+
             ```csharp title="Program.cs"
 #pragma warning disable OPENAI001
             using System.Runtime.CompilerServices;
@@ -97,7 +107,7 @@ Then add that data to the agent's messages in your AG-UI server, as shown below.
 
             // Map the AG-UI endpoint
             app.MapAGUIServer("/", agent);
-            await app.RunAsync();
+            await app.RunAsync("http://localhost:8000");
 
             // Middleware to inject useAgentContext context as a system message
             async IAsyncEnumerable<AgentResponseUpdate> InjectContextMiddleware(
@@ -176,6 +186,7 @@ Then add that data to the agent's messages in your AG-UI server, as shown below.
                 async def run(
                     self,
                     input_data: dict[str, Any],
+                    **kwargs: Any,
                 ) -> AsyncGenerator[BaseEvent, None]:
                     context_prompt = build_context_system_message(input_data.get("context"))
                     messages = input_data.get("messages")
@@ -204,7 +215,7 @@ Then add that data to the agent's messages in your AG-UI server, as shown below.
                         ]
                         input_data = request_input
 
-                    async for event in super().run(input_data):
+                    async for event in super().run(input_data, **kwargs):
                         yield event
 
 
@@ -222,16 +233,20 @@ Then add that data to the agent's messages in your AG-UI server, as shown below.
                     require_confirmation=False,
                 )
             ```
+
+            Then serve it. In the quickstart's `main.py`, replace the `agent = Agent(...)` block and the `add_agent_framework_fastapi_endpoint(...)` call with:
+
+            ```python title="main.py (excerpt)"
+            agent = create_agent(chat_client)
+            app = FastAPI(title="Microsoft Agent Framework - Quickstart")
+            add_agent_framework_fastapi_endpoint(app=app, agent=agent, path="/", single_user=True)
+            ```
+
+            `chat_client`, `FastAPI` and `add_agent_framework_fastapi_endpoint` come from the quickstart's `main.py`. Python reads the model key from `.env`, as in the quickstart.
           </Tab>
         </Tabs>
 
-        <Callout type="info">
-          Context registered with `useAgentContext` is forwarded in `RunAgentInput.Context` as `AGUIContext` entries. `TryGetRunAgentInput` reads that `RunAgentInput` from the chat options.
-        </Callout>
-
-        <Callout type="tip">
-          **Configuration & Error Handling**: This example uses `OPENAI_API_KEY` for configuration. Set it with user secrets or an environment variable. For production deployments, add appropriate error handling and consider using the [Quickstart](/quickstart) or [Authentication](/auth) guides for complete setup patterns.
-        </Callout>
+        The examples paste the context value into the prompt as text, so they do not parse it. Parse the value only when your code reads its fields.
     </Step>
     <Step>
         ### Give it a try

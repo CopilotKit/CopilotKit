@@ -63,9 +63,29 @@ Use this prompt to set up CopilotKit in your React Native app, configure Metro a
 
         This guide needs `@copilotkit/react-native` 1.64.0 or later. To see your version, run `npm ls @copilotkit/react-native`. For older versions, see [Import surfaces](#import-surfaces).
 
+        npm can print `ERESOLVE overriding peer dependency` warnings about `react-dom`. They come from web-only parts of `@copilotkit/react-core`, and you can ignore them.
+
         <Callout type="info" title="TypeScript: use bundler module resolution">
             The `/headless`, `/components`, `/generative-ui` and `/polyfills` subpaths are published through the package `exports` map, which TypeScript's legacy `"moduleResolution": "node"` (`node10`) ignores. Under that setting, type checking fails with `Cannot find module '@copilotkit/react-native/headless'` even though Metro bundles the app. Set `"moduleResolution": "bundler"` in `tsconfig.json`; if `module` is `commonjs` or unset, also set `"module": "esnext"`. `@react-native/typescript-config` and Expo's base config already use `bundler`.
         </Callout>
+    </Step>
+    <Step>
+        ### Let Metro compile `export * as` (bare React Native CLI)
+
+        `zod` uses `export * as` syntax, and the default Babel preset of a bare React Native CLI app does not compile it. Without this step, the first bundle fails with `Export namespace should be first transformed by @babel/plugin-transform-export-namespace-from`. Expo apps already include the plugin, so skip this step on Expo.
+
+        Install the Babel 7 plugin and add it to `babel.config.js`:
+
+        ```bash
+        npm install -D "@babel/plugin-transform-export-namespace-from@^7"
+        ```
+
+        ```js title="babel.config.js"
+        module.exports = {
+          presets: ["module:@react-native/babel-preset"],
+          plugins: ["@babel/plugin-transform-export-namespace-from"], // [!code highlight]
+        };
+        ```
     </Step>
     <Step>
         ### Add polyfills
@@ -302,6 +322,7 @@ Use this prompt to set up CopilotKit in your React Native app, configure Metro a
         <Accordions className="mb-4">
             <Accordion title="Troubleshooting">
                 - **Metro can't resolve modules**: Clear the cache with `npx react-native start --reset-cache`.
+                - **`Export namespace should be first transformed by @babel/plugin-transform-export-namespace-from`**: add the Babel plugin from [Let Metro compile `export * as`](#let-metro-compile-export--as-bare-react-native-cli), then restart Metro with `--reset-cache`.
                 - **Streaming not working**: Make sure polyfills are imported before any CopilotKit code in your entry point.
                 - **No response from the runtime**: Confirm the runtime server is running, `http://localhost:8200/api/copilotkit/info` returns the `default` agent, and the device can reach `runtimeUrl`. For physical devices, use your machine's LAN IP instead of `localhost`.
                 - **Model auth errors**: Confirm `OPENAI_API_KEY` is set in the terminal running `npx tsx server.ts`.
@@ -351,6 +372,38 @@ On `@copilotkit/react-native` 1.63.x and earlier there is no `/headless`. The su
 
 Importing the provider auto-installs the polyfills: `/headless` runs the polyfill barrel as its first statement, and the root barrel gets it through its `/headless` re-export. `/components` does **not** install them itself. It relies on the provider you import alongside it (from `/headless` or the root). And because the root barrel re-exports everything from `/headless`, existing `@copilotkit/react-native` imports keep working unchanged.
 
+### Native peers for the rendered chat
+
+`/components` needs native peers. In an Expo app, install them with one command:
+
+```bash
+npx expo install @gorhom/bottom-sheet react-native-gesture-handler react-native-reanimated react-native-worklets react-native-streamdown
+```
+
+In a bare React Native CLI app:
+
+1. Install the same packages:
+
+   ```bash
+   npm install @gorhom/bottom-sheet react-native-gesture-handler react-native-reanimated react-native-worklets react-native-streamdown
+   ```
+
+2. Add the Reanimated Babel plugin, `react-native-worklets/plugin`, as the last entry of `plugins` in `babel.config.js`:
+
+   ```js title="babel.config.js"
+   module.exports = {
+     presets: ["module:@react-native/babel-preset"],
+     plugins: [
+       "@babel/plugin-transform-export-namespace-from",
+       "react-native-worklets/plugin", // [!code highlight]
+     ],
+   };
+   ```
+
+3. On iOS, run `cd ios && pod install`, then rebuild the app.
+
+`CopilotPopup`, `CopilotSidebar`, and attachments from the root barrel need `expo-document-picker` and `expo-file-system` instead. See [Multimodal Attachments](/multimodal-attachments#install-the-expo-modules).
+
 ### Which hooks are shared, and which aren't
 
 The **package** (both `/headless` and the root barrel) re-exports the platform-agnostic hooks from `@copilotkit/react-core`: `useAgent`, `useFrontendTool`, `useHumanInTheLoop`, `useInterrupt`, `useSuggestions`, `useConfigureSuggestions`, `useAgentContext`, `useThreads`, `useCapabilities`, `useComponent`, `useCopilotKit`, and `useRenderToolCall`. These behave the same as on the web.
@@ -376,7 +429,7 @@ Both hooks write into the same react-core renderer registry, which the rendered 
 
 ## Metro configuration for release bundles
 
-With package exports enabled, a release bundle can fail with `Unable to resolve module node:crypto` (or another `node:` specifier) pointing at `jose`. This surfaces **only at bundle time**, never at typecheck.
+If a release bundle fails with `Unable to resolve module node:crypto` (or another `node:` specifier) pointing at `jose`, scope `jose` to its browser build as shown below. This error surfaces **only at bundle time**, never at typecheck. A release bundle of `@copilotkit/react-native` 1.89.0 on React Native 0.88 does not include `jose`, so it does not need this step.
 
 `jose` is not a direct dependency. It arrives transitively through telemetry: `@copilotkit/shared` → `@segment/analytics-node` → `jose`. `jose` publishes separate Node and browser builds behind its `exports` map, and its Node build imports `node:`-prefixed modules that Hermes cannot bundle.
 
@@ -422,7 +475,7 @@ On Expo, swap in `getDefaultConfig` from `expo/metro-config`; the `resolver` blo
 </Callout>
 
 <Callout type="success" title="Headless removes the need to stub">
-  Importing from [`@copilotkit/react-native/headless`](#import-surfaces) means Metro never resolves the chat or attachment peer dependencies, so you don't need `@gorhom/bottom-sheet`, `expo-document-picker`, or `expo-file-system` at all. The `jose` resolver above is independent of that choice. You need it either way.
+  Importing from [`@copilotkit/react-native/headless`](#import-surfaces) means Metro never resolves the chat or attachment peer dependencies, so you don't need `@gorhom/bottom-sheet`, `expo-document-picker`, or `expo-file-system` at all. The `jose` resolver above is independent of that choice.
 </Callout>
 
 ## Polyfills
@@ -1064,17 +1117,24 @@ You start with the chat screen from the quickstart. You end with an agent that r
 
         The default wrapper of `GenerativeUIActivity` adds a short error line when operations of the surface were rejected. To show your own streaming or error state, pass a `Wrapper` component. It gets `surfaceId`, `isStreaming`, `error`, `rejected` and `children`.
 
-        The agent knows nothing about the user's accounts yet. Give it the data with [`useAgentContext`](/reference/react-native/hooks/useAgentContext), in any component under the provider:
+        The agent knows nothing about the user's accounts yet. Give it the data with [`useAgentContext`](/reference/react-native/hooks/useAgentContext), in a component under the provider:
 
-        ```tsx
-        useAgentContext({
-          description: "The user's accounts. Show only these, with these exact balances.",
-          value: [
-            { account: "Chequing", amount: 3482.1, currency: "USD" },
-            { account: "Savings", amount: 6150, currency: "USD" },
-          ],
-        });
+        ```tsx title="src/AccountsContext.tsx"
+        import { useAgentContext } from "@copilotkit/react-native/headless";
+
+        export function AccountsContext() {
+          useAgentContext({
+            description: "The user's accounts. Show only these, with these exact balances.",
+            value: [
+              { account: "Chequing", amount: 3482.1, currency: "USD" },
+              { account: "Savings", amount: 6150, currency: "USD" },
+            ],
+          });
+          return null;
+        }
         ```
+
+        Render `<AccountsContext />` inside `GenerativeUIProvider` in `App.tsx`, next to `<ChatScreen />`.
 
         Run the app and send "Show my balances". The agent answers with a `Section` of `BalanceCard`s, and a follow-up such as "add a tip about my savings" adds an `InsightCard` to the same surface.
     </Step>
@@ -1262,7 +1322,7 @@ You start with the chat screen from the quickstart. You end with an agent that r
         }
         ```
 
-        Render `HomeScreen` anywhere under `GenerativeUIProvider`, next to a component that calls `useAgentContext` with the accounts. The run's user message and the agent's text never show. The screen shows only the chat surfaces that `isChatSurface` keeps, which fill in while the agent streams. The run waits for `isReady`, so it goes to the agent that the runtime registered.
+        Render `HomeScreen` anywhere under `GenerativeUIProvider`, next to `<AccountsContext />`. The run's user message and the agent's text never show. The screen shows only the chat surfaces that `isChatSurface` keeps, which fill in while the agent streams. The run waits for `isReady`, so it goes to the agent that the runtime registered.
 
         The `home` agent and its messages live in the core, not in the screen, so a screen that mounts again (after the user navigates away and back) shows the surfaces the agent already rendered and starts no run. While a run is still going, it shows the spinner until that run ends.
 
