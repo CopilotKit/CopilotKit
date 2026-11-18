@@ -34,6 +34,15 @@ function resolveMaxConcurrentUploads(configured: number | undefined): number {
   return Math.max(1, Math.floor(configured));
 }
 
+/**
+ * Whether a drag carries files. A drag that carries only text or a link belongs to the
+ * browser: claiming it would blur the chat and swallow a selection the user meant to drop
+ * into the input.
+ */
+function carriesFiles(dataTransfer: DataTransfer | null): boolean {
+  return Array.from(dataTransfer?.types ?? []).includes("Files");
+}
+
 /** One file waiting for, or holding, an upload slot. */
 interface QueuedUpload {
   file: File;
@@ -280,12 +289,14 @@ export function useAttachments({
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     if (!configRef.current?.enabled) return;
+    if (!carriesFiles(e.dataTransfer)) return;
     e.preventDefault();
     e.stopPropagation();
     setDragOver(true);
   }, []);
 
   const handleDragLeave = useCallback((e: React.DragEvent) => {
+    if (!carriesFiles(e.dataTransfer)) return;
     e.preventDefault();
     e.stopPropagation();
     setDragOver(false);
@@ -293,6 +304,7 @@ export function useAttachments({
 
   const handleDrop = useCallback(
     async (e: React.DragEvent) => {
+      if (!carriesFiles(e.dataTransfer)) return;
       e.preventDefault();
       e.stopPropagation();
       setDragOver(false);
