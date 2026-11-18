@@ -12,22 +12,6 @@ type SessionState =
 
 const runtimeUrl = "/api/copilotkit";
 
-function storedToken(key: string) {
-  try {
-    return sessionStorage.getItem(key);
-  } catch {
-    return null;
-  }
-}
-
-function storeToken(key: string, token: string) {
-  try {
-    sessionStorage.setItem(key, token);
-  } catch {
-    // Some browsers restrict storage in iframes. The current chat still works.
-  }
-}
-
 function requestSession(
   agent: DemoAgentId,
   token: string | null,
@@ -91,26 +75,20 @@ export function DemoSessionProvider({
   children: ReactNode;
 }) {
   const [state, setState] = useState<SessionState>({ status: "loading" });
-  const [attempt, setAttempt] = useState({ number: 0, startFresh: false });
+  const { status } = state;
 
   useEffect(() => {
+    if (status !== "loading") return;
+
     const controller = new AbortController();
-    const storageKey = `omnara-session:${agent}`;
-    const token = attempt.startFresh ? null : storedToken(storageKey);
 
     async function loadSession() {
-      const response = await requestSession(agent, token, controller.signal);
+      const response = await requestSession(agent, null, controller.signal);
 
-      if (controller.signal.aborted) return;
-      if (response.status === 401) {
-        setState({ status: "ended" });
-        return;
-      }
       if (!response.ok) throw new Error("Chat session setup failed.");
 
       const session: Session = await response.json();
       if (controller.signal.aborted) return;
-      storeToken(storageKey, session.token);
       setState({ status: "ready", session });
     }
 
@@ -118,7 +96,7 @@ export function DemoSessionProvider({
       if (!controller.signal.aborted) setState({ status: "unavailable" });
     });
     return () => controller.abort();
-  }, [agent, attempt]);
+  }, [agent, status]);
 
   if (state.status === "ready") {
     const { threadId, token } = state.session;
@@ -162,13 +140,7 @@ export function DemoSessionProvider({
           <button
             type="button"
             className="rounded-md border px-3 py-2"
-            onClick={() => {
-              setAttempt(({ number, startFresh }) => ({
-                number: number + 1,
-                startFresh: startFresh || state.status === "ended",
-              }));
-              setState({ status: "loading" });
-            }}
+            onClick={() => setState({ status: "loading" })}
           >
             {state.status === "ended" ? "Start a new chat" : "Try again"}
           </button>

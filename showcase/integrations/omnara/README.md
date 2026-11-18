@@ -34,20 +34,18 @@ returns HTTP 503 without revealing credentials. Builds need no credentials.
 
 ## Visitor sessions
 
-Each demo opens one native Omnara thread for its browser session. The runtime
+Each demo opens one native Omnara thread for the life of the page. The runtime
 issues a signed credential scoped to that demo and thread. It checks ownership
 before run, reconnect, and stop, and uses the verified identity for Omnara.
 The browser sends the credential on same-origin requests from the demo, including
-when Showcase or Dojo embeds it. Browser session storage preserves the same
-thread across reloads while the backend process is running. A browser that
-blocks session storage can still run a chat for the life of the page.
+when Showcase or Dojo embeds it. The credential lives only in page memory.
+Refreshing opens a fresh thread. Omnara retains the previous hosted conversation
+according to its [privacy policy](https://www.omnara.com/privacy/#7-data-retention).
 
-Run the demo on one backend process. The runner replays retained messages on
-reload. When its bounded cache evicts the transcript, the pinned Omnara
-adapter restores the native message snapshot on the next run. A process restart
-ends the browser session. The visitor can explicitly start a new chat after
-a failed turn or a reload. Shared Intelligence, cross-device history, and
-recovery across backend restarts are outside the launch scope.
+Run the demo on one backend process. The in-memory runner supports reconnecting
+while the page is open. A process restart ends the session, and the visitor can
+start a new chat after a failed turn. Shared Intelligence, cross-device history,
+and recovery across backend restarts are outside the launch scope.
 
 ## Verify
 
