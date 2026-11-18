@@ -160,19 +160,57 @@ interface ThreadSessionCursorState {
    */
   catchingUp: boolean;
   /**
-   * True once this catch-up passed on a snapshot the app had not seen, such as
-   * one from another tab's run. It replaced the app's messages or state with
-   * an earlier point of the replay, so the repeats after it apply again.
+   * Which repeats apply again during the catch-up. An event the app had not
+   * seen, such as one from another tab's run, can set its messages or state
+   * back to an earlier point of the replay. The repeats after it then rebuild
+   * that part of the view, and only that part.
    */
-  viewReplaced: boolean;
+  reapply: {
+    /** A messages snapshot was passed on: repeats other than state apply again. */
+    messages: boolean;
+    /** A state event was passed on: a repeated state snapshot applies again. */
+    stateSnapshots: boolean;
+    /**
+     * A state snapshot was passed on: repeated state deltas apply again too.
+     * Before one, a repeated delta is already in the app's state.
+     */
+    stateDeltas: boolean;
+  };
 }
 
-/** Whether `event` replaces the app's messages or state instead of adding to them. */
-function replacesView(event: BaseEvent): boolean {
-  return (
-    event.type === EventType.MESSAGES_SNAPSHOT ||
-    event.type === EventType.STATE_SNAPSHOT
-  );
+/** Whether a repeat of `event` applies again in `session`'s catch-up. */
+function appliesAgain(
+  session: ThreadSessionCursorState,
+  event: BaseEvent,
+): boolean {
+  if (!session.catchingUp) return false;
+  switch (event.type) {
+    case EventType.STATE_SNAPSHOT:
+      return session.reapply.stateSnapshots;
+    case EventType.STATE_DELTA:
+      return session.reapply.stateDeltas;
+    default:
+      return session.reapply.messages;
+  }
+}
+
+/** Note what `event`, passed on during a catch-up, set back in the app's view. */
+function notePassedOn(
+  reapply: ThreadSessionCursorState["reapply"],
+  event: BaseEvent,
+): void {
+  switch (event.type) {
+    case EventType.MESSAGES_SNAPSHOT:
+      reapply.messages = true;
+      break;
+    case EventType.STATE_SNAPSHOT:
+      reapply.stateSnapshots = true;
+      reapply.stateDeltas = true;
+      break;
+    case EventType.STATE_DELTA:
+      reapply.stateSnapshots = true;
+      break;
+  }
 }
 
 /**
@@ -953,7 +991,7 @@ export class IntelligenceAgent extends AbstractAgent {
           unnumberedIds: new Set<string>(),
         },
         catchingUp: shownBeforeRewind !== undefined,
-        viewReplaced: false,
+        reapply: { messages: false, stateSnapshots: false, stateDeltas: false },
       };
       // The replay that repeats what an earlier session passed on has ended.
       const endCatchUp = () => {
@@ -1104,8 +1142,10 @@ export class IntelligenceAgent extends AbstractAgent {
         STREAM_IDLE_EVENT,
         controlCursor,
         sessionCursor,
+        // A stream_idle can come before the history, so it does not end the
+        // catch-up; replay_complete or the fallback below does.
         () => replayHold.release(),
-      ).pipe(tap(endCatchUp), share());
+      ).pipe(share());
       const replayRestart$ = merge(
         this.observeControlEvent$(
           input.threadId,
@@ -1154,6 +1194,7 @@ export class IntelligenceAgent extends AbstractAgent {
                     ),
                     delay(CONNECT_STREAM_IDLE_REPLAY_FALLBACK_MS),
                     tap(() => {
+                      endCatchUp();
                       this.debugLogger?.lifecycle(
                         "INTELLIGENCE",
                         "Completing connection on stream_idle fallback without replay_complete.",
@@ -1247,14 +1288,14 @@ export class IntelligenceAgent extends AbstractAgent {
       events$.pipe(
         filter((payload) => {
           const eventId = this.readEventId(payload);
-          if (eventId === null) return true;
-          if (this.markDelivered(sessionCursor.delivered, eventId, payload)) {
-            if (sessionCursor.catchingUp && replacesView(payload)) {
-              sessionCursor.viewReplaced = true;
+          if (
+            eventId === null ||
+            this.markDelivered(sessionCursor.delivered, eventId, payload) ||
+            appliesAgain(sessionCursor, payload)
+          ) {
+            if (sessionCursor.catchingUp) {
+              notePassedOn(sessionCursor.reapply, payload);
             }
-            return true;
-          }
-          if (sessionCursor.catchingUp && sessionCursor.viewReplaced) {
             return true;
           }
           this.debugLogger?.lifecycle(

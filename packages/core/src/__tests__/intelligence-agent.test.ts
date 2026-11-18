@@ -793,9 +793,17 @@ describe("IntelligenceAgent", () => {
       });
 
       // The app connects, another tab then runs `other-run` on the thread, and
-      // the app's own run shows `ownRun` before its replay fails. The next
-      // connect replays the thread from the app's cursor: `other-run` first.
-      const recover = async (otherRun: BaseEvent[], ownRun: BaseEvent[]) => {
+      // the app's own run shows `shownOwnRun` before its replay fails. The
+      // next connect replays the thread from the app's cursor: `other-run`
+      // first, then the whole of the app's own run, `ownRun`.
+      const recover = async (
+        otherRun: BaseEvent[],
+        ownRun: BaseEvent[],
+        {
+          idleFirst = false,
+          shownOwnRun = ownRun,
+        }: { idleFirst?: boolean; shownOwnRun?: BaseEvent[] } = {},
+      ) => {
         const agent = createAgent();
         setThreadIdForTest(agent, "thread-1");
         const connected = agent.connectAgent({ runId: "run-0" });
@@ -814,7 +822,7 @@ describe("IntelligenceAgent", () => {
         await waitForConnection(agent);
         const runChannel = getChannel(agent)!;
         runChannel.triggerJoin("ok");
-        for (const event of ownRun) {
+        for (const event of shownOwnRun) {
           runChannel.serverPush("ag_ui_event", event);
           await flushAsyncWork();
         }
@@ -825,70 +833,142 @@ describe("IntelligenceAgent", () => {
         await waitForConnection(agent);
         const channel = getChannel(agent)!;
         channel.triggerJoin("ok");
+        if (idleFirst) channel.serverPush("stream_idle", {});
         for (const event of [...otherRun, ...ownRun]) {
           channel.serverPush("ag_ui_event", event);
         }
         channel.serverPush("replay_complete", {});
-        channel.serverPush("stream_idle", {});
+        if (!idleFirst) channel.serverPush("stream_idle", {});
         await reconnected;
         return agent;
       };
 
-      it("keeps the app's own reply after the other run's messages snapshot", async () => {
+      it.each([
+        ["after", false],
+        ["before", true],
+      ])(
+        "keeps the app's own reply after the other run's messages snapshot (stream_idle %s the history)",
+        async (_order, idleFirst) => {
+          const agent = await recover(
+            [
+              runEvent("other-run", 1, { type: EventType.RUN_STARTED }),
+              runEvent("other-run", 2, {
+                type: EventType.MESSAGES_SNAPSHOT,
+                messages: [
+                  { id: "other-reply", role: "assistant", content: "Hi there" },
+                ],
+              }),
+              runEvent("other-run", 3, { type: EventType.RUN_FINISHED }),
+            ],
+            [
+              runEvent("run-1", 1, { type: EventType.RUN_STARTED }),
+              runEvent("run-1", 2, {
+                type: EventType.TEXT_MESSAGE_START,
+                messageId: "reply",
+                role: "assistant",
+              }),
+              runEvent("run-1", 3, {
+                type: EventType.TEXT_MESSAGE_CONTENT,
+                messageId: "reply",
+                delta: "Hello",
+              }),
+            ],
+            { idleFirst },
+          );
+
+          expect(
+            agent.messages.map((message) => [message.id, message.content]),
+          ).toEqual([
+            ["other-reply", "Hi there"],
+            ["reply", "Hello"],
+          ]);
+        },
+      );
+
+      it.each<[string, BaseEvent]>([
+        [
+          "state snapshot",
+          runEvent("other-run", 2, {
+            type: EventType.STATE_SNAPSHOT,
+            snapshot: { step: "other" },
+          }),
+        ],
+        [
+          "state delta",
+          runEvent("other-run", 2, {
+            type: EventType.STATE_DELTA,
+            delta: [{ op: "replace", path: "/step", value: "other" }],
+          }),
+        ],
+        [
+          "state snapshot without an event id",
+          {
+            type: EventType.STATE_SNAPSHOT,
+            threadId: "thread-1",
+            runId: "other-run",
+            snapshot: { step: "other" },
+          } as BaseEvent,
+        ],
+      ])(
+        "ends with the state of the app's own run after the other run's %s, without repeating its text",
+        async (_write, otherWrite) => {
+          const agent = await recover(
+            [
+              runEvent("other-run", 1, { type: EventType.RUN_STARTED }),
+              otherWrite,
+              runEvent("other-run", 3, { type: EventType.RUN_FINISHED }),
+            ],
+            [
+              runEvent("run-1", 1, { type: EventType.RUN_STARTED }),
+              runEvent("run-1", 2, {
+                type: EventType.STATE_SNAPSHOT,
+                snapshot: { step: "own" },
+              }),
+              runEvent("run-1", 3, {
+                type: EventType.TEXT_MESSAGE_START,
+                messageId: "reply",
+                role: "assistant",
+              }),
+              runEvent("run-1", 4, {
+                type: EventType.TEXT_MESSAGE_CONTENT,
+                messageId: "reply",
+                delta: "Hello",
+              }),
+            ],
+          );
+
+          expect(agent.state).toEqual({ step: "own" });
+          expect(
+            agent.messages.map((message) => [message.id, message.content]),
+          ).toEqual([["reply", "Hello"]]);
+        },
+      );
+
+      it("does not apply the failed run's state deltas twice after a state write it missed", async () => {
+        // The failed run's replay had a gap: it never showed `run-1` seq 3.
+        // Its later delta is already in the app's state and must not repeat.
+        const started = runEvent("run-1", 1, { type: EventType.RUN_STARTED });
+        const snapshot = runEvent("run-1", 2, {
+          type: EventType.STATE_SNAPSHOT,
+          snapshot: { items: [] },
+        });
+        const missed = runEvent("run-1", 3, {
+          type: EventType.STATE_DELTA,
+          delta: [{ op: "add", path: "/missed", value: true }],
+        });
+        const shownDelta = runEvent("run-1", 4, {
+          type: EventType.STATE_DELTA,
+          delta: [{ op: "add", path: "/items/-", value: "b" }],
+        });
         const agent = await recover(
-          [
-            runEvent("other-run", 1, { type: EventType.RUN_STARTED }),
-            runEvent("other-run", 2, {
-              type: EventType.MESSAGES_SNAPSHOT,
-              messages: [
-                { id: "other-reply", role: "assistant", content: "Hi there" },
-              ],
-            }),
-            runEvent("other-run", 3, { type: EventType.RUN_FINISHED }),
-          ],
-          [
-            runEvent("run-1", 1, { type: EventType.RUN_STARTED }),
-            runEvent("run-1", 2, {
-              type: EventType.TEXT_MESSAGE_START,
-              messageId: "reply",
-              role: "assistant",
-            }),
-            runEvent("run-1", 3, {
-              type: EventType.TEXT_MESSAGE_CONTENT,
-              messageId: "reply",
-              delta: "Hello",
-            }),
-          ],
+          [],
+          [started, snapshot, missed, shownDelta],
+          {
+            shownOwnRun: [started, snapshot, shownDelta],
+          },
         );
 
-        expect(
-          agent.messages.map((message) => [message.id, message.content]),
-        ).toEqual([
-          ["other-reply", "Hi there"],
-          ["reply", "Hello"],
-        ]);
-      });
-
-      it("ends with the state of the app's own run, which came last", async () => {
-        const agent = await recover(
-          [
-            runEvent("other-run", 1, { type: EventType.RUN_STARTED }),
-            runEvent("other-run", 2, {
-              type: EventType.STATE_SNAPSHOT,
-              snapshot: { step: "other" },
-            }),
-            runEvent("other-run", 3, { type: EventType.RUN_FINISHED }),
-          ],
-          [
-            runEvent("run-1", 1, { type: EventType.RUN_STARTED }),
-            runEvent("run-1", 2, {
-              type: EventType.STATE_SNAPSHOT,
-              snapshot: { step: "own" },
-            }),
-          ],
-        );
-
-        expect(agent.state).toEqual({ step: "own" });
+        expect(agent.state).toEqual({ items: ["b"], missed: true });
       });
     });
 
