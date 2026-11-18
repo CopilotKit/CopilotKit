@@ -2,7 +2,8 @@ import { describe, it, expect } from "vitest";
 import { runBuildCheck } from "./verify-shell-docs.js";
 import { checkInlineDemoRefs } from "./verify-shell-docs.js";
 import { checkSnippetRegions } from "./verify-shell-docs.js";
-import { checkInternalLinks } from "./verify-shell-docs.js";
+import { buildKnownRoutes, checkInternalLinks } from "./verify-shell-docs.js";
+import type { SiteFiles } from "./verify-shell-docs.js";
 import { checkImportPaths } from "./verify-shell-docs.js";
 import { checkComponentImports } from "./verify-shell-docs.js";
 import { checkClaudeQuickstarts } from "./verify-shell-docs.js";
@@ -169,27 +170,102 @@ describe("checkUnexpectedMultiFileRegionSources", () => {
   });
 });
 
+const NO_SITE: SiteFiles = {
+  sitemap: [],
+  docsFiles: [],
+  referenceFiles: [],
+  catalogComponents: [],
+  publicFiles: [],
+  scopes: [],
+};
+const PASS = { name: "internal-links", status: "pass", messages: [] };
+
+function checkLinks(links: string[], site: Partial<SiteFiles>, page = "a.mdx") {
+  return checkInternalLinks({
+    pages: [
+      { path: page, body: links.map((link) => `[link](${link})`).join("\n") },
+    ],
+    knownRoutes: buildKnownRoutes({ ...NO_SITE, ...site }),
+  });
+}
+
+function deadLinks(...messages: string[]) {
+  return { name: "internal-links", status: "fail", messages };
+}
+
 describe("checkInternalLinks", () => {
   it("fails when an internal link does not resolve to a known page", () => {
-    const pages = [{ path: "a.mdx", body: "[link](/does-not-exist)" }];
-    const knownRoutes = new Set(["/a", "/b"]);
-    const result = checkInternalLinks({ pages, knownRoutes });
-    expect(result.status).toBe("fail");
-    expect(result.messages.join(" ")).toContain("/does-not-exist");
+    expect(checkLinks(["/does-not-exist"], { sitemap: ["/a", "/b"] })).toEqual(
+      deadLinks('a.mdx: dead link "/does-not-exist"'),
+    );
   });
 
   it("ignores external links", () => {
-    const pages = [{ path: "a.mdx", body: "[link](https://example.com)" }];
-    const knownRoutes = new Set<string>();
-    const result = checkInternalLinks({ pages, knownRoutes });
-    expect(result.status).toBe("pass");
+    expect(checkLinks(["https://example.com"], {})).toEqual(PASS);
   });
 
   it("strips fragments and queries before resolution", () => {
-    const pages = [{ path: "a.mdx", body: "[link](/a#section?q=1)" }];
-    const knownRoutes = new Set(["/a"]);
-    const result = checkInternalLinks({ pages, knownRoutes });
-    expect(result.status).toBe("pass");
+    expect(checkLinks(["/a#section?q=1"], { sitemap: ["/a"] })).toEqual(PASS);
+  });
+
+  it("passes for a page that the sitemap lists at its own URL", () => {
+    const site = {
+      sitemap: ["/mastra/background-tasks"],
+      docsFiles: ["integrations/mastra/background-tasks.mdx"],
+    };
+    expect(checkLinks(["/mastra/background-tasks"], site)).toEqual(PASS);
+  });
+
+  it("passes for docs and reference pages linked by their file path", () => {
+    const site = {
+      docsFiles: ["(shared)/(other)/telemetry/index.mdx", "channels/tools.mdx"],
+      referenceFiles: ["index.mdx", "hooks/useAgent.mdx"],
+    };
+    const links = [
+      "/telemetry",
+      "/channels/tools",
+      "/reference",
+      "/reference/hooks/useAgent",
+    ];
+    expect(checkLinks(links, site)).toEqual(PASS);
+  });
+
+  it("knows the catalog's component pages by slug, and the files in public", () => {
+    const site = {
+      catalogComponents: ["TextField"],
+      publicFiles: ["images/cloud-hosted/ready.png"],
+    };
+    const links = [
+      "/generative-ui/components/standard-catalog/text-field",
+      "/generative-ui/components/standard-catalog/textfield",
+      "/images/cloud-hosted/ready.png",
+    ];
+    expect(checkLinks(links, site)).toEqual(
+      deadLinks(
+        'a.mdx: dead link "/generative-ui/components/standard-catalog/textfield"',
+      ),
+    );
+  });
+
+  it("accepts a frontend and a framework in front of a page, and no other segment", () => {
+    const site = {
+      docsFiles: ["frontend-tools.mdx"],
+      scopes: ["vue", "mastra"],
+    };
+    const links = ["/vue/mastra/frontend-tools", "/langroid/frontend-tools"];
+    expect(checkLinks(links, site)).toEqual(
+      deadLinks('a.mdx: dead link "/langroid/frontend-tools"'),
+    );
+  });
+
+  it("opens a channel guide link in the reader's channel, Slack and Teams", () => {
+    const page = "channels/capabilities.mdx";
+    const both = { sitemap: ["/slack/connect", "/teams/connect"] };
+    const slackOnly = { sitemap: ["/slack/connect"] };
+    expect(checkLinks(["/connect"], both, page)).toEqual(PASS);
+    expect(checkLinks(["/connect"], slackOnly, page)).toEqual(
+      deadLinks('channels/capabilities.mdx: dead link "/connect"'),
+    );
   });
 });
 
