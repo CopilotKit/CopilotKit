@@ -31,7 +31,7 @@ import type {
   IntelligenceRuntimeInfo,
   ThreadEndpointRuntimeInfo,
 } from "@copilotkit/shared";
-import { afterEach, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
 import type { AbstractAgent } from "@ag-ui/client";
 import { WebInspectorElement } from "../index.js";
@@ -573,15 +573,20 @@ type Harness = Readonly<{
 
 let cleanup: (() => void) | null = null;
 
-afterEach(() => {
-  cleanup?.();
-  cleanup = null;
-  restoreViewportWidth?.();
-  restoreViewportWidth = null;
-  vi.useRealTimers();
-});
+let originalHasPointerCapture: PropertyDescriptor | undefined;
+let originalReleasePointerCapture: PropertyDescriptor | undefined;
 
-async function setup(options: Options = {}): Promise<Harness> {
+beforeEach(() => {
+  originalHasPointerCapture = Object.getOwnPropertyDescriptor(
+    HTMLElement.prototype,
+    "hasPointerCapture",
+  );
+
+  originalReleasePointerCapture = Object.getOwnPropertyDescriptor(
+    HTMLElement.prototype,
+    "releasePointerCapture",
+  );
+
   Object.defineProperty(HTMLElement.prototype, "hasPointerCapture", {
     configurable: true,
     value: () => false,
@@ -591,6 +596,37 @@ async function setup(options: Options = {}): Promise<Harness> {
     configurable: true,
     value: () => {},
   });
+});
+
+afterEach(() => {
+  cleanup?.();
+  cleanup = null;
+  restoreViewportWidth?.();
+  restoreViewportWidth = null;
+  vi.useRealTimers();
+
+  if (originalHasPointerCapture) {
+    Object.defineProperty(
+      HTMLElement.prototype,
+      "hasPointerCapture",
+      originalHasPointerCapture,
+    );
+  } else {
+    Reflect.deleteProperty(HTMLElement.prototype, "hasPointerCapture");
+  }
+
+  if (originalReleasePointerCapture) {
+    Object.defineProperty(
+      HTMLElement.prototype,
+      "releasePointerCapture",
+      originalReleasePointerCapture,
+    );
+  } else {
+    Reflect.deleteProperty(HTMLElement.prototype, "releasePointerCapture");
+  }
+});
+
+async function setup(options: Options = {}): Promise<Harness> {
 
   document.body.replaceChildren();
   window.localStorage.clear();
@@ -2204,7 +2240,7 @@ test("a failed agent run names itself on the pill and lands on AG-UI Events", as
   ).toContain("model refused the run");
 });
 
-test("a header resolution failure appears as a run error without agent context", async () => {
+test("a header resolution failure has its own signal without a run highlight", async () => {
   const context = await setup();
 
   await context.fireAppError(
@@ -2213,18 +2249,19 @@ test("a header resolution failure appears as a run error without agent context",
     { source: "headers" },
   );
 
-  expect(dotSubject(context.inspector)).toBe("run");
-  expect(launcherName(context.inspector)).toContain("agent run failed");
+  expect(dotSubject(context.inspector)).toBe("headers");
+  expect(launcherName(context.inspector)).toContain("header resolution failed");
 
   await context.press(launcher(context.inspector));
 
   expect(currentMenu(context.inspector)).toBe("ag-ui-events");
 
   const banner = root(context.inspector).querySelector(
-    '[data-cpk-event-error="run"]',
+    '[data-cpk-event-error="headers"]',
   )?.textContent;
 
   expect(banner).toContain("Failed to resolve headers");
+  expect(banner).not.toContain("The failed run event is highlighted below.");
 });
 
 test("a run error with no run to point at claims no highlight", async () => {

@@ -7,6 +7,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { CopilotKitHeaderResolutionError } from "../../../../../core/src/core/header-source";
 import {
   emitInspectorStopViewing,
   emitInspectorViewThread,
@@ -33,6 +34,7 @@ import {
 class TrackingAgent extends MockStepwiseAgent {
   connectCalls: string[] = [];
   failThreadId: string | null = null;
+  failHeaders = false;
 
   clone(): this {
     const cloned = super.clone();
@@ -56,6 +58,13 @@ class TrackingAgent extends MockStepwiseAgent {
         },
         configurable: true,
       },
+      failHeaders: {
+        get: () => registry.failHeaders,
+        set: (value: boolean) => {
+            registry.failHeaders = value;
+        },
+        configurable: true,
+      },
     });
     return cloned;
   }
@@ -65,6 +74,11 @@ class TrackingAgent extends MockStepwiseAgent {
     _subscriber: unknown,
   ): Promise<{ result: unknown; newMessages: [] }> {
     this.connectCalls.push(this.threadId ?? "");
+    if (this.failHeaders && this.threadId === "saved-thread") {
+      throw new CopilotKitHeaderResolutionError(
+        new Error("Failed to resolve headers"),
+      );
+    }
     if (this.threadId === this.failThreadId) {
       throw new Error("connect failed");
     }
@@ -141,13 +155,12 @@ class MockResizeObserver {
   disconnect() {}
 }
 
-vi.stubGlobal("ResizeObserver", MockResizeObserver);
-
 describe("inspector thread override", () => {
   const cleanups: Array<() => void> = [];
   let uuidSequence = 0;
 
   beforeEach(() => {
+    vi.stubGlobal("ResizeObserver", MockResizeObserver);
     cleanups.length = 0;
     vi.mocked(randomUUID).mockImplementation(
       () => `inspector-thread-${++uuidSequence}`,
@@ -157,6 +170,7 @@ describe("inspector thread override", () => {
   afterEach(() => {
     for (const cleanup of cleanups.splice(0)) cleanup();
     vi.mocked(randomUUID).mockImplementation(() => "mock-thread-id");
+    vi.unstubAllGlobals();
   });
 
   it("switches a pinned threadId when view-thread matches the agent", async () => {
@@ -274,11 +288,10 @@ describe("inspector thread override", () => {
       }),
     );
 
+    agent.failHeaders = true;
+
     renderChat(agent, {
       threadId: "pinned-thread",
-      headers: () => {
-        throw new Error("Failed to resolve headers");
-      },
       onCore: (value) => {
         core = value;
       },
@@ -292,15 +305,6 @@ describe("inspector thread override", () => {
     });
 
     await waitFor(() => expect(agent.threadId).toBe("saved-thread"));
-
-    await act(async () => {
-      try {
-        await core!.resolveHeaders();
-      } catch {
-        // Expected: the header builder throws.
-      }
-    });
-
     await waitFor(() => expect(results).toContain(false));
     await waitFor(() => expect(agent.threadId).toBe("pinned-thread"));
   });

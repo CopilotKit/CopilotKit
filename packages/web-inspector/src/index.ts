@@ -428,8 +428,11 @@ const EVENT_ERROR_GUIDANCE: Readonly<
     advice:
       "Confirm CopilotKit Intelligence is connected, then retry Learning.",
   },
+  headers: {
+    title: "Header resolution failed",
+    advice: "Check the configured request headers, then retry the connection.",
+  },
 };
-
 /**
  * The pill's second line, shared by every subject that carries a pill.
  *
@@ -532,6 +535,15 @@ const LAUNCHER_SIGNALS: Readonly<
     accessibleLabel: "learning error",
     pillLabel: MEMORY_LOAD_ERROR_LABEL,
   },
+  headers: {
+    tone: "error",
+    markerTarget: "ag-ui-events",
+    landingTarget: "ag-ui-events",
+    cadence: ERROR_GESTURE_MS.beat,
+    priority: 3,
+    accessibleLabel: "header resolution failed",
+    pillLabel: "Header resolution failed",
+  },
 };
 
 /** Highest priority first, so the winner of the single dot is the head. */
@@ -550,6 +562,7 @@ const EVENT_ERROR_KEYS = [
   "run",
   "tool",
   "memory",
+  "headers",
 ] as const satisfies ReadonlyArray<InspectorEventErrorSource>;
 
 type InspectorEventErrorDetails = Readonly<{
@@ -615,8 +628,9 @@ function eventErrorKeyForCode(
     case CopilotKitCoreErrorCode.AGENT_RUN_FAILED:
     case CopilotKitCoreErrorCode.AGENT_RUN_FAILED_EVENT:
     case CopilotKitCoreErrorCode.AGENT_RUN_ERROR_EVENT:
-    case CopilotKitCoreErrorCode.HEADER_RESOLUTION_FAILED:
       return "run";
+    case CopilotKitCoreErrorCode.HEADER_RESOLUTION_FAILED:
+      return "headers";
     default:
       return null;
   }
@@ -6970,12 +6984,12 @@ export class WebInspectorElement extends LitElement {
   > = { connection: false, threads: false };
   /** Unread app errors. Cleared when the landing view is read. */
   private readonly eventErrorArmed: Record<InspectorEventErrorSource, boolean> =
-    { run: false, tool: false, memory: false };
+    { run: false, tool: false, memory: false, headers: false };
   /** Latest detail for each event source, retained after that source is read. */
   private readonly eventErrorDetails: Record<
     InspectorEventErrorSource,
     InspectorEventErrorDetails | null
-  > = { run: null, tool: null, memory: null };
+  > = { run: null, tool: null, memory: null, headers: null };
   private pendingScrollToEventId: string | null = null;
   private pendingScrollToToolCallId: string | null = null;
   /** Last time an inspector-owned /threads refresh left this host, per agent. */
@@ -16910,6 +16924,7 @@ export class WebInspectorElement extends LitElement {
       return html`
         <div class="flex h-full min-h-0 flex-col">
           ${this.renderEventErrorBanner("run")}
+          ${this.renderEventErrorBanner("headers")}
           <div class="min-h-0 flex-1 overflow-hidden">
             ${this.renderEventsTable()}
           </div>
