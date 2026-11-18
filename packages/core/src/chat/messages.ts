@@ -52,8 +52,8 @@ function mergeToolCalls(earlier: ToolCall[], later: ToolCall[]) {
     const existing = byId.get(toolCall.id);
     if (
       !existing ||
-      toolCall.function?.arguments ||
-      !existing.function?.arguments
+      toolCall.function.arguments ||
+      !existing.function.arguments
     ) {
       byId.set(toolCall.id, toolCall);
     }

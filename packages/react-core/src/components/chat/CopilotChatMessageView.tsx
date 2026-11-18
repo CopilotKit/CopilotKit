@@ -1212,8 +1212,8 @@ export function CopilotChatMessageView({
       // Row refs and observers can run before the container observer. Capture
       // the old reading position before any row reports its resized height.
       captureResizeAnchor(instance);
-      const rect = el?.getBoundingClientRect();
-      const height = rect?.height ?? 0;
+      const rect = el.getBoundingClientRect();
+      const height = rect.height;
       // `data-index` is set on every virtual row below, and is what the
       // virtualizer itself uses to identify a measured element.
       const index = Number((el as HTMLElement | null)?.dataset?.index);
@@ -1226,14 +1226,9 @@ export function CopilotChatMessageView({
       // virtualizer's own offsets for later rows lag behind within a batch of
       // measurements, while the list offset already moved with each correction
       // held before: a row well above the viewport could look inside it.
-      const viewportTop =
-        typeof rect?.top === "number"
-          ? instance.scrollElement?.getBoundingClientRect().top
-          : undefined;
+      const viewportTop = instance.scrollElement?.getBoundingClientRect().top;
       lastMeasuredRef.current =
-        Number.isInteger(index) &&
-        typeof rect?.top === "number" &&
-        typeof viewportTop === "number"
+        Number.isInteger(index) && typeof viewportTop === "number"
           ? { index, above: rect.top < viewportTop }
           : null;
       // Every row measures 0 while the chat is hidden (a display:none tab) or
@@ -1242,7 +1237,7 @@ export function CopilotChatMessageView({
       // as an assistant turn holding only tool calls without a renderer, or
       // its tool results. Treating those as hidden gave each one the 100 px
       // estimate, which left long blank stretches in tool-heavy threads.
-      const hidden = !el?.isConnected || !instance.scrollElement?.clientHeight;
+      const hidden = !el.isConnected || !instance.scrollElement?.clientHeight;
       if ((height > 0 || !hidden) && key !== undefined) {
         const { total, sizes } = measuredRef.current;
         measuredRef.current.total = total - (sizes.get(key) ?? 0) + height;

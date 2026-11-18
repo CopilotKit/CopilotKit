@@ -1053,26 +1053,30 @@ export class RunHandler {
       // for registered agents, not the per-thread clones that runs use. A
       // stream can carry more than one run, so one that ends any other way
       // keeps every call open, even if a later run finishes cleanly.
-      let finishedCleanly = false;
-      let leftCallsOpen = false;
-      const onRunFinishedEvent = agentSubscriber.onRunFinishedEvent;
-      const onRunErrorEvent = agentSubscriber.onRunErrorEvent;
-      const onCustomEvent = agentSubscriber.onCustomEvent;
+      // Written by the handlers below, so a plain `let` would read as a
+      // constant `false` where the run's result is processed.
+      const runEnd = { finishedCleanly: false, leftCallsOpen: false };
+      const onRunFinishedEvent =
+        agentSubscriber.onRunFinishedEvent?.bind(agentSubscriber);
+      const onRunErrorEvent =
+        agentSubscriber.onRunErrorEvent?.bind(agentSubscriber);
+      const onCustomEvent =
+        agentSubscriber.onCustomEvent?.bind(agentSubscriber);
       agentSubscriber.onRunFinishedEvent = (params) => {
         const outcome = params.event.outcome?.type;
         if (outcome === undefined || outcome === "success") {
-          finishedCleanly = true;
+          runEnd.finishedCleanly = true;
         } else {
-          leftCallsOpen = true;
+          runEnd.leftCallsOpen = true;
         }
         return onRunFinishedEvent?.(params);
       };
       agentSubscriber.onRunErrorEvent = (params) => {
-        leftCallsOpen = true;
+        runEnd.leftCallsOpen = true;
         return onRunErrorEvent?.(params);
       };
       agentSubscriber.onCustomEvent = (params) => {
-        if (params.event.name === "on_interrupt") leftCallsOpen = true;
+        if (params.event.name === "on_interrupt") runEnd.leftCallsOpen = true;
         return onCustomEvent?.(params);
       };
       // An internal continuation (a human-in-the-loop tool resolved and this is
@@ -1121,7 +1125,7 @@ export class RunHandler {
         runId: logicalRunId,
         runController: controller,
         advertisedToolNames:
-          finishedCleanly && !leftCallsOpen
+          runEnd.finishedCleanly && !runEnd.leftCallsOpen
             ? new Set(tools.map((tool) => tool.name))
             : undefined,
       });

@@ -347,6 +347,7 @@
       "packages/angular/src/lib/components/chat/copilot-chat-input.ts": 1,
       "packages/core/src/core/trajectory-connection.ts": 1,
       "packages/learning/src/clicks.ts": 1,
+      "packages/learning/src/errors.ts": 1,
       "packages/react-core/src/components/chat/CopilotChatSuggestionView.tsx": 1,
       "packages/runtime/src/agent/ai-sdk/index.ts": 1,
       "packages/runtime/src/agent/ai-sdk/url-download.ts": 2,
@@ -375,6 +376,7 @@
       "packages/runtime/src/runtime/core/package-info.ts": 1,
       "packages/runtime/src/runtime/core/runtime-error-reporter.ts": 1,
       "packages/runtime/src/runtime/core/runtime.ts": 1,
+      "packages/runtime/src/runtime/core/thread-run.ts": 1,
       "packages/runtime/src/runtime/core/web-crypto.ts": 1,
       "packages/runtime/src/runtime/endpoints/auto-start-channels.ts": 1,
       "packages/runtime/src/runtime/endpoints/node-fetch-handler.ts": 1,
@@ -468,6 +470,7 @@
       "packages/web-inspector/src/shell/web-inspector-element.ts": 1
     },
     "typescript-eslint(no-unnecessary-condition)": {
+      "packages/a11y-test-kit/src/index.ts": 2,
       "packages/agentcore-runner/src/agentcore-runner.ts": 1,
       "packages/angular/src/generative-ui/lib/chat.ts": 1,
       "packages/angular/src/generative-ui/lib/generative-ui.ts": 1,
@@ -563,6 +566,7 @@
       "packages/intelligence-langgraph/src/middleware.ts": 3,
       "packages/intelligence-mastra/src/invocation.ts": 2,
       "packages/learning/src/clicks.ts": 2,
+      "packages/learning/src/errors.ts": 1,
       "packages/learning/src/network-body.ts": 1,
       "packages/learning/src/redact.ts": 1,
       "packages/learning/src/routes.ts": 1,
@@ -575,6 +579,7 @@
       "packages/markdown/src/react/streaming-markdown-renderer.tsx": 1,
       "packages/markdown/src/render/render-tree.ts": 1,
       "packages/markdown/src/vue/streaming-markdown-renderer.ts": 1,
+      "packages/mcp-apps-renderer/src/model-context.ts": 1,
       "packages/mcp-apps-renderer/src/request-queue.ts": 1,
       "packages/mcp-apps-renderer/src/session.ts": 7,
       "packages/react-core/scripts/assert-dist-context-types.mjs": 2,
@@ -625,6 +630,7 @@
       "packages/runtime/src/runtime/core/package-info.ts": 1,
       "packages/runtime/src/runtime/core/runtime-error-reporter.ts": 4,
       "packages/runtime/src/runtime/core/runtime.ts": 8,
+      "packages/runtime/src/runtime/core/thread-run.ts": 36,
       "packages/runtime/src/runtime/core/web-crypto.ts": 1,
       "packages/runtime/src/runtime/endpoints/auto-start-channels.ts": 2,
       "packages/runtime/src/runtime/endpoints/node-fetch-handler.ts": 2,
@@ -771,6 +777,7 @@
       "packages/vue/src/lib/vue-core.ts": 4
     },
     "typescript-eslint(no-unnecessary-type-assertion)": {
+      "packages/a11y-test-kit/src/index.ts": 1,
       "packages/agentcore-runner/src/agentcore-runner.ts": 1,
       "packages/angular/src/generative-ui/lib/chat.ts": 2,
       "packages/angular/src/generative-ui/lib/standard/media/icon.ts": 1,
@@ -868,6 +875,7 @@
       "packages/web-inspector/src/shell/web-inspector-element.ts": 3
     },
     "typescript-eslint(no-unsafe-type-assertion)": {
+      "packages/a11y-test-kit/src/index.ts": 3,
       "packages/agentcore-runner/src/agentcore-runner.ts": 1,
       "packages/angular/src/generative-ui/lib/catalog.ts": 2,
       "packages/angular/src/generative-ui/lib/chat.ts": 2,
@@ -1011,6 +1019,7 @@
       "packages/intelligence-langgraph/src/invocation.ts": 5,
       "packages/intelligence-mastra/src/invocation.ts": 2,
       "packages/learning/src/clicks.ts": 2,
+      "packages/learning/src/errors.ts": 4,
       "packages/learning/src/network.ts": 2,
       "packages/learning/src/redact.ts": 2,
       "packages/learning/src/trajectory-collector.ts": 2,
@@ -1021,6 +1030,7 @@
       "packages/markdown/src/react-native/streaming-markdown-renderer.tsx": 29,
       "packages/markdown/src/react/streaming-markdown-renderer.tsx": 1,
       "packages/markdown/src/vue/streaming-markdown-renderer.ts": 2,
+      "packages/mcp-apps-renderer/src/model-context.ts": 3,
       "packages/mcp-apps-renderer/src/session.ts": 4,
       "packages/react-core/src/components/MCPAppsActivityRenderer.tsx": 1,
       "packages/react-core/src/components/chat/CopilotChatAssistantMessage.tsx": 2,
@@ -1057,6 +1067,7 @@
       "packages/runtime/src/agent/state-delta.ts": 9,
       "packages/runtime/src/runtime/core/channel-manager.ts": 6,
       "packages/runtime/src/runtime/core/runtime.ts": 6,
+      "packages/runtime/src/runtime/core/thread-run.ts": 2,
       "packages/runtime/src/runtime/core/web-crypto.ts": 1,
       "packages/runtime/src/runtime/endpoints/node-fetch-handler.ts": 1,
       "packages/runtime/src/runtime/endpoints/single-route-helpers.ts": 4,
@@ -1186,6 +1197,7 @@
       "packages/vue/src/generative-ui/standard/layout/layout.ts": 1
     },
     "typescript-eslint(unbound-method)": {
+      "packages/a11y-test-kit/src/index.ts": 1,
       "packages/channels-core/src/run-loop.ts": 8,
       "packages/channels-discord/src/discord-listener.ts": 2,
       "packages/channels-intelligence/src/realtime-gateway-launcher.ts": 4,

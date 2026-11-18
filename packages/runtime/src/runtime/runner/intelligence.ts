@@ -972,8 +972,9 @@ export class IntelligenceAgentRunner extends AgentRunner {
     ackLatencyMs: number,
   ): void {
     const onStats = this.options.onEventDeliveryStats;
+    // oxlint-disable-next-line typescript/no-unnecessary-condition -- the callback is optional; this package compiles without strictNullChecks, so its type hides the undefined
     if (!onStats) return;
-    const [oldest] = this.oldestPendingEvents(state, 1);
+    const pending = this.oldestPendingEvents(state, 1);
     const logFailure = (error: unknown) => {
       this.logger.warn(
         { err: error, threadId: state.threadId, runId: state.runId },
@@ -987,7 +988,8 @@ export class IntelligenceAgentRunner extends AgentRunner {
         acknowledgedEvents,
         ackLatencyMs,
         pendingEvents: state.pendingEvents.size,
-        oldestPendingAgeMs: oldest ? Date.now() - oldest[1].queuedAt : 0,
+        oldestPendingAgeMs:
+          pending.length > 0 ? Date.now() - pending[0][1].queuedAt : 0,
       });
       // An async callback type-checks against a void return. Its rejection
       // would otherwise be unhandled, which by default ends the process.

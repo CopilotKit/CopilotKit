@@ -385,21 +385,19 @@ export function getTurnWork(
     // fold into (it would read "Used 0 tools"), so folding its thinking would
     // put it somewhere the reader can't open.
     let workEnd = lastWork;
-    for (
-      let index = lastWork + 1;
-      lastWork >= 0 && index < visible.length;
-      index++
-    ) {
-      const message = visible[index]!;
-      const content = message.content;
-      if (
-        message.role === "assistant" &&
-        typeof content === "string" &&
-        content.trim()
-      ) {
-        break;
+    if (lastWork >= 0) {
+      for (let index = lastWork + 1; index < visible.length; index++) {
+        const message = visible[index]!;
+        const content = message.content;
+        if (
+          message.role === "assistant" &&
+          typeof content === "string" &&
+          content.trim()
+        ) {
+          break;
+        }
+        workEnd = index;
       }
-      workEnd = index;
     }
 
     const first = visible[0];

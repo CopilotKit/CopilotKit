@@ -168,9 +168,11 @@ function stringifyMessageContent(content: Message["content"]): string {
     .map((part: unknown) =>
       typeof part === "object" &&
       part !== null &&
-      (part as { type?: unknown }).type === "text" &&
-      typeof (part as { text?: unknown }).text === "string"
-        ? (part as { text: string }).text
+      "type" in part &&
+      part.type === "text" &&
+      "text" in part &&
+      typeof part.text === "string"
+        ? part.text
         : "",
     )
     .join(" ")

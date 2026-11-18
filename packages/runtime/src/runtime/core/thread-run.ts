@@ -124,7 +124,9 @@ export async function runWithThreadLock(
           },
           CLEANUP_TIMEOUT_MS,
         ),
-      () => undefined,
+      () => {
+        // The lock request failed, so there is no lock to give back.
+      },
     );
     return { ...requested, stopped: true };
   }
@@ -209,7 +211,10 @@ export async function runWithThreadLock(
   const stopRanOut = new Promise<never>((_resolve, reject) => {
     failStop = reject;
   });
-  stopRanOut.catch(() => undefined);
+  stopRanOut.catch(() => {
+    // Read where the run is raced against it; this only keeps an unraced
+    // rejection from being reported as unhandled.
+  });
   try {
     // Listened for from here, so a stop while the run is being prepared is
     // heard, and bounded by `stopTimeoutMs`, as one during the run is.
@@ -352,7 +357,7 @@ async function settled(
   promise: Promise<unknown> | undefined,
   timeoutMs: number | undefined,
 ): Promise<void> {
-  if (!promise) return;
+  if (promise === undefined) return;
   if (timeoutMs === undefined) {
     await promise;
     return;

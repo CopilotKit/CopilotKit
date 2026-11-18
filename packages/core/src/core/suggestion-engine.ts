@@ -58,6 +58,11 @@ export class SuggestionEngine {
 
   constructor(private core: CopilotKitCore) {}
 
+  /** The core's friend API, which the public `CopilotKitCore` type hides. */
+  private get friends() {
+    return this.core as unknown as CopilotKitCoreFriendsAccess;
+  }
+
   /**
    * Initialize with suggestion configs
    */
@@ -97,9 +102,7 @@ export class SuggestionEngine {
     // or the consumer agent is configured but not yet registered) — static suggestions
     // don't need it, only dynamic generation does. Treat that case as "no messages yet"
     // and process static configs anyway.
-    const agent = (
-      this.core as unknown as CopilotKitCoreFriendsAccess
-    ).getAgent(agentId);
+    const agent = this.friends.getAgent(agentId);
 
     const messageCount = agent?.messages?.length ?? 0;
     let hasAnySuggestions = false;
@@ -173,9 +176,7 @@ export class SuggestionEngine {
   public syncThread(agentId: string): void {
     const generated = this._generated[agentId];
     if (!generated) return;
-    const agent = (
-      this.core as unknown as CopilotKitCoreFriendsAccess
-    ).getAgent(agentId);
+    const agent = this.friends.getAgent(agentId);
     if (!agent || agent.threadId === generated.threadId) return;
 
     delete this._generated[agentId];
@@ -264,7 +265,7 @@ export class SuggestionEngine {
     let runHandle: AbortableSuggestionRun | undefined = undefined;
     let aborted = false;
     try {
-      const friends = this.core as unknown as CopilotKitCoreFriendsAccess;
+      const friends = this.friends;
       const resolvedProviderAgentId = config.providerAgentId ?? "default";
       const suggestionsProviderAgent = friends.getAgent(
         resolvedProviderAgentId,
@@ -379,9 +380,7 @@ export class SuggestionEngine {
         // A clone of a plain `HttpAgent` carries the source agent's headers
         // from its last run, so apply fresh ones the way a normal run does.
         // A proxied runtime agent adds core headers at send time instead.
-        await (
-          this.core as unknown as CopilotKitCoreFriendsAccess
-        ).prepareAgentHeadersForRun(suggestionAgent);
+        await this.friends.prepareAgentHeadersForRun(suggestionAgent);
       }
 
       // `clearSuggestions`/`abortRun` may have run while the header
@@ -596,9 +595,7 @@ export class SuggestionEngine {
    * Notify subscribers of suggestions config changes
    */
   private async notifySuggestionsConfigChanged(): Promise<void> {
-    await (
-      this.core as unknown as CopilotKitCoreFriendsAccess
-    ).notifySubscribers(
+    await this.friends.notifySubscribers(
       (subscriber) =>
         subscriber.onSuggestionsConfigChanged?.({
           copilotkit: this.core,
@@ -616,9 +613,7 @@ export class SuggestionEngine {
     suggestions: Suggestion[],
     context: string = "",
   ): Promise<void> {
-    await (
-      this.core as unknown as CopilotKitCoreFriendsAccess
-    ).notifySubscribers(
+    await this.friends.notifySubscribers(
       (subscriber) =>
         subscriber.onSuggestionsChanged?.({
           copilotkit: this.core,
@@ -635,9 +630,7 @@ export class SuggestionEngine {
   private async notifySuggestionsStartedLoading(
     agentId: string,
   ): Promise<void> {
-    await (
-      this.core as unknown as CopilotKitCoreFriendsAccess
-    ).notifySubscribers(
+    await this.friends.notifySubscribers(
       (subscriber) =>
         subscriber.onSuggestionsStartedLoading?.({
           copilotkit: this.core,
@@ -653,9 +646,7 @@ export class SuggestionEngine {
   private async notifySuggestionsFinishedLoading(
     agentId: string,
   ): Promise<void> {
-    await (
-      this.core as unknown as CopilotKitCoreFriendsAccess
-    ).notifySubscribers(
+    await this.friends.notifySubscribers(
       (subscriber) =>
         subscriber.onSuggestionsFinishedLoading?.({
           copilotkit: this.core,

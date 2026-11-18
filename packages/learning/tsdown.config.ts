@@ -1,9 +1,18 @@
 import { readFileSync } from "node:fs";
 import { defineConfig } from "tsdown";
 
-const { version } = JSON.parse(
+const pkg: unknown = JSON.parse(
   readFileSync(new URL("./package.json", import.meta.url), "utf8"),
-) as { version: string };
+);
+if (
+  typeof pkg !== "object" ||
+  pkg === null ||
+  !("version" in pkg) ||
+  typeof pkg.version !== "string"
+) {
+  throw new Error("packages/learning/package.json has no version");
+}
+const version = pkg.version;
 
 export default defineConfig({
   entry: ["src/index.ts"],

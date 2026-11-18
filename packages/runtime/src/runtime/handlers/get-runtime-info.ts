@@ -146,7 +146,7 @@ export async function handleGetRuntimeInfo({
         }
         // Any agent with a non-blank string `name` property supplies its
         // display name here, including custom agent classes.
-        const displayName = (agent as { name?: unknown }).name;
+        const displayName = "name" in agent ? agent.name : undefined;
 
         const description: AgentDescription = {
           name:

@@ -92,7 +92,10 @@ const MAX_REPLAY_RETRIES = 3;
 const replayRetryDelayMs = phoenixExponentialBackoff(1_000, 4_000);
 
 function replayFailureReason(payload: unknown): string {
-  const reason = (payload as { reason?: unknown } | null)?.reason;
+  const reason =
+    typeof payload === "object" && payload !== null && "reason" in payload
+      ? payload.reason
+      : undefined;
   return typeof reason === "string" && reason !== "" ? reason : "unknown";
 }
 
@@ -101,7 +104,11 @@ function replayFailureReason(payload: unknown): string {
  * `replay_failed`; one that does not say is taken to mean it can.
  */
 function replayFailureRetryable(payload: unknown): boolean {
-  return (payload as { retryable?: unknown } | null)?.retryable !== false;
+  const retryable =
+    typeof payload === "object" && payload !== null && "retryable" in payload
+      ? payload.retryable
+      : undefined;
+  return retryable !== false;
 }
 
 /** The gateway reported that a connect's history failed to load. */
@@ -1014,7 +1021,7 @@ export class IntelligenceAgent extends AbstractAgent {
             // own run ID when refreshed credentials omit one.
             throw new IntelligenceReplayFailedError(
               input.threadId,
-              input.runId ?? null,
+              input.runId,
             );
           }
         }),
