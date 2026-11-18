@@ -23,7 +23,7 @@ describe("Showcase compatibility mapping", () => {
     expect(() =>
       assertMappingCoverage(COMPATIBILITY_MAPPING, manifestSlugs),
     ).not.toThrow();
-    expect(COMPATIBILITY_MAPPING).toHaveLength(23);
+    expect(COMPATIBILITY_MAPPING).toHaveLength(24);
 
     const expected = COMPATIBILITY_SNAPSHOT.rows
       .filter((row) => !row.slug.endsWith("-dotnet"))
@@ -36,7 +36,7 @@ describe("Showcase compatibility mapping", () => {
     const mapped = COMPATIBILITY_MAPPING.flatMap((variant) =>
       variant.libraries.map((pkg) => `${variant.slug}/${pkg.name}`),
     );
-    expect(mapped).toHaveLength(35);
+    expect(mapped).toHaveLength(36);
     expect(mapped.sort()).toEqual(
       [
         ...expected,
@@ -44,6 +44,7 @@ describe("Showcase compatibility mapping", () => {
         "ms-agent-dotnet/Microsoft.Agents.AI",
         "ms-agent-harness-dotnet/Microsoft.Agents.AI",
         "ms-agent-harness-dotnet/Microsoft.Agents.AI.Harness",
+        "omnara/@omnara/sdk",
         "openai-agents-python/openai-agents",
       ].sort(),
     );
@@ -93,6 +94,30 @@ describe("Showcase compatibility mapping", () => {
       ],
       excludedLibraries: [
         { name: "ag-ui-openai-agents", reason: expect.any(String) },
+      ],
+    });
+  });
+
+  it("maps Omnara to its pinned SDK source and excludes its AG-UI adapter", () => {
+    expect(
+      COMPATIBILITY_MAPPING.find((item) => item.slug === "omnara"),
+    ).toMatchObject({
+      language: "typescript",
+      libraries: [
+        {
+          name: "@omnara/sdk",
+          registry: "npm",
+          required: true,
+          role: "framework",
+          source: {
+            kind: "npm",
+            path: "showcase/integrations/omnara/package.json",
+            lockPath: "showcase/integrations/omnara/package-lock.json",
+          },
+        },
+      ],
+      excludedLibraries: [
+        { name: "@ag-ui/omnara", reason: expect.any(String) },
       ],
     });
   });
