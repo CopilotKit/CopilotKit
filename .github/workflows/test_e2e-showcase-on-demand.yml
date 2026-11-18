@@ -110,11 +110,13 @@ jobs:
       (github.event.issue.pull_request
         && startsWith(github.event.comment.body, '/test-aimock ')
         && contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association))
-    # Pinned to ubuntu-latest deliberately: the 'Determine slug' step uses
-    # POSIX-only `grep -oE` + `sed` (no `grep -oP` / PCRE) so a future BSD
-    # grep would still work, but ubuntu-latest keeps the install/setup matrix
-    # consistent with every other showcase workflow.
-    runs-on: ubuntu-latest
+    # Pinned to ubuntu-24.04: ubuntu-latest is now Ubuntu 26.04, and
+    # Playwright only has a Chromium build for 26.04 from 1.61. Eleven
+    # integrations lock Playwright 1.60, so their browser install would fail.
+    # Move back to ubuntu-latest after they all lock 1.61 or later. The
+    # 'Determine slug' step uses POSIX-only `grep -oE` + `sed` (no `grep -oP` /
+    # PCRE), so it works on any runner.
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
 
     steps:
