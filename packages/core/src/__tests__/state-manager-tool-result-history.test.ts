@@ -408,6 +408,84 @@ describe("StateManager tool result history", () => {
     ).toBe(agent.inputs[0]?.runId);
   });
 
+  it("keeps result metadata when restoring a result dropped by a snapshot", async () => {
+    const callId = "call-metadata-restore";
+    const metadata = { langgraph: { artifact: { temp: 21 } } };
+    const agent = new ScenarioAgent(
+      "metadata-restore",
+      [owner("assistant-metadata-restore", callId)],
+      [
+        {
+          type: EventType.RUN_STARTED,
+          threadId: "metadata-restore-thread",
+          runId: "x",
+        },
+        { ...result("restored-result", callId, "21 degrees"), metadata },
+        {
+          type: EventType.MESSAGES_SNAPSHOT,
+          messages: [owner("assistant-metadata-restore", callId)],
+        },
+        {
+          type: EventType.RUN_FINISHED,
+          threadId: "metadata-restore-thread",
+          runId: "x",
+        },
+      ],
+    );
+    const core = new CopilotKitCore({});
+    await addAgent(core, agent);
+    await core.runAgent({ agent });
+
+    expect(
+      agent.messages.find((message) => message.id === "restored-result"),
+    ).toEqual(expect.objectContaining({ metadata }));
+  });
+
+  it("keeps result metadata when promoting a placeholder retained by a snapshot", async () => {
+    const callId = "call-metadata-placeholder";
+    const metadata = { langgraph: { artifact: { temp: 21 } } };
+    const agent = new ScenarioAgent(
+      "metadata-placeholder",
+      [owner("assistant-metadata-placeholder", callId)],
+      [
+        {
+          type: EventType.RUN_STARTED,
+          threadId: "metadata-placeholder-thread",
+          runId: "x",
+        },
+        { ...result("metadata-canonical", callId, "canonical"), metadata },
+        {
+          type: EventType.MESSAGES_SNAPSHOT,
+          messages: [
+            owner("assistant-metadata-placeholder", callId),
+            {
+              id: "metadata-placeholder-result",
+              role: "tool",
+              toolCallId: callId,
+              content: "Forwarded to client",
+            },
+          ],
+        },
+        {
+          type: EventType.RUN_FINISHED,
+          threadId: "metadata-placeholder-thread",
+          runId: "x",
+        },
+      ],
+    );
+    const core = new CopilotKitCore({});
+    await addAgent(core, agent);
+    await core.runAgent({ agent });
+
+    expect(
+      agent.messages.filter(
+        (message) => message.role === "tool" && message.toolCallId === callId,
+      ),
+    ).toEqual([
+      expect.objectContaining({ id: "metadata-canonical", metadata }),
+    ]);
+  });
+
   it("promotes a placeholder retained by a later snapshot", async () => {
     const callId = "call-snapshot-placeholder";
     const agent = new ScenarioAgent(
