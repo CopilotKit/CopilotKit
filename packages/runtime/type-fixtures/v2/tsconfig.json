@@ -1,0 +1,23 @@
+{
+  // Stands in for 1.x code that imports the 2.0 runtime from the deprecated
+  // `/v2` subpaths, by its 1.x names. It is compiled against the BUILT
+  // package through its `exports` map: the fixture is inside the package, so
+  // `@copilotkit/runtime/...` resolves to this package (a self-reference), with
+  // no `paths`. `consumer.mts` reads the `import` declarations, and
+  // `consumer.cts` reads the `require` ones. `exports.mjs` loads the
+  // JavaScript the same way.
+  //
+  // Run by `pnpm --filter @copilotkit/runtime check-dts`, which depends on
+  // `build`.
+  "compilerOptions": {
+    "strict": true,
+    "noEmit": true,
+    "target": "es2022",
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "lib": ["es2023", "dom"],
+    "types": ["node"],
+    "skipLibCheck": true
+  },
+  "include": ["consumer.mts", "consumer.cts"]
+}
