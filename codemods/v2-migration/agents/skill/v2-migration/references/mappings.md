@@ -309,7 +309,7 @@ TODO(copilotkit-2.0): `filterCatalog` was removed with `@copilotkit/a2ui-rendere
 
 See "A2UI v0.9 to generative UI" below.
 
-Angular `CopilotA2UIRecovery` no longer exposes `lifecycle`, `retryRevealed`, `debugExposure`, `label`, `phase`, `failureDiagnostics`, or `retryDiagnostics`. Read the lifecycle with `readA2UILifecycleContent(content)` from `@copilotkit/angular`.
+Angular `CopilotA2UIRecovery` is removed in 2.0, with `readA2UILifecycleContent` and the other A2UI exports of `@copilotkit/angular`. Its members (`lifecycle`, `retryRevealed`, `debugExposure`, `label`, `phase`, `failureDiagnostics`, `retryDiagnostics`) are gone with it. Generative UI shows no A2UI v0.9 progress or retry UI. When the agent's recovery stops after its last attempt, the runtime sends a surface with status `"error"`. The agent's error is the one `rejected` entry of that surface. Delete the code that read the recovery. To show that state, pass a `chatCard` component to `provideGenerativeUI` from `@copilotkit/angular/generative-ui`: it gets the `surface`, `surfaceId`, `isStreaming`, `error`, and `rejected` inputs. To log each failure, pass `onError` to `provideGenerativeUI`.
 
 The Open Generative UI placeholder element (test id `open-generative-ui-placeholder`) was removed. While the agent generates, tests can query `open-generative-ui-progress-overlay` and `open-generative-ui-spinner`. Once generation ends, neither shows.
 
@@ -583,7 +583,9 @@ const status = (await runtime.getLicenseChecker())?.getStatus();
 
 ### Runtime names
 
-2.0 removed the old runtime names. Each 2.0 name is the old name with "Kit" after "Copilot". The codemod renamed each use that it found. If the build still reports an old name, rename it:
+Each 2.0 runtime name is the old name with "Kit" after "Copilot". `@copilotkit/runtime` and `@copilotkit/runtime/node` export only the 2.0 names. The deprecated 1.x paths `@copilotkit/runtime/v2` and `@copilotkit/runtime/v2/node` also export the old names, as aliases of the 2.0 names. An import of an old name from a `/v2` path builds and runs, but the editor marks it as deprecated.
+
+The codemod renamed each use that it found, and it moved each `/v2` import to the package root. If a file still imports an old name from a `/v2` path, import the 2.0 name from the package root. If the build reports an old name, rename it:
 
 | Old name                      | 2.0 name                         |
 | ----------------------------- | -------------------------------- |
@@ -593,6 +595,7 @@ const status = (await runtime.getLicenseChecker())?.getStatus();
 | `createCopilotRuntimeHandler` | `createCopilotKitRuntimeHandler` |
 | `createCopilotNodeListener`   | `createCopilotKitNodeListener`   |
 | `createCopilotNodeHandler`    | `createCopilotKitNodeHandler`    |
+| `createNodeFetchHandler`      | `createCopilotKitNodeHandler`    |
 | `NodeCopilotListener`         | `NodeCopilotKitListener`         |
 
 These types get "Kit" after "Copilot" too:

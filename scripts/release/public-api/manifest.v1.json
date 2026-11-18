@@ -2085,11 +2085,11 @@
           "conditions": {
             "import": {
               "types": "./dist/v2/index.d.mts",
-              "default": "./dist/index.mjs"
+              "default": "./dist/v2/index.mjs"
             },
             "require": {
               "types": "./dist/v2/index.d.cts",
-              "default": "./dist/index.cjs"
+              "default": "./dist/v2/index.cjs"
             }
           },
           "provenance": {
@@ -2105,11 +2105,11 @@
           "conditions": {
             "import": {
               "types": "./dist/v2/node.d.mts",
-              "default": "./dist/node.mjs"
+              "default": "./dist/v2/node.mjs"
             },
             "require": {
               "types": "./dist/v2/node.d.cts",
-              "default": "./dist/node.cjs"
+              "default": "./dist/v2/node.cjs"
             }
           },
           "provenance": {
@@ -3061,5 +3061,812 @@
       }
     ]
   },
-  "deprecations": []
+  "deprecations": [
+    {
+      "importPath": "@copilotkit/runtime/v2",
+      "symbol": "CopilotCorsConfig",
+      "replacement": {
+        "importPath": "@copilotkit/runtime",
+        "symbol": "CopilotKitCorsConfig"
+      },
+      "sourceMessage": "Use `CopilotKitCorsConfig` from `@copilotkit/runtime`. This old\nname is an alias of it. To move your imports, run\n`npx codemod @copilotkit/v2-migration`.",
+      "provenance": {
+        "importPath": {
+          "kind": "package-json",
+          "path": "packages/runtime/package.json",
+          "selector": "exports[\"./v2\"]"
+        },
+        "symbol": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotCorsConfig @deprecated tag"
+        },
+        "replacement": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotCorsConfig @deprecated tag"
+        },
+        "sourceMessage": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotCorsConfig @deprecated tag"
+        }
+      }
+    },
+    {
+      "importPath": "@copilotkit/runtime/v2",
+      "symbol": "CopilotIntelligenceRuntime",
+      "replacement": {
+        "importPath": "@copilotkit/runtime",
+        "symbol": "CopilotKitIntelligenceRuntime"
+      },
+      "sourceMessage": "Use `CopilotKitIntelligenceRuntime` from `@copilotkit/runtime`.\nThis old name is an alias of it. To move your imports, run\n`npx codemod @copilotkit/v2-migration`.",
+      "provenance": {
+        "importPath": {
+          "kind": "package-json",
+          "path": "packages/runtime/package.json",
+          "selector": "exports[\"./v2\"]"
+        },
+        "symbol": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotIntelligenceRuntime @deprecated tag"
+        },
+        "replacement": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotIntelligenceRuntime @deprecated tag"
+        },
+        "sourceMessage": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotIntelligenceRuntime @deprecated tag"
+        }
+      }
+    },
+    {
+      "importPath": "@copilotkit/runtime/v2",
+      "symbol": "CopilotIntelligenceRuntimeLike",
+      "replacement": {
+        "importPath": "@copilotkit/runtime",
+        "symbol": "CopilotKitIntelligenceRuntimeLike"
+      },
+      "sourceMessage": "Use `CopilotKitIntelligenceRuntimeLike` from\n`@copilotkit/runtime`. This old name is an alias of it. To move your\nimports, run `npx codemod @copilotkit/v2-migration`.",
+      "provenance": {
+        "importPath": {
+          "kind": "package-json",
+          "path": "packages/runtime/package.json",
+          "selector": "exports[\"./v2\"]"
+        },
+        "symbol": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotIntelligenceRuntimeLike @deprecated tag"
+        },
+        "replacement": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotIntelligenceRuntimeLike @deprecated tag"
+        },
+        "sourceMessage": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotIntelligenceRuntimeLike @deprecated tag"
+        }
+      }
+    },
+    {
+      "importPath": "@copilotkit/runtime/v2",
+      "symbol": "CopilotIntelligenceRuntimeOptions",
+      "replacement": {
+        "importPath": "@copilotkit/runtime",
+        "symbol": "CopilotKitIntelligenceRuntimeOptions"
+      },
+      "sourceMessage": "Use `CopilotKitIntelligenceRuntimeOptions` from\n`@copilotkit/runtime`. This old name is an alias of it. To move your\nimports, run `npx codemod @copilotkit/v2-migration`.",
+      "provenance": {
+        "importPath": {
+          "kind": "package-json",
+          "path": "packages/runtime/package.json",
+          "selector": "exports[\"./v2\"]"
+        },
+        "symbol": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotIntelligenceRuntimeOptions @deprecated tag"
+        },
+        "replacement": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotIntelligenceRuntimeOptions @deprecated tag"
+        },
+        "sourceMessage": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotIntelligenceRuntimeOptions @deprecated tag"
+        }
+      }
+    },
+    {
+      "importPath": "@copilotkit/runtime/v2",
+      "symbol": "CopilotRuntime",
+      "replacement": {
+        "importPath": "@copilotkit/runtime",
+        "symbol": "CopilotKitRuntime"
+      },
+      "sourceMessage": "Use `CopilotKitRuntime` from `@copilotkit/runtime`. This old\nname is an alias of it. To move your imports, run\n`npx codemod @copilotkit/v2-migration`.",
+      "provenance": {
+        "importPath": {
+          "kind": "package-json",
+          "path": "packages/runtime/package.json",
+          "selector": "exports[\"./v2\"]"
+        },
+        "symbol": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntime @deprecated tag"
+        },
+        "replacement": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntime @deprecated tag"
+        },
+        "sourceMessage": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntime @deprecated tag"
+        }
+      }
+    },
+    {
+      "importPath": "@copilotkit/runtime/v2",
+      "symbol": "CopilotRuntimeConstructor",
+      "replacement": {
+        "importPath": "@copilotkit/runtime",
+        "symbol": "CopilotKitRuntimeConstructor"
+      },
+      "sourceMessage": "Use `CopilotKitRuntimeConstructor` from `@copilotkit/runtime`.\nThis old name is an alias of it. To move your imports, run\n`npx codemod @copilotkit/v2-migration`.",
+      "provenance": {
+        "importPath": {
+          "kind": "package-json",
+          "path": "packages/runtime/package.json",
+          "selector": "exports[\"./v2\"]"
+        },
+        "symbol": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntimeConstructor @deprecated tag"
+        },
+        "replacement": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntimeConstructor @deprecated tag"
+        },
+        "sourceMessage": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntimeConstructor @deprecated tag"
+        }
+      }
+    },
+    {
+      "importPath": "@copilotkit/runtime/v2",
+      "symbol": "CopilotRuntimeFetchHandler",
+      "replacement": {
+        "importPath": "@copilotkit/runtime",
+        "symbol": "CopilotKitRuntimeFetchHandler"
+      },
+      "sourceMessage": "Use `CopilotKitRuntimeFetchHandler` from `@copilotkit/runtime`.\nThis old name is an alias of it. To move your imports, run\n`npx codemod @copilotkit/v2-migration`.",
+      "provenance": {
+        "importPath": {
+          "kind": "package-json",
+          "path": "packages/runtime/package.json",
+          "selector": "exports[\"./v2\"]"
+        },
+        "symbol": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntimeFetchHandler @deprecated tag"
+        },
+        "replacement": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntimeFetchHandler @deprecated tag"
+        },
+        "sourceMessage": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntimeFetchHandler @deprecated tag"
+        }
+      }
+    },
+    {
+      "importPath": "@copilotkit/runtime/v2",
+      "symbol": "CopilotRuntimeFetchHandlerWithChannels",
+      "replacement": {
+        "importPath": "@copilotkit/runtime",
+        "symbol": "CopilotKitRuntimeFetchHandlerWithChannels"
+      },
+      "sourceMessage": "Use `CopilotKitRuntimeFetchHandlerWithChannels` from\n`@copilotkit/runtime`. This old name is an alias of it. To move your\nimports, run `npx codemod @copilotkit/v2-migration`.",
+      "provenance": {
+        "importPath": {
+          "kind": "package-json",
+          "path": "packages/runtime/package.json",
+          "selector": "exports[\"./v2\"]"
+        },
+        "symbol": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntimeFetchHandlerWithChannels @deprecated tag"
+        },
+        "replacement": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntimeFetchHandlerWithChannels @deprecated tag"
+        },
+        "sourceMessage": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntimeFetchHandlerWithChannels @deprecated tag"
+        }
+      }
+    },
+    {
+      "importPath": "@copilotkit/runtime/v2",
+      "symbol": "CopilotRuntimeHandlerOptions",
+      "replacement": {
+        "importPath": "@copilotkit/runtime",
+        "symbol": "CopilotKitRuntimeHandlerOptions"
+      },
+      "sourceMessage": "Use `CopilotKitRuntimeHandlerOptions` from\n`@copilotkit/runtime`. This old name is an alias of it. To move your\nimports, run `npx codemod @copilotkit/v2-migration`.",
+      "provenance": {
+        "importPath": {
+          "kind": "package-json",
+          "path": "packages/runtime/package.json",
+          "selector": "exports[\"./v2\"]"
+        },
+        "symbol": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntimeHandlerOptions @deprecated tag"
+        },
+        "replacement": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntimeHandlerOptions @deprecated tag"
+        },
+        "sourceMessage": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntimeHandlerOptions @deprecated tag"
+        }
+      }
+    },
+    {
+      "importPath": "@copilotkit/runtime/v2",
+      "symbol": "CopilotRuntimeHooks",
+      "replacement": {
+        "importPath": "@copilotkit/runtime",
+        "symbol": "CopilotKitRuntimeHooks"
+      },
+      "sourceMessage": "Use `CopilotKitRuntimeHooks` from `@copilotkit/runtime`. This\nold name is an alias of it. To move your imports, run\n`npx codemod @copilotkit/v2-migration`.",
+      "provenance": {
+        "importPath": {
+          "kind": "package-json",
+          "path": "packages/runtime/package.json",
+          "selector": "exports[\"./v2\"]"
+        },
+        "symbol": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntimeHooks @deprecated tag"
+        },
+        "replacement": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntimeHooks @deprecated tag"
+        },
+        "sourceMessage": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntimeHooks @deprecated tag"
+        }
+      }
+    },
+    {
+      "importPath": "@copilotkit/runtime/v2",
+      "symbol": "CopilotRuntimeLearningConfig",
+      "replacement": {
+        "importPath": "@copilotkit/runtime",
+        "symbol": "CopilotKitRuntimeLearningConfig"
+      },
+      "sourceMessage": "Use `CopilotKitRuntimeLearningConfig` from\n`@copilotkit/runtime`. This old name is an alias of it. To move your\nimports, run `npx codemod @copilotkit/v2-migration`.",
+      "provenance": {
+        "importPath": {
+          "kind": "package-json",
+          "path": "packages/runtime/package.json",
+          "selector": "exports[\"./v2\"]"
+        },
+        "symbol": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntimeLearningConfig @deprecated tag"
+        },
+        "replacement": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntimeLearningConfig @deprecated tag"
+        },
+        "sourceMessage": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntimeLearningConfig @deprecated tag"
+        }
+      }
+    },
+    {
+      "importPath": "@copilotkit/runtime/v2",
+      "symbol": "CopilotRuntimeLearningContext",
+      "replacement": {
+        "importPath": "@copilotkit/runtime",
+        "symbol": "CopilotKitRuntimeLearningContext"
+      },
+      "sourceMessage": "Use `CopilotKitRuntimeLearningContext` from\n`@copilotkit/runtime`. This old name is an alias of it. To move your\nimports, run `npx codemod @copilotkit/v2-migration`.",
+      "provenance": {
+        "importPath": {
+          "kind": "package-json",
+          "path": "packages/runtime/package.json",
+          "selector": "exports[\"./v2\"]"
+        },
+        "symbol": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntimeLearningContext @deprecated tag"
+        },
+        "replacement": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntimeLearningContext @deprecated tag"
+        },
+        "sourceMessage": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntimeLearningContext @deprecated tag"
+        }
+      }
+    },
+    {
+      "importPath": "@copilotkit/runtime/v2",
+      "symbol": "CopilotRuntimeLike",
+      "replacement": {
+        "importPath": "@copilotkit/runtime",
+        "symbol": "CopilotKitRuntimeLike"
+      },
+      "sourceMessage": "Use `CopilotKitRuntimeLike` from `@copilotkit/runtime`. This old\nname is an alias of it. To move your imports, run\n`npx codemod @copilotkit/v2-migration`.",
+      "provenance": {
+        "importPath": {
+          "kind": "package-json",
+          "path": "packages/runtime/package.json",
+          "selector": "exports[\"./v2\"]"
+        },
+        "symbol": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntimeLike @deprecated tag"
+        },
+        "replacement": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntimeLike @deprecated tag"
+        },
+        "sourceMessage": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntimeLike @deprecated tag"
+        }
+      }
+    },
+    {
+      "importPath": "@copilotkit/runtime/v2",
+      "symbol": "CopilotRuntimeLogger",
+      "replacement": {
+        "importPath": "@copilotkit/runtime",
+        "symbol": "CopilotKitRuntimeLogger"
+      },
+      "sourceMessage": "Use `CopilotKitRuntimeLogger` from `@copilotkit/runtime`. This\nold name is an alias of it. To move your imports, run\n`npx codemod @copilotkit/v2-migration`.",
+      "provenance": {
+        "importPath": {
+          "kind": "package-json",
+          "path": "packages/runtime/package.json",
+          "selector": "exports[\"./v2\"]"
+        },
+        "symbol": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntimeLogger @deprecated tag"
+        },
+        "replacement": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntimeLogger @deprecated tag"
+        },
+        "sourceMessage": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntimeLogger @deprecated tag"
+        }
+      }
+    },
+    {
+      "importPath": "@copilotkit/runtime/v2",
+      "symbol": "CopilotRuntimeMemoryConfig",
+      "replacement": {
+        "importPath": "@copilotkit/runtime",
+        "symbol": "CopilotKitRuntimeMemoryConfig"
+      },
+      "sourceMessage": "Use `CopilotKitRuntimeMemoryConfig` from `@copilotkit/runtime`.\nThis old name is an alias of it. To move your imports, run\n`npx codemod @copilotkit/v2-migration`.",
+      "provenance": {
+        "importPath": {
+          "kind": "package-json",
+          "path": "packages/runtime/package.json",
+          "selector": "exports[\"./v2\"]"
+        },
+        "symbol": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntimeMemoryConfig @deprecated tag"
+        },
+        "replacement": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntimeMemoryConfig @deprecated tag"
+        },
+        "sourceMessage": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntimeMemoryConfig @deprecated tag"
+        }
+      }
+    },
+    {
+      "importPath": "@copilotkit/runtime/v2",
+      "symbol": "CopilotRuntimeOptions",
+      "replacement": {
+        "importPath": "@copilotkit/runtime",
+        "symbol": "CopilotKitRuntimeOptions"
+      },
+      "sourceMessage": "Use `CopilotKitRuntimeOptions` from `@copilotkit/runtime`. This\nold name is an alias of it. To move your imports, run\n`npx codemod @copilotkit/v2-migration`.",
+      "provenance": {
+        "importPath": {
+          "kind": "package-json",
+          "path": "packages/runtime/package.json",
+          "selector": "exports[\"./v2\"]"
+        },
+        "symbol": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntimeOptions @deprecated tag"
+        },
+        "replacement": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntimeOptions @deprecated tag"
+        },
+        "sourceMessage": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntimeOptions @deprecated tag"
+        }
+      }
+    },
+    {
+      "importPath": "@copilotkit/runtime/v2",
+      "symbol": "CopilotRuntimeUser",
+      "replacement": {
+        "importPath": "@copilotkit/runtime",
+        "symbol": "CopilotKitRuntimeUser"
+      },
+      "sourceMessage": "Use `CopilotKitRuntimeUser` from `@copilotkit/runtime`. This old\nname is an alias of it. To move your imports, run\n`npx codemod @copilotkit/v2-migration`.",
+      "provenance": {
+        "importPath": {
+          "kind": "package-json",
+          "path": "packages/runtime/package.json",
+          "selector": "exports[\"./v2\"]"
+        },
+        "symbol": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntimeUser @deprecated tag"
+        },
+        "replacement": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntimeUser @deprecated tag"
+        },
+        "sourceMessage": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotRuntimeUser @deprecated tag"
+        }
+      }
+    },
+    {
+      "importPath": "@copilotkit/runtime/v2",
+      "symbol": "CopilotSseRuntime",
+      "replacement": {
+        "importPath": "@copilotkit/runtime",
+        "symbol": "CopilotKitSseRuntime"
+      },
+      "sourceMessage": "Use `CopilotKitSseRuntime` from `@copilotkit/runtime`. This old\nname is an alias of it. To move your imports, run\n`npx codemod @copilotkit/v2-migration`.",
+      "provenance": {
+        "importPath": {
+          "kind": "package-json",
+          "path": "packages/runtime/package.json",
+          "selector": "exports[\"./v2\"]"
+        },
+        "symbol": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotSseRuntime @deprecated tag"
+        },
+        "replacement": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotSseRuntime @deprecated tag"
+        },
+        "sourceMessage": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotSseRuntime @deprecated tag"
+        }
+      }
+    },
+    {
+      "importPath": "@copilotkit/runtime/v2",
+      "symbol": "CopilotSseRuntimeLike",
+      "replacement": {
+        "importPath": "@copilotkit/runtime",
+        "symbol": "CopilotKitSseRuntimeLike"
+      },
+      "sourceMessage": "Use `CopilotKitSseRuntimeLike` from `@copilotkit/runtime`. This\nold name is an alias of it. To move your imports, run\n`npx codemod @copilotkit/v2-migration`.",
+      "provenance": {
+        "importPath": {
+          "kind": "package-json",
+          "path": "packages/runtime/package.json",
+          "selector": "exports[\"./v2\"]"
+        },
+        "symbol": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotSseRuntimeLike @deprecated tag"
+        },
+        "replacement": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotSseRuntimeLike @deprecated tag"
+        },
+        "sourceMessage": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotSseRuntimeLike @deprecated tag"
+        }
+      }
+    },
+    {
+      "importPath": "@copilotkit/runtime/v2",
+      "symbol": "CopilotSseRuntimeOptions",
+      "replacement": {
+        "importPath": "@copilotkit/runtime",
+        "symbol": "CopilotKitSseRuntimeOptions"
+      },
+      "sourceMessage": "Use `CopilotKitSseRuntimeOptions` from `@copilotkit/runtime`.\nThis old name is an alias of it. To move your imports, run\n`npx codemod @copilotkit/v2-migration`.",
+      "provenance": {
+        "importPath": {
+          "kind": "package-json",
+          "path": "packages/runtime/package.json",
+          "selector": "exports[\"./v2\"]"
+        },
+        "symbol": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotSseRuntimeOptions @deprecated tag"
+        },
+        "replacement": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotSseRuntimeOptions @deprecated tag"
+        },
+        "sourceMessage": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "CopilotSseRuntimeOptions @deprecated tag"
+        }
+      }
+    },
+    {
+      "importPath": "@copilotkit/runtime/v2",
+      "symbol": "createCopilotRuntimeHandler",
+      "replacement": {
+        "importPath": "@copilotkit/runtime",
+        "symbol": "createCopilotKitRuntimeHandler"
+      },
+      "sourceMessage": "Use `createCopilotKitRuntimeHandler` from `@copilotkit/runtime`.\nThis old name is an alias of it. To move your imports, run\n`npx codemod @copilotkit/v2-migration`.",
+      "provenance": {
+        "importPath": {
+          "kind": "package-json",
+          "path": "packages/runtime/package.json",
+          "selector": "exports[\"./v2\"]"
+        },
+        "symbol": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "createCopilotRuntimeHandler @deprecated tag"
+        },
+        "replacement": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "createCopilotRuntimeHandler @deprecated tag"
+        },
+        "sourceMessage": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/index.ts",
+          "selector": "createCopilotRuntimeHandler @deprecated tag"
+        }
+      }
+    },
+    {
+      "importPath": "@copilotkit/runtime/v2/node",
+      "symbol": "createCopilotNodeHandler",
+      "replacement": {
+        "importPath": "@copilotkit/runtime/node",
+        "symbol": "createCopilotKitNodeHandler"
+      },
+      "sourceMessage": "Use `createCopilotKitNodeHandler` from\n`@copilotkit/runtime/node`. This old name is an alias of it. To move your\nimports, run `npx codemod @copilotkit/v2-migration`.",
+      "provenance": {
+        "importPath": {
+          "kind": "package-json",
+          "path": "packages/runtime/package.json",
+          "selector": "exports[\"./v2/node\"]"
+        },
+        "symbol": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/node.ts",
+          "selector": "createCopilotNodeHandler @deprecated tag"
+        },
+        "replacement": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/node.ts",
+          "selector": "createCopilotNodeHandler @deprecated tag"
+        },
+        "sourceMessage": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/node.ts",
+          "selector": "createCopilotNodeHandler @deprecated tag"
+        }
+      }
+    },
+    {
+      "importPath": "@copilotkit/runtime/v2/node",
+      "symbol": "createCopilotNodeListener",
+      "replacement": {
+        "importPath": "@copilotkit/runtime/node",
+        "symbol": "createCopilotKitNodeListener"
+      },
+      "sourceMessage": "Use `createCopilotKitNodeListener` from\n`@copilotkit/runtime/node`. This old name is an alias of it. To move your\nimports, run `npx codemod @copilotkit/v2-migration`.",
+      "provenance": {
+        "importPath": {
+          "kind": "package-json",
+          "path": "packages/runtime/package.json",
+          "selector": "exports[\"./v2/node\"]"
+        },
+        "symbol": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/node.ts",
+          "selector": "createCopilotNodeListener @deprecated tag"
+        },
+        "replacement": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/node.ts",
+          "selector": "createCopilotNodeListener @deprecated tag"
+        },
+        "sourceMessage": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/node.ts",
+          "selector": "createCopilotNodeListener @deprecated tag"
+        }
+      }
+    },
+    {
+      "importPath": "@copilotkit/runtime/v2/node",
+      "symbol": "createNodeFetchHandler",
+      "replacement": {
+        "importPath": "@copilotkit/runtime/node",
+        "symbol": "createCopilotKitNodeHandler"
+      },
+      "sourceMessage": "Use `createCopilotKitNodeHandler` from\n`@copilotkit/runtime/node`. 1.x deprecated this name, and it is an alias of\n`createCopilotKitNodeHandler`. To move your imports, run\n`npx codemod @copilotkit/v2-migration`.",
+      "provenance": {
+        "importPath": {
+          "kind": "package-json",
+          "path": "packages/runtime/package.json",
+          "selector": "exports[\"./v2/node\"]"
+        },
+        "symbol": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/node.ts",
+          "selector": "createNodeFetchHandler @deprecated tag"
+        },
+        "replacement": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/node.ts",
+          "selector": "createNodeFetchHandler @deprecated tag"
+        },
+        "sourceMessage": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/node.ts",
+          "selector": "createNodeFetchHandler @deprecated tag"
+        }
+      }
+    },
+    {
+      "importPath": "@copilotkit/runtime/v2/node",
+      "symbol": "NodeCopilotListener",
+      "replacement": {
+        "importPath": "@copilotkit/runtime/node",
+        "symbol": "NodeCopilotKitListener"
+      },
+      "sourceMessage": "Use `NodeCopilotKitListener` from `@copilotkit/runtime/node`.\nThis old name is an alias of it. To move your imports, run\n`npx codemod @copilotkit/v2-migration`.",
+      "provenance": {
+        "importPath": {
+          "kind": "package-json",
+          "path": "packages/runtime/package.json",
+          "selector": "exports[\"./v2/node\"]"
+        },
+        "symbol": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/node.ts",
+          "selector": "NodeCopilotListener @deprecated tag"
+        },
+        "replacement": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/node.ts",
+          "selector": "NodeCopilotListener @deprecated tag"
+        },
+        "sourceMessage": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/node.ts",
+          "selector": "NodeCopilotListener @deprecated tag"
+        }
+      }
+    },
+    {
+      "importPath": "@copilotkit/runtime/v2/node",
+      "symbol": "NodeCopilotListenerWithChannels",
+      "replacement": {
+        "importPath": "@copilotkit/runtime/node",
+        "symbol": "NodeCopilotKitListenerWithChannels"
+      },
+      "sourceMessage": "Use `NodeCopilotKitListenerWithChannels` from\n`@copilotkit/runtime/node`. This old name is an alias of it. To move your\nimports, run `npx codemod @copilotkit/v2-migration`.",
+      "provenance": {
+        "importPath": {
+          "kind": "package-json",
+          "path": "packages/runtime/package.json",
+          "selector": "exports[\"./v2/node\"]"
+        },
+        "symbol": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/node.ts",
+          "selector": "NodeCopilotListenerWithChannels @deprecated tag"
+        },
+        "replacement": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/node.ts",
+          "selector": "NodeCopilotListenerWithChannels @deprecated tag"
+        },
+        "sourceMessage": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/v2/node.ts",
+          "selector": "NodeCopilotListenerWithChannels @deprecated tag"
+        }
+      }
+    }
+  ]
 }

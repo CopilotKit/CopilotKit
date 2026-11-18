@@ -53,6 +53,25 @@ open http://localhost:10000. Before the image is tagged, the build starts the
 server and fetches a few pages that render on request (the last step of the
 Dockerfile).
 
+## Release candidate docs
+
+To build the docs of the next major release as a site of its own, set
+`DOCS_CHANNEL=vnext` when you build. That build changes four things:
+
+- Every page shows a banner that links to docs.copilotkit.ai.
+- Every page has a `noindex` robots tag.
+- `robots.txt` disallows every path.
+- `/sitemap.xml` answers 404.
+
+```bash
+DOCS_CHANNEL=vnext npm run build
+docker build -f showcase/shell-docs/Dockerfile --build-arg DOCS_CHANNEL=vnext -t shell-docs-vnext .
+```
+
+The build inlines the value, so set it for the build, not only for the server.
+On Railway, set it as a service variable. Railway passes it to the Dockerfile
+as a build arg. Without the variable, the build is docs.copilotkit.ai.
+
 ## Validate
 
 ```bash
@@ -77,6 +96,7 @@ npm run lint
 | `src/lib/redirects`                             | shell-docs' legacy URL redirects                            |
 | `source.config.ts`                              | MDX options for every page and snippet                      |
 | `src/lib/shared.ts`                             | App name, routes, GitHub config                             |
+| `src/lib/docs-channel.ts`                       | The build's release line (`DOCS_CHANNEL`)                   |
 | `src/app/theme.css`                             | CopilotKit theme over Fumadocs' variables (see `DESIGN.md`) |
 | `src/app/api/search`                            | Built-in Orama search endpoint                              |
 | `src/app/og`                                    | Generated OG images per page                                |

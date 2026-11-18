@@ -8,6 +8,12 @@ const withMDX = createMDX();
 const config = {
   reactStrictMode: true,
 
+  // The docs' release line (src/lib/docs-channel.ts), read from the build's
+  // environment and inlined, so a running server can't change it.
+  env: {
+    DOCS_CHANNEL: process.env.DOCS_CHANNEL ?? "",
+  },
+
   // The standard catalog imports its samples from ../shared. The Docker build
   // (Dockerfile) has no monorepo lockfile for Turbopack to infer a root from,
   // so name the showcase folder as the root, as shell-docs does.

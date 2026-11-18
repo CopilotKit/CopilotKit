@@ -65,7 +65,7 @@ function compositionNote(name: string) {
 
 const FILTER_CATALOG_NOTE = `\`filterCatalog\` was removed with \`@copilotkit/a2ui-renderer\` in 2.0. To drop standard components, use \`extends: [standardUI.omit(["Name"])]\` in \`createGenerativeUI\`. To limit your own components, pass \`createGenerativeUI\` only the components you want. See https://docs.copilotkit.ai/generative-ui/components/standard-catalog#drop-components`;
 
-const RECOVERY_NOTE = `\`CopilotA2UIRecovery\` no longer exposes \`lifecycle\`, \`retryRevealed\`, \`debugExposure\`, \`label\`, \`phase\`, \`failureDiagnostics\` or \`retryDiagnostics\`. Read the lifecycle from the activity content with \`readA2UILifecycleContent\`. See ${GUIDE}`;
+const RECOVERY_NOTE = `\`CopilotA2UIRecovery\` was removed in 2.0, with \`readA2UILifecycleContent\` and the other A2UI exports of \`@copilotkit/angular\`. Delete the code that reads it. A failed A2UI recovery shows as a generative UI surface with status \`"error"\`. To show that state, pass a \`chatCard\` component to \`provideGenerativeUI\` from "@copilotkit/angular/generative-ui". See ${GUIDE}`;
 
 const PLACEHOLDER_NOTE = `The Open Generative UI placeholder element (\`${OGUI_PLACEHOLDER_TEST_ID}\`) was removed in 2.0. While the agent generates, the renderer shows \`open-generative-ui-progress-overlay\` with \`open-generative-ui-spinner\` in it. See ${GUIDE}`;
 
