@@ -5,7 +5,9 @@
 // 1.x names, so this checks the values:
 //
 // - each `/v2` subpath exports every export of its 2.0 entry, with the same
-//   value;
+//   value, except the 1.x names that the alias defines itself. The entry can
+//   export one of those names as the stand-in of a removed 1.x export, for
+//   example the v1 `CopilotRuntime` class on the root;
 // - each 1.x name is the value of its 2.0 name;
 // - `/v2` exports the Built-in Agent values of `@copilotkit/runtime/agent`.
 //
@@ -85,6 +87,7 @@ for (const [format, modules] of Object.entries(MODULES)) {
     const aliasModule = modules[alias];
     const entryModule = modules[entry];
     for (const [name, value] of Object.entries(entryModule)) {
+      if (Object.hasOwn(renamed, name)) continue;
       assert.equal(
         aliasModule[name],
         value,
