@@ -11,6 +11,8 @@ export default defineConfig({
   entry: {
     index: "src/index.ts",
     node: "src/node.ts",
+    "v2/index": "src/v2/index.ts",
+    "v2/node": "src/v2/node.ts",
     agent: "src/agent/index.ts",
     "agent/ai-sdk": "src/agent/ai-sdk/index.ts",
     "internal/learned-skills": "src/internal/learned-skills.ts",

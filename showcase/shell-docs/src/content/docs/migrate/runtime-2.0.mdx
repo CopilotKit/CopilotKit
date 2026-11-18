@@ -124,9 +124,19 @@ the Fetch handler validates the endpoint path and single-route envelope.
 
 ## Renamed runtime exports
 
-The 2.0 release candidates named some runtime exports without "Kit". 2.0
-removed these old names, so an import of an old name fails the build. The
-codemod renames them. To rename one by hand, use this table:
+CopilotKit 1.x and the 2.0 release candidates named some runtime exports
+without "Kit". In 2.0, these names have "Kit" after "Copilot".
+`@copilotkit/runtime` and `@copilotkit/runtime/node` export only the new names.
+
+The 1.x import paths `@copilotkit/runtime/v2` and `@copilotkit/runtime/v2/node`
+also export the old names, as deprecated aliases. Each alias is the same class,
+function, or type as its new name. As a result, 1.x code that imports the old
+names from these paths works on 2.0. Your editor marks these imports as
+deprecated.
+
+The codemod changes your code to use the new names. It renames each old name,
+and it moves each import from a `/v2` path to the package root. To rename an
+old name by hand, use this table:
 
 | Old name                      | New name                         |
 | ----------------------------- | -------------------------------- |
@@ -134,6 +144,7 @@ codemod renames them. To rename one by hand, use this table:
 | `createCopilotRuntimeHandler` | `createCopilotKitRuntimeHandler` |
 | `createCopilotNodeListener`   | `createCopilotKitNodeListener`   |
 | `createCopilotNodeHandler`    | `createCopilotKitNodeHandler`    |
+| `createNodeFetchHandler`      | `createCopilotKitNodeHandler`    |
 | `CopilotSseRuntime`           | `CopilotKitSseRuntime`           |
 | `CopilotIntelligenceRuntime`  | `CopilotKitIntelligenceRuntime`  |
 | `NodeCopilotListener`         | `NodeCopilotKitListener`         |

@@ -150,7 +150,70 @@ const HOST_FACTORIES: HostFactorySpec[] = [
   },
 ];
 
-const DEPRECATIONS: DeprecationSpec[] = [];
+const V2_PATH = "packages/runtime/src/v2/index.ts";
+const V2_NODE_PATH = "packages/runtime/src/v2/node.ts";
+
+/**
+ * The 1.x names of runtime exports that 2.0 renamed with "Kit". The deprecated
+ * `/v2` subpaths keep them as aliases. The package root has only the new
+ * names.
+ */
+const RENAMED_RUNTIME_EXPORTS: Array<[string, string]> = [
+  ["CopilotRuntime", "CopilotKitRuntime"],
+  ["CopilotSseRuntime", "CopilotKitSseRuntime"],
+  ["CopilotIntelligenceRuntime", "CopilotKitIntelligenceRuntime"],
+  ["createCopilotRuntimeHandler", "createCopilotKitRuntimeHandler"],
+  ["CopilotRuntimeConstructor", "CopilotKitRuntimeConstructor"],
+  ["CopilotRuntimeOptions", "CopilotKitRuntimeOptions"],
+  ["CopilotRuntimeLike", "CopilotKitRuntimeLike"],
+  ["CopilotSseRuntimeOptions", "CopilotKitSseRuntimeOptions"],
+  ["CopilotSseRuntimeLike", "CopilotKitSseRuntimeLike"],
+  ["CopilotIntelligenceRuntimeOptions", "CopilotKitIntelligenceRuntimeOptions"],
+  ["CopilotIntelligenceRuntimeLike", "CopilotKitIntelligenceRuntimeLike"],
+  ["CopilotRuntimeMemoryConfig", "CopilotKitRuntimeMemoryConfig"],
+  ["CopilotRuntimeUser", "CopilotKitRuntimeUser"],
+  ["CopilotRuntimeLearningConfig", "CopilotKitRuntimeLearningConfig"],
+  ["CopilotRuntimeLearningContext", "CopilotKitRuntimeLearningContext"],
+  ["CopilotRuntimeLogger", "CopilotKitRuntimeLogger"],
+  ["CopilotRuntimeHandlerOptions", "CopilotKitRuntimeHandlerOptions"],
+  ["CopilotRuntimeFetchHandler", "CopilotKitRuntimeFetchHandler"],
+  [
+    "CopilotRuntimeFetchHandlerWithChannels",
+    "CopilotKitRuntimeFetchHandlerWithChannels",
+  ],
+  ["CopilotRuntimeHooks", "CopilotKitRuntimeHooks"],
+  ["CopilotCorsConfig", "CopilotKitCorsConfig"],
+];
+
+/** The same for `@copilotkit/runtime/node`, kept on `/v2/node`. */
+const RENAMED_NODE_EXPORTS: Array<[string, string]> = [
+  ["createCopilotNodeListener", "createCopilotKitNodeListener"],
+  ["createCopilotNodeHandler", "createCopilotKitNodeHandler"],
+  // 1.x deprecated this name of createCopilotNodeHandler.
+  ["createNodeFetchHandler", "createCopilotKitNodeHandler"],
+  ["NodeCopilotListener", "NodeCopilotKitListener"],
+  ["NodeCopilotListenerWithChannels", "NodeCopilotKitListenerWithChannels"],
+];
+
+const DEPRECATIONS: DeprecationSpec[] = [
+  ...RENAMED_RUNTIME_EXPORTS.map(([symbol, replacement]) => ({
+    importPath: "@copilotkit/runtime/v2",
+    entrySource: V2_PATH,
+    symbol,
+    declarationPath: V2_PATH,
+    replacement: { importPath: "@copilotkit/runtime", symbol: replacement },
+  })),
+  ...RENAMED_NODE_EXPORTS.map(([symbol, replacement]) => ({
+    importPath: "@copilotkit/runtime/v2/node",
+    entrySource: V2_NODE_PATH,
+    symbol,
+    declarationPath: V2_NODE_PATH,
+    replacement: {
+      importPath: "@copilotkit/runtime/node",
+      symbol: replacement,
+    },
+  })),
+];
 
 function readJson<T>(path: string): T {
   try {
