@@ -7,7 +7,7 @@
  */
 import type { ComponentType } from "react";
 import { byocOwn, byocStandard } from "./byoc";
-import { chatcnOwn, chatcnStandard } from "./chatcn";
+import { shadcnOwn, shadcnStandard } from "./shadcn";
 import { useDesignSystem } from "./context";
 import { materialOwn, materialStandard } from "./material";
 import type { DesignSystemId } from "./registry";
@@ -22,9 +22,9 @@ type Overrides = {
 
 const OVERRIDES: Record<DesignSystemId, Overrides> = {
   copilotkit: { standard: {}, own: {} },
-  chatcn: {
-    standard: chatcnStandard as Record<string, AnyComponent>,
-    own: chatcnOwn as Record<string, AnyComponent>,
+  shadcn: {
+    standard: shadcnStandard as Record<string, AnyComponent>,
+    own: shadcnOwn as Record<string, AnyComponent>,
   },
   material: {
     standard: materialStandard as Record<string, AnyComponent>,

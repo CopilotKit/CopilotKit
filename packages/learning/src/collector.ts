@@ -1,10 +1,12 @@
 import { installClickCapture } from "./clicks";
+import { installErrorCapture } from "./errors";
 import { installInputCapture } from "./inputs";
 import { installNavigationCapture } from "./navigation";
 import { installNetworkCapture } from "./network";
 import { createRedactor } from "./redact";
 import { toRoute } from "./routes";
 import { BUILT_IN_EVENT_NAMES } from "./types";
+import { appContext } from "./version";
 import type {
   BuiltInEventName,
   Collector,
@@ -46,6 +48,8 @@ export function createCollector(options: CollectorOptions) {
     navigation: true,
     network: true,
     inputs: true,
+    errors: true,
+    alerts: false,
     ...options.capture,
   };
   let session: Session | null = null;
@@ -153,6 +157,14 @@ export function createCollector(options: CollectorOptions) {
       current.flushInputs = inputs.flush;
       current.uninstalls.push(inputs);
     }
+    if (capture.errors)
+      current.uninstalls.push(
+        installErrorCapture({
+          emit: recordCurrent,
+          redact,
+          alerts: capture.alerts,
+        }),
+      );
     const onPageHide = () => flush({ beacon: true });
     window.addEventListener("pagehide", onPageHide);
     current.uninstalls.push(() =>
@@ -164,6 +176,7 @@ export function createCollector(options: CollectorOptions) {
       url: redact.url(location.href),
       title: document.title,
       referrer: redact.url(document.referrer),
+      ...appContext(options.appVersion),
     });
   };
 

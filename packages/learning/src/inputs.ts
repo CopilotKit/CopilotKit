@@ -1,4 +1,4 @@
-import { describeTarget, readControlValue } from "./clicks";
+import { describeTarget, fieldLabel, readControlValue } from "./clicks";
 import { createRedactor } from "./redact";
 import type { Redactor } from "./redact";
 import { REDACTED } from "./types";
@@ -106,11 +106,17 @@ export function installInputCapture(params: {
       return;
     }
     cancel(element);
+    // Read the name now: the host can remove or relabel the field before delivery.
+    const label = fieldLabel(element, redact);
     const edit: Edit = {
       state,
       payload: {
         eventType,
-        target: { ...described.target, ...state },
+        target: {
+          ...described.target,
+          ...state,
+          ...(label === undefined ? {} : { label }),
+        },
         url: redact.url(location.href),
         route: location.pathname,
       },

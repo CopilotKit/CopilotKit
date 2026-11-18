@@ -61,7 +61,7 @@ export function DocsLayout({
 
 /**
  * On tablets and desktops the chat opens from a round button in the page's bottom-right
- * corner, the primary pill's plum with a chat glyph. Phones open it from the
+ * corner, the indigo of Talk to an engineer with a white chat glyph. Phones open it from the
  * sidebar drawer, as Spacious does.
  */
 function AskAITrigger({ onOpen }: { onOpen: () => void }) {
@@ -72,7 +72,7 @@ function AskAITrigger({ onOpen }: { onOpen: () => void }) {
           <Button
             aria-label="Ask CopilotKit"
             onClick={onOpen}
-            className="fixed end-6 bottom-6 z-30 size-12 rounded-full bg-foreground text-background shadow-lift hover:bg-foreground/85 max-md:hidden"
+            className="fixed end-6 bottom-6 z-30 size-12 rounded-full bg-brand-lilac-deep text-white shadow-lift hover:bg-[#5057cc] max-md:hidden"
           />
         }
       >

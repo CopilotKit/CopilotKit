@@ -37,7 +37,7 @@
  * historical-replay turn renders directly in its settled state with no
  * animation — which is the desired behavior.
  */
-.cpk-intelligence-indicator {
+:where(.cpk-intelligence-indicator) {
   position: relative;
   display: inline-flex;
   align-items: center;
@@ -54,7 +54,7 @@
 
 /* ─── Chrome layer (bg, border, shadow, backdrop-blur) ──────────────── */
 
-.cpk-intelligence-indicator__chrome {
+:where(.cpk-intelligence-indicator__chrome) {
   position: absolute;
   inset: 0;
   border-radius: 999px;
@@ -76,14 +76,16 @@
   transition: opacity 400ms ease-out 250ms;
 }
 
-.cpk-intelligence-indicator[data-status="finished"]
-  .cpk-intelligence-indicator__chrome {
+:where(
+  .cpk-intelligence-indicator[data-status="finished"]
+    .cpk-intelligence-indicator__chrome
+) {
   opacity: 0;
 }
 
 /* ─── Content layer (icon + label) ──────────────────────────────────── */
 
-.cpk-intelligence-indicator__content {
+:where(.cpk-intelligence-indicator__content) {
   position: relative;
   display: inline-flex;
   align-items: center;
@@ -104,8 +106,10 @@
   transition: color 400ms ease-out 250ms;
 }
 
-.cpk-intelligence-indicator[data-status="finished"]
-  .cpk-intelligence-indicator__content {
+:where(
+  .cpk-intelligence-indicator[data-status="finished"]
+    .cpk-intelligence-indicator__content
+) {
   /* True-neutral gray (`#737373`, R=G=B) at 0.8 alpha. No hue cast in
      either direction (slate would lean blue, stone would lean warm).
      The combination of pure-neutral hue + slight transparency reads
@@ -125,18 +129,20 @@
    sans-serif system fonts used by default, the browser-synthesized
    italic is itself a slant on the upright forms, so this approach
    matches what `font-style: italic` would have rendered anyway. */
-.cpk-intelligence-indicator__label {
+:where(.cpk-intelligence-indicator__label) {
   display: inline-block;
   transform: skewX(0deg);
   transition: transform 400ms ease-out 250ms;
 }
 
-.cpk-intelligence-indicator[data-status="finished"]
-  .cpk-intelligence-indicator__label {
+:where(
+  .cpk-intelligence-indicator[data-status="finished"]
+    .cpk-intelligence-indicator__label
+) {
   transform: skewX(-10deg);
 }
 
-.cpk-intelligence-indicator__icon {
+:where(.cpk-intelligence-indicator__icon) {
   display: block;
   flex-shrink: 0;
   /* The icon holds two overlaid paths: a spinning arc (in-progress)
@@ -153,8 +159,10 @@
    out while the checkmark draws itself in (stroke-dashoffset) — a smooth,
    cross-browser stand-in for the old Blink-only `d:` morph. */
 
-.cpk-intelligence-indicator__icon-arc,
-.cpk-intelligence-indicator__icon-check {
+:where(
+  .cpk-intelligence-indicator__icon-arc,
+  .cpk-intelligence-indicator__icon-check
+) {
   fill: none;
   stroke: currentColor;
   stroke-width: 2.5;
@@ -175,7 +183,7 @@
    in Chrome). The animation is `infinite` and is left running in the finished
    state, so the arc keeps rotating while its opacity fades to 0 (fades out
    mid-spin rather than stopping dead). */
-.cpk-intelligence-indicator__icon-arc {
+:where(.cpk-intelligence-indicator__icon-arc) {
   stroke-dasharray: 0.53 0.47;
   opacity: 1;
   transform-box: fill-box;
@@ -188,7 +196,7 @@
    checkmark starts fully offset (undrawn) and, on finish, draws itself in by
    animating stroke-dashoffset 1 → 0 — slightly delayed and overlapping the
    arc's fade so the spinner resolves into the tick rather than hard-cutting. */
-.cpk-intelligence-indicator__icon-check {
+:where(.cpk-intelligence-indicator__icon-check) {
   stroke-dasharray: 1;
   stroke-dashoffset: 1;
   opacity: 0;
@@ -197,14 +205,18 @@
     opacity 140ms linear 90ms;
 }
 
-.cpk-intelligence-indicator[data-status="finished"]
-  .cpk-intelligence-indicator__icon-arc {
+:where(
+  .cpk-intelligence-indicator[data-status="finished"]
+    .cpk-intelligence-indicator__icon-arc
+) {
   /* Spin is intentionally left running here (now invisible): stopping it
      would snap the arc back to 0° mid-fade. The cost is negligible. */
   opacity: 0;
 }
-.cpk-intelligence-indicator[data-status="finished"]
-  .cpk-intelligence-indicator__icon-check {
+:where(
+  .cpk-intelligence-indicator[data-status="finished"]
+    .cpk-intelligence-indicator__icon-check
+) {
   stroke-dashoffset: 0;
   opacity: 1;
 }
@@ -223,14 +235,16 @@
    pill + label still convey "working", and the static check still conveys
    "done" — the information is intact, just without movement. */
 @media (prefers-reduced-motion: reduce) {
-  .cpk-intelligence-indicator__icon-arc {
+  :where(.cpk-intelligence-indicator__icon-arc) {
     animation: none;
   }
-  .cpk-intelligence-indicator__chrome,
-  .cpk-intelligence-indicator__content,
-  .cpk-intelligence-indicator__label,
-  .cpk-intelligence-indicator__icon-arc,
-  .cpk-intelligence-indicator__icon-check {
+  :where(
+    .cpk-intelligence-indicator__chrome,
+    .cpk-intelligence-indicator__content,
+    .cpk-intelligence-indicator__label,
+    .cpk-intelligence-indicator__icon-arc,
+    .cpk-intelligence-indicator__icon-check
+  ) {
     transition: none;
   }
 }

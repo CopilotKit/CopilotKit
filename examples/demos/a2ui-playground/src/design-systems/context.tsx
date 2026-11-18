@@ -9,7 +9,7 @@ import {
   useState,
 } from "react";
 import type { ReactNode } from "react";
-import { DEFAULT_DESIGN_SYSTEM, isDesignSystem } from "./registry";
+import { DEFAULT_DESIGN_SYSTEM, toDesignSystem } from "./registry";
 import type { DesignSystemId } from "./registry";
 
 const STORAGE_KEY = "a2ui-design-system";
@@ -27,10 +27,10 @@ export const useDesignSystem = () => useContext(DesignSystemContext);
 /** The visitor's last pick, read after mount so the server render and the first client render agree. */
 export function readStoredDesignSystem(): DesignSystemId | null {
   try {
-    const fromUrl = new URLSearchParams(window.location.search).get("ds");
-    if (isDesignSystem(fromUrl)) return fromUrl;
-    const saved = localStorage.getItem(STORAGE_KEY);
-    return isDesignSystem(saved) ? saved : null;
+    const fromUrl = toDesignSystem(
+      new URLSearchParams(window.location.search).get("ds"),
+    );
+    return fromUrl ?? toDesignSystem(localStorage.getItem(STORAGE_KEY));
   } catch {
     return null;
   }
@@ -42,7 +42,7 @@ const ASSETS: Partial<Record<DesignSystemId, () => Promise<unknown>>> = {
 };
 
 /**
- * Holds the design system for the playground and remembers it for this viewer. `?ds=chatcn` (or `material`,
+ * Holds the design system for the playground and remembers it for this viewer. `?ds=shadcn` (or `material`,
  * `byoc`) in the URL picks one for a shared link. A design system with assets switches once they have
  * loaded, so its components never paint unstyled; `draws={false}` (a page that draws no surface) skips them.
  */

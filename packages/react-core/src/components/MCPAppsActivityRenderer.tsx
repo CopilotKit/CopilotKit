@@ -43,6 +43,11 @@ interface MCPAppsActivityRendererProps {
    * `CopilotKitProvider`.
    */
   allowSameOriginFallback?: boolean;
+  /**
+   * Accept `ui/update-model-context`. Set via `mcpApps.modelContext` on
+   * `CopilotKitProvider`.
+   */
+  modelContext?: boolean;
 }
 
 /**
@@ -59,6 +64,7 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
     message,
     agent,
     allowSameOriginFallback,
+    modelContext,
   }) {
     const { copilotkit } = useCopilotKit();
     const containerRef = useRef<HTMLDivElement>(null);
@@ -70,10 +76,10 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
       () =>
         new ɵMcpAppHost({
           host: copilotkit,
-          sessionOptions: { allowSameOriginFallback },
+          sessionOptions: { allowSameOriginFallback, modelContext },
           importRenderer: () => import("@copilotkit/mcp-apps-renderer"),
         }),
-      [copilotkit, allowSameOriginFallback],
+      [copilotkit, allowSameOriginFallback, modelContext],
     );
 
     const state = useSyncExternalStore(
