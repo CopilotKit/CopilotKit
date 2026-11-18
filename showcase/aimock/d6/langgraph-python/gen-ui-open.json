@@ -6,6 +6,114 @@
   },
   "fixtures": [
     {
+      "_comment": "gen-ui-open — 'Q3 pipeline by region & stage' pill. Deterministic generateSandboxedUi call for E2E/probe traffic only (requests carrying x-aimock-context); visitor traffic is not matched and goes to the real model.",
+      "match": {
+        "userMessage": "Compare our Q3 pipeline by region and stage",
+        "hasToolResult": false,
+        "context": "langgraph-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_open_genui_pipeline_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\": 640, \"placeholderMessages\": [\"Building the q3 pipeline by region & stage report\\u2026\"], \"css\": \"body{margin:0;font-family:system-ui;color:#0f172a}.r{padding:24px}h1{font-size:20px;margin:0 0 4px}p{color:#64748b;font-size:13px;margin:0 0 12px}\", \"html\": \"<div class=\\\"r\\\" data-testid=\\\"ogui-pipeline\\\"><h1>Q3 pipeline by region & stage</h1><p>Sample data</p><svg viewBox=\\\"0 0 400 160\\\" width=\\\"100%\\\"><rect x=\\\"20\\\" y=\\\"60\\\" width=\\\"60\\\" height=\\\"100\\\" fill=\\\"#6366f1\\\"/><rect x=\\\"110\\\" y=\\\"30\\\" width=\\\"60\\\" height=\\\"130\\\" fill=\\\"#0ea5e9\\\"/><rect x=\\\"200\\\" y=\\\"90\\\" width=\\\"60\\\" height=\\\"70\\\" fill=\\\"#10b981\\\"/><rect x=\\\"290\\\" y=\\\"110\\\" width=\\\"60\\\" height=\\\"50\\\" fill=\\\"#f59e0b\\\"/></svg></div>\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Compare our Q3 pipeline by region and stage",
+        "toolCallId": "call_d6_open_genui_pipeline_001",
+        "context": "langgraph-python"
+      },
+      "response": {
+        "content": "Here's the report."
+      }
+    },
+    {
+      "_comment": "gen-ui-open — 'Cloud spend by service' pill. Deterministic generateSandboxedUi call for E2E/probe traffic only (requests carrying x-aimock-context); visitor traffic is not matched and goes to the real model.",
+      "match": {
+        "userMessage": "Break down this month's cloud spend by service, with the trend",
+        "hasToolResult": false,
+        "context": "langgraph-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_open_genui_cloud_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\": 640, \"placeholderMessages\": [\"Building the cloud spend by service report\\u2026\"], \"css\": \"body{margin:0;font-family:system-ui;color:#0f172a}.r{padding:24px}h1{font-size:20px;margin:0 0 4px}p{color:#64748b;font-size:13px;margin:0 0 12px}\", \"html\": \"<div class=\\\"r\\\" data-testid=\\\"ogui-cloud-spend\\\"><h1>Cloud spend by service</h1><p>Sample data</p><svg viewBox=\\\"0 0 400 160\\\" width=\\\"100%\\\"><rect x=\\\"20\\\" y=\\\"60\\\" width=\\\"60\\\" height=\\\"100\\\" fill=\\\"#6366f1\\\"/><rect x=\\\"110\\\" y=\\\"30\\\" width=\\\"60\\\" height=\\\"130\\\" fill=\\\"#0ea5e9\\\"/><rect x=\\\"200\\\" y=\\\"90\\\" width=\\\"60\\\" height=\\\"70\\\" fill=\\\"#10b981\\\"/><rect x=\\\"290\\\" y=\\\"110\\\" width=\\\"60\\\" height=\\\"50\\\" fill=\\\"#f59e0b\\\"/></svg></div>\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Break down this month's cloud spend by service, with the trend",
+        "toolCallId": "call_d6_open_genui_cloud_001",
+        "context": "langgraph-python"
+      },
+      "response": {
+        "content": "Here's the report."
+      }
+    },
+    {
+      "_comment": "gen-ui-open — 'Support tickets by theme' pill. Deterministic generateSandboxedUi call for E2E/probe traffic only (requests carrying x-aimock-context); visitor traffic is not matched and goes to the real model.",
+      "match": {
+        "userMessage": "Summarize this week's support tickets by theme, with counts and examples",
+        "hasToolResult": false,
+        "context": "langgraph-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_open_genui_tickets_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\": 640, \"placeholderMessages\": [\"Building the support tickets by theme report\\u2026\"], \"css\": \"body{margin:0;font-family:system-ui;color:#0f172a}.r{padding:24px}h1{font-size:20px;margin:0 0 4px}p{color:#64748b;font-size:13px;margin:0 0 12px}\", \"html\": \"<div class=\\\"r\\\" data-testid=\\\"ogui-tickets\\\"><h1>Support tickets by theme</h1><p>Sample data</p><svg viewBox=\\\"0 0 400 160\\\" width=\\\"100%\\\"><rect x=\\\"20\\\" y=\\\"60\\\" width=\\\"60\\\" height=\\\"100\\\" fill=\\\"#6366f1\\\"/><rect x=\\\"110\\\" y=\\\"30\\\" width=\\\"60\\\" height=\\\"130\\\" fill=\\\"#0ea5e9\\\"/><rect x=\\\"200\\\" y=\\\"90\\\" width=\\\"60\\\" height=\\\"70\\\" fill=\\\"#10b981\\\"/><rect x=\\\"290\\\" y=\\\"110\\\" width=\\\"60\\\" height=\\\"50\\\" fill=\\\"#f59e0b\\\"/></svg></div>\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Summarize this week's support tickets by theme, with counts and examples",
+        "toolCallId": "call_d6_open_genui_tickets_001",
+        "context": "langgraph-python"
+      },
+      "response": {
+        "content": "Here's the report."
+      }
+    },
+    {
+      "_comment": "gen-ui-open — 'Retention by signup cohort' pill. Deterministic generateSandboxedUi call for E2E/probe traffic only (requests carrying x-aimock-context); visitor traffic is not matched and goes to the real model.",
+      "match": {
+        "userMessage": "Show 6-month customer retention by signup cohort",
+        "hasToolResult": false,
+        "context": "langgraph-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_open_genui_cohort_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\": 640, \"placeholderMessages\": [\"Building the retention by signup cohort report\\u2026\"], \"css\": \"body{margin:0;font-family:system-ui;color:#0f172a}.r{padding:24px}h1{font-size:20px;margin:0 0 4px}p{color:#64748b;font-size:13px;margin:0 0 12px}\", \"html\": \"<div class=\\\"r\\\" data-testid=\\\"ogui-cohort\\\"><h1>Retention by signup cohort</h1><p>Sample data</p><svg viewBox=\\\"0 0 400 160\\\" width=\\\"100%\\\"><rect x=\\\"20\\\" y=\\\"60\\\" width=\\\"60\\\" height=\\\"100\\\" fill=\\\"#6366f1\\\"/><rect x=\\\"110\\\" y=\\\"30\\\" width=\\\"60\\\" height=\\\"130\\\" fill=\\\"#0ea5e9\\\"/><rect x=\\\"200\\\" y=\\\"90\\\" width=\\\"60\\\" height=\\\"70\\\" fill=\\\"#10b981\\\"/><rect x=\\\"290\\\" y=\\\"110\\\" width=\\\"60\\\" height=\\\"50\\\" fill=\\\"#f59e0b\\\"/></svg></div>\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Show 6-month customer retention by signup cohort",
+        "toolCallId": "call_d6_open_genui_cohort_001",
+        "context": "langgraph-python"
+      },
+      "response": {
+        "content": "Here's the report."
+      }
+    },
+    {
       "_comment": "gen-ui-open — 3D axis visualization pill. The agent calls generateSandboxedUi which renders an iframe[srcdoc] with a non-trivial HTML payload (>= 100 chars). The probe asserts iframe presence + srcdoc length.",
       "match": {
         "userMessage": "3D axis visualization (model airplane)",
