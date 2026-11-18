@@ -63,4 +63,4 @@ demos:
       - src/app/demos/tool-rendering-default-catchall/page.tsx
       - src/app/demos/tool-rendering-default-catchall/suggestions.ts
 starter_validation:
-  path: examples/integrations/omnara
+  path: examples/starters/omnara

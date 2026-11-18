@@ -276,10 +276,7 @@ describe("starter_validation drift", () => {
 
   it("Omnara declares its canonical in-repo starter without a provisioned service", () => {
     const omnara = columns().find((c) => c.slug === "omnara");
-    expect(omnara?.block).toHaveProperty(
-      "path",
-      "examples/integrations/omnara",
-    );
+    expect(omnara?.block).toHaveProperty("path", "examples/starters/omnara");
     expect(omnara?.block).not.toHaveProperty("service");
   });
 });
