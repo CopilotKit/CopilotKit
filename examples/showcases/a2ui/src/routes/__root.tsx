@@ -3,6 +3,9 @@ import { HeadContent, Scripts, createRootRoute } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { CLERK_APPEARANCE, CLERK_LOCALIZATION } from "../lib/clerk-appearance";
 import { loadFeatures, useFeatures } from "../lib/features";
+// The production build drops react-core's stylesheet import, so link it
+// here, before app.css, which restyles some of its parts.
+import copilotKitCss from "@copilotkit/react-core/v2/styles.css?url";
 import appCss from "../styles/app.css?url";
 
 export const Route = createRootRoute({
@@ -30,6 +33,7 @@ export const Route = createRootRoute({
       },
     ],
     links: [
+      { rel: "stylesheet", href: copilotKitCss },
       { rel: "stylesheet", href: appCss },
       { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
     ],
