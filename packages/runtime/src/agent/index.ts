@@ -1351,6 +1351,11 @@ export class BuiltInAgent extends AbstractAgent {
       humanInTheLoop: {
         interrupts: true,
       },
+      // The framework this agent runs on. The runtime reports it in
+      // `oss.runtime.agent_identified`; the version is the runtime's own.
+      identity: {
+        type: "built-in",
+      },
     };
 
     // Factory-mode configs have no `capabilities` property.
@@ -1364,9 +1369,12 @@ export class BuiltInAgent extends AbstractAgent {
 
     // Shallow merge at the category level — explicit overrides replace
     // entire categories when provided, inferred defaults fill the rest.
+    // Identity merges one level deeper, so setting only a display name keeps
+    // the framework type.
     return {
       ...inferred,
       ...capabilities,
+      identity: { ...inferred.identity, ...capabilities.identity },
     };
   }
 

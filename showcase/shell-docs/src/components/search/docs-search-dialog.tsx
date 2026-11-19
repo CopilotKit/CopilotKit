@@ -15,6 +15,7 @@ import {
 } from "fumadocs-ui/components/dialog/search";
 import type { DefaultSearchDialogProps } from "fumadocs-ui/components/dialog/search-default";
 import { scopeFromPath } from "@/lib/live-scope";
+import { withBasePath } from "@/lib/base-path";
 
 /**
  * Fumadocs' default search dialog, asking `/api/search` for results in the
@@ -24,7 +25,7 @@ import { scopeFromPath } from "@/lib/live-scope";
  * scope.
  */
 export default function DocsSearchDialog({
-  api = "/api/search",
+  api = withBasePath("/api/search"),
   delayMs,
   ...props
 }: DefaultSearchDialogProps) {
