@@ -67,6 +67,24 @@ Metadata usage impressions are not sent. The standard anonymous
 telemetry envelope includes package identity, anonymous distinct IDs, and an
 event timestamp.
 
+## Agent framework event
+
+The first time each agent runs, Runtime sends
+`oss.runtime.agent_identified` for that agent. It sends the event once per
+agent for each server process, so a restart or a new serverless instance
+sends it again. It tells us which agent frameworks people use, so we know
+which integrations to keep current.
+
+| Property          | Value                                                                                  |
+| ----------------- | -------------------------------------------------------------------------------------- |
+| `framework`       | The framework the agent's adapter declares, such as `mastra` or `langgraph`. A value we do not list is sent as `other`. An agent that declares nothing is sent as `undeclared`. |
+| `adapter_version` | The version of the adapter package, when the adapter declares one.                     |
+| `via_http_agent`  | `true` when the agent is a generic AG-UI `HttpAgent`.                                  |
+| `source`          | Always `declared`.                                                                     |
+
+The event never includes agent names, descriptions, URLs, or any other text
+that you write.
+
 ## Get in touch
 
 Send telemetry questions to [hello@copilotkit.ai](mailto:hello@copilotkit.ai).

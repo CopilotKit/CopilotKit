@@ -22,6 +22,12 @@ export type AnalyticsEvents = {
    */
   "oss.runtime.channel_session_dropped": ChannelSessionDroppedInfo;
   /** A managed Channel's gateway link came back, and how long it was gone. */
+  /**
+   * The framework an agent's adapter declares through AG-UI `identity.type`,
+   * sent once per agent name per runtime. Carries only closed-vocabulary
+   * values: never the agent's name, description or URL.
+   */
+  "oss.runtime.agent_identified": AgentIdentifiedInfo;
   "oss.runtime.channel_session_recovered": { downForMs: number };
 };
 
@@ -59,4 +65,15 @@ export interface AgentExecutionResponseInfo {
   langGraphHost?: string;
   langGraphVersion?: string;
   hashedLgcKey?: string;
+}
+
+export interface AgentIdentifiedInfo {
+  /** A listed framework name, `other`, or `undeclared`. */
+  framework: string;
+  /** The external adapter package's semver version, when it declares one. */
+  adapter_version?: string;
+  /** Whether the agent is a generic AG-UI `HttpAgent`. */
+  via_http_agent: boolean;
+  /** How the framework was learned. */
+  source: "declared";
 }
