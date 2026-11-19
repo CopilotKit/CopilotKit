@@ -5,6 +5,8 @@ from `@copilotkit/react-core/v2/generative-ui`), exactly as they ship, with no
 custom components. A real model renders the surfaces inline in the chat, and
 `/catalog` shows all 69 components.
 
+The hosted demo runs at https://standard-ui.copilotkit.ai.
+
 The whole integration is one provider prop:
 
 ```tsx
@@ -110,8 +112,9 @@ passes a client-supplied header through, the per-IP limit can be dodged.
 ## Deploy (Railway)
 
 `pnpm start` listens on `$PORT`. Node >= 22 and pnpm 10 are pinned in
-`package.json`. Set `OPENAI_API_KEY` (and `NEXT_PUBLIC_SITE_URL`, for absolute
-Open Graph URLs) on the service, then deploy this folder from a clean tree:
+`package.json`. Set `OPENAI_API_KEY` and `NEXT_PUBLIC_SITE_URL` (the public
+origin, used for absolute Open Graph URLs; `https://standard-ui.copilotkit.ai`
+for the hosted demo) on the service, then deploy this folder from a clean tree:
 
 ```bash
 mkdir -p /tmp/standard-ui-deploy
