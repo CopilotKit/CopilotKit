@@ -83,6 +83,10 @@ through its visitors' browsers. Each model call is capped at 16,000 output
 tokens. The counts live in memory, which is right for one instance; with more
 instances the limits multiply.
 
+The limiter keys visitors on the first `X-Forwarded-For` entry, so run it behind
+a proxy that sets that header itself (Railway's edge does); behind one that
+passes a client-supplied header through, the per-IP limit can be dodged.
+
 ## Deploy (Railway)
 
 `pnpm start` listens on `$PORT`. Node >= 22 and pnpm 10 are pinned in
