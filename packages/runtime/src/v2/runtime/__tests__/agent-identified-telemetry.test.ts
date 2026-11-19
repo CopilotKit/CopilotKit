@@ -103,6 +103,31 @@ describe("agent_identified from the handlers", () => {
     expect(identified()).toHaveLength(1);
   });
 
+  it("asks for capabilities with the run's forwarded headers", async () => {
+    const seenHeaders: Record<string, string>[] = [];
+    function headerAgent(): AbstractAgent {
+      const agent: Record<string, unknown> = {
+        headers: {},
+        execute: async () => ({ events: [] }),
+        async getCapabilities(this: { headers: Record<string, string> }) {
+          seenHeaders.push({ ...this.headers });
+          return { identity: { type: "adk" } };
+        },
+      };
+      agent.clone = () => headerAgent();
+      return agent as unknown as AbstractAgent;
+    }
+    const { app, identified } = setup({ default: headerAgent() });
+    await request(app)
+      .post("/agent/default/run")
+      .set("authorization", "Bearer user-token")
+      .send(runBody());
+    await vi.waitFor(() => expect(identified()).toHaveLength(1));
+    expect(seenHeaders[0]).toMatchObject({
+      authorization: "Bearer user-token",
+    });
+  });
+
   it("sends agent_identified on connect", async () => {
     const { app, identified } = setup({ default: makeAgent() });
     await request(app)

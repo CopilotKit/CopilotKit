@@ -46,8 +46,6 @@ export async function handleRunAgent({
     // Ensure the clone carries the registry key so InMemoryAgentRunner can
     // tag historic runs with the correct agentId for filtering.
     agent.agentId = agentId;
-    // Background: never delays or fails the request.
-    fireAgentIdentifiedTelemetry({ runtime, agentId, agent });
 
     // Parse the body before configuring middleware: middleware configuration
     // needs the A2UI catalog signal the React provider forwards (see
@@ -108,6 +106,10 @@ export async function handleRunAgent({
         "__proxiedMCPRequest",
       ),
     });
+    // Background: never delays or fails the request. Runs after the
+    // forwarded headers are set, so an adapter that fetches its capabilities
+    // from a remote server (ADK, for one) sends the caller's auth.
+    fireAgentIdentifiedTelemetry({ runtime, agentId, agent });
     const memoryResponse = await attachIntelligenceEnterpriseLearning({
       runtime,
       request,
