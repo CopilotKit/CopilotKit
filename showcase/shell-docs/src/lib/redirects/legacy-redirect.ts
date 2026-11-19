@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { trackRedirect } from "@/lib/telemetry/proxy";
 import { findSeoRedirect } from "./seo-redirects";
+import { withBasePath } from "@/lib/base-path";
 
 // The redirect half of showcase/shell-docs/src/middleware.ts, for src/proxy.ts.
 // Each redirect reports `seo_redirect` as shell-docs did; the page-view and
@@ -42,7 +43,12 @@ export function legacyRedirect(request: NextRequest): NextResponse | null {
   if (seo) {
     trackRedirect(request, seo.id, pathname, seo.destination);
     // Like shell-docs, the destination doesn't carry the query string.
-    return NextResponse.redirect(new URL(seo.destination, request.url), 301);
+    // `withBasePath`: a root-relative destination stays under /v2 on the
+    // 2.x docs.
+    return NextResponse.redirect(
+      new URL(withBasePath(seo.destination), request.url),
+      301,
+    );
   }
 
   return null;
