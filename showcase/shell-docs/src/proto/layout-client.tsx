@@ -221,9 +221,14 @@ function Brand({ className, ...props }: ComponentProps<"a">) {
       data-brand=""
       className={cn("inline-flex min-w-0 items-center gap-1", className)}
     >
-      <a {...props} className="inline-flex shrink-0 items-center">
+      {/* Link, not <a>: it keeps the logo under this build's base path. */}
+      <Link
+        {...props}
+        href={props.href ?? "/"}
+        className="inline-flex shrink-0 items-center"
+      >
         <CopilotKitLogo className="h-[22px] w-auto" />
-      </a>
+      </Link>
       <VersionPicker />
     </span>
   );
@@ -637,7 +642,7 @@ function DHomeLayout({
   return (
     <HomeLayout
       nav={{
-        title: <CopilotKitLogo className="h-[22px] w-auto" />,
+        title: Brand,
         url: "/",
       }}
       links={links}

@@ -1,12 +1,60 @@
 import path from "node:path";
 import { createMDX } from "fumadocs-mdx/next";
 import { nextConfigRedirects } from "./src/lib/redirects/next-config-redirects.mjs";
+import { DOCS_VERSIONS, normalizeBasePath } from "./src/lib/docs-versions.mjs";
 
 const withMDX = createMDX();
+
+// The path this build is served under (src/lib/base-path.ts): "" for the
+// stable docs, "/v2" for the 2.x docs. Only the stable build forwards the
+// other versions' paths to their deployments.
+const basePath = normalizeBasePath(process.env.DOCS_BASE_PATH);
+const isStableBuild = basePath === "";
+
+/** `/v2` and `/v2/*` to each other version's deployment, when it is named. */
+const versionRewrites = isStableBuild
+  ? DOCS_VERSIONS.flatMap((version) => {
+      const origin = version.originEnv
+        ? process.env[version.originEnv]?.trim().replace(/\/+$/, "")
+        : "";
+      if (!version.path || !origin) return [];
+      return [
+        { source: version.path, destination: `${origin}${version.path}` },
+        {
+          source: `${version.path}/:path*`,
+          destination: `${origin}${version.path}/:path*`,
+        },
+      ];
+    })
+  : [];
+
+/** The stable version's own prefix (`/v1/*` while 1.x is stable) to the root. */
+const stableVersion = DOCS_VERSIONS.find((version) => version.path === "");
+const stablePrefixRedirects =
+  isStableBuild && stableVersion
+    ? [
+        { source: `/${stableVersion.id}`, destination: "/", permanent: false },
+        {
+          source: `/${stableVersion.id}/:path*`,
+          destination: "/:path*",
+          permanent: false,
+        },
+      ]
+    : [];
 
 /** @type {import('next').NextConfig} */
 const config = {
   reactStrictMode: true,
+
+  // Under /v2 (or another version's path) when this build is not the stable
+  // docs. Next.js adds it to links, router calls and assets; plain strings
+  // use withBasePath (src/lib/base-path.ts).
+  ...(basePath ? { basePath } : {}),
+
+  // The build's base path, inlined for src/lib/base-path.ts.
+  env: {
+    DOCS_BASE_PATH: basePath,
+  },
 
   // The standard catalog imports its samples from ../shared. The Docker build
   // (Dockerfile) has no monorepo lockfile for Turbopack to infer a root from,
@@ -25,7 +73,7 @@ const config = {
   // The table lives in src/lib/redirects/next-config-redirects.mjs; the
   // middleware-side table runs in src/proxy.ts after these.
   async redirects() {
-    return nextConfigRedirects;
+    return [...stablePrefixRedirects, ...nextConfigRedirects];
   },
   // --- end legacy URL redirects --------------------------------------------
 
@@ -35,6 +83,8 @@ const config = {
   async rewrites() {
     return {
       beforeFiles: [
+        // Other docs versions, served by their own deployments.
+        ...versionRewrites,
         {
           source: "/ingest/static/:path*",
           destination: "https://eu-assets.i.posthog.com/static/:path*",
