@@ -80,7 +80,8 @@ class _ClaudeToolStreamingMiddleware(AgentMiddleware):
                     {
                         "name": fn["name"],
                         "description": fn.get("description", ""),
-                        "input_schema": fn.get("parameters") or {"type": "object", "properties": {}},
+                        "input_schema": fn.get("parameters")
+                        or {"type": "object", "properties": {}},
                         "eager_input_streaming": True,
                     }
                 )
@@ -95,7 +96,9 @@ class _ClaudeToolStreamingMiddleware(AgentMiddleware):
     ) -> ModelResponse:
         return handler(self._prepare(request))
 
-    async def awrap_model_call(self, request: ModelRequest, handler: Any) -> ModelResponse:
+    async def awrap_model_call(
+        self, request: ModelRequest, handler: Any
+    ) -> ModelResponse:
         return await handler(self._prepare(request))
 
 
