@@ -20,7 +20,11 @@
 
 /** @typedef {import("next/dist/lib/load-custom-routes").Redirect} Redirect */
 
-const V2_RESERVED_SEGMENTS = "(?!(?:docs|proto|api|og)(?:/|$)|llms)";
+// `v1`, `v2`, ...: another docs version's prefix (src/lib/docs-versions.mjs).
+// The stable docs' proxy forwards those paths to that version's deployment,
+// which applies its own redirects; these rules run first and must not catch
+// them (`/v2/channels` is not the `v2` framework's channels page).
+const V2_RESERVED_SEGMENTS = "(?!(?:docs|proto|api|og|v\\d+)(?:/|$)|llms)";
 /** A leading framework segment, never one of v2's own route namespaces. */
 const FRAMEWORK = `:framework(${V2_RESERVED_SEGMENTS}[^/]+)`;
 /** As FRAMEWORK, also excluding `reference` (keeps `/reference/channels` canonical). */
