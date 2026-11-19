@@ -12,6 +12,7 @@ import {
   trackPageview,
 } from "@/lib/telemetry/analytics";
 import type { TelemetryConfig } from "@/lib/telemetry/config";
+import { withBasePath } from "@/lib/base-path";
 
 declare global {
   interface Window {
@@ -27,7 +28,7 @@ function loadConfig(): Promise<TelemetryConfig> {
   if (window.__SHOWCASE_CONFIG__) {
     return Promise.resolve(window.__SHOWCASE_CONFIG__);
   }
-  configRequest ??= fetch("/api/telemetry/config")
+  configRequest ??= fetch(withBasePath("/api/telemetry/config"))
     .then((res) => (res.ok ? (res.json() as Promise<TelemetryConfig>) : null))
     .catch(() => null)
     .then((config) => {
