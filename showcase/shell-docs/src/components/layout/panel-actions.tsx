@@ -3,13 +3,15 @@
 import type { ComponentProps } from "react";
 import Link from "fumadocs-core/link";
 import { buttonVariants } from "fumadocs-ui/components/ui/button";
-import {
-  SidebarCollapseTrigger,
-  useSidebar,
-} from "fumadocs-ui/components/sidebar/base";
+import { useSidebar } from "fumadocs-ui/components/sidebar/base";
 import { useSpaciousLayout } from "fumadocs-ui/layouts/spacious";
 import { SidebarIcon } from "lucide-react";
 import { AdaptiveThemeSwitch } from "./theme-toggle";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/cn";
 
 /** The layout's icon links (Discord, X, GitHub) as small ghost buttons. */
@@ -19,18 +21,26 @@ export function IconLinks({ className, ...props }: ComponentProps<"div">) {
     <div className={cn("flex items-center gap-1", className)} {...props}>
       {menuItems.map((item, i) =>
         item.type === "icon" ? (
-          <Link
-            key={i}
-            href={item.url}
-            external={item.external}
-            aria-label={item.label}
-            className={cn(
-              buttonVariants({ variant: "ghost", size: "icon-sm" }),
-              "text-fd-muted-foreground",
-            )}
-          >
-            {item.icon}
-          </Link>
+          <Tooltip key={i}>
+            <TooltipTrigger
+              render={
+                <Link
+                  href={item.url}
+                  external={item.external}
+                  aria-label={item.label}
+                  className={cn(
+                    buttonVariants({ variant: "ghost", size: "icon-sm" }),
+                    "text-fd-muted-foreground",
+                  )}
+                />
+              }
+            >
+              {item.icon}
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              {item.label ?? item.text}
+            </TooltipContent>
+          </Tooltip>
         ) : null,
       )}
     </div>
@@ -62,17 +72,32 @@ export function PanelActions({ className, ...props }: ComponentProps<"div">) {
  * desktop-only, so phones keep their own menu button.
  */
 export function PanelSidebarToggle() {
-  const { collapsed } = useSidebar();
+  const { collapsed, setCollapsed } = useSidebar();
+  const label = collapsed ? "Expand sidebar" : "Collapse sidebar";
+  // A plain button, not Fumadocs' SidebarCollapseTrigger: that one spreads
+  // its props after its own onClick, so the tooltip's merged onClick would
+  // replace the toggle.
   return (
-    <SidebarCollapseTrigger
-      data-panel-sidebar-toggle=""
-      aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-      className={cn(
-        buttonVariants({ variant: "ghost", size: "icon-sm" }),
-        "order-first -ms-2 size-8 shrink-0 text-fd-muted-foreground",
-      )}
-    >
-      <SidebarIcon />
-    </SidebarCollapseTrigger>
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <button
+            type="button"
+            data-panel-sidebar-toggle=""
+            aria-controls="nd-sidebar"
+            aria-expanded={!collapsed}
+            aria-label={label}
+            onClick={() => setCollapsed((prev) => !prev)}
+            className={cn(
+              buttonVariants({ variant: "ghost", size: "icon-sm" }),
+              "order-first -ms-2 size-8 shrink-0 text-fd-muted-foreground",
+            )}
+          />
+        }
+      >
+        <SidebarIcon />
+      </TooltipTrigger>
+      <TooltipContent side="bottom">{label}</TooltipContent>
+    </Tooltip>
   );
 }
