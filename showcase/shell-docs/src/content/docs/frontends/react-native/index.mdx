@@ -27,10 +27,19 @@ Use this prompt to set up CopilotKit in your React Native app, configure Metro a
 
 ## Prerequisites
 
+<WhenAgentBackend selected={false}>
 - An OpenAI API key (or another model provider supported by [Model Selection](/model-selection))
 - React Native 0.72+ (bare CLI or Expo). This guide imports the `/headless` subpath, which needs package exports in Metro. On React Native 0.72 to 0.78, turn them on first (see [Metro configuration](#metro-configuration-for-release-bundles)).
 - Node.js 20+
 - `@react-native-community/cli` in your `devDependencies` **if you are on React Native 0.87 or later**, which does not bundle it. A freshly `init`ed app already has it; an app you have upgraded may not, and without it `react-native bundle` and `react-native start` stop with a message naming the missing package.
+</WhenAgentBackend>
+
+<WhenAgentBackend selected>
+- React Native 0.72+ (bare CLI or Expo). This guide imports the `/headless` subpath, which needs package exports in Metro. On React Native 0.72 to 0.78, turn them on first (see [Metro configuration](#metro-configuration-for-release-bundles)).
+- Node.js 20+
+- `@react-native-community/cli` in your `devDependencies` **if you are on React Native 0.87 or later**, which does not bundle it. A freshly `init`ed app already has it; an app you have upgraded may not, and without it `react-native bundle` and `react-native start` stop with a message naming the missing package.
+- The tools and the model API key that your agent needs. The agent step below lists them.
+</WhenAgentBackend>
 
 ## Getting started
 
@@ -332,6 +341,10 @@ Use this prompt to set up CopilotKit in your React Native app, configure Metro a
                 ```
             </Tab>
         </Tabs>
+
+        <Callout type="info" title="On Expo">
+          Start the app with `npx expo start`. Expo registers the root component for you, so your entry file keeps the two polyfill imports first and then calls `registerRootComponent(App)` from `expo` instead of `AppRegistry.registerComponent`.
+        </Callout>
     </Step>
     <Step>
         ### Start chatting
@@ -348,6 +361,7 @@ Use this prompt to set up CopilotKit in your React Native app, configure Metro a
 
         <Accordions className="mb-4">
             <Accordion title="Troubleshooting">
+                <WhenAgentBackend selected={false}>
                 - **Metro can't resolve modules**: Clear the cache with `npx react-native start --reset-cache`.
                 - **`Export namespace should be first transformed by @babel/plugin-transform-export-namespace-from`**: add the Babel plugin from [Let Metro compile `export * as`](#let-metro-compile-export--as-bare-react-native-cli), then restart Metro with `--reset-cache`.
                 - **Streaming not working**: Make sure polyfills are imported before any CopilotKit code in your entry point.
@@ -355,6 +369,17 @@ Use this prompt to set up CopilotKit in your React Native app, configure Metro a
                 - **Model auth errors**: Confirm `OPENAI_API_KEY` is set where your agent calls the model: the terminal running `npx tsx server.ts` for `BuiltInAgent`, or your agent's own environment for an agent framework.
                 - **`Property 'ReadableStream' doesn't exist`** (or the same for `TextEncoder`, `DOMException` or `Headers`): the polyfills did not install. Before **1.70.0**, the `polyfills` barrel was published empty. The build dropped all five polyfill imports out of it, so following the setup above installed nothing and the first runtime call failed. Upgrade to the latest version, or, if you are pinned, use the [granular imports](#polyfills), which were never affected. This is the *opposite* of the conflict case below: here you have no polyfill at all, not a competing one.
                 - **Existing polyfill conflicts**: Use the granular imports instead of the barrel `polyfills` import.
+                </WhenAgentBackend>
+
+                <WhenAgentBackend selected>
+                - **Metro can't resolve modules**: Clear the cache with `npx react-native start --reset-cache`.
+                - **`Export namespace should be first transformed by @babel/plugin-transform-export-namespace-from`**: add the Babel plugin from [Let Metro compile `export * as`](#let-metro-compile-export--as-bare-react-native-cli), then restart Metro with `--reset-cache`.
+                - **Streaming not working**: Make sure polyfills are imported before any CopilotKit code in your entry point.
+                - **No response from the runtime**: Confirm the runtime server is running, `http://localhost:8200/api/copilotkit/info` returns the `default` agent, and the device can reach `runtimeUrl`. For physical devices, use your machine's LAN IP instead of `localhost`.
+                - **Model auth errors**: The agent calls the model, so its key goes in the agent's environment, not the runtime's.
+                - **`Property 'ReadableStream' doesn't exist`** (or the same for `TextEncoder`, `DOMException` or `Headers`): the polyfills did not install. Before **1.70.0**, the `polyfills` barrel was published empty. The build dropped all five polyfill imports out of it, so following the setup above installed nothing and the first runtime call failed. Upgrade to the latest version, or, if you are pinned, use the [granular imports](#polyfills), which were never affected. This is the *opposite* of the conflict case below: here you have no polyfill at all, not a competing one.
+                - **Existing polyfill conflicts**: Use the granular imports instead of the barrel `polyfills` import.
+                </WhenAgentBackend>
             </Accordion>
         </Accordions>
     </Step>
@@ -583,10 +608,17 @@ import "@copilotkit/react-native/polyfills/location";
 
 ## Runtime and model wiring
 
+<WhenAgentBackend selected={false}>
 The runtime from the quickstart hosts a `BuiltInAgent` and serves it with `createCopilotNodeListener`, which plugs straight into Node's built-in `node:http` `createServer`, with no Hono or Express dependency. `createCopilotNodeListener({ runtime, basePath, cors })` returns a request listener.
+</WhenAgentBackend>
+
+<WhenAgentBackend selected>
+The runtime from the quickstart registers your agent as `default` and serves it with `createCopilotNodeListener`, which plugs straight into Node's built-in `node:http` `createServer`, with no Hono or Express dependency. `createCopilotNodeListener({ runtime, basePath, cors })` returns a request listener.
+</WhenAgentBackend>
 
 `cors: true` adds `Access-Control-*` response headers and answers `OPTIONS` preflights. That matters for **browser** clients (Expo Web or `react-native-web`), but it has no bearing on whether a native iOS or Android build can reach the server: CORS is enforced by the browser, and React Native's native networking stack (`NSURLSession` / OkHttp) neither sends an `Origin` header nor consults `Access-Control-Allow-Origin`. Native reachability is decided by the server's bind address, LAN routing and firewall, and platform transport security. See [Connecting from a device or bench](#connecting-from-a-device-or-bench).
 
+<WhenAgentBackend selected={false}>
 `BuiltInAgent` accepts a model **string** in `provider:model` (or `provider/model`) form for OpenAI, Anthropic, and Google:
 
 ```ts
@@ -614,6 +646,11 @@ The same applies to `ANTHROPIC_BASE_URL` and `GOOGLE_GENERATIVE_AI_BASE_URL`. Wh
 <Callout type="info" title="Other BuiltInAgent options">
   Beyond `model` and `prompt`, `BuiltInAgent` accepts `maxSteps` (tool-calling iterations, default `1`), `tools` (server-executed tools via `defineTool`), `temperature`, `maxOutputTokens`, `providerOptions` (for example, OpenAI `reasoningEffort`), and `mcpServers` / `mcpClients`. Tools that mutate the app's UI belong on the **client** via `useFrontendTool` (below), not in the server `tools` list.
 </Callout>
+</WhenAgentBackend>
+
+<WhenAgentBackend selected>
+Your agent picks the model and calls it, so the model key stays in the agent's environment. The runtime needs no model key. To change the model, change it in the agent code.
+</WhenAgentBackend>
 
 ## Connecting from a device or bench
 
@@ -765,7 +802,13 @@ To pin a `useAgent` call to one thread, pass three props together: a new local `
 
 ## Generative UI with your own components
 
+<WhenAgentBackend selected={false}>
 Frontend tools render UI you wrote for one tool. With generative UI, the agent composes the UI itself from a **catalog** of your own React Native components, fills in their props, and updates them while it streams. It is the [components and surfaces](/generative-ui/components) feature of the web, with native host views. The runtime needs no change by default: when the app sends a catalog with at least one component, `CopilotRuntime` gives the run a `render_ui` tool and checks every operation before it streams it to the device. A server can turn this off with the runtime option `generativeUI: false`, or limit it to some agents with `generativeUI: { agents: [...] }`. See [Transports](/generative-ui/components/transports#tool-transport). The Built-in Agent from the quickstart already passes the run's tools and context to its model.
+</WhenAgentBackend>
+
+<WhenAgentBackend selected>
+Frontend tools render UI you wrote for one tool. With generative UI, the agent composes the UI itself from a **catalog** of your own React Native components, fills in their props, and updates them while it streams. It is the [components and surfaces](/generative-ui/components) feature of the web, with native host views. The runtime needs no change by default: when the app sends a catalog with at least one component, `CopilotRuntime` gives the run a `render_ui` tool and checks every operation before it streams it to the device. A server can turn this off with the runtime option `generativeUI: false`, or limit it to some agents with `generativeUI: { agents: [...] }`. See [Transports](/generative-ui/components/transports#tool-transport). Your agent must also pass the run's tools and context to its model. For a LangGraph Python agent, add `CopilotKitMiddleware`.
+</WhenAgentBackend>
 
 You start with the chat screen from the quickstart. You end with an agent that renders your native components in that chat, and a home screen that a background agent run composes, with no chat on it.
 
@@ -1168,6 +1211,7 @@ You start with the chat screen from the quickstart. You end with an agent that r
     <Step>
         ### Compose a screen with no chat
 
+        <WhenAgentBackend selected={false}>
         A surface does not need a chat. A home screen can start a run of its own agent when it mounts, and show whatever surface that run renders. Add a `home` agent to the runtime from the quickstart:
 
         ```ts title="server.ts"
@@ -1184,6 +1228,19 @@ You start with the chat screen from the quickstart. You end with an agent that r
           },
         });
         ```
+        </WhenAgentBackend>
+
+        <WhenAgentBackend selected>
+        A surface does not need a chat. A home screen can start a run of its own agent when it mounts, and show whatever surface that run renders. Add a `home` agent to the runtime from the quickstart:
+
+        1. Create a second agent with your framework, the same way you created the first one. Give it this instruction:
+
+           ```text
+           You compose the home screen of a banking app. Render it with one render_ui call into the chat target: the balances first, then one insight.
+           ```
+
+        2. In `server.ts`, register it as `home`, next to `default`. Use the same agent class as `default`, and point it at the new agent (its own URL, graph or id).
+        </WhenAgentBackend>
 
         Add the agent before you render the screen: once the runtime has connected, `useAgent({ agentId: "home" })` throws while rendering if the runtime declares no `home` agent (for example an older deploy), and the screen's own error states never show. Then render the surfaces of that agent's run. It uses `runTurn`, `takeBack` and `isChatSurface` from the chat step:
 
@@ -1442,9 +1499,17 @@ There is no Inspector on React Native, so you see errors in these places:
 
 A client-executed frontend tool renders its UI **mid-run**: the tool fires, your handler paints the screen, and the agent's run keeps going (further reasoning, a trailing summary). So `agent.isRunning` stays `true` past the moment the content is visible, and more so with a reasoning-tier model. Design run-gated UI for this delay:
 
+<WhenAgentBackend selected={false}>
 - Tie a loading overlay strictly to `isRunning` (render nothing when it's `false`) so an errored turn can't leave it stuck on. Keep always-available controls (a home or cancel button) above the overlay so they stay tappable while the run finishes.
 - If you gate a reveal animation, trigger it on the **falling edge** of `isRunning` (true → false) rather than on the content-arrived state change. Otherwise, the animation plays while the overlay is still up and the user never sees it.
 - Bound the run's tail with `maxSteps` on the agent so it doesn't linger longer than needed.
+</WhenAgentBackend>
+
+<WhenAgentBackend selected>
+- Tie a loading overlay strictly to `isRunning` (render nothing when it's `false`) so an errored turn can't leave it stuck on. Keep always-available controls (a home or cancel button) above the overlay so they stay tappable while the run finishes.
+- If you gate a reveal animation, trigger it on the **falling edge** of `isRunning` (true → false) rather than on the content-arrived state change. Otherwise, the animation plays while the overlay is still up and the user never sees it.
+- If your framework has a limit on steps or iterations, set it. Then the run does not linger longer than needed.
+</WhenAgentBackend>
 
 ## Voice and speech-to-text
 
@@ -1501,6 +1566,13 @@ So read the records your app actually holds, and confirm the answer names those 
 
 ## Next steps
 
+<WhenAgentBackend selected={false}>
 - **Model selection:** provider strings, keys, and custom endpoints in [Model Selection](/model-selection)
 - **Copilot Runtime:** hosting and configuring the server in [Copilot Runtime](/backend/copilot-runtime)
 - **Agents:** what the Built-in Agent supports in [Build with agents](/build-with-agents)
+</WhenAgentBackend>
+
+<WhenAgentBackend selected>
+- **Copilot Runtime:** hosting and configuring the server in [Copilot Runtime](/backend/copilot-runtime)
+- **Frontend tools:** let your agent call functions in your app, in [Frontend Tools](/react-native/frontend-tools)
+</WhenAgentBackend>

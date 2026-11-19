@@ -15,7 +15,7 @@
   cd ..
   uv init my-agent --python ">=3.10,<3.14"
   cd my-agent
-  uv add "crewai>=1.15.11,<2" ag-ui-crewai fastapi uvicorn
+  uv add "crewai>=1.15.11,<2" ag-ui-crewai litellm fastapi uvicorn
   ```
 
   CrewAI does not support Python 3.14 yet, so `--python` keeps the project on 3.10 to 3.13. `ag-ui-crewai` serves a CrewAI Flow over AG-UI, the protocol that Copilot Runtime speaks.

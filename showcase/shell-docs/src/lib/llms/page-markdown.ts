@@ -171,6 +171,23 @@ function inlinePartials(body: string): string {
   );
 }
 
+/**
+ * The "Start with your coding agent" lead-in: the heading and sentences
+ * that only introduce `<PageAgentPrompt />`. The prompt is UI (a copy
+ * button), so in the Markdown, which a coding agent reads already, they
+ * would point at nothing. Text after the prompt stays.
+ */
+function dropAgentPromptLeadIn(text: string): string {
+  const lines = text.split("\n");
+  const at = lines.findIndex((line) => /^\s*<PageAgentPrompt\b/.test(line));
+  if (at === -1) return text;
+  let start = at - 1;
+  while (start >= 0 && !/^#{2,6}\s/.test(lines[start])) start--;
+  if (start === -1) return text.replace(/^\s*<PageAgentPrompt\b[^\n]*\n?/m, "");
+  lines.splice(start, at - start + 1);
+  return lines.join("\n");
+}
+
 /** Components that draw UI and say nothing an agent can use. */
 const UI_ONLY = ["IntegrationGrid", "OpsPlatformCTA", "PageAgentPrompt"];
 
@@ -182,6 +199,7 @@ const UI_ONLY = ["IntegrationGrid", "OpsPlatformCTA", "PageAgentPrompt"];
 function textOnlyComponents(body: string): string {
   return outsideFences(body, (text) => {
     if (!text.includes("<")) return text;
+    text = dropAgentPromptLeadIn(text);
     for (const name of UI_ONLY) {
       text = text.replace(
         new RegExp(

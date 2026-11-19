@@ -29,9 +29,17 @@ Use this prompt to connect your Vue app to Copilot Runtime with the selected age
 
 ## Prerequisites
 
+<WhenAgentBackend selected={false}>
 - An OpenAI API key (or another model provider supported by [Model Selection](/model-selection))
 - Vue 3.3+
 - Node.js 22.18+ on the 22 line, or 24.12+ (the current `create-vue` scaffold requires it)
+</WhenAgentBackend>
+
+<WhenAgentBackend selected>
+- Vue 3.3+
+- Node.js 22.18+ on the 22 line, or 24.12+ (the current `create-vue` scaffold requires it)
+- The tools and the model API key that your agent needs. The agent step below lists them.
+</WhenAgentBackend>
 
 ## Getting started
 

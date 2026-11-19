@@ -79,9 +79,13 @@ function destinationPrefix(canonicalFramework: string): string {
     : `/${canonicalFramework}`;
 }
 
+/**
+ * A framework's page at `pathSuffix`. With no suffix, the framework's home:
+ * its quickstart, since a bare `/<framework>` URL only redirects there.
+ */
 function destinationPath(canonicalFramework: string, pathSuffix = ""): string {
   const prefix = destinationPrefix(canonicalFramework);
-  if (!pathSuffix) return prefix || "/";
+  if (!pathSuffix) return prefix ? `${prefix}/quickstart` : "/";
   return `${prefix}/${pathSuffix}`;
 }
 
@@ -804,7 +808,7 @@ const INTEGRATIONS_PREFIX_RENAMES: RedirectEntry[] = FRAMEWORKS.filter(
     {
       id: `INT-root×${fw}`,
       source: `/integrations/${fw}`,
-      destination: `/${fwDest}`,
+      destination: destinationPath(fwDest),
     },
   ];
 });

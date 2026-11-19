@@ -95,7 +95,7 @@ Use state rendering when you want to:
 
   const runtime = new CopilotRuntime({
     agents: {
-      default: new BuiltInAgent({ /* ... */ }),
+      // ...the `default` agent from the quickstart
       researcher: new LangGraphAgent({ // [!code highlight:4]
         deploymentUrl: "http://localhost:8123",
         graphId: "researcher",

@@ -74,6 +74,8 @@ Replace the handler body with a call to your own weather API.
 
 ## The tool runs on the server
 
+<WhenAgentBackend selected={false}>
+
 Define the tool on the agent in the quickstart's `server.ts`:
 
 ```ts title="server.ts"
@@ -98,6 +100,15 @@ const runtime = new CopilotRuntime({
   },
 });
 ```
+
+</WhenAgentBackend>
+
+<WhenAgentBackend selected>
+
+Define a `getWeather` tool in your agent, with the tool API of your framework.
+It takes a `city` string and returns the weather as a string.
+
+</WhenAgentBackend>
 
 Then call `registerRenderToolCall` in the `App` constructor, in place of
 `registerFrontendTool`. The browser only renders the call:

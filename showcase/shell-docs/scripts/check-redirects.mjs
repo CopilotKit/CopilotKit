@@ -387,6 +387,13 @@ for (const [from, to, status] of [
   // Pages docs.copilotkit.ai served that the rebuild dropped (goneRedirect).
   ["/whats-new/v1-50", "/", PERMANENT],
   ["/mastra/faq", "/mastra/troubleshooting/common-issues", PERMANENT],
+  ["/mastra/whats-new", "/mastra/quickstart", PERMANENT],
+  // A framework has no root page; its URL opens the quickstart, and so does
+  // its Markdown.
+  ["/mastra", "/mastra/quickstart", PERMANENT],
+  ["/mastra/index", "/mastra/quickstart", PERMANENT],
+  ["/mastra.md", "/mastra/quickstart.md", PERMANENT],
+  ["/mastra.mdx", "/mastra/quickstart.md", PERMANENT],
   ["/vue/voice", "/vue", PERMANENT],
   [
     "/mastra/reference/v2/hooks/useCapabilities",
@@ -477,7 +484,7 @@ for (const [from, to] of [
   ["/integrations/built-in-agent", "/"],
   ["/integrations/built-in-agent/server-tools", "/server-tools"],
   ["/integrations/deepagents/quickstart", "/deepagents/quickstart"],
-  ["/integrations/adk", "/google-adk"],
+  ["/integrations/adk", "/google-adk/quickstart"],
   [
     "/integrations/langgraph/quickstart?copilot-hosting=self-hosted",
     "/langgraph-python/quickstart",
@@ -527,11 +534,11 @@ for (const [from, to] of [
     "/llamaindex/generative-ui/tool-rendering",
   ],
   ["/agno/generative-ui/backend-tools", "/agno/generative-ui/tool-rendering"],
-  ["/langgraph/concepts", "/langgraph-python"],
-  ["/langgraph/concepts/state", "/langgraph-python"],
-  ["/langgraph", "/langgraph-python"],
+  ["/langgraph/concepts", "/langgraph-python/quickstart"],
+  ["/langgraph/concepts/state", "/langgraph-python/quickstart"],
+  ["/langgraph", "/langgraph-python/quickstart"],
   ["/langgraph/quickstart", "/langgraph-python/quickstart"],
-  ["/adk", "/google-adk"],
+  ["/adk", "/google-adk/quickstart"],
   ["/aws-strands/shared-state", "/strands/shared-state"],
   ["/microsoft-agent-framework/quickstart", "/ms-agent-dotnet/quickstart"],
   ["/mastra/tutorials/ai-travel-app", "/mastra/quickstart"],
@@ -557,7 +564,7 @@ for (const [from, to] of [
   ["/docs/generative-ui/open-json-ui", "/generative-ui/open-json-ui"],
   ["/docs/api", "/reference/v2"],
   ["/docs/integrations", "/"],
-  ["/docs/integrations/langgraph", "/langgraph-python"],
+  ["/docs/integrations/langgraph", "/langgraph-python/quickstart"],
   ["/docs/integrations/mastra/quickstart", "/mastra/quickstart"],
   ["/docs/integrations/adk/quickstart", "/google-adk/quickstart"],
   ["/docs/integrations/unselected/frontend-tools", "/frontend-tools"],
@@ -579,7 +586,9 @@ for (const path of [
   "/custom-look-and-feel/slots",
   "/quickstart",
   "/runtime-server-adapter",
-  // Framework landings render (authored index.mdx, or a generated record).
+  // Bare framework URLs: no redirect table matches them. The page and the
+  // Markdown route send a GET to the framework's quickstart (`goneRedirect`
+  // in src/lib/live-docs.ts, checked above), which OPTIONS doesn't reach.
   "/mastra",
   "/mastra.md",
   "/google-adk",

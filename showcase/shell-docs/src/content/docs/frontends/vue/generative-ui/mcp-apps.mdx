@@ -21,6 +21,8 @@ Add your servers to `mcpApps.servers` on the runtime. The runtime adds the MCP A
 
 In the [Vue quickstart](/vue) `server.ts`, add `mcpApps` next to the existing agents. Replace the `url` with your MCP server's endpoint:
 
+<WhenAgentBackend selected={false}>
+
 ```ts title="server.ts"
 import { BuiltInAgent, CopilotRuntime } from "@copilotkit/runtime/v2";
 
@@ -42,6 +44,29 @@ const runtime = new CopilotRuntime({
   },
 });
 ```
+
+</WhenAgentBackend>
+
+<WhenAgentBackend selected>
+
+```ts title="server.ts"
+const runtime = new CopilotRuntime({
+  agents: {
+    // ...the `default` agent from the quickstart, unchanged
+  },
+  mcpApps: {
+    servers: [
+      {
+        type: "http",
+        url: "https://mcp.example.com/mcp",
+        serverId: "support-tools",
+      },
+    ],
+  },
+});
+```
+
+</WhenAgentBackend>
 
 <Callout type="info" title="Always pin a serverId">
   In production, always provide a stable `serverId`. Without it, CopilotKit

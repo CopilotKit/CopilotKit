@@ -6,11 +6,20 @@ hideTOC: true
 ---
 
 import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.mdx";
+import AgentBackends from "@/snippets/agent-backends/index.mdx";
 
 
 The rest of these docs are the React docs. [Frontend tools](/frontend-tools), [generative UI](/generative-ui/tool-based), [human-in-the-loop](/human-in-the-loop), [headless UI](/custom-look-and-feel/headless-ui), [prebuilt components](/prebuilt-components/chat) and the [React reference](/reference/v2) all work unchanged in a Vite or Create React App project.
 
 Exactly one instruction does not carry over: **where Copilot Runtime lives.** The quickstarts assume Next.js serves your app and the runtime from one origin, so they use a relative `runtimeUrl` of `/api/copilotkit`. A single-page app has no server and no shared origin, so that path resolves to nothing. This page covers that one difference and sends you back to the pages above for everything else.
+
+<WhenAgentBackend selected={false}>
+The runtime here hosts `BuiltInAgent`, CopilotKit's own agent. To connect an agent you build with another framework, pick it in the sidebar's **Agent framework** menu. The backend steps below change to match.
+</WhenAgentBackend>
+
+<WhenAgentBackend selected>
+The runtime here connects to an agent built with the framework you picked in the sidebar. The backend steps below set up that agent.
+</WhenAgentBackend>
 
 ## Start with your coding agent
 
@@ -20,9 +29,17 @@ Use this prompt to connect your React single-page app to a separately hosted Cop
 
 ## Prerequisites
 
+<WhenAgentBackend selected={false}>
 - An OpenAI API key (or another model provider supported by [Model Selection](/built-in-agent/model-selection))
 - React 18+
 - Node.js 20.6+ (for `--env-file`)
+</WhenAgentBackend>
+
+<WhenAgentBackend selected>
+- The tools and the model API key that your agent needs. The agent step below lists them.
+- React 18+
+- Node.js 20.6+
+</WhenAgentBackend>
 
 ## Getting started
 
@@ -66,6 +83,7 @@ Use this prompt to connect your React single-page app to a separately hosted Cop
             </Tab>
         </Tabs>
     </Step>
+    <WhenAgentBackend selected={false}>
     <Step>
         ### Create the Copilot Runtime
 
@@ -104,6 +122,10 @@ Use this prompt to connect your React single-page app to a separately hosted Cop
           Your app and your runtime are on different origins, so the runtime has to opt into CORS. `createCopilotNodeListener` and `createCopilotRuntimeHandler` are **off by default**. If you omit `cors`, every browser request fails preflight. This differs from the Express and Hono adapters, which default to permissive CORS. See [Runtime endpoints](/backend/runtime-endpoints) for per-origin and credentialed configuration before you deploy.
         </Callout>
     </Step>
+    </WhenAgentBackend>
+    <WhenAgentBackend selected>
+      <AgentBackends />
+    </WhenAgentBackend>
     <Step>
         ### Import the styles
 
@@ -146,7 +168,7 @@ Use this prompt to connect your React single-page app to a separately hosted Cop
           Every framework quickstart uses a relative `runtimeUrl="/api/copilotkit"`. That works **only** because Next.js serves the app and the runtime from the same origin. In a single-page app the runtime is a separate process on a separate port, so the URL has to name it in full, host and port included. Read it from an env var (`import.meta.env.VITE_COPILOT_RUNTIME_URL` in Vite) so you can point it at your deployed runtime in production.
         </Callout>
 
-        To use a named agent from an integration quickstart, set `agentId` to the key registered in the runtime's `agents` map:
+        To use an agent registered under another name, set `agentId` to its key in the runtime's `agents` map:
 
         ```tsx
         <CopilotKitProvider
@@ -157,12 +179,13 @@ Use this prompt to connect your React single-page app to a separately hosted Cop
         </CopilotKitProvider>
         ```
 
-        Omit `agentId` when using the `default` agent above.
+        Omit `agentId` when you use the `default` agent above.
 
         <Callout type="info" title="Pick your chat layout">
           `CopilotChat` is a full-height chat. Swap it for `CopilotSidebar` (a collapsible side panel) or `CopilotPopup` (a floating widget) for a different layout. They take the same props.
         </Callout>
     </Step>
+    <WhenAgentBackend selected={false}>
     <Step>
         ### Run the runtime and app
 
@@ -226,6 +249,38 @@ Use this prompt to connect your React single-page app to a separately hosted Cop
             </Accordion>
         </Accordions>
     </Step>
+    </WhenAgentBackend>
+    <WhenAgentBackend selected>
+    <Step>
+        ### Run the runtime and app
+
+        Keep the agent running. In your app folder, start Copilot Runtime:
+
+        ```bash
+        npx tsx server.ts
+        ```
+
+        Check that it found your agent: `http://localhost:8200/api/copilotkit/info` lists an agent named `default`.
+
+        Start the React app in a third terminal:
+
+        ```bash
+        npm run dev
+        ```
+
+        Vite serves on `http://localhost:5173`. Open it and send a message. It goes from the app to Copilot Runtime to your agent, and the reply streams back.
+
+        <Accordions className="mb-4">
+            <Accordion title="Troubleshooting">
+                - **CORS errors, or requests failing on preflight**: Keep `cors: true` in `createCopilotNodeListener`. It is off by default.
+                - **404s on `/api/copilotkit`**: Your `runtimeUrl` is relative. A SPA needs the absolute `http://localhost:8200/api/copilotkit`.
+                - **`/info` lists no `default` agent, or the chat shows a connection error**: Check that the agent is still running, on the port `server.ts` points at.
+                - **Chat renders unstyled**: Make sure you imported `@copilotkit/react-core/v2/styles.css` in your app entry.
+                - **Model auth errors**: The agent calls the model, so its key goes in the agent's environment, not the runtime's.
+            </Accordion>
+        </Accordions>
+    </Step>
+    </WhenAgentBackend>
     <Step>
         <OpenInspectorStep components={props.components} />
     </Step>
@@ -235,7 +290,13 @@ Use this prompt to connect your React single-page app to a separately hosted Cop
 
 The runtime is the only SPA-specific piece. From here, the React docs linked at the top of this page apply as written.
 
-To connect an agent framework instead of `BuiltInAgent`, follow any [integration quickstart](/quickstart) and keep the `server.ts` host and absolute `runtimeUrl` from this page in place of its Next.js route handler. If your agent runs as its own server and you want Intelligence, read the next section.
+<WhenAgentBackend selected={false}>
+To connect an agent framework instead of `BuiltInAgent`, pick it in the sidebar's **Agent framework** menu. This page then shows that framework's backend steps. If your agent runs as its own server and you want Intelligence, read the next section.
+</WhenAgentBackend>
+
+<WhenAgentBackend selected>
+If you want Intelligence with this agent, read the next section.
+</WhenAgentBackend>
 
 ## Connect a remote agent with Intelligence
 
@@ -243,11 +304,13 @@ This section is for SPA developers whose agent runs as a separate server and who
 
 Most integration quickstarts run the agent as its own server and show the runtime as a Next.js route handler. For a single-page app, put the same runtime in `server.ts`. This example registers an agent server at `http://localhost:8000/` with `HttpAgent` and connects the runtime to [Intelligence](/intelligence/quickstart).
 
-Install the AG-UI client at the version that `@copilotkit/runtime` depends on:
+Install the AG-UI client:
 
 ```bash
-npm install @ag-ui/client@1.0.2
+npm install @ag-ui/client
 ```
+
+`@ag-ui/client` must be the same version that `@copilotkit/runtime` uses. Run `npm ls @ag-ui/client`: the top-level copy must be the version that `@copilotkit/runtime` lists as `deduped`.
 
 ```ts title="server.ts"
 import { createServer } from "node:http";
