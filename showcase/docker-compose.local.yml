@@ -361,6 +361,11 @@ services:
       - OPENAI_BASE_URL=http://aimock:4010/v1
       - ANTHROPIC_BASE_URL=http://aimock:4010
       - AIMOCK_URL=http://aimock:4010
+      # Integrations whose transcription client points at aimock in this
+      # stack (comma-separated slugs). Only these get the voice probe's
+      # sample upload; a runtime reporting transcription on may otherwise
+      # use a real provider.
+      - SHOWCASE_VOICE_TRANSCRIPTION_REPLAY=cloudflare-agents
       - PORT=8080
     depends_on:
       aimock:
@@ -657,8 +662,9 @@ services:
     # x-integration-defaults.
     #
     # Transcription replays from aimock here (d6/cloudflare-agents/d5-all.json):
-    # the voice probe uploads the bundled sample whenever /info reports
-    # transcription enabled, and the route forwards the probe's headers.
+    # harness-pool-worker lists this integration in
+    # SHOWCASE_VOICE_TRANSCRIPTION_REPLAY, so the voice probe uploads the
+    # bundled sample, and the route forwards the probe's headers.
     # Deployments leave these unset or use a real transcription key.
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY:-sk-mock}

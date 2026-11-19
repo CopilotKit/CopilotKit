@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import { getD5Script } from "../helpers/d5-registry.js";
 import type { D5BuildContext } from "../helpers/d5-registry.js";
 import type { Page } from "../helpers/conversation-runner.js";
@@ -13,7 +13,6 @@ import {
   SAMPLE_AUDIO_PATH,
   VOICE_RUNTIME_PATH,
 } from "./d5-voice.js";
-import type { TranscriptionCheck } from "./d5-voice.js";
 
 /**
  * Tests for the D5 voice script. Three concerns:
@@ -41,15 +40,65 @@ interface FakePageScript {
   textareaValues?: string[];
   /** Tracks how many times the click was invoked. */
   clickCalls?: { count: number };
-  /**
-   * What the in-page transcription check reports (the `evaluate` call that
-   * receives the voice runtime and sample paths). Defaults to a runtime
-   * with transcription disabled.
-   */
-  transcription?: TranscriptionCheck;
-  /** Records the arguments of each transcription check. */
+  /** Records the source of each page function that calls the voice runtime. */
   transcriptionCalls?: unknown[];
 }
+
+/** How the stubbed voice runtime and sample answer the page's requests. */
+interface VoiceRuntimeStub {
+  /** `/info`: a status and body, or an Error the request rejects with. */
+  info?: { status: number; body: string } | Error;
+  /** `/transcribe`: a status and body. */
+  transcribe?: { status: number; body: string };
+  /** The bundled sample: its status. */
+  sampleStatus?: number;
+}
+
+/**
+ * Stub `fetch` for the page functions that call the voice runtime. The
+ * fake page runs those functions for real, so their requests land here.
+ * Returns the recorded requests.
+ */
+function stubVoiceRuntime(stub: VoiceRuntimeStub = {}): {
+  url: string;
+  init?: RequestInit;
+}[] {
+  const calls: { url: string; init?: RequestInit }[] = [];
+  vi.stubGlobal("fetch", async (url: string, init?: RequestInit) => {
+    calls.push({ url, init });
+    if (url === `${VOICE_RUNTIME_PATH}/info`) {
+      const info = stub.info ?? {
+        status: 200,
+        body: JSON.stringify({ audioFileTranscriptionEnabled: false }),
+      };
+      if (info instanceof Error) throw info;
+      return new Response(info.body, { status: info.status });
+    }
+    if (url === SAMPLE_AUDIO_PATH) {
+      const status = stub.sampleStatus ?? 200;
+      return new Response(
+        status === 200 ? new Uint8Array([82, 73, 70, 70]) : "",
+        {
+          status,
+        },
+      );
+    }
+    if (url === `${VOICE_RUNTIME_PATH}/transcribe`) {
+      const res = stub.transcribe ?? {
+        status: 200,
+        body: JSON.stringify({ text: "What is the weather in Tokyo?" }),
+      };
+      return new Response(res.body, { status: res.status });
+    }
+    throw new Error(`unexpected request in test: ${url}`);
+  });
+  return calls;
+}
+
+const transcriptionOn = {
+  status: 200,
+  body: JSON.stringify({ audioFileTranscriptionEnabled: true }),
+};
 
 /**
  * Build a fake Page that satisfies the runner's `Page` interface plus the
@@ -86,12 +135,12 @@ function makePage(script: FakePageScript = {}): Page & {
     },
     async evaluate<R, A = unknown>(fn: (arg?: A) => R): Promise<R> {
       // Like the D6 driver's page adapter, this fake passes no argument to
-      // the page function. The transcription check is the one that calls
-      // the voice runtime; answer it from the script.
+      // the page function. The functions that call the voice runtime run
+      // for real against the stubbed fetch (see stubVoiceRuntime).
       const source = String(fn);
       if (source.includes(VOICE_RUNTIME_PATH)) {
         script.transcriptionCalls?.push(source);
-        return (script.transcription ?? { enabled: false }) as unknown as R;
+        return (await fn()) as R;
       }
       // The textarea-value poll runs first (during preFill); after it
       // resolves, evaluateValues feeds the assistant-transcript reader.
@@ -109,6 +158,14 @@ function makePage(script: FakePageScript = {}): Page & {
 }
 
 describe("d5-voice script", () => {
+  beforeEach(() => {
+    // Transcription off unless a test says otherwise.
+    stubVoiceRuntime();
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   describe("registration", () => {
     it("registers under featureType 'voice' with the bundled d5-all.json fixture", () => {
       const script = getD5Script("voice");
@@ -191,15 +248,17 @@ describe("d5-voice script", () => {
     });
   });
 
-  describe("transcription upload", () => {
-    const voiceTurn = () =>
+  describe("transcription capability", () => {
+    const voiceTurn = (transcriptionReplay?: boolean) =>
       buildTurns({
         integrationSlug: "cloudflare-agents",
         featureType: "voice",
         baseUrl: "https://example.test",
+        ...(transcriptionReplay === undefined ? {} : { transcriptionReplay }),
       })[0]!;
 
-    it("checks the voice runtime with the bundled sample before clicking the button", async () => {
+    it("asks the voice runtime's /info from the page before clicking the button", async () => {
+      const calls = stubVoiceRuntime();
       const transcriptionCalls: unknown[] = [];
       const clickCalls = { count: 0 };
       const page = makePage({
@@ -208,72 +267,170 @@ describe("d5-voice script", () => {
         textareaValues: ["What is the weather in Tokyo?"],
       });
 
-      await voiceTurn().preFill!(page);
+      await voiceTurn(true).preFill!(page);
 
-      // One self-contained page function (the D6 driver's page adapter
-      // passes no argument) that carries both paths.
+      // A self-contained page function (the D6 driver's page adapter
+      // passes no argument) carries the runtime path.
       expect(transcriptionCalls).toHaveLength(1);
       expect(transcriptionCalls[0]).toContain(VOICE_RUNTIME_PATH);
-      expect(transcriptionCalls[0]).toContain(SAMPLE_AUDIO_PATH);
       expect(VOICE_RUNTIME_PATH).toBe("/api/copilotkit-voice");
-      expect(SAMPLE_AUDIO_PATH).toBe("/demo-audio/sample.wav");
+      expect(calls.map((c) => c.url)).toEqual(["/api/copilotkit-voice/info"]);
       expect(clickCalls.count).toBe(1);
     });
 
-    it("passes when the runtime transcribes the bundled sample", async () => {
+    it("skips the upload when /info reports transcription explicitly off", async () => {
+      const calls = stubVoiceRuntime({
+        info: {
+          status: 200,
+          body: JSON.stringify({ audioFileTranscriptionEnabled: false }),
+        },
+      });
       const clickCalls = { count: 0 };
       const page = makePage({
         clickCalls,
-        transcription: {
-          enabled: true,
-          status: 200,
-          text: "What is the weather in Tokyo?",
-        },
+        textareaValues: ["What is the weather in Tokyo?"],
+      });
+
+      await voiceTurn(true).preFill!(page);
+
+      expect(calls.map((c) => c.url)).toEqual(["/api/copilotkit-voice/info"]);
+      expect(clickCalls.count).toBe(1);
+    });
+
+    it("fails when /info answers 503", async () => {
+      stubVoiceRuntime({ info: { status: 503, body: "unavailable" } });
+      const clickCalls = { count: 0 };
+      const page = makePage({ clickCalls });
+
+      await expect(voiceTurn().preFill!(page)).rejects.toThrow(
+        "voice: /api/copilotkit-voice/info answered 503",
+      );
+      expect(clickCalls.count).toBe(0);
+    });
+
+    it("fails when the /info request errors", async () => {
+      stubVoiceRuntime({ info: new TypeError("Failed to fetch") });
+      const page = makePage();
+
+      await expect(voiceTurn().preFill!(page)).rejects.toThrow(
+        "voice: /api/copilotkit-voice/info failed: TypeError: Failed to fetch",
+      );
+    });
+
+    it("fails when /info is not JSON", async () => {
+      stubVoiceRuntime({ info: { status: 200, body: "<html>" } });
+      const page = makePage();
+
+      await expect(voiceTurn().preFill!(page)).rejects.toThrow(
+        "voice: /api/copilotkit-voice/info is not JSON",
+      );
+    });
+
+    it("fails when /info has no boolean transcription capability", async () => {
+      stubVoiceRuntime({
+        info: { status: 200, body: JSON.stringify({ version: "1.68.2" }) },
+      });
+      const page = makePage();
+
+      await expect(voiceTurn().preFill!(page)).rejects.toThrow(
+        "voice: /info must report a boolean transcription capability",
+      );
+    });
+  });
+
+  describe("transcription upload", () => {
+    const voiceTurn = (transcriptionReplay?: boolean) =>
+      buildTurns({
+        integrationSlug: "cloudflare-agents",
+        featureType: "voice",
+        baseUrl: "https://example.test",
+        ...(transcriptionReplay === undefined ? {} : { transcriptionReplay }),
+      })[0]!;
+
+    it("does not upload audio when transcription is on but replay is not configured", async () => {
+      // `/info: true` can mean a real provider, so only an explicit replay
+      // opt-in sends the sample.
+      const calls = stubVoiceRuntime({ info: transcriptionOn });
+      const clickCalls = { count: 0 };
+      const page = makePage({
+        clickCalls,
         textareaValues: ["What is the weather in Tokyo?"],
       });
 
       await voiceTurn().preFill!(page);
 
+      expect(calls.map((c) => c.url)).toEqual(["/api/copilotkit-voice/info"]);
       expect(clickCalls.count).toBe(1);
     });
 
-    it("throws when the runtime fails to transcribe the sample", async () => {
+    it("uploads the bundled sample when replay is configured and passes on its phrase", async () => {
+      const calls = stubVoiceRuntime({ info: transcriptionOn });
+      const transcriptionCalls: unknown[] = [];
       const clickCalls = { count: 0 };
       const page = makePage({
+        transcriptionCalls,
         clickCalls,
-        transcription: {
-          enabled: true,
-          status: 500,
-          text: '{"error":"service_error"}',
-        },
+        textareaValues: ["What is the weather in Tokyo?"],
       });
 
-      await expect(voiceTurn().preFill!(page)).rejects.toThrow(
+      await voiceTurn(true).preFill!(page);
+
+      expect(calls.map((c) => c.url)).toEqual([
+        "/api/copilotkit-voice/info",
+        "/demo-audio/sample.wav",
+        "/api/copilotkit-voice/transcribe",
+      ]);
+      expect(SAMPLE_AUDIO_PATH).toBe("/demo-audio/sample.wav");
+      const upload = calls[2]!.init!;
+      expect(upload.method).toBe("POST");
+      const audio = (upload.body as FormData).get("audio") as File;
+      expect(audio.name).toBe("sample.wav");
+      expect(audio.type).toBe("audio/wav");
+      expect(audio.size).toBe(4);
+      // Two self-contained page functions: the capability check, then the upload.
+      expect(transcriptionCalls).toHaveLength(2);
+      expect(transcriptionCalls[1]).toContain(SAMPLE_AUDIO_PATH);
+      expect(clickCalls.count).toBe(1);
+    });
+
+    it("fails when the runtime cannot transcribe the sample", async () => {
+      stubVoiceRuntime({
+        info: transcriptionOn,
+        transcribe: {
+          status: 500,
+          body: JSON.stringify({ error: "service_error" }),
+        },
+      });
+      const clickCalls = { count: 0 };
+      const page = makePage({ clickCalls });
+
+      await expect(voiceTurn(true).preFill!(page)).rejects.toThrow(
         /transcribing the bundled sample returned 500/,
       );
       expect(clickCalls.count).toBe(0);
     });
 
-    it("throws when the transcript is not the sample's phrase", async () => {
-      const page = makePage({
-        transcription: { enabled: true, status: 200, text: "hello there" },
+    it("fails when the transcript is not the sample's phrase", async () => {
+      stubVoiceRuntime({
+        info: transcriptionOn,
+        transcribe: {
+          status: 200,
+          body: JSON.stringify({ text: "hello there" }),
+        },
       });
+      const page = makePage();
 
-      await expect(voiceTurn().preFill!(page)).rejects.toThrow(
+      await expect(voiceTurn(true).preFill!(page)).rejects.toThrow(
         /transcribing the bundled sample returned 200: "hello there"/,
       );
     });
 
-    it("throws when the page has no bundled sample", async () => {
-      const page = makePage({
-        transcription: {
-          enabled: true,
-          error: "/demo-audio/sample.wav answered 404",
-        },
-      });
+    it("fails when the page has no bundled sample", async () => {
+      stubVoiceRuntime({ info: transcriptionOn, sampleStatus: 404 });
+      const page = makePage();
 
-      await expect(voiceTurn().preFill!(page)).rejects.toThrow(
-        /voice: \/demo-audio\/sample\.wav answered 404/,
+      await expect(voiceTurn(true).preFill!(page)).rejects.toThrow(
+        "voice: /demo-audio/sample.wav answered 404",
       );
     });
   });

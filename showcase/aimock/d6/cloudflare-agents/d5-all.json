@@ -7,7 +7,7 @@
   },
   "fixtures": [
     {
-      "_comment": "Transcription of the bundled sample (public/demo-audio/sample.wav) posted to the voice route's /transcribe. The route's OpenAI client sends x-aimock-context: cloudflare-agents and the probe's aimock headers (src/lib/cloudflare-agents.ts modelFetch). The text is the sample's phrase, which the next fixture answers.",
+      "_comment": "Transcription of the bundled sample (public/demo-audio/sample.wav) posted to the voice route's /transcribe. The probe posts it only when SHOWCASE_VOICE_TRANSCRIPTION_REPLAY lists cloudflare-agents (the local compose harness does). The route's OpenAI client forwards the probe's x-aimock-context, x-aimock-strict and x-test-id (src/lib/cloudflare-agents.ts probeHeaderFetch). The text is the sample's phrase, which the next fixture answers.",
       "match": {
         "endpoint": "transcription",
         "context": "cloudflare-agents"
