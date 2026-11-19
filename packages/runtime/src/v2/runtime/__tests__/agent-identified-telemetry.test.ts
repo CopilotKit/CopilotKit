@@ -1,6 +1,7 @@
 /**
- * `oss.runtime.agent_identified` fires from the run and connect handlers, once
- * per agent class and name per process, and never for an unknown agent.
+ * `oss.runtime.agent_identified` fires from the run handler, once per agent
+ * class and name per process, and never for an unknown agent. Connect never
+ * contacts the agent, so it does not identify it either.
  */
 import express from "express";
 import request from "supertest";
@@ -156,12 +157,31 @@ describe("agent_identified from the handlers", () => {
     expect(total()).toBe(1);
   });
 
-  it("sends agent_identified on connect", async () => {
-    const { app, identified } = setup({ default: makeAgent() });
+  it("does not identify on connect, so the first lookup carries a run's forwarded headers", async () => {
+    const seenHeaders: Record<string, string>[] = [];
+    const make = agentMaker(
+      async function (this: { headers: Record<string, string> }) {
+        seenHeaders.push({ ...this.headers });
+        return { identity: { type: "adk" } };
+      },
+    );
+    const { app, identified } = setup({ default: make() });
     await request(app)
       .post("/agent/default/connect")
+      .set("authorization", "Bearer user-token")
       .send({ threadId: crypto.randomUUID(), runId: crypto.randomUUID() });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(identified()).toHaveLength(0);
+    expect(seenHeaders).toHaveLength(0);
+
+    await request(app)
+      .post("/agent/default/run")
+      .set("authorization", "Bearer user-token")
+      .send(runBody());
     await vi.waitFor(() => expect(identified()).toHaveLength(1));
+    expect(seenHeaders).toEqual([
+      expect.objectContaining({ authorization: "Bearer user-token" }),
+    ]);
   });
 
   it("sends nothing and asks for no capabilities when telemetry is disabled", async () => {

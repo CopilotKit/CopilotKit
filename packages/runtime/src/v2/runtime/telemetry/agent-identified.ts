@@ -137,7 +137,7 @@ function capabilitiesWithTimeout(
 
 /**
  * Send `oss.runtime.agent_identified` the first time an agent name of a given
- * agent class runs or connects in this process. Returns at once: the capabilities lookup runs in the
+ * agent class runs in this process. Returns at once: the capabilities lookup runs in the
  * background and never delays, blocks or fails the request.
  */
 export function fireAgentIdentifiedTelemetry({

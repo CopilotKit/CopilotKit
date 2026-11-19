@@ -3,7 +3,6 @@ import { handleSseConnect } from "./sse/connect";
 import { resolveLocalThreadOwner } from "./shared/thread-access";
 import { isIntelligenceRuntime } from "../core/runtime";
 import { telemetry } from "../telemetry";
-import { fireAgentIdentifiedTelemetry } from "../telemetry/agent-identified";
 import type { RunAgentParameters as ConnectAgentParameters } from "./shared/agent-utils";
 import {
   parseConnectRequest,
@@ -39,8 +38,6 @@ export async function handleConnectAgent({
     if (agent instanceof Response) {
       return agent;
     }
-    // Background: never delays or fails the request.
-    fireAgentIdentifiedTelemetry({ runtime, agentId, agent });
 
     // Parse a clone, so `identifyUser` can still read the original body.
     const connectRequest = await parseConnectRequest(request.clone());

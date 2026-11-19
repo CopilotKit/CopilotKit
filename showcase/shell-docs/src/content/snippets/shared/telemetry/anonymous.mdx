@@ -69,7 +69,7 @@ event timestamp.
 
 ## Agent framework event
 
-The first time each agent runs or connects, Runtime sends
+The first time each agent runs, Runtime sends
 `oss.runtime.agent_identified` for that agent. It sends the event once per
 agent for each server process, so a restart or a new serverless instance
 sends it again. It tells us which agent frameworks people use, so we know
