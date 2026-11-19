@@ -6,27 +6,10 @@ import { DOCS_VERSIONS, normalizeBasePath } from "./src/lib/docs-versions.mjs";
 const withMDX = createMDX();
 
 // The path this build is served under (src/lib/base-path.ts): "" for the
-// stable docs, "/v2" for the 2.x docs. Only the stable build forwards the
-// other versions' paths to their deployments.
+// stable docs, "/v2" for the 2.x docs. The stable build's proxy (src/proxy.ts)
+// forwards the other versions' paths to their deployments at request time.
 const basePath = normalizeBasePath(process.env.DOCS_BASE_PATH);
 const isStableBuild = basePath === "";
-
-/** `/v2` and `/v2/*` to each other version's deployment, when it is named. */
-const versionRewrites = isStableBuild
-  ? DOCS_VERSIONS.flatMap((version) => {
-      const origin = version.originEnv
-        ? process.env[version.originEnv]?.trim().replace(/\/+$/, "")
-        : "";
-      if (!version.path || !origin) return [];
-      return [
-        { source: version.path, destination: `${origin}${version.path}` },
-        {
-          source: `${version.path}/:path*`,
-          destination: `${origin}${version.path}/:path*`,
-        },
-      ];
-    })
-  : [];
 
 /** The stable version's own prefix (`/v1/*` while 1.x is stable) to the root. */
 const stableVersion = DOCS_VERSIONS.find((version) => version.path === "");
@@ -85,8 +68,6 @@ const config = {
   async rewrites() {
     return {
       beforeFiles: [
-        // Other docs versions, served by their own deployments.
-        ...versionRewrites,
         {
           source: "/ingest/static/:path*",
           destination: "https://eu-assets.i.posthog.com/static/:path*",

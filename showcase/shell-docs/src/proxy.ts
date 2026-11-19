@@ -26,21 +26,40 @@ function liveMarkdownPath(pathname: string): string | null {
 }
 
 /**
- * On the stable docs, the other versions' paths (`/v2/...`). next.config.mjs
- * forwards them to those versions' deployments, which run their own proxy.
+ * On the stable docs, the other versions (`/v2`) and the variable that names
+ * each one's deployment (its private Railway URL).
  */
-const OTHER_VERSION_PATH = basePath
-  ? null
-  : new RegExp(
-      `^(?:${DOCS_VERSIONS.filter((version) => version.path)
-        .map((version) => version.path)
-        .join("|")})(?:/|$)`,
-    );
+const OTHER_VERSIONS = basePath
+  ? []
+  : DOCS_VERSIONS.filter((version) => version.path && version.originEnv);
+
+/**
+ * A request for another version's path, forwarded to that version's
+ * deployment, or null. Read at request time, not build time: CI builds the
+ * stable docs' image, so a Railway variable never reaches its `next build`.
+ * Without the variable the path falls through to this build (a 404).
+ */
+function otherVersionRewrite(request: NextRequest): NextResponse | null {
+  const { pathname, search } = request.nextUrl;
+  for (const version of OTHER_VERSIONS) {
+    if (pathname !== version.path && !pathname.startsWith(`${version.path}/`)) {
+      continue;
+    }
+    // A computed key, so Next doesn't inline it at build time.
+    const origin = process.env[version.originEnv as string]
+      ?.trim()
+      .replace(/\/+$/, "");
+    if (!origin) return null;
+    return NextResponse.rewrite(new URL(`${origin}${pathname}${search}`));
+  }
+  return null;
+}
 
 export default function proxy(request: NextRequest, event: NextFetchEvent) {
   const { pathname } = request.nextUrl;
 
-  if (OTHER_VERSION_PATH?.test(pathname)) return NextResponse.next();
+  const otherVersion = otherVersionRewrite(request);
+  if (otherVersion) return otherVersion;
 
   // Prototype D became the site: its old /proto/d URLs open at the root.
   const proto = /^\/proto\/d(?=\/|$)/;
