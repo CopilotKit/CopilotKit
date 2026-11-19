@@ -1004,12 +1004,12 @@ pre {
 .ck-catalog {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding-bottom: 8px;
+  gap: 16px;
+  padding-bottom: 16px;
 }
 
 .ck-catalog-head {
-  padding: 24px;
+  padding: 32px;
 }
 
 .ck-catalog-head h2 {
@@ -1021,7 +1021,7 @@ pre {
 }
 
 .ck-catalog-head > p {
-  margin: 8px 0 0;
+  margin: 12px 0 0;
   max-width: 64ch;
   font-size: 16px;
   line-height: 24px;
@@ -1074,7 +1074,7 @@ pre {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin: 24px 4px 8px;
+  margin: 24px 4px 0;
 }
 
 .ck-group-title h3 {
@@ -1092,7 +1092,7 @@ pre {
 }
 
 .ck-sample {
-  scroll-margin-top: 8px;
+  scroll-margin-top: 16px;
   overflow: visible;
 }
 
@@ -1102,7 +1102,7 @@ pre {
   align-items: center;
   justify-content: space-between;
   gap: 8px 16px;
-  padding: 12px 16px;
+  padding: 16px 24px;
   border-bottom: 1px solid var(--grey-200);
 }
 
@@ -1113,10 +1113,6 @@ pre {
   line-height: 24px;
 }
 
-.ck-sample-head .ck-tag {
-  background: var(--grey-200);
-}
-
 .ck-sample-body {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 280px;
@@ -1124,19 +1120,12 @@ pre {
 
 .ck-sample-preview {
   min-width: 0;
-  padding: 16px;
-}
-
-.ck-sample-meta {
-  margin: 12px 0 0;
-  font-size: 12px;
-  line-height: 16px;
-  color: var(--text-muted);
+  padding: 24px;
 }
 
 .ck-sample-details {
   min-width: 0;
-  padding: 8px 16px 16px;
+  padding: 12px 24px 24px;
   border-left: 1px solid var(--grey-200);
   background: var(--surface-hovered);
   border-radius: 0 0 6px 0;
@@ -1151,13 +1140,22 @@ pre {
 
 .ck-sample-details summary {
   position: relative;
-  padding: 8px 20px 8px 0;
+  padding: 10px 20px 10px 0;
   font-family: var(--mono);
   font-size: 12px;
   font-weight: 500;
   color: var(--text-primary);
   cursor: pointer;
   list-style: none;
+}
+
+/* The size of the sample, under "Operations": quieter than the name. */
+.ck-summary-meta {
+  display: block;
+  margin-top: 2px;
+  font-family: var(--sans);
+  font-weight: 400;
+  color: var(--text-muted);
 }
 
 .ck-sample-details summary::-webkit-details-marker,
@@ -1380,7 +1378,14 @@ pre {
     overflow: visible;
   }
   .ck-catalog-head {
-    padding: 24px 16px;
+    padding: 24px 20px;
+  }
+  .ck-sample-head,
+  .ck-sample-preview {
+    padding-inline: 20px;
+  }
+  .ck-sample-details {
+    padding-inline: 20px;
   }
   .ck-catalog-head h2 {
     font-size: 32px;

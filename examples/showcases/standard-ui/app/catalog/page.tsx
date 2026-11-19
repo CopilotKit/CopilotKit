@@ -66,7 +66,9 @@ const SHOULDER = GROUPS.map((group) => ({
       ),
     ),
   ),
-}));
+  // A group whose samples only reuse components listed earlier (Dynamic
+  // values) has no entries of its own, so the index leaves its title out.
+})).filter(({ names }) => names.length > 0);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -184,13 +186,6 @@ function Sample({ sample, index }: { sample: CatalogSample; index: number }) {
     >
       <header className="ck-sample-head">
         <h4 id={`${SLUGS[index]}-title`}>{sample.title}</h4>
-        <div className="ck-tags">
-          {sample.covers.map((name) => (
-            <span key={name} className="ck-tag">
-              {name}
-            </span>
-          ))}
-        </div>
       </header>
       <div className="ck-sample-body">
         <div className="ck-sample-preview">
@@ -198,10 +193,6 @@ function Sample({ sample, index }: { sample: CatalogSample; index: number }) {
             id={surfaceId}
             fallback={<p className="ck-loading">Loading the sample…</p>}
           />
-          <p className="ck-sample-meta">
-            {sample.components.length} components in the tree
-            {sample.data ? " · bound to a data model" : ""}
-          </p>
         </div>
         <div className="ck-sample-details">
           {sample.covers.map((name) => {
@@ -229,7 +220,14 @@ function Sample({ sample, index }: { sample: CatalogSample; index: number }) {
             );
           })}
           <details>
-            <summary className="ck-focus">Operations</summary>
+            <summary className="ck-focus">
+              Operations
+              <span className="ck-summary-meta">
+                {sample.components.length}{" "}
+                {sample.components.length === 1 ? "component" : "components"}
+                {sample.data ? ", bound to data" : ""}
+              </span>
+            </summary>
             <pre>{JSON.stringify(operations, null, 1)}</pre>
           </details>
         </div>
