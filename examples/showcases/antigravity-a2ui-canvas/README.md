@@ -9,7 +9,7 @@ chart, translate it, click its buttons, and step back through every version.
 It is meant to be forked: one agent, one canvas, CopilotKit's standard
 component catalog, and no custom components.
 
-**Live demo:** https://a2ui-canvas-production.up.railway.app
+**Live demo:** https://a2ui-canvas.copilotkit.ai
 
 ## Try it
 
