@@ -652,8 +652,14 @@ services:
     #
     # NOTE: a service-level `environment:` does NOT deep-merge with the
     # `<<: *integration-defaults` anchor's `environment:`, so the anchor's
-    # entries are RE-LISTED verbatim here, then the three CVDIAG vars
-    # appended. Keep the re-listed block in sync with x-integration-defaults.
+    # entries are RE-LISTED verbatim here, then the three CVDIAG vars and the
+    # two transcription vars appended. Keep the re-listed block in sync with
+    # x-integration-defaults.
+    #
+    # Transcription replays from aimock here (d6/cloudflare-agents/d5-all.json):
+    # the voice probe uploads the bundled sample whenever /info reports
+    # transcription enabled, and the route forwards the probe's headers.
+    # Deployments leave these unset or use a real transcription key.
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY:-sk-mock}
       - OPENAI_BASE_URL=http://aimock:4010/v1
@@ -668,6 +674,8 @@ services:
       - CVDIAG_BACKEND_EMITTER=1
       - CVDIAG_PB_URL=http://pocketbase:8090
       - CVDIAG_WRITER_KEY=cvdiagwriterpass123
+      - OPENAI_TRANSCRIPTION_API_KEY=sk-mock-transcription
+      - OPENAI_TRANSCRIPTION_BASE_URL=http://aimock:4010/v1
     # Persisting CVDIAG rows requires PocketBase to be up alongside aimock.
     depends_on:
       aimock:

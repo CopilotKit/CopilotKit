@@ -65,11 +65,8 @@ const forwardingFetch: NonNullable<HttpAgentConfig["fetch"]> = (url, init) => {
   return fetch(url, { ...init, headers: merged });
 };
 
-/** The aimock context of the model calls this integration makes (its slug). */
-const AIMOCK_CONTEXT = process.env.AIMOCK_CONTEXT || "cloudflare-agents";
-
-/** True for the inbound headers a model call must carry, as in the Worker. */
-function isModelHeader(name: string): boolean {
+/** True for the probe headers a model call must carry, as in the Worker. */
+function isProbeHeader(name: string): boolean {
   return (
     name === "x-aimock-strict" ||
     name === "x-test-id" ||
@@ -79,19 +76,16 @@ function isModelHeader(name: string): boolean {
 }
 
 /**
- * The `fetch` of the model clients this app calls itself (the voice route's
- * transcription). Like the Worker's model calls, it sends the integration's
- * `x-aimock-context` and adds the request's aimock and diagnostic headers;
- * other `x-*` headers from the browser stay behind, since the call goes to
- * the model provider.
+ * The `fetch` of the voice route's transcription client. It adds the probe's
+ * aimock and diagnostic headers, so a test stack that points transcription at
+ * aimock replays it under the probe's context; other `x-*` headers from the
+ * browser stay behind, since the call goes to the model provider. Requests
+ * without probe headers are sent unchanged.
  */
-export const modelFetch: typeof fetch = (url, init) => {
+export const probeHeaderFetch: typeof fetch = (url, init) => {
   const headers = new Headers(init?.headers);
-  if (!headers.has("x-aimock-context")) {
-    headers.set("x-aimock-context", AIMOCK_CONTEXT);
-  }
   for (const [key, value] of Object.entries(forwarded.getStore() ?? {})) {
-    if (isModelHeader(key) && !headers.has(key)) headers.set(key, value);
+    if (isProbeHeader(key) && !headers.has(key)) headers.set(key, value);
   }
   return fetch(url, { ...init, headers });
 };

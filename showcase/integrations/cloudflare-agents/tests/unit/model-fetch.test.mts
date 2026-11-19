@@ -1,12 +1,14 @@
 /**
- * `modelFetch` (src/lib/cloudflare-agents.ts): the fetch of the model clients
- * the Next.js app calls itself, which is the voice route's transcription
- * client. It must carry the integration's aimock context and the probe's
- * aimock/diagnostic headers, and nothing else from the browser request.
+ * `probeHeaderFetch` (src/lib/cloudflare-agents.ts): the fetch of the voice
+ * route's transcription client. It carries the probe's aimock and diagnostic
+ * headers, so a test stack that points transcription at aimock replays it
+ * under this integration's context, and nothing else from the browser
+ * request. It adds no aimock context of its own: outside a probe, the
+ * transcription goes to the provider as is.
  *
  * This app has no vitest harness, so the test is self-contained:
  *
- *     node --import tsx tests/unit/model-fetch.test.mts
+ *     node --import tsx --test tests/unit/model-fetch.test.mts
  */
 import assert from "node:assert/strict";
 import { test } from "node:test";
@@ -14,7 +16,7 @@ import * as lib from "../../src/lib/cloudflare-agents.ts";
 
 // The app's sources load as CommonJS under tsx, where Node puts the exports
 // on `default`.
-const { modelFetch, withForwardedHeaders } =
+const { probeHeaderFetch, withForwardedHeaders } =
   (lib as typeof lib & { default?: typeof lib }).default ?? lib;
 
 function captureFetch() {
@@ -26,7 +28,7 @@ function captureFetch() {
   return seen;
 }
 
-test("adds the probe's aimock and diagnostic headers, and the integration's context", async () => {
+test("adds the probe's aimock and diagnostic headers, and no other x- header", async () => {
   const seen = captureFetch();
   const inbound = new Request("http://app.test/api/copilotkit-voice/transcribe", {
     method: "POST",
@@ -41,7 +43,7 @@ test("adds the probe's aimock and diagnostic headers, and the integration's cont
   });
 
   await withForwardedHeaders(inbound, () =>
-    modelFetch("http://aimock.test/v1/audio/transcriptions", {
+    probeHeaderFetch("http://aimock.test/v1/audio/transcriptions", {
       method: "POST",
       headers: { authorization: "Bearer test" },
     }),
@@ -57,22 +59,24 @@ test("adds the probe's aimock and diagnostic headers, and the integration's cont
   assert.equal(headers.get("x-copilotkit-runtime-client-gql-version"), null);
 });
 
-test("sends the integration's context on browser traffic that carries no headers", async () => {
+test("adds no aimock context to traffic that carries none", async () => {
   const seen = captureFetch();
   const inbound = new Request("http://app.test/api/copilotkit-voice/transcribe", {
     method: "POST",
   });
 
   await withForwardedHeaders(inbound, () =>
-    modelFetch("http://aimock.test/v1/audio/transcriptions", { method: "POST" }),
+    probeHeaderFetch("https://api.openai.com/v1/audio/transcriptions", {
+      method: "POST",
+    }),
   );
 
-  assert.equal(seen[0]!.get("x-aimock-context"), "cloudflare-agents");
+  assert.equal(seen[0]!.get("x-aimock-context"), null);
   assert.equal(seen[0]!.get("x-test-id"), null);
 });
 
 test("works outside a request scope and without init", async () => {
   const seen = captureFetch();
-  await modelFetch("http://aimock.test/v1/models");
-  assert.equal(seen[0]!.get("x-aimock-context"), "cloudflare-agents");
+  await probeHeaderFetch("https://api.openai.com/v1/models");
+  assert.equal(seen[0]!.get("x-aimock-context"), null);
 });
