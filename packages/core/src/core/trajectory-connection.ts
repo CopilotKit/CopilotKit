@@ -7,6 +7,7 @@ import type {
   ConnectionGrant,
   JsonValue,
   StartResult,
+  StopResult,
   TrajectoryCaptureOptions,
   TrajectoryEvent,
 } from "@copilotkit/learning";
@@ -54,7 +55,14 @@ interface PendingPush {
   finish(code?: string, knownRollback?: boolean, flushNext?: boolean): void;
 }
 
+interface Finish {
+  phase: "draining" | "sealing";
+  resolve(result: StopResult): void;
+  timer: ReturnType<typeof setTimeout>;
+}
+
 interface Connection {
+  supportsFinish?: boolean;
   abort: AbortController;
   timer?: ReturnType<typeof setTimeout>;
   socket?: Socket;
@@ -67,6 +75,8 @@ interface Connection {
 interface Session {
   trajectoryId: string;
   config: TrajectoryCaptureOptions;
+  startNewOnClosed: boolean;
+  finish?: Finish;
   promise: Promise<StartResult>;
   resolve(result: StartResult): void;
   collector?: ReturnType<typeof createTrajectoryCollector>;
@@ -130,6 +140,7 @@ function isGrant(value: unknown): value is ConnectionGrant {
 
 // The Gateway refuses a join with a lowercase reason and no code.
 const JOIN_REFUSAL_CODES: Record<string, string> = {
+  trajectory_closed: "TRAJECTORY_CLOSED",
   trajectories_unavailable: "TRAJECTORIES_UNAVAILABLE",
   trajectories_not_enabled: "TRAJECTORIES_NOT_ENABLED",
   entitlement_unavailable: "TRAJECTORIES_ENTITLEMENT_UNAVAILABLE",
@@ -156,6 +167,7 @@ function errorCode(value: unknown, fallback: string): string {
 /** Owns bounded, connected-only capture batches. Failed batches are never resent. */
 export class TrajectoryConnection {
   private session: Session | undefined;
+  private lastStop?: Promise<StopResult>;
   private readonly warned = new Set<string>();
   // Core-scoped high water mark prevents collisions after reconnect or stop/start.
   // Gateway drops a seq it already stored for the Trajectory yet acknowledges it
@@ -178,6 +190,7 @@ export class TrajectoryConnection {
   start(
     trajectoryId: string | undefined,
     config: TrajectoryCaptureOptions,
+    startNewOnClosed = trajectoryId === undefined,
   ): Promise<StartResult> {
     if (
       this.session &&
@@ -185,7 +198,8 @@ export class TrajectoryConnection {
     ) {
       return this.session.promise;
     }
-    this.stop();
+    void this.stop();
+    this.lastStop = undefined;
     const id = trajectoryId ?? crypto.randomUUID();
     let resolveStart!: (result: StartResult) => void;
     const promise = new Promise<StartResult>((resolve) => {
@@ -194,6 +208,7 @@ export class TrajectoryConnection {
     const session: Session = {
       trajectoryId: id,
       config,
+      startNewOnClosed,
       promise,
       resolve: resolveStart,
       retries: 0,
@@ -244,16 +259,90 @@ export class TrajectoryConnection {
     return promise;
   }
 
-  stop(): void {
+  stop(): Promise<StopResult> {
     const session = this.session;
-    if (!session) return;
-    // Drain settled input while this session can still enqueue it, before the
-    // best-effort transport flush. Stop stays synchronous and never waits for ACK.
+    if (!session)
+      return this.lastStop ?? Promise.resolve({ status: "stopped" });
     const collector = session.collector;
     session.collector = undefined;
     collector?.stop();
-    if (session.ready && session.connection)
-      this.flush(session, session.connection);
+    const connection = session.connection;
+    if (
+      session.ready &&
+      connection?.supportsFinish &&
+      this.connected(connection)
+    ) {
+      // Release capture synchronously. A new Trajectory may start while this
+      // connection finishes draining its bounded tail on the original channel.
+      let resolve!: (result: StopResult) => void;
+      const result = new Promise<StopResult>((done) => {
+        resolve = done;
+      });
+      this.lastStop = result;
+      session.finish = {
+        phase: "draining",
+        resolve,
+        timer: setTimeout(
+          () => this.finishFailed(session, "PERSISTENCE_UNKNOWN"),
+          TIMEOUT_MS * 3,
+        ),
+      };
+      this.session = undefined;
+      this.drain(session, connection);
+      this.onChange();
+      return result;
+    }
+    if (session.ready && connection) this.flush(session, connection);
+    this.end(session, { status: "error", code: "CANCELLED" });
+    return Promise.resolve({ status: "stopped" });
+  }
+
+  private drain(session: Session, connection: Connection): void {
+    if (session.finish?.phase !== "draining" || connection.pending.size) return;
+    if (!this.connected(connection)) {
+      this.finishFailed(session, "CONNECTION_LOST");
+      return;
+    }
+    if (session.queue.length || session.dropped) {
+      this.flush(session, connection);
+      return;
+    }
+    session.finish.phase = "sealing";
+    try {
+      connection
+        .channel!.push("finish", {}, TIMEOUT_MS)
+        .receive("ok", (reply: unknown) => {
+          if (!this.current(session, connection)) return;
+          if (!isObject(reply) || reply.status !== "sealed") {
+            this.finishFailed(session, "SEAL_UNCONFIRMED");
+            return;
+          }
+          session.finish?.resolve({
+            status: "sealed",
+            trajectoryId: session.trajectoryId,
+          });
+          this.end(session, { status: "error", code: "CANCELLED" });
+        })
+        .receive("error", (reply: unknown) =>
+          this.finishFailed(
+            session,
+            isObject(reply) && reply.reason === "trajectory_in_use"
+              ? "TRAJECTORY_IN_USE"
+              : "SEAL_UNCONFIRMED",
+          ),
+        )
+        .receive("timeout", () =>
+          this.finishFailed(session, "SEAL_UNCONFIRMED"),
+        );
+    } catch {
+      this.finishFailed(session, "SEAL_UNCONFIRMED");
+    }
+  }
+
+  private finishFailed(session: Session, code: string): void {
+    if (!session.finish) return;
+    session.finish.resolve({ status: "error", code });
+    this.report(session, code);
     this.end(session, { status: "error", code: "CANCELLED" });
   }
 
@@ -284,6 +373,7 @@ export class TrajectoryConnection {
   ): void {
     const connection = session.connection;
     if (
+      this.session !== session ||
       !session.ready ||
       !connection ||
       !threadId ||
@@ -320,12 +410,17 @@ export class TrajectoryConnection {
   }
 
   private current(session: Session, connection: Connection): boolean {
-    return this.session === session && session.connection === connection;
+    return (
+      (this.session === session || session.finish !== undefined) &&
+      session.connection === connection
+    );
   }
 
   private end(session: Session, result: StartResult): void {
-    if (this.session !== session) return;
-    this.session = undefined;
+    if (this.session !== session && !session.finish) return;
+    if (this.session === session) this.session = undefined;
+    clearTimeout(session.finish?.timer);
+    session.finish = undefined;
     clearTimeout(session.retry);
     session.runWatch?.unsubscribe();
     for (const watch of session.agentWatches.values()) watch.unsubscribe();
@@ -407,6 +502,10 @@ export class TrajectoryConnection {
     retryable = true,
   ): void {
     if (!this.current(session, connection)) return;
+    if (session.finish) {
+      this.finishFailed(session, code);
+      return;
+    }
     if (session.ready && session.started) {
       // A new start during recovery must await a fresh join, not an old success.
       session.promise = new Promise((resolve) => {
@@ -426,9 +525,23 @@ export class TrajectoryConnection {
     if (!this.current(session, connection)) return;
     this.cleanup(session, connection);
     this.onChange();
+    if (this.session !== session) return;
+    if (
+      code === "TRAJECTORY_CLOSED" &&
+      session.started &&
+      session.startNewOnClosed
+    ) {
+      // The old ID and its loss counters belong to immutable evidence.
+      session.trajectoryId = crypto.randomUUID();
+      session.started = false;
+      session.dropped = 0;
+      session.retries = 0;
+      void this.connect(session);
+      return;
+    }
     this.report(session, code);
     if (this.session !== session) return;
-    if (!session.started || !retryable) {
+    if (code === "TRAJECTORY_CLOSED" || !session.started || !retryable) {
       this.end(session, { status: "error", code });
       return;
     }
@@ -537,10 +650,12 @@ export class TrajectoryConnection {
       if (!this.current(session, connection)) return;
       channel
         .join(TIMEOUT_MS)
-        .receive("ok", () => {
+        .receive("ok", (reply: unknown) => {
           if (!this.current(session, connection)) return;
           try {
             clearTimeout(connection.timer);
+            connection.supportsFinish =
+              isObject(reply) && reply.supportsFinish === true;
             session.ready = true;
             session.retries = 0;
             session.collector = createTrajectoryCollector({
@@ -648,7 +763,7 @@ export class TrajectoryConnection {
     connection: Connection,
     event: TrajectoryEvent,
   ): void {
-    if (!this.current(session, connection)) return;
+    if (this.session !== session || !this.current(session, connection)) return;
     if (!session.ready) {
       this.addDropped(session, 1, false);
       return;
@@ -736,6 +851,15 @@ export class TrajectoryConnection {
         // as a known drop, and never replay a batch or its dropped counter.
         if (knownRollback)
           this.addDropped(session, batch.events.length + batch.dropped, false);
+        if (session.finish && flushNext) {
+          if (code && code !== "EVENTS_REJECTED") {
+            this.finishFailed(session, code);
+            return;
+          }
+          if (code) this.report(session, code);
+          this.drain(session, connection);
+          return;
+        }
         if (code && this.current(session, connection))
           this.report(session, code);
         if (
@@ -765,7 +889,17 @@ export class TrajectoryConnection {
         .receive("error", (payload: unknown) => {
           if (!this.current(session, connection)) return;
           const reason = isObject(payload) ? payload.reason : undefined;
-          if (reason === "unauthorized" || reason === "trajectory_mismatch") {
+          if (
+            typeof reason === "string" &&
+            [
+              "unauthorized",
+              "trajectory_mismatch",
+              "trajectory_closed",
+              "marketplace_license_required",
+              "trajectories_not_enabled",
+              "entitlement_unavailable",
+            ].includes(reason)
+          ) {
             // Finish the known rollback without flushing the queued tail onto
             // a channel whose scope has just been refused.
             pending.finish(undefined, true, false);

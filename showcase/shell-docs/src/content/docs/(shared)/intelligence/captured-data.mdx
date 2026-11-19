@@ -222,7 +222,7 @@ The event's `timestamp` marks when capture records the edit, after the debounce 
 
 Checkboxes, radio buttons, select controls, range sliders, and color controls record changes immediately. During input-method composition, capture retains the latest observed edit without recording it on a pause. Completing composition starts the 300 ms timer; an explicit stop or another flushing action records the pending edit even if composition is still active. Pressing Enter to select an input-method candidate does not flush it. Network responses do not end a typing burst.
 
-This changes how often edits are recorded, not which fields or values are captured. The redaction and exclusion rules above still apply. Recorded edits use the normal delivery queue. Stopping capture attempts a final batch without waiting for a receipt; it does not guarantee persistence. When capture loses its gateway connection, it clears pending edits so they cannot appear in a later capture session.
+This changes how often edits are recorded, not which fields or values are captured. The redaction and exclusion rules above still apply. Recorded edits use the normal delivery queue. Connected capture drains pending batches on gateways that support sealing. Await `finishTrajectory()` to check the result. When capture loses its gateway connection, it clears pending edits so they cannot appear in a later capture session.
 
 ## Batches
 
@@ -232,7 +232,7 @@ Core sends `{ events, dropped }` over the authenticated connection to Intelligen
 - Each event must fit within 16 KiB of serialized UTF-8 JSON, including sequence metadata.
 - Capture pauses during a connection loss. Developer events emitted during recovery count as dropped. Their contents are not buffered.
 - Core does not resend failed batches. A missing receipt reports `PERSISTENCE_UNKNOWN`, because Intelligence can still have accepted the batch.
-- Stop attempts a final batch only if no earlier receipt is pending. It does not wait for a receipt or guarantee saved events.
+- Older gateways receive a best-effort final batch. A disconnected browser can lose its last edits.
 
 A receipt confirms acceptance into the event queue. Saved Trajectory records update asynchronously. To check persistence, reopen the Trajectory in Intelligence and find the event.
 

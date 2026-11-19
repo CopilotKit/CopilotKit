@@ -1364,3 +1364,143 @@ it("counts discarded pending input once on failure without sending it during rec
   core.stopTrajectory();
   expect(vi.getTimerCount()).toBe(0);
 });
+
+describe("sealed Trajectories", () => {
+  async function capture(options: { trajectoryId?: string } = {}) {
+    const core = makeCore();
+    const starting = core.startTrajectory(options);
+    const channel = await authorize();
+    channel.state = "joined";
+    channel.joined.reply("ok", { supportsFinish: true });
+    const result = await starting;
+    if (result.status !== "started") throw Error("capture did not start");
+    return { core, channel, id: result.trajectoryId };
+  }
+
+  it("drains an in-flight batch and its tail before requesting the seal", async () => {
+    const { core, channel, id } = await capture();
+    await vi.advanceTimersByTimeAsync(2_000);
+    core.emitTrajectoryEvent("last.edit", {});
+    const stopping = core.finishTrajectory();
+    expect(core.trajectoryId).toBeNull();
+    core.emitTrajectoryEvent("after.stop", {});
+    expect(channel.pushes.map((p) => p.event)).toEqual(["events"]);
+    persist(channel);
+    expect(names(channel)).toEqual(["page", "last.edit"]);
+    persist(channel);
+    expect(channel.pushes.map((p) => p.event)).toEqual([
+      "events",
+      "events",
+      "finish",
+    ]);
+    expect(channel.pushes.at(-1)?.payload).toEqual({});
+    expect(channel.left).toBe(false);
+    channel.pushes.at(-1)!.push.reply("ok", { status: "sealed" });
+    await expect(stopping).resolves.toEqual({
+      status: "sealed",
+      trajectoryId: id,
+    });
+    expect(channel.left).toBe(true);
+  });
+
+  it("leaves without sealing when final persistence is unknown", async () => {
+    const { core, channel } = await capture();
+    const stopping = core.finishTrajectory();
+    await vi.advanceTimersByTimeAsync(10_000);
+    await expect(stopping).resolves.toEqual({
+      status: "error",
+      code: "PERSISTENCE_UNKNOWN",
+    });
+    expect(channel.pushes.map((p) => p.event)).toEqual(["events"]);
+    expect(channel.left).toBe(true);
+  });
+
+  it("resolves an unconfirmed finish if its receipt never arrives", async () => {
+    const { core, channel } = await capture();
+    const finishing = core.finishTrajectory();
+    persist(channel);
+    expect(channel.pushes.at(-1)?.event).toBe("finish");
+    channel.pushes.at(-1)!.push.reply("timeout");
+    await expect(finishing).resolves.toMatchObject({
+      status: "error",
+      code: "SEAL_UNCONFIRMED",
+    });
+    expect(channel.left).toBe(true);
+  });
+
+  it("preserves the synchronous stop API and permits a new capture while its predecessor drains", async () => {
+    const { core, channel, id } = await capture();
+    expect(core.stopTrajectory()).toBeUndefined();
+    const previous = core.finishTrajectory();
+    const starting = core.startTrajectory({ trajectoryId: "next-id" });
+    await authorize(1);
+    join(1);
+    persist(channel);
+    channel.pushes.at(-1)!.push.reply("ok", { status: "sealed" });
+    await expect(previous).resolves.toEqual({
+      status: "sealed",
+      trajectoryId: id,
+    });
+    await expect(starting).resolves.toMatchObject({ status: "started" });
+    expect(core.trajectoryId).toBe("next-id");
+  });
+
+  it("drops the queued tail on scope refusal during a finish", async () => {
+    const { core, channel } = await capture();
+    await vi.advanceTimersByTimeAsync(2_000);
+    core.emitTrajectoryEvent("private.tail", {});
+    const finishing = core.finishTrajectory();
+    channel.pushes[0]!.push.reply("error", { reason: "unauthorized" });
+    await expect(finishing).resolves.toEqual({
+      status: "error",
+      code: "UNAUTHORIZED",
+    });
+    expect(names(channel)).toEqual(["page"]);
+    expect(channel.left).toBe(true);
+  });
+
+  it("reports local-only stop for a gateway without finish support", async () => {
+    const { core, channel } = await start();
+    await expect(core.finishTrajectory()).resolves.toEqual({
+      status: "stopped",
+    });
+    expect(channel.left).toBe(true);
+    expect(channel.pushes.every((push) => push.event === "events")).toBe(true);
+  });
+
+  it("joins a new generated ID when the previous capture expired offline", async () => {
+    const { core, channel, id } = await capture();
+    channel.callbacks.get("phx_error")?.();
+    await vi.advanceTimersByTimeAsync(10_000);
+    const reconnecting = core.startTrajectory();
+    const expired = await authorize(1);
+    expired.joined.reply("error", { reason: "trajectory_closed" });
+    expect(requests).toHaveLength(3);
+    const newId = JSON.parse(requests[2]!.init!.body as string).params
+      .trajectoryId;
+    expect(newId).not.toEqual(id);
+    await authorize(2);
+    join(2);
+    await expect(reconnecting).resolves.toEqual({
+      status: "started",
+      trajectoryId: newId,
+    });
+  });
+
+  it("reports a sealed caller-owned ID without retrying or replacing it", async () => {
+    const { core, channel, id } = await capture({
+      trajectoryId: "caller-owned",
+    });
+    channel.callbacks.get("phx_error")?.();
+    await vi.advanceTimersByTimeAsync(10_000);
+    const reconnecting = core.startTrajectory({ trajectoryId: id });
+    const expired = await authorize(1);
+    expired.joined.reply("error", { reason: "trajectory_closed" });
+    await expect(reconnecting).resolves.toEqual({
+      status: "error",
+      code: "TRAJECTORY_CLOSED",
+    });
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(requests).toHaveLength(2);
+  });
+});

@@ -118,13 +118,23 @@ if (result.status === "error") console.warn(result.code);
     A UUID for the Trajectory. Omit it to generate one. The Runtime rejects an ID that is not a UUID with `INVALID_REQUEST`.
   </PropertyReference>
 
+  <PropertyReference name="options.startNewOnClosed" type="boolean">
+    Starts a fresh ID if the gateway sealed the Trajectory while capture was disconnected. Defaults to true for generated IDs. For a caller-supplied ID, the default is to stop with <code>TRAJECTORY_CLOSED</code>.
+  </PropertyReference>
+
   <PropertyReference name="StartResult" type='{ status: "started"; trajectoryId: string } | { status: "error"; code: string }'>
     `status` is `"started"` after the join, with the `trajectoryId` in use. `status` is `"error"` when capture did not start, with a `code` from [Error codes](#error-codes).
   </PropertyReference>
 </PropertyReference>
 
 <PropertyReference name="stopTrajectory(): void" type="method">
-  Stops capture and removes capture listeners. A pending start resolves with `CANCELLED`. Core attempts one final batch if no earlier batch is waiting for a receipt. It does not wait for the receipt, so the last events may not be saved.
+  Stops capture and removes capture listeners. A pending start resolves with `CANCELLED`. On a gateway that supports sealing, Core drains the queued events and requests a seal in the background.
+</PropertyReference>
+
+<PropertyReference name="finishTrajectory(): Promise<StopResult>" type="method">
+  Stops local capture immediately. Await the result when you need confirmation. Core waits for receipts for pending and queued batches before requesting the seal.
+
+  A <code>sealed</code> result includes the Trajectory ID. A <code>stopped</code> result indicates local cleanup, such as an offline stop or a gateway without sealing support. An <code>error</code> result includes a code when the final delivery or seal could not be confirmed. Browser termination can interrupt the handshake.
 </PropertyReference>
 
 <PropertyReference name="emitTrajectoryEvent(name: string, value?: JsonValue): void" type="method">

@@ -25,6 +25,9 @@ export type LearningConfig =
   | (TrajectoryCaptureOptions & { sink?: undefined });
 export type TrajectoryStartOptions = {
   trajectoryId?: string;
+  /** Start a fresh ID if the gateway sealed this capture during disconnection.
+   * Defaults to true for generated IDs and false for caller-owned IDs. */
+  startNewOnClosed?: boolean;
   /**
    * Used only by explicit custom sinks. Authenticated capture warns and ignores
    * this option; assign Learning Spaces on the server with
@@ -173,7 +176,11 @@ export class LearningBridge {
         );
       }
       this.stopLegacy();
-      return this.connection.start(options.trajectoryId, config);
+      return this.connection.start(
+        options.trajectoryId,
+        config,
+        options.startNewOnClosed,
+      );
     }
     this.connection.stop();
     const trajectoryId =
@@ -218,8 +225,11 @@ export class LearningBridge {
   }
 
   stop() {
-    this.connection.stop();
-    this.stopLegacy();
+    if (this.collector) {
+      this.stopLegacy();
+      return Promise.resolve({ status: "stopped" } as const);
+    }
+    return this.connection.stop();
   }
 
   private stopLegacy() {

@@ -47,7 +47,7 @@ import type { CopilotKitCoreContinuationHandoff } from "./state-manager";
 import { ThreadStoreRegistry } from "./thread-store-registry";
 import { LearningBridge } from "./learning-bridge";
 import type { LearningConfig, TrajectoryStartOptions } from "./learning-bridge";
-import type { JsonValue, StartResult } from "@copilotkit/learning";
+import type { JsonValue, StartResult, StopResult } from "@copilotkit/learning";
 import type { ɵThreadStore } from "../threads";
 import { ɵcreateMemoryStore } from "../memory";
 import type { ɵGenerativeUIDebugSource } from "./generative-ui-debug";
@@ -133,7 +133,7 @@ export type {
   TrajectoryStartOptions,
   OpenThreadRegistration,
 } from "./learning-bridge";
-export type { JsonValue, StartResult } from "@copilotkit/learning";
+export type { JsonValue, StartResult, StopResult } from "@copilotkit/learning";
 
 export type {
   CopilotKitCoreAddAgentParams,
@@ -1224,10 +1224,20 @@ export class CopilotKitCore {
     return result;
   }
 
-  /** Cancels pending work and stops capture, attempting one final batch without waiting for its ACK. */
-  stopTrajectory() {
-    this.learningBridge.stop();
+  /** Stop local capture immediately and initiate the same finish as finishTrajectory(). */
+  stopTrajectory(): void {
+    void this.finishTrajectory();
+  }
+
+  /**
+   * Stops local capture immediately. Await the result to confirm that the gateway
+   * acknowledged the remaining batches and sealed the Trajectory. A legacy
+   * transport or a disconnected capture returns "stopped" without confirmation.
+   */
+  finishTrajectory(): Promise<StopResult> {
+    const result = this.learningBridge.stop();
     this.notifyTrajectoryChanged();
+    return result;
   }
 
   /**

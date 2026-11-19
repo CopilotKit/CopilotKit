@@ -161,7 +161,7 @@ describe("Core learning wiring", () => {
       expect(JSON.stringify(warn.mock.calls)).not.toContain(
         "private-container",
       );
-      expect(start).toHaveBeenCalledWith(trajectoryId, config);
+      expect(start).toHaveBeenCalledWith(trajectoryId, config, undefined);
     },
   );
 
@@ -661,8 +661,9 @@ describe("capture subscription lifecycle", () => {
     ).mockImplementation(() => authenticatedId);
     const stop = vi
       .spyOn(TrajectoryConnection.prototype, "stop")
-      .mockImplementation(() => {
+      .mockImplementation(async () => {
         authenticatedId = null;
+        return { status: "stopped" };
       });
     const agent = new DealAgent("t-legacy", [ASSISTANT_WITH_TOOL]);
     const core = new CopilotKitCore({

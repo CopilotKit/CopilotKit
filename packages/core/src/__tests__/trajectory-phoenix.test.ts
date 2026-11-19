@@ -121,12 +121,12 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-async function start() {
+async function start(joinReply = {}) {
   const result = core.startTrajectory({ trajectoryId });
   await vi.advanceTimersByTimeAsync(0);
   const socket = getSocket(0);
   socket.open();
-  socket.reply(socket.frame("phx_join"));
+  socket.reply(socket.frame("phx_join"), joinReply);
   await expect(result).resolves.toEqual({
     status: "started",
     trajectoryId,
@@ -240,6 +240,30 @@ describe("Trajectory capture with the real Phoenix client", () => {
     await vi.advanceTimersByTimeAsync(10_001);
     core.stopTrajectory();
     expect(onError).not.toHaveBeenCalled();
+    expect(socket.readyState).toBe(3);
+  });
+
+  it("sends the finish frame after both pending batch receipts and leaves after the seal", async () => {
+    const socket = await start({ supportsFinish: true });
+    await vi.advanceTimersByTimeAsync(2_000);
+    core.emitTrajectoryEvent("ticket.saved", {});
+    const finishing = core.finishTrajectory();
+    expect(socket.frames.map((frame) => frame[3])).toEqual([
+      "phx_join",
+      "events",
+    ]);
+    acknowledgePage(socket, SEQ_BASE);
+    const last = socket.frames.at(-1)!;
+    expect(last[3]).toBe("events");
+    socket.reply(last, { highestSeq: SEQ_BASE + 1, accepted: 1, rejected: 0 });
+    const finish = socket.frame("finish");
+    expect(finish.slice(2)).toEqual(["opaque:scope-7", "finish", {}]);
+    expect(socket.readyState).toBe(1);
+    socket.reply(finish, { status: "sealed" });
+    await expect(finishing).resolves.toEqual({
+      status: "sealed",
+      trajectoryId,
+    });
     expect(socket.readyState).toBe(3);
   });
 

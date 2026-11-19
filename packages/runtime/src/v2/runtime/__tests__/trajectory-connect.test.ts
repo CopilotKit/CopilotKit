@@ -179,6 +179,7 @@ describe.each(["single-route", "multi-route"] as const)(
     it.each([
       [400, "VALIDATION_ERROR"],
       [409, "TRAJECTORY_APP_USER_CONFLICT"],
+      [409, "TRAJECTORY_CLOSED"],
       [404, "LEARNING_CONTAINER_NOT_FOUND"],
       [429, "RATE_LIMIT_EXCEEDED"],
       [500, "INTERNAL_SERVER_ERROR"],

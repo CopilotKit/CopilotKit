@@ -375,7 +375,8 @@ export interface CopilotKitProviderProps {
    *
    * Capture starts after mount. Set `trajectoryId` to use your own ID;
    * otherwise the provider generates one. The generated ID stays the same
-   * across rerenders, reconnects and option changes; turning capture off,
+   * across rerenders and successful reconnects. If the gateway closed it while
+   * disconnected, capture resumes with a fresh generated ID. Turning capture off,
    * setting `autoStart: false` or supplying a `trajectoryId` ends it, and the
    * next generated Trajectory gets a new ID. Read the active ID from
    * `copilotkit.trajectoryId`.
@@ -1196,6 +1197,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
       void copilotkit
         .startTrajectory({
           trajectoryId,
+          ...(generatesTrajectoryId && { startNewOnClosed: true }),
           learningContainerIds: learningContainerIdsRef.current,
         })
         .catch(() => {

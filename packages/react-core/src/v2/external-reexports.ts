@@ -172,6 +172,7 @@ export type {
   Selector,
   StartResult,
   StaticSuggestionsConfig,
+  StopResult,
   Store,
   StoreLifecycleAction,
   SubscribeToAgentOptions,

@@ -530,6 +530,29 @@ describe("CopilotKitProvider authenticated Trajectories", () => {
       expect(core.trajectoryId).toBe(id);
     });
 
+    it("generates a new ID when the runtime reports that a disconnected Trajectory sealed", async () => {
+      render(<App learning />);
+      const [first] = connectedIds();
+      await authorize(0, first);
+      await join();
+      transport.sockets[0].disconnected = true;
+      act(() => core.emitTrajectoryEvent("app.lost", {}));
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(10_000);
+      });
+      await act(async () => {
+        pendingAuth[1].resolve(
+          Response.json({ code: "TRAJECTORY_CLOSED" }, { status: 409 }),
+        );
+      });
+      const [, , next] = connectedIds();
+      expect(next).toMatch(UUID);
+      expect(next).not.toBe(first);
+      await authorize(2, next);
+      await join(1);
+      expect(core.trajectoryId).toBe(next);
+    });
+
     it("stops on disable and starts a new Trajectory with a new ID when enabled again", async () => {
       const view = render(<App learning />);
       const [first] = connectedIds();

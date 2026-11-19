@@ -53,6 +53,7 @@ const contractErrorSchema = z.object({
     code: z.enum([
       "VALIDATION_ERROR",
       "TRAJECTORY_APP_USER_CONFLICT",
+      "TRAJECTORY_CLOSED",
       "LEARNING_CONTAINER_NOT_FOUND",
       "RATE_LIMIT_EXCEEDED",
       "INTERNAL_SERVER_ERROR",

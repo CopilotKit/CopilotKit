@@ -10,6 +10,7 @@ export type {
   JsonValue,
   TrajectoryEvent,
   StartResult,
+  StopResult,
   ConnectionGrant,
   TrajectoryError,
   TrajectoryCaptureOptions,

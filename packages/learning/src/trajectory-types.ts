@@ -21,6 +21,12 @@ export type StartResult =
   | { status: "started"; trajectoryId: string }
   | { status: "error"; code: string };
 
+/** Only a sealed result confirms receipt of the gateway's finish acknowledgment. */
+export type StopResult =
+  | { status: "sealed"; trajectoryId: string }
+  | { status: "stopped" }
+  | { status: "error"; code: string };
+
 export interface ConnectionGrant {
   joinToken: string;
   realtime: { clientUrl: string; topic: string };
