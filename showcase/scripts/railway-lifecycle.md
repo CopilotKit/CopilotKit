@@ -391,22 +391,24 @@ three activations. Never run a Production promotion just to obtain a receipt.
 
 ### Bounded permanent-services policy recovery
 
-Commit `21552a22b2` added `docs-preview` to permanent-service protection, and
-the OpenAI Agents Python integration added `showcase-openai-agents-python`
-(`be6a4cb2-6258-4994-bd20-4c6e0eb37e96`). The independently pinned staging
-runner still publishes the policy that predates both. The shared reader permits
-exactly this publisher/validator pair:
+Commit `21552a22b2` added `docs-preview` to permanent-service protection, the
+OpenAI Agents Python integration added `showcase-openai-agents-python`
+(`be6a4cb2-6258-4994-bd20-4c6e0eb37e96`), and the Cloudflare Agents integration
+added `showcase-cloudflare-agents` (`8ebe5591-d596-4bac-a48e-b20230c37746`). The
+independently pinned staging runner still publishes the policy that predates all
+three. The shared reader permits exactly this publisher/validator pair:
 
 - Publisher: `4ded223bb02ea0cdf7ffed4fb8f78b70fbb50c9f74ae82d34addfc94f712c751`
-- Current validator: `5c3ba2cd4f895fb8051a7e33eb55e2cda04bd3ac0b56acc2c205a442815e1b0b`
+- Current validator: `6480978aceb99b57e1d03763615960e48106dec5564dc87a520a8b643679e06a`
 
-The current validator adds only the permanent names and IDs for those two
+The current validator adds only the permanent names and IDs for those three
 services; project, forbidden environments, previous permanent services and
-approved image pins are unchanged. This pair replaces the earlier
-docs-preview-only pair (`4ded…` → `d3a7fe0c…`), whose validator no committed
-policy produces any more; a publisher serving `d3a7fe0c…` is refused. Every
-record and inventory classification still uses the current policy, including
-rejection of disposable ownership of either service. The acknowledgement names
+approved image pins are unchanged. This pair replaces the earlier pairs
+(`4ded…` → `d3a7fe0c…` for docs-preview only, then `4ded…` → `5c3ba2cd…` with
+showcase-openai-agents-python), whose validators no committed policy produces
+any more; a publisher serving either is refused. Every record and inventory
+classification still uses the current policy, including rejection of disposable
+ownership of any of the three services. The acknowledgement names
 the publisher policy and exact fetched bytes; it does not claim the runner has
 adopted the newer policy. Authentication, fresh reads, snapshot checksums and
 acknowledgement acceptance remain mandatory. Unknown policy pairs and the
