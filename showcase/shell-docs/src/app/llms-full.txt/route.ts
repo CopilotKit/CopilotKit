@@ -2,6 +2,7 @@ import { llmsFullEntries } from "@/lib/llms/live-inventory";
 import { mapLimit } from "@/lib/llms/map-limit";
 import { renderLivePageMarkdown } from "@/lib/llms/page-markdown";
 import { getBaseUrl } from "@/lib/seo/base-url";
+import { basePath } from "@/lib/base-path";
 
 // `/llms-full.txt`: every live docs page in one Markdown file, shaped like
 // shell-docs': a short preamble, then each page under a `## Source: <url>`
@@ -14,7 +15,7 @@ import { getBaseUrl } from "@/lib/seo/base-url";
 export const revalidate = false;
 
 export async function GET() {
-  const baseUrl = getBaseUrl();
+  const baseUrl = `${getBaseUrl()}${basePath}`;
   const pages = await mapLimit(llmsFullEntries(), 8, async ({ url, live }) => {
     try {
       return `---\n\n## Source: ${baseUrl}${url}\n\n${await renderLivePageMarkdown(live, url)}`;

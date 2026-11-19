@@ -19,6 +19,7 @@ import { useGuide } from "./guide-state";
 import { GUIDE_THEME, guideUI } from "./guide-ui";
 import { takeConversation } from "./handoff";
 import styles from "./ask-page.module.css";
+import { withBasePath } from "@/lib/base-path";
 
 /**
  * Ask CopilotKit on a full page (/ask): the docs' own chat, with the
@@ -28,7 +29,7 @@ import styles from "./ask-page.module.css";
 export function AskPage() {
   return (
     <CopilotKitProvider
-      runtimeUrl="/api/copilotkit"
+      runtimeUrl={withBasePath("/api/copilotkit")}
       useSingleEndpoint
       enableInspector={false}
       generativeUI={{ ui: guideUI, theme: GUIDE_THEME }}
