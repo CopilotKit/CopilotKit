@@ -24,7 +24,8 @@ deploys on its own.
 - `/`: the chat. The sidebar lists example prompts that tour the components
   (a dashboard, a form, a table, a chart, a map, a checklist, live bindings,
   flip cards and an SVG drawing), each tagged with the components it is likely
-  to use. The same prompts show as suggestion pills under the composer. Below
+  to use. Where that list is hidden (a phone, the collapsed rail, the page
+  layout), the same prompts show as suggestion pills above the composer. Below
   the list sit the transport and layout settings and the integration snippet.
   A Docs button at the top of the sidebar, and a link under the welcome text,
   go to the generative UI components docs. The sidebar collapses to a slim
@@ -32,7 +33,8 @@ deploys on its own.
   collapsed between 900 and 1199px wide.
 - The empty chat shows a sample answer: a prompt and the `standardUI` surface
   that answers it, rendered in the browser with no model call
-  (`app/specimen-plate.tsx`).
+  (`app/specimen-plate.tsx`), with the composer under it, pinned to the bottom
+  like the chat's own input.
 - `?transport=tool` switches to the `render_ui` tool transport, and
   `?layout=page` adds two surfaces outside the chat that the agent renders into
   by id.

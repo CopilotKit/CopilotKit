@@ -383,9 +383,12 @@ function Integration({
 /* ───────────────────────── main ───────────────────────── */
 
 /**
- * The empty chat: what to do and where the docs are, the composer, then a
- * sample answer (a prompt and the surface that answers it) the visitor can
- * drag. Replaces the stock "How can I help you today?".
+ * The empty chat: what to do and where the docs are, a sample answer (a
+ * prompt and the surface that answers it) the visitor can drag, then the
+ * composer, pinned to the bottom like the chat's own input. The suggestion
+ * chips repeat the sidebar's example prompts, so they show only where that
+ * list is hidden (phones, the collapsed rail, the page layout). Replaces the
+ * stock "How can I help you today?".
  */
 function Welcome({
   input,
@@ -414,10 +417,6 @@ function Welcome({
           <span className="ck-visually-hidden"> (opens in a new tab)</span>
         </a>
       </div>
-      <div className="ck-compose">
-        {input}
-        {suggestionView}
-      </div>
       <figure className="ck-example">
         <SectionTitle>Sample answer</SectionTitle>
         <p className="ck-example-ask">{SAMPLE_PROMPT}</p>
@@ -432,6 +431,8 @@ function Welcome({
           </Link>
         </figcaption>
       </figure>
+      <div className="ck-welcome-chips">{suggestionView}</div>
+      <div className="ck-compose">{input}</div>
     </div>
   );
 }

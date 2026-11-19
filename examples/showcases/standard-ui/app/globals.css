@@ -675,14 +675,8 @@ pre {
   max-width: 760px;
   height: 100%;
   margin: 0 auto;
-  padding: 24px;
+  padding: 24px 24px 0;
   overflow-y: auto;
-}
-
-/* A soft bottom edge: when the empty state is taller than the card, the
-   fade says it continues (its scrollbar is hidden). */
-.ck-welcome {
-  mask-image: linear-gradient(to bottom, #000 calc(100% - 24px), transparent);
 }
 
 .ck-welcome > :first-child {
@@ -716,10 +710,33 @@ pre {
   font-size: 14px;
 }
 
+/* The composer sits under the sample answer and stays pinned to the bottom
+   of the empty chat, like the chat's own input once a conversation starts.
+   Content scrolls under it through a short white fade, which also says there
+   is more above. It carries the welcome's bottom padding, so it sits at the
+   same height pinned or not. */
 .ck-compose {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  padding: 16px 0 24px;
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0),
+    var(--surface-container) 16px
+  );
+}
+
+/* The chips repeat the sidebar's example prompts. Where that list shows (the
+   chat layout with the sidebar open), the empty chat leaves them out; on a
+   phone, in the collapsed rail and in the page layout they are the only way
+   to pick one. */
+@media (min-width: 900px) {
+  html:not([data-sidebar="collapsed"])
+    .ck-app[data-layout="chat"]
+    .ck-welcome-chips {
+    display: none;
+  }
 }
 
 /* A live surface in a quiet frame. */
@@ -739,8 +756,6 @@ pre {
   display: none;
 }
 
-/* position + overflow: the Chart's screen-reader table is absolutely
-   positioned and would otherwise add phantom scroll height. */
 /* The prompt the sample answers, drawn like the visitor's own message. */
 .ck-example-ask {
   width: fit-content;
@@ -755,6 +770,8 @@ pre {
   text-wrap: pretty;
 }
 
+/* position + overflow: the Chart's screen-reader table is absolutely
+   positioned and would otherwise add phantom scroll height. */
 .ck-example-frame {
   position: relative;
   overflow: hidden;
