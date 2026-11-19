@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { docsHref } from "./href";
 import type { DocsScope } from "./scope";
+import { withBasePath } from "@/lib/base-path";
 
 type CardProps = ComponentProps<typeof FumadocsCard> & {
   /** An image mark instead of an icon (a partner logo). */
@@ -56,7 +57,7 @@ export function createCards(scope: DocsScope) {
       icon ??
       (logo ? (
         <NextImage
-          src={logo}
+          src={withBasePath(logo)}
           alt={logoAlt}
           width={20}
           height={20}

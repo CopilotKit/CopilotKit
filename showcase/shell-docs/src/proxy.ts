@@ -3,6 +3,8 @@ import type { NextFetchEvent, NextRequest } from "next/server";
 import { isMarkdownPreferred } from "fumadocs-core/negotiation";
 import { legacyRedirect } from "@/lib/redirects/legacy-redirect";
 import { trackRequest } from "@/lib/telemetry/proxy";
+import { basePath, withBasePath } from "@/lib/base-path";
+import { DOCS_VERSIONS } from "@/lib/docs-versions.mjs";
 
 /** Where a live page's Markdown is served (`src/app/llms.mdx/live`). */
 const LIVE_MARKDOWN_ROUTE = "/llms.mdx/live";
@@ -23,8 +25,22 @@ function liveMarkdownPath(pathname: string): string | null {
   return match[1];
 }
 
+/**
+ * On the stable docs, the other versions' paths (`/v2/...`). next.config.mjs
+ * forwards them to those versions' deployments, which run their own proxy.
+ */
+const OTHER_VERSION_PATH = basePath
+  ? null
+  : new RegExp(
+      `^(?:${DOCS_VERSIONS.filter((version) => version.path)
+        .map((version) => version.path)
+        .join("|")})(?:/|$)`,
+    );
+
 export default function proxy(request: NextRequest, event: NextFetchEvent) {
   const { pathname } = request.nextUrl;
+
+  if (OTHER_VERSION_PATH?.test(pathname)) return NextResponse.next();
 
   // Prototype D became the site: its old /proto/d URLs open at the root.
   const proto = /^\/proto\/d(?=\/|$)/;
@@ -47,7 +63,10 @@ export default function proxy(request: NextRequest, event: NextFetchEvent) {
       request,
       event,
       NextResponse.rewrite(
-        new URL(`${LIVE_MARKDOWN_ROUTE}${liveMarkdown}`, request.nextUrl),
+        new URL(
+          withBasePath(`${LIVE_MARKDOWN_ROUTE}${liveMarkdown}`),
+          request.nextUrl,
+        ),
       ),
     );
   }
@@ -63,7 +82,7 @@ export default function proxy(request: NextRequest, event: NextFetchEvent) {
       return trackRequest(
         request,
         event,
-        NextResponse.rewrite(new URL(target, request.nextUrl), {
+        NextResponse.rewrite(new URL(withBasePath(target), request.nextUrl), {
           // this URL has two representations, selected by `Accept`
           headers: { Vary: "Accept" },
         }),

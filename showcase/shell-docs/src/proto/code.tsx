@@ -121,6 +121,7 @@ import { CopilotKit } from "@copilotkit/vue";
         lang: "ts",
         code: `import type { ApplicationConfig } from "@angular/core";
 import { provideCopilotKit } from "@copilotkit/angular";
+import { withBasePath } from "@/lib/base-path";
 
 export const appConfig: ApplicationConfig = {
   providers: [provideCopilotKit({ runtimeUrl: "/api/copilotkit" })],
@@ -150,7 +151,7 @@ export default function App() {
 
 export default function Page() {
   return (
-    <CopilotKitProvider runtimeUrl="/api/copilotkit">
+    <CopilotKitProvider runtimeUrl={withBasePath("/api/copilotkit")}>
       <CopilotChat />
     </CopilotKitProvider>
   );
