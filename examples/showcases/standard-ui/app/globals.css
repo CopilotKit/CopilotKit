@@ -1,0 +1,1134 @@
+/*
+ * The CopilotKit theme (copilotkit-ui-theme + copilotkit-branding): the cool
+ * lavender-grey page with six soft blur circles behind it, translucent glass
+ * panels with white borders, Plus Jakarta Sans, Spline Sans Mono for code and
+ * pills, a 4px grid. Page styles are scoped to ck-* classes so they never
+ * reach into CopilotKit's chat or the standard components it renders.
+ */
+:root {
+  --surface-main: #dedee9;
+  --surface-background: #dbdbe5;
+  --surface-container: #ffffff;
+  --surface-hovered: #fafafc;
+  --border-default: #ffffff;
+  --border-container: #dbdbe5;
+  --text-primary: #010507;
+  --text-secondary: #57575b;
+  --text-disabled: #838389;
+  /* Muted reading text: #838389 is 3.8:1 on white, under AA, so captions and
+     notes use this darker grey (an implementation default, not a brand token). */
+  --text-muted: #67676e;
+  --text-invert: #ffffff;
+  --white-50: rgba(255, 255, 255, 0.5);
+  --white-65: rgba(255, 255, 255, 0.65);
+  --white-70: rgba(255, 255, 255, 0.7);
+  --grey-100: #f7f7f9;
+  --grey-200: #f0f0f4;
+  --grey-600: #afafb7;
+  --lilac-400: #bec2ff;
+  --lilac-20: #bec2ff33;
+  --elevation-sm: 0px 1px 3px 0px rgba(1, 5, 7, 0.08);
+  --elevation-md: 0px 6px 6px -2px rgba(1, 5, 7, 0.08);
+  --elevation-lg: 0px 16px 24px -8px rgba(1, 5, 7, 0.12);
+
+  --sans:
+    "Plus Jakarta Sans Variable", "Plus Jakarta Sans", ui-sans-serif, system-ui,
+    sans-serif;
+  --mono:
+    "Spline Sans Mono Variable", "Spline Sans Mono", ui-monospace,
+    SFMono-Regular, monospace;
+
+  /* CopilotKit's exposed font variable: the chat sets in the house face. */
+  --cpk-default-font-family: var(--sans);
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scrollbar-color: var(--grey-600) transparent;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  background: var(--surface-main);
+  color: var(--text-primary);
+  font-family: var(--sans);
+  font-size: 14px;
+  line-height: 22px;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--lilac-400);
+  color: var(--text-primary);
+}
+
+code,
+pre {
+  font-family: var(--mono);
+}
+
+/* Focus rings only on the page's own controls, never inside the chat. */
+.ck-focus:focus-visible {
+  outline: 2px solid var(--text-primary);
+  outline-offset: 2px;
+}
+
+.ck-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ───────────────────────── backdrop ───────────────────────── */
+
+.ck-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.ck-backdrop span {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(103px);
+}
+
+/* ───────────────────────── app frame ───────────────────────── */
+
+.ck-app {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr);
+  gap: 8px;
+  height: 100dvh;
+  padding: 8px;
+  transition: grid-template-columns 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* Collapsed: the sidebar becomes a slim rail holding only its toggle. */
+@media (min-width: 900px) {
+  html[data-sidebar="collapsed"] .ck-app {
+    grid-template-columns: 52px minmax(0, 1fr);
+  }
+  html[data-sidebar="collapsed"] .ck-sidebar {
+    padding: 8px 0;
+    overflow: hidden;
+  }
+  html[data-sidebar="collapsed"] .ck-sidebar-body {
+    display: none;
+  }
+  html[data-sidebar="collapsed"] .ck-collapse {
+    position: static;
+    margin: 0 auto;
+  }
+}
+
+.ck-glass {
+  background: var(--white-50);
+  border: 2px solid var(--border-default);
+  border-radius: 8px;
+}
+
+/* ───────────────────────── sidebar ───────────────────────── */
+
+.ck-sidebar {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  padding: 16px;
+  background: var(--white-50);
+  border: 2px solid var(--border-default);
+  border-radius: 8px;
+}
+
+.ck-sidebar-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 100%;
+}
+
+/* The collapse toggle, in line with the logo. */
+.ck-collapse {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease;
+}
+
+.ck-collapse:hover {
+  background: var(--white-70);
+  color: var(--text-primary);
+}
+
+.ck-brand {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ck-logo {
+  display: inline-flex;
+  align-self: flex-start;
+  /* Clearspace: half the logotype height on every side. */
+  padding: 0 0 10px;
+  border-radius: 4px;
+}
+
+.ck-logo img {
+  display: block;
+  height: 28px;
+  width: auto;
+}
+
+.ck-app-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 300;
+  line-height: 20px;
+}
+
+.ck-app-sub {
+  margin: 0;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--text-muted);
+}
+
+/* View-toggle tabs: inline, the active one white. */
+.ck-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 12px;
+  background: rgba(219, 219, 229, 0.6);
+}
+
+.ck-tab {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  height: 32px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease;
+}
+
+.ck-tab:hover {
+  color: var(--text-primary);
+}
+
+.ck-tab[aria-current="page"] {
+  background: var(--surface-container);
+  color: var(--text-primary);
+  box-shadow: var(--elevation-sm);
+}
+
+.ck-tabs-sm {
+  gap: 2px;
+  padding: 3px;
+  border-radius: 10px;
+}
+
+.ck-tabs-sm .ck-tab {
+  height: 26px;
+  border-radius: 7px;
+  font-size: 13px;
+}
+
+.ck-section {
+  display: flex;
+  flex-direction: column;
+}
+
+.ck-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding: 0 4px;
+}
+
+.ck-section-title h2 {
+  margin: 0;
+  font-size: 10px;
+  font-weight: 400;
+  line-height: 16px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--text-secondary);
+}
+
+.ck-section-title span {
+  flex: 1;
+  height: 1px;
+  background: var(--border-container);
+}
+
+.ck-note {
+  margin: 8px 4px 0;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--text-muted);
+}
+
+.ck-note code {
+  color: var(--text-secondary);
+}
+
+/* The integration snippet. */
+.ck-code {
+  margin: 0;
+  padding: 12px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  border: 1px solid var(--border-container);
+  border-radius: 8px;
+  background: var(--surface-container);
+  font-size: 12px;
+  line-height: 19px;
+  color: var(--text-primary);
+}
+
+.ck-code mark {
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: var(--lilac-20);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+/* Prompt list items, as in the dojo's demo list. */
+.ck-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ck-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 150ms ease;
+}
+
+.ck-item:hover:not(:disabled) {
+  background: var(--white-50);
+}
+
+.ck-item[data-selected] {
+  background: var(--white-70);
+}
+
+.ck-item:disabled {
+  cursor: progress;
+}
+
+.ck-item:disabled:not([aria-busy]) {
+  opacity: 0.6;
+}
+
+.ck-item-name {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.25;
+}
+
+.ck-item-name svg {
+  flex: none;
+  color: var(--text-disabled);
+}
+
+.ck-item[data-selected] .ck-item-name svg {
+  color: var(--text-primary);
+}
+
+.ck-item-desc {
+  font-size: 12px;
+  line-height: 1.625;
+  color: var(--text-muted);
+}
+
+.ck-item[aria-busy] .ck-item-desc {
+  color: var(--text-secondary);
+}
+
+.ck-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.ck-tag {
+  padding: 2px 6px;
+  border-radius: 9999px;
+  background: var(--white-65);
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-primary);
+}
+
+.ck-sidebar-foot {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: auto;
+  padding: 12px 4px 0;
+  border-top: 1px solid var(--border-container);
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--text-muted);
+}
+
+.ck-sidebar-foot p {
+  margin: 0;
+}
+
+.ck-sidebar-foot code {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.ck-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  align-self: flex-start;
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.ck-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.ck-link-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.ck-section-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.ck-item[data-selected] .ck-tag {
+  background: var(--text-primary);
+  color: var(--text-invert);
+}
+
+/* Settings fold away on phones; the wide copy shows elsewhere. */
+.ck-more {
+  display: none;
+}
+
+/* ───────────────────────── main ───────────────────────── */
+
+.ck-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+  min-width: 0;
+  min-height: 0;
+}
+
+.ck-app[data-layout="page"] .ck-main {
+  grid-template-columns: minmax(0, 1fr) minmax(420px, 520px);
+}
+
+.ck-card {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--surface-container);
+  border: 2px solid var(--border-default);
+  border-radius: 8px;
+  box-shadow: var(--elevation-sm);
+}
+
+.ck-chat {
+  flex: 1;
+  min-height: 0;
+}
+
+/* The empty chat. Centred when it fits; scrolls from the top when it doesn't. */
+.ck-welcome {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  max-width: 760px;
+  height: 100%;
+  margin: 0 auto;
+  padding: 24px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.ck-welcome > :first-child {
+  margin-top: auto;
+}
+
+.ck-welcome > :last-child {
+  margin-bottom: auto;
+}
+
+.ck-welcome-head h2 {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 500;
+  line-height: 34px;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+
+.ck-welcome-head p {
+  margin: 4px 0 0;
+  max-width: 56ch;
+  font-size: 16px;
+  line-height: 24px;
+  color: var(--text-secondary);
+  text-wrap: pretty;
+}
+
+.ck-compose {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* A live surface in a quiet frame. */
+.ck-example {
+  margin: 0;
+}
+
+/* position + overflow: the Chart's screen-reader table is absolutely
+   positioned and would otherwise add phantom scroll height. */
+.ck-example-frame {
+  position: relative;
+  overflow: hidden;
+  padding: 12px 16px;
+  border: 1px solid var(--border-container);
+  border-radius: 8px;
+  background: var(--surface-container);
+}
+
+.ck-example figcaption {
+  margin: 8px 4px 0;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--text-muted);
+}
+
+.ck-example figcaption a {
+  color: var(--text-primary);
+  font-weight: 500;
+  text-underline-offset: 3px;
+}
+
+.ck-loading {
+  display: grid;
+  place-items: center;
+  min-height: 120px;
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.ck-notice {
+  display: flex;
+  align-items: center;
+  align-self: center;
+  gap: 12px;
+  max-width: min(600px, calc(100% - 32px));
+  margin: 12px 16px 0;
+  padding: 8px 8px 8px 16px;
+  border-radius: 8px;
+  background: var(--text-primary);
+  color: var(--text-invert);
+  font-size: 14px;
+  line-height: 20px;
+  box-shadow: var(--elevation-lg);
+}
+
+.ck-notice button {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.ck-notice button:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.ck-notice button:focus-visible {
+  outline: 2px solid var(--text-invert);
+  outline-offset: 1px;
+}
+
+/* ── page surfaces (layout=page) ── */
+
+.ck-surfaces {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  padding: 16px;
+  background: var(--white-50);
+  border: 2px solid var(--border-default);
+  border-radius: 8px;
+}
+
+.ck-surfaces .ck-section-title {
+  margin-bottom: 0;
+}
+
+.ck-target {
+  margin: 0;
+}
+
+.ck-target figcaption {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 6px 4px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.ck-target figcaption code {
+  padding: 2px 6px;
+  border-radius: 9999px;
+  background: var(--white-65);
+  font-size: 11px;
+  color: var(--text-primary);
+}
+
+.ck-target-frame {
+  min-height: 120px;
+  padding: 16px;
+  border-radius: 8px;
+  background: var(--surface-container);
+  box-shadow: var(--elevation-sm);
+}
+
+.ck-target-empty {
+  margin: 0;
+  padding: 24px 8px;
+  font-size: 12px;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+/* ───────────────────────── catalog ───────────────────────── */
+
+.ck-index-group + .ck-index-group {
+  margin-top: 12px;
+}
+
+.ck-index {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ck-index a {
+  display: block;
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 20px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: background-color 150ms ease;
+}
+
+.ck-index a:hover {
+  background: var(--white-50);
+  color: var(--text-primary);
+}
+
+.ck-index a[data-inview] {
+  background: var(--white-70);
+  color: var(--text-primary);
+}
+
+.ck-scroll {
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  border-radius: 8px;
+}
+
+.ck-catalog {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 8px;
+}
+
+.ck-catalog-head {
+  padding: 32px;
+}
+
+.ck-catalog-head h2 {
+  margin: 0;
+  font-size: 40px;
+  font-weight: 500;
+  line-height: 46px;
+  letter-spacing: -0.01em;
+}
+
+.ck-catalog-head > p {
+  margin: 8px 0 0;
+  max-width: 64ch;
+  font-size: 16px;
+  line-height: 24px;
+  color: var(--text-secondary);
+}
+
+.ck-catalog-head code {
+  font-size: 0.86em;
+  color: var(--text-primary);
+}
+
+.ck-catalog-notes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.ck-catalog-notes p,
+.ck-catalog-notes pre {
+  margin: 0;
+  font-size: 13px;
+}
+
+.ck-warn {
+  color: #8a4b00;
+}
+
+.ck-errors {
+  padding: 12px;
+  border-radius: 8px;
+  background: #fa5f671a;
+  color: #a1232b;
+  overflow-x: auto;
+}
+
+.ck-event {
+  color: var(--text-secondary);
+}
+
+.ck-event code {
+  color: var(--text-primary);
+}
+
+.ck-jump {
+  display: none;
+}
+
+.ck-group-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 24px 4px 8px;
+}
+
+.ck-group-title h3 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 24px;
+}
+
+.ck-group-title span {
+  flex: 1;
+  height: 1px;
+  background: var(--border-container);
+}
+
+.ck-sample {
+  scroll-margin-top: 8px;
+  overflow: visible;
+}
+
+.ck-sample-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--grey-200);
+}
+
+.ck-sample-head h4 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 24px;
+}
+
+.ck-sample-head .ck-tag {
+  background: var(--grey-200);
+}
+
+.ck-sample-body {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+}
+
+.ck-sample-preview {
+  min-width: 0;
+  padding: 16px;
+}
+
+.ck-sample-meta {
+  margin: 12px 0 0;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--text-muted);
+}
+
+.ck-sample-details {
+  min-width: 0;
+  padding: 8px 16px 16px;
+  border-left: 1px solid var(--grey-200);
+  background: var(--surface-hovered);
+  border-radius: 0 0 6px 0;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--text-secondary);
+}
+
+.ck-sample-details details {
+  border-bottom: 1px solid var(--grey-200);
+}
+
+.ck-sample-details summary {
+  position: relative;
+  padding: 8px 20px 8px 0;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
+  cursor: pointer;
+  list-style: none;
+}
+
+.ck-sample-details summary::-webkit-details-marker,
+.ck-more summary::-webkit-details-marker,
+.ck-jump summary::-webkit-details-marker {
+  display: none;
+}
+
+/* A drawn plus that turns into a minus. */
+.ck-sample-details summary::before,
+.ck-sample-details summary::after,
+.ck-more summary::before,
+.ck-more summary::after,
+.ck-jump summary::before,
+.ck-jump summary::after {
+  content: "";
+  position: absolute;
+  right: 2px;
+  top: 50%;
+  width: 10px;
+  height: 1.5px;
+  background: var(--text-disabled);
+  transition: transform 200ms ease;
+}
+
+.ck-sample-details summary::after,
+.ck-more summary::after,
+.ck-jump summary::after {
+  transform: rotate(90deg);
+}
+
+.ck-sample-details details[open] summary::after,
+.ck-more[open] summary::after,
+.ck-jump[open] summary::after {
+  transform: rotate(0deg);
+}
+
+.ck-sample-details p {
+  margin: 0 0 8px;
+}
+
+.ck-sample-details pre {
+  max-height: 300px;
+  margin: 0 0 12px;
+  padding: 8px 10px;
+  overflow: auto;
+  border: 1px solid var(--grey-200);
+  border-radius: 4px;
+  background: var(--surface-container);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-primary);
+}
+
+/* ───────────────────────── plain pages (404, error) ───────────────────────── */
+
+.ck-plain {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 16px;
+  padding: 48px;
+}
+
+.ck-plain h2 {
+  margin: 0;
+  font-size: 40px;
+  font-weight: 500;
+  line-height: 46px;
+}
+
+.ck-plain p {
+  margin: 0;
+  max-width: 52ch;
+  font-size: 16px;
+  line-height: 24px;
+  color: var(--text-secondary);
+}
+
+/* The filled action: near-black with mono uppercase label. */
+.ck-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--text-primary);
+  color: var(--text-invert);
+  font-family: var(--mono);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 150ms ease;
+}
+
+.ck-button:hover {
+  background: #2b2b2b;
+}
+
+/* ───────────────────────── narrow screens ───────────────────────── */
+
+@media (max-width: 899px) {
+  .ck-app {
+    display: flex;
+    flex-direction: column;
+    height: auto;
+    min-height: 100dvh;
+  }
+  .ck-sidebar {
+    overflow: visible;
+  }
+  .ck-collapse,
+  .ck-prompts,
+  .ck-wide-only,
+  .ck-index-groups,
+  .ck-sidebar-foot {
+    display: none;
+  }
+  .ck-more {
+    display: block;
+    border-top: 1px solid var(--border-container);
+  }
+  .ck-more summary {
+    position: relative;
+    padding: 12px 20px 0 4px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    list-style: none;
+  }
+  .ck-more summary span {
+    margin-left: 8px;
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--text-muted);
+  }
+  .ck-more summary::before,
+  .ck-more summary::after {
+    top: calc(50% + 6px);
+  }
+  .ck-more-body {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding-top: 16px;
+  }
+  .ck-app[data-layout="page"] .ck-main {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .ck-main > .ck-card {
+    height: calc(100dvh - 16px);
+    min-height: 560px;
+  }
+  /* Empty, the chat grows with its content and scrolls with the page. */
+  .ck-main > .ck-card:has(.ck-welcome) {
+    height: auto;
+    min-height: 0;
+  }
+  .ck-welcome {
+    height: auto;
+    overflow: visible;
+    padding: 28px 16px;
+  }
+  .ck-welcome > :first-child,
+  .ck-welcome > :last-child {
+    margin-block: 0;
+  }
+  .ck-welcome-head h2 {
+    font-size: 24px;
+    line-height: 28px;
+  }
+  .ck-surfaces {
+    overflow: visible;
+  }
+  .ck-scroll {
+    overflow: visible;
+  }
+  .ck-catalog-head {
+    padding: 24px 16px;
+  }
+  .ck-catalog-head h2 {
+    font-size: 32px;
+    line-height: 36px;
+  }
+  .ck-jump {
+    display: block;
+    margin-top: 16px;
+    border-top: 1px solid var(--grey-200);
+  }
+  .ck-jump summary {
+    position: relative;
+    padding: 12px 20px 12px 0;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    list-style: none;
+  }
+  .ck-jump ol {
+    columns: 2;
+    column-gap: 16px;
+    margin: 0;
+    padding: 0 0 8px;
+    list-style: none;
+    font-size: 13px;
+    line-height: 28px;
+  }
+  .ck-jump a {
+    color: var(--text-secondary);
+    text-decoration: none;
+  }
+  .ck-sample-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .ck-sample-details {
+    border-left: 0;
+    border-top: 1px solid var(--grey-200);
+    border-radius: 0 0 6px 6px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ck-app,
+  .ck-collapse,
+  .ck-item,
+  .ck-tab,
+  .ck-index a,
+  .ck-sample-details summary::after,
+  .ck-more summary::after,
+  .ck-jump summary::after {
+    transition: none;
+  }
+}
