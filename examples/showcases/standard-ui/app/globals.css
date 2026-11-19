@@ -47,39 +47,33 @@
   box-sizing: border-box;
 }
 
-/* The page's own scrollers: thin and quiet, never the browser's default bar.
-   (Chat internals keep CopilotKit's own scrollbars.) Chrome and Firefox use
-   scrollbar-color; Safari reads the ::-webkit-scrollbar rules. */
+/* The page's own scroll areas show no scrollbar: they scroll by wheel,
+   trackpad, touch and keyboard, and a fade shows where content continues.
+   Chrome and Firefox read scrollbar-width; Safari reads ::-webkit-scrollbar. */
 .ck-scroll,
 .ck-welcome,
 .ck-surfaces,
 .ck-code {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(1, 5, 7, 0.18) transparent;
+  scrollbar-width: none;
 }
 
 .ck-scroll::-webkit-scrollbar,
 .ck-welcome::-webkit-scrollbar,
 .ck-surfaces::-webkit-scrollbar,
 .ck-code::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  display: none;
 }
 
-.ck-scroll::-webkit-scrollbar-thumb,
-.ck-welcome::-webkit-scrollbar-thumb,
-.ck-surfaces::-webkit-scrollbar-thumb,
-.ck-code::-webkit-scrollbar-thumb {
-  border: 2px solid transparent;
-  border-radius: 8px;
-  background: rgba(1, 5, 7, 0.18) padding-box;
+/* The chat transcript's scroller is CopilotKit's, unnamed, and the only element
+   in the chat with an inline scrollbar-gutter. It asks for a thin scrollbar, so
+   hiding it takes !important. This is the one scrollbar rule that reaches into
+   the chat; component scrollers (tables, code) keep theirs. */
+.ck-chat [style*="scrollbar-gutter"] {
+  scrollbar-width: none !important;
 }
 
-.ck-scroll::-webkit-scrollbar-track,
-.ck-welcome::-webkit-scrollbar-track,
-.ck-surfaces::-webkit-scrollbar-track,
-.ck-code::-webkit-scrollbar-track {
-  background: transparent;
+.ck-chat [style*="scrollbar-gutter"]::-webkit-scrollbar {
+  display: none;
 }
 
 body {
@@ -449,7 +443,6 @@ pre {
   margin: 0;
   padding: 12px;
   overflow-x: auto;
-  scrollbar-width: thin;
   border: 1px solid var(--border-container);
   border-radius: 8px;
   background: var(--surface-container);
@@ -658,7 +651,12 @@ pre {
   margin: 0 auto;
   padding: 24px;
   overflow-y: auto;
-  scrollbar-width: thin;
+}
+
+/* A soft bottom edge: when the empty state is taller than the card, the
+   fade says it continues (its scrollbar is hidden). */
+.ck-welcome {
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 24px), transparent);
 }
 
 .ck-welcome > :first-child {
@@ -789,7 +787,6 @@ pre {
   gap: 12px;
   min-height: 0;
   overflow-y: auto;
-  scrollbar-width: thin;
   padding: 16px;
   background: var(--white-50);
   border: 2px solid var(--border-default);
@@ -900,7 +897,6 @@ pre {
   min-width: 0;
   min-height: 0;
   overflow-y: auto;
-  scrollbar-width: thin;
   border-radius: 8px;
 }
 
