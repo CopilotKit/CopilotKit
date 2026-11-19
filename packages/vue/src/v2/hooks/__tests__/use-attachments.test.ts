@@ -204,6 +204,16 @@ describe("useAttachments", () => {
       } as unknown as DragEvent;
     }
 
+    it("opens the drop zone for a drag that carries files", () => {
+      const harness = mountHook({ enabled: true, onUpload: inlineUpload });
+      const over = dragEvent(["Files"]);
+
+      harness.api.handleDragOver(over);
+
+      expect(harness.api.dragOver.value).toBe(true);
+      expect(over.preventDefault).toHaveBeenCalled();
+    });
+
     it("leaves a text drag to the browser", () => {
       const harness = mountHook({ enabled: true, onUpload: inlineUpload });
       const over = dragEvent(["text/plain"]);
@@ -223,6 +233,17 @@ describe("useAttachments", () => {
 
       expect(drop.preventDefault).not.toHaveBeenCalled();
       expect(harness.api.attachments.value).toEqual([]);
+    });
+
+    it("closes the drop zone when that drag leaves", () => {
+      const harness = mountHook({ enabled: true, onUpload: inlineUpload });
+
+      harness.api.handleDragOver(dragEvent(["Files"]));
+      expect(harness.api.dragOver.value).toBe(true);
+
+      harness.api.handleDragLeave(dragEvent(["Files"]));
+
+      expect(harness.api.dragOver.value).toBe(false);
     });
 
     it("takes a file drop and closes the drop zone", async () => {
