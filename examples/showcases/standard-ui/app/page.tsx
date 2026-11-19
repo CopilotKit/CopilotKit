@@ -400,6 +400,9 @@ function Welcome({
   return (
     <div className="ck-welcome">
       <div className="ck-welcome-head">
+        {/* The phone's Docs button: in the heading, so it scrolls away with
+            it instead of floating over the sample. */}
+        <DocsButton className="ck-welcome-docs" />
         <h2>What should the agent build?</h2>
         <p>
           Pick an example prompt or describe any interface. A live model answers
@@ -492,7 +495,7 @@ function ChatCard({
 }) {
   return (
     <section className="ck-card" aria-label="Chat">
-      <DocsButton className="ck-canvas-docs" />
+      <DocsButton className="ck-canvas-docs ck-chat-docs" />
       {notice ? (
         <div className="ck-notice" role="alert">
           <span>{notice}</span>
@@ -506,7 +509,7 @@ function ChatCard({
         welcomeScreen={Welcome as never}
         input={{ disclaimer: InputFoot }}
         labels={{
-          chatInputPlaceholder: "Describe a UI, or pick an example",
+          chatInputPlaceholder: "Describe a UI to build",
         }}
       />
     </section>

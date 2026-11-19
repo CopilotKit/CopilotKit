@@ -326,11 +326,27 @@ pre {
   padding-right: 72px;
 }
 
-/* On a phone the transcript runs edge to edge, so once a conversation starts
-   the button would sit on the messages; it shows on the start screen only. */
+/* The welcome's own copy is for phones only. */
+.ck-welcome-docs {
+  display: none;
+}
+
+/* On a phone the chat card's button would float over the scrolling sample
+   and, later, the messages (the transcript runs edge to edge). The start
+   screen shows the welcome's copy instead, at the top right of the heading,
+   and it scrolls away with it. */
 @media (max-width: 899px) {
-  .ck-card:has([data-testid="copilot-message-list"]) > .ck-canvas-docs {
+  .ck-chat-docs {
     display: none;
+  }
+  .ck-welcome-head {
+    position: relative;
+  }
+  .ck-welcome-docs {
+    display: inline-flex;
+    position: absolute;
+    top: 0;
+    right: 0;
   }
 }
 
@@ -817,13 +833,23 @@ pre {
   color: var(--text-muted);
 }
 
-/* A phone keeps the same rhythm, one step tighter. */
+/* A phone keeps the same rhythm, one step tighter. Its composer is taller
+   (the chat stacks the buttons under the text below 768px), so the sample
+   fades out over 24px above it instead of being cut off. */
 @media (max-width: 899px) {
   .ck-welcome {
     gap: 32px;
   }
   .ck-example-frame {
     padding: 20px;
+  }
+  .ck-compose {
+    padding-top: 24px;
+    background: linear-gradient(
+      to bottom,
+      rgba(255, 255, 255, 0),
+      var(--surface-container) 24px
+    );
   }
 }
 
@@ -1360,8 +1386,10 @@ pre {
     height: 100dvh;
     min-height: 560px;
   }
+  /* No bottom padding: the pinned composer brings its own, so it sits flush
+     on the card's edge with nothing showing under it. */
   .ck-welcome {
-    padding: 24px 12px;
+    padding: 24px 12px 0;
   }
   .ck-welcome-head,
   .ck-example {
