@@ -1,5 +1,6 @@
 import { renderLlmsIndex } from "@/lib/llms/llms-index";
 import { getBaseUrl } from "@/lib/seo/base-url";
+import { basePath } from "@/lib/base-path";
 
 // `/llms.txt`: shell-docs' curated Markdown decision index (llmstxt.org
 // shape). Agents read it first and follow its links to each page's `.md`;
@@ -11,7 +12,7 @@ import { getBaseUrl } from "@/lib/seo/base-url";
 export const revalidate = false;
 
 export function GET() {
-  return new Response(renderLlmsIndex(getBaseUrl()), {
+  return new Response(renderLlmsIndex(`${getBaseUrl()}${basePath}`), {
     headers: {
       "Content-Type": "text/plain; charset=utf-8",
       "Cache-Control": "public, max-age=60, stale-while-revalidate=300",

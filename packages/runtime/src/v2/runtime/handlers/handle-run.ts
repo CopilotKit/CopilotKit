@@ -1,6 +1,7 @@
 import { readCopilotKitUIEnvelope } from "@copilotkit/shared";
 import { isIntelligenceRuntime } from "../core/runtime";
 import { telemetry } from "../telemetry";
+import { fireAgentIdentifiedTelemetry } from "../telemetry/agent-identified";
 import { readGuardrailsEnabled } from "./shared/cloud-telemetry";
 import type { RunAgentParameters } from "./shared/agent-utils";
 import {
@@ -105,6 +106,10 @@ export async function handleRunAgent({
         "__proxiedMCPRequest",
       ),
     });
+    // Background: never delays or fails the request. Runs after the
+    // forwarded headers are set, so an adapter that fetches its capabilities
+    // from a remote server (ADK, for one) sends the caller's auth.
+    fireAgentIdentifiedTelemetry({ runtime, agentId, agent });
     const memoryResponse = await attachIntelligenceEnterpriseLearning({
       runtime,
       request,
