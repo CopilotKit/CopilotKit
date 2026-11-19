@@ -33,7 +33,7 @@ export const SAMPLE_PROMPT =
 const PLATE_SAMPLE: CatalogSample = {
   group: "Sample answer",
   title: "Team plan",
-  covers: ["Grid", "Title", "Slider", "Chart"],
+  covers: ["Grid", "Text", "Slider", "Chart"],
   components: [
     {
       id: "root",
@@ -58,8 +58,12 @@ const PLATE_SAMPLE: CatalogSample = {
     { id: "label", component: "Caption", text: "Monthly total" },
     {
       id: "total",
-      component: "Title",
-      size: "4xl",
+      // A Title tops out at the chat's h2 (about 21px) whatever its size, so
+      // the headline number is a Text with an explicit size.
+      component: "Text",
+      fontSize: 40,
+      lineHeight: 1.1,
+      fontWeight: "semibold",
       tabularNums: true,
       text: {
         "@call": "formatString",
