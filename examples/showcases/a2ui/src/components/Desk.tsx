@@ -18,6 +18,7 @@ import { AGENT_ID } from "../lib/agent";
 import type { DeskAgentState } from "../lib/agent";
 import { ConnectionsProvider } from "../lib/connections";
 import { DeskProvider } from "../lib/desk-store";
+import { QuietNodeFallbacks } from "../lib/quiet-fallbacks";
 import { deskTheme, deskUI } from "../lib/generative-ui";
 import { DEFAULT_MODEL, isModelId } from "../lib/models";
 import type { ModelId } from "../lib/models";
@@ -139,19 +140,21 @@ export function Desk() {
       generativeUI={GENERATIVE_UI}
       enableInspector={inspector}
     >
-      <DeskProvider>
-        <CopilotChatConfigurationProvider agentId={AGENT_ID}>
-          <ConnectionsProvider signedIn={Boolean(isSignedIn)}>
-            <Shell
-              model={model}
-              onModelChange={setModel}
-              uiFormat={uiFormat}
-              onUIFormatChange={setUIFormat}
-              signedIn={Boolean(isSignedIn)}
-            />
-          </ConnectionsProvider>
-        </CopilotChatConfigurationProvider>
-      </DeskProvider>
+      <QuietNodeFallbacks>
+        <DeskProvider>
+          <CopilotChatConfigurationProvider agentId={AGENT_ID}>
+            <ConnectionsProvider signedIn={Boolean(isSignedIn)}>
+              <Shell
+                model={model}
+                onModelChange={setModel}
+                uiFormat={uiFormat}
+                onUIFormatChange={setUIFormat}
+                signedIn={Boolean(isSignedIn)}
+              />
+            </ConnectionsProvider>
+          </CopilotChatConfigurationProvider>
+        </DeskProvider>
+      </QuietNodeFallbacks>
     </CopilotKitProvider>
   );
 }

@@ -15,6 +15,7 @@ import {
 } from "../lib/catalog";
 import type { Specimen } from "../lib/catalog";
 import { deskTheme, deskUI } from "../lib/generative-ui";
+import { QuietNodeFallbacks } from "../lib/quiet-fallbacks";
 import { ViewFrame } from "./SurfaceFrame";
 
 /**
@@ -47,7 +48,9 @@ export function CatalogPage() {
       generativeUI={GALLERY_UI}
       enableInspector={false}
     >
-      <Gallery />
+      <QuietNodeFallbacks>
+        <Gallery />
+      </QuietNodeFallbacks>
     </CopilotKitProvider>
   );
 }
