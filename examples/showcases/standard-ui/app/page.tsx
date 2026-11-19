@@ -385,9 +385,11 @@ function Integration({
 /**
  * The empty chat: what to do, a sample answer (a
  * prompt and the surface that answers it) the visitor can drag, then the
- * composer, pinned to the bottom like the chat's own input. The suggestion
- * chips repeat the sidebar's example prompts, so they show only where that
- * list is hidden (phones, the collapsed rail, the page layout). Replaces the
+ * composer, pinned to the bottom like the chat's own input, with the example
+ * prompts as suggestion chips. On a wide screen the chips are pinned with the
+ * composer, as the chat shows them once a conversation starts; on a phone
+ * they scroll with the content, since four pinned rows would bury the sample.
+ * The same element renders in both places and CSS shows one. Replaces the
  * stock "How can I help you today?".
  */
 function Welcome({
@@ -424,8 +426,11 @@ function Welcome({
           </Link>
         </figcaption>
       </figure>
-      <div className="ck-welcome-chips">{suggestionView}</div>
-      <div className="ck-compose">{input}</div>
+      <div className="ck-welcome-chips ck-chips-flow">{suggestionView}</div>
+      <div className="ck-compose">
+        <div className="ck-welcome-chips ck-chips-pinned">{suggestionView}</div>
+        {input}
+      </div>
     </div>
   );
 }

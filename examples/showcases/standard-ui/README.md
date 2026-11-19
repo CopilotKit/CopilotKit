@@ -24,8 +24,7 @@ deploys on its own.
 - `/`: the chat. The sidebar lists example prompts that tour the components
   (a dashboard, a form, a table, a chart, a map, a checklist, live bindings,
   flip cards and an SVG drawing), each tagged with the components it is likely
-  to use. Where that list is hidden (a phone, the collapsed rail, the page
-  layout), the same prompts show as suggestion pills above the composer. Below
+  to use. The same prompts show as suggestion pills above the composer. Below
   the list sit the transport and layout settings and the integration snippet.
   A Docs button at the top right of the canvas (the chat card, the catalog
   header) goes to the generative UI components docs. The sidebar collapses to a slim

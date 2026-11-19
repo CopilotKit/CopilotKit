@@ -326,6 +326,25 @@ pre {
   padding-right: 72px;
 }
 
+/* The chips: pinned with the composer on a wide screen, in the scrolling
+   content on a phone. */
+.ck-chips-flow {
+  display: none;
+}
+
+.ck-chips-pinned {
+  margin-bottom: 12px;
+}
+
+@media (max-width: 899px) {
+  .ck-chips-flow {
+    display: block;
+  }
+  .ck-chips-pinned {
+    display: none;
+  }
+}
+
 /* The welcome's own copy is for phones only. */
 .ck-welcome-docs {
   display: none;
@@ -756,31 +775,19 @@ pre {
 
 /* The composer sits under the sample answer and stays pinned to the bottom
    of the empty chat, like the chat's own input once a conversation starts.
-   Content scrolls under it through a short white fade, which also says there
+   Content scrolls under it through a 24px white fade, which also says there
    is more above. With the 16px under the input (.ck-input-foot) it makes
    the welcome's bottom padding, so it sits at the same height pinned or not. */
 .ck-compose {
   position: sticky;
   bottom: 0;
   z-index: 1;
-  padding: 8px 0;
+  padding: 24px 0 8px;
   background: linear-gradient(
     to bottom,
     rgba(255, 255, 255, 0),
-    var(--surface-container) 8px
+    var(--surface-container) 24px
   );
-}
-
-/* The chips repeat the sidebar's example prompts. Where that list shows (the
-   chat layout with the sidebar open), the empty chat leaves them out; on a
-   phone, in the collapsed rail and in the page layout they are the only way
-   to pick one. */
-@media (min-width: 900px) {
-  html:not([data-sidebar="collapsed"])
-    .ck-app[data-layout="chat"]
-    .ck-welcome-chips {
-    display: none;
-  }
 }
 
 /* A live surface in a quiet frame. */
@@ -836,23 +843,13 @@ pre {
   color: var(--text-muted);
 }
 
-/* A phone keeps the same rhythm, one step tighter. Its composer is taller
-   (the chat stacks the buttons under the text below 768px), so the sample
-   fades out over 24px above it instead of being cut off. */
+/* A phone keeps the same rhythm, one step tighter. */
 @media (max-width: 899px) {
   .ck-welcome {
     gap: 32px;
   }
   .ck-example-frame {
     padding: 20px;
-  }
-  .ck-compose {
-    padding-top: 24px;
-    background: linear-gradient(
-      to bottom,
-      rgba(255, 255, 255, 0),
-      var(--surface-container) 24px
-    );
   }
 }
 
