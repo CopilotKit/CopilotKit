@@ -20,6 +20,23 @@ describe("BuiltInAgent.getCapabilities", () => {
       humanInTheLoop: {
         interrupts: true,
       },
+      identity: {
+        type: "built-in",
+      },
+    });
+  });
+
+  it("keeps the built-in type when an override sets only the identity name", async () => {
+    const agent = new BuiltInAgent({
+      model: "openai/gpt-5.5",
+      capabilities: { identity: { name: "my-agent" } },
+    });
+
+    const capabilities = await agent.getCapabilities();
+
+    expect(capabilities.identity).toEqual({
+      type: "built-in",
+      name: "my-agent",
     });
   });
 

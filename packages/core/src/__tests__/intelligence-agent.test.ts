@@ -3,7 +3,10 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { BaseEvent, RunAgentInput, RunAgentResult } from "@ag-ui/client";
 import { EventType } from "@ag-ui/client";
 import type { Observable } from "rxjs";
-import { RUNTIME_MODE_INTELLIGENCE } from "@copilotkit/shared";
+import {
+  COPILOTKIT_VERSION,
+  RUNTIME_MODE_INTELLIGENCE,
+} from "@copilotkit/shared";
 import type { MockChannel } from "./test-utils";
 import { MockSocket } from "./test-utils";
 import { CopilotKitCore } from "../core";
@@ -327,6 +330,7 @@ describe("IntelligenceAgent", () => {
       expect(socket.url).toBe("ws://localhost:4000/client");
       expect(socket.opts.params).toEqual({
         token: "test-token",
+        copilotkit_version: COPILOTKIT_VERSION,
         join_token: "jt-delayed",
       });
 
@@ -1557,6 +1561,7 @@ describe("IntelligenceAgent", () => {
       const socket = getSocket(agent)!;
       expect(socket.opts.params).toEqual({
         token: "test-token",
+        copilotkit_version: COPILOTKIT_VERSION,
         join_token: "jt-123",
       });
 
