@@ -10,11 +10,37 @@ import {
 import Link from "next/link";
 import { standardUI } from "@copilotkit/react-core/v2/generative-ui";
 import pkg from "../package.json";
-import { ArrowUpRight, ChatBubble, PanelToggle, Tiles } from "./icons";
+import { ArrowUpRight, Book, ChatBubble, PanelToggle, Tiles } from "./icons";
 import { SIDEBAR_KEY } from "./sidebar-state";
 
-export const DOCS_URL =
-  "https://docs.copilotkit.ai/generative-ui/components/standard-catalog";
+/** Where to start building with generative UI components. */
+export const DOCS_URL = "https://docs.copilotkit.ai/generative-ui/components";
+
+/** The standard catalog's docs: one page per component. */
+export const CATALOG_DOCS_URL = `${DOCS_URL}/standard-catalog`;
+
+/** Child components are documented on their parent's page. */
+const DOCS_PAGE_OF: Record<string, string> = {
+  GridItem: "Grid",
+  FlowItem: "Flow",
+  CarouselItem: "Carousel",
+  CarouselMediaItem: "Carousel",
+  PopoverTrigger: "Popover",
+  PopoverContent: "Popover",
+  TableSection: "Table",
+  TableRow: "Table",
+  TableCell: "Table",
+  ListItem: "List",
+};
+
+/** The docs page of a standard component: CheckBox is /check-box. */
+export function componentDocsUrl(name: string) {
+  const page = (DOCS_PAGE_OF[name] ?? name)
+    .replace(/([a-z0-9])([A-Z])/g, "$1-$2")
+    .replace(/([A-Z])([A-Z][a-z])/g, "$1-$2")
+    .toLowerCase();
+  return `${CATALOG_DOCS_URL}/${page}`;
+}
 
 export const COMPONENT_COUNT = Object.keys(
   standardUI.manifestComponents,
@@ -184,6 +210,16 @@ export function Sidebar({
             height={32}
           />
         </Link>
+        <a
+          href={DOCS_URL}
+          target="_blank"
+          rel="noreferrer"
+          className="ck-docs ck-focus"
+        >
+          Docs
+          <ArrowUpRight className="ck-link-icon" />
+          <span className="ck-visually-hidden"> (opens in a new tab)</span>
+        </a>
         <button
           type="button"
           className="ck-collapse ck-focus"
@@ -235,18 +271,28 @@ export function Sidebar({
         >
           <Tiles />
         </Link>
+        <a
+          href={DOCS_URL}
+          target="_blank"
+          rel="noreferrer"
+          className="ck-rail-link ck-focus"
+          aria-label="Docs (opens in a new tab)"
+          title="Docs"
+        >
+          <Book />
+        </a>
       </nav>
       <div className="ck-sidebar-scroll" id="ck-sidebar-body">
         <div className="ck-sidebar-body">
           {children}
           <footer className="ck-sidebar-foot">
             <a
-              href={DOCS_URL}
+              href={CATALOG_DOCS_URL}
               target="_blank"
               rel="noreferrer"
               className="ck-link ck-focus"
             >
-              Standard components docs
+              Standard catalog docs
               <ArrowUpRight className="ck-link-icon" />
               <span className="ck-visually-hidden"> (opens in a new tab)</span>
             </a>

@@ -18,9 +18,15 @@ import {
 import { GenerativeUISurface } from "@copilotkit/react-core/v2/generative-ui";
 import { Providers } from "./providers";
 import type { DemoErrorHandler, DemoTransport } from "./providers";
-import { Backdrop, COMPONENT_COUNT, SectionTitle, Sidebar } from "./shell";
-import { SpecimenPlate } from "./specimen-plate";
-import { ArrowRight, Close, Tick } from "./icons";
+import {
+  Backdrop,
+  COMPONENT_COUNT,
+  DOCS_URL,
+  SectionTitle,
+  Sidebar,
+} from "./shell";
+import { SAMPLE_PROMPT, SpecimenPlate } from "./specimen-plate";
+import { ArrowRight, ArrowUpRight, Close, Tick } from "./icons";
 
 /** "chat": the chat alone (the default). "page": the chat next to two page surfaces. */
 type DemoLayout = "chat" | "page";
@@ -50,7 +56,7 @@ const PROMPTS: Prompt[] = [
     blurb: "Stat cards, a revenue chart and a top-products table.",
     sets: ["Card", "Chart", "Table"],
     message:
-      "Show me a sales dashboard: three stat cards (revenue, orders, average order value) each with a trend versus last month, a line chart of revenue over the last 6 months, and a table of the top 5 products.",
+      "Show me a sales dashboard: three stat cards side by side (revenue, orders, average order value), each with its trend versus last month, then a line chart of revenue over the last 6 months, and a table of the top 5 products.",
   },
   {
     layouts: ["page"],
@@ -58,7 +64,7 @@ const PROMPTS: Prompt[] = [
     blurb: "Renders into the page's dashboard surface.",
     sets: ["Card", "Chart", "Table"],
     message:
-      'Show a sales dashboard in the "dashboard" surface on the page, not in the chat: three stat cards (revenue, orders, average order value), a line chart of revenue over the last 6 months, and a table of the top 5 products.',
+      'Show a sales dashboard in the "dashboard" surface on the page, not in the chat: three stat cards side by side (revenue, orders, average order value), then a line chart of revenue over the last 6 months, and a table of the top 5 products.',
   },
   {
     title: "Sign-up form",
@@ -72,7 +78,7 @@ const PROMPTS: Prompt[] = [
     blurb: "A comparison table with a best-value badge.",
     sets: ["Table", "Badge", "Button"],
     message:
-      "Compare three laptops for video editing in a table (price, CPU, RAM, screen, battery). Mark the best value with a badge and add a button under each one that tells you which I picked.",
+      "Pick three popular laptops for video editing yourself (illustrative specs are fine) and compare them in a table: price, CPU, RAM, screen and battery. Mark the best value with a badge, and give each one a button that tells you which I picked.",
   },
   {
     title: "Trip budget chart",
@@ -124,7 +130,7 @@ const PROMPTS: Prompt[] = [
     blurb: "Flip cards in a grid, and a button for more.",
     sets: ["FlashcardFlip", "Grid"],
     message:
-      "Make me five flashcards to learn Spanish greetings. Show them as flip cards in a grid and add a button that asks you for five more.",
+      "Make me six flashcards to learn Spanish greetings. Show them as flip cards in a grid, three to a row, and add a button that asks you for six more.",
   },
   {
     title: "How an engine works",
@@ -197,7 +203,7 @@ function ChatSuggestions({ layout }: { layout: DemoLayout }) {
   return null;
 }
 
-/** The prompt list. Choosing one sends it; it is marked once the model answers. */
+/** The example prompts. Choosing one sends it; it is marked once the model answers. */
 function PromptList({ layout }: { layout: DemoLayout }) {
   const { agent } = useAgent();
   const { copilotkit } = useCopilotKit();
@@ -231,7 +237,7 @@ function PromptList({ layout }: { layout: DemoLayout }) {
 
   return (
     <section className="ck-section ck-prompts" aria-labelledby="ck-prompts">
-      <SectionTitle id="ck-prompts">Prompts</SectionTitle>
+      <SectionTitle id="ck-prompts">Example prompts</SectionTitle>
       <ul className="ck-list">
         {promptsFor(layout).map((prompt) => {
           const isSent = sent.includes(prompt.title);
@@ -377,8 +383,9 @@ function Integration({
 /* ───────────────────────── main ───────────────────────── */
 
 /**
- * The empty chat: what to do, the composer, then a live example the visitor
- * can drag. Replaces the stock "How can I help you today?".
+ * The empty chat: what to do and where the docs are, the composer, then a
+ * sample answer (a prompt and the surface that answers it) the visitor can
+ * drag. Replaces the stock "How can I help you today?".
  */
 function Welcome({
   input,
@@ -392,22 +399,34 @@ function Welcome({
       <div className="ck-welcome-head">
         <h2>What should the agent build?</h2>
         <p>
-          Pick a prompt or describe any interface. A live model answers with
-          CopilotKit&rsquo;s {COMPONENT_COUNT} standard components, exactly as
-          they ship.
+          Pick an example prompt or describe any interface. A live model answers
+          with CopilotKit&rsquo;s {COMPONENT_COUNT} standard components, exactly
+          as they ship.
         </p>
+        <a
+          href={DOCS_URL}
+          target="_blank"
+          rel="noreferrer"
+          className="ck-link ck-welcome-docs ck-focus"
+        >
+          Build it into your app: read the docs
+          <ArrowUpRight className="ck-link-icon" />
+          <span className="ck-visually-hidden"> (opens in a new tab)</span>
+        </a>
       </div>
       <div className="ck-compose">
         {input}
         {suggestionView}
       </div>
       <figure className="ck-example">
-        <SectionTitle>Live example</SectionTitle>
+        <SectionTitle>Sample answer</SectionTitle>
+        <p className="ck-example-ask">{SAMPLE_PROMPT}</p>
         <div className="ck-example-frame">
           <SpecimenPlate />
         </div>
         <figcaption>
-          Drag the slider: rendered in your browser, no model call.{" "}
+          A saved answer, rendered in your browser with no model call. Drag the
+          slider.{" "}
           <Link href="/catalog" className="ck-focus">
             See all {COMPONENT_COUNT} in the catalog
           </Link>
@@ -486,7 +505,7 @@ function ChatCard({
         className="ck-chat"
         welcomeScreen={Welcome as never}
         labels={{
-          chatInputPlaceholder: "Describe a UI, or pick a prompt",
+          chatInputPlaceholder: "Describe a UI, or pick an example",
           chatDisclaimerText:
             "A live model writes these surfaces and can make mistakes.",
         }}

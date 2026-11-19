@@ -14,13 +14,21 @@ import { createCatalogAgent, sampleSurfaceId } from "./catalog/catalog-agent";
 import type { CatalogSample } from "./catalog/samples";
 
 /**
- * The empty chat's live example: a team-plan calculator where a Slider drives
+ * The prompt the sample answers, shown above it as the visitor's message, so
+ * the sample reads as a reply rather than a stray widget. Keep it in step
+ * with PLATE_SAMPLE.
+ */
+export const SAMPLE_PROMPT =
+  "Price a team plan at $29 a seat: a seat slider, the monthly total and a six-month cost chart.";
+
+/**
+ * The empty chat's sample answer: a team-plan calculator where a Slider drives
  * Text, a List and a Chart through function values, worded for a visitor
  * rather than as a catalog test case. It is a one-off sample, not a catalog
  * entry, so its copy can say what a person would want to know.
  */
 const PLATE_SAMPLE: CatalogSample = {
-  group: "Live example",
+  group: "Sample answer",
   title: "Team plan",
   covers: ["Slider", "Text", "List", "Chart"],
   components: [
@@ -122,7 +130,7 @@ export function SpecimenPlate() {
       <StartPlate />
       <GenerativeUISurface
         id={sampleSurfaceId(0)}
-        fallback={<p className="ck-loading">Loading the example…</p>}
+        fallback={<p className="ck-loading">Loading the sample…</p>}
       />
     </CopilotKitProvider>
   );

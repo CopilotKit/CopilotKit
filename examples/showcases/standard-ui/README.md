@@ -21,22 +21,24 @@ deploys on its own.
 
 ## Pages
 
-- `/`: the chat. The sidebar lists prompts that tour the components (a
-  dashboard, a form, a table, a chart, a map, a checklist, live bindings, flip
-  cards and an SVG drawing), each tagged with the components it is likely to
-  use. The same prompts show as suggestion pills under the composer. Below the
-  list sit the transport and layout settings and the integration snippet. The
-  sidebar collapses to a slim rail (Cmd/Ctrl+B), remembered
-  across pages; with no saved choice it starts collapsed between 900 and
-  1199px wide.
-- The empty chat shows a live `standardUI` example rendered in the browser
-  with no model call (`app/specimen-plate.tsx`).
+- `/`: the chat. The sidebar lists example prompts that tour the components
+  (a dashboard, a form, a table, a chart, a map, a checklist, live bindings,
+  flip cards and an SVG drawing), each tagged with the components it is likely
+  to use. The same prompts show as suggestion pills under the composer. Below
+  the list sit the transport and layout settings and the integration snippet.
+  A Docs button at the top of the sidebar, and a link under the welcome text,
+  go to the generative UI components docs. The sidebar collapses to a slim
+  rail (Cmd/Ctrl+B), remembered across pages; with no saved choice it starts
+  collapsed between 900 and 1199px wide.
+- The empty chat shows a sample answer: a prompt and the `standardUI` surface
+  that answers it, rendered in the browser with no model call
+  (`app/specimen-plate.tsx`).
 - `?transport=tool` switches to the `render_ui` tool transport, and
   `?layout=page` adds two surfaces outside the chat that the agent renders into
   by id.
 - `/catalog`: every standard component, rendered from the operations a model
-  would write, with the description and props the model sees. It needs no
-  model and no key. The samples in `app/catalog/shared/` are copied from
+  would write, with the description and props the model sees, and a link to
+  each component's docs page. It needs no model and no key. The samples in `app/catalog/shared/` are copied from
   [`showcase/shared/generative-ui-catalog`](../../../showcase/shared/generative-ui-catalog);
   keep them in sync.
 
@@ -58,6 +60,19 @@ folder instead of joining the monorepo workspace.
 The default model is `openai/gpt-5.6-sol` on the OpenAI Responses API with
 `reasoningEffort: "low"`. `COPILOTKIT_MODEL` and `OPENAI_REASONING_EFFORT`
 change them.
+
+## Layout rules for the agent
+
+The standard catalog tells the model what each component is, not how a
+designer would arrange several of them. Left alone, a model stacks every block
+full width: three stat tiles become three long bars, and a badge or a button
+stretches across its column. `app/lib/design-guide.ts` adds a few layout rules
+to the agent's prompt: items of the same kind side by side in a `Grid`, one
+recipe for a stat tile, nothing stretched full width, numbers right-aligned in
+tables, labels clear of an SVG drawing, and sample data instead of a question
+when a prompt needs example content. Each rule names real props of the
+standard components. The rules change how the model composes the components,
+never how a component looks.
 
 ## Design
 

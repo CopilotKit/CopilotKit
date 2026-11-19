@@ -165,6 +165,7 @@ pre {
     padding: 0;
   }
   html[data-sidebar="collapsed"] .ck-logo-full,
+  html[data-sidebar="collapsed"] .ck-docs,
   html[data-sidebar="collapsed"] .ck-app-title,
   html[data-sidebar="collapsed"] .ck-app-sub,
   html[data-sidebar="collapsed"] .ck-page-tabs,
@@ -205,12 +206,13 @@ pre {
    reflows while the column animates; the sidebar clips instead. */
 .ck-sidebar-head {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   grid-template-areas:
-    "logo toggle"
-    "title title"
-    "sub sub"
-    "tabs tabs";
+    "logo docs toggle"
+    "title title title"
+    "sub sub sub"
+    "tabs tabs tabs";
+  column-gap: 4px;
   align-items: center;
   row-gap: 4px;
   flex: none;
@@ -282,6 +284,30 @@ pre {
   background: var(--surface-container);
   color: var(--text-primary);
   box-shadow: var(--elevation-sm);
+}
+
+/* The docs, always in reach at the top of the open sidebar: a white button
+   like the active tab, so it reads as a control rather than body text. */
+.ck-docs {
+  grid-area: docs;
+  align-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 32px;
+  padding: 0 8px 0 10px;
+  border-radius: 8px;
+  background: var(--surface-container);
+  box-shadow: var(--elevation-sm);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: box-shadow 150ms ease;
+}
+
+.ck-docs:hover {
+  box-shadow: var(--elevation-md);
 }
 
 /* The collapse toggle, in line with the logo. */
@@ -685,6 +711,11 @@ pre {
   text-wrap: pretty;
 }
 
+.ck-welcome-docs {
+  margin-top: 12px;
+  font-size: 14px;
+}
+
 .ck-compose {
   display: flex;
   flex-direction: column;
@@ -710,6 +741,20 @@ pre {
 
 /* position + overflow: the Chart's screen-reader table is absolutely
    positioned and would otherwise add phantom scroll height. */
+/* The prompt the sample answers, drawn like the visitor's own message. */
+.ck-example-ask {
+  width: fit-content;
+  max-width: min(80%, 480px);
+  margin: 0 0 12px auto;
+  padding: 8px 14px;
+  border-radius: 16px;
+  background: var(--grey-200);
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--text-primary);
+  text-wrap: pretty;
+}
+
 .ck-example-frame {
   position: relative;
   overflow: hidden;
@@ -1098,6 +1143,11 @@ pre {
   margin: 0 0 8px;
 }
 
+.ck-sample-details .ck-link {
+  margin: 0 0 10px;
+  font-size: 12px;
+}
+
 .ck-sample-details pre {
   max-height: 300px;
   margin: 0 0 12px;
@@ -1200,6 +1250,7 @@ pre {
     margin-top: 0;
   }
   .ck-collapse,
+  .ck-docs,
   .ck-app-title,
   .ck-app-sub,
   .ck-rail,

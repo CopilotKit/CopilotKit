@@ -11,7 +11,8 @@ import {
   standardUI,
 } from "@copilotkit/react-core/v2/generative-ui";
 import type { GenerativeUIErrorInfo } from "@copilotkit/react-core/v2/generative-ui";
-import { Backdrop, SectionTitle, Sidebar } from "../shell";
+import { Backdrop, SectionTitle, Sidebar, componentDocsUrl } from "../shell";
+import { ArrowUpRight } from "../icons";
 import {
   createCatalogAgent,
   sampleOperations,
@@ -204,6 +205,19 @@ function Sample({ sample, index }: { sample: CatalogSample; index: number }) {
               <details key={name}>
                 <summary className="ck-focus">{name}</summary>
                 <p>{manifest.description}</p>
+                <a
+                  href={componentDocsUrl(name)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="ck-link ck-focus"
+                >
+                  {name} docs
+                  <ArrowUpRight className="ck-link-icon" />
+                  <span className="ck-visually-hidden">
+                    {" "}
+                    (opens in a new tab)
+                  </span>
+                </a>
                 <pre>{manifestLines(manifest).join("\n")}</pre>
               </details>
             );

@@ -74,6 +74,16 @@ export function ChatBubble(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+/** A book, for the docs link in the collapsed rail. */
+export function Book(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      <path d="M3 13V3.5A1.5 1.5 0 0 1 4.5 2H13v10H4.5A1.5 1.5 0 0 0 3 13.5 1.5 1.5 0 0 0 4.5 15H13" />
+      <path d="M6 5h4" />
+    </Icon>
+  );
+}
+
 /** A grid of tiles, for the Catalog page in the collapsed rail. */
 export function Tiles(props: SVGProps<SVGSVGElement>) {
   return (
