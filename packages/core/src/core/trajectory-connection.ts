@@ -1,7 +1,7 @@
 import { Socket } from "phoenix";
 import type { Channel } from "phoenix";
 import type { AbstractAgent } from "@ag-ui/client";
-import { phoenixExponentialBackoff } from "@copilotkit/shared";
+import { phoenixExponentialBackoff, randomUUID } from "@copilotkit/shared";
 import { createTrajectoryCollector } from "@copilotkit/learning";
 import type {
   ConnectionGrant,
@@ -23,6 +23,7 @@ const MAX_EVENT_BYTES = 16 * 1024;
 
 type WireEvent = TrajectoryEvent<Record<string, JsonValue>>;
 interface EventBatch {
+  batchId?: string;
   events: WireEvent[];
   dropped: number;
 }
@@ -200,7 +201,7 @@ export class TrajectoryConnection {
     }
     void this.stop();
     this.lastStop = undefined;
-    const id = trajectoryId ?? crypto.randomUUID();
+    const id = trajectoryId ?? randomUUID();
     let resolveStart!: (result: StartResult) => void;
     const promise = new Promise<StartResult>((resolve) => {
       resolveStart = resolve;
@@ -532,7 +533,7 @@ export class TrajectoryConnection {
       session.startNewOnClosed
     ) {
       // The old ID and its loss counters belong to immutable evidence.
-      session.trajectoryId = crypto.randomUUID();
+      session.trajectoryId = randomUUID();
       session.started = false;
       session.dropped = 0;
       session.retries = 0;
@@ -799,6 +800,9 @@ export class TrajectoryConnection {
     const fits = () =>
       session.queue.length < MAX_BATCH_EVENTS &&
       byteLength({
+        ...(connection.supportsFinish
+          ? { batchId: "00000000-0000-0000-0000-000000000000" }
+          : {}),
         events: [...session.queue, wire],
         dropped: Number.MAX_SAFE_INTEGER,
       }) <= MAX_BATCH_BYTES;
@@ -831,6 +835,7 @@ export class TrajectoryConnection {
     clearTimeout(session.flushTimer);
     session.flushTimer = undefined;
     const batch: EventBatch = {
+      ...(connection.supportsFinish ? { batchId: randomUUID() } : {}),
       events: session.queue,
       dropped: session.dropped,
     };
@@ -903,7 +908,12 @@ export class TrajectoryConnection {
             // Finish the known rollback without flushing the queued tail onto
             // a channel whose scope has just been refused.
             pending.finish(undefined, true, false);
-            this.fail(session, connection, reason.toUpperCase(), false);
+            const retryable =
+              reason === "entitlement_unavailable" &&
+              isObject(payload) &&
+              payload.retryable === true;
+            const code = JOIN_REFUSAL_CODES[reason] ?? reason.toUpperCase();
+            this.fail(session, connection, code, retryable);
             return;
           }
           const rollback =

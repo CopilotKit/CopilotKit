@@ -8,6 +8,7 @@ import type { JsonValue, TrajectoryEvent } from "@copilotkit/learning";
 import * as Learning from "@copilotkit/learning";
 
 type Batch = {
+  batchId?: string;
   events: TrajectoryEvent<Record<string, JsonValue>>[];
   dropped: number;
 };
@@ -1387,6 +1388,12 @@ describe("sealed Trajectories", () => {
     expect(channel.pushes.map((p) => p.event)).toEqual(["events"]);
     persist(channel);
     expect(names(channel)).toEqual(["page", "last.edit"]);
+    const batchIds = channel.pushes.map((p) => p.payload.batchId);
+    expect(batchIds).toHaveLength(2);
+    expect(new Set(batchIds).size).toBe(2);
+    expect(
+      batchIds.every((id) => typeof id === "string" && id.length === 36),
+    ).toBe(true);
     persist(channel);
     expect(channel.pushes.map((p) => p.event)).toEqual([
       "events",
@@ -1401,6 +1408,45 @@ describe("sealed Trajectories", () => {
       trajectoryId: id,
     });
     expect(channel.left).toBe(true);
+  });
+
+  it("rejoins the same trajectory with a fresh grant after temporary entitlement failure", async () => {
+    const { core, channel, id } = await capture();
+    await vi.advanceTimersByTimeAsync(2_000);
+    core.emitTrajectoryEvent("must.not.leak", {});
+    channel.pushes[0]!.push.reply("error", {
+      reason: "entitlement_unavailable",
+      retryable: true,
+    });
+    expect(channel.left).toBe(true);
+    expect(channel.pushes).toHaveLength(1);
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(requests).toHaveLength(2);
+    const recovery = core.startTrajectory({ trajectoryId: id });
+    await authorize(1);
+    const next = join(1);
+    await expect(recovery).resolves.toEqual({
+      status: "started",
+      trajectoryId: id,
+    });
+    await vi.advanceTimersByTimeAsync(2_000);
+    expect(names(next)).not.toContain("must.not.leak");
+  });
+
+  it("returns an unconfirmed finish if the gateway cannot verify entitlement while draining", async () => {
+    const { core, channel } = await capture();
+    const stopping = core.finishTrajectory();
+    channel.pushes[0]!.push.reply("error", {
+      reason: "entitlement_unavailable",
+      retryable: true,
+    });
+    await expect(stopping).resolves.toEqual({
+      status: "error",
+      code: "TRAJECTORIES_ENTITLEMENT_UNAVAILABLE",
+    });
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(requests).toHaveLength(1);
+    expect(channel.pushes.map((p) => p.event)).toEqual(["events"]);
   });
 
   it("leaves without sealing when final persistence is unknown", async () => {
