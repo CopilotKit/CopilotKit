@@ -1,6 +1,6 @@
 # CopilotKit Examples
 
-This directory contains 68 consolidated demo repositories showcasing CopilotKit integrations, canvas apps, and showcases.
+This directory contains 69 consolidated demo repositories showcasing CopilotKit integrations, canvas apps, and showcases.
 
 Each example is a self-contained project. To get started:
 
@@ -65,14 +65,15 @@ AI-powered canvas applications with visual card interfaces, real-time state sync
 | [gemini](./canvas/gemini/)                           | Open Gemini Canvas — post generator and stack analyzer agents (Gemini + LangGraph)      |
 | [mastra-pm](./canvas/mastra-pm/)                     | CopilotKit v2 + Mastra project manager — shared project state and tool UI               |
 
-## Showcases (35)
+## Showcases (36)
 
 Full-featured demo applications highlighting CopilotKit capabilities in real-world scenarios.
 
-### Current showcases (27)
+### Current showcases (28)
 
 | Example                                                                 | Description                                                                                                         |
 | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| [a2ui](./showcases/a2ui/)                                               | A2UI Playground: a research desk on Google ADK and Gemini that answers with A2UI views, plus a component catalog    |
 | [a2ui-pdf-analyst](./showcases/a2ui-pdf-analyst/)                       | PDF analyst that builds fixed or dynamic A2UI surfaces from document data                                           |
 | [a2ui-playground](./showcases/a2ui-playground/)                         | Chat-first A2UI 1.0 playground: watch Gemini write Express line by line, with macros, skills and evals              |
 | [arcade-tools](./showcases/arcade-tools/)                               | Built-in Agent with authenticated Arcade Gmail and news tools plus inline OAuth UI                                  |
