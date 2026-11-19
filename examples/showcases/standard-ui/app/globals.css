@@ -668,8 +668,11 @@ pre {
   gap: 16px;
 }
 
-/* Settings fold away on phones; the wide copy shows elsewhere. */
-.ck-more {
+/* Phone-only parts of the sidebar: the menu button, the menu's copy of
+   the page tabs, and the backdrop behind the open menu. */
+.ck-burger,
+.ck-menu-tabs,
+.ck-menu-backdrop {
   display: none;
 }
 
@@ -1185,7 +1188,6 @@ pre {
 }
 
 .ck-sample-details summary::-webkit-details-marker,
-.ck-more summary::-webkit-details-marker,
 .ck-jump summary::-webkit-details-marker {
   display: none;
 }
@@ -1193,8 +1195,6 @@ pre {
 /* A drawn plus that turns into a minus. */
 .ck-sample-details summary::before,
 .ck-sample-details summary::after,
-.ck-more summary::before,
-.ck-more summary::after,
 .ck-jump summary::before,
 .ck-jump summary::after {
   content: "";
@@ -1208,13 +1208,11 @@ pre {
 }
 
 .ck-sample-details summary::after,
-.ck-more summary::after,
 .ck-jump summary::after {
   transform: rotate(90deg);
 }
 
 .ck-sample-details details[open] summary::after,
-.ck-more[open] summary::after,
 .ck-jump[open] summary::after {
   transform: rotate(0deg);
 }
@@ -1310,74 +1308,100 @@ pre {
     height: 100dvh;
     min-height: 0;
   }
+  /* The header is the logo and the menu button; everything else is in the
+     menu. It sits above the card so the open menu covers the page. */
   .ck-sidebar {
+    z-index: 20;
     overflow: visible;
-    padding: 10px 12px;
+    padding: 10px 8px 10px 16px;
   }
   .ck-sidebar-head {
     width: auto;
-    grid-template-columns: auto minmax(0, 1fr);
-    grid-template-areas: "logo tabs";
-    column-gap: 12px;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "logo burger";
+    align-items: center;
   }
   .ck-logo {
     padding: 0;
   }
-  .ck-page-tabs {
-    justify-self: end;
-    width: 100%;
-    max-width: 200px;
-    margin-top: 0;
-  }
   .ck-collapse,
+  .ck-page-tabs,
   .ck-app-title,
   .ck-app-sub,
   .ck-rail,
   .ck-prompts,
-  .ck-wide-only,
-  .ck-index-groups,
-  .ck-sidebar-foot {
+  .ck-index-groups {
     display: none;
   }
+  /* A 44px touch target, the platform minimum. */
+  .ck-burger {
+    grid-area: burger;
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--text-primary);
+    cursor: pointer;
+  }
+  .ck-burger svg {
+    width: 20px;
+    height: 20px;
+  }
+  .ck-sidebar[data-menu="open"] .ck-burger {
+    background: var(--white-70);
+  }
+  /* The menu: the sidebar's body as a panel under the header, over the page.
+     Closed, it is not rendered at all, so nothing in it takes focus. */
   .ck-sidebar-scroll {
-    overflow: visible;
+    display: none;
+  }
+  .ck-sidebar[data-menu="open"] .ck-sidebar-scroll {
+    display: block;
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    right: 0;
+    max-height: calc(100dvh - 96px);
     margin: 0;
-    padding: 0;
+    padding: 16px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
     mask-image: none;
+    background: var(--surface-container);
+    border: 2px solid var(--border-default);
+    border-radius: 12px;
+    box-shadow: 0 12px 32px rgba(1, 5, 7, 0.16);
   }
   .ck-sidebar-body {
     width: auto;
     min-height: 0;
-    gap: 0;
+    gap: 24px;
   }
-  .ck-more {
-    display: block;
-    margin-top: 10px;
-    border-top: 1px solid var(--border-container);
-  }
-  .ck-more summary {
-    position: relative;
-    padding: 8px 20px 0 0;
-    font-size: 13px;
-    font-weight: 500;
-    cursor: pointer;
-    list-style: none;
-  }
-  .ck-more summary span {
-    margin-left: 8px;
-    font-size: 12px;
-    font-weight: 400;
-    color: var(--text-muted);
-  }
-  .ck-more summary::before,
-  .ck-more summary::after {
-    top: calc(50% + 4px);
-  }
-  .ck-more-body {
+  .ck-menu-tabs {
     display: flex;
-    flex-direction: column;
-    gap: 16px;
-    padding: 16px 0 6px;
+  }
+  .ck-menu-tabs .ck-tab {
+    height: 40px;
+  }
+  /* Settings first, then the snippet: what a visitor changes comes first. */
+  .ck-settings > :first-child {
+    order: 1;
+  }
+  .ck-menu-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    border: 0;
+    background: rgba(1, 5, 7, 0.24);
+    cursor: default;
+  }
+  /* No intro paragraph on a phone: the heading and the sample say it. */
+  .ck-welcome-head p {
+    display: none;
   }
   .ck-app[data-layout="page"] .ck-main {
     grid-template-columns: minmax(0, 1fr);
@@ -1462,7 +1486,6 @@ pre {
   .ck-tab,
   .ck-index a,
   .ck-sample-details summary::after,
-  .ck-more summary::after,
   .ck-jump summary::after {
     transition: none;
   }

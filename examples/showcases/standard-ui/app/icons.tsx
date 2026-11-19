@@ -74,6 +74,15 @@ export function ChatBubble(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+/** Three lines: the phone menu button, closed. */
+export function MenuLines(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      <path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11" />
+    </Icon>
+  );
+}
+
 /** A grid of tiles, for the Catalog page in the collapsed rail. */
 export function Tiles(props: SVGProps<SVGSVGElement>) {
   return (

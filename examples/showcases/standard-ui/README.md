@@ -31,6 +31,8 @@ deploys on its own.
   header) goes to the generative UI components docs. The sidebar collapses to a slim
   rail (Cmd/Ctrl+B), remembered across pages; with no saved choice it starts
   collapsed between 900 and 1199px wide.
+  On a phone the sidebar is a menu button that opens the pages, settings
+  and docs as a panel over the page.
 - The empty chat shows a sample answer: a prompt and the `standardUI` surface
   that answers it, rendered in the browser with no model call
   (`app/specimen-plate.tsx`), with the composer under it, pinned to the bottom

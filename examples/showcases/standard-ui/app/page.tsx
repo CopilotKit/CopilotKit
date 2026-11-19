@@ -534,23 +534,10 @@ function Demo() {
         <ChatSuggestions layout={layout} />
         <Sidebar current="chat">
           {layout === "chat" ? <PromptList layout={layout} /> : null}
-          <div className="ck-wide-only ck-section-stack">
+          <div className="ck-settings ck-section-stack">
             <Integration transport={transport} idPrefix="w" />
             <Controls transport={transport} layout={layout} idPrefix="w" />
           </div>
-          <details className="ck-more">
-            <summary className="ck-focus">
-              Settings
-              <span>
-                {transport === "tool" ? "Tool" : "Markdown"} ·{" "}
-                {layout === "page" ? "Page" : "Chat"}
-              </span>
-            </summary>
-            <div className="ck-more-body">
-              <Controls transport={transport} layout={layout} idPrefix="n" />
-              <Integration transport={transport} idPrefix="n" />
-            </div>
-          </details>
         </Sidebar>
         <main className="ck-main">
           {layout === "page" ? <PageSurfaces /> : null}

@@ -5,12 +5,20 @@ import {
   useEffect,
   useRef,
   useState,
+  type MouseEvent,
   type ReactNode,
 } from "react";
 import Link from "next/link";
 import { standardUI } from "@copilotkit/react-core/v2/generative-ui";
 import pkg from "../package.json";
-import { ArrowUpRight, ChatBubble, PanelToggle, Tiles } from "./icons";
+import {
+  ArrowUpRight,
+  ChatBubble,
+  Close,
+  MenuLines,
+  PanelToggle,
+  Tiles,
+} from "./icons";
 import { SIDEBAR_KEY } from "./sidebar-state";
 
 /** Where to start building with generative UI components. */
@@ -190,6 +198,63 @@ function useSidebarCollapsed() {
 
 const SHORTCUT = "\u2318B";
 
+const PHONE = "(max-width: 899px)";
+
+/**
+ * The phone menu: a button in the header that opens the sidebar's body as a
+ * panel over the page (the pages, the settings, the docs). It follows the
+ * disclosure pattern: the button says whether it is open, focus moves into
+ * the panel and back, Escape or a tap outside closes it, and so does picking
+ * a link. The page behind does not scroll while it is open.
+ */
+function usePhoneMenu() {
+  const [open, setOpen] = useState(false);
+  const button = useRef<HTMLButtonElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
+
+  const close = useCallback((returnFocus: boolean) => {
+    setOpen(false);
+    if (returnFocus) button.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    const root = document.documentElement;
+    const previous = root.style.overflow;
+    root.style.overflow = "hidden";
+    panel.current
+      ?.querySelector<HTMLElement>("a[href], button, summary")
+      ?.focus();
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") close(true);
+    };
+    // Grown past phone width: the sidebar is a sidebar again.
+    const wide = window.matchMedia(PHONE);
+    const onWide = () => {
+      if (!wide.matches) close(false);
+    };
+    window.addEventListener("keydown", onKey);
+    wide.addEventListener("change", onWide);
+    return () => {
+      root.style.overflow = previous;
+      window.removeEventListener("keydown", onKey);
+      wide.removeEventListener("change", onWide);
+    };
+  }, [open, close]);
+
+  return {
+    open,
+    button,
+    panel,
+    toggle: () => (open ? close(true) : setOpen(true)),
+    close,
+    // A link inside the panel navigates (or changes a setting): close.
+    onPanelClick: (event: MouseEvent) => {
+      if ((event.target as Element).closest("a")) close(false);
+    },
+  };
+}
+
 /**
  * The glass sidebar every page shares. A fixed head (logo, collapse toggle,
  * title, page tabs) over a body that scrolls without a visible scrollbar.
@@ -203,9 +268,32 @@ export function Sidebar({
   children?: ReactNode;
 }) {
   const { collapsed, toggle } = useSidebarCollapsed();
+  const menu = usePhoneMenu();
   const toggleLabel = collapsed ? "Expand sidebar" : "Collapse sidebar";
+  const pageTabs = (className: string) => (
+    <nav className={`ck-tabs ${className}`} aria-label="Pages">
+      <Link
+        href="/"
+        className="ck-tab ck-focus"
+        aria-current={current === "chat" ? "page" : undefined}
+      >
+        Chat
+      </Link>
+      <Link
+        href="/catalog"
+        className="ck-tab ck-focus"
+        aria-current={current === "catalog" ? "page" : undefined}
+      >
+        Catalog
+      </Link>
+    </nav>
+  );
   return (
-    <aside className="ck-sidebar" aria-label="Sidebar">
+    <aside
+      className="ck-sidebar"
+      aria-label="Sidebar"
+      data-menu={menu.open ? "open" : undefined}
+    >
       <div className="ck-sidebar-head">
         <Link
           href="/"
@@ -240,26 +328,22 @@ export function Sidebar({
         >
           <PanelToggle collapsed={collapsed} />
         </button>
+        <button
+          ref={menu.button}
+          type="button"
+          className="ck-burger ck-focus"
+          onClick={menu.toggle}
+          aria-expanded={menu.open}
+          aria-controls="ck-sidebar-body"
+          aria-label={menu.open ? "Close menu" : "Open menu"}
+        >
+          {menu.open ? <Close /> : <MenuLines />}
+        </button>
         <p className="ck-app-title">Standard components</p>
         <p className="ck-app-sub">
           Generative UI · {COMPONENT_COUNT} components, rendered live
         </p>
-        <nav className="ck-tabs ck-page-tabs" aria-label="Pages">
-          <Link
-            href="/"
-            className="ck-tab ck-focus"
-            aria-current={current === "chat" ? "page" : undefined}
-          >
-            Chat
-          </Link>
-          <Link
-            href="/catalog"
-            className="ck-tab ck-focus"
-            aria-current={current === "catalog" ? "page" : undefined}
-          >
-            Catalog
-          </Link>
-        </nav>
+        {pageTabs("ck-page-tabs")}
       </div>
       <nav className="ck-rail" aria-label="Pages">
         <Link
@@ -281,8 +365,25 @@ export function Sidebar({
           <Tiles />
         </Link>
       </nav>
-      <div className="ck-sidebar-scroll" id="ck-sidebar-body">
+      {menu.open ? (
+        <button
+          type="button"
+          className="ck-menu-backdrop"
+          tabIndex={-1}
+          aria-label="Close menu"
+          onClick={() => menu.close(true)}
+        />
+      ) : null}
+      <div
+        ref={menu.panel}
+        className="ck-sidebar-scroll"
+        id="ck-sidebar-body"
+        onClick={menu.onPanelClick}
+      >
         <div className="ck-sidebar-body">
+          {/* The phone menu's copy of the page tabs (the header's is hidden
+              there); only one of the two shows at a time. */}
+          {pageTabs("ck-menu-tabs")}
           {children}
           <footer className="ck-sidebar-foot">
             <a
