@@ -285,7 +285,7 @@ const DEEP_COAGENTS: RedirectEntry[] = [
   {
     id: "D11",
     source: "/coagents/advanced/router-mode-agent-lock",
-    destination: "/langgraph-python",
+    destination: "/langgraph-python/quickstart",
   },
   {
     id: "D12",
@@ -341,7 +341,7 @@ const DEEP_COAGENTS: RedirectEntry[] = [
   {
     id: "D22",
     source: "/coagents/concepts/multi-agent-flows",
-    destination: "/langgraph-python",
+    destination: "/langgraph-python/quickstart",
   },
   {
     id: "D23",
@@ -645,7 +645,7 @@ const MOVED_ROOT_REDIRECTS: RedirectEntry[] = [
   {
     id: "MV-deep-agents",
     source: "/deep-agents",
-    destination: "/deepagents",
+    destination: "/deepagents/quickstart",
   },
   // /multi-agent-flows is a LangGraph-only topic. The bare URL was
   // never authored agnostically; send legacy hits to the LangGraph
@@ -818,7 +818,7 @@ const LEGACY_CHAINS_EXACT: RedirectEntry[] = [
   {
     id: "L1",
     source: "/coagents",
-    destination: "/langgraph-python",
+    destination: "/langgraph-python/quickstart",
   },
   {
     id: "L2",
@@ -858,7 +858,7 @@ const LEGACY_CHAINS_EXACT: RedirectEntry[] = [
   {
     id: "L9",
     source: "/coagents/concepts",
-    destination: "/langgraph-python",
+    destination: "/langgraph-python/quickstart",
   },
   {
     id: "L10",
@@ -878,12 +878,12 @@ const LEGACY_CHAINS_EXACT: RedirectEntry[] = [
   {
     id: "L12",
     source: "/langgraph/deep-agents",
-    destination: "/deepagents",
+    destination: "/deepagents/quickstart",
   },
   {
     id: "L13",
     source: "/langgraph-python/deep-agents",
-    destination: "/deepagents",
+    destination: "/deepagents/quickstart",
   },
 ];
 

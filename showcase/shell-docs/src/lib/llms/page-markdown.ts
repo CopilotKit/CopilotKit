@@ -3,6 +3,7 @@ import { dirname, join, resolve } from "node:path";
 import {
   expandFrameworkSetups,
   expandShowcase,
+  stripAuthorComments,
   missingDemoNote,
 } from "./showcase-markdown";
 import type { ShowcasePage } from "./showcase-markdown";
@@ -63,7 +64,7 @@ export async function renderLivePageMarkdown(
   const body = [
     missingDemoNote(showcase, url),
     rewriteScopedLinks(
-      expandShowcase(mdx, showcase),
+      expandShowcase(stripAuthorComments(mdx), showcase),
       (href) => liveHref(href, live.scope) ?? href,
     ).trim(),
   ]

@@ -450,43 +450,20 @@ Before you begin, you'll need the following:
     </Step>
 </Steps>
 
-## What's next?
+## Next steps
 
-Now that you have your basic agent setup, explore these advanced features:
+ADK runs your agent, with its tools and sessions. CopilotKit puts that agent in your app, where your users can see the run, step in and steer it.
 
-<Cards>
-  <Card
-    title="Implement Human in the Loop"
-    description="Allow your users and agents to collaborate together on tasks."
-    href="/adk/human-in-the-loop"
-    icon={<UserIcon />}
-  />
-  <Card
-    title="Use the Shared State"
-    description="Learn how to synchronize your agent's state with your UI's state, and vice versa."
-    href="/adk/shared-state"
-    icon={<RepeatIcon />}
-  />
-  <Card
-    title="Add some generative UI"
-    description="Render your agent's progress and output in the UI."
-    href="/adk/generative-ui/tool-rendering"
-    icon={<PaintbrushIcon />}
-  />
-  <Card
-    title="Setup frontend actions"
-    description="Give your agent the ability to call frontend tools, directly updating your application."
-    href="/adk/frontend-tools"
-    icon={<WrenchIcon />}
-  />
-</Cards>
+Add a capability:
 
-<video
-  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/chat-example.mp4"
-  className="rounded-lg shadow-xl"
-  loop
-  playsInline
-  controls
-  autoPlay
-  muted
-/>
+- [Generative UI](/adk/generative-ui/tool-rendering): show the agent's tool calls and state as components that update while it runs.
+- [Human-in-the-loop](/adk/human-in-the-loop): with `AGUIToolset()`, the agent asks the user for a decision and waits for the answer.
+- [Shared state](/adk/shared-state): keep ADK session state and your app's state in sync, in both directions.
+- [Frontend tools](/adk/frontend-tools): let the agent call tools that update your app directly.
+- [And more](/adk/build-with-agents): chat surfaces, headless UI and multi-agent flows.
+
+Go further:
+
+- [Live demos](https://feature-viewer.copilotkit.ai/adk/feature/agentic_chat): try each capability with an ADK agent.
+- [Import ADK sessions](/google-adk/threads-import): bring sessions from an ADK database or Vertex AI Agent Engine into [CopilotKit Intelligence](/intelligence/overview) as threads.
+- Using Vue, Angular, or React Native? Pick it in the sidebar's **Frontend** menu. Its quickstart connects this agent.

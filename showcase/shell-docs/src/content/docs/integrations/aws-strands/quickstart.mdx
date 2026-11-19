@@ -562,21 +562,19 @@ Before you begin, you'll need the following:
 
 If you're planning to deploy your Strands agent to AWS Bedrock AgentCore, see the [AgentCore deploy guide](/deploy/agentcore).
 
-## What's next?
+## Next steps
 
-Now that you have your basic agent setup, explore these advanced features:
+Strands runs your agent: a model, a tool loop and the state it keeps between turns. CopilotKit puts that agent in your app, where your users can see the run, interrupt it and steer it.
 
-<Cards>
-  <Card
-    title="Add some generative UI"
-    description="Render your agent's progress and output in the UI."
-    href="/aws-strands/generative-ui/tool-rendering"
-    icon={<PaintbrushIcon />}
-  />
-  <Card
-    title="Setup frontend tools"
-    description="Give your agent the ability to call frontend tools, directly updating your application."
-    href="/aws-strands/frontend-tools"
-    icon={<WrenchIcon />}
-  />
-</Cards>
+Add a capability:
+
+- [Generative UI](/aws-strands/generative-ui/tool-rendering): show the agent's tool calls and progress as components that update while it runs.
+- [Human-in-the-loop](/aws-strands/human-in-the-loop): a frontend tool shows your own UI, waits for the user's answer, and returns it to the agent as the tool result.
+- [Shared state](/aws-strands/shared-state): keep the agent's server-side state and your app's state in sync, in both directions.
+- [Frontend tools](/aws-strands/frontend-tools): let the agent call tools that update your app directly.
+- [And more](/aws-strands/build-with-agents): give your AI coding agent current knowledge of CopilotKit's APIs and patterns, so it can build the rest with you.
+
+Go further:
+
+- [Live demos](https://feature-viewer.copilotkit.ai/aws-strands/feature/agentic_chat): try each capability with a Strands agent.
+- Using Vue, Angular, or React Native? Pick it in the sidebar's **Frontend** menu. Its quickstart connects this agent.

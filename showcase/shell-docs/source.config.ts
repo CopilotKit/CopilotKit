@@ -9,7 +9,6 @@ import {
 import type { Processor } from "unified";
 import { brandDark, brandLight } from "./src/proto/code-theme";
 import { NAMED_SNIPPETS } from "./src/lib/named-snippets";
-import { remarkFrameworkOverview } from "./src/lib/llms/remark-framework-overview";
 
 /**
  * MDX options for every page and snippet. Collections are declared with
@@ -35,7 +34,6 @@ export default defineConfig({
       remarkInlineSnippets,
       remarkTitleHeadings,
       remarkPropertyGroups,
-      remarkFrameworkOverview,
       ...plugins,
     ],
     // A snippet gets the page's components without being passed them, as

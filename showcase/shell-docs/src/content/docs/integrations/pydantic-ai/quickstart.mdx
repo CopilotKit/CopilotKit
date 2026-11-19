@@ -433,33 +433,18 @@ Before you begin, you'll need the following:
 
 </Steps>
 
-## What's next?
+## Next steps
 
-Now that you have your basic agent setup, explore these advanced features:
+Pydantic AI runs your agent, with its typed tools, results and dependencies. CopilotKit puts that agent in your app, where your users can see the run, step in and steer it.
 
-<Cards>
-  <Card
-    title="Implement Human in the Loop"
-    description="Allow your users and agents to collaborate together on tasks."
-    href="/pydantic-ai/human-in-the-loop"
-    icon={<UserIcon />}
-  />
-  <Card
-    title="Use the Shared State"
-    description="Learn how to synchronize your agent's state with your UI's state, and vice versa."
-    href="/pydantic-ai/shared-state"
-    icon={<RepeatIcon />}
-  />
-  <Card
-    title="Add some generative UI"
-    description="Render your agent's progress and output in the UI."
-    href="/pydantic-ai/generative-ui/tool-rendering"
-    icon={<PaintbrushIcon />}
-  />
-  <Card
-    title="Setup frontend actions"
-    description="Give your agent the ability to call frontend tools, directly updating your application."
-    href="/pydantic-ai/frontend-tools"
-    icon={<WrenchIcon />}
-  />
-</Cards>
+Add a capability:
+
+- [Generative UI](/pydantic-ai/generative-ui/tool-rendering): show each typed tool call as a component while the agent runs.
+- [Human-in-the-loop](/pydantic-ai/human-in-the-loop): the agent asks the user for an answer in your UI and gets it back as the tool result.
+- [Shared state](/pydantic-ai/shared-state): keep the agent's state and your app's state in sync, in both directions.
+- [Frontend tools](/pydantic-ai/frontend-tools): let the agent call tools that update your app directly.
+- [Multi-agent flows](/pydantic-ai/multi-agent-flows): use more than one agent in one flow.
+
+Go further:
+
+- Using Vue, Angular, or React Native? Pick it in the sidebar's **Frontend** menu. Its quickstart connects this agent.

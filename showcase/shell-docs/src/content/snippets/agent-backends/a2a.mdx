@@ -1,0 +1,180 @@
+{/*
+  The A2A backend for the Vue, Angular and React Native
+  quickstarts (`/vue/a2a` and so on), picked by `index.mdx`.
+  The page around it already created the app and installed
+  `@copilotkit/runtime` and `tsx`. Its next steps start `npx tsx server.ts`
+  from the app folder, so the agent here must be running by then.
+*/}
+
+<Step>
+  ### Create your A2A agent
+
+  You need Python 3.12+, [`uv`](https://docs.astral.sh/uv/) and a Google Gemini API key. The agent gets its own folder next to your app. From your app folder:
+
+  ```bash
+  cd ..
+  uv init my-agent
+  cd my-agent
+  uv add google-adk "a2a-sdk[http-server]<1" uvicorn
+  ```
+
+  `a2a-sdk` serves the agent over A2A. The runtime's A2A client speaks the protocol before 1.0, so keep `a2a-sdk` below 1.0.
+
+  Replace the contents of `main.py` with a small ADK agent behind an A2A server. If you already have an A2A agent on an A2A SDK before 1.0, start it, then go to **Create the Copilot Runtime** and set `AGENT_URL` to its address:
+
+  ```python title="main.py"
+  import os
+
+  import uvicorn
+  from a2a.server.agent_execution import AgentExecutor, RequestContext
+  from a2a.server.apps import A2AStarletteApplication
+  from a2a.server.events import EventQueue
+  from a2a.server.request_handlers import DefaultRequestHandler
+  from a2a.server.tasks import InMemoryTaskStore, TaskUpdater
+  from a2a.types import AgentCapabilities, AgentCard, AgentSkill
+  from a2a.utils import new_agent_text_message, new_task
+  from google.adk.agents import LlmAgent
+  from google.adk.runners import Runner
+  from google.adk.sessions import InMemorySessionService
+  from google.genai import types
+
+  agent = LlmAgent(
+      name="assistant",
+      model="gemini-3.8-flash",
+      instruction="You are a helpful assistant.",
+  )
+
+  runner = Runner(
+      app_name="assistant",
+      agent=agent,
+      session_service=InMemorySessionService(),
+      auto_create_session=True,
+  )
+
+
+  class AssistantExecutor(AgentExecutor):
+      async def execute(self, context: RequestContext, event_queue: EventQueue):
+          task = context.current_task
+          if not task:
+              task = new_task(context.message)
+              await event_queue.enqueue_event(task)
+          updater = TaskUpdater(event_queue, task.id, task.context_id)
+
+          reply = ""
+          async for event in runner.run_async(
+              user_id="user",
+              session_id=task.context_id,
+              new_message=types.Content(
+                  role="user", parts=[types.Part(text=context.get_user_input())]
+              ),
+          ):
+              if event.is_final_response() and event.content and event.content.parts:
+                  reply = "".join(part.text or "" for part in event.content.parts)
+
+          await updater.complete(
+              new_agent_text_message(reply, task.context_id, task.id)
+          )
+
+      async def cancel(self, context: RequestContext, event_queue: EventQueue):
+          raise NotImplementedError
+
+
+  port = int(os.getenv("PORT", "10002"))
+
+  agent_card = AgentCard(
+      name="Assistant",
+      description="A helpful assistant.",
+      url=f"http://localhost:{port}",
+      version="1.0.0",
+      default_input_modes=["text"],
+      default_output_modes=["text"],
+      capabilities=AgentCapabilities(streaming=True),
+      skills=[
+          AgentSkill(
+              id="chat",
+              name="Chat",
+              description="Answers questions.",
+              tags=["chat"],
+          )
+      ],
+  )
+
+  app = A2AStarletteApplication(
+      agent_card=agent_card,
+      http_handler=DefaultRequestHandler(
+          agent_executor=AssistantExecutor(),
+          task_store=InMemoryTaskStore(),
+      ),
+  ).build()
+
+  if __name__ == "__main__":
+      uvicorn.run(app, host="localhost", port=port)
+  ```
+
+  The agent card tells A2A clients where to send messages, so its `url` must be the address that the agent listens on.
+
+  Put your Gemini key in `.env`:
+
+  ```plaintext title=".env"
+  GEMINI_API_KEY=your_gemini_api_key
+  ```
+</Step>
+
+<Step>
+  ### Start the agent
+
+  ```bash
+  uv run --env-file .env main.py
+  ```
+
+  Keep this terminal open. The agent listens on `http://localhost:10002`. `--env-file .env` loads `GEMINI_API_KEY` into the agent. Without it, the first chat message fails with `No API key was provided`.
+</Step>
+
+<Step>
+  ### Create the Copilot Runtime
+
+  Open a new terminal in your app folder. The runtime reaches the agent with `A2AAgent` from `@ag-ui/a2a`, which sends messages through an `A2AClient` from `@a2a-js/sdk`:
+
+  ```bash
+  npm install @ag-ui/a2a @a2a-js/sdk@0.2
+  ```
+
+  `@a2a-js/sdk` must be the same version that `@ag-ui/a2a` uses. Run `npm ls @a2a-js/sdk`. The top-level copy must be the version that `@ag-ui/a2a` lists as `deduped`.
+
+  Add `server.ts`, a small Node server that hosts Copilot Runtime at `/api/copilotkit` and registers your agent as the `default` agent:
+
+  ```ts title="server.ts"
+  import { createServer } from "node:http";
+  import { A2AClient } from "@a2a-js/sdk/client";
+  import { A2AAgent } from "@ag-ui/a2a";
+  import { CopilotRuntime } from "@copilotkit/runtime/v2";
+  import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
+
+  const runtime = new CopilotRuntime({
+    agents: {
+      // [!code highlight:5]
+      default: new A2AAgent({
+        a2aClient: new A2AClient(
+          process.env.AGENT_URL ?? "http://localhost:10002",
+        ),
+      }),
+    },
+  });
+
+  const port = Number(process.env.PORT ?? 8200);
+
+  createServer(
+    createCopilotNodeListener({
+      runtime,
+      basePath: "/api/copilotkit",
+      cors: true,
+    }),
+  ).listen(port, () => {
+    console.log(
+      `Copilot Runtime listening at http://localhost:${port}/api/copilotkit`,
+    );
+  });
+  ```
+
+  `cors: true` lets the app's dev server, on another port, call the runtime. The model key stays with the agent, so the runtime needs none.
+</Step>

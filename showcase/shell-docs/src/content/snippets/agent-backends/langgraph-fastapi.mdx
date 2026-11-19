@@ -1,0 +1,139 @@
+{/*
+  The LangGraph (Python, FastAPI) backend for the Vue, Angular and React
+  Native quickstarts (`/vue/langgraph-fastapi` and so on), picked by
+  `index.mdx`. The page around it already created the app and installed
+  `@copilotkit/runtime` and `tsx`. Its next steps start `npx tsx server.ts`
+  from the app folder, so the agent here must be running by then.
+*/}
+
+<Step>
+  ### Create your LangGraph agent
+
+  You need Python 3.12+ and [`uv`](https://docs.astral.sh/uv/). The agent gets its own folder next to your app. From your app folder:
+
+  ```bash
+  cd ..
+  uv init my-agent
+  cd my-agent
+  uv add langgraph langchain-openai langchain-core python-dotenv
+  uv add ag-ui-langgraph fastapi uvicorn copilotkit
+  ```
+
+  Replace the contents of `main.py` with a small graph and a FastAPI app that serves it over AG-UI. If you already have a LangGraph agent, keep it and use this as a reference:
+
+  ```python title="main.py"
+  import os
+
+  import uvicorn
+  from ag_ui_langgraph import add_langgraph_fastapi_endpoint
+  from copilotkit import LangGraphAGUIAgent
+  from dotenv import load_dotenv
+  from fastapi import FastAPI
+  from langchain_core.messages import SystemMessage
+  from langchain_openai import ChatOpenAI
+  from langgraph.checkpoint.memory import MemorySaver
+  from langgraph.graph import END, START, MessagesState, StateGraph
+
+  load_dotenv()
+
+
+  async def chat(state: MessagesState):
+      model = ChatOpenAI(model="gpt-6-luna", reasoning_effort="none")
+      response = await model.ainvoke(
+          [SystemMessage(content="You are a helpful assistant."), *state["messages"]]
+      )
+      return {"messages": response}
+
+
+  graph = StateGraph(MessagesState)
+  graph.add_node(chat)
+  graph.add_edge(START, "chat")
+  graph.add_edge("chat", END)
+  graph = graph.compile(checkpointer=MemorySaver())
+
+  app = FastAPI()
+
+  # [!code highlight:9]
+  add_langgraph_fastapi_endpoint(
+      app=app,
+      agent=LangGraphAGUIAgent(
+          name="sample_agent",
+          description="An example agent to use as a starting point for your own agent.",
+          graph=graph,
+      ),
+      path="/",
+  )
+
+  if __name__ == "__main__":
+      uvicorn.run(
+          "main:app",
+          host="0.0.0.0",
+          port=int(os.getenv("PORT", "8123")),
+          reload=True,
+      )
+  ```
+
+  Here you run the graph yourself, so the graph needs a checkpointer. `MemorySaver` keeps threads in memory only. For production, use a durable saver, for example Postgres.
+
+  Put your OpenAI key in `.env`:
+
+  ```plaintext title=".env"
+  OPENAI_API_KEY=your_openai_api_key
+  ```
+</Step>
+
+<Step>
+  ### Start the agent
+
+  ```bash
+  uv run main.py
+  ```
+
+  Keep this terminal open. The agent listens on `http://localhost:8123`. To use another port, set `PORT` when you start it.
+</Step>
+
+<Step>
+  ### Create the Copilot Runtime
+
+  Open a new terminal in your app folder. The runtime reaches the agent with `HttpAgent` from `@ag-ui/client`:
+
+  ```bash
+  npm install @ag-ui/client
+  ```
+
+  It must be the same version that `@copilotkit/runtime` uses. Run `npm ls @ag-ui/client`. The top-level copy must be the version that `@copilotkit/runtime` lists as `deduped`.
+
+  Add `server.ts`, a small Node server that hosts Copilot Runtime at `/api/copilotkit` and registers your agent as the `default` agent:
+
+  ```ts title="server.ts"
+  import { createServer } from "node:http";
+  import { HttpAgent } from "@ag-ui/client";
+  import { CopilotRuntime } from "@copilotkit/runtime/v2";
+  import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
+
+  const runtime = new CopilotRuntime({
+    agents: {
+      // [!code highlight:3]
+      default: new HttpAgent({
+        url: process.env.AGENT_URL ?? "http://localhost:8123/",
+      }),
+    },
+  });
+
+  const port = Number(process.env.PORT ?? 8200);
+
+  createServer(
+    createCopilotNodeListener({
+      runtime,
+      basePath: "/api/copilotkit",
+      cors: true,
+    }),
+  ).listen(port, () => {
+    console.log(
+      `Copilot Runtime listening at http://localhost:${port}/api/copilotkit`,
+    );
+  });
+  ```
+
+  `cors: true` lets the app's dev server, on another port, call the runtime. The model key stays with the agent, so the runtime needs none.
+</Step>

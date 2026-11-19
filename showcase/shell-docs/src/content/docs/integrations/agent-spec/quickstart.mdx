@@ -434,5 +434,17 @@ Use this prompt to connect your Agent Spec agent to CopilotKit and verify a work
 
 ## Next steps
 
-Follow per-adapter tutorials: [LangGraph integration](/agent-spec/langgraph) and [WayFlow integration](/agent-spec/wayflow). To bind backend tools to your agent, see "Bind backend tools" on the [LangGraph](/agent-spec/langgraph#bind-backend-tools) or [WayFlow](/agent-spec/wayflow#bind-backend-tools) page.
+Open Agent Spec describes your agent in a form that LangGraph or WayFlow can run. CopilotKit puts that agent in your app, where your users can see the run, step in and steer it.
 
+Add a capability:
+
+- [Generative UI](/agent-spec/generative-ui/tool-rendering): show each tool call as a component in your app while the agent runs.
+- [Human-in-the-loop](/agent-spec/human-in-the-loop): a frontend tool from `useHumanInTheLoop` shows your UI, waits for the user, and returns the answer to the agent.
+- [Shared state](/agent-spec/shared-state): keep the agent's state and your app's state in sync, in both directions.
+- [And more](/agent-spec/build-with-agents): chat surfaces, headless UI, frontend tools and multi-agent flows.
+
+Go further:
+
+- [Live demos](https://feature-viewer.copilotkit.ai/agent-spec/feature/agentic_chat): try an Agent Spec agent in a CopilotKit chat.
+- Run on a specific adapter: [LangGraph](/agent-spec/langgraph) or [WayFlow](/agent-spec/wayflow). Each page also shows how to bind backend tools to your agent.
+- Using Vue, Angular, or React Native? Pick it in the sidebar's **Frontend** menu. Its quickstart connects this agent.

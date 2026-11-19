@@ -1,0 +1,117 @@
+{/*
+  The Mastra backend for the Vue, Angular and React Native
+  quickstarts (`/vue/mastra` and so on), picked by `index.mdx`.
+  The page around it already created the app and installed
+  `@copilotkit/runtime` and `tsx`. Its next steps start `npx tsx server.ts`
+  from the app folder, so the agent here must be running by then.
+*/}
+
+<Step>
+  ### Create your Mastra agent
+
+  You need Node.js 22.13+ (the `create-mastra` template requires it). The agent gets its own folder next to your app. From your app folder:
+
+  ```bash
+  cd ..
+  npx create-mastra@latest my-agent --llm openai
+  cd my-agent
+  ```
+
+  `--llm openai` picks the model provider, so the command does not ask.
+
+  Create `src/mastra/agents/index.ts` with a small agent. If you already have a Mastra agent, keep it and use this as a reference:
+
+  ```ts title="src/mastra/agents/index.ts"
+  import { Agent } from "@mastra/core/agent";
+
+  export const myAgent = new Agent({
+    id: "my-agent",
+    name: "My Agent",
+    instructions: "You are a helpful assistant!",
+    model: "openai/gpt-6-luna",
+  });
+  ```
+
+  Replace the generated `src/mastra/index.ts` with this file. It registers your agent. The template's own agent in `agents/agent.ts` is then not registered:
+
+  ```ts title="src/mastra/index.ts"
+  import { Mastra } from "@mastra/core";
+  import { myAgent } from "./agents";
+
+  export const mastra = new Mastra({
+    agents: { myAgent },
+  });
+  ```
+
+  Put your OpenAI key in `.env`:
+
+  ```plaintext title=".env"
+  OPENAI_API_KEY=your_openai_api_key
+  ```
+</Step>
+
+<Step>
+  ### Start the agent
+
+  ```bash
+  npx mastra dev
+  ```
+
+  Keep this terminal open. The agent server listens on `http://localhost:4111`. If port 4111 is in use, `mastra dev` takes the next free port up to 4131 and prints it. Then set `MASTRA_BASE_URL` to that address when you start the runtime.
+
+  To check the agent, open `http://localhost:4111/api/agents`. The response lists your agent under its `id`, `my-agent`.
+</Step>
+
+<Step>
+  ### Create the Copilot Runtime
+
+  Open a new terminal in your app folder. The runtime reaches the Mastra server with `@ag-ui/mastra` and `@mastra/client-js`:
+
+  ```bash
+  npm install @ag-ui/mastra @mastra/client-js
+  ```
+
+  Add `server.ts`, a small Node server that hosts Copilot Runtime at `/api/copilotkit` and registers your Mastra agent as the `default` agent:
+
+  ```ts title="server.ts"
+  import { createServer } from "node:http";
+  import { MastraAgent } from "@ag-ui/mastra";
+  import { CopilotRuntime } from "@copilotkit/runtime/v2";
+  import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
+  import { MastraClient } from "@mastra/client-js";
+
+  // [!code highlight:3]
+  const mastraClient = new MastraClient({
+    baseUrl: process.env.MASTRA_BASE_URL ?? "http://127.0.0.1:4111",
+  });
+
+  const runtime = new CopilotRuntime({
+    agents: {
+      // [!code highlight:7]
+      default: new MastraAgent({
+        agentId: "my-agent",
+        agent: mastraClient.getAgent("my-agent"),
+        remoteClient: mastraClient,
+        // Local demo only. Use your signed-in user's ID in a multi-user app.
+        resourceId: "local-demo-user",
+      }),
+    },
+  });
+
+  const port = Number(process.env.PORT ?? 8200);
+
+  createServer(
+    createCopilotNodeListener({
+      runtime,
+      basePath: "/api/copilotkit",
+      cors: true,
+    }),
+  ).listen(port, () => {
+    console.log(
+      `Copilot Runtime listening at http://localhost:${port}/api/copilotkit`,
+    );
+  });
+  ```
+
+  `agentId` and `getAgent()` take the agent's `id` from `/api/agents`. `resourceId` scopes Mastra's memory to one user. `cors: true` lets the app's dev server, on another port, call the runtime. The model key stays with the agent, so the runtime needs none.
+</Step>

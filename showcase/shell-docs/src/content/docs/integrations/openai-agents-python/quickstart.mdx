@@ -345,3 +345,19 @@ Before you begin, you'll need the following:
   </Step>
 
 </Steps>
+
+## Next steps
+
+The OpenAI Agents SDK runs your agent's loop: the model, its tools and its handoffs. CopilotKit puts that loop in your app, where your users can see the run, interrupt it and steer it.
+
+Add a capability:
+
+- [Generative UI](/openai-agents-python/generative-ui/tool-rendering): show your function tool calls as components while the model writes them.
+- [Human-in-the-loop](/openai-agents-python/human-in-the-loop): mark a tool `needs_approval=True`. The SDK pauses before the tool runs, and the user's answer in your app resumes the run.
+- [Shared state](/openai-agents-python/shared-state): your app's state reaches every run, and a tool that changes it streams the new value back.
+- [And more](/openai-agents-python/build-with-agents): frontend tools, app context, reasoning, attachments, A2UI and sub-agents.
+
+Go further:
+
+- [Example integration](https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/openai-agents-python): the full OpenAI Agents SDK integration, with every feature it supports.
+- Using Vue, Angular, or React Native? Pick it in the sidebar's **Frontend** menu. Its quickstart connects this agent.

@@ -418,3 +418,19 @@ return StreamingResponse(
 
 - `TOOL_SCHEMAS` is a list of `{"name", "description", "input_schema"}` dicts, one per backend tool.
 - `execute_tool(name, args, state, messages)` runs the tool and returns `(result_text, new_state_or_None)`. A new state is sent to the UI as a state snapshot.
+
+## Next steps
+
+The Claude Agent SDK runs your agent loop. CopilotKit puts it in your app, where your users can see the run, interrupt it and steer it.
+
+Add a capability:
+
+- [Generative UI](/claude-sdk-python/generative-ui/tool-rendering): show the agent's tool calls as components that update while the agent runs.
+- [Human-in-the-loop](/claude-sdk-python/human-in-the-loop): the agent calls an approval tool and waits. The user decides in your app, and the same run continues with the answer.
+- [Shared state](/claude-sdk-python/shared-state): keep the agent's state and your app's state in sync, in both directions.
+- [And more](/claude-sdk-python/build-with-agents): chat surfaces, headless UI, frontend tools and multi-agent flows.
+
+Go further:
+
+- [Live demos](https://feature-viewer.copilotkit.ai/claude-sdk-python/feature/agentic_chat): try each capability with a Claude Agent SDK agent.
+- Using Vue, Angular, or React Native? Pick it in the sidebar's **Frontend** menu. Its quickstart connects this agent.

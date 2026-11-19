@@ -780,47 +780,21 @@ Before you begin, you'll need the following:
 
 </Steps>
 
-## Deploying to AWS?
+## Next steps
 
-If you're planning to deploy your LangGraph agent to AWS Bedrock AgentCore, see the [AgentCore deploy guide](/deploy/agentcore).
+LangGraph runs your graph. CopilotKit puts it in your app, where your users can see the run, interrupt it and steer it.
 
-## What's next?
+Add a capability:
 
-Now that you have your basic agent setup, explore these advanced features:
+- [Generative UI](/langgraph/generative-ui/tool-rendering): show your nodes' tool calls and state updates as components that update while the graph runs.
+- [Human-in-the-loop](/langgraph/human-in-the-loop/useInterrupt): when a node calls `interrupt()`, show your own UI for the decision, then resume the graph with the answer.
+- [Shared state](/langgraph/shared-state): keep the graph's state object and your app's state in sync, in both directions.
+- [Frontend tools](/langgraph/frontend-tools): let the agent call tools that update your app directly.
+- [And more](/langgraph/build-with-agents): chat surfaces, headless UI and subagent flows.
 
-<Cards>
-  <Card
-    title="Implement Human in the Loop"
-    description="Allow your users and agents to collaborate together on tasks."
-    href="/human-in-the-loop"
-    icon={<UserIcon />}
-  />
-  <Card
-    title="Use Shared State"
-    description="Learn how to synchronize your agent's state with your UI's state, and vice versa."
-    href="/shared-state"
-    icon={<RepeatIcon />}
-  />
-  <Card
-    title="Add some generative UI"
-    description="Render your agent's progress and output in the UI."
-    href="/generative-ui/tool-rendering"
-    icon={<PaintbrushIcon />}
-  />
-  <Card
-    title="Setup frontend actions"
-    description="Give your agent the ability to call frontend tools, directly updating your application."
-    href="/frontend-tools"
-    icon={<WrenchIcon />}
-  />
-</Cards>
+Go further:
 
-<video
-  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/chat-example.mp4"
-  className="rounded-lg shadow-xl"
-  loop
-  playsInline
-  controls
-  autoPlay
-  muted
-/>
+- [Live demos](https://feature-viewer.copilotkit.ai/langgraph/feature/agentic_chat): try each capability with a LangGraph agent.
+- [Import LangGraph threads](/langgraph/threads-import): bring conversations from LangGraph Server, LangGraph Platform or LangSmith Deployment into [CopilotKit Intelligence](/intelligence/overview) as threads.
+- [Deploy to AWS Bedrock AgentCore](/deploy/agentcore): run your LangGraph agent on AWS.
+- Using Vue, Angular, or React Native? Pick it in the sidebar's **Frontend** menu. Its quickstart connects this agent.

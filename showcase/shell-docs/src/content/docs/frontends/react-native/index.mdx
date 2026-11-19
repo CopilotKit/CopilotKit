@@ -5,7 +5,17 @@ icon: "lucide/Smartphone"
 hideTOC: true
 ---
 
+import AgentBackends from "@/snippets/agent-backends/index.mdx";
+
 `@copilotkit/react-native` gives you CopilotKit's provider and hooks for React Native, plus optional pre-built chat components. This guide builds a fully custom chat UI with the hooks, backed by a [Copilot Runtime](/backend/copilot-runtime) endpoint on your server.
+
+<WhenAgentBackend selected={false}>
+The runtime here hosts `BuiltInAgent`, CopilotKit's own agent. To connect an agent you build with another framework, pick it in the sidebar's **Agent framework** menu. The backend steps below change to match.
+</WhenAgentBackend>
+
+<WhenAgentBackend selected>
+The runtime here connects to an agent built with the framework you picked in the sidebar. The backend steps below set up that agent.
+</WhenAgentBackend>
 
 The package has three main import surfaces: `/headless` (provider + hooks, no native peer dependencies, **1.64.0+**), the root barrel, and `/components` (the rendered chat UI). It also has the opt-in, experimental `/generative-ui`. See [Import surfaces](#import-surfaces) for what each one pulls in; this guide uses `/headless` throughout.
 
@@ -125,6 +135,7 @@ Use this prompt to set up CopilotKit in your React Native app, configure Metro a
           ```
         </Callout>
     </Step>
+    <WhenAgentBackend selected={false}>
     <Step>
         ### Create the Copilot Runtime
 
@@ -159,6 +170,10 @@ Use this prompt to set up CopilotKit in your React Native app, configure Metro a
         });
         ```
     </Step>
+    </WhenAgentBackend>
+    <WhenAgentBackend selected>
+      <AgentBackends />
+    </WhenAgentBackend>
     <Step>
         ### Wrap your app with CopilotKitProvider
 
@@ -284,12 +299,24 @@ Use this prompt to set up CopilotKit in your React Native app, configure Metro a
     <Step>
         ### Run the runtime and app
 
+        <WhenAgentBackend selected={false}>
         Start Copilot Runtime in one terminal:
 
         ```bash
         export OPENAI_API_KEY=sk-...
         npx tsx server.ts
         ```
+        </WhenAgentBackend>
+
+        <WhenAgentBackend selected>
+        Keep the agent running. In your app folder, start Copilot Runtime:
+
+        ```bash
+        npx tsx server.ts
+        ```
+
+        Check that it found your agent: `http://localhost:8200/api/copilotkit/info` lists an agent named `default`.
+        </WhenAgentBackend>
 
         Run the React Native app in another terminal:
 
@@ -325,7 +352,7 @@ Use this prompt to set up CopilotKit in your React Native app, configure Metro a
                 - **`Export namespace should be first transformed by @babel/plugin-transform-export-namespace-from`**: add the Babel plugin from [Let Metro compile `export * as`](#let-metro-compile-export--as-bare-react-native-cli), then restart Metro with `--reset-cache`.
                 - **Streaming not working**: Make sure polyfills are imported before any CopilotKit code in your entry point.
                 - **No response from the runtime**: Confirm the runtime server is running, `http://localhost:8200/api/copilotkit/info` returns the `default` agent, and the device can reach `runtimeUrl`. For physical devices, use your machine's LAN IP instead of `localhost`.
-                - **Model auth errors**: Confirm `OPENAI_API_KEY` is set in the terminal running `npx tsx server.ts`.
+                - **Model auth errors**: Confirm `OPENAI_API_KEY` is set where your agent calls the model: the terminal running `npx tsx server.ts` for `BuiltInAgent`, or your agent's own environment for an agent framework.
                 - **`Property 'ReadableStream' doesn't exist`** (or the same for `TextEncoder`, `DOMException` or `Headers`): the polyfills did not install. Before **1.70.0**, the `polyfills` barrel was published empty. The build dropped all five polyfill imports out of it, so following the setup above installed nothing and the first runtime call failed. Upgrade to the latest version, or, if you are pinned, use the [granular imports](#polyfills), which were never affected. This is the *opposite* of the conflict case below: here you have no polyfill at all, not a competing one.
                 - **Existing polyfill conflicts**: Use the granular imports instead of the barrel `polyfills` import.
             </Accordion>

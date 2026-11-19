@@ -16,8 +16,6 @@ import {
 import { whereIs } from "./live-pages";
 import type { PageIndex, PageLocation } from "./live-pages";
 import { liveSource, referenceSource } from "./live-source";
-import { frameworkOverviews } from "@/data/frameworks";
-import type { FrameworkOverviewData } from "@/data/frameworks";
 
 export { LIVE_FRAMEWORKS, scopedHref } from "./live-scope";
 
@@ -32,8 +30,7 @@ export { LIVE_FRAMEWORKS, scopedHref } from "./live-scope";
  *   /vue/mastra/frontend-tools      docs/frontends/vue/frontend-tools.mdx
  *   /slack/tools                    docs/channels/tools.mdx
  *   /backend/copilot-runtime        docs/(shared)/backend/copilot-runtime.mdx
- *   /mastra                         docs/integrations/mastra/index.mdx
- *   /google-adk                     src/data/frameworks/google-adk.ts
+ *   /mastra/quickstart              docs/integrations/mastra/quickstart.mdx
  *   /vue                            docs/frontends/vue/index.mdx
  *   /reference/v2/hooks/use-agent   reference/hooks/use-agent.mdx
  */
@@ -49,12 +46,6 @@ export interface ResolvedLivePage {
   scope: DocsScope;
   /** Path under `src/content`, the source of truth for edits. */
   contentPath: string;
-  /**
-   * A generated framework's landing (`/google-adk`), drawn from its record in
-   * `src/data/frameworks`. `page` is then the framework's quickstart, which
-   * the landing's Markdown serves.
-   */
-  overview?: FrameworkOverviewData;
   /** The page's one indexed URL (`canonicalUrl`). */
   canonical: string;
   /**
@@ -146,9 +137,8 @@ export function resolveLivePage(input: string[]): ResolvedLivePage | null {
 
   const { frontend, framework, slug } = scopeFromPath(path);
   const scope: DocsScope = { framework, frontend };
-  if (!slug && framework && frontend === "react") {
-    return frameworkLanding(framework);
-  }
+  // A framework has no landing of its own: `/mastra` redirects to its
+  // quickstart (`goneRedirect`).
   if (!slug && frontend === "react") return null;
   const at = whereIs(getPageIndex(), frontend, framework, slug);
   if (!at) return null;
@@ -181,37 +171,6 @@ function pageAt(at: PageLocation): DocPage | undefined {
   return at.kind === "frontend" || at.kind === "framework"
     ? docPage(at.slug ? `${at.folder}/${at.slug}` : at.folder)
     : docPage(at.slug);
-}
-
-/**
- * A framework's landing: its overview record (`src/data/frameworks`), else
- * its folder's `index.mdx`.
- */
-function frameworkLanding(slug: string): ResolvedLivePage | null {
-  // The built-in agent's landing is the docs home (`/built-in-agent`
-  // redirects there).
-  if (slug === ROOT_FRAMEWORK) return null;
-  const { folder } = LIVE_FRAMEWORKS[slug];
-  const scope = { framework: slug, frontend: "react" as const };
-  const canonical = `/${slug}`;
-  const overview = frameworkOverviews[slug];
-  if (overview) {
-    const quickstart =
-      docPage(`integrations/${folder}/quickstart`) ?? docPage("quickstart");
-    return quickstart
-      ? {
-          page: quickstart,
-          scope,
-          contentPath: `docs/${quickstart.path}`,
-          overview,
-          canonical,
-        }
-      : null;
-  }
-  const page = docPage(`integrations/${folder}`);
-  return page
-    ? { page, scope, contentPath: `docs/${page.path}`, canonical }
-    : null;
 }
 
 /**
@@ -426,7 +385,12 @@ const UNSCOPED_SECTIONS = new Set(["reference", "examples"]);
  */
 export function goneRedirect(path: string[]): string | null {
   const { frontend, framework, prefix, slug } = scopeFromPath(path);
-  if (!slug) return null;
+  // Frameworks had landing pages (`/mastra`); the quickstart replaced them.
+  if (!slug) {
+    return frontend === "react" && framework && framework !== ROOT_FRAMEWORK
+      ? `${prefix}/quickstart`
+      : null;
+  }
   if (prefix && UNSCOPED_SECTIONS.has(slug.split("/")[0])) return `/${slug}`;
   if (droppedKey(slug)) return dropTarget(prefix, slug);
   if (!prefix) return null;
@@ -488,7 +452,7 @@ export function liveHref(href: string | undefined, scope: DocsScope) {
 
 /**
  * Every page once, at its canonical URL (`canonicalUrl`), plus each
- * framework's landing and quickstart, each framework's own version of a
+ * framework's quickstart, each framework's own version of a
  * shared page (`variant`), and the reference. Channel guide pages are listed
  * once per channel, since each channel reads its own version. The sitemap
  * lists them all; llms-full.txt and search skip the framework versions,
@@ -522,7 +486,6 @@ export function livePages(): ResolvedLivePage[] {
     }
   }
   for (const fw of frameworks) {
-    if (fw !== ROOT_FRAMEWORK) urls.add(`/${fw}`);
     const folder = `integrations/${LIVE_FRAMEWORKS[fw].folder}`;
     for (const slug of pages.folders[folder] ?? []) {
       if (!slug) continue;
