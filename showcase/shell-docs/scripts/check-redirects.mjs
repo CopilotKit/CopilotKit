@@ -16,6 +16,8 @@
 // every method alike, but Next skips rendering the page for OPTIONS, so the
 // check doesn't wait on page compilation or depend on the page existing yet.
 
+import { existsSync } from "node:fs";
+
 const BASE_URL = process.env.BASE_URL ?? "http://localhost:3003";
 const TIMEOUT_MS = Number(process.env.TIMEOUT_MS ?? 30_000);
 const CONCURRENCY = 8;
@@ -589,6 +591,53 @@ for (const path of [
 ]) {
   none(path);
 }
+
+// --- next.config: CopilotKit 2.0 pages ------------------------------------
+// Until 2.0 ships, a build without one of these pages sends it to the 2.0
+// docs (307). A build that has the page (the 2.0.0 branch) serves it.
+const COPILOTKIT_2_DOCS = "https://next.docs.copilotkit.ai";
+const DOCS_CONTENT = new URL("../src/content/docs/", import.meta.url);
+for (const slug of [
+  "whats-new-2.0",
+  "migrate/agents-2.0",
+  "migrate/chat-2.0",
+  "migrate/generative-ui-2.0",
+  "migrate/markdown-renderer",
+  "migrate/providers-2.0",
+  "migrate/removed-apis-2.0",
+  "migrate/runtime-2.0",
+  "migrate/shared-2.0",
+  "markdown-rendering",
+]) {
+  const hasPage = [`${slug}.mdx`, `${slug}/index.mdx`].some((file) =>
+    existsSync(new URL(file, DOCS_CONTENT)),
+  );
+  for (const suffix of SUFFIXES) {
+    if (hasPage) none(`/${slug}${suffix}`);
+    else {
+      redirect(
+        `/${slug}${suffix}`,
+        `${COPILOTKIT_2_DOCS}/${slug}${suffix}`,
+        TEMPORARY,
+      );
+    }
+  }
+}
+
+// --- next.config: chat message components under their 1.x names ----------
+withSuffixes(
+  [
+    [
+      "/reference/v2/components/AssistantMessage",
+      "/reference/v2/components/CopilotChatAssistantMessage",
+    ],
+    [
+      "/reference/v2/components/UserMessage",
+      "/reference/v2/components/CopilotChatUserMessage",
+    ],
+  ],
+  PERMANENT,
+);
 
 // --- v2's own routes: never redirected -----------------------------------
 for (const path of [
