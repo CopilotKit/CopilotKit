@@ -468,7 +468,7 @@ export interface CopilotKitRemoval<
  * a developer or a coding agent what to change:
  *
  * `"useCopilotAction" was removed in CopilotKit 2.0. Use useFrontendTool from
- * @copilotkit/react-core. Run \`npx codemod @copilotkit/v2-migration\` to
+ * @copilotkit/react-core. Run \`npx copilotkit@latest migrate\` to
  * update your code. See https://docs.copilotkit.ai/migrate/v2#hook-mapping`
  *
  * When each part is a string literal, the return type is the message itself,
@@ -481,7 +481,7 @@ export function removedApiMessage<
   Use extends string,
   Docs extends CopilotKitDocsSection,
 >({ what, use, docs }: CopilotKitRemoval<What, Use, Docs>) {
-  return `${what} was removed in CopilotKit 2.0. ${use} Run \`npx codemod @copilotkit/v2-migration\` to update your code. See ${BASE_URL}${docs}` as const;
+  return `${what} was removed in CopilotKit 2.0. ${use} Run \`npx copilotkit@latest migrate\` to update your code. See ${BASE_URL}${docs}` as const;
 }
 
 /**

@@ -87,7 +87,7 @@ describe("ɵcheckToolParameters", () => {
         name: "CopilotKitRemovedApiError",
         code: "REMOVED_API",
         message:
-          'A Parameter[] list in "parameters" of useFrontendTool was removed in CopilotKit 2.0. Pass a Zod 4 / Standard Schema instead, for example parameters: z.object({ name: z.string() }). Run `npx codemod @copilotkit/v2-migration` to update your code. See https://docs.copilotkit.ai/migrate/removed-apis-2.0#tool-parameters-as-a-list',
+          'A Parameter[] list in "parameters" of useFrontendTool was removed in CopilotKit 2.0. Pass a Zod 4 / Standard Schema instead, for example parameters: z.object({ name: z.string() }). Run `npx copilotkit@latest migrate` to update your code. See https://docs.copilotkit.ai/migrate/removed-apis-2.0#tool-parameters-as-a-list',
       }),
     );
   });

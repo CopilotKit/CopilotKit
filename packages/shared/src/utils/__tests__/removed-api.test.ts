@@ -15,10 +15,10 @@ import {
 import type { RemovedOption } from "../removed-api";
 
 const SERVICE_ADAPTER_MESSAGE =
-  'The "serviceAdapter" option of CopilotKitRuntime was removed in CopilotKit 2.0. Pass a model to a BuiltInAgent. Run `npx codemod @copilotkit/v2-migration` to update your code. See https://docs.copilotkit.ai/migrate/v2#update-the-runtime';
+  'The "serviceAdapter" option of CopilotKitRuntime was removed in CopilotKit 2.0. Pass a model to a BuiltInAgent. Run `npx copilotkit@latest migrate` to update your code. See https://docs.copilotkit.ai/migrate/v2#update-the-runtime';
 
 const USE_COPILOT_ACTION_MESSAGE =
-  '"useCopilotAction" was removed in CopilotKit 2.0. Use useFrontendTool from @copilotkit/react-core. Run `npx codemod @copilotkit/v2-migration` to update your code. See https://docs.copilotkit.ai/migrate/v2#hook-mapping';
+  '"useCopilotAction" was removed in CopilotKit 2.0. Use useFrontendTool from @copilotkit/react-core. Run `npx copilotkit@latest migrate` to update your code. See https://docs.copilotkit.ai/migrate/v2#hook-mapping';
 
 /** Runs `run` and returns what it threw. */
 function thrownBy(run: () => unknown) {
@@ -132,7 +132,7 @@ describe("checkRemovedOptions", () => {
     expect(error).toBeInstanceOf(CopilotKitRemovedApiError);
     expect(error).toHaveProperty(
       "message",
-      'The "threadId" prop of CopilotKit was removed in CopilotKit 2.0. Pass threadId to CopilotChat. Run `npx codemod @copilotkit/v2-migration` to update your code. See https://docs.copilotkit.ai/migrate/removed-apis-2.0#provider-props',
+      'The "threadId" prop of CopilotKit was removed in CopilotKit 2.0. Pass threadId to CopilotChat. Run `npx copilotkit@latest migrate` to update your code. See https://docs.copilotkit.ai/migrate/removed-apis-2.0#provider-props',
     );
   });
 
@@ -145,7 +145,7 @@ describe("checkRemovedOptions", () => {
 
     expect(warn.mock.calls).toEqual([
       [
-        'The "textToSpeechUrl" prop of CopilotKit was removed in CopilotKit 2.0. Voice goes through the runtime. Run `npx codemod @copilotkit/v2-migration` to update your code. See https://docs.copilotkit.ai/migrate/removed-apis-2.0#provider-props',
+        'The "textToSpeechUrl" prop of CopilotKit was removed in CopilotKit 2.0. Voice goes through the runtime. Run `npx copilotkit@latest migrate` to update your code. See https://docs.copilotkit.ai/migrate/removed-apis-2.0#provider-props',
       ],
     ]);
   });

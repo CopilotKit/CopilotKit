@@ -58,7 +58,7 @@ describe("CopilotKitProvider with the props of the 1.x <CopilotKit>", () => {
 
     expect(screen.getByText("chat").textContent).toBe("chat");
     expect(removalWarnings(warn)).toEqual([
-      'The "textToSpeechUrl" prop of CopilotKit was removed in CopilotKit 2.0. Delete it. Voice input goes through the transcription service of the runtime. Run `npx codemod @copilotkit/v2-migration` to update your code. See https://docs.copilotkit.ai/migrate/removed-apis-2.0#provider-props',
+      'The "textToSpeechUrl" prop of CopilotKit was removed in CopilotKit 2.0. Delete it. Voice input goes through the transcription service of the runtime. Run `npx copilotkit@latest migrate` to update your code. See https://docs.copilotkit.ai/migrate/removed-apis-2.0#provider-props',
     ]);
   });
 

@@ -42,7 +42,7 @@ describe("CopilotKitRuntime with the options of the 1.x CopilotRuntime", () => {
         }),
     ).toThrow(
       removalError(
-        'The "serviceAdapter" option of CopilotKitRuntime was removed in CopilotKit 2.0. Run the model in a BuiltInAgent from @copilotkit/runtime/agent, and pass it in agents, for example agents: { default: new BuiltInAgent({ model: openaiText("gpt-5") }) }. Run `npx codemod @copilotkit/v2-migration` to update your code. See https://docs.copilotkit.ai/migrate/removed-apis-2.0#runtime-options',
+        'The "serviceAdapter" option of CopilotKitRuntime was removed in CopilotKit 2.0. Run the model in a BuiltInAgent from @copilotkit/runtime/agent, and pass it in agents, for example agents: { default: new BuiltInAgent({ model: openaiText("gpt-5") }) }. Run `npx copilotkit@latest migrate` to update your code. See https://docs.copilotkit.ai/migrate/removed-apis-2.0#runtime-options',
       ),
     );
   });

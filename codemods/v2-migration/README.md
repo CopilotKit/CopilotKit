@@ -1,18 +1,20 @@
 # @copilotkit/v2-migration
 
-Codemod that moves a CopilotKit app from v1 to 2.0. Published to the [Codemod registry](https://app.codemod.com/registry), not npm.
+Codemod that moves a CopilotKit app from v1 to 2.0. The CopilotKit CLI runs it. It is not published to npm or to the Codemod registry.
 
 ## Usage
 
 Run it in the root of your app, on a clean git tree:
 
 ```bash
-npx codemod @copilotkit/v2-migration
+npx copilotkit@latest migrate
 ```
 
-On a tree with uncommitted changes the CLI asks before it runs. In CI or any other non-interactive shell it waits for that answer forever, so pass `--allow-dirty` there.
+The CLI downloads this folder at the commit it pins, and runs it with the Codemod engine. It stops on a tree with uncommitted changes, or outside git. To run anyway, pass `--allow-dirty`. `--dry-run` lists the files the codemod would change.
 
-Then finish with the skill it installs, or by hand: search for `TODO(copilotkit-2.0)`.
+Then finish with the skill the CLI installs (`copilotkit-v2-migration`, in `.agents/skills` and `.claude/skills`), or by hand: search for `TODO(copilotkit-2.0)`.
+
+A fix to this codemod reaches users when the CLI pins a commit that has the fix, and the CLI is released.
 
 ## What it does
 
@@ -61,7 +63,7 @@ Then finish with the skill it installs, or by hand: search for `TODO(copilotkit-
 - **A2UI v0.9 to generative UI.** `createCatalog(definitions, renderers, options)` from `@copilotkit/a2ui-renderer`, and `createAngularCatalog` from `@copilotkit/angular/a2ui`, become `createGenerativeUI({ id, extends, components })` from the framework's `/generative-ui` entry: definitions and renderers merge by name into one `{ component, description, props }` entry, `catalogId` becomes `id` (the v0.9 default id when there was none), and `includeBasicCatalog: true` becomes `extends: [standardUI]`. A component with the name of a standard component replaced the basic one in v0.9; the catalog then extends `standardUI.omit([...])` without those names, because `createGenerativeUI` throws when a name comes from two places. A definitions or renderers object in the same file that nothing else uses is inlined; one used elsewhere, or imported, is read by name (`...definitions.Card`, `renderers.Card`). When both are imported from modules of the app (`./definitions`, `./renderers`), the codemod reads those modules for the component names. In a definitions object (typed `CatalogDefinitions`, or passed to `createCatalog`), `satisfies CatalogDefinitions` is deleted, and the v0.9 conventions get their 2.0 form: `children: z.array(z.string())` becomes `childList()`, `child: z.string()` becomes `child()` (a `.describe()` text becomes its description), and an `action` prop whose schema is not a plain value moves to `events: { action: { parameters: z.object({}) } }`, which the component calls as a function. On a `Button` the event is `onClick`, because the runtime turns `Button.action` from a v0.9 agent into `onClick`. In a renderers module, the `CatalogRenderers` type is deleted and each renderer gets the TODO, and so does each renderer typed with `RendererProps`. A top-level `const` that holds a child reference (`const childrenRef = z.array(z.string())`) and that only `children` or `child` props use becomes `childList()` or `child()`. Imports of the removed v0.9 chat renderer (`createA2UIMessageRenderer`, `A2UITheme`, ...), code that reads the `"a2ui-surface"` activity, an `A2UIMiddleware` the app adds itself (2.0's runtime adds one), and `@a2ui/*` renderer imports get a TODO. A definitions module that does not import the v0.9 client is found by its v0.9 shapes (a union with a `{ path }` binding, or a `{ componentId, path }` child-list template), and gets the same conversion. In these files, a one-argument `z.record(value)` (Zod 3) becomes `z.record(z.string(), value)`, because 2.0 reads the schemas with Zod 4. The v0.9 `.describe("REF:<ref>|<text>")` markers are deleted, and the text after `|` stays as the description. A marker that names `ComponentId`, `ChildList` or `Action` makes the prop a `child()`, a `childList()` or an event, whatever its name. Each component gets a TODO, because its body must change: it gets plain resolved props, slots for children, and events or functions instead of `dispatch`. A component without a `description` gets a second TODO. In files that import the v0.9 client, `DynamicStringSchema`, `DynamicNumberSchema`, `DynamicBooleanSchema` and `DynamicStringListSchema` become `z.string()`, `z.number()`, `z.boolean()` and `z.array(z.string())` (and the `Dynamic*` types become plain types), `ChildListSchema` becomes `childList()`, a union with a `{ path }` binding object becomes its plain type, and `zod-v3` imports become `zod`. On the provider, `a2ui={{ catalog }}` becomes `generativeUI={{ ui: catalog }}`, and an `a2ui` with no catalog or the basic catalog is deleted (2.0 uses the standard catalog). In Angular, `a2ui: { catalog }` leaves `provideCopilotKit` and `provideGenerativeUI({ ui: catalog })` is added next to it. On `new CopilotRuntime(...)`, `a2ui: { ... }` becomes `generativeUI: { a2uiVersion: "0.9", ... }` (merged into an existing `generativeUI`), and `a2ui: { enabled: false }` is deleted. The other provider options (`theme`, `onAction`, ...), a catalog with a spread or unknown options, `ActionSchema`, `DataBindingSchema`, and an `a2ui` value the codemod cannot read get a TODO. Imports of the v0.9 client that nothing uses any more are deleted, and each one that is left (`A2UIRenderer`, `useA2UIContext`, the removed deprecations `createA2UICatalog`, `useA2UIStore`, ...) gets a TODO that names the generative UI replacement.
 - **Angular text box.** In a class that extends `CopilotChatTextarea` from `@copilotkit/angular`, calls of `super.ngAfterViewInit()` are deleted and `override` is removed from `ngAfterViewInit`. The 2.0 text box measures its height after each render, so it has no `ngAfterViewInit()`. See [Chat UI in 2.0](https://docs.copilotkit.ai/migrate/chat-2.0#angular-text-box).
 - **Everything else** gets a `// TODO(copilotkit-2.0):` comment that names the 2.0 replacement and links its docs. The codemod does not rewrite a call whose arguments it cannot read: a spread, a catch-all `"*"`, or `parameters` that are not a literal list keep the TODO, because only you or an agent can write that schema.
-- **A skill.** The last step installs an agent skill that resolves the TODOs, updates `package.json`, and runs your build.
+- **A skill.** `copilotkit migrate` then installs an agent skill that resolves the TODOs, updates `package.json`, and runs your build. The workflow's own skill step needs the Codemod registry, so the CLI skips it and installs the skill itself.
 
 ## Runtime adapters in 2.0
 
@@ -149,6 +151,12 @@ pnpm nx run @copilotkit/v2-migration:validate     # the codemod package shape
 ```
 
 The nx `test` target does not count `scripts/` and `tests/` as inputs, so `nx run` can show an old cached result after you change them. `pnpm --filter` always runs the fixtures.
+
+To run your local copy on an app the way users run it, point the CLI at this folder:
+
+```bash
+COPILOTKIT_CODEMOD_DIR="$PWD/codemods/v2-migration" npx copilotkit@latest migrate --dir <app>
+```
 
 Each fixture is a folder with `input` and `expected`. In `tests/vue` they are `input.html` and `expected.html`, because the test runner names the files by the extension of the grammar (`-l html`). To refresh `expected` after a change, run `codemod jssg test` with `-u`, then read every diff before you commit it.
 
