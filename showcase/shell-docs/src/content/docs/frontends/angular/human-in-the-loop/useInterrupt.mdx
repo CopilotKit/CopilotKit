@@ -9,6 +9,8 @@ When the backend agent pauses for input, `injectInterrupt` gives you a typed
 controller for the pending decision. For the default controller on the agent
 store, see [Headless Interrupts](/angular/human-in-the-loop/headless).
 
+<WhenAgentBackend selected={false}>
+
 <Callout type="info" title="Before you start: an agent that interrupts">
   You need an agent that pauses with an AG-UI interrupt, for example a LangGraph
   agent that calls `interrupt()`, or a `BuiltInAgent` factory that calls
@@ -16,6 +18,18 @@ store, see [Headless Interrupts](/angular/human-in-the-loop/headless).
   `<app-interrupt-panel />` next to a `<copilot-chat />` for the same agent, so
   a chat message can start the run.
 </Callout>
+
+</WhenAgentBackend>
+
+<WhenAgentBackend selected>
+
+<Callout type="info" title="Before you start: an agent that interrupts">
+  You need an agent that pauses with an AG-UI interrupt, for example a LangGraph
+  agent that calls `interrupt()`. Place `<app-interrupt-panel />` next to a
+  `<copilot-chat />` for the same agent, so a chat message can start the run.
+</Callout>
+
+</WhenAgentBackend>
 
 ## Handle an interrupt with a typed controller
 

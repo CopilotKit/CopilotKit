@@ -26,22 +26,15 @@ const ONBOARDING_PROMPT_ORIGIN = "https://copilotkit.ai";
 const OPENBOT_SITE_URL = "https://open.bot";
 const OPENBOT_SOURCE_URL = "https://github.com/CopilotKit/OpenBot";
 
-/** Every visible external framework's overview and quickstart, in registry order. */
+/** Every visible external framework's quickstart, in registry order. */
 function curatedFrameworkPages(): CuratedPage[] {
   return getIntegrations()
     .filter(({ slug }) => slug !== ROOT_FRAMEWORK && hasDocs(slug))
-    .flatMap(({ slug, name }) => [
-      {
-        url: slug,
-        title: `${name} Integration`,
-        description: `Explore ${name}-specific capabilities, examples, and guides for connecting your existing agent to CopilotKit.`,
-      },
-      {
-        url: `${slug}/quickstart`,
-        title: `${name} Quickstart`,
-        description: `Connect your ${name} backend to CopilotKit using the setup instructions for this framework.`,
-      },
-    ]);
+    .map(({ slug, name }) => ({
+      url: `${slug}/quickstart`,
+      title: `${name} Quickstart`,
+      description: `Connect your ${name} backend to CopilotKit using the setup instructions for this framework.`,
+    }));
 }
 
 /**
@@ -306,7 +299,7 @@ export function renderLlmsIndex(baseUrl: string): string {
     "",
     "## How to read these docs",
     "",
-    `- **Connect an existing app and agent:** Read your framework's overview and quickstart below together with [Architecture](${baseUrl}/concepts/architecture) and the relevant frontend guide.`,
+    `- **Connect an existing app and agent:** Read your framework's quickstart below together with [Architecture](${baseUrl}/concepts/architecture) and the relevant frontend guide.`,
     `- **Build an interaction:** Read [Chat UI](${baseUrl}/agentic-chat-ui), [Generative UI](${baseUrl}/concepts/generative-ui-overview), and [Human-in-the-Loop](${baseUrl}/human-in-the-loop) together, then use your framework's implementation guides.`,
     `- **Keep conversation history:** Read [AG-UI Streams](${baseUrl}/AG-UI-Streams) and [Thread Lifecycle](${baseUrl}/threads-lifecycle) together; keep your existing thread provider or use CopilotKit's built-in thread store. To layer AG-UI Streams and Automatic Learning onto LangChain/LangGraph, Google ADK, or Mastra without migrating your stack, read [Add AG-UI Streams to Existing Threads](${baseUrl}/threads-import) and the available framework guides below to add Intelligence and optionally include earlier history, with supported sources and source-specific limits. Copying historical conversations does not establish ongoing database replication; configure future runs through CopilotKit separately.`,
     `- **Evaluate Intelligence:** Read [Open source vs Intelligence](${baseUrl}/concepts/oss-vs-enterprise) with the [Intelligence overview](${baseUrl}/intelligence/overview), then follow the capability and deployment guides relevant to your project.`,
@@ -322,7 +315,7 @@ export function renderLlmsIndex(baseUrl: string): string {
     out.push(
       "## Use your existing agent framework",
       "",
-      "If the user already has an agent backend, start with its integration and quickstart below, then follow that framework's guides for tools, generative UI, human-in-the-loop, state, and threads. CopilotKit works with these backends through AG-UI; adopting the built-in agent is not required. Bare root implementation guides can describe CopilotKit's built-in agent and should not replace framework-specific guidance.",
+      "If the user already has an agent backend, start with its quickstart below, then follow that framework's guides for tools, generative UI, human-in-the-loop, state, and threads. CopilotKit works with these backends through AG-UI; adopting the built-in agent is not required. Bare root implementation guides can describe CopilotKit's built-in agent and should not replace framework-specific guidance.",
       "",
     );
     for (const page of frameworkPages) {

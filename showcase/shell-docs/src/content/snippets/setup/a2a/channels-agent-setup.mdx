@@ -1,0 +1,34 @@
+Follow the [A2A quickstart](/a2a/quickstart) to configure your agent. Keep its
+`npm run dev` process running. It serves the A2A agent on
+`http://localhost:10002`.
+
+Point the Channels process at the agent:
+
+```dotenv title=".env"
+AGENT_URL=http://localhost:10002
+```
+
+Install the A2A adapter and the A2A client in the Channels process:
+
+```bash title="Terminal"
+npm install @ag-ui/a2a @a2a-js/sdk@0.2
+```
+
+`@a2a-js/sdk` must be the same version that `@ag-ui/a2a` uses. Run
+`npm ls @a2a-js/sdk`. The top-level copy must be the version that
+`@ag-ui/a2a` lists as `deduped`.
+
+Create a new A2A adapter for every channel thread:
+
+```ts title="agent.ts"
+import { A2AClient } from "@a2a-js/sdk/client";
+import { A2AAgent } from "@ag-ui/a2a";
+
+export function makeAgent(threadId: string) {
+  const agent = new A2AAgent({
+    a2aClient: new A2AClient(process.env.AGENT_URL!),
+  });
+  agent.threadId = threadId;
+  return agent;
+}
+```

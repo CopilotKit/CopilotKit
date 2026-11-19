@@ -1,0 +1,120 @@
+{/*
+  The CrewAI Flows backend for the Vue, Angular and React Native
+  quickstarts (`/vue/crewai-crews` and so on), picked by `index.mdx`.
+  The page around it already created the app and installed
+  `@copilotkit/runtime` and `tsx`. Its next steps start `npx tsx server.ts`
+  from the app folder, so the agent here must be running by then.
+*/}
+
+<Step>
+  ### Create your CrewAI agent
+
+  You need Python 3.10 to 3.13, [`uv`](https://docs.astral.sh/uv/) and an OpenAI API key. The agent gets its own folder next to your app. From your app folder:
+
+  ```bash
+  cd ..
+  uv init my-agent --python ">=3.10,<3.14"
+  cd my-agent
+  uv add "crewai>=1.15.11,<2" ag-ui-crewai litellm fastapi uvicorn
+  ```
+
+  CrewAI does not support Python 3.14 yet, so `--python` keeps the project on 3.10 to 3.13. `ag-ui-crewai` serves a CrewAI Flow over AG-UI, the protocol that Copilot Runtime speaks.
+
+  Replace the contents of `main.py` with a small Flow. If you already have a Flow, keep it and use this as a reference:
+
+  ```python title="main.py"
+  from crewai.flow.flow import Flow, start
+  from fastapi import FastAPI
+  from litellm import acompletion
+  from ag_ui_crewai import (
+      CopilotKitState,
+      add_crewai_flow_fastapi_endpoint,
+      copilotkit_stream,
+  )
+
+
+  class ChatFlow(Flow[CopilotKitState]):
+      @start()
+      async def chat(self) -> None:
+          response = await copilotkit_stream(
+              await acompletion(
+                  model="openai/gpt-6-luna",
+                  messages=[
+                      {"role": "system", "content": "You are a helpful assistant."},
+                      *self.state.messages,
+                  ],
+                  tools=[*self.state.copilotkit.actions],
+                  stream=True,
+              )
+          )
+          self.state.messages.append(response.choices[0].message)
+
+
+  app = FastAPI()
+  add_crewai_flow_fastapi_endpoint(app, ChatFlow(), "/")
+  ```
+
+  A Flow replies in the chat only through `copilotkit_stream`. Appending the reply to `self.state.messages` keeps it after the run ends. `self.state.copilotkit.actions` holds the frontend tools of your app, so the model can call them.
+
+  Put your OpenAI key in `.env`:
+
+  ```plaintext title=".env"
+  OPENAI_API_KEY=your_openai_api_key
+  ```
+</Step>
+
+<Step>
+  ### Start the agent
+
+  ```bash
+  uv run --env-file .env uvicorn main:app --port 8000
+  ```
+
+  Keep this terminal open. The agent listens on `http://127.0.0.1:8000`. `--env-file .env` loads `OPENAI_API_KEY` into the agent.
+</Step>
+
+<Step>
+  ### Create the Copilot Runtime
+
+  Open a new terminal in your app folder. The runtime reaches the agent with `HttpAgent` from `@ag-ui/client`:
+
+  ```bash
+  npm install @ag-ui/client
+  ```
+
+  `@ag-ui/client` must be the same version that `@copilotkit/runtime` uses. Run `npm ls @ag-ui/client`. The top-level copy must be the version that `@copilotkit/runtime` lists as `deduped`.
+
+  Add `server.ts`, a small Node server that hosts Copilot Runtime at `/api/copilotkit` and registers your Flow as the `default` agent:
+
+  ```ts title="server.ts"
+  import { createServer } from "node:http";
+  import { HttpAgent } from "@ag-ui/client";
+  import { CopilotRuntime } from "@copilotkit/runtime/v2";
+  import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
+
+  const runtime = new CopilotRuntime({
+    agents: {
+      // [!code highlight:3]
+      default: new HttpAgent({
+        url: process.env.AGENT_URL ?? "http://127.0.0.1:8000/",
+      }),
+    },
+  });
+
+  const port = Number(process.env.PORT ?? 8200);
+
+  createServer(
+    createCopilotNodeListener({
+      runtime,
+      basePath: "/api/copilotkit",
+      cors: true,
+    }),
+  ).listen(port, () => {
+    console.log(
+      `Copilot Runtime listening at http://localhost:${port}/api/copilotkit`,
+    );
+  });
+  ```
+
+  `cors: true` lets the app's dev server, on another port, call the runtime. The model key stays with the agent, so the runtime needs none.
+</Step>

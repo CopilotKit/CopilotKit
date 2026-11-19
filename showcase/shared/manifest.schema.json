@@ -83,7 +83,7 @@
       "type": "string",
       "enum": ["generated", "authored", "hidden"],
       "default": "generated",
-      "description": "How shell-docs serves this framework's docs pages: 'generated' = data-driven FrameworkOverview + agnostic root MDX (current behavior, kept for langgraph-* and google-adk). 'authored' = render the per-framework MDX tree under content/docs/integrations/<docsFolder>/ with its own sidebar. 'hidden' = exclude from the docs site (no framework page, no switcher entry). Defaults to 'generated' when omitted."
+      "description": "How shell-docs serves this framework's docs pages: 'generated' = the agnostic root MDX, filled in for the framework from the showcase, plus the framework's quickstart under content/docs/integrations/<docsFolder>/. 'authored' = render the per-framework MDX tree under content/docs/integrations/<docsFolder>/ with its own sidebar. 'hidden' = exclude from the docs site (no framework page, no switcher entry). Defaults to 'generated' when omitted."
     },
     "sort_order": {
       "type": "integer",

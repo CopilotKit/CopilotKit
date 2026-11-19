@@ -26,7 +26,6 @@ import {
   searchEntries,
 } from "./live-inventory";
 import { queryTerms, rankResults } from "./search-rank";
-import type { FrameworkOverviewData } from "@/data/frameworks";
 import { mapLimit } from "./map-limit";
 
 // Orama search over the live docs (each page once, at an unscoped live URL;
@@ -49,11 +48,7 @@ async function buildIndexes(): Promise<AdvancedIndex[]> {
     8,
     async ({ url, live, frontends }) => {
       try {
-        // A generated framework landing (`/google-adk`) is its record, not
-        // the quickstart page behind it, which is indexed on its own.
-        const structuredData = live.overview
-          ? overviewText(live.overview)
-          : (await live.page.data.load()).structuredData;
+        const { structuredData } = await live.page.data.load();
         return {
           id: url,
           url,
@@ -61,7 +56,7 @@ async function buildIndexes(): Promise<AdvancedIndex[]> {
           // (`/api/search`); a page is there for every framework.
           tag: [...frontends, ...ALL_FRAMEWORK_TAGS],
           title: entryTitle(live),
-          description: live.overview?.subheader ?? live.page.data.description,
+          description: live.page.data.description,
           breadcrumbs:
             frameworkCrumb(live.scope.framework) ?? crumbs.get(live.page.url),
           structuredData,
@@ -110,23 +105,6 @@ const ALL_FRAMEWORK_TAGS = [
     ...Object.keys(LIVE_FRAMEWORKS).map(frameworkTag),
   ]),
 ];
-
-/** A framework landing's record as search text: its tagline and what it supports. */
-function overviewText(overview: FrameworkOverviewData): StructuredData {
-  const lines = [
-    overview.subheader,
-    ...(overview.supportedFeatures ?? []).flatMap((f) => [
-      f.title,
-      f.description,
-    ]),
-  ];
-  return {
-    headings: [],
-    contents: lines
-      .filter((line): line is string => Boolean(line))
-      .map((content) => ({ heading: undefined, content })),
-  };
-}
 
 /**
  * Setup MDX as search text: its headings and prose, one entry per line,
@@ -299,8 +277,8 @@ function scopedUrl(url: string, scope: DocsScope): string {
   const page = own.slug ? `/${own.slug}` : "";
   // A frontend's own page stays on that frontend.
   if (ownFrontend) return firstServed([`${fe}${fw}${page}`]) ?? url;
-  // A framework's landing stays one: `/vue/mastra` is Vue's own page.
-  if (!page) return (fw && firstServed([fw])) || url;
+  // A framework's root (`/mastra`) is its quickstart.
+  if (!page) return (fw && firstServed([`${fw}/quickstart`])) || url;
   return firstServed([`${fe}${fw}${page}`, `${fw}${page}`]) ?? url;
 }
 

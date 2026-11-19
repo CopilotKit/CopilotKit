@@ -101,7 +101,8 @@ function FrameworkList({
 
 /**
  * `prefix` keeps the URL's frontend (`/vue`); `has` says whether the
- * framework has the page, and when it doesn't, its home opens instead.
+ * framework has the page, and when it doesn't, its quickstart opens instead
+ * (on another frontend, that frontend's home, which is its quickstart).
  */
 function useFrameworkNav(
   variant: VariantId,
@@ -111,7 +112,9 @@ function useFrameworkNav(
 ) {
   const router = useRouter();
   return (id: string) =>
-    router.push(`${prefix}${frameworkHref(variant, id, has(id) ? slug : "")}`);
+    router.push(
+      `${prefix}${frameworkHref(variant, id, has(id) ? slug : prefix ? "" : "quickstart")}`,
+    );
 }
 
 /** A framework menu trigger. `look` changes only the trigger. */
@@ -416,7 +419,7 @@ export function DirectoryCards({ variant }: { variant: VariantId }) {
       {FRAMEWORKS.map((f) => (
         <Link
           key={f.id}
-          href={frameworkHref(variant, f.id)}
+          href={frameworkHref(variant, f.id, "quickstart")}
           className="group relative flex flex-col gap-3 overflow-hidden rounded-2xl border bg-fd-card p-4 transition-colors hover:bg-accent"
         >
           <span className="flex items-center gap-3">

@@ -60,9 +60,8 @@ const getDocsFolder = (slug: string) => DOCS_FOLDER_OVERRIDES[slug] ?? slug;
 
 // Mirror DOCS_ONLY_FRAMEWORK_MODES from shell-docs/src/components/docs-mdx/data.ts.
 // These slugs have no `showcase/integrations/<slug>/manifest.yaml` (so
-// they never appear in `registry.integrations`) but DO have a
-// `frameworkOverviews` entry that the route handler serves at
-// `/<slug>`. The probe iterates `registry.integrations` for normal
+// they never appear in `registry.integrations`) but DO have docs under
+// `/<slug>/...`. The probe iterates `registry.integrations` for normal
 // frameworks; without this fallback list it would silently skip
 // every URL under these three slugs, including their framework root.
 const DOCS_ONLY_FRAMEWORKS = ["a2a", "agent-spec", "deepagents"] as const;
@@ -105,8 +104,8 @@ function urlsForFramework(slug: string, docsFolder: string): string[] {
   const dir = path.join(CONTENT_DIR, "integrations", docsFolder);
   const out = new Set<string>([`/${slug}`, ...docsLinkUrlsForFramework(slug)]);
   if (!fs.existsSync(dir)) {
-    // No content folder at all — only the framework root URL is reachable
-    // (Tier 1 data-driven; will render via FrameworkOverview record).
+    // No content folder at all: only the framework root URL is probed
+    // (it redirects to the framework's quickstart).
     return [...out].sort();
   }
   const files = glob.sync("**/*.mdx", { cwd: dir }).sort();

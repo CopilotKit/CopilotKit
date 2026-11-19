@@ -1,0 +1,147 @@
+{/*
+  The Claude Agent SDK (Python) backend for the Vue, Angular and React
+  Native quickstarts (`/vue/claude-sdk-python` and so on), picked by
+  `index.mdx`. The page around it already created the app and installed
+  `@copilotkit/runtime` and `tsx`. Its next steps start `npx tsx server.ts`
+  from the app folder, so the agent here must be running by then.
+*/}
+
+<Step>
+  ### Create your Claude Agent SDK agent
+
+  You need Python 3.12 or 3.13, [`uv`](https://docs.astral.sh/uv/) and an Anthropic API key. The agent gets its own folder next to your app. From your app folder:
+
+  ```bash
+  cd ..
+  uv init my-agent
+  cd my-agent
+  uv add claude-agent-sdk ag-ui-claude-sdk ag-ui-protocol anthropic fastapi uvicorn python-dotenv
+  ```
+
+  Replace the contents of `main.py` with this file. It receives AG-UI run input, passes it to `ClaudeAgentAdapter`, and streams AG-UI events back to the runtime. If you already have a Claude Agent SDK agent, pass its `ClaudeAgentOptions` values (`system_prompt`, `mcp_servers`, `allowed_tools`, `model`) in `options`:
+
+  ```python title="main.py"
+  import logging
+  import os
+  from collections.abc import AsyncIterator
+
+  from ag_ui.core import EventType, RunAgentInput, RunErrorEvent
+  from ag_ui.encoder import EventEncoder
+  from ag_ui_claude_sdk import ClaudeAgentAdapter
+  from dotenv import load_dotenv
+  from fastapi import FastAPI
+  from fastapi.responses import StreamingResponse
+
+  load_dotenv()
+
+  app = FastAPI(title="Claude Agent SDK Agent")
+  logger = logging.getLogger("claude_agent")
+
+  # Build the adapter once, at module scope. It keeps one worker (and its
+  # Claude SDK subprocess) per thread, so one adapter per request leaks them.
+  adapter = ClaudeAgentAdapter(
+      name="claude_agent",
+      options={
+          "model": os.getenv("ANTHROPIC_MODEL", "claude-opus-4-8"),
+          "system_prompt": "You are a helpful assistant embedded in a CopilotKit app.",
+          "tools": [],
+          "permission_mode": "dontAsk",
+          "max_turns": 10,
+      },
+  )
+
+  @app.get("/health")
+  async def health() -> dict[str, str]:
+      return {"status": "ok"}
+
+  @app.post("/")
+  async def run_agent(input_data: RunAgentInput) -> StreamingResponse:
+      encoder = EventEncoder()
+
+      async def event_stream() -> AsyncIterator[str]:
+          try:
+              async for event in adapter.run(input_data):
+                  yield encoder.encode(event)
+          except Exception as error:
+              # Send a RUN_ERROR to the client and log the full detail here.
+              logger.exception("Claude agent run failed")
+              yield encoder.encode(
+                  RunErrorEvent(
+                      type=EventType.RUN_ERROR,
+                      message=str(error),
+                  )
+              )
+
+      return StreamingResponse(
+          event_stream(),
+          media_type="text/event-stream",
+          headers={
+              "Cache-Control": "no-cache",
+              "X-Accel-Buffering": "no",
+          },
+      )
+  ```
+
+  Put your Anthropic key and the model in `.env`:
+
+  ```plaintext title=".env"
+  ANTHROPIC_API_KEY=your_anthropic_api_key
+  ANTHROPIC_MODEL=claude-opus-4-8
+  ```
+</Step>
+
+<Step>
+  ### Start the agent
+
+  ```bash
+  uv run uvicorn main:app --port 8000
+  ```
+
+  Keep this terminal open. The agent listens on `http://localhost:8000`. To check it, open `http://localhost:8000/health`. The response is `{"status":"ok"}`.
+</Step>
+
+<Step>
+  ### Create the Copilot Runtime
+
+  Open a new terminal in your app folder. The runtime reaches the agent with `HttpAgent` from `@ag-ui/client`:
+
+  ```bash
+  npm install @ag-ui/client
+  ```
+
+  `@ag-ui/client` must be the same version that `@copilotkit/runtime` uses. Run `npm ls @ag-ui/client`. The top-level copy must be the version that `@copilotkit/runtime` lists as `deduped`.
+
+  Add `server.ts`, a small Node server that hosts Copilot Runtime at `/api/copilotkit` and registers your agent as the `default` agent:
+
+  ```ts title="server.ts"
+  import { createServer } from "node:http";
+  import { HttpAgent } from "@ag-ui/client";
+  import { CopilotRuntime } from "@copilotkit/runtime/v2";
+  import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
+
+  const runtime = new CopilotRuntime({
+    agents: {
+      // [!code highlight:3]
+      default: new HttpAgent({
+        url: process.env.AGENT_URL ?? "http://localhost:8000/",
+      }),
+    },
+  });
+
+  const port = Number(process.env.PORT ?? 8200);
+
+  createServer(
+    createCopilotNodeListener({
+      runtime,
+      basePath: "/api/copilotkit",
+      cors: true,
+    }),
+  ).listen(port, () => {
+    console.log(
+      `Copilot Runtime listening at http://localhost:${port}/api/copilotkit`,
+    );
+  });
+  ```
+
+  `cors: true` lets the app's dev server, on another port, call the runtime. The model key stays with the agent, so the runtime needs none.
+</Step>

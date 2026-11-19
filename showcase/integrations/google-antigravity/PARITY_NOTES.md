@@ -352,22 +352,16 @@ born-in-showcase package with no docs namespace.
 
 ## Documentation
 
-The package is deployed and listed in the public showcase catalog, but its docs
-stay unpublished: the manifest keeps `docs_mode: hidden`, so shell-docs leaves
-the framework out of its selector, search, sitemap and LLM routes. Apart from
-`docs-links.json`, the docs surface below is not on `main` yet. When it lands with the docs, point the
-landing record's features at the showcase demos and fill its `liveDemos`
-before changing `docs_mode`.
+The package is deployed, listed in the public showcase catalog, and published
+in the docs: the manifest sets `docs_mode: generated`, so shell-docs lists the
+framework in its selector, search, sitemap and LLM routes.
 
 What exists for this integration's shell-docs surface:
 
-- **A landing-page record** — `showcase/shell-docs/src/data/frameworks/google-antigravity.ts`,
-  registered in `showcase/shell-docs/src/data/frameworks/index.ts`, and wired
-  into the CLI-framework map in
-  `showcase/shell-docs/src/components/content/landing-pages/framework-overview.tsx`.
-  It advertises frontend tools, human-in-the-loop, and generative UI tool
-  rendering — not shared state, which this adapter does not support (see "Not
-  supported" above).
+- **No landing page.** `/google-antigravity` redirects to the quickstart. The
+  quickstart's "Next steps" section links frontend tools, human-in-the-loop,
+  and generative UI tool rendering. It names shared state and app context only
+  as experimental (see "Shared state and agent context" above).
 - **A quickstart override** —
   `showcase/shell-docs/src/content/docs/integrations/google-antigravity/quickstart.mdx`,
   modelled on `claude-sdk-python`'s: a "start from scratch" path via the CLI

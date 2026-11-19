@@ -404,27 +404,19 @@ Before you begin, you'll need the following:
 
 </Steps>
 
-## What's next?
+## Next steps
 
-Now that you have your basic agent setup, explore these advanced features:
+Agno runs your agent, with its model, tools and memory. CopilotKit puts that agent in your app, where your users can see the run, step in and steer it.
 
-<Cards>
-  <Card
-    title="Implement Human in the Loop"
-    description="Allow your users and agents to collaborate together on tasks."
-    href="/agno/human-in-the-loop"
-    icon={<UserIcon />}
-  />
-  <Card
-    title="Add some generative UI"
-    description="Render your agent's progress and output in the UI."
-    href="/agno/generative-ui/tool-rendering"
-    icon={<PaintbrushIcon />}
-  />
-  <Card
-    title="Add frontend tools"
-    description="Give your agent the ability to call frontend tools, directly updating your application."
-    href="/agno/frontend-tools"
-    icon={<WrenchIcon />}
-  />
-</Cards>
+Add a capability:
+
+- [Generative UI](/agno/generative-ui/tool-rendering): show the agent's tool calls and progress as components that update while it runs.
+- [Human-in-the-loop](/agno/human-in-the-loop): the agent asks the user for an answer in your UI and gets it back as the tool result.
+- [Shared state](/agno/shared-state): keep the agent's server-side state and your app's state in sync, in both directions.
+- [Frontend tools](/agno/frontend-tools): let the agent call tools that update your app directly.
+- [And more](/agno/build-with-agents): chat surfaces, headless UI and multi-agent flows work with Agno too. Give your AI coding agent current CopilotKit knowledge, so it can help you build them.
+
+Go further:
+
+- [Live demos](/examples?framework=agno): try each capability with an Agno agent.
+- Using Vue, Angular, or React Native? Pick it in the sidebar's **Frontend** menu. Its quickstart connects this agent.

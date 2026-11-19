@@ -55,7 +55,6 @@ Before editing anything that looks like product docs, read [Documentation](.clau
   - Guides, how-tos, and concepts: `showcase/shell-docs/src/content/docs/`
   - API reference: `showcase/shell-docs/src/content/reference/`
   - Shared MDX snippets: `showcase/shell-docs/src/content/snippets/`
-  - Framework overview pages: `showcase/shell-docs/src/content/framework-overviews/`
 - When adding or moving a guide page under `showcase/shell-docs/src/content/docs/`, update that section's `meta.json` so the page appears in navigation.
 - The v2 API reference under `showcase/shell-docs/src/content/reference/{components,hooks,sdk}/` does **not** use `meta.json`; navigation is generated from page frontmatter. Only `reference/v1/` uses `meta.json`.
 - For framework docs, check the framework's `docs_mode` in `showcase/integrations/<slug>/manifest.yaml` and confirm the docs folder with `getDocsFolder()` in `showcase/shell-docs/src/components/docs-mdx/data.ts`.

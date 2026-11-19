@@ -152,6 +152,8 @@ useRenderTool({ name: "get_weather", parameters, render: WeatherToolCard }, [loc
 
 The frontend renderer only sees what the agent sends down. The matching backend must expose a tool named `get_weather`, return structured data, and let the frontend renderer with the same name paint the card. The Vue renderer does not create or execute that backend tool.
 
+<WhenAgentBackend selected={false}>
+
 On the Built-in Agent from the [Vue quickstart](/vue), define the tool in `server.ts` and pass it in `tools`:
 
 ```ts title="server.ts"
@@ -179,6 +181,14 @@ const runtime = new CopilotRuntime({
 Keep the rest of `server.ts` from the quickstart and restart it. Ask "What's the weather in Paris?". The card shows "Checking Paris" while the tool runs, then the city and the result.
 
 For other agent frameworks, define the tool in your agent:
+
+</WhenAgentBackend>
+
+<WhenAgentBackend selected>
+
+Define the tool in your agent:
+
+</WhenAgentBackend>
 
 <FrameworkSetup concept="tool-rendering-setup" />
 

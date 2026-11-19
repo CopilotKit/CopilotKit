@@ -88,10 +88,7 @@ Then connect the agent to the Vue app:
 
    const runtime = new CopilotRuntime({
      agents: {
-       default: new BuiltInAgent({
-         model: "openai:gpt-6-luna",
-         prompt: "You are a helpful assistant for a Vue app.",
-       }),
+       // ...the `default` agent from the quickstart
        researcher: new HttpAgent({ url: "http://localhost:8000/" }), // your agent's URL
      },
    });

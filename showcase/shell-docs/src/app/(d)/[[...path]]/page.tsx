@@ -3,7 +3,6 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import { DExamples } from "@/proto/examples-d";
 import { DHome } from "@/proto/home-d";
-import { FrameworkLanding } from "@/proto/framework-landing";
 import { LiveArticle } from "@/proto/live-article";
 import { CatalogReferenceArticle } from "@/components/standard-catalog/catalog-reference-page";
 import {
@@ -37,9 +36,6 @@ export default async function Page({ params }: PageProps<"/[[...path]]">) {
 
   // The live docs, ported from shell-docs, at their docs.copilotkit.ai URLs.
   const live = resolveLivePage(path);
-  if (live?.overview) {
-    return <FrameworkLanding {...live} overview={live.overview} />;
-  }
   if (live) return <LiveArticle {...live} url={`/${path.join("/")}`} />;
 
   // The standard catalog's per-component pages, generated from the catalog
@@ -105,10 +101,9 @@ export async function generateMetadata({
   // The page answers 404 (`not-found.tsx` sets its own title).
   if (!live) return { robots: { index: false } };
   // A framework's own pages name the framework (`Mastra: Quickstart`), so
-  // its quickstart isn't one of twenty pages titled "Quickstart". A
-  // generated framework's landing is its record's name and tagline.
+  // its quickstart isn't one of twenty pages titled "Quickstart".
   const title = entryTitle(live);
-  const description = live.overview?.subheader ?? live.page.data.description;
+  const description = live.page.data.description;
   // The page's one indexed URL (`canonicalUrl`), Open Graph and Twitter
   // cards. `/vue/mastra/backend/copilot-runtime` is the same page as
   // `/backend/copilot-runtime`, so it points there.

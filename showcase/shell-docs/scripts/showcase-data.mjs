@@ -51,9 +51,7 @@ const OUTPUTS = [
   "demo-content.json",
   "setup-content.json",
   "angular-source-content.json",
-  // Per-frontend support and runnable cells (generate-registry): the Angular
-  // feature catalog and the framework landings' live demos read them.
-  "frontend-catalog.json",
+  // Per-frontend support (generate-registry).
   "frontend-registry.json",
 ];
 
@@ -181,8 +179,11 @@ for (const file of walkDocs(docsDir)) {
     ),
   ];
   const demo = cell && /<InlineDemo\b/.test(source);
+  // A page that shows each framework's own backend steps
+  // (src/content/snippets/agent-backends) reads differently per framework.
+  const backends = /@\/snippets\/agent-backends\//.test(source);
   if (concepts.length) pageConcepts[slug] = concepts;
-  if (!snippets.length && !concepts.length && !demo) continue;
+  if (!snippets.length && !concepts.length && !demo && !backends) continue;
   for (const fw of variantFrameworks) {
     if (cell && (fw.not_supported_features ?? []).includes(cell)) continue;
     const own =
@@ -190,7 +191,8 @@ for (const file of walkDocs(docsDir)) {
         (s) => demoContent[`${fw.slug}::${s.cell}`]?.regions?.[s.region],
       ) ||
       concepts.some((c) => setupConcepts[`${fw.slug}::${c}`]) ||
-      (demo && demoContent[`${fw.slug}::${cell}`]);
+      (demo && demoContent[`${fw.slug}::${cell}`]) ||
+      backends;
     if (own) (variants[fw.slug] ??= []).push(slug);
   }
 }

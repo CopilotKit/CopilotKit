@@ -118,8 +118,8 @@ export const ROOT_FRAMEWORK = "built-in-agent";
 /**
  * Keeps a root-relative link in the page's scope, as shell-docs'
  * `resolveDocsHref` does: on `/mastra/...`, `/quickstart` means
- * `/mastra/quickstart`. Links that name a framework, frontend, or a global
- * section stay as written. On Slack and Teams, a link into the shared
+ * `/mastra/quickstart`. Links that name a framework or a global section stay
+ * as written; a link to a frontend gets the reader's framework. On Slack and Teams, a link into the shared
  * channel guide (`/channels/tools`) opens the reader's own channel's page.
  */
 export function scopedHref(href: string | undefined, scope: DocsScope) {
@@ -152,18 +152,22 @@ export function scopedHref(href: string | undefined, scope: DocsScope) {
   if (folderFramework) {
     return `${fe}/${folderFramework}${href.slice(1 + first.length)}`;
   }
-  if (
-    !first ||
-    UNSCOPED_SEGMENTS.has(first) ||
-    liveFramework(first) ||
-    liveFrontend(first)
-  ) {
-    return href;
-  }
   const fw =
     scope.framework && scope.framework !== ROOT_FRAMEWORK
       ? `/${scope.framework}`
       : "";
+  // A link to another frontend (`/vue`) keeps the reader's framework when
+  // it names none: from a Google ADK page it opens `/vue/google-adk`.
+  if (liveFrontend(first)) {
+    const rest = href.slice(1 + first.length);
+    const next = rest.split(/[/?#]/, 2)[1];
+    return fw && !liveFramework(next) && !UNSCOPED_SEGMENTS.has(next ?? "")
+      ? `/${first}${fw}${rest}`
+      : href;
+  }
+  if (!first || UNSCOPED_SEGMENTS.has(first) || liveFramework(first)) {
+    return href;
+  }
   return `${fe}${fw}${href}`;
 }
 
@@ -223,7 +227,13 @@ export function frontendHref(
   slug?: string,
 ) {
   const scope = scopeFromPath(path);
-  const page = slug ?? scope.slug;
+  const asked = slug ?? scope.slug;
+  // A Vue, Angular, or React Native quickstart is the frontend's root page:
+  // `/mastra/quickstart` on Vue is `/vue/mastra`.
+  const page =
+    asked === "quickstart" && frontend !== "react" && !isChannel(frontend)
+      ? ""
+      : asked;
   const fe = frontend !== "react" ? `/${frontendSegment(frontend)}` : "";
   const fw = scope.framework ? `/${scope.framework}` : "";
   const tail = page || (frontend === "react" ? "quickstart" : "");

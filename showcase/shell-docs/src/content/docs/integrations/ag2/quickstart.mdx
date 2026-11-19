@@ -217,13 +217,19 @@ agents: {
 
 With the `build_asgi()` version, use `http://localhost:8000/chat/` (with the trailing slash). Without it, the server answers each run with a redirect first. Then the agent answers in the CopilotKit UI. See the <a href="https://docs.ag2.ai/docs/user-guide/ag-ui/" target="_blank">AG2 AG-UI integration docs</a> for supported protocol events, interrupts, capabilities, and shared-state details.
 
-## What's next?
+## Next steps
 
-<Cards>
-  <Card
-    title="Implement Human in the Loop"
-    description="Allow your users and agents to collaborate together on tasks."
-    href="/ag2/human-in-the-loop"
-    icon={<UserIcon />}
-  />
-</Cards>
+AG2 runs your agents, with their roles, turns and the tools they call. CopilotKit puts them in your app, where your users can see the run, interrupt it and steer it.
+
+Add a capability:
+
+- [Generative UI](/ag2/generative-ui/tool-rendering): show each tool call as a component while the conversation runs.
+- [Human-in-the-loop](/ag2/human-in-the-loop): the agent asks the user for an answer in your UI and gets it back as the tool result.
+- [Shared state](/ag2/shared-state): keep the agents' state and your app's state in sync, in both directions.
+- [Frontend tools](/ag2/frontend-tools): let the agents call tools that update your app directly.
+- [And more](/ag2/build-with-agents): chat surfaces, headless UI and multi-agent flows work with AG2 too. Give your AI coding agent current CopilotKit knowledge, so it can help you build them.
+
+Go further:
+
+- [Live demos](/examples?framework=ag2): try each capability with an AG2 agent.
+- Using Vue, Angular, or React Native? Pick it in the sidebar's **Frontend** menu. Its quickstart connects this agent.
