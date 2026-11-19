@@ -31,6 +31,7 @@ import {
 } from "@/lib/live-scope";
 import type { FrontendId } from "./data";
 import { frameworkById } from "./data";
+import { withBasePath } from "@/lib/base-path";
 
 /**
  * The live sidebar for a URL (`src/lib/live-nav.ts` has its parts): the
@@ -389,7 +390,7 @@ function RecipeLogo({ src, className }: { src: string; className?: string }) {
   return (
     // oxlint-disable-next-line nextjs/no-img-element -- tiny static marks; next/image adds nothing here
     <img
-      src={src}
+      src={withBasePath(src)}
       alt=""
       aria-hidden="true"
       width={16}

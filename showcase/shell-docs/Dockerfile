@@ -31,6 +31,14 @@ ARG BRANCH=unknown
 ENV NEXT_PUBLIC_COMMIT_SHA=${COMMIT_SHA}
 ENV NEXT_PUBLIC_BRANCH=${BRANCH}
 
+# The path this version is served under on docs.copilotkit.ai
+# (src/lib/docs-versions.mjs): unset for the stable docs at the root, `/v2`
+# for the 2.x docs, which the stable docs forward to this service. Railway
+# passes a service variable to a Dockerfile build only as a build arg. The
+# build inlines it.
+ARG DOCS_BASE_PATH=
+ENV DOCS_BASE_PATH=${DOCS_BASE_PATH}
+
 # `npm run build` runs prebuild (showcase-data) first.
 RUN npm run build
 
@@ -57,6 +65,9 @@ CMD ["node", "server.js"]
 # Fail the build if any base or install path regresses the accepted Node runtime.
 RUN test "$(node --version)" = "v22.23.4"
 
+# The smoke test below fetches every path under the build's base path.
+ARG DOCS_BASE_PATH=
+
 # Start the server from the final filesystem and fetch pages that render on
 # request: `next build` prerenders only a handful, so a module missing from
 # this stage, or a page that throws while rendering, would otherwise first
@@ -71,6 +82,10 @@ import { setTimeout as delay } from 'node:timers/promises';
 const server = spawn(process.execPath, ['server.js'], {
   stdio: 'inherit', env: { ...process.env, HOSTNAME: '127.0.0.1' },
 });
+
+// As next.config.mjs normalizes it: "" or "/v2".
+const rawBasePath = (process.env.DOCS_BASE_PATH ?? '').trim().replace(/\/+$/, '');
+const basePath = rawBasePath && !rawBasePath.startsWith('/') ? `/${rawBasePath}` : rawBasePath;
 
 try {
   const deadline = Date.now() + 30_000;
@@ -101,7 +116,9 @@ try {
     // What verify-deploy's docs driver checks on every environment.
     ['/api/telemetry/config', '"posthogKey"'],
   ]) {
-    const response = await fetch(`http://127.0.0.1:10000${path}`, {
+    // The base path's root is `/v2`, not `/v2/`.
+    const url = basePath ? `${basePath}${path === '/' ? '' : path}` : path;
+    const response = await fetch(`http://127.0.0.1:10000${url}`, {
       redirect: 'error', signal: AbortSignal.timeout(15_000),
     });
     if (response.status !== 200) {

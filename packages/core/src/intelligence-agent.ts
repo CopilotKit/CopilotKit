@@ -43,6 +43,7 @@ import {
   tap,
 } from "rxjs/operators";
 import {
+  COPILOTKIT_VERSION,
   phoenixExponentialBackoff,
   stripIntelligenceRoutingFields,
 } from "@copilotkit/shared";
@@ -904,6 +905,10 @@ export class IntelligenceAgent extends AbstractAgent {
         options: {
           params: {
             ...this.config.socketParams,
+            // Tells the gateway which client it serves, so it can keep
+            // older clients on behavior they handle (for example, sending a
+            // thread's history only once it has read all of it).
+            copilotkit_version: COPILOTKIT_VERSION,
             join_token: credentials.joinToken,
           },
           reconnectAfterMs: phoenixExponentialBackoff(100, 10_000),

@@ -13,7 +13,7 @@
   overflow: hidden;
   border-radius: inherit;
   pointer-events: none;
-  mask-image: url("/images/pixel-matrix.png");
+  mask-image: url("../../../public/images/pixel-matrix.png");
   mask-size: 400px 400px;
   mask-repeat: repeat;
   mask-position: 0 0;
