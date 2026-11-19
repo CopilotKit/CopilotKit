@@ -170,19 +170,21 @@ const OVERRIDES: Record<string, Record<string, V1Export>> = {
   "@copilotkit/vue": vueV1Overrides(),
   "@copilotkit/react-ui": Object.fromEntries(
     [
-      "CopilotChat",
-      "CopilotPopup",
-      "CopilotSidebar",
-      "AssistantMessage",
-      "UserMessage",
-    ].map((name) => [
+      ["CopilotChat", "CopilotChat"],
+      ["CopilotPopup", "CopilotPopup"],
+      ["CopilotSidebar", "CopilotSidebar"],
+      // 2.0 renamed the default message components.
+      ["AssistantMessage", "CopilotChatAssistantMessage"],
+      ["UserMessage", "CopilotChatUserMessage"],
+    ].map(([name, v2Name]) => [
       name,
       {
         replacement: {
-          name,
+          name: v2Name,
           importPath: "@copilotkit/react-core",
-          docs: `https://docs.copilotkit.ai/reference/v2/components/${name}`,
-          notes: [PROPS_CHANGED_NOTE],
+          docs: `https://docs.copilotkit.ai/reference/v2/components/${v2Name}`,
+          // A renamed component's TODO says "Its API is different" already.
+          notes: name === v2Name ? [PROPS_CHANGED_NOTE] : [],
         },
       },
     ]),
