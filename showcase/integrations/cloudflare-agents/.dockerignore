@@ -7,5 +7,4 @@
 **/*.test.tsx
 **/*.spec.ts
 **/*.spec.tsx
-tests/e2e
 **/.wrangler

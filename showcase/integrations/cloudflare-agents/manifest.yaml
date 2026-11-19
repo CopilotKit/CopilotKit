@@ -16,6 +16,7 @@ partner_docs: https://developers.cloudflare.com/agents/
 repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/cloudflare-agents
 copilotkit_version: 2.0.0
 deployed: false
+test_coverage: shared-d6
 docs_mode: hidden
 sort_order: 63
 generative_ui:
