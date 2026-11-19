@@ -47,6 +47,7 @@ export function ThreadDrawer({
   page,
   onOpenPage,
   signedIn,
+  stateful,
 }: {
   threads: ReturnType<typeof useThreads>;
   /** Icon names by thread id; null once a thread is known to have none. */
@@ -61,6 +62,8 @@ export function ThreadDrawer({
   onOpenPage: (page: StagePage) => void;
   /** Signed out, nothing is kept: no thread list, and Sign in at the foot. */
   signedIn: boolean;
+  /** Stateless (no Clerk/Intelligence keys): no Sign in, no Connections. */
+  stateful: boolean;
 }) {
   const config = useCopilotChatConfiguration();
   const {
@@ -239,15 +242,17 @@ export function ThreadDrawer({
       </nav>
 
       <footer className="drawer__foot">
-        <button
-          type="button"
-          className="drawer__tab"
-          aria-current={page === "connections" ? "page" : undefined}
-          onClick={() => onOpenPage("connections")}
-        >
-          <Plug size={16} strokeWidth={1.75} aria-hidden />
-          Connections
-        </button>
+        {stateful && (
+          <button
+            type="button"
+            className="drawer__tab"
+            aria-current={page === "connections" ? "page" : undefined}
+            onClick={() => onOpenPage("connections")}
+          >
+            <Plug size={16} strokeWidth={1.75} aria-hidden />
+            Connections
+          </button>
+        )}
         <button
           type="button"
           className="drawer__tab"
@@ -261,14 +266,16 @@ export function ThreadDrawer({
         {signedIn ? (
           <Account />
         ) : (
-          <a
-            className="drawer__tab"
-            href="/sign-in"
-            title="Sign in to keep your threads and connect your apps"
-          >
-            <LogIn size={16} strokeWidth={1.75} aria-hidden />
-            Sign in
-          </a>
+          stateful && (
+            <a
+              className="drawer__tab"
+              href="/sign-in"
+              title="Sign in to keep your threads and connect your apps"
+            >
+              <LogIn size={16} strokeWidth={1.75} aria-hidden />
+              Sign in
+            </a>
+          )
         )}
         <p className="drawer__byline">
           Powered by{" "}

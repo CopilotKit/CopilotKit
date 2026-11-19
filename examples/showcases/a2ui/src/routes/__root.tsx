@@ -2,9 +2,12 @@ import { ClerkProvider } from "@clerk/tanstack-react-start";
 import { HeadContent, Scripts, createRootRoute } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { CLERK_APPEARANCE, CLERK_LOCALIZATION } from "../lib/clerk-appearance";
+import { loadFeatures, useFeatures } from "../lib/features";
 import appCss from "../styles/app.css?url";
 
 export const Route = createRootRoute({
+  loader: () => loadFeatures(),
+  staleTime: Infinity,
   head: () => ({
     meta: [
       { charSet: "utf-8" },
@@ -48,6 +51,8 @@ const COLOR_SCHEME_SCRIPT = `(() => {
 })();`;
 
 function RootDocument({ children }: { children: ReactNode }) {
+  // Stateless there is no Clerk provider, and nothing calls Clerk's hooks.
+  const { stateful } = useFeatures();
   return (
     // The server cannot know the setting; the script sets the class.
     <html lang="en" suppressHydrationWarning>
@@ -56,15 +61,19 @@ function RootDocument({ children }: { children: ReactNode }) {
         <HeadContent />
       </head>
       <body>
-        <ClerkProvider
-          appearance={CLERK_APPEARANCE}
-          localization={CLERK_LOCALIZATION}
-          signInUrl="/sign-in"
-          signUpUrl="/sign-up"
-          afterSignOutUrl="/"
-        >
-          {children}
-        </ClerkProvider>
+        {stateful ? (
+          <ClerkProvider
+            appearance={CLERK_APPEARANCE}
+            localization={CLERK_LOCALIZATION}
+            signInUrl="/sign-in"
+            signUpUrl="/sign-up"
+            afterSignOutUrl="/"
+          >
+            {children}
+          </ClerkProvider>
+        ) : (
+          children
+        )}
         <Scripts />
       </body>
     </html>

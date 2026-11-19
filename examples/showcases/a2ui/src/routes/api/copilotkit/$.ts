@@ -10,7 +10,9 @@ import {
 // CopilotKit provider when the reader signs in or out, so it always talks to
 // the runtime that matches.
 const handle = async ({ request }: { request: Request }) =>
-  (await readerId()) ? readerHandler(request) : signedOutHandler(request);
+  readerHandler && (await readerId())
+    ? readerHandler(request)
+    : signedOutHandler(request);
 
 export const Route = createFileRoute("/api/copilotkit/$")({
   server: {

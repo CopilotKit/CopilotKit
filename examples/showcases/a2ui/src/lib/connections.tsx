@@ -49,9 +49,12 @@ async function readError(response: Response) {
  */
 export function ConnectionsProvider({
   signedIn,
+  stateful,
   children,
 }: {
   signedIn: boolean;
+  /** Stateless (no Clerk/Intelligence keys), nobody can sign in. */
+  stateful: boolean;
   children: ReactNode;
 }) {
   const [connections, setConnections] = useState<Connection[]>([]);
@@ -136,7 +139,11 @@ export function ConnectionsProvider({
   );
   return (
     <ConnectionsContext.Provider value={value}>
-      <ConnectedAppsContext signedIn={signedIn} connections={connections} />
+      <ConnectedAppsContext
+        signedIn={signedIn}
+        stateful={stateful}
+        connections={connections}
+      />
       {children}
     </ConnectionsContext.Provider>
   );
@@ -151,9 +158,11 @@ export function useConnections() {
 /** Tells the agent which apps it can act in, and which it cannot yet. */
 function ConnectedAppsContext({
   signedIn,
+  stateful,
   connections,
 }: {
   signedIn: boolean;
+  stateful: boolean;
   connections: Connection[];
 }) {
   const connected = new Set(
@@ -165,15 +174,19 @@ function ConnectedAppsContext({
       .join(", ") || "none";
   useAgentContext({
     description: "The reader's connected apps",
-    value: signedIn
-      ? `Connected, so you can act in them with their tools: ${names(true)}. ` +
-        `Not connected: ${names(false)}. When the reader asks for something in ` +
-        "an app that is not connected, say so and point them to Connections " +
-        "at the foot of the thread list."
-      : "None: the reader is not signed in, so no apps can be connected. " +
-        "When they ask for something in their own mail, calendar or files, " +
-        "say that signing in (at the foot of the thread list) lets them " +
-        "connect their Google apps.",
+    value: !stateful
+      ? "None: this desk cannot connect apps. When the reader asks for " +
+        "something in their own mail, calendar or files, say you cannot " +
+        "reach those here."
+      : signedIn
+        ? `Connected, so you can act in them with their tools: ${names(true)}. ` +
+          `Not connected: ${names(false)}. When the reader asks for something in ` +
+          "an app that is not connected, say so and point them to Connections " +
+          "at the foot of the thread list."
+        : "None: the reader is not signed in, so no apps can be connected. " +
+          "When they ask for something in their own mail, calendar or files, " +
+          "say that signing in (at the foot of the thread list) lets them " +
+          "connect their Google apps.",
   });
   return null;
 }

@@ -32,7 +32,7 @@ pnpm exec nx run-many -t build -p @copilotkit/react-core @copilotkit/runtime
 
 # 2. Keys
 cp examples/showcases/a2ui/.env.example examples/showcases/a2ui/.env
-# Add GEMINI_API_KEY, CPK_INTELLIGENCE_API_KEY, the Clerk keys and COMPOSIO_API_KEY.
+# Add GEMINI_API_KEY. The other keys are optional (see below).
 
 # 3. The agent (Python 3.12+, uv)
 uv sync --project examples/showcases/a2ui/agent --group dev
@@ -44,10 +44,14 @@ pnpm exec nx run @copilotkit/example-a2ui-research-desk:example-dev
 # Opens http://localhost:3014.
 ```
 
-- **Clerk:** create an application at https://dashboard.clerk.com and copy its publishable and secret keys into `VITE_CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY` (use the copy buttons; the text shown is masked). Sign-in lives at `/sign-in` and `/sign-up`.
-- **Composio:** create a project at https://platform.composio.dev and copy its API key into `COMPOSIO_API_KEY`. Composio's managed Google sign-in needs no Google OAuth app of your own (the consent screen says Composio; add your own OAuth app under Auth Configs to change that). Without the key, Connections is off and the agent only researches.
+Only `GEMINI_API_KEY` is required. The desk runs in one of two modes:
 
-`CPK_INTELLIGENCE_API_KEY` comes from `npx copilotkit@latest login` then `npx copilotkit@latest project select` (it writes the key into `.env`).
+- **Stateless** (the default): the same agent, nothing kept. No sign-in, no thread list, no Connections. `/sign-in` and `/sign-up` redirect home.
+- **Stateful**: set all three of `VITE_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY` and `CPK_INTELLIGENCE_API_KEY`, then restart the app. Readers sign in, keep their threads and connect apps. If any one is missing, the desk stays stateless.
+
+- **Clerk:** create an application at https://dashboard.clerk.com and copy its publishable and secret keys into `VITE_CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY` (use the copy buttons; the text shown is masked). Sign-in lives at `/sign-in` and `/sign-up`. On a hosted build (e.g. Railway/Docker), `VITE_CLERK_PUBLISHABLE_KEY` must be present when the app is built.
+- **Intelligence:** `CPK_INTELLIGENCE_API_KEY` comes from `npx copilotkit@latest login` then `npx copilotkit@latest project select` (it writes the key into `.env`).
+- **Composio:** create a project at https://platform.composio.dev and copy its API key into `COMPOSIO_API_KEY`. Composio's managed Google sign-in needs no Google OAuth app of your own (the consent screen says Composio; add your own OAuth app under Auth Configs to change that). Needs the stateful desk. Without the key, Connections is off and the agent only researches.
 
 Useful URLs:
 

@@ -17,6 +17,8 @@ import { useEffect, useMemo, useState } from "react";
 import { AGENT_ID } from "../lib/agent";
 import type { DeskAgentState } from "../lib/agent";
 import { ConnectionsProvider } from "../lib/connections";
+import { useFeatures } from "../lib/features";
+import type { Features } from "../lib/features";
 import { DeskProvider } from "../lib/desk-store";
 import { QuietNodeFallbacks } from "../lib/quiet-fallbacks";
 import { deskTheme, deskUI } from "../lib/generative-ui";
@@ -125,15 +127,56 @@ export function Desk() {
     [],
   );
 
-  // Signed in, the runtime keeps threads (Intelligence); signed out, the
-  // default, nothing is kept. The provider remounts when that changes, so it always talks to
-  // the runtime that matches.
+  const features = useFeatures();
+  const props = {
+    model,
+    setModel,
+    uiFormat,
+    setUIFormat,
+    properties,
+    inspector,
+  };
+  // Clerk's hooks only work under its provider, which only stateful has.
+  return features.stateful ? (
+    <ReaderDesk {...props} features={features} />
+  ) : (
+    <DeskProviders {...props} features={features} signedIn={false} />
+  );
+}
+
+type DeskProps = {
+  model: ModelId;
+  setModel: (model: ModelId) => void;
+  uiFormat: UIFormat;
+  setUIFormat: (format: UIFormat) => void;
+  properties: { model: ModelId; uiFormat: UIFormat };
+  inspector: boolean;
+  features: Features;
+};
+
+/** Stateful: waits for the reader's Clerk session, then sets up the desk. */
+function ReaderDesk(props: DeskProps) {
   const { isLoaded, isSignedIn } = useAuth();
   if (!isLoaded) return <div className="desk-loading" aria-hidden />;
+  return <DeskProviders {...props} signedIn={Boolean(isSignedIn)} />;
+}
 
+function DeskProviders({
+  model,
+  setModel,
+  uiFormat,
+  setUIFormat,
+  properties,
+  inspector,
+  features,
+  signedIn,
+}: DeskProps & { signedIn: boolean }) {
+  // Signed in, the runtime keeps threads (Intelligence); signed out, the
+  // default, nothing is kept. The provider remounts when that changes, so it
+  // always talks to the runtime that matches.
   return (
     <CopilotKitProvider
-      key={isSignedIn ? "signed-in" : "signed-out"}
+      key={signedIn ? "signed-in" : "signed-out"}
       runtimeUrl="/api/copilotkit"
       useSingleEndpoint={false}
       properties={properties}
@@ -143,13 +186,17 @@ export function Desk() {
       <QuietNodeFallbacks>
         <DeskProvider>
           <CopilotChatConfigurationProvider agentId={AGENT_ID}>
-            <ConnectionsProvider signedIn={Boolean(isSignedIn)}>
+            <ConnectionsProvider
+              signedIn={signedIn}
+              stateful={features.stateful}
+            >
               <Shell
                 model={model}
                 onModelChange={setModel}
                 uiFormat={uiFormat}
                 onUIFormatChange={setUIFormat}
-                signedIn={Boolean(isSignedIn)}
+                signedIn={signedIn}
+                stateful={features.stateful}
               />
             </ConnectionsProvider>
           </CopilotChatConfigurationProvider>
@@ -166,6 +213,7 @@ function Shell({
   uiFormat,
   onUIFormatChange,
   signedIn,
+  stateful,
 }: {
   model: ModelId;
   onModelChange: (model: ModelId) => void;
@@ -173,6 +221,8 @@ function Shell({
   onUIFormatChange: (format: UIFormat) => void;
   /** Signed out (the default), nothing is kept: no threads, no apps. */
   signedIn: boolean;
+  /** Stateless (no Clerk/Intelligence keys): no sign-in, apps or threads. */
+  stateful: boolean;
 }) {
   useDeskFunctions();
   useResearchSteps();
@@ -206,7 +256,9 @@ function Shell({
   // The stage shows the chat, or a page (the catalog, the reader's
   // connected apps) in its place. The chat stays mounted under a page, so a
   // run keeps streaming.
-  const [page, setPage] = useStagePage();
+  const [stagePage, setPage] = useStagePage();
+  // Stateless there are no connected apps, so no Connections page.
+  const page = !stateful && stagePage === "connections" ? "chat" : stagePage;
   const onPage = page !== "chat";
   const messageView = useMessageView();
   const threadsState = useThreads({
@@ -228,7 +280,8 @@ function Shell({
   const liveIcon = (agent.state as DeskAgentState | undefined)?.icon;
   const icons = useThreadIcons(
     threadsState.threads,
-    threadId ? { threadId, icon: liveIcon } : undefined,
+    // Stateless nothing is kept, so no icon goes into the browser's cache.
+    stateful && threadId ? { threadId, icon: liveIcon } : undefined,
   );
 
   return (
@@ -241,6 +294,7 @@ function Shell({
         <ThreadDrawer
           threads={threadsState}
           signedIn={signedIn}
+          stateful={stateful}
           icons={icons}
           onCollapse={() => drawer.setOpen(false)}
           onNavigate={() => {

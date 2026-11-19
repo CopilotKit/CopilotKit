@@ -6,16 +6,17 @@ import {
   createCopilotRuntimeHandler,
 } from "@copilotkit/runtime/v2";
 import { AGENT_ID } from "../lib/agent";
+import { serverFeatures } from "../lib/features";
 
-const apiKey = process.env.CPK_INTELLIGENCE_API_KEY;
-if (!apiKey) {
-  throw new Error(
-    "CPK_INTELLIGENCE_API_KEY is not set. Copy .env.example to .env and add your Intelligence key.",
-  );
-}
+/** Clerk and Intelligence keys all set: readers sign in and keep threads. */
+const { stateful } = serverFeatures();
 
-/** The signed-in reader's Clerk id. Clerk's middleware read the session. */
+/**
+ * The signed-in reader's Clerk id. Clerk's middleware read the session.
+ * Stateless, nobody signs in.
+ */
 export async function readerId() {
+  if (!stateful) return null;
   const { isAuthenticated, userId } = await auth();
   return isAuthenticated ? userId : null;
 }
@@ -61,29 +62,36 @@ function deskAgent(userId: string | null) {
  * sends the generative UI guide as context on each run, and the agent writes
  * A2UI into its reply as text; the runtime passes both through.
  */
-const readerRuntime = new CopilotRuntime({
-  agents: async () => ({ [AGENT_ID]: deskAgent(await readerId()) }),
-  intelligence: new CopilotKitIntelligence({ apiKey }),
-  identifyUser: async () => {
-    const userId = await readerId();
-    if (!userId) throw new Error("Not signed in");
-    return { id: userId, name: await readerName(userId) };
-  },
-});
+const readerRuntime = stateful
+  ? new CopilotRuntime({
+      agents: async () => ({ [AGENT_ID]: deskAgent(await readerId()) }),
+      intelligence: new CopilotKitIntelligence({
+        apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
+      }),
+      identifyUser: async () => {
+        const userId = await readerId();
+        if (!userId) throw new Error("Not signed in");
+        return { id: userId, name: await readerName(userId) };
+      },
+    })
+  : null;
 
 /**
- * Signed out, the default: the same agent, nothing kept. Conversations live
- * in the server's memory for the visit, and the agent has no reader, so no
- * connected apps.
+ * Signed out, the default, and the only runtime when stateless: the same
+ * agent, nothing kept. Conversations live in the server's memory for the
+ * visit, and the agent has no reader, so no connected apps.
  */
 const signedOutRuntime = new CopilotRuntime({
   agents: { [AGENT_ID]: deskAgent(null) },
 });
 
-export const readerHandler = createCopilotRuntimeHandler({
-  runtime: readerRuntime,
-  basePath: "/api/copilotkit",
-});
+/** Stateless there is no reader runtime; `readerId()` is always null then. */
+export const readerHandler =
+  readerRuntime &&
+  createCopilotRuntimeHandler({
+    runtime: readerRuntime,
+    basePath: "/api/copilotkit",
+  });
 export const signedOutHandler = createCopilotRuntimeHandler({
   runtime: signedOutRuntime,
   basePath: "/api/copilotkit",
