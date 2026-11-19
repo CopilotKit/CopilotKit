@@ -1,6 +1,6 @@
 /**
  * `oss.runtime.agent_identified` fires from the run and connect handlers, once
- * per agent name per runtime, and never from a request for an unknown agent.
+ * per agent class and name per process, and never for an unknown agent.
  */
 import express from "express";
 import request from "supertest";
@@ -12,17 +12,30 @@ import { Observable, of } from "rxjs";
 import { createCopilotExpressHandler } from "../endpoints/express";
 import { CopilotRuntime } from "../core/runtime";
 
-function makeAgent(
-  getCapabilities: () => Promise<AgentCapabilities> = async () => ({
+type CapabilitiesFn = () => Promise<AgentCapabilities>;
+
+/**
+ * Returns a maker for agents of one fresh class. Dedupe is per agent class and
+ * name for the whole process, so each test uses its own class.
+ */
+function agentMaker(
+  getCapabilities: CapabilitiesFn = async () => ({
     identity: { type: "mastra", metadata: { adapterVersion: "2.0.3" } },
   }),
-): AbstractAgent {
-  const agent: Record<string, unknown> = {
-    execute: async () => ({ events: [] }),
-    getCapabilities,
-  };
-  agent.clone = () => makeAgent(getCapabilities);
-  return agent as unknown as AbstractAgent;
+): () => AbstractAgent {
+  class TestAgent {
+    headers: Record<string, string> = {};
+    execute = async () => ({ events: [] });
+    getCapabilities = getCapabilities;
+    clone() {
+      return new TestAgent();
+    }
+  }
+  return () => new TestAgent() as unknown as AbstractAgent;
+}
+
+function makeAgent(getCapabilities?: CapabilitiesFn): AbstractAgent {
+  return agentMaker(getCapabilities)();
 }
 
 const runner = {
@@ -95,7 +108,8 @@ describe("agent_identified from the handlers", () => {
   });
 
   it("sends one event per agent name when agents come from a per-request factory", async () => {
-    const { app, identified } = setup(() => ({ default: makeAgent() }));
+    const make = agentMaker();
+    const { app, identified } = setup(() => ({ default: make() }));
     await request(app).post("/agent/default/run").send(runBody());
     await request(app).post("/agent/default/run").send(runBody());
     await vi.waitFor(() => expect(identified()).toHaveLength(1));
@@ -105,18 +119,12 @@ describe("agent_identified from the handlers", () => {
 
   it("asks for capabilities with the run's forwarded headers", async () => {
     const seenHeaders: Record<string, string>[] = [];
-    function headerAgent(): AbstractAgent {
-      const agent: Record<string, unknown> = {
-        headers: {},
-        execute: async () => ({ events: [] }),
-        async getCapabilities(this: { headers: Record<string, string> }) {
-          seenHeaders.push({ ...this.headers });
-          return { identity: { type: "adk" } };
-        },
-      };
-      agent.clone = () => headerAgent();
-      return agent as unknown as AbstractAgent;
-    }
+    const headerAgent = agentMaker(
+      async function (this: { headers: Record<string, string> }) {
+        seenHeaders.push({ ...this.headers });
+        return { identity: { type: "adk" } };
+      },
+    );
     const { app, identified } = setup({ default: headerAgent() });
     await request(app)
       .post("/agent/default/run")
@@ -126,6 +134,26 @@ describe("agent_identified from the handlers", () => {
     expect(seenHeaders[0]).toMatchObject({
       authorization: "Bearer user-token",
     });
+  });
+
+  it("sends one event when the app builds a new runtime for every request", async () => {
+    const make = agentMaker();
+    const getCapabilities = vi.fn(async () => ({
+      identity: { type: "mastra" },
+    }));
+    const counts: Array<() => unknown[]> = [];
+    for (let i = 0; i < 3; i++) {
+      const agent = make();
+      (agent as unknown as { getCapabilities: unknown }).getCapabilities =
+        getCapabilities;
+      const { app, identified } = setup({ default: agent });
+      counts.push(identified);
+      await request(app).post("/agent/default/run").send(runBody());
+    }
+    const total = () => counts.reduce((n, get) => n + get().length, 0);
+    await vi.waitFor(() => expect(total()).toBe(1));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(total()).toBe(1);
   });
 
   it("sends agent_identified on connect", async () => {

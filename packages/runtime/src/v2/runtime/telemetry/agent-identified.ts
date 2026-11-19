@@ -1,6 +1,7 @@
 import type { AbstractAgent } from "@ag-ui/client";
 import { HttpAgent } from "@ag-ui/client";
 import type { AgentCapabilities } from "@ag-ui/core";
+import { valid as validSemver } from "semver";
 import { telemetry, isTelemetryDisabled } from ".";
 import type { CopilotRuntimeLike } from "../core/runtime";
 import type { AgentIdentifiedInfo } from "./events";
@@ -38,16 +39,26 @@ const FRAMEWORK_ALIASES: Record<string, string> = {
   "google-adk-js": "adk",
 };
 
-const ADAPTER_VERSION = /^\d+\.\d+\.\d+(-[0-9A-Za-z.]{1,32})?$/;
+/** Longest adapter version sent. Bounds a SemVer prerelease or build tag. */
+const MAX_ADAPTER_VERSION_LENGTH = 64;
 const CAPABILITIES_TIMEOUT_MS = 2000;
-const MAX_AGENT_NAMES_PER_RUNTIME = 100;
+const MAX_AGENT_NAMES_PER_CLASS = 100;
 
 /**
- * Agent names already identified, per runtime object. A WeakSet-style key
- * keeps a discarded runtime collectable, like `reportedRuntimes` in
- * `instance-created.ts`.
+ * Agent names already identified, per agent class, for the whole process.
+ *
+ * The key is the agent's class, not the runtime object: many apps build a new
+ * `CopilotRuntime` (and new agents) inside the request handler, and a
+ * per-runtime key would send the event, and call `getCapabilities()`, on every
+ * request. The class object stays the same across those requests, and a
+ * bundler renaming it does not change it.
  */
 const identifiedAgents = new WeakMap<object, Set<string>>();
+
+function agentClassKey(agent: AbstractAgent): object {
+  const constructor = (agent as { constructor?: unknown }).constructor;
+  return typeof constructor === "function" ? constructor : identifiedAgents;
+}
 
 /**
  * Whether an agent is a generic AG-UI `HttpAgent`, including one from another
@@ -96,8 +107,8 @@ export function describeAgentIdentity(
   const adapterVersion =
     framework !== "built-in" &&
     typeof version === "string" &&
-    ADAPTER_VERSION.test(version)
-      ? version
+    version.length <= MAX_ADAPTER_VERSION_LENGTH
+      ? (validSemver(version) ?? undefined)
       : undefined;
 
   return {
@@ -125,8 +136,8 @@ function capabilitiesWithTimeout(
 }
 
 /**
- * Send `oss.runtime.agent_identified` the first time an agent name runs or
- * connects on a runtime. Returns at once: the capabilities lookup runs in the
+ * Send `oss.runtime.agent_identified` the first time an agent name of a given
+ * agent class runs or connects in this process. Returns at once: the capabilities lookup runs in the
  * background and never delays, blocks or fails the request.
  */
 export function fireAgentIdentifiedTelemetry({
@@ -140,12 +151,13 @@ export function fireAgentIdentifiedTelemetry({
 }): void {
   try {
     if (isTelemetryDisabled()) return;
-    let seen = identifiedAgents.get(runtime);
+    const key = agentClassKey(agent);
+    let seen = identifiedAgents.get(key);
     if (!seen) {
       seen = new Set();
-      identifiedAgents.set(runtime, seen);
+      identifiedAgents.set(key, seen);
     }
-    if (seen.has(agentId) || seen.size >= MAX_AGENT_NAMES_PER_RUNTIME) return;
+    if (seen.has(agentId) || seen.size >= MAX_AGENT_NAMES_PER_CLASS) return;
     // Mark first, so two parallel first requests send one event.
     seen.add(agentId);
 

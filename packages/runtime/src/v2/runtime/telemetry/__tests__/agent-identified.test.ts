@@ -12,10 +12,21 @@ function makeRuntime(): CopilotRuntimeLike {
   return {} as unknown as CopilotRuntimeLike;
 }
 
-function makeAgent(
-  getCapabilities?: () => Promise<AgentCapabilities> | AgentCapabilities,
-): AbstractAgent {
-  return { getCapabilities } as unknown as AbstractAgent;
+type CapabilitiesFn = () => Promise<AgentCapabilities> | AgentCapabilities;
+
+/**
+ * A fresh agent class per call. Dedupe is per agent class and name for the
+ * whole process, so tests that share a class would share dedupe state.
+ */
+function agentClass(getCapabilities?: CapabilitiesFn) {
+  return class TestAgent {
+    getCapabilities = getCapabilities;
+  };
+}
+
+function makeAgent(getCapabilities?: CapabilitiesFn): AbstractAgent {
+  const Agent = agentClass(getCapabilities);
+  return new Agent() as unknown as AbstractAgent;
 }
 
 describe("describeAgentIdentity", () => {
@@ -81,19 +92,34 @@ describe("describeAgentIdentity", () => {
     ).not.toHaveProperty("adapter_version");
   });
 
-  it("keeps a prerelease adapter version", () => {
+  it.each([
+    ["2.1.0-beta.1", "2.1.0-beta.1"],
+    ["2.1.0-beta-test", "2.1.0-beta-test"],
+    // Build metadata can hold arbitrary text, and SemVer ignores it for
+    // precedence, so it is dropped.
+    ["2.1.0+build.7", "2.1.0"],
+  ])("keeps the valid SemVer adapter version %s as %s", (version, sent) => {
     expect(
       describeAgentIdentity(
-        {
-          identity: {
-            type: "mastra",
-            metadata: { adapterVersion: "2.1.0-beta.1" },
-          },
-        },
+        { identity: { type: "mastra", metadata: { adapterVersion: version } } },
         false,
       ).adapter_version,
-    ).toBe("2.1.0-beta.1");
+    ).toBe(sent);
   });
+
+  it.each(["01.2.3", "1.2.3-..", "1.2", `1.2.3-${"a".repeat(80)}`])(
+    "drops the invalid or overlong adapter version %s",
+    (version) => {
+      expect(
+        describeAgentIdentity(
+          {
+            identity: { type: "mastra", metadata: { adapterVersion: version } },
+          },
+          false,
+        ),
+      ).not.toHaveProperty("adapter_version");
+    },
+  );
 
   it("never sends an adapter version for built-in", () => {
     expect(
@@ -124,7 +150,7 @@ describe("fireAgentIdentifiedTelemetry", () => {
       ([event]) => event === "oss.runtime.agent_identified",
     );
 
-  it("captures once per runtime and agent name", async () => {
+  it("captures once per agent class and name", async () => {
     const runtime = makeRuntime();
     const agent = makeAgent(async () => ({ identity: { type: "mastra" } }));
     fireAgentIdentifiedTelemetry({ runtime, agentId: "default", agent });
@@ -139,26 +165,48 @@ describe("fireAgentIdentifiedTelemetry", () => {
     });
   });
 
-  it("captures again for the same name on a different runtime object", async () => {
-    const agent = makeAgent(async () => ({ identity: { type: "mastra" } }));
+  it("captures once when every request builds a new runtime and new agents of the same class", async () => {
+    const getCapabilities = vi.fn(async () => ({
+      identity: { type: "mastra" },
+    }));
+    const Agent = agentClass(getCapabilities);
+    for (let i = 0; i < 3; i++) {
+      fireAgentIdentifiedTelemetry({
+        runtime: makeRuntime(),
+        agentId: "default",
+        agent: new Agent() as unknown as AbstractAgent,
+      });
+    }
+    await vi.waitFor(() => expect(identified()).toHaveLength(1));
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(identified()).toHaveLength(1);
+    expect(getCapabilities).toHaveBeenCalledTimes(1);
+  });
+
+  it("captures again for the same name when the agent class differs", async () => {
+    const runtime = makeRuntime();
+    const capabilities = async () => ({ identity: { type: "mastra" } });
     fireAgentIdentifiedTelemetry({
-      runtime: makeRuntime(),
+      runtime,
       agentId: "a",
-      agent,
+      agent: makeAgent(capabilities),
     });
     fireAgentIdentifiedTelemetry({
-      runtime: makeRuntime(),
+      runtime,
       agentId: "a",
-      agent,
+      agent: makeAgent(capabilities),
     });
     await vi.waitFor(() => expect(identified()).toHaveLength(2));
   });
 
-  it("stops after 100 names on one runtime", async () => {
-    const runtime = makeRuntime();
+  it("stops after 100 names for one agent class", async () => {
     const agent = makeAgent(async () => ({ identity: { type: "mastra" } }));
     for (let i = 0; i < 105; i++) {
-      fireAgentIdentifiedTelemetry({ runtime, agentId: `agent-${i}`, agent });
+      fireAgentIdentifiedTelemetry({
+        runtime: makeRuntime(),
+        agentId: `agent-${i}`,
+        agent,
+      });
     }
     await vi.waitFor(() => expect(identified()).toHaveLength(100));
     await new Promise((resolve) => setTimeout(resolve, 10));
@@ -214,12 +262,13 @@ describe("fireAgentIdentifiedTelemetry", () => {
   });
 
   it("marks a generic HTTP agent", async () => {
-    const httpAgent = {
-      url: "https://agent.example/run",
-      headers: {},
-      abortController: new AbortController(),
-      runAgent: () => undefined,
-    } as unknown as AbstractAgent;
+    class RemoteAgent {
+      url = "https://agent.example/run";
+      headers = {};
+      abortController = new AbortController();
+      runAgent = () => undefined;
+    }
+    const httpAgent = new RemoteAgent() as unknown as AbstractAgent;
     fireAgentIdentifiedTelemetry({
       runtime: makeRuntime(),
       agentId: "a",
