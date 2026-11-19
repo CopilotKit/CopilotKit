@@ -700,7 +700,7 @@ pre {
 .ck-welcome {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 40px;
   width: 100%;
   max-width: 760px;
   height: 100%;
@@ -727,7 +727,7 @@ pre {
 }
 
 .ck-welcome-head p {
-  margin: 4px 0 0;
+  margin: 12px 0 0;
   max-width: 56ch;
   font-size: 16px;
   line-height: 24px;
@@ -744,11 +744,11 @@ pre {
   position: sticky;
   bottom: 0;
   z-index: 1;
-  padding: 16px 0 8px;
+  padding: 8px 0;
   background: linear-gradient(
     to bottom,
     rgba(255, 255, 255, 0),
-    var(--surface-container) 16px
+    var(--surface-container) 8px
   );
 }
 
@@ -773,7 +773,11 @@ pre {
 }
 
 .ck-example {
-  margin: 8px 0 0;
+  margin: 0;
+}
+
+.ck-example .ck-section-title {
+  margin-bottom: 16px;
 }
 
 /* The page layout already shows the agent's surfaces; one example is enough. */
@@ -785,8 +789,8 @@ pre {
 .ck-example-ask {
   width: fit-content;
   max-width: min(80%, 480px);
-  margin: 0 0 12px auto;
-  padding: 8px 14px;
+  margin: 0 0 16px auto;
+  padding: 10px 16px;
   border-radius: 16px;
   background: var(--grey-200);
   font-size: 14px;
@@ -800,17 +804,27 @@ pre {
 .ck-example-frame {
   position: relative;
   overflow: hidden;
-  padding: 12px 16px;
+  padding: 24px;
   border: 1px solid var(--border-container);
   border-radius: 8px;
   background: var(--surface-container);
 }
 
 .ck-example figcaption {
-  margin: 8px 4px 0;
+  margin: 12px 4px 0;
   font-size: 12px;
   line-height: 18px;
   color: var(--text-muted);
+}
+
+/* A phone keeps the same rhythm, one step tighter. */
+@media (max-width: 899px) {
+  .ck-welcome {
+    gap: 32px;
+  }
+  .ck-example-frame {
+    padding: 20px;
+  }
 }
 
 .ck-example figcaption a {

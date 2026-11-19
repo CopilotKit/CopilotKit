@@ -38,21 +38,21 @@ const PLATE_SAMPLE: CatalogSample = {
     {
       id: "root",
       component: "Column",
-      gap: 5,
+      gap: 8,
       children: ["top", "ch"],
     },
     {
       id: "top",
       component: "Grid",
       columns: 2,
-      gap: 6,
+      gap: 8,
       align: "center",
       children: ["price", "s"],
     },
     {
       id: "price",
       component: "Column",
-      gap: 1,
+      gap: 2,
       children: ["label", "total", "each"],
     },
     { id: "label", component: "Caption", text: "Monthly total" },
@@ -62,7 +62,7 @@ const PLATE_SAMPLE: CatalogSample = {
       // the headline number is a Text with an explicit size.
       component: "Text",
       fontSize: 40,
-      lineHeight: 1.1,
+      lineHeight: 1.2,
       fontWeight: "semibold",
       tabularNums: true,
       text: {
