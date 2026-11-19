@@ -130,7 +130,7 @@ def _function(entry: dict[str, Any]) -> dict[str, Any]:
 
 class ExpressCompiler:
     def __init__(self, envelope: dict[str, Any], surface_id: str = "main"):
-        received = envelope.get("v1.0", {}).get("inlineCatalogs", [])
+        received = envelope.get("1.0", {}).get("inlineCatalogs", [])
         if not received or not received[0].get("components"):
             raise ValueError("Express requires the browser's inline component catalog")
         self.catalogs = []
@@ -290,6 +290,9 @@ tokens, for example radius="md", instead of CSS strings such as "12px".
             for operation in operations:
                 if operation.get("version") != "v1.0":
                     raise ValueError("Express emitted a non-v1.0 operation")
+                # The SDK still writes the pre-release "v1.0"; renderers
+                # accept only the canonical "1.0".
+                operation["version"] = "1.0"
                 payload = operation.get("createSurface") or operation.get(
                     "updateComponents"
                 )

@@ -92,7 +92,7 @@ def research_input(ui_format=None):
         value.forwarded_props["uiFormat"] = ui_format
     value.forwarded_props["copilotkit"] = {
         "ui": {
-            "v1.0": {
+            "1.0": {
                 "supportedCatalogIds": ["demo"],
                 "inlineCatalogs": [
                     {

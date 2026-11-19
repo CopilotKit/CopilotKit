@@ -172,7 +172,7 @@ class _Snapshots:
                 if changed:
                     result.append(
                         {
-                            "version": "v1.0",
+                            "version": "1.0",
                             "updateComponents": {
                                 "surfaceId": surface_id,
                                 "components": changed,
@@ -182,7 +182,7 @@ class _Snapshots:
                 if "dataModel" in create and data != data_by_surface.get(surface_id):
                     result.append(
                         {
-                            "version": "v1.0",
+                            "version": "1.0",
                             "updateDataModel": {
                                 "surfaceId": surface_id,
                                 "path": "/",

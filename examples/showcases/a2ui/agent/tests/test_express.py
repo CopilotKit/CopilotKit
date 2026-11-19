@@ -6,7 +6,7 @@ from research_desk.express import ExpressCompiler
 
 def envelope():
     return {
-        "v1.0": {
+        "1.0": {
             "inlineCatalogs": [
                 {
                     "catalogId": "demo",
@@ -84,7 +84,7 @@ def test_instructions_preserve_nested_literal_contracts_and_validation():
             },
         ]
     }
-    catalog["v1.0"]["inlineCatalogs"][0]["components"]["LocationView"] = {
+    catalog["1.0"]["inlineCatalogs"][0]["components"]["LocationView"] = {
         "props": {
             "type": "object",
             "properties": {"markers": markers, "center": center},
@@ -130,7 +130,7 @@ $/title = "Hello"
         final=True,
     )
     assert len(operations) == 1
-    assert operations[0]["version"] == "v1.0"
+    assert operations[0]["version"] == "1.0"
     created = operations[0]["createSurface"]
     assert created["surfaceId"] == "result"
     assert created["catalogId"] == "demo"
@@ -167,7 +167,7 @@ def test_unknown_component_and_missing_required_prop_rejected_on_final():
 def test_delete_surface_and_explicit_surface_name():
     compiler = ExpressCompiler(envelope())
     assert compiler.compile('deleteSurface("old")', final=True) == [
-        {"version": "v1.0", "deleteSurface": {"surfaceId": "old"}}
+        {"version": "1.0", "deleteSurface": {"surfaceId": "old"}}
     ]
     assert (
         compiler.compile('surface("chosen")\nroot = Text("Hi")', final=True)[0][
@@ -179,11 +179,11 @@ def test_delete_surface_and_explicit_surface_name():
 
 def test_single_slot_template_and_function_value_maps():
     catalog = envelope()
-    catalog["v1.0"]["inlineCatalogs"][0]["components"]["Card"] = {
+    catalog["1.0"]["inlineCatalogs"][0]["components"]["Card"] = {
         "props": {"type": "object", "properties": {}},
         "slots": {"child": "single"},
     }
-    catalog["v1.0"]["inlineCatalogs"][0]["functions"]["calc"] = {
+    catalog["1.0"]["inlineCatalogs"][0]["functions"]["calc"] = {
         "parameters": {
             "type": "object",
             "description": "{ expression: string; [name: string]: number }",
@@ -210,7 +210,7 @@ def test_explicit_null_data_update_is_not_dropped():
     )
     assert operations == [
         {
-            "version": "v1.0",
+            "version": "1.0",
             "updateDataModel": {
                 "surfaceId": "existing",
                 "path": "/nested/value",
@@ -224,7 +224,7 @@ def test_nested_check_functions_from_standard_control_schema():
     catalog = envelope()
     # The relevant shape from standardUI TextField.props: dynamic values are
     # allowed recursively, including inside each check's condition.
-    catalog["v1.0"]["inlineCatalogs"][0]["components"]["TextField"] = {
+    catalog["1.0"]["inlineCatalogs"][0]["components"]["TextField"] = {
         "props": {
             "type": "object",
             "properties": {
@@ -244,7 +244,7 @@ def test_nested_check_functions_from_standard_control_schema():
             "additionalProperties": False,
         }
     }
-    catalog["v1.0"]["inlineCatalogs"][0]["functions"]["email"] = {
+    catalog["1.0"]["inlineCatalogs"][0]["functions"]["email"] = {
         "parameters": {"type": "object", "description": "{ value: string }"},
         "returnType": "boolean",
     }
@@ -317,7 +317,7 @@ def test_forward_child_reference_waits_for_a_valid_complete_graph():
 
 def action_catalog():
     value = envelope()
-    value["v1.0"]["inlineCatalogs"][0]["functions"]["saveNote"] = {
+    value["1.0"]["inlineCatalogs"][0]["functions"]["saveNote"] = {
         "parameters": {
             "type": "object",
             "properties": {"text": {"type": "string"}},
@@ -363,7 +363,7 @@ def test_action_guidance_documents_supported_syntax_and_no_server_execution():
 
 def test_parameter_order_preserves_native_component_calling_convention():
     catalog = envelope()
-    catalog["v1.0"]["inlineCatalogs"][0]["components"]["Button"]["parameterOrder"] = [
+    catalog["1.0"]["inlineCatalogs"][0]["components"]["Button"]["parameterOrder"] = [
         "onClick",
         "label",
     ]
