@@ -9,6 +9,7 @@
 
 import posthog from "posthog-js";
 import { FRAMEWORKS } from "@/proto/data";
+import { withBasePath } from "@/lib/base-path";
 
 export type AnalyticsProperties = Record<string, unknown>;
 
@@ -50,7 +51,7 @@ export function initPostHog(key: string): void {
       posthog.init(key, {
         // Reverse-proxied through the docs host by the /ingest rewrites in
         // next.config.mjs, so blockers targeting *.i.posthog.com don't drop it.
-        api_host: "/ingest",
+        api_host: withBasePath("/ingest"),
         ui_host: "https://eu.posthog.com",
         person_profiles: "identified_only",
         bootstrap: sessionId ? { sessionID: sessionId } : undefined,

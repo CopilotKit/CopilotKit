@@ -1,0 +1,309 @@
+/*
+ * Solarized, comfortable.
+ *
+ * The sixteen canonical Solarized colors stay the source of every value. Stock
+ * Solarized text tones sit near 4:1 on base3, so text roles use the same hues
+ * pulled 15-25% toward base03 until they clear WCAG AA. Grounds, rules and
+ * chart marks use the canonical values.
+ */
+:root {
+  /* Canonical Solarized */
+  --sol-base03: #002b36;
+  --sol-base02: #073642;
+  --sol-base01: #586e75;
+  --sol-base00: #657b83;
+  --sol-base0: #839496;
+  --sol-base1: #93a1a1;
+  --sol-base2: #eee8d5;
+  --sol-base3: #fdf6e3;
+  --sol-yellow: #b58900;
+  --sol-orange: #cb4b16;
+  --sol-red: #dc322f;
+  --sol-magenta: #d33682;
+  --sol-violet: #6c71c4;
+  --sol-blue: #268bd2;
+  --sol-cyan: #2aa198;
+  --sol-green: #859900;
+
+  /* Grounds */
+  --paper: var(--sol-base3);
+  --sand: var(--sol-base2);
+  --sand-raised: #f6efdc;
+  --paper-raised: #fffaee;
+  --sand-pressed: #e6dfca;
+  --rule: #e3dcc6;
+  --rule-strong: #d3cbb3;
+
+  /* Controls: everything the reader types into or presses (the composer,
+     the starter cards, menus) shares one face, so they read as equally
+     interactive */
+  --control: var(--paper-raised);
+  --control-edge: var(--rule-strong);
+  --control-edge-hover: #bdb59c; /* 1.6:1 on paper, for edges only */
+
+  /* Sheets: a generated view is a fresh sheet laid on the page, lighter
+     than the ground with a printed edge and a soft lift */
+  --sheet: #fffcf4;
+  --sheet-edge: #d9d1b9;
+
+  /* Ink (AA on paper and sand) */
+  --ink-strong: var(--sol-base02); /* 12.0:1 on paper */
+  --ink: #425d65; /* 6.5:1 on paper, 5.7:1 on sand */
+  --ink-muted: #4c6770; /* 5.6:1 on paper, 4.9:1 on sand */
+  --ink-faint: var(--sol-base1); /* decoration and disabled only */
+
+  /* Accent: Solarized blue, deepened for text and fills */
+  /* desk-*: CopilotKit's chat owns --accent (a subtle fill), so the app's
+     blue gets its own name */
+  --desk-accent: #1c73ab; /* 4.8:1 on paper; paper text on it 4.8:1 */
+  --desk-accent-strong: #19699b; /* 4.9:1 on sand */
+  --desk-accent-wash: rgb(38 139 210 / 0.1);
+  --on-accent: var(--sol-base3); /* text on an accent fill */
+  --focus: var(--sol-blue);
+
+  /* Signals */
+  /* Signals and solids: AA on paper, on their own washes, and (solids)
+     under base3 text */
+  --signal-danger: #a53031;
+  --signal-ok: #506d16; /* 4.8:1 on its wash */
+  --signal-warn: #6d6316; /* 4.9:1 on its wash */
+  --signal-discovery: #4c5c99; /* 5.1:1 on its wash */
+  --solid-yellow: #766813;
+  --solid-green: #567213;
+  --solid-orange: #ad461b;
+  --solid-red: #bb3130;
+  --solid-violet: #5c66af;
+
+  /* Chart marks: canonical hues, the three light ones nudged past 3:1 */
+  --mark-1: #207dbb;
+  --mark-2: #248f89;
+  --mark-3: #6c71c4;
+  --mark-4: #d33682;
+  --mark-5: #718808;
+  --mark-6: #9a7b08;
+  --mark-7: #cb4b16;
+  --mark-8: #dc322f;
+
+  /* Tones: the accents pulled 15% toward base03, for icons on sand and paper */
+  --tone-blue: #207dbb;
+  --tone-cyan: #248f89;
+  --tone-violet: #5c66af;
+  --tone-magenta: #b33477;
+  --tone-green: #718808;
+  --tone-yellow: #9a7b08;
+  --tone-orange: #ad461b;
+  --tone-red: #bb3130;
+  --tone-neutral: #566f77;
+
+  /* Washes and edges: the accents as tints, for callouts and badges */
+  --wash-blue: rgb(38 139 210 / 0.12);
+  --wash-yellow: rgb(181 137 0 / 0.14);
+  --wash-orange: rgb(203 75 22 / 0.12);
+  --wash-green: rgb(133 153 0 / 0.14);
+  --wash-red: rgb(220 50 47 / 0.12);
+  --wash-violet: rgb(108 113 196 / 0.12);
+  --wash-magenta: rgb(211 54 130 / 0.14);
+  --wash-blue-soft: rgb(38 139 210 / 0.07);
+  --wash-yellow-soft: rgb(181 137 0 / 0.08);
+  --wash-orange-soft: rgb(203 75 22 / 0.07);
+  --wash-green-soft: rgb(133 153 0 / 0.08);
+  --wash-red-soft: rgb(220 50 47 / 0.07);
+  --wash-violet-soft: rgb(108 113 196 / 0.07);
+  --edge-blue: rgb(38 139 210 / 0.35);
+  --edge-yellow: rgb(181 137 0 / 0.35);
+  --edge-orange: rgb(203 75 22 / 0.35);
+  --edge-green: rgb(133 153 0 / 0.4);
+  --edge-red: rgb(220 50 47 / 0.35);
+  --edge-violet: rgb(108 113 196 / 0.35);
+  --scrim: rgb(0 43 54 / 0.6);
+  --scrim-light: rgb(0 43 54 / 0.32);
+
+  /* The status toast: the inverse of the page */
+  --toast: var(--sol-base02);
+  --toast-ink: var(--sol-base3);
+  --toast-action: rgb(253 246 227 / 0.14);
+  --toast-action-hover: rgb(253 246 227 / 0.24);
+
+  /* The source plate: Solarized dark, where the A2UI lives */
+  --plate: var(--sol-base03);
+  --plate-raised: var(--sol-base02);
+  --plate-ink: var(--sol-base0); /* 4.8:1 */
+  --plate-ink-strong: var(--sol-base1); /* 5.6:1 */
+  --plate-string: var(--sol-cyan); /* 4.8:1 */
+  --plate-name: var(--sol-yellow); /* 4.7:1 */
+  --plate-number: var(--sol-green); /* 4.7:1 */
+  --plate-rule: rgb(147 161 161 / 0.16);
+
+  /* Type */
+  --font-sans:
+    "Atkinson Hyperlegible Next Variable", "Atkinson Hyperlegible Next",
+    ui-sans-serif, system-ui, sans-serif;
+  --font-mono:
+    "Atkinson Hyperlegible Mono Variable", "Atkinson Hyperlegible Mono",
+    ui-monospace, "SF Mono", Menlo, monospace;
+  /* 12 / 14 / 16 / 20 / 25 */
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.25rem;
+  --text-xl: 1.5625rem;
+  --leading-tight: 1.3;
+  --leading: 1.6;
+
+  /* Space: 4px base */
+  --s-1: 0.25rem;
+  --s-2: 0.5rem;
+  --s-3: 0.75rem;
+  --s-4: 1rem;
+  --s-5: 1.25rem;
+  --s-6: 1.5rem;
+  --s-8: 2rem;
+  --s-10: 2.5rem;
+  --s-12: 3rem;
+
+  --radius-sm: 6px;
+  --radius: 10px;
+  --radius-lg: 14px;
+
+  --shadow-hairline: 0 1px 2px rgb(7 54 66 / 0.06);
+  --shadow-control:
+    0 1px 2px rgb(7 54 66 / 0.06), 0 6px 14px -8px rgb(7 54 66 / 0.22);
+  --shadow-sheet:
+    0 1px 1px rgb(7 54 66 / 0.05), 0 12px 28px -18px rgb(7 54 66 / 0.32);
+  --shadow-float:
+    0 2px 4px rgb(7 54 66 / 0.06), 0 16px 36px -12px rgb(7 54 66 / 0.28);
+
+  /* Motion: exponential ease-out */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-fast: 140ms;
+  --dur: 240ms;
+  --dur-slow: 520ms;
+  --dur-sheet: 640ms; /* the report sheet opening and closing */
+
+  /* Paper: a fine fiber grain and a broad, faint mottle, both warm base02
+     at a few percent, tiled over the whole desk */
+  --grain-fiber: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='f'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.24 0 0 0 0 0.2 0 0 0 0 0.09 0 0 0 0.13 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23f)'/%3E%3C/svg%3E");
+  --grain-mottle: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='720' height='720'%3E%3Cfilter id='m'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.006' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.42 0 0 0 0 0.34 0 0 0 0 0.12 0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23m)'/%3E%3C/svg%3E");
+
+  --drawer-width: 17rem;
+  --report-width: clamp(24rem, 38vw, 42rem);
+  --column: 48rem; /* the chat's reading column */
+
+  color-scheme: light;
+}
+
+/*
+ * Solarized dark, following the reader's system setting. The same sixteen
+ * colors: base03 is the page, base02 the sheet a view is printed on, and
+ * the text roles are base0-base2 lifted until they clear AA on every
+ * ground. The accents are lifted the other way, toward base3, for text and
+ * marks; a fill under text keeps the page's dark ink on it.
+ *
+ * The page's script mirrors this setting as `.dark` on <html>, so the
+ * CopilotKit chat and the standard catalog's own dark values follow too.
+ */
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* Grounds: the drawer sits a step darker than the page, as sand sits a
+       step darker than paper in the light */
+    --paper: var(--sol-base03);
+    --sand: #00222b;
+    --sand-raised: #032a34;
+    --paper-raised: #05323d;
+    --sand-pressed: #0b3d49;
+    --rule: #0f3f4b;
+    --rule-strong: #1c4d59;
+
+    --control: var(--paper-raised);
+    --control-edge: var(--rule-strong);
+    --control-edge-hover: #2e5d69;
+
+    --sheet: var(--sol-base02);
+    --sheet-edge: #1a4a56;
+
+    /* Ink (AA on base03, the drawer, and base02) */
+    --ink-strong: #e8e2cf; /* 11.6:1 on the page */
+    --ink: #a8b8b7; /* 7.3:1 on the page, 6.3:1 on a sheet */
+    --ink-muted: #93a3a3; /* 5.7:1 on the page, 5.0:1 on a sheet */
+    --ink-faint: var(--sol-base01);
+
+    --desk-accent: #4ba3e3; /* 5.5:1 on the page; base03 text on it 5.5:1 */
+    --desk-accent-strong: #6cb4ea;
+    --desk-accent-wash: rgb(38 139 210 / 0.18);
+    --on-accent: var(--sol-base03);
+    --focus: #4ba3e3;
+
+    --signal-danger: #f0807b;
+    --signal-ok: #a9bf3e;
+    --signal-warn: #d4b048;
+    --signal-discovery: #a7abf0;
+
+    /* Marks: the canonical hues lifted past 3.5:1 on a sheet */
+    --mark-1: #3b97dc;
+    --mark-2: #2fb3aa;
+    --mark-3: #9196e3;
+    --mark-4: #e0619c;
+    --mark-5: #98ad10;
+    --mark-6: #c9a227;
+    --mark-7: #e0683a;
+    --mark-8: #ef6f6c;
+
+    --tone-blue: #4ba3e3;
+    --tone-cyan: #2fb3aa;
+    --tone-violet: #9196e3;
+    --tone-magenta: #e0619c;
+    --tone-green: #a9bf3e;
+    --tone-yellow: #c9a227;
+    --tone-orange: #e0683a;
+    --tone-red: #ef6f6c;
+    --tone-neutral: #8fa3a8;
+
+    --wash-blue: rgb(38 139 210 / 0.2);
+    --wash-yellow: rgb(181 137 0 / 0.22);
+    --wash-orange: rgb(203 75 22 / 0.22);
+    --wash-green: rgb(133 153 0 / 0.22);
+    --wash-red: rgb(220 50 47 / 0.22);
+    --wash-violet: rgb(108 113 196 / 0.24);
+    --wash-magenta: rgb(211 54 130 / 0.22);
+    --wash-blue-soft: rgb(38 139 210 / 0.12);
+    --wash-yellow-soft: rgb(181 137 0 / 0.12);
+    --wash-orange-soft: rgb(203 75 22 / 0.12);
+    --wash-green-soft: rgb(133 153 0 / 0.12);
+    --wash-red-soft: rgb(220 50 47 / 0.12);
+    --wash-violet-soft: rgb(108 113 196 / 0.14);
+    --edge-blue: rgb(75 163 227 / 0.45);
+    --edge-yellow: rgb(212 176 72 / 0.45);
+    --edge-orange: rgb(224 104 58 / 0.45);
+    --edge-green: rgb(169 191 62 / 0.45);
+    --edge-red: rgb(240 128 123 / 0.45);
+    --edge-violet: rgb(145 150 227 / 0.45);
+    --scrim: rgb(0 16 20 / 0.7);
+    --scrim-light: rgb(0 16 20 / 0.5);
+
+    --toast: var(--sol-base2);
+    --toast-ink: var(--sol-base02);
+    --toast-action: rgb(7 54 66 / 0.1);
+    --toast-action-hover: rgb(7 54 66 / 0.18);
+
+    /* The plate sinks below the page, so the A2UI still reads as the layer
+       under a view */
+    --plate: #00202a;
+    --plate-raised: var(--sol-base03);
+    --plate-rule: rgb(147 161 161 / 0.14);
+
+    --shadow-hairline: 0 1px 2px rgb(0 0 0 / 0.24);
+    --shadow-control:
+      0 1px 2px rgb(0 0 0 / 0.24), 0 6px 14px -8px rgb(0 0 0 / 0.5);
+    --shadow-sheet:
+      0 1px 1px rgb(0 0 0 / 0.2), 0 12px 28px -18px rgb(0 0 0 / 0.7);
+    --shadow-float:
+      0 2px 4px rgb(0 0 0 / 0.24), 0 16px 36px -12px rgb(0 0 0 / 0.6);
+
+    /* Paper, at night: the same grain in light fibers, fainter */
+    --grain-fiber: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='f'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.93 0 0 0 0 0.91 0 0 0 0 0.84 0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23f)'/%3E%3C/svg%3E");
+    --grain-mottle: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='720' height='720'%3E%3Cfilter id='m'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.006' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.93 0 0 0 0 0.91 0 0 0 0 0.84 0 0 0 0.03 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23m)'/%3E%3C/svg%3E");
+
+    color-scheme: dark;
+  }
+}

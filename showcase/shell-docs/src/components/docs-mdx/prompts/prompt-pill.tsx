@@ -14,6 +14,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/cn";
 import { PROMPT_DESTINATION_HINT, PROMPT_PHONE_HINT } from "./onboarding";
+import { withBasePath } from "@/lib/base-path";
 
 export type PromptAction = "copy" | "view_prompt" | "copy_preview";
 
@@ -150,7 +151,7 @@ export function PromptPill({
             <Image
               key={mark}
               unoptimized
-              src={`/images/prompt-${mark}.webp`}
+              src={withBasePath(`/images/prompt-${mark}.webp`)}
               alt=""
               width={compact ? 16 : 18}
               height={compact ? 16 : 18}

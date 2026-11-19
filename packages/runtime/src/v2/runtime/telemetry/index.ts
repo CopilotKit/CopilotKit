@@ -4,4 +4,5 @@ export type {
   AnalyticsEvents,
   RuntimeInstanceCreatedInfo,
   AgentExecutionResponseInfo,
+  AgentIdentifiedInfo,
 } from "./events";
