@@ -52,7 +52,12 @@ import { LivePagesProvider } from "./live-pages-context";
 import { trackEvent } from "@/lib/telemetry/analytics";
 import { cn } from "@/lib/cn";
 import type { LiveNav } from "@/lib/live-nav";
-import { ROOT_FRAMEWORK, liveFrontend, scopeFromPath } from "@/lib/live-scope";
+import {
+  ROOT_FRAMEWORK,
+  frontendHref,
+  liveFrontend,
+  scopeFromPath,
+} from "@/lib/live-scope";
 import { variantMeta } from "./meta";
 
 const GITHUB = "https://github.com/CopilotKit/CopilotKit";
@@ -121,16 +126,20 @@ const INTELLIGENCE_MENU = [
  * chat button in the page's corner opens it. Cookbook and Reference
  * are one click from any page and Docs one click back, without taking a row
  * of the sidebar. Cookbook and Reference own their URL prefix; Docs is every
- * other docs page, and opens your framework's quickstart.
+ * other docs page, and opens your framework's quickstart on your frontend
+ * (`/vue/mastra` on a Vue page).
  */
 function SectionActions({ className, ...props }: ComponentProps<"div">) {
   const path = usePathname().split("/").filter(Boolean);
   const [lastFramework] = useLastFramework();
   const framework = scopeFromPath(path).framework ?? lastFramework;
+  const frontend = liveFrontend(path[0]);
   const sections = [
     {
       title: "Docs",
-      url: frameworkHref("d", framework, "quickstart"),
+      url: frontend
+        ? frontendHref(path, frontend, "")
+        : frameworkHref("d", framework, "quickstart"),
       active: path[0] !== "cookbook" && path[0] !== "reference",
     },
     { title: "Cookbook", url: "/cookbook", active: path[0] === "cookbook" },
