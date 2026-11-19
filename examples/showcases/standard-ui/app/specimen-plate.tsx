@@ -23,20 +23,62 @@ export const SAMPLE_PROMPT =
 
 /**
  * The empty chat's sample answer: a team-plan calculator where a Slider drives
- * Text, a List and a Chart through function values, worded for a visitor
- * rather than as a catalog test case. It is a one-off sample, not a catalog
- * entry, so its copy can say what a person would want to know.
+ * the price, its breakdown and a Chart through function values. It follows
+ * the layout rules the agent gets (app/lib/design-guide.ts): the number that
+ * matters leads in large type, the control sits beside it, the chart is in
+ * dollars, and nothing repeats what another part already shows. It is a
+ * one-off sample, not a catalog entry, so its copy can say what a person would
+ * want to know.
  */
 const PLATE_SAMPLE: CatalogSample = {
   group: "Sample answer",
   title: "Team plan",
-  covers: ["Slider", "Text", "List", "Chart"],
+  covers: ["Grid", "Title", "Slider", "Chart"],
   components: [
     {
       id: "root",
       component: "Column",
-      gap: 3,
-      children: ["s", "t", "l", "ch"],
+      gap: 5,
+      children: ["top", "ch"],
+    },
+    {
+      id: "top",
+      component: "Grid",
+      columns: 2,
+      gap: 6,
+      align: "center",
+      children: ["price", "s"],
+    },
+    {
+      id: "price",
+      component: "Column",
+      gap: 1,
+      children: ["label", "total", "each"],
+    },
+    { id: "label", component: "Caption", text: "Monthly total" },
+    {
+      id: "total",
+      component: "Title",
+      size: "4xl",
+      tabularNums: true,
+      text: {
+        "@call": "formatString",
+        args: {
+          value:
+            "${formatCurrency(value: calc(expression: 'seats * 29', seats: /seats), currency: 'USD', decimals: 0)}",
+        },
+      },
+    },
+    {
+      id: "each",
+      component: "Caption",
+      text: {
+        "@call": "formatString",
+        args: {
+          value:
+            "${/seats} ${pluralize(value: /seats, one: 'seat', other: 'seats')} × $29 each",
+        },
+      },
     },
     {
       id: "s",
@@ -47,43 +89,16 @@ const PLATE_SAMPLE: CatalogSample = {
       value: { "@path": "/seats" },
     },
     {
-      id: "t",
-      component: "Text",
-      text: {
-        "@call": "formatString",
-        args: {
-          value:
-            "${/seats} ${pluralize(value: /seats, one: 'seat', other: 'seats')} cost ${formatCurrency(value: calc(expression: 'seats * 29', seats: /seats), currency: 'USD', decimals: 0)} a month",
-        },
-      },
-    },
-    {
-      id: "l",
-      component: "List",
-      items: [
-        {
-          label: "Per seat",
-          value: {
-            "@call": "formatCurrency",
-            args: { value: 29, currency: "USD", decimals: 0 },
-          },
-        },
-        {
-          label: "Seats",
-          value: {
-            "@call": "formatNumber",
-            args: { value: { "@path": "/seats" } },
-          },
-        },
-      ],
-    },
-    {
       id: "ch",
       component: "Chart",
       chartType: "bar",
-      title: "Cost over 6 months",
+      title: "Running total over six months",
       xKey: "month",
-      series: [{ key: "cost", label: "Cost (USD)" }],
+      series: [{ key: "cost", label: "Running total" }],
+      format: "currency",
+      currency: "USD",
+      showLegend: false,
+      barRadius: 4,
       data: {
         "@call": "series",
         args: {

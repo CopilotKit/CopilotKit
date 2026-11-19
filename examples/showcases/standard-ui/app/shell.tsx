@@ -10,7 +10,7 @@ import {
 import Link from "next/link";
 import { standardUI } from "@copilotkit/react-core/v2/generative-ui";
 import pkg from "../package.json";
-import { ArrowUpRight, Book, ChatBubble, PanelToggle, Tiles } from "./icons";
+import { ArrowUpRight, ChatBubble, PanelToggle, Tiles } from "./icons";
 import { SIDEBAR_KEY } from "./sidebar-state";
 
 /** Where to start building with generative UI components. */
@@ -45,6 +45,25 @@ export function componentDocsUrl(name: string) {
 export const COMPONENT_COUNT = Object.keys(
   standardUI.manifestComponents,
 ).length;
+
+/**
+ * The Docs button, pinned to the top right of the canvas (the chat card, the
+ * catalog header), so the way to build it yourself is always in view.
+ */
+export function DocsButton({ className }: { className?: string }) {
+  return (
+    <a
+      href={DOCS_URL}
+      target="_blank"
+      rel="noreferrer"
+      className={`ck-docs ck-focus${className ? ` ${className}` : ""}`}
+    >
+      Docs
+      <ArrowUpRight className="ck-link-icon" />
+      <span className="ck-visually-hidden"> (opens in a new tab)</span>
+    </a>
+  );
+}
 
 /**
  * The six soft blur circles behind every page: the CopilotKit backdrop
@@ -210,16 +229,6 @@ export function Sidebar({
             height={32}
           />
         </Link>
-        <a
-          href={DOCS_URL}
-          target="_blank"
-          rel="noreferrer"
-          className="ck-docs ck-focus"
-        >
-          Docs
-          <ArrowUpRight className="ck-link-icon" />
-          <span className="ck-visually-hidden"> (opens in a new tab)</span>
-        </a>
         <button
           type="button"
           className="ck-collapse ck-focus"
@@ -271,16 +280,6 @@ export function Sidebar({
         >
           <Tiles />
         </Link>
-        <a
-          href={DOCS_URL}
-          target="_blank"
-          rel="noreferrer"
-          className="ck-rail-link ck-focus"
-          aria-label="Docs (opens in a new tab)"
-          title="Docs"
-        >
-          <Book />
-        </a>
       </nav>
       <div className="ck-sidebar-scroll" id="ck-sidebar-body">
         <div className="ck-sidebar-body">

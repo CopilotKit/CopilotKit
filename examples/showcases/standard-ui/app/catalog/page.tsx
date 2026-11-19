@@ -11,7 +11,13 @@ import {
   standardUI,
 } from "@copilotkit/react-core/v2/generative-ui";
 import type { GenerativeUIErrorInfo } from "@copilotkit/react-core/v2/generative-ui";
-import { Backdrop, SectionTitle, Sidebar, componentDocsUrl } from "../shell";
+import {
+  Backdrop,
+  DocsButton,
+  SectionTitle,
+  Sidebar,
+  componentDocsUrl,
+} from "../shell";
 import { ArrowUpRight } from "../icons";
 import {
   createCatalogAgent,
@@ -311,6 +317,7 @@ function Catalog({ errors }: { errors: string[] }) {
         <main className="ck-scroll">
           <div className="ck-catalog">
             <header className="ck-card ck-catalog-head">
+              <DocsButton className="ck-canvas-docs" />
               <h2>{ALL_COMPONENTS.length} standard components</h2>
               <p>
                 Every component in <code>{standardUI.id}</code>, rendered live

@@ -27,8 +27,8 @@ deploys on its own.
   to use. Where that list is hidden (a phone, the collapsed rail, the page
   layout), the same prompts show as suggestion pills above the composer. Below
   the list sit the transport and layout settings and the integration snippet.
-  A Docs button at the top of the sidebar, and a link under the welcome text,
-  go to the generative UI components docs. The sidebar collapses to a slim
+  A Docs button at the top right of the canvas (the chat card, the catalog
+  header) goes to the generative UI components docs. The sidebar collapses to a slim
   rail (Cmd/Ctrl+B), remembered across pages; with no saved choice it starts
   collapsed between 900 and 1199px wide.
 - The empty chat shows a sample answer: a prompt and the `standardUI` surface

@@ -165,7 +165,6 @@ pre {
     padding: 0;
   }
   html[data-sidebar="collapsed"] .ck-logo-full,
-  html[data-sidebar="collapsed"] .ck-docs,
   html[data-sidebar="collapsed"] .ck-app-title,
   html[data-sidebar="collapsed"] .ck-app-sub,
   html[data-sidebar="collapsed"] .ck-page-tabs,
@@ -206,13 +205,12 @@ pre {
    reflows while the column animates; the sidebar clips instead. */
 .ck-sidebar-head {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   grid-template-areas:
-    "logo docs toggle"
-    "title title title"
-    "sub sub sub"
-    "tabs tabs tabs";
-  column-gap: 4px;
+    "logo toggle"
+    "title title"
+    "sub sub"
+    "tabs tabs";
   align-items: center;
   row-gap: 4px;
   flex: none;
@@ -286,11 +284,9 @@ pre {
   box-shadow: var(--elevation-sm);
 }
 
-/* The docs, always in reach at the top of the open sidebar: a white button
-   like the active tab, so it reads as a control rather than body text. */
+/* The docs: a white button like the active tab, so it reads as a control
+   rather than body text. */
 .ck-docs {
-  grid-area: docs;
-  align-self: start;
   display: inline-flex;
   align-items: center;
   gap: 2px;
@@ -308,6 +304,34 @@ pre {
 
 .ck-docs:hover {
   box-shadow: var(--elevation-md);
+}
+
+/* Pinned to the top right of the canvas (the chat card, the catalog header),
+   above the transcript, so the way to build it yourself stays in view. */
+.ck-canvas-docs {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 3;
+}
+
+.ck-catalog-head .ck-canvas-docs {
+  top: 20px;
+  right: 20px;
+}
+
+/* Headings next to it leave room for it. */
+.ck-welcome-head h2,
+.ck-catalog-head h2 {
+  padding-right: 72px;
+}
+
+/* On a phone the transcript runs edge to edge, so once a conversation starts
+   the button would sit on the messages; it shows on the start screen only. */
+@media (max-width: 899px) {
+  .ck-card:has([data-testid="copilot-message-list"]) > .ck-canvas-docs {
+    display: none;
+  }
 }
 
 /* The collapse toggle, in line with the logo. */
@@ -666,6 +690,12 @@ pre {
   min-height: 0;
 }
 
+/* Stands in for the chat's disclaimer line: the same room under the input,
+   with no text. */
+.ck-input-foot {
+  height: 16px;
+}
+
 /* The empty chat. Centred when it fits; scrolls from the top when it doesn't. */
 .ck-welcome {
   display: flex;
@@ -705,21 +735,16 @@ pre {
   text-wrap: pretty;
 }
 
-.ck-welcome-docs {
-  margin-top: 12px;
-  font-size: 14px;
-}
-
 /* The composer sits under the sample answer and stays pinned to the bottom
    of the empty chat, like the chat's own input once a conversation starts.
    Content scrolls under it through a short white fade, which also says there
-   is more above. It carries the welcome's bottom padding, so it sits at the
-   same height pinned or not. */
+   is more above. With the 16px under the input (.ck-input-foot) it makes
+   the welcome's bottom padding, so it sits at the same height pinned or not. */
 .ck-compose {
   position: sticky;
   bottom: 0;
   z-index: 1;
-  padding: 16px 0 24px;
+  padding: 16px 0 8px;
   background: linear-gradient(
     to bottom,
     rgba(255, 255, 255, 0),
@@ -1267,7 +1292,6 @@ pre {
     margin-top: 0;
   }
   .ck-collapse,
-  .ck-docs,
   .ck-app-title,
   .ck-app-sub,
   .ck-rail,

@@ -21,12 +21,12 @@ import type { DemoErrorHandler, DemoTransport } from "./providers";
 import {
   Backdrop,
   COMPONENT_COUNT,
-  DOCS_URL,
+  DocsButton,
   SectionTitle,
   Sidebar,
 } from "./shell";
 import { SAMPLE_PROMPT, SpecimenPlate } from "./specimen-plate";
-import { ArrowRight, ArrowUpRight, Close, Tick } from "./icons";
+import { ArrowRight, Close, Tick } from "./icons";
 
 /** "chat": the chat alone (the default). "page": the chat next to two page surfaces. */
 type DemoLayout = "chat" | "page";
@@ -383,7 +383,7 @@ function Integration({
 /* ───────────────────────── main ───────────────────────── */
 
 /**
- * The empty chat: what to do and where the docs are, a sample answer (a
+ * The empty chat: what to do, a sample answer (a
  * prompt and the surface that answers it) the visitor can drag, then the
  * composer, pinned to the bottom like the chat's own input. The suggestion
  * chips repeat the sidebar's example prompts, so they show only where that
@@ -406,16 +406,6 @@ function Welcome({
           with CopilotKit&rsquo;s {COMPONENT_COUNT} standard components, exactly
           as they ship.
         </p>
-        <a
-          href={DOCS_URL}
-          target="_blank"
-          rel="noreferrer"
-          className="ck-link ck-welcome-docs ck-focus"
-        >
-          Build it into your app: read the docs
-          <ArrowUpRight className="ck-link-icon" />
-          <span className="ck-visually-hidden"> (opens in a new tab)</span>
-        </a>
       </div>
       <figure className="ck-example">
         <SectionTitle>Sample answer</SectionTitle>
@@ -485,6 +475,14 @@ function PageSurfaces() {
   );
 }
 
+/**
+ * Replaces the chat's "can make mistakes" line under the input with empty
+ * room of the same kind, through the input's documented `disclaimer` slot.
+ */
+function InputFoot() {
+  return <div className="ck-input-foot" aria-hidden="true" />;
+}
+
 function ChatCard({
   notice,
   dismiss,
@@ -494,6 +492,7 @@ function ChatCard({
 }) {
   return (
     <section className="ck-card" aria-label="Chat">
+      <DocsButton className="ck-canvas-docs" />
       {notice ? (
         <div className="ck-notice" role="alert">
           <span>{notice}</span>
@@ -505,10 +504,9 @@ function ChatCard({
       <CopilotChat
         className="ck-chat"
         welcomeScreen={Welcome as never}
+        input={{ disclaimer: InputFoot }}
         labels={{
           chatInputPlaceholder: "Describe a UI, or pick an example",
-          chatDisclaimerText:
-            "A live model writes these surfaces and can make mistakes.",
         }}
       />
     </section>
