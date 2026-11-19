@@ -234,6 +234,17 @@ function Brand({ className, ...props }: ComponentProps<"a">) {
   );
 }
 
+/**
+ * Spacious' `nav.title`: the sidebar's logo row on tablets and desktops, and
+ * the phone header below 768px. From 768px the top bar draws the logo and
+ * picker (`topBar`), so this copy keeps its row but steps aside; it would
+ * otherwise slide away as the sidebar collapses. The phone header is
+ * hidden from 768px, so `md:invisible` only ever affects the sidebar copy.
+ */
+function NavTitleBrand({ className, ...props }: ComponentProps<"a">) {
+  return <Brand {...props} className={cn(className, "md:invisible")} />;
+}
+
 const SectionsTopBar = topBar(SectionActions);
 const PanelTopBar = topBar(PanelActions);
 
@@ -706,7 +717,7 @@ export function ProtoLayout({
       <SpaciousLayout
         tree={tree}
         nav={{
-          title: Brand,
+          title: NavTitleBrand,
           url: meta.entry,
         }}
         tabs={layoutTabs(variant) ?? false}
