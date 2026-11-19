@@ -939,7 +939,7 @@ export const CATALOG: CatalogSection[] = [
   },
 ];
 
-const VERSION = "v1.0";
+const VERSION = "1.0";
 
 /** The A2UI that draws a specimen, as the agent would send it. */
 export function specimenOperations(surfaceId: string, specimen: Specimen) {
