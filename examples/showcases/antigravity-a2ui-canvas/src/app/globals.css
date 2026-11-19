@@ -43,6 +43,13 @@ body {
   font-family: var(--font-app);
 }
 
+/* With the disclaimer off, nothing sits under the docked input, so its pill
+   would touch the bottom edge. CopilotKit measures this overlay to pad the
+   transcript, so the messages still clear the input. */
+[data-testid="copilot-input-overlay"] > [data-copilotkit] > div:first-child {
+  padding-bottom: 16px;
+}
+
 ::selection {
   background: color-mix(in srgb, var(--brand) 22%, transparent);
 }
