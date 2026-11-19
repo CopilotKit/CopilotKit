@@ -8,6 +8,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { isVnextChannel } from "@/lib/docs-channel";
 
 /**
  * Each docs version is its own site: 2.x at next.docs.copilotkit.ai and 1.x
@@ -28,7 +29,8 @@ const VERSIONS = [
     origin: "https://docs.copilotkit.ai",
   },
 ];
-const CURRENT = "1.x";
+/** The 2.0 docs build with DOCS_CHANNEL=vnext; every other build is 1.x. */
+const CURRENT = isVnextChannel ? "2.0" : "1.x";
 
 export function VersionPicker() {
   const pathname = usePathname();
