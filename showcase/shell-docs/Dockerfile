@@ -38,6 +38,13 @@ ENV NEXT_PUBLIC_BRANCH=${BRANCH}
 ARG DOCS_CHANNEL=
 ENV DOCS_CHANNEL=${DOCS_CHANNEL}
 
+# The path this version is served under on docs.copilotkit.ai
+# (src/lib/docs-versions.mjs): unset for the stable docs at the root, `/v2`
+# for the 2.x docs, which the stable docs forward to this service. The build
+# inlines it.
+ARG DOCS_BASE_PATH=
+ENV DOCS_BASE_PATH=${DOCS_BASE_PATH}
+
 # `npm run build` runs prebuild (showcase-data) first.
 RUN npm run build
 
@@ -66,6 +73,8 @@ RUN test "$(node --version)" = "v22.23.4"
 
 # The smoke test below checks robots.txt against the build's release line.
 ARG DOCS_CHANNEL=
+# ...and fetches every path under the build's base path.
+ARG DOCS_BASE_PATH=
 
 # Start the server from the final filesystem and fetch pages that render on
 # request: `next build` prerenders only a handful, so a module missing from
@@ -85,6 +94,9 @@ const server = spawn(process.execPath, ['server.js'], {
 // The next major release's docs must keep crawlers out, and the live docs
 // must point them at the sitemap (src/app/robots.ts).
 const vnext = process.env.DOCS_CHANNEL?.trim().toLowerCase() === 'vnext';
+// As next.config.mjs normalizes it: "" or "/v2".
+const rawBasePath = (process.env.DOCS_BASE_PATH ?? '').trim().replace(/\/+$/, '');
+const basePath = rawBasePath && !rawBasePath.startsWith('/') ? `/${rawBasePath}` : rawBasePath;
 
 try {
   const deadline = Date.now() + 30_000;
@@ -116,7 +128,9 @@ try {
     ['/api/telemetry/config', '"posthogKey"'],
     ['/robots.txt', vnext ? 'Disallow: /\n' : 'Sitemap: '],
   ]) {
-    const response = await fetch(`http://127.0.0.1:10000${path}`, {
+    // The base path's root is `/v2`, not `/v2/`.
+    const url = basePath ? `${basePath}${path === '/' ? '' : path}` : path;
+    const response = await fetch(`http://127.0.0.1:10000${url}`, {
       redirect: 'error', signal: AbortSignal.timeout(15_000),
     });
     if (response.status !== 200) {
