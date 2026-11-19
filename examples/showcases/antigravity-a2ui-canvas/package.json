@@ -19,7 +19,6 @@
     "@copilotkit/runtime": "1.89.0",
     "@copilotkit/shared": "1.89.0",
     "clsx": "^2.1.1",
-    "hono": "^4",
     "lucide-react": "^0.577.0",
     "maplibre-gl": "^5.24.1",
     "next": "16.3.8",

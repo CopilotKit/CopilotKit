@@ -9,6 +9,8 @@ chart, translate it, click its buttons, and step back through every version.
 It is meant to be forked: one agent, one canvas, CopilotKit's standard
 component catalog, and no custom components.
 
+**Live demo:** https://a2ui-canvas-production.up.railway.app
+
 ## Try it
 
 1. Pick **Q4 team goals**. The agent writes one line in the chat and draws a
@@ -120,8 +122,19 @@ railway up            # from this folder, in a linked Railway project
 echo "$GEMINI_API_KEY" | railway variable set GEMINI_API_KEY --stdin
 ```
 
-Anyone who can open the deployed page runs the agent on your key, so put it
-behind your own access control if that matters.
+Anyone who can open the deployed page runs the agent on your key, so the
+runtime route rate limits agent runs (`src/lib/limits.ts`). Each message makes
+two or three runs: the turn, then one or two that hand the render result back.
+
+| Variable                | Default | What it does                                           |
+| ----------------------- | ------- | ------------------------------------------------------ |
+| `AGENT_RUNS_PER_10_MIN` | 30      | Runs per visitor every 10 minutes, after a burst of 15 |
+| `AGENT_RUNS_PER_HOUR`   | 600     | Runs across every visitor per hour                     |
+| `AGENT_RUNS_PER_DAY`    | 2000    | Runs across every visitor per UTC day                  |
+| `AGENT_RUNS_PAUSED`     | unset   | `1` turns live runs off                                |
+
+The counts live in memory, which is right for one instance. With more, each
+instance counts on its own.
 
 ## Files
 
@@ -130,6 +143,7 @@ agent/main.py                    The agent server: instructions, one agent per m
 src/app/page.tsx                 Chat, input (model chip, "/" actions) and canvas
 src/app/providers.tsx            CopilotKit, the trimmed catalog, the model sent with each run
 src/app/api/copilotkit/          The CopilotKit runtime endpoint
+src/lib/limits.ts                Rate limits and a request size cap for the hosted demo
 src/components/canvas.tsx        The canvas, version arrows and quick actions
 src/components/model-picker.tsx  The model chip and its menu
 src/lib/use-canvas-repair.ts     Hands each render result back to the agent
