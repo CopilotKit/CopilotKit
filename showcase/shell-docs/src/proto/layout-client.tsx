@@ -24,16 +24,22 @@ import {
   ThreadsGlyph,
 } from "@/components/icons/glyphs";
 import { SiDiscord, SiX } from "react-icons/si";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, CalendarDays } from "lucide-react";
 import type { LinkItemType } from "fumadocs-ui/layouts/shared";
 // Spacious' DocsLayout with the CopilotKit "Ask AI" chat in its aiChat slot.
 import { DocsLayout as SpaciousLayout } from "@/components/ai/docs-layout";
+import { VersionPicker } from "@/components/version-picker";
 import { ProtoStackAgent } from "@/components/ai/stack-agents";
 import { HomeLayout } from "fumadocs-ui/layouts/home";
 import { FullSearchTrigger } from "fumadocs-ui/layouts/shared/slots/search-trigger";
 import { Header as SpaciousHeader } from "fumadocs-ui/layouts/spacious/slots/header";
 import { CopilotKitLogo } from "@/components/copilotkit-logo";
 import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   IconLinks,
   PanelActions,
@@ -185,13 +191,42 @@ function topBar(Actions: (props: ComponentProps<"div">) => ReactNode) {
         <SpaciousHeader {...props} />
         <header
           data-docs-topbar
-          className="[grid-area:1/2/2/-1] flex h-(--fd-header-height) items-center justify-end pe-3 max-md:hidden"
+          // It spans the sidebar's column too, so the logo and version picker
+          // live here and stay put while the sidebar collapses. The padding
+          // is the sidebar's 268px width, so the section links keep their x.
+          className="relative [grid-area:1/1/2/-1] flex h-(--fd-header-height) items-center justify-end ps-[268px] pe-3 max-md:hidden"
         >
+          <div className="absolute inset-y-0 start-0 flex items-center ps-5.5">
+            <Brand
+              href="/"
+              className="inline-flex items-center text-[0.9375rem] font-semibold"
+            />
+          </div>
           <Actions className="bg-transparent" />
         </header>
       </>
     );
   };
+}
+
+/**
+ * The logo with the docs version picker beside it. Drawn in the top bar on
+ * tablets and desktops, and in Spacious' phone header via `nav.title`.
+ */
+function Brand({ className, ...props }: ComponentProps<"a">) {
+  // The layout's className (me-auto in the phone header) goes on the wrapper,
+  // so the picker travels with the logo and the header's buttons stay right.
+  return (
+    <span
+      data-brand=""
+      className={cn("inline-flex min-w-0 items-center gap-1", className)}
+    >
+      <a {...props} className="inline-flex shrink-0 items-center">
+        <CopilotKitLogo className="h-[22px] w-auto" />
+      </a>
+      <VersionPicker />
+    </span>
+  );
 }
 
 const SectionsTopBar = topBar(SectionActions);
@@ -461,23 +496,40 @@ function AskCopilotKitPill({ className }: { className?: string }) {
  */
 function TalkToEngineerPill({ className }: { className?: string }) {
   return (
-    <Button
-      render={
-        <a
-          href="https://www.copilotkit.ai/talk-to-an-engineer"
-          target="_blank"
-          rel="noreferrer noopener"
-        />
-      }
-      nativeButton={false}
-      onClick={() => trackEvent("talk_to_us_clicked", { location: "docs_nav" })}
-      className={cn(
-        "h-9 rounded-full bg-brand-lilac-deep px-4 text-white hover:bg-[#5057cc]",
-        className,
-      )}
-    >
-      Talk to an engineer
-    </Button>
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <Button
+            render={
+              <a
+                href="https://www.copilotkit.ai/talk-to-an-engineer"
+                target="_blank"
+                rel="noreferrer noopener"
+              />
+            }
+            nativeButton={false}
+            onClick={() =>
+              trackEvent("talk_to_us_clicked", { location: "docs_nav" })
+            }
+            aria-label="Talk to an engineer"
+            className={cn(
+              "h-9 rounded-full bg-brand-lilac-deep px-4 text-white hover:bg-[#5057cc]",
+              className,
+              // Below lg the top bar has no room for the label, so a calendar
+              // icon stands in for it and the tooltip names it.
+              "max-lg:size-8 max-lg:px-0",
+            )}
+          />
+        }
+      >
+        <CalendarDays className="size-4 lg:hidden" aria-hidden />
+        <span className="max-lg:hidden">Talk to an engineer</span>
+      </TooltipTrigger>
+      {/* Only the icon needs a tooltip; the pill says it already. */}
+      <TooltipContent side="bottom" className="lg:hidden">
+        Talk to an engineer
+      </TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -647,7 +699,7 @@ export function ProtoLayout({
       <SpaciousLayout
         tree={tree}
         nav={{
-          title: <CopilotKitLogo className="h-[22px] w-auto" />,
+          title: Brand,
           url: meta.entry,
         }}
         tabs={layoutTabs(variant) ?? false}

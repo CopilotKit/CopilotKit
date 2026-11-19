@@ -425,6 +425,15 @@ html .copilotKitChat:hover ::-webkit-scrollbar-thumb {
  * starts right under it, so the bar's own height is the gap.
  */
 @media (min-width: 768px) {
+  /*
+   * The top bar draws the logo and version picker (`Brand` in
+   * src/proto/layout-client.tsx), so the sidebar's copy keeps its row but
+   * steps aside. It would otherwise slide away as the sidebar collapses.
+   */
+  #fd-spacious-layout:has(> [data-docs-topbar]) #nd-sidebar [data-brand] {
+    visibility: hidden;
+  }
+
   #fd-spacious-layout:has(> [data-docs-topbar]) > #nd-page-panel {
     margin-top: 0;
   }
