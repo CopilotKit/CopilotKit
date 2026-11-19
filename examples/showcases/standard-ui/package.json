@@ -1,0 +1,36 @@
+{
+  "name": "standard-ui",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Live demo of CopilotKit's Gen UI 2.0 standard components (standardUI).",
+  "packageManager": "pnpm@10.33.4",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "next dev -p 3011",
+    "build": "next build",
+    "start": "next start -H 0.0.0.0 -p ${PORT:-3011}",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@copilotkit/react-core": "1.89.0",
+    "@copilotkit/runtime": "1.89.0",
+    "@copilotkit/shared": "1.89.0",
+    "@fontsource-variable/plus-jakarta-sans": "5.3.0",
+    "@fontsource-variable/spline-sans-mono": "5.3.0",
+    "@fontsource/plus-jakarta-sans": "5.3.0",
+    "@fontsource/spline-sans-mono": "5.3.0",
+    "maplibre-gl": "5.24.1",
+    "next": "15.5.29",
+    "react": "19.2.9",
+    "react-dom": "19.2.9",
+    "zod": "3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "typescript": "5.9.3"
+  }
+}

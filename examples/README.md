@@ -101,6 +101,7 @@ Full-featured demo applications highlighting CopilotKit capabilities in real-wor
 | [strands-crm](./showcases/strands-crm/)                                 | Enterprise sales CRM — dashboard, pipeline, products, quotes, reports & agentic canvas (TypeScript Strands + AG-UI) |
 | [manufact-mcp-apps](./showcases/manufact-mcp-apps/)                     | Built-in Agent rendering an MCP App built with Manufact's mcp-use SDK (inline Leaflet map)                          |
 | [antigravity-repo-doctor](./showcases/antigravity-repo-doctor/)         | Google Antigravity agent that fixes failing CI and proves the fix, with approval cards, a diff card and A2UI tests  |
+| [standard-ui](./showcases/standard-ui/)                                 | A live model renders the 69 standard generative UI components (standardUI) in chat, plus a catalog of all of them   |
 
 ### Retired hosted demos (8)
 

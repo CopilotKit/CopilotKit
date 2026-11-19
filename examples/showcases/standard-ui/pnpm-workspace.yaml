@@ -1,0 +1,5 @@
+# This app is its own pnpm root and installs the published @copilotkit/*
+# packages from npm. Without this file, pnpm walks up and can find a parent
+# workspace instead.
+packages:
+  - "."
