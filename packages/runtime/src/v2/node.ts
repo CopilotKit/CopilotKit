@@ -5,7 +5,7 @@
  * It exports every export of `@copilotkit/runtime/node`, and the 1.x names of
  * those exports. Each old name is the same value or type as its new name.
  *
- * `npx codemod @copilotkit/v2-migration` moves the imports to
+ * `npx copilotkit@latest migrate` moves the imports to
  * `@copilotkit/runtime/node` and renames them. The build marks each name of
  * this entry deprecated in its declarations
  * (scripts/deprecations/v2-subpath-aliases.mts).
@@ -24,32 +24,32 @@ export * from "../node";
 /**
  * @deprecated Use `createCopilotKitNodeListener` from
  * `@copilotkit/runtime/node`. This old name is an alias of it. To move your
- * imports, run `npx codemod @copilotkit/v2-migration`.
+ * imports, run `npx copilotkit@latest migrate`.
  */
 export const createCopilotNodeListener = createCopilotKitNodeListener;
 /**
  * @deprecated Use `createCopilotKitNodeHandler` from
  * `@copilotkit/runtime/node`. This old name is an alias of it. To move your
- * imports, run `npx codemod @copilotkit/v2-migration`.
+ * imports, run `npx copilotkit@latest migrate`.
  */
 export const createCopilotNodeHandler = createCopilotKitNodeHandler;
 /**
  * @deprecated Use `createCopilotKitNodeHandler` from
  * `@copilotkit/runtime/node`. 1.x deprecated this name, and it is an alias of
  * `createCopilotKitNodeHandler`. To move your imports, run
- * `npx codemod @copilotkit/v2-migration`.
+ * `npx copilotkit@latest migrate`.
  */
 export const createNodeFetchHandler = createCopilotKitNodeHandler;
 /**
  * @deprecated Use `NodeCopilotKitListener` from `@copilotkit/runtime/node`.
  * This old name is an alias of it. To move your imports, run
- * `npx codemod @copilotkit/v2-migration`.
+ * `npx copilotkit@latest migrate`.
  */
 export type NodeCopilotListener = NodeCopilotKitListener;
 /**
  * @deprecated Use `NodeCopilotKitListenerWithChannels` from
  * `@copilotkit/runtime/node`. This old name is an alias of it. To move your
- * imports, run `npx codemod @copilotkit/v2-migration`.
+ * imports, run `npx copilotkit@latest migrate`.
  */
 export type NodeCopilotListenerWithChannels =
   NodeCopilotKitListenerWithChannels;

@@ -3069,7 +3069,7 @@
         "importPath": "@copilotkit/runtime",
         "symbol": "CopilotKitCorsConfig"
       },
-      "sourceMessage": "Use `CopilotKitCorsConfig` from `@copilotkit/runtime`. This old\nname is an alias of it. To move your imports, run\n`npx codemod @copilotkit/v2-migration`.",
+      "sourceMessage": "Use `CopilotKitCorsConfig` from `@copilotkit/runtime`. This old\nname is an alias of it. To move your imports, run\n`npx copilotkit@latest migrate`.",
       "provenance": {
         "importPath": {
           "kind": "package-json",
@@ -3100,7 +3100,7 @@
         "importPath": "@copilotkit/runtime",
         "symbol": "CopilotKitIntelligenceRuntime"
       },
-      "sourceMessage": "Use `CopilotKitIntelligenceRuntime` from `@copilotkit/runtime`.\nThis old name is an alias of it. To move your imports, run\n`npx codemod @copilotkit/v2-migration`.",
+      "sourceMessage": "Use `CopilotKitIntelligenceRuntime` from `@copilotkit/runtime`.\nThis old name is an alias of it. To move your imports, run\n`npx copilotkit@latest migrate`.",
       "provenance": {
         "importPath": {
           "kind": "package-json",
@@ -3131,7 +3131,7 @@
         "importPath": "@copilotkit/runtime",
         "symbol": "CopilotKitIntelligenceRuntimeLike"
       },
-      "sourceMessage": "Use `CopilotKitIntelligenceRuntimeLike` from\n`@copilotkit/runtime`. This old name is an alias of it. To move your\nimports, run `npx codemod @copilotkit/v2-migration`.",
+      "sourceMessage": "Use `CopilotKitIntelligenceRuntimeLike` from\n`@copilotkit/runtime`. This old name is an alias of it. To move your\nimports, run `npx copilotkit@latest migrate`.",
       "provenance": {
         "importPath": {
           "kind": "package-json",
@@ -3162,7 +3162,7 @@
         "importPath": "@copilotkit/runtime",
         "symbol": "CopilotKitIntelligenceRuntimeOptions"
       },
-      "sourceMessage": "Use `CopilotKitIntelligenceRuntimeOptions` from\n`@copilotkit/runtime`. This old name is an alias of it. To move your\nimports, run `npx codemod @copilotkit/v2-migration`.",
+      "sourceMessage": "Use `CopilotKitIntelligenceRuntimeOptions` from\n`@copilotkit/runtime`. This old name is an alias of it. To move your\nimports, run `npx copilotkit@latest migrate`.",
       "provenance": {
         "importPath": {
           "kind": "package-json",
@@ -3193,7 +3193,7 @@
         "importPath": "@copilotkit/runtime",
         "symbol": "CopilotKitRuntime"
       },
-      "sourceMessage": "Use `CopilotKitRuntime` from `@copilotkit/runtime`. This old\nname is an alias of it. To move your imports, run\n`npx codemod @copilotkit/v2-migration`.",
+      "sourceMessage": "Use `CopilotKitRuntime` from `@copilotkit/runtime`. This old\nname is an alias of it. To move your imports, run\n`npx copilotkit@latest migrate`.",
       "provenance": {
         "importPath": {
           "kind": "package-json",
@@ -3224,7 +3224,7 @@
         "importPath": "@copilotkit/runtime",
         "symbol": "CopilotKitRuntimeConstructor"
       },
-      "sourceMessage": "Use `CopilotKitRuntimeConstructor` from `@copilotkit/runtime`.\nThis old name is an alias of it. To move your imports, run\n`npx codemod @copilotkit/v2-migration`.",
+      "sourceMessage": "Use `CopilotKitRuntimeConstructor` from `@copilotkit/runtime`.\nThis old name is an alias of it. To move your imports, run\n`npx copilotkit@latest migrate`.",
       "provenance": {
         "importPath": {
           "kind": "package-json",
@@ -3255,7 +3255,7 @@
         "importPath": "@copilotkit/runtime",
         "symbol": "CopilotKitRuntimeFetchHandler"
       },
-      "sourceMessage": "Use `CopilotKitRuntimeFetchHandler` from `@copilotkit/runtime`.\nThis old name is an alias of it. To move your imports, run\n`npx codemod @copilotkit/v2-migration`.",
+      "sourceMessage": "Use `CopilotKitRuntimeFetchHandler` from `@copilotkit/runtime`.\nThis old name is an alias of it. To move your imports, run\n`npx copilotkit@latest migrate`.",
       "provenance": {
         "importPath": {
           "kind": "package-json",
@@ -3286,7 +3286,7 @@
         "importPath": "@copilotkit/runtime",
         "symbol": "CopilotKitRuntimeFetchHandlerWithChannels"
       },
-      "sourceMessage": "Use `CopilotKitRuntimeFetchHandlerWithChannels` from\n`@copilotkit/runtime`. This old name is an alias of it. To move your\nimports, run `npx codemod @copilotkit/v2-migration`.",
+      "sourceMessage": "Use `CopilotKitRuntimeFetchHandlerWithChannels` from\n`@copilotkit/runtime`. This old name is an alias of it. To move your\nimports, run `npx copilotkit@latest migrate`.",
       "provenance": {
         "importPath": {
           "kind": "package-json",
@@ -3317,7 +3317,7 @@
         "importPath": "@copilotkit/runtime",
         "symbol": "CopilotKitRuntimeHandlerOptions"
       },
-      "sourceMessage": "Use `CopilotKitRuntimeHandlerOptions` from\n`@copilotkit/runtime`. This old name is an alias of it. To move your\nimports, run `npx codemod @copilotkit/v2-migration`.",
+      "sourceMessage": "Use `CopilotKitRuntimeHandlerOptions` from\n`@copilotkit/runtime`. This old name is an alias of it. To move your\nimports, run `npx copilotkit@latest migrate`.",
       "provenance": {
         "importPath": {
           "kind": "package-json",
@@ -3348,7 +3348,7 @@
         "importPath": "@copilotkit/runtime",
         "symbol": "CopilotKitRuntimeHooks"
       },
-      "sourceMessage": "Use `CopilotKitRuntimeHooks` from `@copilotkit/runtime`. This\nold name is an alias of it. To move your imports, run\n`npx codemod @copilotkit/v2-migration`.",
+      "sourceMessage": "Use `CopilotKitRuntimeHooks` from `@copilotkit/runtime`. This\nold name is an alias of it. To move your imports, run\n`npx copilotkit@latest migrate`.",
       "provenance": {
         "importPath": {
           "kind": "package-json",
@@ -3379,7 +3379,7 @@
         "importPath": "@copilotkit/runtime",
         "symbol": "CopilotKitRuntimeLearningConfig"
       },
-      "sourceMessage": "Use `CopilotKitRuntimeLearningConfig` from\n`@copilotkit/runtime`. This old name is an alias of it. To move your\nimports, run `npx codemod @copilotkit/v2-migration`.",
+      "sourceMessage": "Use `CopilotKitRuntimeLearningConfig` from\n`@copilotkit/runtime`. This old name is an alias of it. To move your\nimports, run `npx copilotkit@latest migrate`.",
       "provenance": {
         "importPath": {
           "kind": "package-json",
@@ -3410,7 +3410,7 @@
         "importPath": "@copilotkit/runtime",
         "symbol": "CopilotKitRuntimeLearningContext"
       },
-      "sourceMessage": "Use `CopilotKitRuntimeLearningContext` from\n`@copilotkit/runtime`. This old name is an alias of it. To move your\nimports, run `npx codemod @copilotkit/v2-migration`.",
+      "sourceMessage": "Use `CopilotKitRuntimeLearningContext` from\n`@copilotkit/runtime`. This old name is an alias of it. To move your\nimports, run `npx copilotkit@latest migrate`.",
       "provenance": {
         "importPath": {
           "kind": "package-json",
@@ -3441,7 +3441,7 @@
         "importPath": "@copilotkit/runtime",
         "symbol": "CopilotKitRuntimeLike"
       },
-      "sourceMessage": "Use `CopilotKitRuntimeLike` from `@copilotkit/runtime`. This old\nname is an alias of it. To move your imports, run\n`npx codemod @copilotkit/v2-migration`.",
+      "sourceMessage": "Use `CopilotKitRuntimeLike` from `@copilotkit/runtime`. This old\nname is an alias of it. To move your imports, run\n`npx copilotkit@latest migrate`.",
       "provenance": {
         "importPath": {
           "kind": "package-json",
@@ -3472,7 +3472,7 @@
         "importPath": "@copilotkit/runtime",
         "symbol": "CopilotKitRuntimeLogger"
       },
-      "sourceMessage": "Use `CopilotKitRuntimeLogger` from `@copilotkit/runtime`. This\nold name is an alias of it. To move your imports, run\n`npx codemod @copilotkit/v2-migration`.",
+      "sourceMessage": "Use `CopilotKitRuntimeLogger` from `@copilotkit/runtime`. This\nold name is an alias of it. To move your imports, run\n`npx copilotkit@latest migrate`.",
       "provenance": {
         "importPath": {
           "kind": "package-json",
@@ -3503,7 +3503,7 @@
         "importPath": "@copilotkit/runtime",
         "symbol": "CopilotKitRuntimeMemoryConfig"
       },
-      "sourceMessage": "Use `CopilotKitRuntimeMemoryConfig` from `@copilotkit/runtime`.\nThis old name is an alias of it. To move your imports, run\n`npx codemod @copilotkit/v2-migration`.",
+      "sourceMessage": "Use `CopilotKitRuntimeMemoryConfig` from `@copilotkit/runtime`.\nThis old name is an alias of it. To move your imports, run\n`npx copilotkit@latest migrate`.",
       "provenance": {
         "importPath": {
           "kind": "package-json",
@@ -3534,7 +3534,7 @@
         "importPath": "@copilotkit/runtime",
         "symbol": "CopilotKitRuntimeOptions"
       },
-      "sourceMessage": "Use `CopilotKitRuntimeOptions` from `@copilotkit/runtime`. This\nold name is an alias of it. To move your imports, run\n`npx codemod @copilotkit/v2-migration`.",
+      "sourceMessage": "Use `CopilotKitRuntimeOptions` from `@copilotkit/runtime`. This\nold name is an alias of it. To move your imports, run\n`npx copilotkit@latest migrate`.",
       "provenance": {
         "importPath": {
           "kind": "package-json",
@@ -3565,7 +3565,7 @@
         "importPath": "@copilotkit/runtime",
         "symbol": "CopilotKitRuntimeUser"
       },
-      "sourceMessage": "Use `CopilotKitRuntimeUser` from `@copilotkit/runtime`. This old\nname is an alias of it. To move your imports, run\n`npx codemod @copilotkit/v2-migration`.",
+      "sourceMessage": "Use `CopilotKitRuntimeUser` from `@copilotkit/runtime`. This old\nname is an alias of it. To move your imports, run\n`npx copilotkit@latest migrate`.",
       "provenance": {
         "importPath": {
           "kind": "package-json",
@@ -3596,7 +3596,7 @@
         "importPath": "@copilotkit/runtime",
         "symbol": "CopilotKitSseRuntime"
       },
-      "sourceMessage": "Use `CopilotKitSseRuntime` from `@copilotkit/runtime`. This old\nname is an alias of it. To move your imports, run\n`npx codemod @copilotkit/v2-migration`.",
+      "sourceMessage": "Use `CopilotKitSseRuntime` from `@copilotkit/runtime`. This old\nname is an alias of it. To move your imports, run\n`npx copilotkit@latest migrate`.",
       "provenance": {
         "importPath": {
           "kind": "package-json",
@@ -3627,7 +3627,7 @@
         "importPath": "@copilotkit/runtime",
         "symbol": "CopilotKitSseRuntimeLike"
       },
-      "sourceMessage": "Use `CopilotKitSseRuntimeLike` from `@copilotkit/runtime`. This\nold name is an alias of it. To move your imports, run\n`npx codemod @copilotkit/v2-migration`.",
+      "sourceMessage": "Use `CopilotKitSseRuntimeLike` from `@copilotkit/runtime`. This\nold name is an alias of it. To move your imports, run\n`npx copilotkit@latest migrate`.",
       "provenance": {
         "importPath": {
           "kind": "package-json",
@@ -3658,7 +3658,7 @@
         "importPath": "@copilotkit/runtime",
         "symbol": "CopilotKitSseRuntimeOptions"
       },
-      "sourceMessage": "Use `CopilotKitSseRuntimeOptions` from `@copilotkit/runtime`.\nThis old name is an alias of it. To move your imports, run\n`npx codemod @copilotkit/v2-migration`.",
+      "sourceMessage": "Use `CopilotKitSseRuntimeOptions` from `@copilotkit/runtime`.\nThis old name is an alias of it. To move your imports, run\n`npx copilotkit@latest migrate`.",
       "provenance": {
         "importPath": {
           "kind": "package-json",
@@ -3689,7 +3689,7 @@
         "importPath": "@copilotkit/runtime",
         "symbol": "createCopilotKitRuntimeHandler"
       },
-      "sourceMessage": "Use `createCopilotKitRuntimeHandler` from `@copilotkit/runtime`.\nThis old name is an alias of it. To move your imports, run\n`npx codemod @copilotkit/v2-migration`.",
+      "sourceMessage": "Use `createCopilotKitRuntimeHandler` from `@copilotkit/runtime`.\nThis old name is an alias of it. To move your imports, run\n`npx copilotkit@latest migrate`.",
       "provenance": {
         "importPath": {
           "kind": "package-json",
@@ -3720,7 +3720,7 @@
         "importPath": "@copilotkit/runtime/node",
         "symbol": "createCopilotKitNodeHandler"
       },
-      "sourceMessage": "Use `createCopilotKitNodeHandler` from\n`@copilotkit/runtime/node`. This old name is an alias of it. To move your\nimports, run `npx codemod @copilotkit/v2-migration`.",
+      "sourceMessage": "Use `createCopilotKitNodeHandler` from\n`@copilotkit/runtime/node`. This old name is an alias of it. To move your\nimports, run `npx copilotkit@latest migrate`.",
       "provenance": {
         "importPath": {
           "kind": "package-json",
@@ -3751,7 +3751,7 @@
         "importPath": "@copilotkit/runtime/node",
         "symbol": "createCopilotKitNodeListener"
       },
-      "sourceMessage": "Use `createCopilotKitNodeListener` from\n`@copilotkit/runtime/node`. This old name is an alias of it. To move your\nimports, run `npx codemod @copilotkit/v2-migration`.",
+      "sourceMessage": "Use `createCopilotKitNodeListener` from\n`@copilotkit/runtime/node`. This old name is an alias of it. To move your\nimports, run `npx copilotkit@latest migrate`.",
       "provenance": {
         "importPath": {
           "kind": "package-json",
@@ -3782,7 +3782,7 @@
         "importPath": "@copilotkit/runtime/node",
         "symbol": "createCopilotKitNodeHandler"
       },
-      "sourceMessage": "Use `createCopilotKitNodeHandler` from\n`@copilotkit/runtime/node`. 1.x deprecated this name, and it is an alias of\n`createCopilotKitNodeHandler`. To move your imports, run\n`npx codemod @copilotkit/v2-migration`.",
+      "sourceMessage": "Use `createCopilotKitNodeHandler` from\n`@copilotkit/runtime/node`. 1.x deprecated this name, and it is an alias of\n`createCopilotKitNodeHandler`. To move your imports, run\n`npx copilotkit@latest migrate`.",
       "provenance": {
         "importPath": {
           "kind": "package-json",
@@ -3813,7 +3813,7 @@
         "importPath": "@copilotkit/runtime/node",
         "symbol": "NodeCopilotKitListener"
       },
-      "sourceMessage": "Use `NodeCopilotKitListener` from `@copilotkit/runtime/node`.\nThis old name is an alias of it. To move your imports, run\n`npx codemod @copilotkit/v2-migration`.",
+      "sourceMessage": "Use `NodeCopilotKitListener` from `@copilotkit/runtime/node`.\nThis old name is an alias of it. To move your imports, run\n`npx copilotkit@latest migrate`.",
       "provenance": {
         "importPath": {
           "kind": "package-json",
@@ -3844,7 +3844,7 @@
         "importPath": "@copilotkit/runtime/node",
         "symbol": "NodeCopilotKitListenerWithChannels"
       },
-      "sourceMessage": "Use `NodeCopilotKitListenerWithChannels` from\n`@copilotkit/runtime/node`. This old name is an alias of it. To move your\nimports, run `npx codemod @copilotkit/v2-migration`.",
+      "sourceMessage": "Use `NodeCopilotKitListenerWithChannels` from\n`@copilotkit/runtime/node`. This old name is an alias of it. To move your\nimports, run `npx copilotkit@latest migrate`.",
       "provenance": {
         "importPath": {
           "kind": "package-json",

@@ -9,7 +9,7 @@ Fetch requests or Node HTTP requests. Applications can still use Express or Hono
 as their host framework.
 
 This guide applies to **2.0**. Apps pinned to CopilotKit 1.x can keep their existing
-adapters until they upgrade. Run `npx codemod @copilotkit/v2-migration` before the
+adapters until they upgrade. Run `npx copilotkit@latest migrate` before the
 upgrade. The codemod migrates common Express mounts, Hono mounts, and Next.js
 `handle(endpoint)` wrappers automatically. It preserves aliases, single-route
 mode, explicit CORS defaults, and request URLs. Express mounts receive an
@@ -265,7 +265,7 @@ text adapter, such as `openaiText("gpt-5")`. The adapter holds the API key and
 the base URL. The runtime does not install the model packages, so your app
 installs the ones it uses.
 
-The codemod (`npx codemod @copilotkit/v2-migration`) does this for you:
+The codemod (`npx copilotkit@latest migrate`) does this for you:
 
 - It moves `BuiltInAgent`, `defineTool`, and the other agent exports from
   `@copilotkit/runtime` and `@copilotkit/runtime/v2` to

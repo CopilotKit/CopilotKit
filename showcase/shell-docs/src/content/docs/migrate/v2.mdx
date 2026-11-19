@@ -31,7 +31,7 @@ different model. Start with the codemod. Before you upgrade the packages, run
 it in the root of your app:
 
 ```bash
-npx codemod @copilotkit/v2-migration
+npx copilotkit@latest migrate
 ```
 
 Then use the steps below for the code that it cannot migrate.
@@ -307,7 +307,7 @@ your editor marks them as deprecated. Imports of `useCopilotAction` and
 `useCopilotReadable` from `@copilotkit/vue` fail, because 2.0 removes the v1
 hooks.
 
-The codemod (`npx codemod @copilotkit/v2-migration`) migrates these imports and
+The codemod (`npx copilotkit@latest migrate`) migrates these imports and
 hooks. It changes `.ts` files and the `<script>` and `<script setup>` blocks of
 `.vue` files. It does not change templates. If it cannot convert some code, it adds a `TODO(copilotkit-2.0)`
 comment.
@@ -377,7 +377,7 @@ in 2.0. These changes can break the build or the app:
   `CopilotA2UIRecovery` and `readA2UILifecycleContent`.
 - `provideCopilotKit` throws in production when it has no runtime.
 
-The codemod (`npx codemod @copilotkit/v2-migration`) changes your `.ts` files.
+The codemod (`npx copilotkit@latest migrate`) changes your `.ts` files.
 It does not change templates, stylesheets, or `angular.json`. If it cannot
 convert some code, it adds a `TODO(copilotkit-2.0)` comment.
 

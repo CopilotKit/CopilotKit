@@ -12,7 +12,7 @@ Most fixes are a rename or a deleted prop. A codemod does those for you.
 1. Run the codemod:
 
    ```bash
-   npx codemod @copilotkit/v2-migration
+   npx copilotkit@latest migrate
    ```
 
 2. Search your code for `TODO(copilotkit-2.0)`. The codemod adds this comment where you must change the code yourself.
@@ -32,7 +32,7 @@ The codemod makes these changes:
 If your code still uses a 1.x export that 2.0 removed, it throws a `CopilotKitRemovedApiError`. The error happens when the code calls, constructs, or renders the export. The import itself does not throw. The message names the 2.0 replacement and links to the section about it:
 
 ```text
-"useCopilotAction" was removed in CopilotKit 2.0. Use useFrontendTool from @copilotkit/react-core (parameters are now a Zod 4 / Standard Schema), or useHumanInTheLoop when the action waits for the user. Run `npx codemod @copilotkit/v2-migration` to update your code. See https://docs.copilotkit.ai/migrate/v2#hook-mapping
+"useCopilotAction" was removed in CopilotKit 2.0. Use useFrontendTool from @copilotkit/react-core (parameters are now a Zod 4 / Standard Schema), or useHumanInTheLoop when the action waits for the user. Run `npx copilotkit@latest migrate` to update your code. See https://docs.copilotkit.ai/migrate/v2#hook-mapping
 ```
 
 TypeScript shows the same message as a type error where the code uses the export, and your editor marks the import as deprecated. Do what the message says, or run the codemod.

@@ -80,7 +80,7 @@ describe("useRenderToolCall with the 1.x arguments", () => {
       ),
     ).toThrow(
       removalError(
-        '"useRenderToolCall(tool, deps)" was removed in CopilotKit 2.0. To register a renderer for a tool, use useRenderTool from @copilotkit/react-core. useRenderToolCall() takes no arguments: it returns a function that renders a tool call. Run `npx codemod @copilotkit/v2-migration` to update your code. See https://docs.copilotkit.ai/migrate/removed-apis-2.0#userendertoolcall-with-arguments',
+        '"useRenderToolCall(tool, deps)" was removed in CopilotKit 2.0. To register a renderer for a tool, use useRenderTool from @copilotkit/react-core. useRenderToolCall() takes no arguments: it returns a function that renders a tool call. Run `npx copilotkit@latest migrate` to update your code. See https://docs.copilotkit.ai/migrate/removed-apis-2.0#userendertoolcall-with-arguments',
       ),
     );
   });
@@ -99,7 +99,7 @@ describe("useThreads with the 1.x shapes", () => {
       renderHook(() => useThreads(), { wrapper: Provider }),
     ).toThrow(
       removalError(
-        '"useThreads()" without arguments was removed in CopilotKit 2.0. useThreads({ agentId }) lists the threads of an agent. To read or set the current thread, use useCopilotChatConfiguration() from @copilotkit/react-core. Run `npx codemod @copilotkit/v2-migration` to update your code. See https://docs.copilotkit.ai/migrate/removed-apis-2.0#usethreads',
+        '"useThreads()" without arguments was removed in CopilotKit 2.0. useThreads({ agentId }) lists the threads of an agent. To read or set the current thread, use useCopilotChatConfiguration() from @copilotkit/react-core. Run `npx copilotkit@latest migrate` to update your code. See https://docs.copilotkit.ai/migrate/removed-apis-2.0#usethreads',
       ),
     );
   });

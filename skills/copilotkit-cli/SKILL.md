@@ -1,7 +1,7 @@
 ---
 name: copilotkit-cli
-description: "Use for the CopilotKit CLI — `npx copilotkit@latest`. Covers proving a project's wiring with `verify` before debugging anything by hand, scaffolding with `create`, signing in and selecting a hosted Intelligence project, agent-assisted onboarding of an existing app, generating type-safe agent ids, and importing thread history. Reach for `verify` first whenever a CopilotKit app is not working."
-version: 1.1.0
+description: "Use for the CopilotKit CLI — `npx copilotkit@latest`. Covers proving a project's wiring with `verify` before debugging anything by hand, scaffolding with `create`, signing in and selecting a hosted Intelligence project, agent-assisted onboarding of an existing app, migrating a v1 app to 2.0 with `migrate`, generating type-safe agent ids, and importing thread history. Reach for `verify` first whenever a CopilotKit app is not working."
+version: 1.2.0
 ---
 
 # CopilotKit CLI
@@ -147,6 +147,22 @@ you supply can only replace a correct default with a worse one.
 
 Without a TTY — which is what a coding agent has — use `project list --json` to see the
 choices and `project select --project <id>` or `--create <name>` to name the answer up front.
+
+## Moving a v1 app to 2.0
+
+```bash
+npx copilotkit@latest migrate --json --via skill:copilotkit-cli
+```
+
+Run it in the root of the app, on a clean git tree, before you upgrade the `@copilotkit`
+packages. It runs the CopilotKit 2.0 codemod, lists the files it changed and the
+`TODO(copilotkit-2.0)` comments it left, and installs the `copilotkit-v2-migration` skill.
+Follow that skill to finish: it fixes the TODOs, updates `package.json`, and runs the build.
+
+- `--dry-run` lists the files the codemod would change, and changes nothing.
+- `--allow-dirty` runs on uncommitted changes. Without it the command stops, so the
+  developer can review the migration with `git diff`. Ask before you pass it.
+- `--dir <path>` migrates another folder, such as one app of a monorepo.
 
 ## Other commands
 

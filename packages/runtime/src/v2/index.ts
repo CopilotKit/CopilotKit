@@ -9,7 +9,7 @@
  * - the 1.x names of the runtime exports that 2.0 renamed with "Kit". Each
  *   old name is the same value or type as its new name.
  *
- * The root exports only the new names. `npx codemod @copilotkit/v2-migration`
+ * The root exports only the new names. `npx copilotkit@latest migrate`
  * moves the imports to the root and renames them. The build marks each name
  * of this entry deprecated in its declarations
  * (scripts/deprecations/v2-subpath-aliases.mts).
@@ -79,150 +79,150 @@ export type {
 /**
  * @deprecated Use `CopilotKitRuntime` from `@copilotkit/runtime`. This old
  * name is an alias of it. To move your imports, run
- * `npx codemod @copilotkit/v2-migration`.
+ * `npx copilotkit@latest migrate`.
  */
 export const CopilotRuntime = CopilotKitRuntime;
 /**
  * @deprecated Use `CopilotKitRuntime` from `@copilotkit/runtime`. This old
  * name is an alias of it. To move your imports, run
- * `npx codemod @copilotkit/v2-migration`.
+ * `npx copilotkit@latest migrate`.
  */
 export type CopilotRuntime = CopilotKitRuntime;
 
 /**
  * @deprecated Use `CopilotKitSseRuntime` from `@copilotkit/runtime`. This old
  * name is an alias of it. To move your imports, run
- * `npx codemod @copilotkit/v2-migration`.
+ * `npx copilotkit@latest migrate`.
  */
 export const CopilotSseRuntime = CopilotKitSseRuntime;
 /**
  * @deprecated Use `CopilotKitSseRuntime` from `@copilotkit/runtime`. This old
  * name is an alias of it. To move your imports, run
- * `npx codemod @copilotkit/v2-migration`.
+ * `npx copilotkit@latest migrate`.
  */
 export type CopilotSseRuntime = CopilotKitSseRuntime;
 
 /**
  * @deprecated Use `CopilotKitIntelligenceRuntime` from `@copilotkit/runtime`.
  * This old name is an alias of it. To move your imports, run
- * `npx codemod @copilotkit/v2-migration`.
+ * `npx copilotkit@latest migrate`.
  */
 export const CopilotIntelligenceRuntime = CopilotKitIntelligenceRuntime;
 /**
  * @deprecated Use `CopilotKitIntelligenceRuntime` from `@copilotkit/runtime`.
  * This old name is an alias of it. To move your imports, run
- * `npx codemod @copilotkit/v2-migration`.
+ * `npx copilotkit@latest migrate`.
  */
 export type CopilotIntelligenceRuntime = CopilotKitIntelligenceRuntime;
 
 /**
  * @deprecated Use `createCopilotKitRuntimeHandler` from `@copilotkit/runtime`.
  * This old name is an alias of it. To move your imports, run
- * `npx codemod @copilotkit/v2-migration`.
+ * `npx copilotkit@latest migrate`.
  */
 export const createCopilotRuntimeHandler = createCopilotKitRuntimeHandler;
 
 /**
  * @deprecated Use `CopilotKitRuntimeConstructor` from `@copilotkit/runtime`.
  * This old name is an alias of it. To move your imports, run
- * `npx codemod @copilotkit/v2-migration`.
+ * `npx copilotkit@latest migrate`.
  */
 export type CopilotRuntimeConstructor = CopilotKitRuntimeConstructor;
 /**
  * @deprecated Use `CopilotKitRuntimeOptions` from `@copilotkit/runtime`. This
  * old name is an alias of it. To move your imports, run
- * `npx codemod @copilotkit/v2-migration`.
+ * `npx copilotkit@latest migrate`.
  */
 export type CopilotRuntimeOptions = CopilotKitRuntimeOptions;
 /**
  * @deprecated Use `CopilotKitRuntimeLike` from `@copilotkit/runtime`. This old
  * name is an alias of it. To move your imports, run
- * `npx codemod @copilotkit/v2-migration`.
+ * `npx copilotkit@latest migrate`.
  */
 export type CopilotRuntimeLike = CopilotKitRuntimeLike;
 /**
  * @deprecated Use `CopilotKitSseRuntimeOptions` from `@copilotkit/runtime`.
  * This old name is an alias of it. To move your imports, run
- * `npx codemod @copilotkit/v2-migration`.
+ * `npx copilotkit@latest migrate`.
  */
 export type CopilotSseRuntimeOptions = CopilotKitSseRuntimeOptions;
 /**
  * @deprecated Use `CopilotKitSseRuntimeLike` from `@copilotkit/runtime`. This
  * old name is an alias of it. To move your imports, run
- * `npx codemod @copilotkit/v2-migration`.
+ * `npx copilotkit@latest migrate`.
  */
 export type CopilotSseRuntimeLike = CopilotKitSseRuntimeLike;
 /**
  * @deprecated Use `CopilotKitIntelligenceRuntimeOptions` from
  * `@copilotkit/runtime`. This old name is an alias of it. To move your
- * imports, run `npx codemod @copilotkit/v2-migration`.
+ * imports, run `npx copilotkit@latest migrate`.
  */
 export type CopilotIntelligenceRuntimeOptions =
   CopilotKitIntelligenceRuntimeOptions;
 /**
  * @deprecated Use `CopilotKitIntelligenceRuntimeLike` from
  * `@copilotkit/runtime`. This old name is an alias of it. To move your
- * imports, run `npx codemod @copilotkit/v2-migration`.
+ * imports, run `npx copilotkit@latest migrate`.
  */
 export type CopilotIntelligenceRuntimeLike = CopilotKitIntelligenceRuntimeLike;
 /**
  * @deprecated Use `CopilotKitRuntimeMemoryConfig` from `@copilotkit/runtime`.
  * This old name is an alias of it. To move your imports, run
- * `npx codemod @copilotkit/v2-migration`.
+ * `npx copilotkit@latest migrate`.
  */
 export type CopilotRuntimeMemoryConfig = CopilotKitRuntimeMemoryConfig;
 /**
  * @deprecated Use `CopilotKitRuntimeUser` from `@copilotkit/runtime`. This old
  * name is an alias of it. To move your imports, run
- * `npx codemod @copilotkit/v2-migration`.
+ * `npx copilotkit@latest migrate`.
  */
 export type CopilotRuntimeUser = CopilotKitRuntimeUser;
 /**
  * @deprecated Use `CopilotKitRuntimeLearningConfig` from
  * `@copilotkit/runtime`. This old name is an alias of it. To move your
- * imports, run `npx codemod @copilotkit/v2-migration`.
+ * imports, run `npx copilotkit@latest migrate`.
  */
 export type CopilotRuntimeLearningConfig = CopilotKitRuntimeLearningConfig;
 /**
  * @deprecated Use `CopilotKitRuntimeLearningContext` from
  * `@copilotkit/runtime`. This old name is an alias of it. To move your
- * imports, run `npx codemod @copilotkit/v2-migration`.
+ * imports, run `npx copilotkit@latest migrate`.
  */
 export type CopilotRuntimeLearningContext = CopilotKitRuntimeLearningContext;
 /**
  * @deprecated Use `CopilotKitRuntimeLogger` from `@copilotkit/runtime`. This
  * old name is an alias of it. To move your imports, run
- * `npx codemod @copilotkit/v2-migration`.
+ * `npx copilotkit@latest migrate`.
  */
 export type CopilotRuntimeLogger = CopilotKitRuntimeLogger;
 /**
  * @deprecated Use `CopilotKitRuntimeHandlerOptions` from
  * `@copilotkit/runtime`. This old name is an alias of it. To move your
- * imports, run `npx codemod @copilotkit/v2-migration`.
+ * imports, run `npx copilotkit@latest migrate`.
  */
 export type CopilotRuntimeHandlerOptions = CopilotKitRuntimeHandlerOptions;
 /**
  * @deprecated Use `CopilotKitRuntimeFetchHandler` from `@copilotkit/runtime`.
  * This old name is an alias of it. To move your imports, run
- * `npx codemod @copilotkit/v2-migration`.
+ * `npx copilotkit@latest migrate`.
  */
 export type CopilotRuntimeFetchHandler = CopilotKitRuntimeFetchHandler;
 /**
  * @deprecated Use `CopilotKitRuntimeFetchHandlerWithChannels` from
  * `@copilotkit/runtime`. This old name is an alias of it. To move your
- * imports, run `npx codemod @copilotkit/v2-migration`.
+ * imports, run `npx copilotkit@latest migrate`.
  */
 export type CopilotRuntimeFetchHandlerWithChannels =
   CopilotKitRuntimeFetchHandlerWithChannels;
 /**
  * @deprecated Use `CopilotKitRuntimeHooks` from `@copilotkit/runtime`. This
  * old name is an alias of it. To move your imports, run
- * `npx codemod @copilotkit/v2-migration`.
+ * `npx copilotkit@latest migrate`.
  */
 export type CopilotRuntimeHooks = CopilotKitRuntimeHooks;
 /**
  * @deprecated Use `CopilotKitCorsConfig` from `@copilotkit/runtime`. This old
  * name is an alias of it. To move your imports, run
- * `npx codemod @copilotkit/v2-migration`.
+ * `npx copilotkit@latest migrate`.
  */
 export type CopilotCorsConfig = CopilotKitCorsConfig;

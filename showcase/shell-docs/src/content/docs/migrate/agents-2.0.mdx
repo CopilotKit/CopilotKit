@@ -16,7 +16,7 @@ Find your 1.x code in this table, then go to its section:
 | `copilotKitEndpoint` in `remoteEndpoints`, with a Python `CopilotKitRemoteEndpoint` server | [Python SDK endpoint](#python-sdk-endpoint) |
 | `actions` on the runtime, or `actions=` on `CopilotKitRemoteEndpoint` | [Server-side actions](#server-side-actions) |
 
-The codemod (`npx codemod @copilotkit/v2-migration`) moves the `@copilotkit/runtime/langgraph` imports. It does not rewrite `remoteEndpoints` or `actions`. It marks that runtime with a `TODO(copilotkit-2.0)` comment. For the route handler and the service adapters, see [Update the runtime](/migrate/v2#update-the-runtime).
+The codemod (`npx copilotkit@latest migrate`) moves the `@copilotkit/runtime/langgraph` imports. It does not rewrite `remoteEndpoints` or `actions`. It marks that runtime with a `TODO(copilotkit-2.0)` comment. For the route handler and the service adapters, see [Update the runtime](/migrate/v2#update-the-runtime).
 
 ## LangGraph agents
 

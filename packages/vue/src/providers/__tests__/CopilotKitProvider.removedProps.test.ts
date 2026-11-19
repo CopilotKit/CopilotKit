@@ -46,7 +46,7 @@ describe("CopilotKitProvider (Vue) with the props of the 1.x <CopilotKit>", () =
 
     expect(wrapper.text()).toBe("chat");
     expect(removalWarnings(warn)).toEqual([
-      'The "showDevConsole" prop of CopilotKit was removed in CopilotKit 2.0. Delete it. To turn the Inspector on or off, set enableInspector. Run `npx codemod @copilotkit/v2-migration` to update your code. See https://docs.copilotkit.ai/migrate/removed-apis-2.0#showdevconsole',
+      'The "showDevConsole" prop of CopilotKit was removed in CopilotKit 2.0. Delete it. To turn the Inspector on or off, set enableInspector. Run `npx copilotkit@latest migrate` to update your code. See https://docs.copilotkit.ai/migrate/removed-apis-2.0#showdevconsole',
     ]);
   });
 

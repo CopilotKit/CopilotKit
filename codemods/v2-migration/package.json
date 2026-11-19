@@ -2,7 +2,7 @@
   "name": "@copilotkit/v2-migration",
   "version": "0.1.0",
   "private": true,
-  "description": "Codemod that migrates a CopilotKit app from v1 to 2.0. Published to the Codemod registry, not npm.",
+  "description": "Codemod that migrates a CopilotKit app from v1 to 2.0. `npx copilotkit@latest migrate` runs it. Not published to npm or the Codemod registry.",
   "type": "module",
   "scripts": {
     "test": "codemod jssg test -l tsx ./scripts/codemod.ts ./tests/tsx && codemod jssg test -l typescript ./scripts/codemod.ts ./tests/ts && codemod jssg test -l html ./scripts/vue-sfc.ts ./tests/vue",

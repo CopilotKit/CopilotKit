@@ -294,7 +294,7 @@ describe("ɵcheckRemovedProviderProps", () => {
         name: "CopilotKitRemovedApiError",
         code: "REMOVED_API",
         message:
-          'The "threadId" prop of CopilotKit was removed in CopilotKit 2.0. Pass threadId to <CopilotChat>, or to <CopilotChatConfigurationProvider> around the chat. Run `npx codemod @copilotkit/v2-migration` to update your code. See https://docs.copilotkit.ai/migrate/removed-apis-2.0#provider-props',
+          'The "threadId" prop of CopilotKit was removed in CopilotKit 2.0. Pass threadId to <CopilotChat>, or to <CopilotChatConfigurationProvider> around the chat. Run `npx copilotkit@latest migrate` to update your code. See https://docs.copilotkit.ai/migrate/removed-apis-2.0#provider-props',
       }),
     );
   });

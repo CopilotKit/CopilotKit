@@ -191,7 +191,7 @@ test("_setOverride throws the removal error, which points to setActiveThreadId",
       name: "CopilotKitRemovedApiError",
       code: "REMOVED_API",
       message:
-        '"_setOverride" of CopilotChatConfiguration was removed in CopilotKit 2.0. Call setActiveThreadId(threadId, { explicit }) instead. Run `npx codemod @copilotkit/v2-migration` to update your code. See https://docs.copilotkit.ai/migrate/removed-apis-2.0#_setoverride-in-angular',
+        '"_setOverride" of CopilotChatConfiguration was removed in CopilotKit 2.0. Call setActiveThreadId(threadId, { explicit }) instead. Run `npx copilotkit@latest migrate` to update your code. See https://docs.copilotkit.ai/migrate/removed-apis-2.0#_setoverride-in-angular',
     }),
   );
 });
@@ -214,7 +214,7 @@ test("a subclass that overrides _setOverride warns once, in development", () => 
   ]);
 
   expect(removalWarnings(warn)).toEqual([
-    'An override of "_setOverride" in a subclass of CopilotChatConfiguration was removed in CopilotKit 2.0. 2.0 does not call _setOverride. Move the code into overrides of setActiveThreadId and startNewThread. Run `npx codemod @copilotkit/v2-migration` to update your code. See https://docs.copilotkit.ai/migrate/removed-apis-2.0#_setoverride-in-angular',
+    'An override of "_setOverride" in a subclass of CopilotChatConfiguration was removed in CopilotKit 2.0. 2.0 does not call _setOverride. Move the code into overrides of setActiveThreadId and startNewThread. Run `npx copilotkit@latest migrate` to update your code. See https://docs.copilotkit.ai/migrate/removed-apis-2.0#_setoverride-in-angular',
   ]);
   warn.mockRestore();
 });
