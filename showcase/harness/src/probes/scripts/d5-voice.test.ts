@@ -7,7 +7,13 @@ import type { Page } from "../helpers/conversation-runner.js";
 // `d5-tool-rendering.test.ts` — the registry is process-wide, modules
 // are cached, so we register once at import time and read it back via
 // `getD5Script` per assertion.
-import { buildTurns, SAMPLE_AUDIO_BUTTON_SELECTOR } from "./d5-voice.js";
+import {
+  buildTurns,
+  SAMPLE_AUDIO_BUTTON_SELECTOR,
+  SAMPLE_AUDIO_PATH,
+  VOICE_RUNTIME_PATH,
+} from "./d5-voice.js";
+import type { TranscriptionCheck } from "./d5-voice.js";
 
 /**
  * Tests for the D5 voice script. Three concerns:
@@ -35,6 +41,14 @@ interface FakePageScript {
   textareaValues?: string[];
   /** Tracks how many times the click was invoked. */
   clickCalls?: { count: number };
+  /**
+   * What the in-page transcription check reports (the `evaluate` call that
+   * receives the voice runtime and sample paths). Defaults to a runtime
+   * with transcription disabled.
+   */
+  transcription?: TranscriptionCheck;
+  /** Records the arguments of each transcription check. */
+  transcriptionCalls?: unknown[];
 }
 
 /**
@@ -70,7 +84,15 @@ function makePage(script: FakePageScript = {}): Page & {
         throw new Error("click failed (test fake)");
       }
     },
-    async evaluate<R>(): Promise<R> {
+    async evaluate<R, A = unknown>(fn: (arg?: A) => R): Promise<R> {
+      // Like the D6 driver's page adapter, this fake passes no argument to
+      // the page function. The transcription check is the one that calls
+      // the voice runtime; answer it from the script.
+      const source = String(fn);
+      if (source.includes(VOICE_RUNTIME_PATH)) {
+        script.transcriptionCalls?.push(source);
+        return (script.transcription ?? { enabled: false }) as unknown as R;
+      }
       // The textarea-value poll runs first (during preFill); after it
       // resolves, evaluateValues feeds the assistant-transcript reader.
       if (textareaQueue.length > 0) {
@@ -165,6 +187,93 @@ describe("d5-voice script", () => {
 
       await expect(turn.preFill!(page)).rejects.toThrow(
         /sample audio button.*not visible/,
+      );
+    });
+  });
+
+  describe("transcription upload", () => {
+    const voiceTurn = () =>
+      buildTurns({
+        integrationSlug: "cloudflare-agents",
+        featureType: "voice",
+        baseUrl: "https://example.test",
+      })[0]!;
+
+    it("checks the voice runtime with the bundled sample before clicking the button", async () => {
+      const transcriptionCalls: unknown[] = [];
+      const clickCalls = { count: 0 };
+      const page = makePage({
+        transcriptionCalls,
+        clickCalls,
+        textareaValues: ["What is the weather in Tokyo?"],
+      });
+
+      await voiceTurn().preFill!(page);
+
+      // One self-contained page function (the D6 driver's page adapter
+      // passes no argument) that carries both paths.
+      expect(transcriptionCalls).toHaveLength(1);
+      expect(transcriptionCalls[0]).toContain(VOICE_RUNTIME_PATH);
+      expect(transcriptionCalls[0]).toContain(SAMPLE_AUDIO_PATH);
+      expect(VOICE_RUNTIME_PATH).toBe("/api/copilotkit-voice");
+      expect(SAMPLE_AUDIO_PATH).toBe("/demo-audio/sample.wav");
+      expect(clickCalls.count).toBe(1);
+    });
+
+    it("passes when the runtime transcribes the bundled sample", async () => {
+      const clickCalls = { count: 0 };
+      const page = makePage({
+        clickCalls,
+        transcription: {
+          enabled: true,
+          status: 200,
+          text: "What is the weather in Tokyo?",
+        },
+        textareaValues: ["What is the weather in Tokyo?"],
+      });
+
+      await voiceTurn().preFill!(page);
+
+      expect(clickCalls.count).toBe(1);
+    });
+
+    it("throws when the runtime fails to transcribe the sample", async () => {
+      const clickCalls = { count: 0 };
+      const page = makePage({
+        clickCalls,
+        transcription: {
+          enabled: true,
+          status: 500,
+          text: '{"error":"service_error"}',
+        },
+      });
+
+      await expect(voiceTurn().preFill!(page)).rejects.toThrow(
+        /transcribing the bundled sample returned 500/,
+      );
+      expect(clickCalls.count).toBe(0);
+    });
+
+    it("throws when the transcript is not the sample's phrase", async () => {
+      const page = makePage({
+        transcription: { enabled: true, status: 200, text: "hello there" },
+      });
+
+      await expect(voiceTurn().preFill!(page)).rejects.toThrow(
+        /transcribing the bundled sample returned 200: "hello there"/,
+      );
+    });
+
+    it("throws when the page has no bundled sample", async () => {
+      const page = makePage({
+        transcription: {
+          enabled: true,
+          error: "/demo-audio/sample.wav answered 404",
+        },
+      });
+
+      await expect(voiceTurn().preFill!(page)).rejects.toThrow(
+        /voice: \/demo-audio\/sample\.wav answered 404/,
       );
     });
   });
