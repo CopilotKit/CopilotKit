@@ -52,7 +52,7 @@ Use this prompt to connect your Angular app to Copilot Runtime with the selected
     <Step>
         ### Create your Angular app
 
-        If you don't have one already, pin the CLI to the supported major:
+        If you don't have one already, pin the CLI to the supported major. Accept the default answers to its questions:
 
         ```bash
         npx @angular/cli@22 new my-copilot-app
@@ -188,7 +188,29 @@ Use this prompt to connect your Angular app to Copilot Runtime with the selected
         export class App {}
         ```
 
-        The component now has an inline template, so the generated `app.html` and `app.css` are no longer used. You can delete them. The generated `app.spec.ts` tests the old template, so update or delete it before you run `ng test`.
+        The component now has an inline template, so the generated `app.html` and `app.css` are no longer used. You can delete them. The generated `app.spec.ts` now fails: it checks the old template, and its test setup does not load `appConfig`, so CopilotKit has no configuration. Before you run `ng test`, keep its "should create the app" test and give the test setup the provider:
+
+        ```ts title="src/app/app.spec.ts"
+        import { TestBed } from "@angular/core/testing";
+        import { provideCopilotKit } from "@copilotkit/angular";
+        import { App } from "./app";
+
+        describe("App", () => {
+          beforeEach(async () => {
+            await TestBed.configureTestingModule({
+              imports: [App],
+              providers: [
+                provideCopilotKit({ runtimeUrl: "http://localhost:8200/api/copilotkit" }),
+              ],
+            }).compileComponents();
+          });
+
+          it("should create the app", () => {
+            const fixture = TestBed.createComponent(App);
+            expect(fixture.componentInstance).toBeTruthy();
+          });
+        });
+        ```
     </Step>
     <WhenAgentBackend selected={false}>
       <Step>
@@ -211,12 +233,13 @@ Use this prompt to connect your Angular app to Copilot Runtime with the selected
 
         <Accordions className="mb-4">
             <Accordion title="Troubleshooting">
+                - **The runtime logs that listing and clearing threads need a caller identity**: This is expected in this quickstart. It only affects the thread list endpoints, not chat. Add `identifyUser` when you add [threads](/headless-threads).
                 - **Chat renders unstyled**: Make sure you imported `@copilotkit/angular/styles.css` in `src/styles.css`.
                 - **No response from the agent**: Confirm the runtime server is running and `http://localhost:8200/api/copilotkit/info` returns agent information.
                 - **CORS errors**: Keep `cors: true` in `createCopilotNodeListener` for local development, or configure CORS to allow your Angular app's origin in production.
                 - **Model auth errors**: Confirm `OPENAI_API_KEY` is set in the terminal running `npx tsx server.ts`.
                 - **Peer-dependency error on install**: `@angular/cdk` must match your Angular major version. Install the matching major, for example `@angular/cdk@^22` on Angular 22.
-                - **Production build exceeds the bundle budget**: CopilotKit pulls in markdown and syntax-highlighting dependencies, so a fresh app can exceed Angular's default 1 MB budget. Raise `budgets` in `angular.json` if your production build fails on size.
+                - **`ng build` fails with `bundle initial exceeded maximum budget`**: CopilotKit pulls in markdown and syntax-highlighting dependencies, so the initial bundle of a fresh app is about 5 MB, over the 1 MB budget that `ng new` sets. In `angular.json`, raise the `initial` budget, for example to `"maximumWarning": "6MB"` and `"maximumError": "8MB"`.
             </Accordion>
         </Accordions>
       </Step>
@@ -243,12 +266,13 @@ Use this prompt to connect your Angular app to Copilot Runtime with the selected
 
         <Accordions className="mb-4">
             <Accordion title="Troubleshooting">
+                - **The runtime logs that listing and clearing threads need a caller identity**: This is expected in this quickstart. It only affects the thread list endpoints, not chat. Add `identifyUser` when you add [threads](/headless-threads).
                 - **Chat renders unstyled**: Make sure you imported `@copilotkit/angular/styles.css` in `src/styles.css`.
                 - **`/info` lists no `default` agent, or the chat shows a connection error**: Check that the agent is still running, on the port `server.ts` points at.
                 - **CORS errors**: Keep `cors: true` in `createCopilotNodeListener` for local development. Configure an explicit allowed origin before deploying.
                 - **Model auth errors**: The agent calls the model, so its key goes in the agent's environment, not the runtime's.
                 - **Peer-dependency error on install**: `@angular/cdk` must match your Angular major version. Install the matching major, for example `@angular/cdk@^22` on Angular 22.
-                - **Production build exceeds the bundle budget**: CopilotKit pulls in markdown and syntax-highlighting dependencies, so a fresh app can exceed Angular's default 1 MB budget. Raise `budgets` in `angular.json` if your production build fails on size.
+                - **`ng build` fails with `bundle initial exceeded maximum budget`**: CopilotKit pulls in markdown and syntax-highlighting dependencies, so the initial bundle of a fresh app is about 5 MB, over the 1 MB budget that `ng new` sets. In `angular.json`, raise the `initial` budget, for example to `"maximumWarning": "6MB"` and `"maximumError": "8MB"`.
             </Accordion>
         </Accordions>
       </Step>

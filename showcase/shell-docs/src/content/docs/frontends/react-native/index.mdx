@@ -361,6 +361,7 @@ Use this prompt to set up CopilotKit in your React Native app, configure Metro a
 
         <Accordions className="mb-4">
             <Accordion title="Troubleshooting">
+                - **The runtime logs that listing and clearing threads need a caller identity**: This is expected in this quickstart. It only affects the thread list endpoints, not chat. Add `identifyUser` when you add [threads](/headless-threads).
                 <WhenAgentBackend selected={false}>
                 - **Metro can't resolve modules**: Clear the cache with `npx react-native start --reset-cache`.
                 - **`Export namespace should be first transformed by @babel/plugin-transform-export-namespace-from`**: add the Babel plugin from [Let Metro compile `export * as`](#let-metro-compile-export--as-bare-react-native-cli), then restart Metro with `--reset-cache`.
