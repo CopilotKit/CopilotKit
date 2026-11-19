@@ -1,6 +1,7 @@
 import { readCopilotKitUIEnvelope } from "@copilotkit/shared";
 import { isIntelligenceRuntime } from "../core/runtime";
 import { telemetry } from "../telemetry";
+import { fireAgentIdentifiedTelemetry } from "../telemetry/agent-identified";
 import { readGuardrailsEnabled } from "./shared/cloud-telemetry";
 import type { RunAgentParameters } from "./shared/agent-utils";
 import {
@@ -45,6 +46,8 @@ export async function handleRunAgent({
     // Ensure the clone carries the registry key so InMemoryAgentRunner can
     // tag historic runs with the correct agentId for filtering.
     agent.agentId = agentId;
+    // Background: never delays or fails the request.
+    fireAgentIdentifiedTelemetry({ runtime, agentId, agent });
 
     // Parse the body before configuring middleware: middleware configuration
     // needs the A2UI catalog signal the React provider forwards (see
