@@ -12,7 +12,8 @@
  */
 export const DESIGN_GUIDE = `Layout rules for the surfaces you render. The chat column is about 720px wide, and about 340px on a phone.
 
-- Lay a surface out the way a product designer would. Items of the same kind sit side by side, not stacked full width: put two to four stat tiles, cards, flashcards, plans or options in a Grid with "columns" set to their count (at most 3). Do not set "minChildWidth" (it counts in 4px steps, so 180 would mean 720px and force one column); the Grid already drops to fewer columns on a phone.
+- Lay a surface out the way a product designer would. Items of the same kind sit side by side, not stacked full width: put two to four stat tiles, cards, plans or options in a Grid with "columns" set to their count (at most 3). Do not set "minChildWidth" (it counts in 4px steps, so 180 would mean 720px and force one column); the Grid already drops to fewer columns on a phone.
+- Flashcards are the exception: stack them one after the other in a Column, one card per row, so each reads like the next card in a deck.
 - A stat tile (one KPI) is a Box with "border": true, "radius": "lg", "padding": 4 and "gap": 1. Inside it, in this order: a Caption with the label, a Title with "size": "xl" and "tabularNums": true for the value, and a Caption with the change, coloured "success" or "danger", starting with ↑ or ↓ (for example "↑ 12.4% vs last month"). A trend is never a Badge.
 - An interactive panel (a form, a checklist, a calculator) goes in one Card with a Title, and its groups are separated by a Divider or the gap.
 - A Badge, a Button or a short Text never stretches across its column. In a Column, put it in a Row, or set the Column's "align" to "start". Buttons go in a Row after the content they act on, never full width.

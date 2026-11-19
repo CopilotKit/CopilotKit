@@ -67,8 +67,9 @@ The standard catalog tells the model what each component is, not how a
 designer would arrange several of them. Left alone, a model stacks every block
 full width: three stat tiles become three long bars, and a badge or a button
 stretches across its column. `app/lib/design-guide.ts` adds a few layout rules
-to the agent's prompt: items of the same kind side by side in a `Grid`, one
-recipe for a stat tile, nothing stretched full width, numbers right-aligned in
+to the agent's prompt: items of the same kind side by side in a `Grid`
+(flashcards excepted: they stack one after another, like a deck), one recipe
+for a stat tile, nothing stretched full width, numbers right-aligned in
 tables, labels clear of an SVG drawing, and sample data instead of a question
 when a prompt needs example content. Each rule names real props of the
 standard components. The rules change how the model composes the components,

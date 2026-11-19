@@ -127,10 +127,10 @@ const PROMPTS: Prompt[] = [
   },
   {
     title: "Spanish flashcards",
-    blurb: "Flip cards in a grid, and a button for more.",
-    sets: ["FlashcardFlip", "Grid"],
+    blurb: "Flip cards one after another, and a button for more.",
+    sets: ["FlashcardFlip", "Button"],
     message:
-      "Make me six flashcards to learn Spanish greetings. Show them as flip cards in a grid, three to a row, and add a button that asks you for six more.",
+      "Make me five flashcards to learn Spanish greetings. Show them as flip cards stacked one after the other, and add a button that asks you for five more.",
   },
   {
     title: "How an engine works",
