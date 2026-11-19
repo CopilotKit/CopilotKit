@@ -11,13 +11,85 @@ import {
   standardUI,
 } from "@copilotkit/react-core/v2/generative-ui";
 import { createCatalogAgent, sampleSurfaceId } from "./catalog/catalog-agent";
-import { SAMPLES } from "./catalog/samples";
+import type { CatalogSample } from "./catalog/samples";
 
-/** The sample the empty chat shows: a Slider bound to Text and a Chart. */
-const PLATE_TITLE =
-  "Function values: formatString, calc, series, formatCurrency";
-const PLATE_SAMPLE =
-  SAMPLES.find((sample) => sample.title === PLATE_TITLE) ?? SAMPLES[0];
+/**
+ * The empty chat's live example: a team-plan calculator where a Slider drives
+ * Text, a List and a Chart through function values, worded for a visitor
+ * rather than as a catalog test case. It is a one-off sample, not a catalog
+ * entry, so its copy can say what a person would want to know.
+ */
+const PLATE_SAMPLE: CatalogSample = {
+  group: "Live example",
+  title: "Team plan",
+  covers: ["Slider", "Text", "List", "Chart"],
+  components: [
+    {
+      id: "root",
+      component: "Column",
+      gap: 3,
+      children: ["s", "t", "l", "ch"],
+    },
+    {
+      id: "s",
+      component: "Slider",
+      label: "Seats",
+      min: 1,
+      max: 50,
+      value: { "@path": "/seats" },
+    },
+    {
+      id: "t",
+      component: "Text",
+      text: {
+        "@call": "formatString",
+        args: {
+          value:
+            "${/seats} ${pluralize(value: /seats, one: 'seat', other: 'seats')} cost ${formatCurrency(value: calc(expression: 'seats * 29', seats: /seats), currency: 'USD', decimals: 0)} a month",
+        },
+      },
+    },
+    {
+      id: "l",
+      component: "List",
+      items: [
+        {
+          label: "Per seat",
+          value: {
+            "@call": "formatCurrency",
+            args: { value: 29, currency: "USD", decimals: 0 },
+          },
+        },
+        {
+          label: "Seats",
+          value: {
+            "@call": "formatNumber",
+            args: { value: { "@path": "/seats" } },
+          },
+        },
+      ],
+    },
+    {
+      id: "ch",
+      component: "Chart",
+      chartType: "bar",
+      title: "Cost over 6 months",
+      xKey: "month",
+      series: [{ key: "cost", label: "Cost (USD)" }],
+      data: {
+        "@call": "series",
+        args: {
+          count: 6,
+          variable: "m",
+          item: { month: "Month ${m}", cost: "${m * seats * 29}" },
+          seats: { "@path": "/seats" },
+        },
+      },
+      height: 160,
+    },
+  ],
+  data: { seats: 4 },
+};
 
 /** Streams the plate's surface once, from the scripted agent. */
 function StartPlate() {

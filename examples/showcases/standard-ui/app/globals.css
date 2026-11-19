@@ -47,8 +47,39 @@
   box-sizing: border-box;
 }
 
-html {
-  scrollbar-color: var(--grey-600) transparent;
+/* The page's own scrollers: thin and quiet, never the browser's default bar.
+   (Chat internals keep CopilotKit's own scrollbars.) Chrome and Firefox use
+   scrollbar-color; Safari reads the ::-webkit-scrollbar rules. */
+.ck-scroll,
+.ck-welcome,
+.ck-surfaces,
+.ck-code {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(1, 5, 7, 0.18) transparent;
+}
+
+.ck-scroll::-webkit-scrollbar,
+.ck-welcome::-webkit-scrollbar,
+.ck-surfaces::-webkit-scrollbar,
+.ck-code::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.ck-scroll::-webkit-scrollbar-thumb,
+.ck-welcome::-webkit-scrollbar-thumb,
+.ck-surfaces::-webkit-scrollbar-thumb,
+.ck-code::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 8px;
+  background: rgba(1, 5, 7, 0.18) padding-box;
+}
+
+.ck-scroll::-webkit-scrollbar-track,
+.ck-welcome::-webkit-scrollbar-track,
+.ck-surfaces::-webkit-scrollbar-track,
+.ck-code::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 body {
@@ -119,21 +150,38 @@ pre {
   transition: grid-template-columns 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-/* Collapsed: the sidebar becomes a slim rail holding only its toggle. */
+/* Collapsed: a 56px rail with the kite mark, the toggle and the two pages. */
 @media (min-width: 900px) {
   html[data-sidebar="collapsed"] .ck-app {
-    grid-template-columns: 52px minmax(0, 1fr);
+    grid-template-columns: 56px minmax(0, 1fr);
   }
   html[data-sidebar="collapsed"] .ck-sidebar {
-    padding: 8px 0;
-    overflow: hidden;
+    padding: 12px 0;
   }
-  html[data-sidebar="collapsed"] .ck-sidebar-body {
+  html[data-sidebar="collapsed"] .ck-sidebar-head {
+    width: auto;
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "logo"
+      "toggle";
+    justify-items: center;
+    row-gap: 8px;
+  }
+  html[data-sidebar="collapsed"] .ck-logo {
+    padding: 0;
+  }
+  html[data-sidebar="collapsed"] .ck-logo-full,
+  html[data-sidebar="collapsed"] .ck-app-title,
+  html[data-sidebar="collapsed"] .ck-app-sub,
+  html[data-sidebar="collapsed"] .ck-page-tabs,
+  html[data-sidebar="collapsed"] .ck-sidebar-scroll {
     display: none;
   }
-  html[data-sidebar="collapsed"] .ck-collapse {
-    position: static;
-    margin: 0 auto;
+  html[data-sidebar="collapsed"] .ck-logo-mark {
+    display: block;
+  }
+  html[data-sidebar="collapsed"] .ck-rail {
+    display: flex;
   }
 }
 
@@ -147,29 +195,105 @@ pre {
 
 .ck-sidebar {
   position: relative;
+  display: flex;
+  flex-direction: column;
   min-width: 0;
   min-height: 0;
-  overflow-y: auto;
-  scrollbar-width: thin;
-  padding: 16px;
+  overflow: hidden;
+  padding: 16px 16px 0;
   background: var(--white-50);
   border: 2px solid var(--border-default);
   border-radius: 8px;
 }
 
+/* The head never scrolls, so the toggle is always in reach. Head and body
+   keep a fixed 284px width (the open sidebar's inner width), so nothing
+   reflows while the column animates; the sidebar clips instead. */
+.ck-sidebar-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "logo toggle"
+    "title title"
+    "sub sub"
+    "tabs tabs";
+  align-items: center;
+  row-gap: 4px;
+  flex: none;
+  width: 284px;
+}
+
+/* The body scrolls with no visible scrollbar; the fade says there is more. */
+.ck-sidebar-scroll {
+  /* position: relative makes this the containing block for absolutely
+     positioned content (screen-reader-only text), so it can't hang below
+     and make the sidebar itself scrollable. */
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  margin: 0 -16px;
+  padding: 16px 16px 32px;
+  overflow-y: auto;
+  scrollbar-width: none;
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 12px,
+    #000 calc(100% - 32px),
+    transparent
+  );
+}
+
+.ck-sidebar-scroll::-webkit-scrollbar {
+  display: none;
+}
+
 .ck-sidebar-body {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 20px;
+  width: 284px;
   min-height: 100%;
+}
+
+/* Collapsed-only: the two pages as icon buttons. */
+.ck-rail {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-container);
+}
+
+.ck-rail-link {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  color: var(--text-secondary);
+  transition:
+    background-color 150ms ease,
+    color 150ms ease;
+}
+
+.ck-rail-link:hover {
+  background: var(--white-70);
+  color: var(--text-primary);
+}
+
+.ck-rail-link[aria-current="page"] {
+  background: var(--surface-container);
+  color: var(--text-primary);
+  box-shadow: var(--elevation-sm);
 }
 
 /* The collapse toggle, in line with the logo. */
 .ck-collapse {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  z-index: 1;
+  grid-area: toggle;
+  align-self: start;
   display: grid;
   place-items: center;
   width: 32px;
@@ -189,16 +313,11 @@ pre {
   color: var(--text-primary);
 }
 
-.ck-brand {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
 .ck-logo {
+  grid-area: logo;
+  justify-self: start;
   display: inline-flex;
-  align-self: flex-start;
-  /* Clearspace: half the logotype height on every side. */
+  /* Clearspace: half the logotype height below it. */
   padding: 0 0 10px;
   border-radius: 4px;
 }
@@ -209,7 +328,13 @@ pre {
   width: auto;
 }
 
+.ck-logo .ck-logo-mark {
+  display: none;
+  height: 32px;
+}
+
 .ck-app-title {
+  grid-area: title;
   margin: 0;
   font-size: 18px;
   font-weight: 300;
@@ -217,6 +342,7 @@ pre {
 }
 
 .ck-app-sub {
+  grid-area: sub;
   margin: 0;
   font-size: 12px;
   line-height: 16px;
@@ -261,6 +387,11 @@ pre {
   box-shadow: var(--elevation-sm);
 }
 
+.ck-page-tabs {
+  grid-area: tabs;
+  margin-top: 12px;
+}
+
 .ck-tabs-sm {
   gap: 2px;
   padding: 3px;
@@ -283,7 +414,6 @@ pre {
   align-items: center;
   gap: 8px;
   margin-bottom: 8px;
-  padding: 0 4px;
 }
 
 .ck-section-title h2 {
@@ -304,7 +434,7 @@ pre {
 }
 
 .ck-note {
-  margin: 8px 4px 0;
+  margin: 8px 0 0;
   font-size: 12px;
   line-height: 16px;
   color: var(--text-muted);
@@ -340,8 +470,10 @@ pre {
 .ck-list {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  margin: 0;
+  gap: 2px;
+  /* Item text lines up with the sidebar's content edge; the hover fill
+     reaches past it. */
+  margin: 0 -12px;
   padding: 0;
   list-style: none;
 }
@@ -349,7 +481,7 @@ pre {
 .ck-item {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 6px;
   width: 100%;
   padding: 8px 12px;
   border: 0;
@@ -411,15 +543,20 @@ pre {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
-  margin-top: 2px;
 }
 
+/* A faint edge keeps the pill readable on glass, where white-on-white fades. */
 .ck-tag {
-  padding: 2px 6px;
+  padding: 1px 6px;
   border-radius: 9999px;
-  background: var(--white-65);
+  background: var(--white-70);
+  box-shadow: inset 0 0 0 1px rgba(1, 5, 7, 0.07);
   font-size: 12px;
   line-height: 1.4;
+  color: var(--text-secondary);
+}
+
+.ck-item[data-selected] .ck-tag {
   color: var(--text-primary);
 }
 
@@ -428,7 +565,7 @@ pre {
   flex-direction: column;
   gap: 8px;
   margin-top: auto;
-  padding: 12px 4px 0;
+  padding: 12px 0 0;
   border-top: 1px solid var(--border-container);
   font-size: 12px;
   line-height: 16px;
@@ -470,11 +607,6 @@ pre {
   display: flex;
   flex-direction: column;
   gap: 16px;
-}
-
-.ck-item[data-selected] .ck-tag {
-  background: var(--text-primary);
-  color: var(--text-invert);
 }
 
 /* Settings fold away on phones; the wide copy shows elsewhere. */
@@ -519,7 +651,7 @@ pre {
 .ck-welcome {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 24px;
   width: 100%;
   max-width: 760px;
   height: 100%;
@@ -539,9 +671,9 @@ pre {
 
 .ck-welcome-head h2 {
   margin: 0;
-  font-size: 28px;
+  font-size: 32px;
   font-weight: 500;
-  line-height: 34px;
+  line-height: 36px;
   letter-spacing: -0.01em;
   text-wrap: balance;
 }
@@ -562,8 +694,20 @@ pre {
 }
 
 /* A live surface in a quiet frame. */
+/* The composer's suggestion pills sit 16px in; the page's own blocks align
+   to them so the composer reads as the one deliberately wider element. */
+.ck-welcome-head,
 .ck-example {
-  margin: 0;
+  padding-inline: 16px;
+}
+
+.ck-example {
+  margin: 8px 0 0;
+}
+
+/* The page layout already shows the agent's surfaces; one example is enough. */
+.ck-app[data-layout="page"] .ck-example {
+  display: none;
 }
 
 /* position + overflow: the Chart's screen-reader table is absolutely
@@ -677,6 +821,26 @@ pre {
   color: var(--text-primary);
 }
 
+.ck-surfaces .ck-target:first-of-type {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+
+.ck-surfaces .ck-target:first-of-type .ck-target-frame {
+  flex: 1;
+  min-height: 320px;
+}
+
+.ck-target-frame:has(.ck-target-empty) {
+  display: grid;
+  place-items: center;
+  background: transparent;
+  box-shadow: none;
+  outline: 1px dashed var(--grey-600);
+  outline-offset: -1px;
+}
+
 .ck-target-frame {
   min-height: 120px;
   padding: 16px;
@@ -703,7 +867,8 @@ pre {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  margin: 0;
+  /* Link text lines up with the section labels, like the prompt list. */
+  margin: 0 -12px;
   padding: 0;
   list-style: none;
 }
@@ -726,7 +891,8 @@ pre {
 }
 
 .ck-index a[data-inview] {
-  background: var(--white-70);
+  box-shadow: inset 2px 0 0 var(--text-primary);
+  background: transparent;
   color: var(--text-primary);
 }
 
@@ -746,14 +912,14 @@ pre {
 }
 
 .ck-catalog-head {
-  padding: 32px;
+  padding: 24px;
 }
 
 .ck-catalog-head h2 {
   margin: 0;
-  font-size: 40px;
+  font-size: 32px;
   font-weight: 500;
-  line-height: 46px;
+  line-height: 36px;
   letter-spacing: -0.01em;
 }
 
@@ -824,7 +990,8 @@ pre {
 .ck-group-title span {
   flex: 1;
   height: 1px;
-  background: var(--border-container);
+  /* White, the brand's border on lavender: #dbdbe5 vanishes on #dedee9. */
+  background: var(--border-default);
 }
 
 .ck-sample {
@@ -855,7 +1022,7 @@ pre {
 
 .ck-sample-body {
   display: grid;
-  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  grid-template-columns: minmax(0, 1fr) 280px;
 }
 
 .ck-sample-preview {
@@ -1008,24 +1175,64 @@ pre {
     height: auto;
     min-height: 100dvh;
   }
+  /* The chat layout fills the screen: a one-row header, then the chat card,
+     whose own transcript scrolls. */
+  .ck-app[data-layout="chat"] {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    height: 100dvh;
+    min-height: 0;
+  }
   .ck-sidebar {
     overflow: visible;
+    padding: 10px 12px;
+  }
+  .ck-sidebar-head {
+    width: auto;
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas: "logo tabs";
+    column-gap: 12px;
+  }
+  .ck-logo {
+    padding: 0;
+  }
+  .ck-page-tabs {
+    justify-self: end;
+    width: 100%;
+    max-width: 200px;
+    margin-top: 0;
   }
   .ck-collapse,
+  .ck-app-title,
+  .ck-app-sub,
+  .ck-rail,
   .ck-prompts,
   .ck-wide-only,
   .ck-index-groups,
   .ck-sidebar-foot {
     display: none;
   }
+  .ck-sidebar-scroll {
+    overflow: visible;
+    margin: 0;
+    padding: 0;
+    mask-image: none;
+  }
+  .ck-sidebar-body {
+    width: auto;
+    min-height: 0;
+    gap: 0;
+  }
   .ck-more {
     display: block;
+    margin-top: 10px;
     border-top: 1px solid var(--border-container);
   }
   .ck-more summary {
     position: relative;
-    padding: 12px 20px 0 4px;
-    font-size: 14px;
+    padding: 8px 20px 0 0;
+    font-size: 13px;
     font-weight: 500;
     cursor: pointer;
     list-style: none;
@@ -1038,34 +1245,27 @@ pre {
   }
   .ck-more summary::before,
   .ck-more summary::after {
-    top: calc(50% + 6px);
+    top: calc(50% + 4px);
   }
   .ck-more-body {
     display: flex;
     flex-direction: column;
     gap: 16px;
-    padding-top: 16px;
+    padding: 16px 0 6px;
   }
   .ck-app[data-layout="page"] .ck-main {
     grid-template-columns: minmax(0, 1fr);
   }
-  .ck-main > .ck-card {
-    height: calc(100dvh - 16px);
+  .ck-app[data-layout="page"] .ck-main > .ck-card {
+    height: 100dvh;
     min-height: 560px;
   }
-  /* Empty, the chat grows with its content and scrolls with the page. */
-  .ck-main > .ck-card:has(.ck-welcome) {
-    height: auto;
-    min-height: 0;
-  }
   .ck-welcome {
-    height: auto;
-    overflow: visible;
-    padding: 28px 16px;
+    padding: 24px 12px;
   }
-  .ck-welcome > :first-child,
-  .ck-welcome > :last-child {
-    margin-block: 0;
+  .ck-welcome-head,
+  .ck-example {
+    padding-inline: 4px;
   }
   .ck-welcome-head h2 {
     font-size: 24px;

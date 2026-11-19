@@ -244,22 +244,24 @@ function PromptList({ layout }: { layout: DemoLayout }) {
                 data-selected={isSent || isPending ? "" : undefined}
                 aria-busy={isPending || undefined}
                 disabled={running}
+                title={prompt.blurb}
                 onClick={() => void send(prompt)}
               >
                 <span className="ck-item-name">
                   {prompt.title}
                   {isSent && !isPending ? <Tick /> : <ArrowRight />}
                 </span>
-                <span className="ck-item-desc">
-                  {isPending ? "Rendering…" : prompt.blurb}
-                </span>
-                <span className="ck-tags">
-                  {prompt.sets.map((name) => (
-                    <span key={name} className="ck-tag">
-                      {name}
-                    </span>
-                  ))}
-                </span>
+                {isPending ? (
+                  <span className="ck-item-desc">Rendering…</span>
+                ) : (
+                  <span className="ck-tags">
+                    {prompt.sets.map((name) => (
+                      <span key={name} className="ck-tag">
+                        {name}
+                      </span>
+                    ))}
+                  </span>
+                )}
               </button>
             </li>
           );
@@ -512,8 +514,8 @@ function Demo() {
         <Sidebar current="chat">
           {layout === "chat" ? <PromptList layout={layout} /> : null}
           <div className="ck-wide-only ck-section-stack">
-            <Controls transport={transport} layout={layout} idPrefix="w" />
             <Integration transport={transport} idPrefix="w" />
+            <Controls transport={transport} layout={layout} idPrefix="w" />
           </div>
           <details className="ck-more">
             <summary className="ck-focus">

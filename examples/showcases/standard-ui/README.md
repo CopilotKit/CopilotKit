@@ -26,7 +26,9 @@ deploys on its own.
   cards and an SVG drawing), each tagged with the components it is likely to
   use. The same prompts show as suggestion pills under the composer. Below the
   list sit the transport and layout settings and the integration snippet. The
-  sidebar collapses to a slim rail, remembered across pages.
+  sidebar collapses to a slim rail (Cmd/Ctrl+B), remembered
+  across pages; with no saved choice it starts collapsed between 900 and
+  1199px wide.
 - The empty chat shows a live `standardUI` example rendered in the browser
   with no model call (`app/specimen-plate.tsx`).
 - `?transport=tool` switches to the `render_ui` tool transport, and

@@ -1,10 +1,16 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import Link from "next/link";
 import { standardUI } from "@copilotkit/react-core/v2/generative-ui";
 import pkg from "../package.json";
-import { ArrowUpRight, PanelToggle } from "./icons";
+import { ArrowUpRight, ChatBubble, PanelToggle, Tiles } from "./icons";
 import { SIDEBAR_KEY } from "./sidebar-state";
 
 export const DOCS_URL =
@@ -95,15 +101,16 @@ export function SectionTitle({
   );
 }
 
-/** The glass sidebar every page shares: logo, title, the page tabs, then the page's own sections. */
 /** The sidebar's collapsed state, shared by every page through <html data-sidebar>. */
 function useSidebarCollapsed() {
   const [collapsed, setCollapsed] = useState(false);
+  // Read what the pre-paint script applied before writing anything back.
+  const ready = useRef(false);
   useEffect(() => {
     setCollapsed(document.documentElement.dataset.sidebar === "collapsed");
+    ready.current = true;
   }, []);
-  const toggle = () => {
-    const next = !collapsed;
+  const apply = useCallback((next: boolean) => {
     setCollapsed(next);
     if (next) document.documentElement.dataset.sidebar = "collapsed";
     else delete document.documentElement.dataset.sidebar;
@@ -112,10 +119,37 @@ function useSidebarCollapsed() {
     } catch {
       // Storage unavailable: the choice lasts for this page only.
     }
-  };
+  }, []);
+  const toggle = useCallback(() => {
+    if (!ready.current) return;
+    apply(document.documentElement.dataset.sidebar !== "collapsed");
+  }, [apply]);
+  // Cmd/Ctrl+B toggles it from anywhere on the page.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (
+        (event.metaKey || event.ctrlKey) &&
+        !event.altKey &&
+        !event.shiftKey &&
+        event.key.toLowerCase() === "b"
+      ) {
+        event.preventDefault();
+        toggle();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [toggle]);
   return { collapsed, toggle };
 }
 
+const SHORTCUT = "\u2318B";
+
+/**
+ * The glass sidebar every page shares. A fixed head (logo, collapse toggle,
+ * title, page tabs) over a body that scrolls without a visible scrollbar.
+ * Collapsed, it is a rail: the kite mark, the toggle and the two pages.
+ */
 export function Sidebar({
   current,
   children,
@@ -124,36 +158,48 @@ export function Sidebar({
   children?: ReactNode;
 }) {
   const { collapsed, toggle } = useSidebarCollapsed();
+  const toggleLabel = collapsed ? "Expand sidebar" : "Collapse sidebar";
   return (
-    <aside className="ck-sidebar" id="ck-sidebar">
-      <button
-        type="button"
-        className="ck-collapse ck-focus"
-        onClick={toggle}
-        aria-expanded={!collapsed}
-        aria-controls="ck-sidebar-body"
-        aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-        title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-      >
-        <PanelToggle collapsed={collapsed} />
-      </button>
-      <div className="ck-sidebar-body" id="ck-sidebar-body">
-        <div className="ck-brand">
-          <Link href="/" className="ck-logo ck-focus">
-            {/* eslint-disable-next-line @next/next/no-img-element -- the official CopilotKit logotype */}
-            <img
-              src="/copilotkit-logo.svg"
-              alt="CopilotKit"
-              width={146}
-              height={28}
-            />
-          </Link>
-          <p className="ck-app-title">Standard components</p>
-          <p className="ck-app-sub">
-            Generative UI · {COMPONENT_COUNT} components, rendered live
-          </p>
-        </div>
-        <nav className="ck-tabs" aria-label="Pages">
+    <aside className="ck-sidebar" aria-label="Sidebar">
+      <div className="ck-sidebar-head">
+        <Link
+          href="/"
+          className="ck-logo ck-focus"
+          aria-label="CopilotKit standard components"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element -- the official CopilotKit logotype */}
+          <img
+            className="ck-logo-full"
+            src="/copilotkit-logo.svg"
+            alt=""
+            width={146}
+            height={28}
+          />
+          {/* eslint-disable-next-line @next/next/no-img-element -- the official CopilotKit mark, for the rail */}
+          <img
+            className="ck-logo-mark"
+            src="/copilotkit-mark.svg"
+            alt=""
+            width={30}
+            height={32}
+          />
+        </Link>
+        <button
+          type="button"
+          className="ck-collapse ck-focus"
+          onClick={toggle}
+          aria-expanded={!collapsed}
+          aria-controls="ck-sidebar-body"
+          aria-label={toggleLabel}
+          title={`${toggleLabel} (${SHORTCUT})`}
+        >
+          <PanelToggle collapsed={collapsed} />
+        </button>
+        <p className="ck-app-title">Standard components</p>
+        <p className="ck-app-sub">
+          Generative UI · {COMPONENT_COUNT} components, rendered live
+        </p>
+        <nav className="ck-tabs ck-page-tabs" aria-label="Pages">
           <Link
             href="/"
             className="ck-tab ck-focus"
@@ -169,27 +215,51 @@ export function Sidebar({
             Catalog
           </Link>
         </nav>
-        {children}
-        <footer className="ck-sidebar-foot">
-          <a
-            href={DOCS_URL}
-            target="_blank"
-            rel="noreferrer"
-            className="ck-link ck-focus"
-          >
-            Standard components docs
-            <ArrowUpRight className="ck-link-icon" />
-            <span className="ck-visually-hidden"> (opens in a new tab)</span>
-          </a>
-          <p>
-            <code>{standardUI.id}</code> from{" "}
-            <code>
-              @copilotkit/react-core@
-              {pkg.dependencies["@copilotkit/react-core"]}
-            </code>
-            , unmodified.
-          </p>
-        </footer>
+      </div>
+      <nav className="ck-rail" aria-label="Pages">
+        <Link
+          href="/"
+          className="ck-rail-link ck-focus"
+          aria-current={current === "chat" ? "page" : undefined}
+          aria-label="Chat"
+          title="Chat"
+        >
+          <ChatBubble />
+        </Link>
+        <Link
+          href="/catalog"
+          className="ck-rail-link ck-focus"
+          aria-current={current === "catalog" ? "page" : undefined}
+          aria-label="Catalog"
+          title="Catalog"
+        >
+          <Tiles />
+        </Link>
+      </nav>
+      <div className="ck-sidebar-scroll" id="ck-sidebar-body">
+        <div className="ck-sidebar-body">
+          {children}
+          <footer className="ck-sidebar-foot">
+            <a
+              href={DOCS_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="ck-link ck-focus"
+            >
+              Standard components docs
+              <ArrowUpRight className="ck-link-icon" />
+              <span className="ck-visually-hidden"> (opens in a new tab)</span>
+            </a>
+            <p>
+              <code>{standardUI.id}</code> from{" "}
+              <code>
+                @copilotkit/react-core@
+                {pkg.dependencies["@copilotkit/react-core"]}
+              </code>
+              , unmodified.
+            </p>
+          </footer>
+        </div>
       </div>
     </aside>
   );

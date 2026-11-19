@@ -240,15 +240,16 @@ function Catalog({ errors }: { errors: string[] }) {
   );
   const missing = ALL_COMPONENTS.filter((name) => !covered.has(name));
   const inView = useSamplesInView();
+  // Only the sample at the top of the view is marked: "you are here", not a block.
   const inViewNames = new Set(
-    inView.flatMap((index) => SAMPLES[index]?.covers ?? []),
+    inView.length > 0 ? (SAMPLES[inView[0]]?.covers ?? []) : [],
   );
 
   // Keep the marked names in sight in the sidebar as the samples scroll.
   const index = useRef<HTMLDivElement>(null);
   const firstInView = inView[0];
   useEffect(() => {
-    const box = index.current?.closest<HTMLElement>(".ck-sidebar");
+    const box = index.current?.closest<HTMLElement>(".ck-sidebar-scroll");
     const mark = index.current?.querySelector<HTMLElement>("a[data-inview]");
     if (!box || !mark) return;
     const top =
@@ -296,11 +297,10 @@ function Catalog({ errors }: { errors: string[] }) {
         <main className="ck-scroll">
           <div className="ck-catalog">
             <header className="ck-card ck-catalog-head">
-              <h2>Catalog</h2>
+              <h2>{ALL_COMPONENTS.length} standard components</h2>
               <p>
-                All {ALL_COMPONENTS.length} components in{" "}
-                <code>{standardUI.id}</code>, each rendered live from the
-                operations a model would write. Open a component to read the
+                Every component in <code>{standardUI.id}</code>, rendered live
+                from the operations a model would write. Open one to read the
                 description and props the model sees.
               </p>
               <div className="ck-catalog-notes">
