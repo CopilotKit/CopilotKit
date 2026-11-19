@@ -53,7 +53,7 @@ export function VersionPicker() {
     <DropdownMenu>
       <DropdownMenuTrigger
         aria-label={`Docs version ${current.label}, ${current.note}`}
-        className="inline-flex h-6 translate-y-px items-center gap-0.5 rounded-md px-1.5 text-xs leading-none font-semibold text-fd-muted-foreground tabular-nums transition-colors hover:bg-fd-accent hover:text-fd-foreground focus-visible:ring-2 focus-visible:ring-fd-primary/40 focus-visible:outline-none aria-expanded:bg-fd-accent aria-expanded:text-fd-foreground"
+        className="relative inline-flex h-6 translate-y-px items-center after:absolute after:-inset-x-1 after:-inset-y-2.5 after:content-[''] gap-0.5 rounded-md px-1.5 text-xs leading-none font-semibold text-fd-muted-foreground tabular-nums transition-colors hover:bg-fd-accent hover:text-fd-foreground focus-visible:ring-2 focus-visible:ring-fd-primary/40 focus-visible:outline-none aria-expanded:bg-fd-accent aria-expanded:text-fd-foreground"
       >
         {current.label}
         <ChevronDownIcon className="size-3" aria-hidden />

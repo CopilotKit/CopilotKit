@@ -523,6 +523,8 @@ function TalkToEngineerPill({ className }: { className?: string }) {
               // Below lg the top bar has no room for the label, so a calendar
               // icon stands in for it and the tooltip names it.
               "max-lg:size-8 max-lg:px-0",
+              // The icon stays 32px; an invisible ::after makes the hit area 44px.
+              "max-lg:relative max-lg:after:absolute max-lg:after:-inset-1.5 max-lg:after:content-['']",
             )}
           />
         }
