@@ -1,0 +1,22 @@
+# Railway service for the A2UI Research Desk (web app + ADK agent in one image).
+#
+# The image builds from the REPO ROOT (the app uses workspace:* packages), so:
+#   - Leave the service's Root Directory at "/" (do not set it to this folder).
+#   - Point Settings → Config-as-code → "Railway config file" at
+#     /examples/showcases/a2ui/railway.toml.
+#   - dockerfilePath below is relative to the repo root. Setting the service
+#     variable RAILWAY_DOCKERFILE_PATH=examples/showcases/a2ui/Dockerfile does
+#     the same if you skip config-as-code.
+# The only secret this needs is GEMINI_API_KEY. Railway sets PORT; the agent
+# stays on 8014 inside the container.
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "examples/showcases/a2ui/Dockerfile"
+watchPatterns = ["examples/showcases/a2ui/**", "packages/**", "pnpm-lock.yaml"]
+
+[deploy]
+healthcheckPath = "/"
+healthcheckTimeout = 300
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 5
