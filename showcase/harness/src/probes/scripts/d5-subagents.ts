@@ -18,10 +18,12 @@
  *
  * Assertions:
  *   1. All three subagent cards present at terminal state.
- *   2. The critic appears EXACTLY ONCE (no looping / re-entry — Phase-1D
+ *   2. Shared agent state contains three delegation entries. Tool cards alone
+ *      do not prove that the delegation log received state snapshots.
+ *   3. The critic appears EXACTLY ONCE (no looping / re-entry — Phase-1D
  *      backend bug fix). Drift here would indicate the supervisor
  *      regressed into re-invoking the critic agent.
- *   3. The rendered transcript contains non-boilerplate content — proxy
+ *   4. The rendered transcript contains non-boilerplate content — proxy
  *      for "the chain produced a coherent reply rather than canned
  *      placeholder text".
  *
@@ -93,6 +95,8 @@ export const CHAIN_SETTLE_DWELL_MS = 3_000;
 export interface SubagentsProbeSnapshot {
   /** Per-testid presence count (researcher / writer / critic). */
   counts: Record<(typeof SUBAGENT_CARD_TESTIDS)[number], number>;
+  /** Number of cards rendered from shared agent state in the delegation log. */
+  delegationEntryCount: number;
   /** Lowercased page text — for non-boilerplate-content assertion. */
   text: string;
 }
@@ -126,6 +130,9 @@ export async function probeSubagents(
     const critic = win.document.querySelectorAll(
       '[data-testid="subagent-card-critic"]',
     ).length;
+    const delegationEntryCount = win.document.querySelectorAll(
+      '[data-testid="delegation-log"] [data-testid="delegation-entry"]',
+    ).length;
     const text = (win.document.body.textContent ?? "").toLowerCase();
     return {
       counts: {
@@ -133,6 +140,7 @@ export async function probeSubagents(
         "subagent-card-writer": writer,
         "subagent-card-critic": critic,
       },
+      delegationEntryCount,
       text,
     };
   });
@@ -161,6 +169,9 @@ export function validateSubagentsSnapshot(
       `subagents: critic ran more than once (count=${snap.counts["subagent-card-critic"]}) — ` +
       "Phase-1D contract is exactly one critic invocation per chain"
     );
+  }
+  if (snap.delegationEntryCount !== 3) {
+    return `subagents: expected 3 [data-testid="delegation-entry"] from shared state but found ${snap.delegationEntryCount}`;
   }
   for (const marker of BOILERPLATE_MARKERS) {
     if (snap.text.includes(marker)) {

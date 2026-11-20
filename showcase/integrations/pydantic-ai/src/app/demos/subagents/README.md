@@ -2,11 +2,11 @@
 
 ## What This Demo Shows
 
-Multi-agent delegation with a live log. A supervisor LLM orchestrates three specialized sub-agents exposed as tools, and every delegation streams into the UI in real time via shared agent state.
+Multi-agent delegation with a shared-state log. A supervisor LLM calls three sub-agents as tools. The log adds each delegation when its tool returns.
 
-- **Three specialized sub-agents**: `research_agent` (gathers facts), `writing_agent` (drafts prose), `critique_agent` (reviews drafts) — each is its own full `create_agent(...)`
-- **Sub-agents-as-tools**: the supervisor calls them through `@tool` wrappers; each wrapper runs the sub-agent and appends an entry to the shared `delegations` state slot
-- **Live delegation log**: the left pane renders `delegations` from agent state, growing as the supervisor fans work out
+- **Three specialized sub-agents**: `research_agent` gathers facts, `writing_agent` drafts prose, and `critique_agent` reviews drafts. Each is a PydanticAI `Agent`.
+- **Sub-agents as tools**: The supervisor calls each agent through an `@agent.tool` function. Each tool returns the agent's text to the supervisor.
+- **Delegation log**: Each tool returns a `StateSnapshotEvent` in `ToolReturn.metadata`. The left pane adds that delegation when the tool returns.
 
 ## How to Interact
 
@@ -20,7 +20,7 @@ Watch the delegation log fill in as the supervisor runs research → write → c
 
 ## Technical Details
 
-- Each delegation tool returns a LangGraph `Command(update={"delegations": [...], "messages": [ToolMessage(...)]})` — appending to shared state AND feeding the result back as a tool message in one step
-- `AgentState` subclasses `langchain.agents.AgentState` and adds `delegations: list[Delegation]`; `create_agent(..., state_schema=AgentState)` makes it available on the frontend
+- Each delegation tool returns `ToolReturn` with the sub-agent text and a snapshot of `SubagentsState.delegations`.
+- `StateDeps[SubagentsState]` passes the state to each PydanticAI tool. The AG-UI adapter forwards the snapshot to the browser.
 - Frontend uses `useAgent({ agentId: "subagents", updates: [UseAgentUpdate.OnStateChanged, UseAgentUpdate.OnRunStatusChanged] })` and reads `agent.state.delegations` + `agent.isRunning` to drive the log
 - `CopilotKit` provider uses `agent="subagents"`, backed by `src/agents/subagents.py`
