@@ -24,6 +24,13 @@ function reaction(over: Record<string, unknown> = {}) {
   };
 }
 
+/**
+ * Let the listener's async work settle. Resolving the reply target is async
+ * now, because a threaded mention has to open the thread before the turn is
+ * dispatched.
+ */
+const flush = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
+
 const botId = "bot-1";
 
 function message(over: Record<string, unknown>) {
@@ -40,7 +47,7 @@ function message(over: Record<string, unknown>) {
 }
 
 describe("attachDiscordListener", () => {
-  it("emits a turn when the bot is mentioned", () => {
+  it("emits a turn when the bot is mentioned", async () => {
     const client = fakeClient();
     const onTurn = vi.fn();
     attachDiscordListener({
@@ -59,6 +66,7 @@ describe("attachDiscordListener", () => {
         content: "<@bot-1> hi",
       }),
     );
+    await flush();
     expect(onTurn).toHaveBeenCalledWith(
       expect.objectContaining({
         conversationKey: "c1",
@@ -73,6 +81,140 @@ describe("attachDiscordListener", () => {
         },
       }),
     );
+  });
+
+  /** A mention that can open a thread, recording the create call. */
+  function mentionMsg(over: Record<string, unknown> = {}) {
+    const started: Array<{ name: string; autoArchiveDuration?: number }> = [];
+    const msg = message({
+      mentions: {
+        has: () => true,
+        users: { has: (q: string) => q === "bot-1" },
+      },
+      content: "<@bot-1> why is checkout slow",
+      startThread: async (o: {
+        name: string;
+        autoArchiveDuration?: number;
+      }) => {
+        started.push(o);
+        return { id: "t1" };
+      },
+      ...over,
+    });
+    return { msg, started };
+  }
+
+  function listen(over: Record<string, unknown> = {}) {
+    const client = fakeClient();
+    const onTurn = vi.fn();
+    attachDiscordListener({
+      client: client as any,
+      botUserId: botId,
+      onTurn,
+      onCommand: vi.fn(),
+      ...over,
+    });
+    return { client, onTurn };
+  }
+
+  it("opens a thread on a mention by default and answers inside it", async () => {
+    const { client, onTurn } = listen();
+    const { msg, started } = mentionMsg();
+
+    client.emit("messageCreate", msg);
+    await flush();
+
+    // The thread is named from the user's text, with the mention stripped.
+    expect(started).toEqual([
+      { name: "why is checkout slow", autoArchiveDuration: 1440 },
+    ]);
+    // The reply goes to the thread, and the thread is its own conversation.
+    expect(onTurn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        conversationKey: "t1",
+        replyTarget: { channelId: "t1", guildId: "g1" },
+      }),
+    );
+  });
+
+  it('replies in the channel when reply is "channel"', async () => {
+    const { client, onTurn } = listen({
+      respondTo: { appMentions: { reply: "channel" } },
+    });
+    const { msg, started } = mentionMsg();
+
+    client.emit("messageCreate", msg);
+    await flush();
+
+    expect(started).toEqual([]);
+    expect(onTurn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        conversationKey: "c1",
+        replyTarget: { channelId: "c1", guildId: "g1" },
+      }),
+    );
+  });
+
+  it("does not open a thread inside a thread, or in a DM", async () => {
+    const inThread = listen();
+    const a = mentionMsg({
+      channel: { isDMBased: () => false, isThread: () => true },
+    });
+    inThread.client.emit("messageCreate", a.msg);
+
+    const dm = listen();
+    const b = mentionMsg({
+      channel: { isDMBased: () => true },
+      guildId: null,
+    });
+    dm.client.emit("messageCreate", b.msg);
+    await flush();
+
+    // Nesting is impossible on Discord, and a DM has no threads at all.
+    expect(a.started).toEqual([]);
+    expect(b.started).toEqual([]);
+    expect(inThread.onTurn).toHaveBeenCalledWith(
+      expect.objectContaining({ conversationKey: "c1" }),
+    );
+    expect(dm.onTurn).toHaveBeenCalledTimes(1);
+  });
+
+  it("still answers in the channel when opening a thread fails", async () => {
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { client, onTurn } = listen();
+    const { msg } = mentionMsg({
+      // What a missing CREATE_PUBLIC_THREADS permission looks like.
+      startThread: async () => {
+        throw new Error("Missing Permissions");
+      },
+    });
+
+    client.emit("messageCreate", msg);
+    await flush();
+
+    // Losing the thread must never cost the user their turn.
+    expect(onTurn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        conversationKey: "c1",
+        replyTarget: { channelId: "c1", guildId: "g1" },
+      }),
+    );
+    expect(errSpy).toHaveBeenCalled();
+    errSpy.mockRestore();
+  });
+
+  it("names a thread even when the mention carries no text, and caps at 100", async () => {
+    const empty = listen();
+    const a = mentionMsg({ content: "<@bot-1>" });
+    empty.client.emit("messageCreate", a.msg);
+
+    const long = listen();
+    const b = mentionMsg({ content: `<@bot-1> ${"x".repeat(200)}` });
+    long.client.emit("messageCreate", b.msg);
+    await flush();
+
+    expect(a.started[0]?.name).toBe("New conversation");
+    expect(b.started[0]?.name).toHaveLength(100);
   });
 
   it("does not answer a role / @everyone mention that only matches via mentions.has", () => {
@@ -96,7 +238,7 @@ describe("attachDiscordListener", () => {
     expect(onTurn).not.toHaveBeenCalled();
   });
 
-  it("emits a turn for a DM even without a mention", () => {
+  it("emits a turn for a DM even without a mention", async () => {
     const client = fakeClient();
     const onTurn = vi.fn();
     attachDiscordListener({
@@ -109,6 +251,7 @@ describe("attachDiscordListener", () => {
       "messageCreate",
       message({ channel: { isDMBased: () => true }, guildId: null }),
     );
+    await flush();
     expect(onTurn).toHaveBeenCalledTimes(1);
   });
 
@@ -141,7 +284,7 @@ describe("attachDiscordListener", () => {
     expect(onTurn).not.toHaveBeenCalled();
   });
 
-  it("resolves a getter-form botUserId per event", () => {
+  it("resolves a getter-form botUserId per event", async () => {
     const client = fakeClient();
     const onTurn = vi.fn();
     let id = "";
@@ -164,6 +307,7 @@ describe("attachDiscordListener", () => {
         content: "<@bot-1> hi",
       }),
     );
+    await flush();
     expect(onTurn).toHaveBeenCalledWith(
       expect.objectContaining({
         conversationKey: "c1",
@@ -348,8 +492,7 @@ describe("attachDiscordListener", () => {
       ),
     ).not.toThrow();
     // Let the rejected promise settle so the .catch runs.
-    await Promise.resolve();
-    await Promise.resolve();
+    await flush();
     expect(errSpy).toHaveBeenCalledWith(
       "[bot-discord] onTurn handler failed:",
       expect.any(Error),
