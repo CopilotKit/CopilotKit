@@ -1,5 +1,5 @@
 import React from "react";
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { screen, fireEvent, waitFor, act } from "@testing-library/react";
 import {
   MockStepwiseAgent,
@@ -11,6 +11,8 @@ import type { AttachmentUploadError } from "@copilotkit/shared";
 import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
 import type { Observable } from "rxjs";
 import { EMPTY } from "rxjs";
+import { ProxiedCopilotRuntimeAgent } from "@copilotkit/core";
+import { randomUUID } from "@copilotkit/shared";
 
 class NoopAgent extends MockStepwiseAgent {
   run(_input: RunAgentInput): Observable<BaseEvent> {
@@ -84,6 +86,9 @@ describe("CopilotChat attachments", () => {
       expect(error.reason).toBe("invalid-type");
       expect(error.file).toBe(pdfFile);
       expect(error.message).toContain("document.pdf");
+      expect(screen.getByRole("alert").textContent).toContain(error.message);
+      fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+      expect(screen.queryByRole("alert")).toBeNull();
     });
 
     it("fires with 'file-too-large' when file exceeds maxSize", async () => {
@@ -282,5 +287,150 @@ describe("CopilotChat attachments", () => {
         errorSpy.mockRestore();
       }
     });
+  });
+});
+
+class AttachmentProfileAgent extends ProxiedCopilotRuntimeAgent {
+  run(): Observable<BaseEvent> {
+    return EMPTY;
+  }
+  connect(): Observable<BaseEvent> {
+    return EMPTY;
+  }
+}
+
+const imagePdfProfile = {
+  multimodal: {
+    input: { image: true, pdf: true, audio: false, video: false, file: false },
+  },
+};
+
+describe("configured attachment capabilities", () => {
+  beforeEach(() => {
+    let nextId = 0;
+    vi.mocked(randomUUID).mockImplementation(() => `profile-${nextId++}`);
+  });
+  afterEach(() => {
+    vi.mocked(randomUUID).mockReturnValue("mock-thread-id");
+  });
+  it.each(["picker", "drop", "paste"])(
+    "validates %s with visible feedback while retaining supported attachments",
+    async (path) => {
+      const onUploadFailed = vi.fn();
+      const agent = new AttachmentProfileAgent({
+        runtimeUrl: "http://localhost/unused",
+        agentId: "default",
+        capabilities: imagePdfProfile,
+      });
+      const { container } = renderWithCopilotKit({
+        agent,
+        children: (
+          <CopilotChat
+            welcomeScreen={false}
+            attachments={{ enabled: true, onUploadFailed }}
+          />
+        ),
+      });
+      const input = container.querySelector(
+        'input[type="file"]',
+      ) as HTMLInputElement;
+      expect(input.accept).toBe("image/*,application/pdf");
+      const files = [
+        new File(["png-bytes"], "photo.png", { type: "image/png" }),
+        new File(["pdf-bytes"], "document.pdf", { type: "application/pdf" }),
+        new File(["text"], "notes.txt", { type: "text/plain" }),
+        new File(["wav"], "audio.wav", { type: "audio/wav" }),
+        new File(["mp4"], "video.mp4", { type: "video/mp4" }),
+      ];
+      if (path === "picker") fireEvent.change(input, { target: { files } });
+      if (path === "drop") await dropFiles(container, files);
+      if (path === "paste")
+        fireEvent.paste(screen.getByRole("textbox"), {
+          clipboardData: {
+            items: files.map((file) => ({
+              kind: "file",
+              getAsFile: () => file,
+            })),
+          },
+        });
+      await waitFor(() => expect(onUploadFailed).toHaveBeenCalledTimes(3));
+      expect(
+        onUploadFailed.mock.calls.map(([error]) => error.file.name),
+      ).toEqual(["notes.txt", "audio.wav", "video.mp4"]);
+      expect(screen.getByRole("alert").textContent).toContain(
+        'File "video.mp4" is not accepted',
+      );
+      await waitFor(() =>
+        expect(screen.getByText("document.pdf")).toBeTruthy(),
+      );
+      expect(screen.queryByText("notes.txt")).toBeNull();
+    },
+  );
+
+  it.each([
+    [undefined, undefined, "*/*"],
+    [{ multimodal: { input: { image: true } } }, undefined, "*/*"],
+    [
+      {
+        multimodal: {
+          input: {
+            image: true,
+            pdf: true,
+            audio: true,
+            video: true,
+            file: true,
+          },
+        },
+      },
+      undefined,
+      "*/*",
+    ],
+    [imagePdfProfile, "text/plain", "text/plain"],
+    [imagePdfProfile, "", ""],
+  ] as const)(
+    "preserves unknown/broader profiles and explicit app overrides",
+    (capabilities, accept, expected) => {
+      const agent = new AttachmentProfileAgent({
+        runtimeUrl: "http://localhost/unused",
+        agentId: "default",
+        capabilities,
+      });
+      const { container } = renderWithCopilotKit({
+        agent,
+        children: (
+          <CopilotChat
+            welcomeScreen={false}
+            attachments={{ enabled: true, accept }}
+          />
+        ),
+      });
+      expect(
+        (container.querySelector('input[type="file"]') as HTMLInputElement)
+          .accept,
+      ).toBe(expected);
+    },
+  );
+
+  it("reports invalid-only file paste and leaves ordinary text and outside paste alone", async () => {
+    const onUploadFailed = vi.fn();
+    const { container } = renderChat({
+      accept: "image/*,application/pdf",
+      onUploadFailed,
+    });
+    const file = new File(["text"], "notes.txt", { type: "text/plain" });
+    const clipboardData = { items: [{ kind: "file", getAsFile: () => file }] };
+    expect(fireEvent.paste(document.body, { clipboardData })).toBe(true);
+    expect(
+      fireEvent.paste(screen.getByRole("textbox"), {
+        clipboardData: { items: [{ kind: "string", getAsFile: () => null }] },
+      }),
+    ).toBe(true);
+    expect(onUploadFailed).not.toHaveBeenCalled();
+    expect(
+      fireEvent.paste(screen.getByRole("textbox"), { clipboardData }),
+    ).toBe(false);
+    await waitFor(() => expect(onUploadFailed).toHaveBeenCalledTimes(1));
+    expect(screen.getByRole("alert").textContent).toContain("notes.txt");
+    expect(container.querySelector('input[type="file"]')).toBeTruthy();
   });
 });

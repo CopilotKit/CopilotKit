@@ -318,13 +318,9 @@ export function useAttachments({
       const target = e.target as HTMLElement | null;
       if (!target || !containerRef.current?.contains(target)) return;
 
-      const accept = configRef.current?.accept ?? "*/*";
       const items = Array.from(e.clipboardData?.items || []);
       const fileItems = items.filter(
-        (item) =>
-          item.kind === "file" &&
-          item.getAsFile() !== null &&
-          matchesAcceptFilter(item.getAsFile()!, accept),
+        (item) => item.kind === "file" && item.getAsFile() !== null,
       );
 
       if (fileItems.length === 0) return;

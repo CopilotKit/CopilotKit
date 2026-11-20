@@ -24,7 +24,22 @@ const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 function createAgent() {
   // Points at the `/beautiful-chat` mount on the .NET backend
   // (Program.cs: `app.MapAGUI("/beautiful-chat", ...)`).
-  return new HttpAgent({ url: `${AGENT_URL}/beautiful-chat` });
+  return Object.assign(new HttpAgent({ url: `${AGENT_URL}/beautiful-chat` }), {
+    // This configured GPT-5 Mini Chat route accepts images/PDFs. Declare
+    // its inputs at the backend boundary; the shared chat UI consumes the
+    // profile without a Microsoft-specific frontend or fleet-wide limit.
+    getCapabilities: async () => ({
+      multimodal: {
+        input: {
+          image: true,
+          pdf: true,
+          audio: false,
+          video: false,
+          file: false,
+        },
+      },
+    }),
+  });
 }
 
 const agents: Record<string, AbstractAgent> = {
