@@ -426,6 +426,28 @@ describe("CopilotA2UISurface", () => {
     ).toContain("Nope");
   });
 
+  it("renders nothing for unknown components in production, keeping their siblings", async () => {
+    // A production build defines ngDevMode as false, which turns isDevMode() off.
+    vi.stubGlobal("ngDevMode", false);
+    try {
+      const fixture = setup();
+      const element = await render(fixture, [
+        updateComponents("default", [
+          { id: "root", component: "Column", children: ["before", "mystery"] },
+          { id: "before", component: "Text", text: "Before" },
+          { id: "mystery", component: "Nope" },
+        ]),
+      ]);
+      expect(element.textContent).toContain("Before");
+      expect(
+        element.querySelector('[data-testid="a2ui-node-unknown"]'),
+      ).toBeNull();
+      expect(element.textContent).not.toContain("Nope");
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("shows a placeholder for children that have not arrived yet", async () => {
     const fixture = setup();
     const element = await render(fixture, [
