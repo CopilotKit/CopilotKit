@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { computed, useAttrs } from "vue";
 import CopilotChatConfigurationProvider from "../../providers/CopilotChatConfigurationProvider.vue";
+import { forwardedSlotNames } from "./forwarded-slots";
 import CopilotSidebarViewInternal from "./CopilotSidebarViewInternal.vue";
 import type {
   CopilotChatFeatherSlotProps,
+  CopilotChatInterruptSlotProps,
   CopilotChatWelcomeScreenSlotProps,
   CopilotChatMessageViewSlotProps,
   CopilotChatScrollToBottomButtonSlotProps,
@@ -48,12 +50,16 @@ defineSlots<{
   "scroll-to-bottom-button"?: (
     props: CopilotChatScrollToBottomButtonSlotProps,
   ) => unknown;
+  interrupt?: (props: CopilotChatInterruptSlotProps) => unknown;
   input?: (props: CopilotSidebarWelcomeScreenInputSlotProps) => unknown;
   "suggestion-view"?: (
     props: CopilotSidebarWelcomeScreenSuggestionViewSlotProps,
   ) => unknown;
   "welcome-screen"?: (props: CopilotChatWelcomeScreenSlotProps) => unknown;
   "welcome-message"?: () => unknown;
+  // Any other slot goes to the chat view, as on CopilotChat.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  [key: string]: ((props: any) => unknown) | undefined;
 }>();
 
 const emit = defineEmits<{
@@ -115,47 +121,12 @@ const forwardedEventListeners = computed(() => {
 <template>
   <CopilotChatConfigurationProvider :is-modal-default-open="defaultOpen">
     <CopilotSidebarViewInternal v-bind="internalBindings">
-      <template v-if="$slots.header" #header="slotProps">
-        <slot name="header" v-bind="slotProps" />
-      </template>
-
-      <template v-if="$slots['toggle-button']" #toggle-button="slotProps">
-        <slot name="toggle-button" v-bind="slotProps" />
-      </template>
-
-      <template v-if="$slots['message-view']" #message-view="slotProps">
-        <slot name="message-view" v-bind="slotProps" />
-      </template>
-
-      <template v-if="$slots['scroll-view']" #scroll-view="slotProps">
-        <slot name="scroll-view" v-bind="slotProps" />
-      </template>
-
-      <template v-if="$slots.feather" #feather="slotProps">
-        <slot name="feather" v-bind="slotProps" />
-      </template>
-
       <template
-        v-if="$slots['scroll-to-bottom-button']"
-        #scroll-to-bottom-button="slotProps"
+        v-for="slotName in forwardedSlotNames($slots)"
+        :key="slotName"
+        #[slotName]="slotProps"
       >
-        <slot name="scroll-to-bottom-button" v-bind="slotProps" />
-      </template>
-
-      <template v-if="$slots.input" #input="slotProps">
-        <slot name="input" v-bind="slotProps" />
-      </template>
-
-      <template v-if="$slots['suggestion-view']" #suggestion-view="slotProps">
-        <slot name="suggestion-view" v-bind="slotProps" />
-      </template>
-
-      <template v-if="$slots['welcome-screen']" #welcome-screen="slotProps">
-        <slot name="welcome-screen" v-bind="slotProps" />
-      </template>
-
-      <template v-if="$slots['welcome-message']" #welcome-message>
-        <slot name="welcome-message" />
+        <slot :name="slotName" v-bind="slotProps" />
       </template>
     </CopilotSidebarViewInternal>
   </CopilotChatConfigurationProvider>

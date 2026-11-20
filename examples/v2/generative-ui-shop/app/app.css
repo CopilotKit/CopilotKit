@@ -1,0 +1,83 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans:
+    "Inter", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
+    "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+}
+
+html,
+body {
+  @apply bg-white dark:bg-gray-950;
+
+  @media (prefers-color-scheme: dark) {
+    color-scheme: dark;
+  }
+}
+
+/*
+ * The CopilotKit chat in the colors of the shop: stone and gray, with the
+ * amber accent. `html` makes these rules win over the CopilotKit defaults,
+ * whatever order the two stylesheets load in.
+ */
+html [data-copilotkit] {
+  --background: var(--color-white);
+  --foreground: var(--color-gray-900);
+  --card: var(--color-white);
+  --card-foreground: var(--color-gray-900);
+  --popover: var(--color-white);
+  --popover-foreground: var(--color-gray-900);
+  --primary: var(--color-amber-600);
+  --primary-foreground: var(--color-white);
+  --secondary: var(--color-stone-100);
+  --secondary-foreground: var(--color-gray-900);
+  --muted: var(--color-stone-100);
+  --muted-foreground: var(--color-gray-500);
+  --accent: var(--color-stone-100);
+  --accent-foreground: var(--color-gray-900);
+  --border: var(--color-stone-200);
+  --input: var(--color-stone-200);
+  --ring: var(--color-amber-500);
+}
+
+html.dark [data-copilotkit] {
+  --background: var(--color-gray-900);
+  --foreground: var(--color-gray-50);
+  --card: var(--color-gray-900);
+  --card-foreground: var(--color-gray-50);
+  --popover: var(--color-gray-800);
+  --popover-foreground: var(--color-gray-50);
+  --primary: var(--color-amber-600);
+  --primary-foreground: var(--color-white);
+  --secondary: var(--color-gray-800);
+  --secondary-foreground: var(--color-gray-50);
+  --muted: var(--color-gray-800);
+  --muted-foreground: var(--color-gray-400);
+  --accent: var(--color-gray-800);
+  --accent-foreground: var(--color-gray-50);
+  --border: var(--color-gray-700);
+  --input: var(--color-gray-700);
+  --ring: var(--color-amber-500);
+}
+
+/* The chat input and its slash menu set their dark grays directly, not
+   through the variables above. */
+html.dark [data-copilotkit] .cpk\:dark\:bg-\[\#303030\] {
+  background-color: var(--color-gray-800);
+}
+html.dark [data-copilotkit] .cpk\:dark\:bg-\[\#1f1f1f\] {
+  background-color: var(--color-gray-800);
+}
+html.dark [data-copilotkit] .cpk\:dark\:border-\[\#3a3a3a\] {
+  border-color: var(--color-gray-700);
+}
+html.dark [data-copilotkit] .cpk\:dark\:bg-\[\#2f2f2f\],
+html.dark [data-copilotkit] .cpk\:dark\:hover\:bg-\[\#2f2f2f\]:hover {
+  background-color: var(--color-gray-700);
+}
+
+/* A surface scrolls into view when the agent renders into it. Keep it clear
+   of the sticky header. */
+[data-generative-ui-surface] {
+  scroll-margin-top: 6rem;
+}

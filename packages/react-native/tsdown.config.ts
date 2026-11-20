@@ -5,6 +5,7 @@ export default defineConfig({
     "src/index.ts",
     "src/headless.ts",
     "src/components/index.ts",
+    "src/generative-ui/index.ts",
     "src/polyfills.ts",
     "src/polyfills/streams.ts",
     "src/polyfills/encoding.ts",

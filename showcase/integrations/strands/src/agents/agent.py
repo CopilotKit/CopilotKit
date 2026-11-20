@@ -517,7 +517,8 @@ def _invoke_subagent_llm(system_prompt: str, task: str) -> str:
     try:
         client = _openai_mod.OpenAI()
         response = client.chat.completions.create(
-            model="gpt-5-mini",
+            reasoning_effort="none",
+            model="gpt-6-luna",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": task},
@@ -1094,7 +1095,7 @@ class _HookInjectingAgentDict(dict):
 # ---- Factory ------------------------------------------------------------
 
 
-DEFAULT_MODEL = "gpt-5-mini"
+DEFAULT_MODEL = "gpt-6-luna"
 
 
 def model_id() -> str:
@@ -1117,6 +1118,7 @@ def _build_model() -> OpenAIModel:
     return OpenAIModel(
         client_args={"api_key": api_key},
         model_id=model_id(),
+        params={"reasoning_effort": "none"},
     )
 
 

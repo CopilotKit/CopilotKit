@@ -7,7 +7,7 @@ import {
 import { handle } from "hono/vercel";
 
 const agent = new BuiltInAgent({
-  model: "openai/gpt-4o",
+  model: "openai/gpt-6-luna",
   prompt: `You are the CopilotKit Showcase assistant. You help developers explore CopilotKit integrations, find the right agent framework, and try live demos.
 
 You should:

@@ -1,0 +1,183 @@
+---
+title: "GenerativeUIActivity"
+description: "Render the surface that an agent rendered with render_ui, from its activity message, in a chat list or on a screen with no chat."
+---
+
+## Overview
+
+Every surface the agent renders arrives as an **activity message** in `agent.messages`, and is updated in place while the agent streams. `GenerativeUIActivity` draws the surface of one such message with the components of your catalog. Put it wherever your app shows the agent's output: in your own message list, one per activity message, or on a screen with no chat at all, for example a home screen that a background agent run composes.
+
+Like the web chat, it shows only surfaces aimed at the chat (target `"chat"`). A surface aimed at a named [`GenerativeUISurface`](/reference/react-native/components/GenerativeUISurface) renders there, so a message list that passes every activity message does not show it twice; pass `target` to show such a surface here instead. It reads the surface from the thread of the `agent` you pass, so it shows that agent's output even when another agent ran last.
+
+Render it under [`GenerativeUIProvider`](/reference/react-native/components/GenerativeUIProvider). It renders nothing, and does not call `Wrapper`, when:
+
+- the message is not a generative UI activity;
+- its content is malformed (in development it warns with the issues);
+- there is no `GenerativeUIProvider` above it, or the provider has no `ui` (in development it warns);
+- `agent` is `undefined` or has no `threadId` yet (in development it warns);
+- the surface's target is not `target`;
+- the agent deleted the surface, or the provider holds no surface for it.
+
+In development each instance warns once for each distinct cause, also when a cause goes away and comes back; a `message` with another id warns again. The first case and the last two are silent. The warnings are development-only: in a release build every case renders nothing without a word, and none of them reaches `onError`.
+
+For a complete walkthrough, see [Generative UI with your own components](/react-native#generative-ui-with-your-own-components).
+
+## Import
+
+```tsx
+import {
+  DefaultGenerativeUIActivityWrapper,
+  GenerativeUIActivity,
+  isGenerativeUIActivity,
+} from "@copilotkit/react-native/generative-ui";
+```
+
+## Props
+
+<PropertyReference name="message" type="GenerativeUIActivityMessage" required>
+  A message from `agent.messages`: `{ id?, role, activityType?, content? }`. A
+  message that carries no generated surface renders nothing, so you can pass
+  any message.
+</PropertyReference>
+
+<PropertyReference name="agent" type="{ threadId?: string; agentId?: string } | undefined" required>
+  The agent whose message this is, usually the `agent` from
+  [`useAgent`](/reference/react-native/hooks/useAgent). Its thread owns the
+  surface. Renders nothing while it is `undefined` or has no `threadId`.
+</PropertyReference>
+
+<PropertyReference name="target" type="string" default='"chat"'>
+  The surface target shown. The default is the chat target, as in the web chat.
+  Set it to the id of a `GenerativeUISurface` target to show that target's
+  surface here instead, for example on a history screen after the user left
+  the screen with that `GenerativeUISurface`. Surfaces of every other target,
+  `"chat"` included, then render nothing.
+
+  This prop does not create a target. The agent can render into a named target
+  only when a `GenerativeUISurface` with that id was mounted when the run
+  started; the runtime rejects a `createSurface` for any other target. While
+  both are on screen, the surface is drawn twice.
+</PropertyReference>
+
+<PropertyReference name="Wrapper" type="ComponentType<GenerativeUIActivityWrapperProps>" default="DefaultGenerativeUIActivityWrapper">
+  Replaces the view around the surface. The default renders the surface and,
+  when operations were rejected, a short error line. Its view has
+  `flexGrow: 1`, so a catalog root sized against its parent (`flex: 1` or a
+  percentage height) fills a parent with a fixed size. A `FlatList` row or the
+  content of a `ScrollView` is as tall as its content, so a row in a chat list
+  keeps its own height.
+
+  <PropertyReference name="surfaceId" type="string">
+    The id of the surface.
+  </PropertyReference>
+
+  <PropertyReference name="isStreaming" type="boolean">
+    The agent is still writing this surface.
+  </PropertyReference>
+
+  <PropertyReference name="error" type="Error | undefined">
+    Set when `rejected` is not empty. Its message is generic; its `cause` is
+    the same list as `rejected`.
+  </PropertyReference>
+
+  <PropertyReference name="rejected" type="GenerativeUIRejectedOperation[]">
+    The rejected operations of the latest `render_ui` call, each with its
+    `index` and `reason`: those the runtime rejected and those the app
+    rejected. `errorBoundary.onError` of the provider does not get the ones
+    that the runtime rejected, so read them here. For a surface drawn by a
+    `GenerativeUISurface`, they reach the `Wrapper` of that
+    `GenerativeUISurface` instead. When the surface is built again from its messages (for example when
+    the app restarts on a stored thread), the call boundaries are not known,
+    so the list can also hold rejections of earlier calls.
+    `GenerativeUIRejectedOperation` is exported from
+    `@copilotkit/react-native/generative-ui`.
+  </PropertyReference>
+
+  <PropertyReference name="children" type="ReactNode">
+    The rendered surface. `null` when the app rejected the agent's
+    `createSurface`, so the surface never existed: then only `error` and
+    `rejected` are set. A `createSurface` that the runtime rejected gets no
+    activity message of its own, so nothing renders for it; only the model
+    learns of it, in the result of its `render_ui` call. The one exception
+    is a `createSurface` with the id of a live surface: the runtime adds that
+    rejection to the live surface, so it shows in that surface's `Wrapper`.
+  </PropertyReference>
+</PropertyReference>
+
+## `isGenerativeUIActivity`
+
+```tsx
+function isGenerativeUIActivity<M extends GenerativeUIActivityMessage>(
+  message: M,
+): message is M & { role: "activity"; activityType: "generative-ui-surface" };
+```
+
+True for the activity messages that carry a generated surface: `role` is `"activity"` and `activityType` is the generative UI activity type. It is a type guard, so `agent.messages.filter(isGenerativeUIActivity)` gives activity messages. It does not check the content; `GenerativeUIActivity` does.
+
+## Usage
+
+### In a message list
+
+```tsx
+<FlatList
+  data={agent.messages}
+  keyExtractor={(message) => message.id}
+  renderItem={({ item }) =>
+    isGenerativeUIActivity(item) ? (
+      <GenerativeUIActivity message={item} agent={agent} />
+    ) : (
+      <MessageBubble message={item} />
+    )
+  }
+/>
+```
+
+A surface aimed at a named [`GenerativeUISurface`](/reference/react-native/components/GenerativeUISurface) target renders nothing in the list, because `target` defaults to `"chat"`, so it does not show twice. It still takes a cell of the list, and so does a surface that the agent deleted, so the [guide's chat screen](/react-native#render-surfaces-in-your-message-list) leaves both out of `data` with its `isChatSurface` helper.
+
+### On a screen with no chat
+
+```tsx
+import { isChatSurface } from "./agentTurns"; // the helper from the guide
+
+const { agent } = useAgent({ agentId: "home" });
+// The surfaces that render here: aimed at the chat, and not deleted.
+const surfaces = agent.messages.filter(isChatSurface);
+
+return surfaces.length > 0 ? (
+  <View>
+    {surfaces.map((message) => (
+      <GenerativeUIActivity key={message.id} message={message} agent={agent} />
+    ))}
+  </View>
+) : (
+  <HomeSkeleton />
+);
+```
+
+Render every chat surface, not only the latest activity message: the latest can be a deleted surface, or one aimed at a named target, and render nothing. Filtering with `isChatSurface` keeps the skeleton up until a surface that renders here arrives; `agent.messages.filter(isGenerativeUIActivity)` would drop the skeleton for a named-target or deleted surface and leave the screen blank. `isChatSurface` is defined in the [guide](/react-native#render-surfaces-in-your-message-list).
+
+Something has to run the `home` agent, and this part does not: on its own it shows the skeleton forever. The [home screen step](/react-native#compose-a-screen-with-no-chat) of the guide starts the run once `isReady` from `useAgent` is true, so it goes to the registered agent rather than the stand-in used while the runtime connects, and shows a spinner while it runs and, when a run fails or renders nothing here, the reason with a retry, after it has taken the run's prompt back.
+
+### With your own streaming and error state
+
+```tsx
+import { ActivityIndicator, Text, View } from "react-native";
+import type { GenerativeUIActivityWrapperProps } from "@copilotkit/react-native/generative-ui";
+
+function SurfaceCard({ isStreaming, error, children }: GenerativeUIActivityWrapperProps) {
+  return (
+    <View style={{ borderRadius: 12, padding: 12, backgroundColor: "#fafafa" }}>
+      {children}
+      {isStreaming ? <ActivityIndicator /> : null}
+      {error ? <Text accessibilityRole="alert">{error.message}</Text> : null}
+    </View>
+  );
+}
+
+<GenerativeUIActivity message={message} agent={agent} Wrapper={SurfaceCard} />;
+```
+
+## Related
+
+- [`GenerativeUIProvider`](/reference/react-native/components/GenerativeUIProvider): turns on generative UI and holds the catalog
+- [`GenerativeUISurface`](/reference/react-native/components/GenerativeUISurface): a named place where the agent can render

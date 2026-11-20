@@ -4,7 +4,7 @@ name: test / unit-showcase
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, "[0-9]+.[0-9]+.[0-9]+"]
     paths:
       # The `test:ci` / `test:quarantine-ratchet` nx target definitions live in
       # showcase/harness/package.json, so `showcase/**` covers them too.
@@ -64,7 +64,7 @@ jobs:
       - name: Setup pnpm
         # Omit `version:` so pnpm/action-setup inherits from the repo's
         # `packageManager` field in package.json (via corepack).
-        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
 
       - name: Setup Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -79,6 +79,10 @@ jobs:
         # does not load (verified — the full suite passes under an
         # `--ignore-scripts` install).
         run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Install Chromium for local signal regressions
+        working-directory: showcase/harness
+        run: pnpm exec playwright install chromium
 
       - name: Generate gitignored showcase data fixtures
         working-directory: showcase/scripts
@@ -110,6 +114,10 @@ jobs:
         # generated, and 4 without them, all from that one missing import.
         run: pnpm exec tsc --noEmit
 
+      - name: Audit D4 consumer boundary and regression sensitivity
+        timeout-minutes: 10
+        run: pnpm exec nx run @copilotkit/showcase-harness:test:d4-boundary --skip-nx-cache
+
       - name: Run harness unit suite
         # THE GATE. Runs through nx per the repo's task convention (root
         # CLAUDE.md: prefer `nx run` over the underlying tooling).
@@ -130,6 +138,12 @@ jobs:
         # NOT `vitest.ci.config.ts` or `vitest.quarantine.json`, so a cached
         # result could survive an edit to the quarantine list.
         run: npx nx run @copilotkit/showcase-harness:test:ci
+
+      - name: Audit signal consumer boundary and genuine test mutations
+        timeout-minutes: 10
+        env:
+          NX_DAEMON: "false"
+        run: pnpm exec nx run @copilotkit/showcase-harness:test:signal-boundary --skip-nx-cache
 
       - name: Quarantine ratchet (every quarantined test must STILL fail)
         # Keeps the exclusion above honest. Re-runs each quarantined file under
@@ -162,7 +176,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
 
       - name: Setup Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0

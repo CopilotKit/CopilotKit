@@ -103,7 +103,7 @@ def get_revenue_chart() -> dict:
 
 
 graph = create_agent(
-    model=ChatOpenAI(model="gpt-5.4"),
+    model=ChatOpenAI(reasoning_effort="none", model="gpt-6-luna"),
     tools=[get_weather, get_stock_price, get_revenue_chart],
     middleware=[CopilotKitMiddleware()],
     system_prompt=SYSTEM_PROMPT,

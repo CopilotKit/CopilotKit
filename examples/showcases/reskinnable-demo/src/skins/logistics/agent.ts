@@ -216,7 +216,7 @@ RULES
 
 export const logisticsAgent = () =>
   new BuiltInAgent({
-    model: "openai/gpt-5.4",
+    model: "openai/gpt-6-luna",
     prompt: LOGISTICS_PROMPT,
     tools: [renderBriefTool],
   });

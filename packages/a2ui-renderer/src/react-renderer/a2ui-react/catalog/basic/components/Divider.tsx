@@ -17,23 +17,29 @@
 import React from "react";
 import { createReactComponent } from "../../../adapter";
 import { DividerApi } from "@a2ui/web_core/v0_9/basic_catalog";
-import { LEAF_MARGIN } from "../utils";
+import { getAccessibilityProps, LEAF_MARGIN } from "../utils";
 
-export const Divider = createReactComponent(DividerApi, ({ props }) => {
-  const isVertical = props.axis === "vertical";
-  const style: React.CSSProperties = {
-    margin: LEAF_MARGIN,
-    border: "none",
-    backgroundColor: "#ccc",
-  };
+export const Divider = createReactComponent(
+  DividerApi,
+  /** Keep the divider's common accessibility on its existing host element. */
+  ({ props }) => {
+    const isVertical = props.axis === "vertical";
+    const style: React.CSSProperties = {
+      margin: LEAF_MARGIN,
+      border: "none",
+      backgroundColor: "var(--a2ui-color-border, #ccc)",
+    };
 
-  if (isVertical) {
-    style.width = "1px";
-    style.height = "100%";
-  } else {
-    style.width = "100%";
-    style.height = "1px";
-  }
+    if (isVertical) {
+      style.width = "1px";
+      style.height = "100%";
+    } else {
+      style.width = "100%";
+      style.height = "1px";
+    }
 
-  return <div style={style} />;
-});
+    return (
+      <div {...getAccessibilityProps(props.accessibility)} style={style} />
+    );
+  },
+);

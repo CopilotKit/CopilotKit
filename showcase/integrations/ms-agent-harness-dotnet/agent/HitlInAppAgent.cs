@@ -70,7 +70,7 @@ public sealed class HitlInAppAgentFactory
 
     public AIAgent CreateHitlInAppAgent()
     {
-        var chatClient = _openAiClient.GetChatClient("gpt-5-mini").AsIChatClient();
+        var chatClient = _openAiClient.GetChatClient("gpt-6-luna").AsLunaChatClient();
 
         return chatClient.AsHarnessAgent(
             HarnessMaxContextWindowTokens,

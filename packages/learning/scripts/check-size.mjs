@@ -1,4 +1,4 @@
-// Bounds both collectors, including form values, request/response body capture, credential redaction, and click labels (10 KiB gzip).
+// Bounds both collectors, including form values, request/response body capture, credential redaction, click and field labels, and page error capture (11 KiB gzip).
 // Measures what an app ships: the published dist keeps comments, and app bundlers minify.
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import { gzipSync } from "node:zlib";
 import { build } from "tsdown";
 
-const BUDGET_BYTES = 10 * 1024;
+const BUDGET_BYTES = 11 * 1024;
 const root = fileURLToPath(new URL("..", import.meta.url));
 const outDir = mkdtempSync(join(tmpdir(), "learning-size-"));
 
@@ -22,6 +22,7 @@ try {
     sourcemap: false,
     outDir,
     logLevel: "error",
+    define: { __LEARNING_VERSION__: JSON.stringify("0.0.0") },
   });
   const size = gzipSync(readFileSync(join(outDir, "index.mjs"))).length;
   console.log(

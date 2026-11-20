@@ -1,4 +1,10 @@
-import React, { useCallback, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   FlatList,
   KeyboardAvoidingView,
@@ -289,6 +295,20 @@ export function CopilotChat({
 
   const renderToolCall = useRenderToolCall();
 
+  // useInterrupt publishes its element to core unless renderInChat is false.
+  // Draw it after the last message, as the web message view does.
+  const [interruptElement, setInterruptElement] =
+    useState<React.ReactElement | null>(null);
+  useEffect(() => {
+    setInterruptElement(copilotkit.interruptElement);
+    const subscription = copilotkit.subscribe({
+      onInterruptElementChanged: ({ interruptElement: element }) => {
+        setInterruptElement(element);
+      },
+    });
+    return () => subscription.unsubscribe();
+  }, [copilotkit]);
+
   // Recomputed every render — cheap, and the only honest dependency for the
   // message-derived memos below. See `messagesFingerprint` for why the array
   // reference cannot be trusted as one.
@@ -525,6 +545,7 @@ export function CopilotChat({
         contentContainerStyle={[styles.messageList, messageContainerStyle]}
         onContentSizeChange={handleContentSizeChange}
         ListEmptyComponent={emptyComponent}
+        ListFooterComponent={interruptElement}
       />
 
       {error && (

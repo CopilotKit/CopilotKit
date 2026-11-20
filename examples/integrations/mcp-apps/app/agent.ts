@@ -60,8 +60,8 @@ export function createDefaultAgent(): BuiltInAgent {
 
   const agent = new BuiltInAgent({
     // COPILOTKIT_AGENT_MODEL (e.g. "anthropic:claude-sonnet-4-5") overrides this;
-    // unset, the agent uses gpt-5-mini.
-    model: resolveAgentModel("openai:gpt-5-mini"),
+    // unset, the agent uses gpt-6-luna.
+    model: resolveAgentModel("openai:gpt-6-luna"),
     prompt: "You are a helpful assistant.",
   });
 

@@ -147,7 +147,7 @@ def stop_after_tool_failure(state: AgentState, runtime: Runtime) -> dict | None:
     return None
 
 
-model = ChatOpenAI(model="gpt-5.4")
+model = ChatOpenAI(reasoning_effort="none", model="gpt-6-luna")
 
 graph = create_agent(
     model=model,

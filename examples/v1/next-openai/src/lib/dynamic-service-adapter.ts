@@ -59,7 +59,7 @@ async function getGroqAdapter() {
 //   const { ChatOpenAI } = await import("@langchain/openai");
 //   return new LangChainAdapter({
 //     chainFn: async ({ messages, tools, threadId }) => {
-//       const model = new ChatOpenAI({ modelName: "gpt-4-1106-preview" }).bindTools(tools, {
+//       const model = new ChatOpenAI({ modelKwargs: { reasoning_effort: "none" }, modelName: "gpt-6-luna" }).bindTools(tools, {
 //         strict: true,
 //       });
 //       return model.stream(messages, { tools, metadata: { conversation_id: threadId } });

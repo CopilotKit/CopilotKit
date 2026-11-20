@@ -17,63 +17,68 @@
 import { useState } from "react";
 import { createReactComponent } from "../../../adapter";
 import { TabsApi } from "@a2ui/web_core/v0_9/basic_catalog";
-import { LEAF_MARGIN } from "../utils";
+import { getAccessibilityProps, LEAF_MARGIN, STANDARD_BORDER } from "../utils";
 
 // The type of a tab is deeply nested into the TabsApi schema, and
 // it seems z.infer is not inferring it correctly (?). We use `any` for now.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type _Tab = any;
 
-export const Tabs = createReactComponent(TabsApi, ({ props, buildChild }) => {
-  const [selectedIndex, setSelectedIndex] = useState(0);
+export const Tabs = createReactComponent(
+  TabsApi,
+  /** Describe the tabs container without replacing the names of individual tab buttons. */
+  ({ props, buildChild }) => {
+    const [selectedIndex, setSelectedIndex] = useState(0);
 
-  const tabs = props.tabs || [];
-  const activeTab = tabs[selectedIndex];
+    const tabs = props.tabs || [];
+    const activeTab = tabs[selectedIndex];
 
-  return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        width: "100%",
-        margin: LEAF_MARGIN,
-      }}
-    >
+    return (
       <div
+        {...getAccessibilityProps(props.accessibility)}
         style={{
           display: "flex",
-          borderBottom: "1px solid #ccc",
-          marginBottom: "8px",
+          flexDirection: "column",
+          width: "100%",
+          margin: LEAF_MARGIN,
         }}
       >
-        {tabs.map((tab: _Tab, i: number) => (
-          <button
-            type="button"
-            key={i}
-            onClick={() => setSelectedIndex(i)}
-            style={{
-              padding: "8px 16px",
-              border: "none",
-              background: "none",
-              borderBottom:
-                selectedIndex === i
-                  ? "2px solid var(--a2ui-primary-color, #007bff)"
-                  : "none",
-              fontWeight: selectedIndex === i ? "bold" : "normal",
-              cursor: "pointer",
-              color:
-                selectedIndex === i
-                  ? "var(--a2ui-primary-color, #007bff)"
-                  : "inherit",
-            }}
-          >
-            {tab.title}
-          </button>
-        ))}
+        <div
+          style={{
+            display: "flex",
+            borderBottom: STANDARD_BORDER,
+            marginBottom: "8px",
+          }}
+        >
+          {tabs.map((tab: _Tab, i: number) => (
+            <button
+              type="button"
+              key={i}
+              onClick={() => setSelectedIndex(i)}
+              style={{
+                padding: "8px 16px",
+                border: "none",
+                background: "none",
+                borderBottom:
+                  selectedIndex === i
+                    ? "2px solid var(--a2ui-primary-color, #007bff)"
+                    : "none",
+                fontWeight: selectedIndex === i ? "bold" : "normal",
+                cursor: "pointer",
+                color:
+                  selectedIndex === i
+                    ? "var(--a2ui-primary-color, #007bff)"
+                    : "inherit",
+              }}
+            >
+              {tab.title}
+            </button>
+          ))}
+        </div>
+        <div style={{ flex: 1 }}>
+          {activeTab ? buildChild(activeTab.child) : null}
+        </div>
       </div>
-      <div style={{ flex: 1 }}>
-        {activeTab ? buildChild(activeTab.child) : null}
-      </div>
-    </div>
-  );
-});
+    );
+  },
+);

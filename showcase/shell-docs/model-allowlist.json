@@ -1,7 +1,8 @@
 {
   "_comment": "Model names, in two tiers. `ship` is what a starter or example may pin: a developer clones that code and is evaluating CopilotKit on whatever it names, so it has to be a model we would choose today. `recognize` is every other real name, which documentation may mention -- a migration note, a comparison, a model a reader already runs. Adding a name to `recognize` is routine. Moving one into `ship` is a decision about what we put in front of a new developer. Reviewed 2026-09-16; a list of current models goes stale by sitting still, so revisit it when a provider ships a tier.",
   "openai": {
-    "ship": [
+    "ship": ["gpt-6-luna"],
+    "recognize": [
       "gpt-5.5",
       "gpt-5.5-mini",
       "gpt-5.5-nano",
@@ -11,9 +12,7 @@
       "gpt-5.2",
       "gpt-5",
       "gpt-5-mini",
-      "gpt-5-nano"
-    ],
-    "recognize": [
+      "gpt-5-nano",
       "gpt-4.1",
       "gpt-4.1-mini",
       "gpt-4.1-nano",

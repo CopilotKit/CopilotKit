@@ -1,10 +1,14 @@
 ## What is this?
 
-A headless UI gives you full control over the chat experience — you bring your own components, layout, and styling while CopilotKit handles agent communication, message management, and streaming. This is built on top of the same primitives (`useAgent` and `useCopilotKit`) covered in Programmatic Control.
+A headless UI gives you full control over the chat experience. You bring your own components, layout, and styling while CopilotKit handles agent communication, message management, and streaming. This is built on top of the same primitives (`useAgent` and `useCopilotKit`) covered in [Programmatic Control](/programmatic-control).
 
 ## When should I use this?
 
-Use headless UI when the slot system isn't enough — for example, when you need a completely different layout, want to embed the chat into an existing UI, or are building a non-chat interface that still communicates with an agent.
+Use headless UI when the slot system is not enough:
+
+- You need a different layout.
+- You embed the chat in an existing UI.
+- You build a non-chat interface that talks to an agent.
 
 ## Implementation
 
@@ -17,7 +21,7 @@ Use `useAgent` to get the agent instance (messages, state, execution status) and
 ```tsx title="components/custom-chat.tsx"
 import { useAgent } from "@copilotkit/react-core/v2";
 import { useCopilotKit } from "@copilotkit/react-core/v2";
-import { randomUUID } from "@copilotkit/shared";
+import { randomUUID } from "@copilotkit/react-core/v2";
 
 export function CustomChat() {
   // [!code highlight:2]
@@ -33,18 +37,21 @@ export function CustomChat() {
 <Step>
 ### Display messages
 
-The agent's messages are available via `agent.messages`. Each message has an `id`, `role` (`"user"` or `"assistant"`), and `content`.
+The agent's messages are available via `agent.messages`. Each message has an `id`, a `role`, and `content`. The list also holds tool, system, and reasoning messages, so keep only the `user` and `assistant` messages for a chat view.
 
 ```tsx title="components/custom-chat.tsx"
 export function CustomChat() {
   const { agent } = useAgent();
   const { copilotkit } = useCopilotKit();
+  const chatMessages = agent.messages.filter(
+    (msg) => msg.role === "user" || msg.role === "assistant",
+  );
 
   return (
     <div className="flex flex-col h-full">
       {/* [!code highlight:12] */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {agent.messages.map((msg) => (
+        {chatMessages.map((msg) => (
           <div
             key={msg.id}
             className={
@@ -69,7 +76,7 @@ export function CustomChat() {
 <Step>
 ### Send messages and run the agent
 
-Add a message to the agent's conversation, then call `copilotkit.runAgent()` to trigger execution. This is the same method CopilotKit's built-in `<CopilotChat />` uses internally.
+Add the user's message to the agent with `agent.addMessage()`. Then call `copilotkit.runAgent()` to run the agent. This is the same method CopilotKit's built-in `<CopilotChat />` uses internally.
 
 ```tsx title="components/custom-chat.tsx"
 import { useState, useCallback } from "react";
@@ -78,6 +85,9 @@ export function CustomChat() {
   const { agent } = useAgent();
   const { copilotkit } = useCopilotKit();
   const [input, setInput] = useState("");
+  const chatMessages = agent.messages.filter(
+    (msg) => msg.role === "user" || msg.role === "assistant",
+  );
 
   // [!code highlight:14]
   const sendMessage = useCallback(async () => {
@@ -97,7 +107,7 @@ export function CustomChat() {
   return (
     <div className="flex flex-col h-full">
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {agent.messages.map((msg) => (
+        {chatMessages.map((msg) => (
           <div
             key={msg.id}
             className={
@@ -149,14 +159,14 @@ const stopAgent = useCallback(() => {
 }, [agent, copilotkit]);
 
 // In your JSX:
-{
-  agent.isRunning && (
-    <button onClick={stopAgent} className="text-red-500">
-      Stop
-    </button>
-  );
-}
+{agent.isRunning && (
+  <button onClick={stopAgent} className="text-red-500">
+    Stop
+  </button>
+)}
 ```
 
 </Step>
 </Steps>
+
+Run your app and send a message. Your message and the agent's reply show in your own layout, and **Stop** ends a reply that is still running.

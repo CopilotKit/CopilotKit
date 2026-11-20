@@ -58,7 +58,7 @@ curl http://localhost:10002/.well-known/agent.json
 
 ```bash
 OPENAI_API_KEY=sk-...        # Required for LiteLLM
-LITELLM_MODEL=openai/gpt-5.2  # Optional, defaults to gpt-5.2
+LITELLM_MODEL=openai/gpt-6-luna  # Optional, defaults to gpt-6-luna
 ```
 
 ## UI Generation

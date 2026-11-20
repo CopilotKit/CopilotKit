@@ -13,6 +13,7 @@ import {
   getSourceUrl,
 } from "@copilotkit/shared";
 import { cn } from "../../utils";
+import { injectChatLabels } from "../../chat-config";
 
 @Component({
   selector: "copilot-chat-attachment-queue",
@@ -96,7 +97,7 @@ import { cn } from "../../utils";
             <button
               type="button"
               class="copilotKitAttachmentQueueRemoveButton"
-              aria-label="Remove attachment"
+              [attr.aria-label]="labels.attachmentRemoveButtonLabel"
               (click)="removeAttachment.emit(attachment.id)"
             >
               &times;
@@ -111,6 +112,7 @@ export class CopilotChatAttachmentQueue {
   readonly attachments = input<Attachment[]>([]);
   readonly inputClass = input<string | undefined>();
   readonly removeAttachment = output<string>();
+  readonly labels = injectChatLabels();
 
   readonly computedClass = computed(() =>
     cn(

@@ -161,7 +161,7 @@ async def section_writer(research_query, section_title, idx, state):
         lc_messages = convert_openai_messages(prompt)
 
         # Invoke OpenAI's model with tool
-        model = ChatOpenAI(model="gpt-5-mini", max_retries=1)
+        model = ChatOpenAI(reasoning_effort="none", model="gpt-6-luna", max_retries=1)
         response = await model.bind_tools([WriteSection]).ainvoke(lc_messages, config)
 
         state["logs"][-1]["done"] = True

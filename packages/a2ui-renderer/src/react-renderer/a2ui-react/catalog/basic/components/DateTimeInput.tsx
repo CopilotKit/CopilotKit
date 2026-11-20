@@ -17,10 +17,16 @@
 import React from "react";
 import { createReactComponent } from "../../../adapter";
 import { DateTimeInputApi } from "@a2ui/web_core/v0_9/basic_catalog";
-import { LEAF_MARGIN, STANDARD_BORDER, STANDARD_RADIUS } from "../utils";
+import {
+  getAccessibilityProps,
+  LEAF_MARGIN,
+  STANDARD_BORDER,
+  STANDARD_RADIUS,
+} from "../utils";
 
 export const DateTimeInput = createReactComponent(
   DateTimeInputApi,
+  /** Put common accessibility on the editable date or time control. */
   ({ props }) => {
     const onChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       props.setValue(e.target.value);
@@ -60,6 +66,7 @@ export const DateTimeInput = createReactComponent(
           </label>
         )}
         <input
+          {...getAccessibilityProps(props.accessibility)}
           id={uniqueId}
           type={type}
           style={style}

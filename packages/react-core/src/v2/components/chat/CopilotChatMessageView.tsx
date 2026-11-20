@@ -7,8 +7,14 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { useVirtualizer } from "@tanstack/react-virtual";
-import type { VirtualItem, Virtualizer } from "@tanstack/react-virtual";
+import {
+  defaultRangeExtractor,
+  elementScroll,
+  observeElementOffset,
+  observeElementRect,
+  useVirtualizer,
+} from "@tanstack/react-virtual";
+import type { Range, VirtualItem, Virtualizer } from "@tanstack/react-virtual";
 import { ScrollElementContext } from "./scroll-element-context";
 import { ScrollPinnedContext } from "./scroll-pinned-context";
 import type { WithSlots } from "../../lib/slots";
@@ -17,6 +23,22 @@ import CopilotChatAssistantMessage from "./CopilotChatAssistantMessage";
 import type { CopilotChatFeedbackMessage } from "./CopilotChatAssistantMessage";
 import CopilotChatUserMessage from "./CopilotChatUserMessage";
 import CopilotChatReasoningMessage from "./CopilotChatReasoningMessage";
+import {
+  MessageFeedbackScopeContext,
+  useLearningFeedbackEnabled,
+} from "./message-feedback";
+import type { MessageFeedbackScope } from "./message-feedback";
+import CopilotChatWorkSummary from "./CopilotChatWorkSummary";
+import { Collapsible } from "./CopilotChatToolCallGroup";
+import { ToolCallDisplayContext } from "./tool-call-display-context";
+import type { ToolCallDisplayContextValue } from "./tool-call-display-context";
+import { getToolCallLayouts, getTurnWork } from "./tool-call-layout";
+import type {
+  CopilotChatToolCallDisplay,
+  ToolCallEntry,
+  TurnWork,
+} from "./tool-call-layout";
+import { useToolCallRendererNames } from "../../hooks/use-render-tool-call";
 import type {
   ActivityMessage,
   AssistantMessage,
@@ -324,25 +346,14 @@ const MemoizedCustomMessage = React.memo(
 );
 
 /**
- * Deduplicates messages by ID. For assistant messages, merges occurrences:
- * recovers non-empty content from any earlier occurrence if the latest wiped it
- * (empty string means the streaming update cleared the field, not blank text),
- * and similarly recovers toolCalls from earlier occurrences if the latest is
- * undefined (an empty array [] is treated as intentional and kept as-is).
- * For all other roles, keeps the last entry.
- *
- * @internal Exported for unit testing only — not part of the public API.
- */
-/**
  * Collapse tool calls that share an id, keeping first-seen order.
  *
- * AG-UI's TOOL_CALL_START handler appends to the parent message's `toolCalls`
- * without checking whether that id is already present. So whenever a start
- * event is applied twice — which the human-in-the-loop flow triggers when the
- * run syncs after `respond()` — the message ends up carrying the same call
- * twice. The second copy has EMPTY `arguments`, because a start event carries
- * none; the args arrive later as TOOL_CALL_ARGS deltas addressed to the first
- * copy.
+ * Older AG-UI clients appended to the parent message's `toolCalls` without
+ * checking whether that id was already present. So whenever a start event was
+ * applied twice — which the human-in-the-loop flow triggers when the run syncs
+ * after `respond()` — the message ended up carrying the same call twice. The
+ * second copy has EMPTY `arguments`, because a start event carries none; the
+ * args arrive later as TOOL_CALL_ARGS deltas addressed to the first copy.
  *
  * Left alone that renders the same tool call twice: once populated and once
  * blank (an approval card with no transaction id, offering live buttons for an
@@ -369,6 +380,45 @@ function dedupeToolCalls(
   return byId.size === toolCalls.length ? toolCalls : [...byId.values()];
 }
 
+/**
+ * Unite the tool calls of two occurrences of the same assistant message,
+ * keeping first-seen order. Each occurrence can hold only some of the calls,
+ * so neither list may replace the other.
+ *
+ * For an id present in both, the later occurrence wins when it carries
+ * arguments: it is the newer streaming update. A blank later copy never
+ * replaces a populated one.
+ */
+function mergeToolCalls(
+  earlier: NonNullable<AssistantMessage["toolCalls"]>,
+  later: NonNullable<AssistantMessage["toolCalls"]>,
+): NonNullable<AssistantMessage["toolCalls"]> {
+  const byId = new Map(earlier.map((toolCall) => [toolCall.id, toolCall]));
+  for (const toolCall of later) {
+    const existing = byId.get(toolCall.id);
+    if (
+      !existing ||
+      toolCall.function?.arguments ||
+      !existing.function?.arguments
+    ) {
+      byId.set(toolCall.id, toolCall);
+    }
+  }
+  return [...byId.values()];
+}
+
+/**
+ * Deduplicates messages by ID. For assistant messages, merges occurrences:
+ * recovers non-empty content from any earlier occurrence if the latest wiped it
+ * (empty string means the streaming update cleared the field, not blank text).
+ * Tool calls from every occurrence are kept: a copy can hold only some of the
+ * calls, so when two occurrences both carry tool calls they are united by id.
+ * If the latest has undefined toolCalls they are recovered from earlier
+ * occurrences; an explicit empty array [] is treated as intentional and kept.
+ * For all other roles, keeps the last entry.
+ *
+ * @internal Exported for unit testing only — not part of the public API.
+ */
 export function deduplicateMessages(messages: Message[]): Message[] {
   const acc = new Map<string, Message>();
   for (const message of messages) {
@@ -382,9 +432,18 @@ export function deduplicateMessages(messages: Message[]): Message[] {
       // any non-empty content seen earlier. Use { ...existing, ...message } so
       // fields present only in an earlier occurrence are not silently dropped.
       const content = message.content || existing.content;
+      // Each occurrence may hold only some of the calls, so when both
+      // carry tool calls, unite them. Each list is collapsed on its own first,
+      // so duplicates within one occurrence keep the first populated copy.
       // undefined toolCalls means this chunk had no tool call activity — recover
       // from earlier occurrences. An explicit [] means all tool calls completed.
-      const toolCalls = message.toolCalls ?? existing.toolCalls;
+      const toolCalls =
+        message.toolCalls?.length && existing.toolCalls?.length
+          ? mergeToolCalls(
+              dedupeToolCalls(existing.toolCalls),
+              dedupeToolCalls(message.toolCalls),
+            )
+          : (message.toolCalls ?? existing.toolCalls);
       acc.set(message.id, {
         ...existing,
         ...message,
@@ -443,6 +502,9 @@ export interface MessageGroup<S = unknown> {
 /** One row of the message list: a single message, or a group of them. */
 export type MessageRow = { type: "message"; message: Message } | MessageGroup;
 
+/** At most this many rows are rendered beyond the viewport on either side. */
+const MAX_OVERSCAN_ROWS = 400;
+
 /** A row holding a single message, rendered as it would be ungrouped. */
 export function messageRow(message: Message): MessageRow {
   return { type: "message", message };
@@ -458,7 +520,10 @@ export function messageGroup<S>(
   return { type: "group", ...group } as unknown as MessageGroup;
 }
 
+// Row keys are shared by React, the virtualizer and the scroll anchor. Each row
+// type has its own prefix, so a message ID can never equal a group's key.
 const GROUP_ROW_KEY_PREFIX = "copilotkit-group:";
+const MESSAGE_ROW_KEY_PREFIX = "copilotkit-message:";
 
 export type CopilotChatMessageViewProps = Omit<
   WithSlots<
@@ -468,6 +533,8 @@ export type CopilotChatMessageViewProps = Omit<
       reasoningMessage: typeof CopilotChatReasoningMessage;
       cursor: typeof CopilotChatMessageView.Cursor;
       intelligenceIndicator: typeof IntelligenceIndicatorView;
+      /** The "Working… / Worked for 9s" line of the `"turn"` tool-call display. */
+      workSummary: typeof CopilotChatWorkSummary;
     },
     {
       isRunning?: boolean;
@@ -498,6 +565,20 @@ export type CopilotChatMessageViewProps = Omit<
        * Memoized on its input and this function — pass a stable function.
        */
       groupMessages?: (messages: Message[]) => MessageRow[];
+      /**
+       * Whether reply thumbs record ratings for Automatic Learning once a
+       * Trajectory has started. Defaults to `true`; set `false` to keep the
+       * thumbs to your own `onThumbsUp` / `onThumbsDown` handlers and slots.
+       */
+      messageFeedback?: boolean;
+      /**
+       * How tool calls show. Defaults to `"grouped"`: calls made in a row
+       * share one card that opens to a row per call. `"line"` and `"stacked"`
+       * group them too; `"turn"` folds a reply's whole working phase into
+       * "Worked for 9s" once it's done; `"separate"` gives every call its own
+       * card. Calls with a renderer of their own always show on their own.
+       */
+      toolCallDisplay?: CopilotChatToolCallDisplay;
     } & React.HTMLAttributes<HTMLDivElement>
   >,
   "children"
@@ -515,6 +596,19 @@ export type CopilotChatMessageViewProps = Omit<
 // worth it and the simpler flat render is faster.
 const VIRTUALIZE_THRESHOLD = 50;
 
+/**
+ * How long the scroll position must stay still, with no wheel or touch input,
+ * before a correction held back during scrolling is written to `scrollTop`.
+ */
+const SCROLL_SETTLE_MS = 250;
+
+/**
+ * The most a held correction moves per frame once it is written. Safari can
+ * still drop a write when a new gesture starts in the same frame; a small
+ * step keeps that from showing.
+ */
+const SETTLE_STEP_PX = 4;
+
 export function CopilotChatMessageView({
   messages = [],
   assistantMessage,
@@ -522,9 +616,12 @@ export function CopilotChatMessageView({
   reasoningMessage,
   cursor,
   intelligenceIndicator,
+  workSummary,
   isRunning = false,
   transformMessages,
   groupMessages,
+  messageFeedback = true,
+  toolCallDisplay = "grouped",
   children,
   className,
   ...props
@@ -625,6 +722,144 @@ export function CopilotChatMessageView({
   // assistant toolbar key off this.
   const latestRenderedId = renderedMessages[renderedMessages.length - 1]?.id;
 
+  // ---------------------------------------------------------------------------
+  // Tool-call display
+  // ---------------------------------------------------------------------------
+  // Groups of calls can span messages (an agent often sends each call as its
+  // own message), so they're laid out here for the whole list and handed to
+  // each message's tool-call view through context.
+  const rendererNames = useToolCallRendererNames();
+  const toolCallLayouts = useMemo(
+    () =>
+      toolCallDisplay === "separate"
+        ? new Map()
+        : getToolCallLayouts(renderedMessages, messages, rendererNames),
+    [toolCallDisplay, renderedMessages, messages, rendererNames],
+  );
+  const turnWork = useMemo(
+    () =>
+      toolCallDisplay === "turn"
+        ? getTurnWork(renderedMessages, toolCallLayouts)
+        : undefined,
+    [toolCallDisplay, renderedMessages, toolCallLayouts],
+  );
+  const turnByFirstMessage = useMemo(() => {
+    const byFirst = new Map<string, TurnWork>();
+    for (const turn of turnWork?.values() ?? []) {
+      byFirst.set(turn.firstMessageId, turn);
+    }
+    return byFirst;
+  }, [turnWork]);
+
+  // The latest reply is keyed by the user message it answers (see getTurnWork).
+  let latestTurnKey = "start";
+  for (let i = renderedMessages.length - 1; i >= 0; i--) {
+    if (renderedMessages[i]!.role === "user") {
+      latestTurnKey = renderedMessages[i]!.id;
+      break;
+    }
+  }
+  const isWorkingOn = (turnKey: string) =>
+    isRunning && turnKey === latestTurnKey;
+
+  // Work shows while the agent is on it and folds once the reply is done,
+  // unless the user has opened or closed it themselves.
+  const [toggledTurns, setToggledTurns] = useState<
+    ReadonlyMap<string, boolean>
+  >(() => new Map());
+  const isWorkOpen = (turnKey: string) =>
+    toggledTurns.get(turnKey) ?? isWorkingOn(turnKey);
+
+  // How long the agent worked, for "Worked for 9s": the sum of its runs on
+  // the reply, so waiting between them (say, for an approval) doesn't count.
+  // Only known for replies this client watched start from the user's
+  // message; a restored thread shows the tool count instead. Written during
+  // render: each write records a run starting or ending once, so repeating a
+  // render changes nothing.
+  const workTimesRef = useRef(
+    new Map<string, { elapsedMs: number; workingSince?: number }>(),
+  );
+  if (toolCallDisplay === "turn") {
+    const now = Date.now();
+    const workTimes = workTimesRef.current;
+    if (isRunning) {
+      const times = workTimes.get(latestTurnKey);
+      if (times) times.workingSince ??= now;
+      else if (renderedMessages[renderedMessages.length - 1]?.role === "user")
+        workTimes.set(latestTurnKey, { elapsedMs: 0, workingSince: now });
+    } else {
+      for (const times of workTimes.values()) {
+        if (times.workingSince === undefined) continue;
+        times.elapsedMs += now - times.workingSince;
+        times.workingSince = undefined;
+      }
+    }
+  }
+
+  // Whether each working-phase message's work shows. Text that ends the reply
+  // stays out even when its message also calls a tool: it's the answer.
+  const { workOpen, workTextOpen } = useMemo(() => {
+    const open = new Map<string, boolean>();
+    const textOpen = new Map<string, boolean>();
+    for (const turn of turnWork?.values() ?? []) {
+      const turnOpen =
+        toggledTurns.get(turn.key) ?? (isRunning && turn.key === latestTurnKey);
+      for (const id of turn.workMessageIds) {
+        open.set(id, turnOpen);
+        if (id !== turn.replyTextMessageId) textOpen.set(id, turnOpen);
+      }
+    }
+    return { workOpen: open, workTextOpen: textOpen };
+  }, [turnWork, toggledTurns, isRunning, latestTurnKey]);
+
+  // Thinking is one live line while the agent works: the reply's latest
+  // thought, replacing the one before it. The earlier ones aren't dropped —
+  // they come back with the rest of the work when "Worked for 9s" is opened.
+  const supersededReasoning = useMemo(() => {
+    const ids = new Set<string>();
+    if (!isRunning) return ids;
+    const turn = turnWork?.get(latestTurnKey);
+    for (const id of turn?.reasoningIds.slice(0, -1) ?? []) ids.add(id);
+    return ids;
+  }, [turnWork, latestTurnKey, isRunning]);
+
+  const toolCallDisplayContext = useMemo<ToolCallDisplayContextValue>(
+    () => ({
+      display: toolCallDisplay,
+      isRunning,
+      layouts: toolCallLayouts,
+      workOpen,
+      workTextOpen,
+    }),
+    [toolCallDisplay, isRunning, toolCallLayouts, workOpen, workTextOpen],
+  );
+
+  const renderWorkSummary = (turnKey: string, calls: ToolCallEntry[]) => {
+    const working = isWorkingOn(turnKey);
+    const open = isWorkOpen(turnKey);
+    const times = workTimesRef.current.get(turnKey);
+    return (
+      <Collapsible
+        key={`work-summary-${turnKey}`}
+        open={working || calls.length > 0}
+      >
+        <div className="cpk:pt-1 cpk:pb-2">
+          {renderSlot(workSummary, CopilotChatWorkSummary, {
+            isWorking: working,
+            isOpen: open,
+            calls,
+            elapsedMs: times?.elapsedMs,
+            workingSince: times?.workingSince,
+            onClick: () =>
+              setToggledTurns((toggled) =>
+                new Map(toggled).set(turnKey, !open),
+              ),
+          })}
+        </div>
+      </Collapsible>
+    );
+  };
+
   // Row keys are looked up by message id, so two rendered messages sharing an
   // id would share a React key. Deduplication already ran on the input, so a
   // repeat here can only come from the transform.
@@ -697,6 +932,33 @@ export function CopilotChatMessageView({
   // remounts the group nor loses its state.
   const stableGroupKey = (key: string): string => rowRenderKeys.get(key) ?? key;
 
+  const rowKey = (row: MessageRow): string =>
+    row.type === "group"
+      ? `${GROUP_ROW_KEY_PREFIX}${stableGroupKey(row.key)}`
+      : `${MESSAGE_ROW_KEY_PREFIX}${rowRenderKeys.get(row.message.id) ?? row.message.id}`;
+
+  // One stable key per row, shared by React and the virtualizer. Rows shift
+  // index constantly once messages are grouped or transformed — tool calls
+  // fold into one row mid-stream, a resume stand-in drops out — and a
+  // virtualizer keyed by index then hands every measured height after that
+  // point to the wrong row, so the total size jumps and the view moves.
+  //
+  // The array keeps its identity while the keys are unchanged. A new
+  // `getItemKey` makes the virtualizer rebuild every row offset, re-estimating
+  // the unmeasured rows above the viewport, and a parent that rebuilds its
+  // `messages` array on every render would otherwise move the reader each time.
+  const previousRowKeysRef = useRef<string[]>([]);
+  const rowKeys = useMemo(() => {
+    const next = rows.map(rowKey);
+    const previous = previousRowKeysRef.current;
+    return next.length === previous.length &&
+      next.every((key, index) => key === previous[index])
+      ? previous
+      : next;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- rowKey reads rowRenderKeys
+  }, [rows, rowRenderKeys]);
+  previousRowKeysRef.current = rowKeys;
+
   // State each group's wrapper keeps here rather than in itself, so it
   // survives the row being windowed out and the wrapper remounting. Cleared
   // when the thread changes; pruned to the groups still on the list. One
@@ -754,6 +1016,17 @@ export function CopilotChatMessageView({
     );
   const agentId = config?.agentId;
   const threadId = config?.threadId;
+  const learningFeedbackEnabled = useLearningFeedbackEnabled(copilotkit);
+  const feedbackScope = useMemo<MessageFeedbackScope | null>(
+    () =>
+      messageFeedback &&
+      learningFeedbackEnabled &&
+      agentId !== undefined &&
+      threadId !== undefined
+        ? { copilotkit, agentId, threadId }
+        : null,
+    [messageFeedback, learningFeedbackEnabled, copilotkit, agentId, threadId],
+  );
   const assistantSlotPropsWithFeedback = useMemo(() => {
     const onThumbsUp = assistantSlotProps?.onThumbsUp as
       | ((message: CopilotChatFeedbackMessage) => void)
@@ -873,10 +1146,100 @@ export function CopilotChatMessageView({
   // fresh sample would drag the mean toward whatever that one row happened to
   // be mid-stream. Held in a ref because feeding it back through state would
   // re-render on every measure.
+  //
+  // A row keeps the estimate it was first laid out with until it is measured.
+  // Each measurement rebuilds the offsets of every later row, and an
+  // unmeasured row takes whatever the estimate is then; but when a row above
+  // the viewport is measured, the virtualizer corrects the scroll position
+  // only by that row's measured size minus its current estimate. A changed
+  // estimate for rows already on the page would move everything below them,
+  // the rows on screen included, by an amount nothing corrects. While the
+  // reader scrolls up, the rows overscanned above the viewport are exactly
+  // such rows: each one measured re-estimated the rest, and the content
+  // jumped.
   const measuredRef = React.useRef({
     total: 0,
-    sizes: new Map<number, number>(),
+    sizes: new Map<string, number>(),
+    estimates: new Map<string, number>(),
   });
+  const rowKeysRef = React.useRef(rowKeys);
+  rowKeysRef.current = rowKeys;
+
+  const resizeAnchorRef = React.useRef<{
+    index: number;
+    offset: number;
+    ready: boolean;
+  } | null>(null);
+  const restoringVisibilityRef = React.useRef(false);
+
+  // A correction is not written to `scrollTop` while the reader is scrolling:
+  // the browser owns the scroll position then. Safari, on a trackpad, drops a
+  // write made during the gesture or applies it a frame after the rows have
+  // moved, and either way what the reader is looking at jumps. Instead the
+  // correction is held here and the rows are drawn shifted by it, so nothing
+  // on screen moves. Once scrolling has stopped, the shift is undone a few
+  // pixels per frame, with `scrollTop` moving by the same amount each frame.
+  //
+  // The virtualizer works in list coordinates: list offset = `scrollTop` +
+  // held offset. The rows are drawn in a wrapper shifted up by the held
+  // offset, inside a spacer that is that much shorter.
+  const heldOffsetRef = React.useRef(0);
+  const spacerRef = React.useRef<HTMLDivElement | null>(null);
+  const shiftedRowsRef = React.useRef<HTMLDivElement | null>(null);
+  // Whether the row measured last started above the viewport as drawn.
+  const lastMeasuredRef = React.useRef<{
+    index: number;
+    above: boolean;
+  } | null>(null);
+  const userScrollingRef = React.useRef(false);
+  // The element offset the virtualizer last wrote, so its read-back is not
+  // taken for the reader scrolling.
+  const ownScrollWriteRef = React.useRef<number | null>(null);
+  // The total size the rows were last rendered with: rows measured since then
+  // have not moved yet, and the spacer must not change size ahead of them.
+  const renderedTotalRef = useRef(0);
+
+  // Draw the rows shifted by the held offset. Applied after every render as
+  // well as by the settling below, which changes it without rendering.
+  const applyHeldOffset = React.useCallback(() => {
+    const held = heldOffsetRef.current;
+    if (spacerRef.current)
+      spacerRef.current.style.height = `${renderedTotalRef.current - held}px`;
+    if (shiftedRowsRef.current)
+      shiftedRowsRef.current.style.transform = held
+        ? `translateY(${-held}px)`
+        : "";
+  }, []);
+
+  // Rows that turn out shorter than estimated are held as a negative offset:
+  // the rows are drawn that much lower. Near the top there may be less than
+  // that above the viewport, and the first row would be drawn below a blank
+  // band. Hold only what fits, so the first row stops at the top of the
+  // viewport as it would at a scroll boundary. Returns whether it changed.
+  const keepListTopInView = React.useCallback((scrollTop: number) => {
+    if (heldOffsetRef.current >= 0 || scrollTop + heldOffsetRef.current >= 0)
+      return false;
+    heldOffsetRef.current = scrollTop > 0 ? -scrollTop : 0;
+    return true;
+  }, []);
+
+  // Move `amount` of the held correction into `scrollTop`: the rows are drawn
+  // that much less shifted and the scroll position moves with them, so
+  // nothing on screen moves.
+  const releaseHeldOffset = React.useCallback(
+    (element: HTMLElement, amount: number) => {
+      if (amount === 0) return;
+      // Read before resizing the spacer, which can clamp it when shrinking.
+      const scrollTop = element.scrollTop;
+      heldOffsetRef.current -= amount;
+      // Resize the spacer first: the new scroll position may not fit before.
+      applyHeldOffset();
+      const target = Math.max(0, scrollTop + amount);
+      ownScrollWriteRef.current = target;
+      element.scrollTop = target;
+    },
+    [applyHeldOffset],
+  );
 
   // The measurements describe one thread, so drop them when the thread
   // changes (detected by the first message ID changing, same as the
@@ -889,39 +1252,159 @@ export function CopilotChatMessageView({
   const measuredThreadRef = React.useRef(firstMessageId);
   if (measuredThreadRef.current !== firstMessageId) {
     measuredThreadRef.current = firstMessageId;
-    measuredRef.current = { total: 0, sizes: new Map() };
+    resizeAnchorRef.current = null;
+    heldOffsetRef.current = 0;
+    measuredRef.current = { total: 0, sizes: new Map(), estimates: new Map() };
   }
 
-  const estimateRowSize = React.useCallback(() => {
-    const { total, sizes } = measuredRef.current;
-    return sizes.size > 0 ? Math.max(1, Math.round(total / sizes.size)) : 100;
+  // A row that left the list (messages folded into a group, a stand-in
+  // replaced) no longer says anything about this thread's row heights.
+  const measuredKeysRef = React.useRef(rowKeys);
+  if (measuredKeysRef.current !== rowKeys) {
+    measuredKeysRef.current = rowKeys;
+    const live = new Set(rowKeys);
+    const measured = measuredRef.current;
+    for (const [key, height] of measured.sizes) {
+      if (!live.has(key)) {
+        measured.sizes.delete(key);
+        measured.total -= height;
+      }
+    }
+    for (const key of measured.estimates.keys()) {
+      if (!live.has(key)) measured.estimates.delete(key);
+    }
+  }
+
+  // Kept per row key, like the sizes: a regroup moves rows to other indexes.
+  const estimateRowSize = React.useCallback((index: number) => {
+    const { total, sizes, estimates } = measuredRef.current;
+    const mean =
+      sizes.size > 0 ? Math.max(1, Math.round(total / sizes.size)) : 100;
+    const key = rowKeysRef.current[index];
+    if (key === undefined) return mean;
+    let estimate = estimates.get(key);
+    if (estimate === undefined) {
+      estimate = mean;
+      estimates.set(key, estimate);
+    }
+    return estimate;
   }, []);
 
-  const measureRowElement = React.useCallback((el: Element) => {
-    const height = el?.getBoundingClientRect().height ?? 0;
-    // `data-index` is set on every virtual row below, and is what the
-    // virtualizer itself uses to identify a measured element.
-    const index = Number((el as HTMLElement | null)?.dataset?.index);
-    if (height > 0 && Number.isInteger(index)) {
-      const { total, sizes } = measuredRef.current;
-      measuredRef.current.total = total - (sizes.get(index) ?? 0) + height;
-      sizes.set(index, height);
-    }
-    // display:none is not a new row measurement. Keep its last visible size
-    // until the host has a layout again.
-    return height > 0 ? height : (measuredRef.current.sizes.get(index) ?? 100);
-  }, []);
+  // A new function whenever the keys change: the virtualizer only rebuilds
+  // its row layout when an option it depends on changes, and a regroup can
+  // keep the row count the same.
+  const getRowKey = React.useCallback(
+    (index: number) => rowKeys[index] ?? index,
+    [rowKeys],
+  );
 
   const isPinnedToBottomRef = React.useRef(isPinnedToBottom);
+  const measuredWidthRef = React.useRef<number | null>(null);
+  const captureResizeAnchor = React.useCallback(
+    (instance: Virtualizer<HTMLElement, Element>) => {
+      const width = instance.scrollElement?.clientWidth;
+      if (
+        !width ||
+        instance.scrollElement?.clientHeight === 0 ||
+        restoringVisibilityRef.current ||
+        isPinnedToBottomRef.current ||
+        instance.options.count === 0 ||
+        measuredWidthRef.current === null ||
+        width === measuredWidthRef.current
+      )
+        return;
+      if (resizeAnchorRef.current) {
+        // A second resize can arrive before the previous anchor is released.
+        // Keep its reading position, but let the old release callback expire.
+        if (resizeAnchorRef.current.ready) {
+          resizeAnchorRef.current = {
+            ...resizeAnchorRef.current,
+            ready: false,
+          };
+        }
+        return;
+      }
+      const offset =
+        (instance.scrollElement?.scrollTop ?? 0) + heldOffsetRef.current;
+      const anchor = instance.getVirtualItemForOffset(offset);
+      if (anchor) {
+        resizeAnchorRef.current = {
+          index: anchor.index,
+          offset: offset - anchor.start,
+          ready: false,
+        };
+      }
+    },
+    [],
+  );
+  const measureRowElement = React.useCallback(
+    (
+      el: Element,
+      _entry: ResizeObserverEntry | undefined,
+      instance: Virtualizer<HTMLElement, Element>,
+    ) => {
+      // Row refs and observers can run before the container observer. Capture
+      // the old reading position before any row reports its resized height.
+      captureResizeAnchor(instance);
+      const rect = el?.getBoundingClientRect();
+      const height = rect?.height ?? 0;
+      // `data-index` is set on every virtual row below, and is what the
+      // virtualizer itself uses to identify a measured element.
+      const index = Number((el as HTMLElement | null)?.dataset?.index);
+      const key = Number.isInteger(index)
+        ? rowKeysRef.current[index]
+        : undefined;
+      // Whether the row starts above the viewport as it is drawn now. The
+      // virtualizer's own offsets for later rows lag behind within a batch of
+      // measurements, while the list offset already moved with each correction
+      // held before: a row well above the viewport could look inside it.
+      const viewportTop =
+        typeof rect?.top === "number"
+          ? instance.scrollElement?.getBoundingClientRect().top
+          : undefined;
+      lastMeasuredRef.current =
+        Number.isInteger(index) &&
+        typeof rect?.top === "number" &&
+        typeof viewportTop === "number"
+          ? { index, above: rect.top < viewportTop }
+          : null;
+      // Every row measures 0 while the chat is hidden (a display:none tab) or
+      // the row is detached; those keep their last visible measurement. In a
+      // visible list, 0 is a real size: a message that renders nothing, such
+      // as an assistant turn holding only tool calls without a renderer, or
+      // its tool results. Treating those as hidden gave each one the 100 px
+      // estimate, which left long blank stretches in tool-heavy threads.
+      const hidden = !el?.isConnected || !instance.scrollElement?.clientHeight;
+      if ((height > 0 || !hidden) && key !== undefined) {
+        const { total, sizes } = measuredRef.current;
+        measuredRef.current.total = total - (sizes.get(key) ?? 0) + height;
+        sizes.set(key, height);
+      }
+      return height > 0 || !hidden
+        ? height
+        : ((key === undefined
+            ? undefined
+            : measuredRef.current.sizes.get(key)) ?? 100);
+    },
+    [captureResizeAnchor],
+  );
+
   const shouldAdjustScrollOnResize = React.useCallback(
     (
       item: VirtualItem,
-      _delta: number,
+      delta: number,
       instance: Virtualizer<HTMLElement, Element>,
     ) => {
+      const measured = lastMeasuredRef.current;
+      lastMeasuredRef.current = null;
       // While the pin is following the bottom it owns the scroll position;
       // compensating as well is what makes the two fight (see below).
-      if (isPinnedToBottomRef.current) return false;
+      if (
+        isPinnedToBottomRef.current ||
+        resizeAnchorRef.current ||
+        restoringVisibilityRef.current
+      )
+        return false;
       // Otherwise keep the rule this property replaces rather than
       // compensating for every resize: only a row starting above the current
       // scroll offset can shift what the reader is looking at when it
@@ -933,10 +1416,171 @@ export function CopilotChatMessageView({
       const scrollAdjustments =
         (instance as unknown as { scrollAdjustments?: number })
           .scrollAdjustments ?? 0;
-      return item.start < (instance.scrollOffset ?? 0) + scrollAdjustments;
+      const above =
+        measured?.index === item.index
+          ? measured.above
+          : item.start < (instance.scrollOffset ?? 0) + scrollAdjustments;
+      if (!above) return false;
+      // Also hold while an earlier correction is still settling: a write then
+      // goes to list offset minus the held offset, which can lie past the
+      // element's scroll range until the rows render, and is cut short.
+      if (userScrollingRef.current || heldOffsetRef.current !== 0) {
+        // Hold the correction instead of writing it (see heldOffsetRef). The
+        // list offset moves with it, as it would after a write.
+        const held = heldOffsetRef.current;
+        heldOffsetRef.current += delta;
+        keepListTopInView(instance.scrollElement?.scrollTop ?? 0);
+        instance.scrollOffset =
+          (instance.scrollOffset ?? 0) + heldOffsetRef.current - held;
+        return false;
+      }
+      return true;
+    },
+    [keepListTopInView],
+  );
+
+  const observeListOffset = React.useCallback(
+    (
+      instance: Virtualizer<HTMLElement, Element>,
+      notify: (offset: number, isScrolling: boolean) => void,
+    ) =>
+      observeElementOffset(instance, (offset, isScrolling) => {
+        // Scrolling up toward the top uses up the room a negative held offset
+        // has above the viewport; give up the rest of it as it does.
+        if (keepListTopInView(offset)) applyHeldOffset();
+        notify(offset + heldOffsetRef.current, isScrolling);
+      }),
+    [keepListTopInView, applyHeldOffset],
+  );
+
+  const scrollToListOffset = React.useCallback(
+    (
+      offset: number,
+      options: { adjustments?: number; behavior?: ScrollBehavior },
+      instance: Virtualizer<HTMLElement, Element>,
+    ) => {
+      const elementOffset = offset - heldOffsetRef.current;
+      ownScrollWriteRef.current = elementOffset + (options.adjustments ?? 0);
+      elementScroll(elementOffset, options, instance);
     },
     [],
   );
+
+  const observeScrollRect = React.useCallback(
+    (
+      instance: Virtualizer<HTMLElement, Element>,
+      notify: (rect: { width: number; height: number }) => void,
+    ) => {
+      let frame: number | undefined;
+      let pendingRect: { width: number; height: number } | undefined;
+      const disconnect = observeElementRect(instance, (rect) => {
+        if (instance.scrollElement?.clientHeight === 0) {
+          restoringVisibilityRef.current = true;
+          resizeAnchorRef.current = null;
+          if (frame !== undefined) cancelAnimationFrame(frame);
+          frame = undefined;
+          pendingRect = undefined;
+          notify(rect);
+          return;
+        }
+        const width = instance.scrollElement?.clientWidth ?? rect.width;
+        const previousWidth = measuredWidthRef.current;
+        if (width > 0 && width !== previousWidth) {
+          captureResizeAnchor(instance);
+          if (previousWidth !== null) {
+            pendingRect = rect;
+            if (frame === undefined) {
+              // Resizing the spacer inside ResizeObserver can feed back into
+              // the bottom pin's observer. Commit the new layout next frame.
+              frame = requestAnimationFrame(() => {
+                frame = undefined;
+                const nextRect = pendingRect!;
+                pendingRect = undefined;
+                if (!instance.scrollElement?.clientHeight) return;
+                measuredWidthRef.current =
+                  instance.scrollElement?.clientWidth ?? nextRect.width;
+                if (resizeAnchorRef.current)
+                  resizeAnchorRef.current.ready = true;
+                // Flush pending row updates before invalidating the cached prefix.
+                instance.getTotalSize();
+                measuredRef.current = {
+                  total: 0,
+                  sizes: new Map(),
+                  estimates: new Map(),
+                };
+                // Seed the new estimate before rebuilding offscreen offsets.
+                instance.elementsCache.forEach((element) => {
+                  measureRowElement(element, undefined, instance);
+                });
+                instance.measure();
+                instance.getTotalSize();
+                // Already-resized rows may not emit another notification.
+                instance.elementsCache.forEach((element) => {
+                  instance.measureElement(element);
+                });
+                notify(nextRect);
+              });
+            }
+            return;
+          }
+          measuredWidthRef.current = width;
+        }
+        if (pendingRect) {
+          pendingRect = rect;
+        } else {
+          notify(rect);
+        }
+      });
+      return () => {
+        disconnect?.();
+        if (frame !== undefined) {
+          cancelAnimationFrame(frame);
+        }
+        resizeAnchorRef.current = null;
+      };
+    },
+    [captureResizeAnchor, measureRowElement],
+  );
+
+  // Rows beyond the viewport are rendered by height, not only by count. A row
+  // is measured when it mounts, and the virtualizer corrects the scroll
+  // position for a size change only while the row is above the viewport. Rows
+  // that render nothing measure 0, and a tool-heavy turn holds dozens of them
+  // in a row, so five rows of overscan could reach no further than the
+  // viewport's edge: the next row with content was first measured in view, and
+  // its height change moved what the reader was looking at while scrolling.
+  // Overscan therefore reaches at least a viewport's height in each direction.
+  const virtualizerRef = useRef<Virtualizer<HTMLElement, Element> | null>(null);
+  const rangeExtractor = React.useCallback((range: Range) => {
+    const instance = virtualizerRef.current;
+    const items = instance?.measurementsCache;
+    const reach = instance?.scrollRect?.height ?? 0;
+    if (!items || items.length !== range.count || reach <= 0)
+      return defaultRangeExtractor(range);
+    let start = range.startIndex;
+    for (
+      let above = 0;
+      start > 0 &&
+      range.startIndex - start < MAX_OVERSCAN_ROWS &&
+      (range.startIndex - start < range.overscan || above < reach);
+    ) {
+      start -= 1;
+      above += items[start]!.size;
+    }
+    let end = range.endIndex;
+    for (
+      let below = 0;
+      end < range.count - 1 &&
+      end - range.endIndex < MAX_OVERSCAN_ROWS &&
+      (end - range.endIndex < range.overscan || below < reach);
+    ) {
+      end += 1;
+      below += items[end]!.size;
+    }
+    const indexes: number[] = [];
+    for (let index = start; index <= end; index++) indexes.push(index);
+    return indexes;
+  }, []);
 
   const virtualizer = useVirtualizer({
     // count=0 disables the virtualizer without changing hook call order.
@@ -944,13 +1588,93 @@ export function CopilotChatMessageView({
     // A disabled virtualizer must not reconnect and reset a flat list's
     // scroll offset when a hidden host becomes visible again.
     getScrollElement: () => (shouldVirtualize ? scrollElement : null),
+    observeElementRect: observeScrollRect,
+    observeElementOffset: observeListOffset,
+    scrollToFn: scrollToListOffset,
     estimateSize: estimateRowSize,
+    getItemKey: getRowKey,
     overscan: 5,
+    rangeExtractor,
     measureElement: measureRowElement,
     // Assume a 600 px viewport before the real element is measured so that
     // the first virtual render shows ~6 items rather than 0.
     initialRect: { width: 0, height: 600 },
   });
+  virtualizerRef.current = virtualizer;
+
+  renderedTotalRef.current = virtualizer.getTotalSize();
+  useLayoutEffect(applyHeldOffset);
+
+  // Track whether the reader is scrolling (wheel, trackpad, touch, keyboard
+  // or scrollbar: anything that moves the list other than our own writes) and,
+  // once it has stopped, write the held correction (see heldOffsetRef).
+  useEffect(() => {
+    const element = shouldVirtualize ? scrollElement : null;
+    if (!element) return;
+    let settleTimer: ReturnType<typeof setTimeout> | undefined;
+    let settleFrame: number | undefined;
+    let touching = false;
+    // One step per frame, after the frame's input has been handled: a gesture
+    // that starts now has already marked the reader as scrolling.
+    const settleStep = () => {
+      settleFrame = undefined;
+      const held = heldOffsetRef.current;
+      if (userScrollingRef.current || touching || held === 0) return;
+      releaseHeldOffset(
+        element,
+        Math.sign(held) * Math.min(Math.abs(held), SETTLE_STEP_PX),
+      );
+      if (heldOffsetRef.current !== 0)
+        settleFrame = requestAnimationFrame(settleStep);
+    };
+    const settle = () => {
+      settleTimer = undefined;
+      if (touching) return;
+      userScrollingRef.current = false;
+      if (heldOffsetRef.current !== 0 && settleFrame === undefined)
+        settleFrame = requestAnimationFrame(settleStep);
+    };
+    const scrolling = () => {
+      userScrollingRef.current = true;
+      if (settleFrame !== undefined) {
+        cancelAnimationFrame(settleFrame);
+        settleFrame = undefined;
+      }
+      if (settleTimer !== undefined) clearTimeout(settleTimer);
+      settleTimer = setTimeout(settle, SCROLL_SETTLE_MS);
+    };
+    const onScroll = () => {
+      const own = ownScrollWriteRef.current;
+      if (own !== null && Math.abs(element.scrollTop - own) < 1) {
+        ownScrollWriteRef.current = null;
+        return;
+      }
+      scrolling();
+    };
+    const onTouchStart = () => {
+      touching = true;
+      scrolling();
+    };
+    const onTouchEnd = () => {
+      touching = false;
+      scrolling();
+    };
+    element.addEventListener("scroll", onScroll, { passive: true });
+    element.addEventListener("wheel", scrolling, { passive: true });
+    element.addEventListener("touchstart", onTouchStart, { passive: true });
+    element.addEventListener("touchend", onTouchEnd, { passive: true });
+    element.addEventListener("touchcancel", onTouchEnd, { passive: true });
+    return () => {
+      if (settleTimer !== undefined) clearTimeout(settleTimer);
+      if (settleFrame !== undefined) cancelAnimationFrame(settleFrame);
+      userScrollingRef.current = false;
+      element.removeEventListener("scroll", onScroll);
+      element.removeEventListener("wheel", scrolling);
+      element.removeEventListener("touchstart", onTouchStart);
+      element.removeEventListener("touchend", onTouchEnd);
+      element.removeEventListener("touchcancel", onTouchEnd);
+    };
+  }, [shouldVirtualize, scrollElement, releaseHeldOffset]);
 
   // While the pin-to-bottom behaviour is following the bottom it is already
   // going to move the scroll position, and its ResizeObserver reads our
@@ -967,6 +1691,31 @@ export function CopilotChatMessageView({
   isPinnedToBottomRef.current = isPinnedToBottom;
   virtualizer.shouldAdjustScrollPositionOnItemSizeChange =
     shouldAdjustScrollOnResize;
+
+  // Restore the reading row only after the resized spacer has committed;
+  // scrolling sooner can clamp the target to its previous total height.
+  useLayoutEffect(() => {
+    const anchor = resizeAnchorRef.current;
+    if (!anchor?.ready || restoringVisibilityRef.current) return;
+    // The virtualizer keeps targets within the element's scroll range, which
+    // a held correction makes differ from the list's: release it first.
+    if (scrollElement) releaseHeldOffset(scrollElement, heldOffsetRef.current);
+    const position = virtualizer.getOffsetForIndex(anchor.index, "start");
+    if (position && !isPinnedToBottomRef.current) {
+      const target = position[0] + anchor.offset;
+      const listOffset =
+        (scrollElement?.scrollTop ?? 0) + heldOffsetRef.current;
+      if (Math.abs(listOffset - target) > 0.5) {
+        virtualizer.scrollToOffset(target);
+      }
+    }
+    // Keep the anchor through the row measurements caused by this render.
+    // Each measurement cancels and reschedules this release until layout settles.
+    const frame = requestAnimationFrame(() => {
+      if (resizeAnchorRef.current === anchor) resizeAnchorRef.current = null;
+    });
+    return () => cancelAnimationFrame(frame);
+  });
 
   // Scroll to the bottom when virtual mode first activates or the thread changes
   // (detected by the first message ID changing). For streaming new messages,
@@ -1016,6 +1765,9 @@ export function CopilotChatMessageView({
     // tool lookups) must keep using message.id.
     const rowKey = rowRenderKeys.get(message.id) ?? message.id;
 
+    const turn = turnByFirstMessage.get(message.id);
+    if (turn) elements.push(renderWorkSummary(turn.key, turn.calls));
+
     if (renderCustomMessage) {
       elements.push(
         <MemoizedCustomMessage
@@ -1058,7 +1810,7 @@ export function CopilotChatMessageView({
         />,
       );
     } else if (message.role === "reasoning") {
-      elements.push(
+      const reasoning = (
         <MemoizedReasoningMessage
           key={rowKey}
           message={message as ReasoningMessage}
@@ -1067,7 +1819,27 @@ export function CopilotChatMessageView({
           isLatest={message.id === latestRenderedId}
           ReasoningMessageComponent={ReasoningComponent}
           slotProps={reasoningSlotProps}
-        />,
+        />
+      );
+      // Reasoning during a reply's working phase folds away with the work,
+      // and a thought the agent has already moved on from folds away while it
+      // works. Always wrapped in this display, so reasoning that turns into
+      // work keeps its node (and its "Thought for" timer) instead of
+      // remounting.
+      elements.push(
+        toolCallDisplay === "turn" ? (
+          <Collapsible
+            key={rowKey}
+            open={
+              (workOpen.get(message.id) ?? true) &&
+              !supersededReasoning.has(message.id)
+            }
+          >
+            {reasoning}
+          </Collapsible>
+        ) : (
+          reasoning
+        ),
       );
     }
 
@@ -1105,11 +1877,6 @@ export function CopilotChatMessageView({
     return elements.filter(Boolean) as React.ReactElement[];
   };
 
-  const rowKey = (row: MessageRow): string =>
-    row.type === "group"
-      ? `${GROUP_ROW_KEY_PREFIX}${stableGroupKey(row.key)}`
-      : (rowRenderKeys.get(row.message.id) ?? row.message.id);
-
   const renderRow = (row: MessageRow): React.ReactElement[] => {
     if (row.type === "message") return renderMessageBlock(row.message);
     const Wrapper = row.wrapper;
@@ -1127,8 +1894,6 @@ export function CopilotChatMessageView({
     ];
   };
 
-  const rowKeysRef = useRef<string[]>([]);
-  rowKeysRef.current = rows.map(rowKey);
   const virtualModeRef = useRef(shouldVirtualize);
   virtualModeRef.current = shouldVirtualize;
 
@@ -1166,22 +1931,35 @@ export function CopilotChatMessageView({
     const observer = new ResizeObserver(() => {
       if (element.clientHeight === 0) {
         suspended = true;
+        // Hide/show owns restoration until its saved row has settled. Width
+        // changes may invalidate measurements, but must not also move it.
+        restoringVisibilityRef.current = true;
+        resizeAnchorRef.current = null;
         cancelAnimationFrame(frame);
         return;
       }
       if (!suspended || !anchor) {
         suspended = false;
+        restoringVisibilityRef.current = false;
         remember();
         return;
       }
+      cancelAnimationFrame(frame);
       let attempts = 0;
       let stableFrames = 0;
       const restore = () => {
         if (!anchor || element.clientHeight === 0) return;
+        if (isPinnedToBottomRef.current) {
+          anchor = null;
+          suspended = false;
+          restoringVisibilityRef.current = false;
+          return;
+        }
         const index = rowKeysRef.current.indexOf(anchor.key);
         if (index < 0) {
           anchor = null;
           suspended = false;
+          restoringVisibilityRef.current = false;
           return;
         }
         const row = visibleRows().find(
@@ -1206,6 +1984,7 @@ export function CopilotChatMessageView({
           frame = requestAnimationFrame(restore);
         } else {
           suspended = false;
+          restoringVisibilityRef.current = false;
           remember();
         }
       };
@@ -1215,6 +1994,8 @@ export function CopilotChatMessageView({
       cancelAnimationFrame(frame);
       anchor = null;
       suspended = false;
+      restoringVisibilityRef.current = false;
+      resizeAnchorRef.current = null;
     };
     element.addEventListener("scroll", remember, { passive: true });
     element.addEventListener("wheel", interrupt, { passive: true });
@@ -1225,6 +2006,7 @@ export function CopilotChatMessageView({
     return () => {
       cancelAnimationFrame(frame);
       observer.disconnect();
+      restoringVisibilityRef.current = false;
       element.removeEventListener("scroll", remember);
       element.removeEventListener("wheel", interrupt);
       element.removeEventListener("touchstart", interrupt);
@@ -1243,9 +2025,18 @@ export function CopilotChatMessageView({
   // ---------------------------------------------------------------------------
   if (children) {
     return (
-      <div data-copilotkit style={{ display: "contents" }}>
-        {children({ messageElements, messages, isRunning, interruptElement })}
-      </div>
+      <MessageFeedbackScopeContext.Provider value={feedbackScope}>
+        <ToolCallDisplayContext.Provider value={toolCallDisplayContext}>
+          <div data-copilotkit style={{ display: "contents" }}>
+            {children({
+              messageElements,
+              messages,
+              isRunning,
+              interruptElement,
+            })}
+          </div>
+        </ToolCallDisplayContext.Provider>
+      </MessageFeedbackScopeContext.Provider>
     );
   }
 
@@ -1253,55 +2044,89 @@ export function CopilotChatMessageView({
   // reasoning message — the reasoning card already shows its own loading
   // indicator. A reasoning message the transform hid shows no indicator.
   const lastMessage = renderedMessages[renderedMessages.length - 1];
-  const showCursor = isRunning && lastMessage?.role !== "reasoning";
+  // In the "turn" display the "Working" line at the top of the reply is the
+  // progress indicator; before the reply's first message it sits where the
+  // cursor would.
+  const showCursor =
+    isRunning &&
+    lastMessage?.role !== "reasoning" &&
+    toolCallDisplay !== "turn";
+  const pendingWorkSummary =
+    toolCallDisplay === "turn" && isRunning && lastMessage?.role === "user";
 
   // ---------------------------------------------------------------------------
   // Render — shared wrapper, conditional inner content (virtual vs flat)
   // ---------------------------------------------------------------------------
   return (
-    <div
-      data-copilotkit
-      data-testid="copilot-message-list"
-      className={twMerge("copilotKitMessages cpk:flex cpk:flex-col", className)}
-      {...props}
-    >
-      {shouldVirtualize ? (
-        // Virtual path: only visible items are in the DOM; outer div maintains
-        // total scroll height so the scrollbar reflects the full list size.
+    <MessageFeedbackScopeContext.Provider value={feedbackScope}>
+      <ToolCallDisplayContext.Provider value={toolCallDisplayContext}>
         <div
-          style={{ height: virtualizer.getTotalSize(), position: "relative" }}
+          data-copilotkit
+          data-testid="copilot-message-list"
+          className={twMerge(
+            "copilotKitMessages cpk:flex cpk:flex-col",
+            className,
+          )}
+          {...props}
         >
-          {virtualizer.getVirtualItems().map((virtualItem) => {
-            const row = rows[virtualItem.index]!;
-            return (
+          {shouldVirtualize ? (
+            // Virtual path: only visible items are in the DOM; outer div maintains
+            // total scroll height so the scrollbar reflects the full list size.
+            <div
+              ref={spacerRef}
+              style={{
+                height: renderedTotalRef.current - heldOffsetRef.current,
+                position: "relative",
+                overflowAnchor: "none",
+              }}
+            >
               <div
-                key={rowKey(row)}
-                data-index={virtualItem.index}
-                data-scroll-anchor={rowKey(row)}
-                ref={virtualizer.measureElement}
+                ref={shiftedRowsRef}
                 style={{
                   position: "absolute",
                   top: 0,
                   left: 0,
                   width: "100%",
-                  transform: `translateY(${virtualItem.start}px)`,
+                  transform: heldOffsetRef.current
+                    ? `translateY(${-heldOffsetRef.current}px)`
+                    : undefined,
                 }}
               >
-                {renderRow(row)}
+                {virtualizer.getVirtualItems().map((virtualItem) => {
+                  const row = rows[virtualItem.index]!;
+                  return (
+                    <div
+                      key={rowKey(row)}
+                      data-index={virtualItem.index}
+                      data-scroll-anchor={rowKey(row)}
+                      ref={virtualizer.measureElement}
+                      style={{
+                        position: "absolute",
+                        top: 0,
+                        left: 0,
+                        width: "100%",
+                        transform: `translateY(${virtualItem.start}px)`,
+                      }}
+                    >
+                      {renderRow(row)}
+                    </div>
+                  );
+                })}
               </div>
-            );
-          })}
+            </div>
+          ) : (
+            messageElements
+          )}
+          {interruptElement}
+          {pendingWorkSummary && renderWorkSummary(latestTurnKey, [])}
+          {showCursor && (
+            <div className="cpk:mt-2">
+              {renderSlot(cursor, CopilotChatMessageView.Cursor, {})}
+            </div>
+          )}
         </div>
-      ) : (
-        messageElements
-      )}
-      {interruptElement}
-      {showCursor && (
-        <div className="cpk:mt-2">
-          {renderSlot(cursor, CopilotChatMessageView.Cursor, {})}
-        </div>
-      )}
-    </div>
+      </ToolCallDisplayContext.Provider>
+    </MessageFeedbackScopeContext.Provider>
   );
 }
 

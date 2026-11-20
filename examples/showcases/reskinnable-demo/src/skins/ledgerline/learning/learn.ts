@@ -589,15 +589,24 @@ export async function deriveWithLlm(
       timeout: opts.timeoutMs ?? 30_000,
       maxRetries: 0,
     });
-    const res = await client.chat.completions.create({
-      model: opts.model ?? process.env.LEARN_MODEL ?? "gpt-4.1",
-      response_format: { type: "json_object" },
-      temperature: 0.2,
-      messages: [
-        { role: "system", content: SYSTEM },
-        { role: "user", content: JSON.stringify(compactInput(d)) },
-      ],
-    });
+    const request: OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming =
+      {
+        model: opts.model ?? process.env.LEARN_MODEL ?? "gpt-6-luna",
+        response_format: { type: "json_object" },
+        temperature: 0.2,
+        messages: [
+          { role: "system", content: SYSTEM },
+          { role: "user", content: JSON.stringify(compactInput(d)) },
+        ],
+      };
+    // SDK v4 predates Luna's "none" effort. Its request-body override extends
+    // the validated request without casting the older SDK's model types.
+    const res = await client.chat.completions.create(
+      request,
+      request.model === "gpt-6-luna"
+        ? { body: { ...request, reasoning_effort: "none" } }
+        : undefined,
+    );
     answer = JSON.parse(res.choices[0]?.message?.content ?? "{}") as LlmAnswer;
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);

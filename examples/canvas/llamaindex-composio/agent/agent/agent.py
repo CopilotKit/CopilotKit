@@ -2,7 +2,7 @@ from typing import Annotated, List, Optional, Any
 import os
 from dotenv import load_dotenv
 
-from llama_index.llms.openai import OpenAI
+from .openai_models import OpenAI
 from llama_index.core.tools import FunctionTool
 from llama_index.protocols.ag_ui.router import get_ag_ui_workflow_router
 
@@ -348,7 +348,7 @@ _backend_tools.append(_sheet_list_tool)
 print(f"Backend tools loaded: {len(_backend_tools)} tools")
 
 agentic_chat_router = get_ag_ui_workflow_router(
-    llm=OpenAI(model="gpt-5-mini"),
+    llm=OpenAI(model="gpt-6-luna"),
     # Provide frontend tool stubs so the model knows their names/signatures.
     frontend_tools=[
         createItem,

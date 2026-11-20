@@ -17,14 +17,29 @@
 import React from "react";
 import { createReactComponent } from "../../../adapter";
 import { VideoApi } from "@a2ui/web_core/v0_9/basic_catalog";
-import { getBaseLeafStyle } from "../utils";
+import { sanitizeMediaUrl } from "@a2ui/web_core/universal";
+import { getAccessibilityProps, getBaseLeafStyle } from "../utils";
 
-export const Video = createReactComponent(VideoApi, ({ props }) => {
-  const style: React.CSSProperties = {
-    ...getBaseLeafStyle(),
-    width: "100%",
-    aspectRatio: "16/9",
-  };
+export const Video = createReactComponent(
+  VideoApi,
+  /** Expose common accessibility on the video control alongside its sanitized poster. */
+  ({ props }) => {
+    const poster =
+      "posterUrl" in props ? sanitizeMediaUrl(props.posterUrl) : undefined;
+    const style: React.CSSProperties = {
+      ...getBaseLeafStyle(),
+      width: "100%",
+      aspectRatio: "16/9",
+    };
 
-  return <video src={props.url} controls style={style} />;
-});
+    return (
+      <video
+        {...getAccessibilityProps(props.accessibility)}
+        src={props.url}
+        poster={poster}
+        controls
+        style={style}
+      />
+    );
+  },
+);

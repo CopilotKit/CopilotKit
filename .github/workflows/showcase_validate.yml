@@ -22,6 +22,7 @@ on:
       # PR that could break it — a change re-adding `:latest` to the push
       # would sail through untested.
       - ".github/workflows/showcase_build.yml"
+      - ".github/workflows/showcase_build_check.yml"
   push:
     branches: [main]
     paths:
@@ -37,6 +38,7 @@ on:
       - ".github/workflows/docs_promote.yml"
       - ".github/workflows/showcase_promote.yml"
       - ".github/workflows/showcase_build.yml"
+      - ".github/workflows/showcase_build_check.yml"
 
 # Least-privilege by default. Individual jobs/steps can widen when needed.
 permissions:
@@ -96,106 +98,13 @@ jobs:
         # Pinned to a specific minor rather than floating @v4 so that a
         # silent upstream major/minor change can't alter install semantics
         # on a random CI run. Bump deliberately when refreshing the toolchain.
-        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
 
       - name: Verify lockfile is up to date
         run: pnpm install --frozen-lockfile --ignore-scripts
 
-      - name: Enforce e2e spec count (baseline per package)
-        run: |
-          set -euo pipefail
-          shopt -s nullglob
-          # Single source of truth: showcase/scripts/fail-baseline.json
-          # `baselineDemoCount` is read here AND by validate-parity.ts so the
-          # per-package e2e-spec-count floor cannot drift between CI and the
-          # validator. If parsing fails we distinguish JSON syntax errors
-          # from schema failures (missing/non-integer/negative field).
-          set +e
-          MIN=$(node -e "
-            let v;
-            try {
-              v = require('./showcase/scripts/fail-baseline.json');
-            } catch (e) {
-              console.error('fail-baseline.json: JSON syntax error: ' + e.message);
-              process.exit(2);
-            }
-            const n = v.baselineDemoCount;
-            if (typeof n !== 'number' || !Number.isInteger(n) || n < 0) {
-              console.error('fail-baseline.json: schema failure: baselineDemoCount must be a non-negative integer');
-              process.exit(3);
-            }
-            console.log(n);
-          ")
-          rc=$?
-          set -e
-          if [ "$rc" -ne 0 ]; then
-            # Preserve node's distinct rc (2=JSON syntax, 3=schema) in the
-            # annotation so the CI log pinpoints the cause without re-running.
-            echo "::error::Failed to read baselineDemoCount from showcase/scripts/fail-baseline.json (node exit=$rc; 2=JSON syntax, 3=schema)"
-            exit "$rc"
-          fi
-          failed=0
-          found=0
-          for pkg_dir in showcase/integrations/*/; do
-            [ -d "$pkg_dir" ] || continue
-            pkg=$(basename "$pkg_dir")
-            # Skip manifest-only packages (no src/ directory) — these are
-            # virtual/meta integrations (e.g. built-in-agent) that carry no
-            # source code or demos and therefore have no e2e specs to enforce.
-            if [ ! -d "${pkg_dir}src" ]; then
-              echo "skip: $pkg (manifest-only, no src/)"
-              continue
-            fi
-            found=$((found + 1))
-            e2e_dir="${pkg_dir}tests/e2e/"
-            if [ ! -d "$e2e_dir" ]; then
-              echo "::error file=$pkg_dir::Package '$pkg' is missing tests/e2e/ directory (required for baseline e2e coverage)"
-              failed=1
-              continue
-            fi
-            # Capture `find` output into a variable first so we can check
-            # its exit status directly. Bash process substitution (used with
-            # `mapfile < <(cmd)`) does NOT propagate the producer's exit
-            # status to the parent shell — `mapfile` only reports its own
-            # usage errors — so a failing `find` (EACCES on a subdir, ELOOP,
-            # transient I/O) would have been silently treated as "zero
-            # specs" and surfaced as the misleading "minimum required"
-            # error instead of the real root cause. Command substitution
-            # propagates `find`'s status via `$?` on the assignment, which
-            # we check immediately. A zero-spec result is a legitimate
-            # success from `find` and is handled by the `$count -lt $MIN`
-            # check below, not treated as a find failure.
-            # Aggregate find failures with the rest of the per-package
-            # failure modes (missing tests/e2e/, below-MIN count) so one bad
-            # package doesn't short-circuit reporting for the others. A
-            # single CI run should surface every problematic package at
-            # once; `exit "$failed"` at the end of the loop reports the
-            # aggregate.
-            if ! find_out=$(find "$e2e_dir" -maxdepth 1 -type f -name '*.spec.ts'); then
-              echo "::error file=$e2e_dir::find failed while enumerating specs for '$pkg'"
-              failed=1
-              continue
-            fi
-            specs=()
-            # Only populate the array if `find` produced output; `mapfile
-            # <<< ""` would otherwise create a single empty element and
-            # inflate the count by one.
-            if [ -n "$find_out" ]; then
-              mapfile -t specs <<< "$find_out"
-            fi
-            count=${#specs[@]}
-            if [ "$count" -lt "$MIN" ]; then
-              echo "::error file=$e2e_dir::Package '$pkg' has $count e2e spec(s); minimum required is $MIN"
-              failed=1
-            else
-              echo "ok: $pkg has $count spec(s)"
-            fi
-          done
-          if [ "$found" -eq 0 ]; then
-            echo "::error::No showcase/integrations/*/ directories found — baseline check cannot run"
-            exit 1
-          fi
-          exit "$failed"
+      - name: Enforce e2e coverage (legacy baseline or explicit shared D6)
+        run: pnpm exec nx run @copilotkit/showcase-scripts:validate-e2e-coverage --excludeTaskDependencies --skip-nx-cache
 
       - name: Run validate-parity (MUST checks gating)
         working-directory: showcase/scripts
@@ -745,7 +654,9 @@ jobs:
     # Separate job so pre-existing `validate-parity` failures don't mask new
     # Python unit-test regressions. pytest runs independently of JS/TS checks.
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # Each integration gets its own venv + pip install, serially; slow runners
+    # reached ~9.5 min, so 10 timed out (reported as `cancelled`).
+    timeout-minutes: 15
     permissions:
       contents: read
     strategy:
@@ -794,7 +705,7 @@ jobs:
           fi
 
       - name: Setup Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: ${{ matrix.python-version }}
           cache: "pip"
@@ -812,11 +723,11 @@ jobs:
         with:
           node-version: 22
 
-      - name: Run showcase package Python unit tests
-        # Keep scope narrow: only showcase/integrations/*/tests/python/ directories
-        # (not e2e, not langgraph which has its own runtime). Each package has
-        # its own conftest.py that wires up import paths; we cd into the pkg
-        # dir so those apply.
+      - name: Run showcase package Python tests
+        # Keep scope narrow: showcase/integrations/*/tests/python/ directories
+        # and Strands tests/native/ (not e2e or langgraph's own runtime). Each
+        # package has its own conftest.py that wires up import paths; we cd into
+        # the pkg dir so those apply.
         #
         # Each package runs in its own virtual environment, which holds the
         # test deps plus that package's own `requirements.txt` (if present), so
@@ -906,12 +817,36 @@ jobs:
               }
               pkg_extra_env="LGT_REQUIRE_BEHAVIORAL=1"
             fi
+            if [ "$pkg" = "google-adk" ]; then
+              # The A2UI conformance tests read the catalogs the frontend
+              # registers. They are build artifacts (gitignored), exported
+              # from the same catalog objects the browser uses, as the
+              # Docker build does (including --legacy-peer-deps).
+              echo "Exporting google-adk A2UI catalogs (npm ci + export:a2ui-catalogs)"
+              (cd "$pkg_dir" && npm ci --legacy-peer-deps --no-audit --no-fund && npm run export:a2ui-catalogs) || {
+                echo "::error::A2UI catalog export failed for google-adk"
+                failed=1
+                continue
+              }
+            fi
             # Export PYTHONPATH so `from tools import ...` in agent modules
             # resolves via the `tools` symlink at the integration root.
             # Also include src/ so `from agents.X import ...` works even if
             # a conftest.py omits the sys.path setup. Mirrors the local dev
             # convention (`PYTHONPATH=. python ...` in package.json scripts).
             (cd "$pkg_dir" && env $pkg_extra_env PYTHONPATH=".:src:${PYTHONPATH:-}" "$pkg_python" -m pytest tests/python/ -v) || failed=1
+            if [ "$pkg" = "crewai-crews" ] || [ "$pkg" = "crewai-conversational-flows" ]; then
+              # Run the shared wire contract in the real SDK environment. The
+              # shared-tools venv below has no CrewAI and would skip this test.
+              "$pkg_python" -m pytest showcase/shared/python/tests/test_reasoning_chain_requests.py \
+                -k "$pkg" -v || failed=1
+            fi
+            if [ "$pkg" = "strands" ]; then
+              # A fresh process keeps tests/python/conftest.py's SDK substitutes
+              # out of the real SDK tool execution and session persistence gate.
+              echo "--- pytest native: $pkg ---"
+              (cd "$pkg_dir" && env PYTHONPATH=".:src:${PYTHONPATH:-}" "$pkg_python" -m pytest tests/native/ -v) || failed=1
+            fi
           done
           if [ "$found" -eq 0 ]; then
             echo "::warning::No showcase/integrations/*/tests/python/ directories found"
@@ -929,6 +864,19 @@ jobs:
           python -m venv "$venv"
           "$venv/bin/python" -m pip install --quiet -r showcase/shared/python/requirements-test.txt
           "$venv/bin/python" -m pytest showcase/shared/python/tests -v
+
+      - name: Verify LangGraph model requests with its real SDKs
+        if: ${{ !cancelled() && matrix.python-version == '3.12' }}
+        run: |
+          set -euo pipefail
+          venv="${RUNNER_TEMP}/showcase-venv-langgraph-requests"
+          python -m venv "$venv"
+          # Use the integration's versions for the SDKs these builders import.
+          grep -E '^(copilotkit|ag-ui-protocol|ag-ui-langgraph|langchain|langchain-openai|langgraph|deepagents|openai)(==|>=)' \
+            showcase/integrations/langgraph-python/requirements.txt > "$venv/requirements.txt"
+          "$venv/bin/python" -m pip install --quiet pytest -r "$venv/requirements.txt"
+          "$venv/bin/python" -m pytest showcase/integrations/langgraph-python/tests/test_model_overrides.py -v
+          "$venv/bin/python" -m pytest showcase/shared/python/tests/test_reasoning_chain_requests.py -k langgraph-python -v
 
   notify:
     # Slack #oss-alerts on any red. Never #engr (engr is sacred — release alerts only).

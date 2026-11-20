@@ -39,6 +39,8 @@ export const CopilotChatDefaultLabels = {
   assistantMessageToolbarInspectorHideDescription: "Until you reload this page",
   assistantMessageToolbarThumbsUpLabel: "Good response",
   assistantMessageToolbarThumbsDownLabel: "Bad response",
+  assistantMessageFeedbackCommentPlaceholder: "Add a comment (optional)",
+  assistantMessageFeedbackCommentSubmitLabel: "Send comment",
   assistantMessageToolbarReadAloudLabel: "Read aloud",
   assistantMessageToolbarRegenerateLabel: "Regenerate",
   userMessageToolbarCopyMessageLabel: "Copy",
@@ -50,8 +52,18 @@ export const CopilotChatDefaultLabels = {
   chatToggleOpenLabel: "Open chat",
   chatToggleCloseLabel: "Close chat",
   chatScrollToBottomLabel: "Scroll to bottom",
+  chatConnectingLabel: "Loading conversation",
   modalHeaderTitle: "CopilotKit Chat",
   welcomeMessageText: "How can I help you today?",
+  reasoningMessageThinkingLabel: "Thinking…",
+  chatInputSlashMenuLabel: "Slash commands",
+  chatInputSlashMenuEmptyText: "No commands found",
+  attachmentRemoveButtonLabel: "Remove attachment",
+  attachmentPlayVideoButtonLabel: "Play video",
+  attachmentPreviewCloseButtonLabel: "Close preview",
+  modalHeaderCloseButtonLabel: "Close",
+  modalHeaderThreadsButtonLabel: "Open threads",
+  sidebarLabel: "Copilot chat sidebar",
 };
 
 export type CopilotChatLabels = typeof CopilotChatDefaultLabels;

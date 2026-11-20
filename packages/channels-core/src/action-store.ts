@@ -50,7 +50,18 @@ export interface ActionStore {
 /** @deprecated Configure `createChannel({ state })` instead. Action snapshots are stored via `StateStore.kv`. */
 export class InMemoryActionStore implements ActionStore {
   private map = new Map<string, { snap: ActionSnapshot; expiresAt?: number }>();
+  private writesSinceSweep = 0;
   async put(id: string, snap: ActionSnapshot, ttlMs?: number): Promise<void> {
+    // Expired snapshots nobody reads again are purged every 256 writes.
+    if (++this.writesSinceSweep >= 256) {
+      this.writesSinceSweep = 0;
+      const now = Date.now();
+      for (const [key, entry] of this.map) {
+        if (entry.expiresAt !== undefined && now > entry.expiresAt) {
+          this.map.delete(key);
+        }
+      }
+    }
     this.map.set(id, {
       snap,
       expiresAt: ttlMs ? Date.now() + ttlMs : undefined,

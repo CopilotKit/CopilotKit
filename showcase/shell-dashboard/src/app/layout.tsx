@@ -1,5 +1,6 @@
 import "./globals.css";
 import type { Metadata } from "next";
+import { DemoThemeBridge } from "@/components/demo-theme-bridge";
 import { getRuntimeConfig } from "@/lib/runtime-config";
 import { serializeRuntimeConfig } from "@/lib/runtime-config-serialize";
 
@@ -77,6 +78,7 @@ export default function RootLayout({
       <body>
         {children}
         <div id="link-preview-root" />
+        <DemoThemeBridge />
       </body>
     </html>
   );

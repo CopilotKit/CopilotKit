@@ -1,0 +1,192 @@
+---
+title: Prebuilt Components
+icon: "lucide/MessageSquare"
+description: Drop-in React Native chat surfaces, from a full-screen chat to a bottom sheet, a popup, and a drawer.
+---
+
+## Prebuilt components for agentic chat
+
+`@copilotkit/react-native` ships two kinds of prebuilt pieces:
+
+- **A rendered chat**, from `@copilotkit/react-native/components`. `CopilotChat` draws the message list, the composer, a header, tool calls, and interrupts. `CopilotModal` puts the same chat in a bottom sheet.
+- **Chrome for your own chat**, from `@copilotkit/react-native`. `CopilotPopup` draws a floating button and a modal card. `CopilotSidebar` draws a drawer that slides in from the right. Both draw the frame only. You put your chat UI inside them.
+
+| Component | Import | What it draws | Native peers |
+| --- | --- | --- | --- |
+| `CopilotChat` | `/components` | A full-screen chat | `@gorhom/bottom-sheet`, `react-native-gesture-handler`, `react-native-reanimated`, `react-native-streamdown` |
+| `CopilotModal` | `/components` | The same chat in a bottom sheet | Same as above |
+| `CopilotPopup` | root | A floating button and a modal card around your chat UI | `expo-document-picker`, `expo-file-system` |
+| `CopilotSidebar` | root | A right-side drawer around your chat UI | `expo-document-picker`, `expo-file-system` |
+
+Metro resolves every peer of a surface when you import from it, even peers of components you don't use. See [Import surfaces](/quickstart#import-surfaces). Follow each library's own setup guide. For example, `react-native-streamdown` has peers of its own and a required `react-native-worklets` setup, described in its [installation guide](https://github.com/software-mansion-labs/react-native-streamdown#installation).
+
+<Callout type="warn" title="Two components named CopilotChat">
+  The root `CopilotChat` and `CopilotModal` draw nothing. They give an agent to their children through `useCopilotChatContext`. The ones that draw a chat come from `@copilotkit/react-native/components`. If you get a blank screen, check the import path.
+</Callout>
+
+## The customization ladder
+
+Start at the top and step down only when you need more control.
+
+1. **Drop in the rendered chat.** Render `CopilotChat` or `CopilotModal` from `/components`. Streaming, tool calls, and interrupts are wired up.
+2. **Adjust it with props.** Set the header title, the placeholder, the empty state, starter prompts, and container styles.
+3. **Put your own chat in the chrome.** Render your UI inside `CopilotPopup` or `CopilotSidebar`, and read the conversation with `useCopilotChatContext`.
+4. **Go fully headless.** Build any layout from `useAgent`, `useCopilotKit`, and `useRenderToolCall`. See [Headless UI](/custom-look-and-feel/headless-ui).
+
+## Drop-in chat
+
+Wrap your app in `CopilotKitProvider` and render `CopilotChat` from `/components`. The provider from `/headless` installs the polyfills. The `/components` entry relies on it for that.
+
+```tsx title="App.tsx"
+import { CopilotKitProvider } from "@copilotkit/react-native/headless";
+import { CopilotChat } from "@copilotkit/react-native/components";
+
+// See the quickstart for emulator and device hosts.
+const runtimeUrl = "http://localhost:8200/api/copilotkit";
+
+export default function App() {
+  return (
+    <CopilotKitProvider runtimeUrl={runtimeUrl}>
+      <CopilotChat
+        agentName="default"
+        headerTitle="Assistant"
+        placeholder="Ask me anything..."
+        emptyStateTitle="How can I help?"
+        initialMessages={["What can you do?", "Summarize my tasks"]}
+      />
+    </CopilotKitProvider>
+  );
+}
+```
+
+What the rendered chat does:
+
+- It picks its agent with `agentName`, not `agentId`. The default is `"default"`.
+- It shows `initialMessages` as tappable prompts while the conversation is empty. A tap sends that text.
+- It draws each tool call with the renderer that `useFrontendTool`, `useRenderTool`, `useComponent`, or `useHumanInTheLoop` registered. A call with no renderer shows as a short "Called: tool_name" line.
+- It draws the element from [`useInterrupt`](/human-in-the-loop/useInterrupt) after the last message.
+- It shows an error line above the composer when a run fails.
+
+It does not show attachments, and it does not read `useConfigureSuggestions`. For those, build your own chat. See [Multimodal Attachments](/multimodal-attachments) and [Headless UI](/custom-look-and-feel/headless-ui).
+
+### Adjust the look with props
+
+The rendered chat takes three style props: `style` for the outer container, `messageContainerStyle` for the message list, and `inputContainerStyle` for the composer bar. `showHeader={false}` hides the header. The message bubbles have fixed colors. To change them, render your own bubbles in a headless chat.
+
+```tsx
+<CopilotChat
+  showHeader={false}
+  style={{ backgroundColor: "#fafafa" }}
+  messageContainerStyle={{ paddingHorizontal: 24 }}
+  inputContainerStyle={{ borderTopWidth: 0 }}
+/>
+```
+
+## Bottom sheet
+
+`CopilotModal` from `/components` opens the rendered chat in a [`@gorhom/bottom-sheet`](https://ui.gorhom.dev/components/bottom-sheet/). Open it with a ref, or control it with the `visible` prop. The bottom sheet needs `GestureHandlerRootView` from `react-native-gesture-handler` at the root of your app.
+
+```tsx title="App.tsx"
+import { useRef } from "react";
+import { Button } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { CopilotKitProvider } from "@copilotkit/react-native/headless";
+import {
+  CopilotModal,
+  type CopilotModalRef,
+} from "@copilotkit/react-native/components";
+
+const runtimeUrl = "http://localhost:8200/api/copilotkit";
+
+export default function App() {
+  const modalRef = useRef<CopilotModalRef>(null);
+
+  return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <CopilotKitProvider runtimeUrl={runtimeUrl}>
+        <Button title="Ask the assistant" onPress={() => modalRef.current?.open()} />
+        <CopilotModal
+          ref={modalRef}
+          agentName="default"
+          headerTitle="Assistant"
+          snapPoints={["50%", "90%"]}
+        />
+      </CopilotKitProvider>
+    </GestureHandlerRootView>
+  );
+}
+```
+
+Swipe down or tap the backdrop to close the sheet. `onDismiss` fires when it closes.
+
+## Popup and drawer around your own chat
+
+`CopilotPopup` and `CopilotSidebar` come from the package root. Each one shows a floating chat button, then opens a frame with a header and a close button. Inside the frame, they mount the root `CopilotChat`, so your children read the conversation with `useCopilotChatContext`:
+
+```tsx title="src/AssistantPopup.tsx"
+import { useState } from "react";
+import { FlatList, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { CopilotPopup, useCopilotChatContext } from "@copilotkit/react-native";
+
+function PopupChat() {
+  const { messages, isRunning, submitMessage } = useCopilotChatContext();
+  const [text, setText] = useState("");
+
+  return (
+    <View style={{ flex: 1 }}>
+      <FlatList
+        data={messages.filter(
+          (m) => (m.role === "user" || m.role === "assistant") && typeof m.content === "string" && m.content,
+        )}
+        keyExtractor={(m) => m.id}
+        renderItem={({ item }) => <Text style={{ padding: 12 }}>{item.content}</Text>}
+      />
+      <View style={{ flexDirection: "row", padding: 8 }}>
+        <TextInput
+          style={{ flex: 1, borderWidth: 1, borderRadius: 8, padding: 8 }}
+          value={text}
+          onChangeText={setText}
+          placeholder="Type a message..."
+        />
+        <TouchableOpacity
+          disabled={isRunning || !text.trim()}
+          onPress={() => {
+            void submitMessage(text);
+            setText("");
+          }}
+          style={{ padding: 8 }}
+        >
+          <Text>Send</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+export function AssistantPopup() {
+  return (
+    <CopilotPopup agentId="default" headerTitle="Assistant" height="70%">
+      <PopupChat />
+    </CopilotPopup>
+  );
+}
+```
+
+Render `AssistantPopup` as the last child of a screen's root view that has `flex: 1`. The button floats in the bottom-right corner.
+
+`CopilotSidebar` works the same way. It takes `width` (a number, or a percentage such as `"85%"`) in place of `height`. It draws the drawer above the screen with absolute positioning, so render it as the last child of the screen's root view too.
+
+Both components take a `ref` with `open()`, `close()`, and `toggle()`, for your own button. Set `showToggleButton={false}` to hide the floating button. Pass `attachments` to turn on file picking for the inner chat. See [Multimodal Attachments](/multimodal-attachments).
+
+<Callout type="info" title="Tool calls and interrupts in your own chat UI">
+  The root `CopilotChat` inside the popup and the drawer does not draw tool calls or interrupts. Render them in your list with `useRenderToolCall`, and place the `useInterrupt` element yourself with `renderInChat: false`. See [Headless UI](/custom-look-and-feel/headless-ui).
+</Callout>
+
+## Which surface?
+
+- [`CopilotChat`](/reference/react-native/components/CopilotChat#prebuilt-ui): a full screen or a pane that fills its container.
+- [`CopilotModal`](/reference/react-native/components/CopilotModal#prebuilt-ui): a bottom sheet over any screen.
+- [`CopilotPopup`](/reference/react-native/components/CopilotPopup): a floating button and a modal card, with your own chat inside.
+- [`CopilotSidebar`](/reference/react-native/components/CopilotSidebar): a slide-in drawer, with your own chat inside.
+
+<IntegrationGrid path="prebuilt-components" />

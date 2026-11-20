@@ -5,9 +5,18 @@ import { probeBaseline } from "./verify-deploy.drivers.baseline";
 import { domainFor } from "./railway-envs";
 
 const PRODUCTION_DOCS_ORIGIN = `https://${domainFor("docs", "prod")}`;
-const PRODUCTION_OPS_ORIGIN = "https://dashboard.operations.copilotkit.ai";
-const STAGING_OPS_ORIGIN = "https://dashboard.staging.operations.copilotkit.ai";
 const SURFACE_TIMEOUT_MS = 30_000;
+// Where the docs app serves the runtime config it reads from the live env
+// (showcase/shell-docs/src/app/api/telemetry/config/route.ts).
+export const DOCS_RUNTIME_CONFIG_PATH = "/api/telemetry/config";
+const DOCS_RUNTIME_CONFIG_KEYS = [
+  "posthogKey",
+  "scarfPixelId",
+  "googleAnalyticsTrackingId",
+  "reb2bKey",
+  "reoKey",
+] as const;
+const POSTHOG_PROJECT_KEY_PREFIX = "phc_";
 
 interface SurfaceResponse {
   path: string;
@@ -94,60 +103,79 @@ export function isSupportedOnboardingUrl(url: string): boolean {
   );
 }
 
+// The index names OpenBot by its own site and source repository for users who
+// want a workspace of AI coworkers. Keep this list exact and in step with
+// OPENBOT_SITE_URL and OPENBOT_SOURCE_URL in shell-docs' llms-index.ts: it
+// admits these three links, not their hosts.
+const SUPPORTED_OPENBOT_URLS = new Set([
+  "https://open.bot",
+  "https://open.bot/builders",
+  "https://github.com/CopilotKit/OpenBot",
+]);
+
+export function isSupportedOpenBotUrl(url: string): boolean {
+  return SUPPORTED_OPENBOT_URLS.has(url);
+}
+
 function validateUrls(
   urls: string[],
   label: string,
-  allowOnboarding = false,
+  allowIndexExceptions = false,
 ): string | undefined {
   if (urls.length === 0) return `${label} contains no generated URLs`;
   for (const url of urls) {
-    if (allowOnboarding && isSupportedOnboardingUrl(url)) continue;
+    if (
+      allowIndexExceptions &&
+      (isSupportedOnboardingUrl(url) || isSupportedOpenBotUrl(url))
+    )
+      continue;
     const error = assertCanonicalUrl(url, label);
     if (error) return error;
   }
   return undefined;
 }
 
-export function validateDocsAuthRuntimeConfig(
-  html: string,
-  expectedOpsOrigin: string,
-  expectedKeyPrefix: "pk_live_" | "pk_test_",
+/**
+ * Validate the docs app's runtime config, as served at
+ * `DOCS_RUNTIME_CONFIG_PATH`: the analytics keys the app reads from the
+ * Railway service's env per request (`src/lib/telemetry/config.ts`). Every key
+ * must be a string; an empty one turns that channel off, which non-production
+ * environments may do. Production must carry its PostHog project key, because
+ * an empty one silently turns off docs analytics and the events the telemetry
+ * registry catalogs.
+ *
+ * The docs app has no Clerk and reads no sign-up or Ops URL from the env (its
+ * sign-up links name production), so there is no auth config to check. If it
+ * starts reading one per environment, check it here.
+ */
+export function validateDocsRuntimeConfig(
+  body: string,
+  requirePosthogKey: boolean,
 ): string | undefined {
-  const match = html.match(/window\.__SHOWCASE_CONFIG__=(\{[^<]*\});/);
-  if (!match) return "runtime config injection is missing";
-
   let rawConfig: unknown;
   try {
-    rawConfig = JSON.parse(match[1]);
+    rawConfig = JSON.parse(body);
   } catch {
-    return "runtime config injection is not valid JSON";
+    return `${DOCS_RUNTIME_CONFIG_PATH} is not valid JSON`;
   }
-  if (!rawConfig || typeof rawConfig !== "object") {
-    return "runtime config injection is not an object";
+  if (!rawConfig || typeof rawConfig !== "object" || Array.isArray(rawConfig)) {
+    return `${DOCS_RUNTIME_CONFIG_PATH} is not a JSON object`;
   }
 
   const config = rawConfig as Record<string, unknown>;
-  const publishableKey = config.clerkPublishableKey;
-  if (
-    typeof publishableKey !== "string" ||
-    !publishableKey.startsWith(expectedKeyPrefix) ||
-    publishableKey.length <= expectedKeyPrefix.length
-  ) {
-    return `clerkPublishableKey must use the matching ${expectedKeyPrefix} Clerk key`;
+  for (const key of DOCS_RUNTIME_CONFIG_KEYS) {
+    if (typeof config[key] !== "string") {
+      return `${DOCS_RUNTIME_CONFIG_PATH} is missing ${key}`;
+    }
   }
 
-  const opsUrl = config.intelligenceSignupUrl;
-  if (typeof opsUrl !== "string" || opsUrl.length === 0) {
-    return "intelligenceSignupUrl is missing";
-  }
-  let parsedOpsUrl: URL;
-  try {
-    parsedOpsUrl = new URL(opsUrl);
-  } catch {
-    return `intelligenceSignupUrl is not an absolute URL: "${opsUrl}"`;
-  }
-  if (parsedOpsUrl.origin !== expectedOpsOrigin) {
-    return `intelligenceSignupUrl uses ${parsedOpsUrl.origin}; expected ${expectedOpsOrigin}`;
+  const posthogKey = config.posthogKey as string;
+  if (
+    requirePosthogKey &&
+    (!posthogKey.startsWith(POSTHOG_PROJECT_KEY_PREFIX) ||
+      posthogKey.length <= POSTHOG_PROJECT_KEY_PREFIX.length)
+  ) {
+    return `${DOCS_RUNTIME_CONFIG_PATH} posthogKey must be a PostHog project key (${POSTHOG_PROJECT_KEY_PREFIX}…) in production`;
   }
 
   return undefined;
@@ -196,6 +224,7 @@ export async function checkProductionDocsCanonicalHost(
         "/sitemap.xml",
         "/llms.txt",
         "/llms-full.txt",
+        DOCS_RUNTIME_CONFIG_PATH,
       ].map((path) => fetchSurface(host, path, fetchImpl)),
     );
   } catch (error: unknown) {
@@ -206,12 +235,11 @@ export async function checkProductionDocsCanonicalHost(
   const byPath = new Map(
     surfaces.map((surface) => [surface.path, surface.body]),
   );
-  const authConfigError = validateDocsAuthRuntimeConfig(
-    byPath.get("/") ?? "",
-    PRODUCTION_OPS_ORIGIN,
-    "pk_live_",
+  const configError = validateDocsRuntimeConfig(
+    byPath.get(DOCS_RUNTIME_CONFIG_PATH) ?? "",
+    true,
   );
-  if (authConfigError) return `docs: ${authConfigError}`;
+  if (configError) return `docs: ${configError}`;
 
   for (const path of ["/", "/quickstart"] as const) {
     const html = byPath.get(path) ?? "";
@@ -261,9 +289,9 @@ export async function checkProductionDocsCanonicalHost(
 
 /**
  * Production docs verifier: Railway deployment-SUCCESS + HTTP 200 baseline,
- * followed by a deployed-output auth-config smoke in every environment.
- * The production promotion gate additionally validates every machine-facing
- * URL surface against docs.copilotkit.ai.
+ * followed by a deployed runtime-config smoke in every environment.
+ * The production promotion gate additionally requires the PostHog key and
+ * validates every machine-facing URL surface against docs.copilotkit.ai.
  */
 export async function probeDocs(target: ProbeTarget): Promise<ProbeOutcome> {
   const baseline = await probeBaseline(target, {
@@ -277,16 +305,16 @@ export async function probeDocs(target: ProbeTarget): Promise<ProbeOutcome> {
     error = await checkProductionDocsCanonicalHost(target.host);
   } else {
     try {
-      const home = await fetchSurface(target.host, "/", globalThis.fetch);
-      const configError = validateDocsAuthRuntimeConfig(
-        home.body,
-        STAGING_OPS_ORIGIN,
-        "pk_test_",
+      const config = await fetchSurface(
+        target.host,
+        DOCS_RUNTIME_CONFIG_PATH,
+        globalThis.fetch,
       );
+      const configError = validateDocsRuntimeConfig(config.body, false);
       error = configError ? `docs: ${configError}` : undefined;
     } catch (caught: unknown) {
       const message = caught instanceof Error ? caught.message : String(caught);
-      error = `docs: auth-config smoke fetch failed: ${message}`;
+      error = `docs: runtime-config smoke fetch failed: ${message}`;
     }
   }
   return error ? { ok: false, error } : baseline;

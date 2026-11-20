@@ -69,14 +69,14 @@ describe("validateChannelsZod", () => {
   for (const field of CHECKED_FIELDS) {
     test(`flags a zod range in ${field}`, () => {
       const dir = setupFixture({
-        "channels-telegram": {
-          name: "@copilotkit/channels-telegram",
+        "channels-example": {
+          name: "@copilotkit/channels-example",
           [field]: { zod: "^3.25.76" },
         },
       });
       const violations = validateChannelsZod(dir);
       assert.equal(violations.length, 1);
-      assert.equal(violations[0].package, "@copilotkit/channels-telegram");
+      assert.equal(violations[0].package, "@copilotkit/channels-example");
       assert.equal(violations[0].rule, "channels-zod-range");
       assert.equal(violations[0].field, field);
       assert.equal(violations[0].range, "^3.25.76");
@@ -146,13 +146,13 @@ describe("validateChannelsZod", () => {
 
   test("formatViolations names the package, the field and the range", () => {
     const dir = setupFixture({
-      "channels-telegram": {
-        name: "@copilotkit/channels-telegram",
+      "channels-example": {
+        name: "@copilotkit/channels-example",
         dependencies: { zod: "^3.25.76" },
       },
     });
     const text = formatViolations(validateChannelsZod(dir));
-    assert.match(text, /@copilotkit\/channels-telegram/);
+    assert.match(text, /@copilotkit\/channels-example/);
     assert.match(text, /dependencies\.zod = "\^3\.25\.76"/);
     assert.match(text, /::error file=/);
   });
@@ -172,8 +172,8 @@ describe("the real packages/ tree", () => {
       "channels-discord not found",
     );
     assert.ok(
-      dirs.some((d) => path.basename(d) === "channels-telegram"),
-      "channels-telegram not found",
+      dirs.some((d) => path.basename(d) === "channels-slack"),
+      "channels-slack not found",
     );
   });
 

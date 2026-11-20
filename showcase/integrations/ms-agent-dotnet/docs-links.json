@@ -7,7 +7,7 @@
     },
     "hitl-in-chat": {
       "og_docs_url": "https://docs.copilotkit.ai/microsoft-agent-framework/human-in-the-loop",
-      "shell_docs_path": "/generative-ui/your-components/interactive"
+      "shell_docs_path": "/human-in-the-loop"
     },
     "tool-rendering": {
       "og_docs_url": "https://docs.copilotkit.ai/microsoft-agent-framework/generative-ui/tool-rendering",
@@ -15,7 +15,7 @@
     },
     "gen-ui-tool-based": {
       "og_docs_url": "https://docs.copilotkit.ai/microsoft-agent-framework/generative-ui/your-components/display-only",
-      "shell_docs_path": "/generative-ui/your-components/display-only"
+      "shell_docs_path": "/generative-ui/display"
     },
     "gen-ui-agent": {
       "og_docs_url": "https://docs.copilotkit.ai/microsoft-agent-framework/generative-ui/state-rendering",

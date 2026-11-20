@@ -7,10 +7,14 @@ import * as React from "react";
 type Variant = "default" | "secondary" | "outline" | "success";
 
 const variantClasses: Record<Variant, string> = {
-  default: "border-transparent bg-neutral-900 text-neutral-50",
-  secondary: "border-transparent bg-neutral-100 text-neutral-900",
-  outline: "border-neutral-200 text-neutral-700 bg-white",
-  success: "border-transparent bg-emerald-100 text-emerald-700",
+  default:
+    "border-transparent bg-neutral-900 text-neutral-50 dark:bg-primary dark:text-primary-foreground",
+  secondary:
+    "border-transparent bg-neutral-100 text-neutral-900 dark:bg-muted dark:text-foreground",
+  outline:
+    "border-neutral-200 text-neutral-700 bg-white dark:border-border dark:text-foreground dark:bg-card",
+  success:
+    "border-transparent bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300",
 };
 
 export interface BadgeProps extends React.HTMLAttributes<HTMLDivElement> {

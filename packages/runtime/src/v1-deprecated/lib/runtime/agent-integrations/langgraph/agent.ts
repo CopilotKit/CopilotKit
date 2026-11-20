@@ -66,6 +66,32 @@ type LangGraphMessage = Parameters<
   AGUILangGraphAgent["langGraphDefaultMergeState"]
 >[1][number];
 
+/**
+ * Copy `name`, `description` and `parameters` from an OpenAI-style
+ * `{ function: { ... } }` descriptor to the top level, so Python agents that
+ * read `tool["parameters"]` get the real schema instead of `None` (#6570).
+ * Non-null fields already at the top level win, and `function` is kept intact.
+ * A top-level `null` is backfilled too: Python `None` comes back as `null`
+ * when state is restored from a checkpoint.
+ *
+ * Scope: this only normalizes `copilotkit.actions` for the v1 `LangGraphAgent`.
+ * `state["tools"]` and `ag-ui.tools` stay nested, and v2 users of
+ * `@ag-ui/langgraph` see no change. The full fix belongs upstream in
+ * `langGraphDefaultMergeState` in ag-ui-protocol/ag-ui.
+ */
+function normalizeLangGraphTool(tool: any): any {
+  const functionSpec = tool?.function;
+  if (!functionSpec || typeof functionSpec !== "object") return tool;
+
+  const normalized = { ...tool };
+  for (const key of ["name", "description", "parameters"] as const) {
+    if (normalized[key] == null && functionSpec[key] != null) {
+      normalized[key] = functionSpec[key];
+    }
+  }
+  return normalized;
+}
+
 export class LangGraphAgent extends AGUILangGraphAgent {
   constructor(config: LangGraphAgentConfig) {
     super(config);
@@ -252,11 +278,13 @@ export class LangGraphAgent extends AGUILangGraphAgent {
       input,
     );
     const { tools: returnedTools, "ag-ui": agui } = aguiMergedState;
-    // tolerate undefined and de-duplicate by stable key (id | name | key)
+    // tolerate undefined, normalize nested descriptors, and de-duplicate by
+    // stable key (id | name | key). Normalizing first means a nested tool
+    // collapses with a flat tool of the same name; the later entry wins.
     const rawCombinedTools = [
       ...((returnedTools as any[]) ?? []),
       ...((agui?.tools as any[]) ?? []),
-    ];
+    ].map(normalizeLangGraphTool);
     const combinedTools = Array.from(
       new Map(
         rawCombinedTools.map((t: any) => [

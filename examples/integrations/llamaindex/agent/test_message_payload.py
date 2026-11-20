@@ -13,12 +13,12 @@ from ag_ui.core import (
     ToolMessage,
     UserMessage,
 )
-from llama_index.llms.openai import OpenAI
 from llama_index.protocols.ag_ui.agent import AGUIChatWorkflow
 from llama_index.protocols.ag_ui.utils import ag_ui_message_to_llama_index_message
 
 os.environ.setdefault("OPENAI_API_KEY", "test")
 from src.agent import StarterOpenAI, change_theme_color, get_weather
+from src.model import create_llm
 
 
 def stream_response():
@@ -26,7 +26,7 @@ def stream_response():
         "id": "chatcmpl-test",
         "object": "chat.completion.chunk",
         "created": 0,
-        "model": "gpt-5-mini",
+        "model": "gpt-6-luna",
         "choices": [
             {"index": 0, "delta": {"content": "Done"}, "finish_reason": "stop"}
         ],
@@ -79,7 +79,7 @@ class MessagePayloadTest(unittest.TestCase):
                     "id": "chatcmpl-test",
                     "object": "chat.completion",
                     "created": 0,
-                    "model": "gpt-5-mini",
+                    "model": "gpt-6-luna",
                     "choices": [
                         {
                             "index": 0,
@@ -96,7 +96,11 @@ class MessagePayloadTest(unittest.TestCase):
             )
 
         client = httpx.Client(transport=httpx.MockTransport(respond))
-        llm = OpenAI(model="gpt-5-mini", api_key="test", http_client=client)
+        llm = create_llm(
+            "openai:gpt-6-luna", api_key="test", http_client=client, max_tokens=64
+        )
+        self.assertEqual(llm.metadata.context_window, 1_050_000)
+        self.assertEqual(llm._tokenizer.name, "o200k_base")
         history = [UserMessage(id="user-1", content="Hello", role="user")]
 
         for turn in range(2):
@@ -115,6 +119,11 @@ class MessagePayloadTest(unittest.TestCase):
                 )
 
         self.assertEqual([len(body["messages"]) for body in requests], [1, 3])
+        for body in requests:
+            self.assertEqual(body["model"], "gpt-6-luna")
+            self.assertEqual(body["reasoning_effort"], "none")
+            self.assertEqual(body["max_completion_tokens"], 64)
+            self.assertNotIn("max_tokens", body)
 
 
 class ToolResultPayloadTest(unittest.IsolatedAsyncioTestCase):
@@ -133,7 +142,10 @@ class ToolResultPayloadTest(unittest.IsolatedAsyncioTestCase):
                 "index": 0,
                 "id": "call-weather",
                 "type": "function",
-                "function": {"name": "get_weather", "arguments": '{"location":"Paris"}'},
+                "function": {
+                    "name": "get_weather",
+                    "arguments": '{"location":"Paris"}',
+                },
             }
             chunks = [
                 {"role": "assistant", "tool_calls": [call]},
@@ -145,7 +157,7 @@ class ToolResultPayloadTest(unittest.IsolatedAsyncioTestCase):
                     "id": "chatcmpl-test",
                     "object": "chat.completion.chunk",
                     "created": 0,
-                    "model": "gpt-5-mini",
+                    "model": "gpt-6-luna",
                     "choices": [
                         {
                             "index": 0,
@@ -163,8 +175,11 @@ class ToolResultPayloadTest(unittest.IsolatedAsyncioTestCase):
 
         client = httpx.AsyncClient(transport=httpx.MockTransport(respond))
         workflow = AGUIChatWorkflow(
-            llm=StarterOpenAI(
-                model="gpt-5-mini", api_key="test", async_http_client=client
+            llm=create_llm(
+                "openai:gpt-6-luna",
+                openai_class=StarterOpenAI,
+                api_key="test",
+                async_http_client=client,
             ),
             backend_tools=[get_weather],
             system_prompt="You can get the weather.",
@@ -173,7 +188,9 @@ class ToolResultPayloadTest(unittest.IsolatedAsyncioTestCase):
             input_data=RunAgentInput(
                 thread_id="thread-1",
                 run_id="run-weather",
-                messages=[UserMessage(id="user-1", content="Weather in Paris?", role="user")],
+                messages=[
+                    UserMessage(id="user-1", content="Weather in Paris?", role="user")
+                ],
                 state={},
             )
         )
@@ -181,9 +198,12 @@ class ToolResultPayloadTest(unittest.IsolatedAsyncioTestCase):
             pass
         await handler
         self.assertEqual(len(requests), 2)
+        for body in requests:
+            self.assertEqual(body["model"], "gpt-6-luna")
+            self.assertEqual(body["reasoning_effort"], "none")
         self.assertEqual(
             [message["role"] for message in requests[1]["messages"]],
-            ["developer", "user", "assistant", "tool"],
+            ["system", "user", "assistant", "tool"],
         )
         self.assertEqual(
             requests[1]["messages"][2]["tool_calls"][0]["id"], "call-weather"
@@ -201,7 +221,7 @@ class ToolResultPayloadTest(unittest.IsolatedAsyncioTestCase):
             if error:
                 return httpx.Response(400, json={"error": error})
             if [message["role"] for message in messages] != [
-                "developer",
+                "system",
                 "user",
                 "assistant",
                 "tool",
@@ -245,8 +265,11 @@ class ToolResultPayloadTest(unittest.IsolatedAsyncioTestCase):
             ),
         ]
         client = httpx.AsyncClient(transport=httpx.MockTransport(respond))
-        llm = StarterOpenAI(
-            model="gpt-5-mini", api_key="test", async_http_client=client
+        llm = create_llm(
+            "openai:gpt-6-luna",
+            openai_class=StarterOpenAI,
+            api_key="test",
+            async_http_client=client,
         )
         workflow = AGUIChatWorkflow(
             llm=llm,
@@ -268,7 +291,7 @@ class ToolResultPayloadTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(
             [message["role"] for message in requests[0]["messages"]],
-            ["developer", "user", "assistant", "tool"],
+            ["system", "user", "assistant", "tool"],
         )
         self.assertIn("<state>", requests[0]["messages"][1]["content"])
         self.assertIn("Set the theme to orange", requests[0]["messages"][1]["content"])
@@ -294,7 +317,7 @@ class ToolResultPayloadTest(unittest.IsolatedAsyncioTestCase):
             if error:
                 return httpx.Response(400, json={"error": error})
             if [message["role"] for message in messages] != [
-                "developer",
+                "system",
                 "user",
                 "assistant",
                 "user",
@@ -322,8 +345,11 @@ class ToolResultPayloadTest(unittest.IsolatedAsyncioTestCase):
         ]
         client = httpx.AsyncClient(transport=httpx.MockTransport(respond))
         workflow = AGUIChatWorkflow(
-            llm=StarterOpenAI(
-                model="gpt-5-mini", api_key="test", async_http_client=client
+            llm=create_llm(
+                "openai:gpt-6-luna",
+                openai_class=StarterOpenAI,
+                api_key="test",
+                async_http_client=client,
             ),
             frontend_tools=[change_theme_color],
             system_prompt="You can change the background color.",
@@ -384,8 +410,11 @@ class ToolResultPayloadTest(unittest.IsolatedAsyncioTestCase):
         ]
         client = httpx.AsyncClient(transport=httpx.MockTransport(respond))
         workflow = AGUIChatWorkflow(
-            llm=StarterOpenAI(
-                model="gpt-5-mini", api_key="test", async_http_client=client
+            llm=create_llm(
+                "openai:gpt-6-luna",
+                openai_class=StarterOpenAI,
+                api_key="test",
+                async_http_client=client,
             ),
             frontend_tools=[change_theme_color],
             system_prompt="You can change the background color.",
@@ -401,7 +430,7 @@ class ToolResultPayloadTest(unittest.IsolatedAsyncioTestCase):
         outbound = requests[0]["messages"]
         self.assertEqual(
             [message["role"] for message in outbound],
-            ["developer", "user", "assistant", "user", "user"],
+            ["system", "user", "assistant", "user", "user"],
         )
         self.assertIn("<tool_call>", outbound[2]["content"])
         self.assertEqual(outbound[3]["content"], "Changing background to #f97316")
@@ -417,8 +446,7 @@ class ToolResultPayloadTest(unittest.IsolatedAsyncioTestCase):
             if error:
                 return httpx.Response(400, json={"error": error})
             state_count = sum(
-                (message.get("content") or "").count("<state>")
-                for message in messages
+                (message.get("content") or "").count("<state>") for message in messages
             )
             if state_count != 1:
                 return httpx.Response(400, json={"error": "Repeated state"})
@@ -450,8 +478,11 @@ class ToolResultPayloadTest(unittest.IsolatedAsyncioTestCase):
         ]
         client = httpx.AsyncClient(transport=httpx.MockTransport(respond))
         workflow = AGUIChatWorkflow(
-            llm=StarterOpenAI(
-                model="gpt-5-mini", api_key="test", async_http_client=client
+            llm=create_llm(
+                "openai:gpt-6-luna",
+                openai_class=StarterOpenAI,
+                api_key="test",
+                async_http_client=client,
             ),
             frontend_tools=[change_theme_color],
             system_prompt="You can change the background color.",
@@ -470,7 +501,7 @@ class ToolResultPayloadTest(unittest.IsolatedAsyncioTestCase):
         outbound = requests[0]["messages"]
         self.assertEqual(
             [message["role"] for message in outbound],
-            ["developer", "user", "assistant", "tool", "user"],
+            ["system", "user", "assistant", "tool", "user"],
         )
         self.assertNotIn("<state>", outbound[3]["content"])
         self.assertNotIn("old", json.dumps(outbound))

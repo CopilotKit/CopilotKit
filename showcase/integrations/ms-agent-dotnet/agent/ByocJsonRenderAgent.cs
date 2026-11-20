@@ -163,7 +163,7 @@ Respond with the JSON object only.";
 
     public AIAgent CreateAgent()
     {
-        var chatClient = _openAiClient.GetChatClient("gpt-5-mini").AsIChatClient();
+        var chatClient = _openAiClient.GetChatClient("gpt-6-luna").AsLunaChatClient();
 
         // The frontend json-render-renderer.tsx buffers until the assistant
         // content parses as a complete JSON object, then renders. Force

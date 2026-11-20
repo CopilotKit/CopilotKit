@@ -3,7 +3,8 @@ crewai-tools==1.15.11
 ag-ui-crewai==0.3.0
 ag-ui-protocol==0.1.19
 ag-ui-a2ui-toolkit==0.0.4
-litellm==1.79.3
+# Includes Luna capability metadata so Responses streams natively offline.
+litellm==1.105.0
 fastapi==0.115.12
 python-dotenv==1.2.2
 uvicorn==0.34.3

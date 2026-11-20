@@ -47,7 +47,7 @@ SYSTEM_PROMPT = (
 
 # @region[agent-config-setup]
 graph = create_agent(
-    model=ChatOpenAI(model="gpt-5.4", temperature=0.4),
+    model=ChatOpenAI(reasoning_effort="none", model="gpt-6-luna", temperature=0.4),
     tools=[],
     middleware=[CopilotKitMiddleware()],
     system_prompt=SYSTEM_PROMPT,

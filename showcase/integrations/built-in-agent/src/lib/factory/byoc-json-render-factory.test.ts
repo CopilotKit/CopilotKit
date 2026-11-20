@@ -49,7 +49,7 @@ vi.mock("@tanstack/ai", () => ({
       iterationCount < max,
 }));
 
-vi.mock("@tanstack/ai-openai", () => ({
+vi.mock("../openai-text", () => ({
   openaiText: (model: string) => ({ model }),
 }));
 

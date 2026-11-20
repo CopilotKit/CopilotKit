@@ -17,29 +17,40 @@
 import React from "react";
 import { createReactComponent } from "../../../adapter";
 import { AudioPlayerApi } from "@a2ui/web_core/v0_9/basic_catalog";
-import { getBaseLeafStyle } from "../utils";
+import { getAccessibilityProps, getBaseLeafStyle } from "../utils";
 
-export const AudioPlayer = createReactComponent(AudioPlayerApi, ({ props }) => {
-  const style: React.CSSProperties = {
-    ...getBaseLeafStyle(),
-    width: "100%",
-  };
+export const AudioPlayer = createReactComponent(
+  AudioPlayerApi,
+  /** Keep common accessibility on the audio control, rather than its description wrapper. */
+  ({ props }) => {
+    const style: React.CSSProperties = {
+      ...getBaseLeafStyle(),
+      width: "100%",
+    };
 
-  return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: "4px",
-        width: "100%",
-      }}
-    >
-      {props.description && (
-        <span style={{ fontSize: "12px", color: "#666" }}>
-          {props.description}
-        </span>
-      )}
-      <audio src={props.url} controls style={style} />
-    </div>
-  );
-});
+    return (
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "4px",
+          width: "100%",
+        }}
+      >
+        {props.description && (
+          <span
+            style={{ fontSize: "12px", color: "var(--a2ui-color-muted, #666)" }}
+          >
+            {props.description}
+          </span>
+        )}
+        <audio
+          {...getAccessibilityProps(props.accessibility)}
+          src={props.url}
+          controls
+          style={style}
+        />
+      </div>
+    );
+  },
+);

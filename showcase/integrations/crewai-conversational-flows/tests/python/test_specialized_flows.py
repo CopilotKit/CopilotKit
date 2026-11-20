@@ -51,7 +51,7 @@ def test_generate_a2ui_completion_params_reuses_canonical_schema():
     assert params["tools"][0]["function"] is RENDER_A2UI_TOOL_SCHEMA
 
 
-def test_every_crewai_agent_is_explicitly_pinned_to_gpt_5_4():
+def test_every_crewai_agent_uses_luna_with_chat_tool_calling():
     missing_or_wrong = []
     for source_path in sorted((INTEGRATION_ROOT / "src" / "agents").glob("*.py")):
         tree = ast.parse(source_path.read_text())
@@ -61,7 +61,27 @@ def test_every_crewai_agent_is_explicitly_pinned_to_gpt_5_4():
             if not isinstance(node.func, ast.Name) or node.func.id != "Agent":
                 continue
             llm = next((kw.value for kw in node.keywords if kw.arg == "llm"), None)
-            if not isinstance(llm, ast.Constant) or llm.value != "gpt-5.4":
+            if (
+                not isinstance(llm, ast.Call)
+                or not isinstance(llm.func, ast.Name)
+                or llm.func.id != "LLM"
+            ):
+                missing_or_wrong.append(f"{source_path.name}:{node.lineno}")
+                continue
+            options = {kw.arg: kw.value for kw in llm.keywords}
+            model = options.get("model")
+            additional = options.get("additional_params")
+            if (
+                not isinstance(model, ast.Constant)
+                or model.value != "openai/gpt-6-luna"
+                or not isinstance(options.get("is_litellm"), ast.Constant)
+                or options["is_litellm"].value is not True
+                or not isinstance(additional, ast.Dict)
+                or ast.literal_eval(additional)
+                .get("extra_body", {})
+                .get("reasoning_effort")
+                != "none"
+            ):
                 missing_or_wrong.append(f"{source_path.name}:{node.lineno}")
 
     assert missing_or_wrong == []
@@ -175,7 +195,8 @@ async def test_declarative_gen_ui_forces_the_runtime_injected_tool(monkeypatch):
 
     await flow.chat()
 
-    assert captured["model"] == "openai/gpt-5.4"
+    assert captured["model"] == "openai/gpt-6-luna"
+    assert captured["reasoning_effort"] == "none"
     assert captured["tools"] == flow.state.copilotkit.actions
     assert captured["tool_choice"] == {
         "type": "function",
@@ -548,7 +569,7 @@ async def test_tool_rendering_reasoning_combines_reasoning_and_tool_results(
     await flow.chat()
 
     assert not hasattr(module, "acompletion")
-    assert calls[0]["reasoning"] == {"effort": "medium", "summary": "detailed"}
+    assert calls[0]["reasoning"] == {"effort": "high", "summary": "detailed"}
     assert calls[0]["tool_choice"] == "required"
     assert calls[1]["tool_choice"] == "auto"
     assert emitted[0][0] == "call_reasoned_weather"
@@ -782,7 +803,8 @@ async def test_multimodal_flow_preserves_converted_content_blocks(monkeypatch):
     await flow.chat()
 
     assert captured["messages"][-1]["content"] == content
-    assert captured["model"] == "openai/gpt-5.4"
+    assert captured["model"] == "openai/gpt-6-luna"
+    assert captured["reasoning_effort"] == "none"
 
 
 @pytest.mark.asyncio
@@ -826,7 +848,7 @@ async def test_multimodal_flow_sends_pdfs_as_responses_input_files(monkeypatch):
         "filename": "attachment.pdf",
         "file_data": "data:application/pdf;base64,AAAA",
     }
-    assert captured["model"] == "openai/gpt-5.4"
+    assert captured["model"] == "openai/gpt-6-luna"
 
 
 @pytest.mark.asyncio

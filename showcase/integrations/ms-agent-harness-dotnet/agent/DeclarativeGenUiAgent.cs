@@ -52,7 +52,7 @@ should be rendered. Keep any textual reply to one short sentence — the UI spea
 
     public AIAgent Create()
     {
-        var chatClient = _openAiClient.GetChatClient("gpt-5-mini").AsIChatClient();
+        var chatClient = _openAiClient.GetChatClient("gpt-6-luna").AsLunaChatClient();
 
         return chatClient.AsHarnessAgent(
             HarnessMaxContextWindowTokens,

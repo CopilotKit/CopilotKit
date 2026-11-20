@@ -19,7 +19,7 @@ syntax highlighting and a fixed-height result pane).
 ## Prerequisites
 
 - Node 18+
-- An OpenAI API key (`OPENAI_API_KEY`) — the recipe defaults to `openai:gpt-5.4-mini`, overridable via
+- An OpenAI API key (`OPENAI_API_KEY`) — the recipe defaults to `openai:gpt-6-luna`, overridable via
   the `MODEL` env var.
 - A Daytona API key (`DAYTONA_API_KEY`) — create one in the
   [Daytona dashboard](https://app.daytona.io/dashboard/keys).
@@ -44,6 +44,10 @@ Open the page, click into the sidebar chat, and ask something like:
 - This is a **standalone npm project** — intentionally not in the monorepo's `pnpm-workspace.yaml`.
   `npm install` here installs against published `@copilotkit/*@1.58.0`, which is the same surface the
   recipe targets.
+- `@daytonaio/sdk` is pinned to `0.232.0`, the same version the recipe's install command and the docs
+  doctest (`showcase/shell-docs/src/content/doctest.json`) use. `npm test` checks that the demo, its
+  lockfile, the recipe, and the doctest stay on one version, and type-checks the app against the
+  installed SDK. It runs offline and never creates a Daytona client or sandbox. Run `npm ci` first.
 - `new Daytona()` throws at module load if `DAYTONA_API_KEY` is missing, so the app won't boot without
   it. That's by design — the key is required, not optional.
 - For arbitrary languages beyond Python/TS/JS, swap `sandbox.process.codeRun` for

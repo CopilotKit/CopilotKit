@@ -16,6 +16,25 @@ export interface MCPAppsConfig {
   hostCapabilities?: Record<string, unknown>;
   /** Additional non-secret UI context announced to embedded MCP Apps. */
   hostContext?: Record<string, unknown>;
+  /**
+   * Restore `allow-same-origin` on the MCP App sandbox. Default `false`.
+   *
+   * **Unsafe.** The widget then runs with your page's origin: it can read
+   * your cookies, storage and DOM, and call your APIs as the signed-in user.
+   * Only set it for widgets you wrote and trust that need `localStorage`,
+   * `IndexedDB` or cookies. By default widgets get an opaque origin.
+   */
+  allowSameOriginFallback?: boolean;
+  /**
+   * Let MCP Apps report their state to the model through
+   * `ui/update-model-context`. Default `false`.
+   *
+   * **Security.** The reported state goes with every later run of the
+   * conversation, and the built-in agent puts it in the system prompt. The
+   * user does not see it. With this on, the widget of any MCP server your
+   * agent uses can write there. Only enable it for MCP servers you trust.
+   */
+  modelContext?: boolean;
 }
 
 export const DEFAULT_MCP_APPS_CONFIG: Readonly<Required<MCPAppsConfig>> = {
@@ -33,6 +52,8 @@ export const DEFAULT_MCP_APPS_CONFIG: Readonly<Required<MCPAppsConfig>> = {
   hostContext: {
     platform: "web",
   },
+  allowSameOriginFallback: false,
+  modelContext: false,
 };
 
 /** Holds renderer behavior configuration registered via `provideMCPApps`. */

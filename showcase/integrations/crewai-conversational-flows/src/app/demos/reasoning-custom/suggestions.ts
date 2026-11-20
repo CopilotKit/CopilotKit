@@ -6,7 +6,7 @@ import { useConfigureSuggestions } from "@copilotkit/react-core/v2";
 // `reasoning-default` cell so users can compare default vs custom
 // reasoning rendering with the same prompt.
 //
-// IMPORTANT: gpt-5.4 (and OpenAI reasoning models generally) only
+// IMPORTANT: gpt-6-luna (and OpenAI reasoning models generally) only
 // emit `response.reasoning_summary_text.delta` events when there's a
 // concrete problem to reason ABOUT. A meta-prompt like "show your
 // reasoning step by step" produces no reasoning summary — the model

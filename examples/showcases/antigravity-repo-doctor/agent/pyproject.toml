@@ -1,0 +1,57 @@
+[project]
+name = "repo-doctor-agent"
+version = "0.1.0"
+description = "Repo doctor: a Google Antigravity agent served over AG-UI for CopilotKit."
+requires-python = ">=3.11,<3.15"
+dependencies = [
+  # The adapter pins google-antigravity to <0.2.0. The SDK wheel bundles the Go
+  # `localharness` binary, so there is no separate download step.
+  "ag-ui-antigravity==0.2.1",
+  "google-antigravity==0.1.22",
+  "ag-ui-protocol==1.0.0",
+  "fastapi==0.143.2",
+  "uvicorn[standard]==0.54.0",
+  "pydantic==2.14.1",
+  "pydantic-settings==2.16.0",
+  "google-cloud-storage==3.17.1",
+]
+
+[dependency-groups]
+dev = [
+  "pytest==9.1.1",
+  "pytest-asyncio==1.4.0",
+  "httpx==0.28.1",
+  "ruff==0.17.0",
+  "mypy==2.4.0",
+]
+
+[project.scripts]
+repo-doctor-agent = "repo_doctor.server:main"
+
+[build-system]
+requires = ["uv_build>=0.11,<0.12"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "repo_doctor"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM", "RUF"]
+
+[tool.mypy]
+strict = true
+python_version = "3.13"
+mypy_path = "src"
+packages = ["repo_doctor"]
+
+[[tool.mypy.overrides]]
+module = ["ag_ui_antigravity.*", "google.antigravity.*"]
+ignore_missing_imports = true

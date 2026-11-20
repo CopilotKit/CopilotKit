@@ -13,8 +13,10 @@ import { useCopilotChatConfiguration } from "../../providers/useCopilotChatConfi
 import CopilotChatToggleButton from "./CopilotChatToggleButton.vue";
 import CopilotChatView from "./CopilotChatView.vue";
 import CopilotModalHeader from "./CopilotModalHeader.vue";
+import { forwardedSlotNames } from "./forwarded-slots";
 import type {
   CopilotChatFeatherSlotProps,
+  CopilotChatInterruptSlotProps,
   CopilotChatMessageViewSlotProps,
   CopilotChatScrollToBottomButtonSlotProps,
   CopilotChatScrollViewSlotProps,
@@ -60,13 +62,21 @@ defineSlots<{
   "scroll-to-bottom-button"?: (
     props: CopilotChatScrollToBottomButtonSlotProps,
   ) => unknown;
+  interrupt?: (props: CopilotChatInterruptSlotProps) => unknown;
   input?: (props: CopilotSidebarWelcomeScreenInputSlotProps) => unknown;
   "suggestion-view"?: (
     props: CopilotSidebarWelcomeScreenSuggestionViewSlotProps,
   ) => unknown;
   "welcome-screen"?: (props: CopilotChatWelcomeScreenSlotProps) => unknown;
   "welcome-message"?: () => unknown;
+  // Any other slot goes to the chat view, as on CopilotChat.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  [key: string]: ((props: any) => unknown) | undefined;
 }>();
+
+// Slots this component renders itself. It passes every other slot to the
+// chat view.
+const OWN_SLOTS = ["header", "toggle-button"] as const;
 
 const emit = defineEmits<{
   "submit-message": [value: string];
@@ -395,42 +405,12 @@ onBeforeUnmount(() => {
           :on-finish-transcribe-with-audio="onFinishTranscribeWithAudio"
           v-bind="chatViewBindings"
         >
-          <template v-if="$slots['message-view']" #message-view="slotProps">
-            <slot name="message-view" v-bind="slotProps" />
-          </template>
-
-          <template v-if="$slots['scroll-view']" #scroll-view="slotProps">
-            <slot name="scroll-view" v-bind="slotProps" />
-          </template>
-
-          <template v-if="$slots.feather" #feather>
-            <slot name="feather" />
-          </template>
-
           <template
-            v-if="$slots['scroll-to-bottom-button']"
-            #scroll-to-bottom-button="slotProps"
+            v-for="slotName in forwardedSlotNames($slots, OWN_SLOTS)"
+            :key="slotName"
+            #[slotName]="slotProps"
           >
-            <slot name="scroll-to-bottom-button" v-bind="slotProps" />
-          </template>
-
-          <template v-if="$slots.input" #input="slotProps">
-            <slot name="input" v-bind="slotProps" />
-          </template>
-
-          <template
-            v-if="$slots['suggestion-view']"
-            #suggestion-view="slotProps"
-          >
-            <slot name="suggestion-view" v-bind="slotProps" />
-          </template>
-
-          <template v-if="$slots['welcome-screen']" #welcome-screen="slotProps">
-            <slot name="welcome-screen" v-bind="slotProps" />
-          </template>
-
-          <template v-if="$slots['welcome-message']" #welcome-message>
-            <slot name="welcome-message" />
+            <slot :name="slotName" v-bind="slotProps" />
           </template>
         </CopilotChatView>
       </div>

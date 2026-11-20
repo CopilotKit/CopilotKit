@@ -104,7 +104,11 @@ const SUB_AGENT_PROMPTS: Record<SubAgentName, string> = {
 type ModelFactory = (config?: RunnableConfig) => ChatOpenAI;
 
 const defaultModelFactory: ModelFactory = () =>
-  new ChatOpenAI({ temperature: 0, model: "gpt-5-mini" });
+  new ChatOpenAI({
+    temperature: 0,
+    model: "gpt-6-luna",
+    modelKwargs: { reasoning_effort: "none" },
+  });
 
 async function invokeSubAgent(
   agent: SubAgentName,
@@ -357,7 +361,7 @@ export const graph = createGraph();
 // The LangGraph CLI targets this export so both the supervisor and delegated
 // model calls retain inbound x-* headers during showcase probes.
 const showcaseModelFactory: ModelFactory = (config) =>
-  makeChatOpenAI(config, { temperature: 0, model: "gpt-5-mini" });
+  makeChatOpenAI(config, { temperature: 0, model: "gpt-6-luna" });
 
 export const showcaseGraph = createGraph(
   showcaseModelFactory,

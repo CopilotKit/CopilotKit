@@ -35,7 +35,7 @@ def build_agent() -> Agent:
     # server.py puts it there).
     llm = OpenAiCompatibleConfig(
         name="concierge_llm",
-        model_id=os.getenv("CHAT_MODEL", "gpt-5.4-mini"),
+        model_id=os.getenv("CHAT_MODEL", "gpt-6-luna"),
         url=os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1"),
     )
     return Agent(

@@ -117,7 +117,7 @@ describe("basic catalog components", () => {
     ["Column", { children: [] }],
     ["List", { children: [] }],
     ["Card", { child: "leaf" }],
-    ["Tabs", { tabs: [] }],
+    ["Tabs", { tabs: [{ title: "Tab", child: "leaf" }] }],
     ["Divider", {}],
     ["Modal", { trigger: "leaf", content: "leaf" }],
     ["Button", { child: "leaf", action: { event: { name: "go" } } }],
@@ -423,6 +423,7 @@ describe("basic catalog components", () => {
           {
             id: "root",
             component: "TextField",
+            label: "Count",
             variant: "number",
             value: { path: "/count" },
           },

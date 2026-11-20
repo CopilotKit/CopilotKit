@@ -127,9 +127,9 @@ describe("railway-envs SSOT", () => {
     expect(ENV_IDS.staging).toBe(STAGING_ENV_ID);
   });
 
-  it("contains 43 managed services plus seven staging-only Intelligence services", () => {
+  it("contains 44 managed services plus eight staging-only services (seven Intelligence, docs-preview)", () => {
     const names = listServiceNames();
-    expect(names.length).toBe(50);
+    expect(names.length).toBe(52);
   });
 
   it("models CrewAI conversational flows as a dual-environment showcase deployment", () => {
@@ -272,13 +272,13 @@ describe("railway-envs SSOT", () => {
     );
   });
 
-  it("CI_BUILT_SERVICES contains exactly 41 services (incl. pocketbase + 12 starters) and excludes webhooks", () => {
-    // 29 showcase/infra CI-built (including conversational flows and the
-    // google-antigravity) + 12
+  it("CI_BUILT_SERVICES contains exactly 42 services (incl. pocketbase + 12 starters) and excludes webhooks", () => {
+    // 30 showcase/infra CI-built (including conversational flows,
+    // google-antigravity and openai-agents-python) + 12
     // starter-<slug> (S2 brought them under the gate; they ARE built+pushed by
     // showcase_build.yml's `build-starters` job to
     // ghcr.io/copilotkit/starter-<slug>:latest).
-    expect(CI_BUILT_SERVICES.size).toBe(41);
+    expect(CI_BUILT_SERVICES.size).toBe(42);
     // pocketbase is now CI-built (showcase_build.yml `pocketbase` slot,
     // gated to showcase/pocketbase/** changes).
     expect(CI_BUILT_SERVICES.has("pocketbase")).toBe(true);
@@ -1497,7 +1497,7 @@ describe("static gate and disposable approval policy", () => {
   });
 
   it("approves only the reviewed bounded milestone images and preserves permanent identities", () => {
-    expect(Object.keys(SERVICES)).toHaveLength(50);
+    expect(Object.keys(SERVICES)).toHaveLength(52);
     expect(DISPOSABLE_LIFECYCLE_POLICY).toEqual({
       projectId: PROJECT_ID,
       forbiddenEnvironmentIds: [PRODUCTION_ENV_ID],
@@ -1512,6 +1512,7 @@ describe("static gate and disposable approval policy", () => {
         "ghcr.io/copilotkit/rich-thread-application@sha256:6b6d757e8c5c605c384673a4e8418cd7cd275de2b8b068ebb21856a1032fc71d",
         "ghcr.io/copilotkit/rich-thread-strands@sha256:a24c58ee44b65fe723434027bf9f40e6b77e679db67ba6229f329676ead430b9",
         "ghcr.io/copilotkit/rich-thread-inspector@sha256:e9404c9c986b73d0d980495f4bf0a63b174591770abeff80b9a4cb30c680d981",
+        "ghcr.io/copilotkit/rich-thread-inspector@sha256:1c5249083985cde25d8422ebc6a7ca7007d8eb92477daa5b854fe10c7ed2dd71",
       ],
     });
     const independent = Object.entries(SERVICES).filter(([name]) =>

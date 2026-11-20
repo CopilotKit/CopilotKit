@@ -5,7 +5,7 @@ description: "A right-aligned user chat bubble that renders plain text, with an 
 
 ## Overview
 
-`UserMessage` renders a right-aligned chat bubble for user turns. Content is shown as plain text (no Markdown), with white text on a primary-color background. Useful when building a custom chat UI on top of the headless [`CopilotChat`](/reference/react-native/components/CopilotChat).
+`UserMessage` renders a right-aligned chat bubble for user turns. Content is shown as plain text (no Markdown), with white text on a primary-color background. Useful when building a custom chat UI on top of the headless [`CopilotChat`](/reference/react-native/components/CopilotChat). For the assistant side, see [`AssistantMessage`](/reference/react-native/components/AssistantMessage).
 
 ## Import
 
@@ -34,7 +34,3 @@ import { UserMessage } from "@copilotkit/react-native/components";
 
 <UserMessage content="What's the weather today?" timestamp={new Date()} />;
 ```
-
-## Related
-
-- [`AssistantMessage`](/reference/react-native/components/AssistantMessage): the assistant-side counterpart

@@ -5,11 +5,11 @@ import {
 } from "./channel-activation-config";
 import type { ChannelActivationConfig } from "./channel-activation-config";
 import type { CopilotKitIntelligence } from "../intelligence-platform";
-import { startThreadLockHeartbeat } from "../intelligence-platform/thread-lock-heartbeat";
+import { runWithThreadLock, toAgentMessage } from "./thread-run";
 import { telemetry } from "../telemetry";
 import type { AnalyticsEvents } from "../telemetry";
 import type { TelemetryCapture } from "../telemetry/telemetry-client";
-import { AbstractAgent, EventType } from "@ag-ui/client";
+import { AbstractAgent } from "@ag-ui/client";
 import type {
   AgentSubscriber,
   BaseEvent,
@@ -420,6 +420,8 @@ export interface ChannelsIntelligenceModule {
         runId: string;
         userId: string;
         user?: CopilotRuntimeUser | null;
+        /** The delivery's resolved Channel Memory, when the Channel has it. */
+        memory?: ResolvedChannelMemory;
         agentId: string;
         tools: readonly {
           name: string;
@@ -695,170 +697,95 @@ async function runCanonicalChannelAgent(
         userId: args.userId,
         deliveryId: args.deliveryId,
       });
-  // The platform starts the lock's TTL when it handles the request, so time
-  // the lifetime from the send rather than from the response.
-  const lockRequestedAt = Date.now();
-  const lock = await intelligence.ɵacquireThreadLock({
-    threadId: args.threadId,
-    runId: args.runId,
-    userId: args.userId,
-    agentId: args.agentId,
-    channelDeliveryId: args.deliveryId,
-    ...(learningContainerId !== undefined ? { learningContainerId } : {}),
-    ttlSeconds: lockTtlSeconds,
-    ...(lockKeyPrefix !== undefined ? { lockKeyPrefix } : {}),
-  });
-  const canonicalThreadId = lock.threadId;
-  const canonicalRunId = lock.runId;
   let result = { iterations: 0, interrupted: false };
-  attachChannelMemory(args.agent, intelligence, args.memory);
-  const outer = new ChannelOuterAgent(
-    args.agent,
-    canonicalThreadId,
-    async (subscriber, canonicalRun) => {
-      result = await args.execute(subscriber, canonicalRun);
-      return result;
+  // The delivery's signal aborts when Intelligence supersedes the delivery or
+  // the Channel transport stops. Neither goes through Intelligence's run stop,
+  // so the locked run records it.
+  const outcome = await runWithThreadLock({
+    runner,
+    intelligence,
+    lock: {
+      ttlSeconds: lockTtlSeconds,
+      heartbeatIntervalSeconds: lockHeartbeatIntervalSeconds,
+      ...(lockKeyPrefix !== undefined ? { keyPrefix: lockKeyPrefix } : {}),
     },
-  );
-  let stopPromise: Promise<boolean | undefined> | undefined;
-  let heartbeatError: unknown;
-  const stopCanonicalRun = (): void => {
-    stopPromise ??= Promise.resolve()
-      .then(() =>
-        runner.stop({
-          threadId: canonicalThreadId,
-          runId: canonicalRunId,
-        }),
-      )
-      .catch(() => false);
-  };
-  const abortCanonicalRun = (): void => {
-    try {
-      args.agent.abortRun();
-    } catch {
-      // The exact runner stop remains the authoritative cancellation path.
-    }
-    stopCanonicalRun();
-  };
-  args.signal?.addEventListener("abort", abortCanonicalRun, { once: true });
-  const heartbeat = startThreadLockHeartbeat({
-    renew: (signal) =>
-      intelligence.ɵrenewThreadLock({
-        threadId: canonicalThreadId,
-        runId: canonicalRunId,
-        ttlSeconds: lockTtlSeconds,
-        ...(lockKeyPrefix !== undefined ? { lockKeyPrefix } : {}),
-        signal,
-      }),
-    intervalMs: lockHeartbeatIntervalSeconds * 1_000,
-    fallbackTtlSeconds: lockTtlSeconds,
-    initialTtlSeconds:
-      lock.ttlSeconds === undefined
-        ? undefined
-        : lock.ttlSeconds - (Date.now() - lockRequestedAt) / 1_000,
-
-    unref: true,
-    onLost: (error) => {
-      heartbeatError = error;
-      try {
-        args.agent.abortRun();
-      } catch {
-        // The runner stop below remains the authoritative cancellation path.
-      }
-      stopCanonicalRun();
+    acquire: {
+      threadId: args.threadId,
+      runId: args.runId,
+      userId: args.userId,
+      agentId: args.agentId,
+      channelDeliveryId: args.deliveryId,
+      // A Channels delivery is one request, so its delivery ID is the request ID.
+      requestId: args.deliveryId,
+      ...(learningContainerId !== undefined ? { learningContainerId } : {}),
+    },
+    ...(args.signal ? { signal: args.signal } : {}),
+    start: ({ threadId: canonicalThreadId }) => {
+      attachChannelMemory(args.agent, intelligence, args.memory);
+      return {
+        agent: new ChannelOuterAgent(
+          args.agent,
+          canonicalThreadId,
+          async (subscriber, canonicalRun) => {
+            result = await args.execute(subscriber, canonicalRun);
+            return result;
+          },
+        ),
+        input,
+        persistedInputMessages: args.persistedInputMessages,
+      };
     },
   });
 
-  try {
-    await new Promise<void>((resolve, reject) => {
-      let terminalError:
-        | (Error & {
-            code?: string;
-            category?: string;
-            provider?: string;
-            operation?: string;
-            effectKind?: string;
-            providerCode?: string;
-            validationMessages?: readonly string[];
-            retryable?: boolean;
-            deliveryId?: string;
-            details?: unknown;
-          })
-        | undefined;
-      const stream = runner.run({
-        threadId: canonicalThreadId,
-        agent: outer,
-        input: {
-          ...input,
-          threadId: canonicalThreadId,
-          runId: canonicalRunId,
-        },
-        persistedInputMessages: args.persistedInputMessages,
-      });
-      stream.subscribe({
-        next: (event: BaseEvent) => {
-          if (event.type !== EventType.RUN_ERROR || terminalError) return;
-          const message =
-            "message" in event && typeof event.message === "string"
-              ? event.message
-              : "Canonical Channel agent run failed";
-          const details = safeChannelRunErrorDetails(event);
-          terminalError = new Error(
-            message,
-            details ? { cause: details } : undefined,
-          );
-          terminalError.name = "ChannelCanonicalRunError";
-          if (
-            "code" in event &&
-            typeof event.code === "string" &&
-            event.code.length > 0
-          ) {
-            terminalError.code = event.code;
-          }
-          if (details) {
-            terminalError.category = details.category;
-            terminalError.provider = details.provider;
-            terminalError.operation = details.operation;
-            terminalError.effectKind = details.effectKind;
-            terminalError.providerCode = details.providerCode;
-            terminalError.validationMessages = details.validationMessages;
-            terminalError.retryable = details.retryable;
-            terminalError.deliveryId = details.deliveryId;
-            terminalError.details = details;
-          }
-        },
-        error: reject,
-        complete: () => {
-          if (terminalError) {
-            reject(terminalError);
-          } else {
-            resolve();
-          }
-        },
-      });
-      if (args.signal?.aborted) {
-        abortCanonicalRun();
-      }
-    });
-  } finally {
-    args.signal?.removeEventListener("abort", abortCanonicalRun);
-    heartbeat.stop();
-    // Always release the product thread lock from the Runtime side. Gateway
-    // may also release on terminal AG-UI ingestion; cleanup is idempotent and
-    // covers runner paths that never stream terminal events (or lose them).
-    await intelligence
-      .ɵcleanupThreadLock({
-        threadId: canonicalThreadId,
-        runId: canonicalRunId,
-      })
-      .catch(() => undefined);
-  }
-
-  if (heartbeatError !== undefined) {
-    await stopPromise;
-    throw heartbeatError;
-  }
+  if (outcome.runError) throw channelRunError(outcome.runError);
+  if (outcome.lockLost) throw outcome.lockLost.error;
   return result;
+}
+
+type ChannelCanonicalRunError = Error & {
+  code?: string;
+  category?: string;
+  provider?: string;
+  operation?: string;
+  effectKind?: string;
+  providerCode?: string;
+  validationMessages?: readonly string[];
+  retryable?: boolean;
+  deliveryId?: string;
+  details?: unknown;
+};
+
+/** The error a Channel run that ended with `RUN_ERROR` rejects with. */
+function channelRunError(event: BaseEvent): ChannelCanonicalRunError {
+  const message =
+    "message" in event && typeof event.message === "string"
+      ? event.message
+      : "Canonical Channel agent run failed";
+  const details = safeChannelRunErrorDetails(event);
+  const error: ChannelCanonicalRunError = new Error(
+    message,
+    details ? { cause: details } : undefined,
+  );
+  error.name = "ChannelCanonicalRunError";
+  if (
+    "code" in event &&
+    typeof event.code === "string" &&
+    event.code.length > 0
+  ) {
+    error.code = event.code;
+  }
+  if (details) {
+    error.category = details.category;
+    error.provider = details.provider;
+    error.operation = details.operation;
+    error.effectKind = details.effectKind;
+    error.providerCode = details.providerCode;
+    error.validationMessages = details.validationMessages;
+    error.retryable = details.retryable;
+    error.deliveryId = details.deliveryId;
+    error.details = details;
+  }
+  return error;
 }
 
 function safeChannelRunErrorDetails(
@@ -911,100 +838,6 @@ function boundedString(value: unknown, maxLength: number): value is string {
   return (
     typeof value === "string" && value.length > 0 && value.length <= maxLength
   );
-}
-
-/** Convert canonical Intelligence history into AG-UI messages. */
-async function toAgentMessage(
-  message: {
-    id: string;
-    role: string;
-    activityType?: string;
-    content?: unknown;
-    toolCalls?: Array<{ id: string; name: string; args: string }>;
-    toolCallId?: string;
-  },
-  intelligence: CopilotKitIntelligence,
-): Promise<Message> {
-  const content = await hydrateManagedContent(message.content, intelligence);
-  return {
-    id: message.id,
-    role: message.role as Message["role"],
-    content: content ?? "",
-    ...(message.activityType ? { activityType: message.activityType } : {}),
-    ...(message.toolCalls
-      ? {
-          toolCalls: message.toolCalls.map((call) => ({
-            id: call.id,
-            type: "function" as const,
-            function: { name: call.name, arguments: call.args },
-          })),
-        }
-      : {}),
-    ...(message.toolCallId ? { toolCallId: message.toolCallId } : {}),
-  } as Message;
-}
-
-/** Resolves managed asset references only at the authorized Runtime boundary. */
-async function hydrateManagedContent(
-  content: unknown,
-  intelligence: CopilotKitIntelligence,
-): Promise<unknown> {
-  if (Array.isArray(content)) {
-    return Promise.all(
-      content.map(async (part) => {
-        if (
-          typeof part !== "object" ||
-          part === null ||
-          !("source" in part) ||
-          typeof part.source !== "object" ||
-          part.source === null ||
-          !("value" in part.source) ||
-          typeof part.source.value !== "string" ||
-          !part.source.value.startsWith("cpki-asset://")
-        ) {
-          return part;
-        }
-        const assetId = part.source.value.slice("cpki-asset://".length);
-        const asset = await intelligence.ɵgetManagedChannelAsset(assetId);
-        return {
-          ...part,
-          source: {
-            type: "data",
-            value: Buffer.from(asset.bytes).toString("base64"),
-            mimeType:
-              asset.mimeType ??
-              ("mimeType" in part.source &&
-              typeof part.source.mimeType === "string"
-                ? part.source.mimeType
-                : "application/octet-stream"),
-          },
-        };
-      }),
-    );
-  }
-
-  if (
-    typeof content === "object" &&
-    content !== null &&
-    "assetId" in content &&
-    typeof content.assetId === "string"
-  ) {
-    const asset = await intelligence.ɵgetManagedChannelAsset(content.assetId);
-    return {
-      ...content,
-      source: {
-        type: "data",
-        value: Buffer.from(asset.bytes).toString("base64"),
-        mimeType:
-          asset.mimeType ??
-          ("mimeType" in content && typeof content.mimeType === "string"
-            ? content.mimeType
-            : "application/octet-stream"),
-      },
-    };
-  }
-
-  return content;
 }
 
 /** Whether `err` signals a missing managed provider rather than a hard failure. */

@@ -57,7 +57,7 @@ export const appCommands: ChannelCommand[] = [
   // `/preview <title>` — ephemeral demo. Show the invoker a private draft of the
   // issue we'd file BEFORE anything is posted publicly or written to Linear.
   // `postEphemeral` is capability-gated with an explicit DM fallback: Slack shows
-  // a native only-you message; Discord and Telegram have no ephemeral surface, so
+  // a native only-you message; Discord has no ephemeral surface, so
   // `fallbackToDM: true` sends it as a direct message instead. We narrate which
   // path was taken so the degradation is visible, never silent.
   defineChannelCommand({
@@ -103,8 +103,8 @@ export const appCommands: ChannelCommand[] = [
   //  - Slack   → rich modal (dropdowns + radio).
   //  - Discord → text-only modal (discord.js modals take only text inputs); the
   //              dropdowns/radio drop and defaults apply (see FileIssueModal).
-  //  - Telegram→ no modal trigger at all (`ctx.openModal` is undefined), so we
-  //              say so and continue the same job conversationally via the agent.
+  //  - No modal trigger (`ctx.openModal` is undefined) → say so and continue
+  //              the same job conversationally via the agent.
   defineChannelCommand({
     name: "file-issue",
     description: "Open a form to file a Linear issue.",

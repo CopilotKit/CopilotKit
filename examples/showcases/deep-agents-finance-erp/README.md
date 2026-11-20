@@ -65,7 +65,7 @@ npm run dev       # starts Next.js on port 3000
 | Variable            | Description                                                                                           |
 | ------------------- | ----------------------------------------------------------------------------------------------------- |
 | `OPENAI_API_KEY`    | OpenAI API key (required)                                                                             |
-| `OPENAI_MODEL`      | Model to use (default: `gpt-5.4-2026-03-05`)                                                          |
+| `OPENAI_MODEL`      | Model to use (default: `gpt-6-luna`)                                                                  |
 | `DATABASE_URL`      | Postgres connection string (default: `postgresql://erp_user:erp_password@localhost:5432/finance_erp`) |
 | `LANGCHAIN_API_KEY` | LangSmith key for tracing (optional)                                                                  |
 

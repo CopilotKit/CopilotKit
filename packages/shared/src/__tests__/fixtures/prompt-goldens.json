@@ -1,0 +1,354 @@
+[
+  {
+    "flags": {
+      "functions": false,
+      "events": false,
+      "templates": false,
+      "checks": false,
+      "surfaces": false
+    },
+    "markdown": "265596cd69dac2877242fb6f9412509a63c325d1729424c6ed108f127ad38380",
+    "tool": "2831f893c748050be0c9286ac52c5edd2758d3375d8b0e22fb27631d5d7c6153"
+  },
+  {
+    "flags": {
+      "functions": true,
+      "events": false,
+      "templates": false,
+      "checks": false,
+      "surfaces": false
+    },
+    "markdown": "265596cd69dac2877242fb6f9412509a63c325d1729424c6ed108f127ad38380",
+    "tool": "428bc6098febce22a187932f45bcb8e04da425904166285f8c3f038b6359ec27"
+  },
+  {
+    "flags": {
+      "functions": false,
+      "events": true,
+      "templates": false,
+      "checks": false,
+      "surfaces": false
+    },
+    "markdown": "8089a3aac3acb22f5d6cb7320465a9ca2c79d256dd98a4011cda968a72123407",
+    "tool": "55f1755e703874aade63bef55f0a66bf4652a151b722f354d98cccc814a79b26"
+  },
+  {
+    "flags": {
+      "functions": true,
+      "events": true,
+      "templates": false,
+      "checks": false,
+      "surfaces": false
+    },
+    "markdown": "ce392c2acc9ba13c92397ed3735b60b1296d7f2a09df1e979d50fe26c638ef23",
+    "tool": "daa208dec7887a3dd39a532c1ebbb031f7073d3fb52eb6fd65ea30bfb47205a2"
+  },
+  {
+    "flags": {
+      "functions": false,
+      "events": false,
+      "templates": true,
+      "checks": false,
+      "surfaces": false
+    },
+    "markdown": "f4e49df0b7e100ac9c26994f57b4c4affe63415f1c9c609e91f9dd74f8f7a6d4",
+    "tool": "b8c611514da84eb3ffc264fe8eea91d2525499fd2f0e75e239d605bba365ea71"
+  },
+  {
+    "flags": {
+      "functions": true,
+      "events": false,
+      "templates": true,
+      "checks": false,
+      "surfaces": false
+    },
+    "markdown": "f4e49df0b7e100ac9c26994f57b4c4affe63415f1c9c609e91f9dd74f8f7a6d4",
+    "tool": "76370c17a5cdba4f880a032d55a162138ba9daf549e8896ab22b267e08dfd499"
+  },
+  {
+    "flags": {
+      "functions": false,
+      "events": true,
+      "templates": true,
+      "checks": false,
+      "surfaces": false
+    },
+    "markdown": "5e7a0c80e08617730119cbaeb60340bf773faa2085f74d37608395b454e7b105",
+    "tool": "47ff29d2eaa301f3e0c80ae7c267a16184bf391666dae361d68cda5bdf29e7a4"
+  },
+  {
+    "flags": {
+      "functions": true,
+      "events": true,
+      "templates": true,
+      "checks": false,
+      "surfaces": false
+    },
+    "markdown": "dda6b56c079a787437c241dc698280ab6fd53f9ec8a7c14a0c91e9cdc642466b",
+    "tool": "cd6ceb69c8ae9be058338c8f9a634e50eecf6fecff195336862cf44907b42109"
+  },
+  {
+    "flags": {
+      "functions": false,
+      "events": false,
+      "templates": false,
+      "checks": true,
+      "surfaces": false
+    },
+    "markdown": "c9540725953d422a450f55d998a73115fdc5709881680f17c98654770236e450",
+    "tool": "cf1c7f8603b8bd3227154ee523540aef8f70129d6d99480411e0992c90c92c82"
+  },
+  {
+    "flags": {
+      "functions": true,
+      "events": false,
+      "templates": false,
+      "checks": true,
+      "surfaces": false
+    },
+    "markdown": "c9540725953d422a450f55d998a73115fdc5709881680f17c98654770236e450",
+    "tool": "ca0ad9a17c5e6e7b7b0b4b3dbe6abd752de568ed626ca638a8921a97d168a577"
+  },
+  {
+    "flags": {
+      "functions": false,
+      "events": true,
+      "templates": false,
+      "checks": true,
+      "surfaces": false
+    },
+    "markdown": "94c31a6d083321f352018d861a31e3e6a1db85ac3ee32d53776f9e2e334663e6",
+    "tool": "d47ae391ca59acf7ec38f135a9c3c050cadb50f06c9fa4d86161d3e1be1af6f8"
+  },
+  {
+    "flags": {
+      "functions": true,
+      "events": true,
+      "templates": false,
+      "checks": true,
+      "surfaces": false
+    },
+    "markdown": "de8e220f6dadcb090ac7deeeab0595dbb6aaff019ffea0c9487c03e5104b1dee",
+    "tool": "9bb7c1e3f8a307b3eae12ff643f69087f250d50b8e2dd9958d4d238fb0122a17"
+  },
+  {
+    "flags": {
+      "functions": false,
+      "events": false,
+      "templates": true,
+      "checks": true,
+      "surfaces": false
+    },
+    "markdown": "ac475fb084ed732561bb88416af3966599692e278c4a511cd8726278db6344f0",
+    "tool": "56a6232073f31385f9f1f8b4713598ef9444fc4d1f4bb8a0ed781404d96ce03b"
+  },
+  {
+    "flags": {
+      "functions": true,
+      "events": false,
+      "templates": true,
+      "checks": true,
+      "surfaces": false
+    },
+    "markdown": "ac475fb084ed732561bb88416af3966599692e278c4a511cd8726278db6344f0",
+    "tool": "fddd878904428818a5e81266048bb03e49bdb12623c3238325b018a71a45a9f4"
+  },
+  {
+    "flags": {
+      "functions": false,
+      "events": true,
+      "templates": true,
+      "checks": true,
+      "surfaces": false
+    },
+    "markdown": "a3dada266648564dacf6286bd7dddc6efbf321b3ead4be50061faeaf3b6cfe13",
+    "tool": "993d46f71cacf10b13b615048bbf8e4c856303d82db87b17c70a8dd6439e9b80"
+  },
+  {
+    "flags": {
+      "functions": true,
+      "events": true,
+      "templates": true,
+      "checks": true,
+      "surfaces": false
+    },
+    "markdown": "8aedaae7606007869f5530e5a0378f8143c371c103cb557c459a174bf5b1ff0d",
+    "tool": "c4b5e660ff7f9ad59b38d3410c234fb424b4fbc36a7e8999c42f31614193fc77"
+  },
+  {
+    "flags": {
+      "functions": false,
+      "events": false,
+      "templates": false,
+      "checks": false,
+      "surfaces": true
+    },
+    "markdown": "265596cd69dac2877242fb6f9412509a63c325d1729424c6ed108f127ad38380",
+    "tool": "99a6ab165b6eadf8b18a925de922d119e550a3f7b8f75b98536f6424f660a326"
+  },
+  {
+    "flags": {
+      "functions": true,
+      "events": false,
+      "templates": false,
+      "checks": false,
+      "surfaces": true
+    },
+    "markdown": "265596cd69dac2877242fb6f9412509a63c325d1729424c6ed108f127ad38380",
+    "tool": "7f6acd8deadd6ecda655d41d02699a8c80b59513fac5c1dad8d2bb2f0343c26c"
+  },
+  {
+    "flags": {
+      "functions": false,
+      "events": true,
+      "templates": false,
+      "checks": false,
+      "surfaces": true
+    },
+    "markdown": "8089a3aac3acb22f5d6cb7320465a9ca2c79d256dd98a4011cda968a72123407",
+    "tool": "0c241ec3391e2fd2c5b3df4477e7ffe9b4f7313854bb00e196c4a35d956be3f3"
+  },
+  {
+    "flags": {
+      "functions": true,
+      "events": true,
+      "templates": false,
+      "checks": false,
+      "surfaces": true
+    },
+    "markdown": "ce392c2acc9ba13c92397ed3735b60b1296d7f2a09df1e979d50fe26c638ef23",
+    "tool": "8e1a94fbf67daf280f6ac722ccc62075598911e39e55fd5a113646e4c6ec7fc6"
+  },
+  {
+    "flags": {
+      "functions": false,
+      "events": false,
+      "templates": true,
+      "checks": false,
+      "surfaces": true
+    },
+    "markdown": "f4e49df0b7e100ac9c26994f57b4c4affe63415f1c9c609e91f9dd74f8f7a6d4",
+    "tool": "45e9a5a47567f2c0fff0640c3646e498f0ec8068095394a55463f845bb996193"
+  },
+  {
+    "flags": {
+      "functions": true,
+      "events": false,
+      "templates": true,
+      "checks": false,
+      "surfaces": true
+    },
+    "markdown": "f4e49df0b7e100ac9c26994f57b4c4affe63415f1c9c609e91f9dd74f8f7a6d4",
+    "tool": "f40514ab61be567c4a6f2f5b61e934d1779e3323477ce0aa868f3f3a66f1585c"
+  },
+  {
+    "flags": {
+      "functions": false,
+      "events": true,
+      "templates": true,
+      "checks": false,
+      "surfaces": true
+    },
+    "markdown": "5e7a0c80e08617730119cbaeb60340bf773faa2085f74d37608395b454e7b105",
+    "tool": "effee9743233f14583977f93b00133ff1fce48835e25d61f91af5113a480fd11"
+  },
+  {
+    "flags": {
+      "functions": true,
+      "events": true,
+      "templates": true,
+      "checks": false,
+      "surfaces": true
+    },
+    "markdown": "dda6b56c079a787437c241dc698280ab6fd53f9ec8a7c14a0c91e9cdc642466b",
+    "tool": "9a36d1f42b83cfa3cb5beadb130f1b3c3555098304570c0aaa133e8130ad52ea"
+  },
+  {
+    "flags": {
+      "functions": false,
+      "events": false,
+      "templates": false,
+      "checks": true,
+      "surfaces": true
+    },
+    "markdown": "c9540725953d422a450f55d998a73115fdc5709881680f17c98654770236e450",
+    "tool": "eb5246d342a50810de921927f3e5be58a5ecac008b8e0750c5a6cfe2037a3b28"
+  },
+  {
+    "flags": {
+      "functions": true,
+      "events": false,
+      "templates": false,
+      "checks": true,
+      "surfaces": true
+    },
+    "markdown": "c9540725953d422a450f55d998a73115fdc5709881680f17c98654770236e450",
+    "tool": "a79bd017703e7623301e33a8c33f26346e86752e7dec59344226de004ae385c5"
+  },
+  {
+    "flags": {
+      "functions": false,
+      "events": true,
+      "templates": false,
+      "checks": true,
+      "surfaces": true
+    },
+    "markdown": "94c31a6d083321f352018d861a31e3e6a1db85ac3ee32d53776f9e2e334663e6",
+    "tool": "a4fe3c2f2326987ba63c8f4341b0bc100057cce07392f7930f47428b493cdd87"
+  },
+  {
+    "flags": {
+      "functions": true,
+      "events": true,
+      "templates": false,
+      "checks": true,
+      "surfaces": true
+    },
+    "markdown": "de8e220f6dadcb090ac7deeeab0595dbb6aaff019ffea0c9487c03e5104b1dee",
+    "tool": "39ee92edc486d09a15ec1860f18b2349c170b4d010233afc6607b214373b32b5"
+  },
+  {
+    "flags": {
+      "functions": false,
+      "events": false,
+      "templates": true,
+      "checks": true,
+      "surfaces": true
+    },
+    "markdown": "ac475fb084ed732561bb88416af3966599692e278c4a511cd8726278db6344f0",
+    "tool": "f215277ed2b79d86d1ad3aa9bb040c41812741ba00a5c357fd226031a083b7aa"
+  },
+  {
+    "flags": {
+      "functions": true,
+      "events": false,
+      "templates": true,
+      "checks": true,
+      "surfaces": true
+    },
+    "markdown": "ac475fb084ed732561bb88416af3966599692e278c4a511cd8726278db6344f0",
+    "tool": "55f7a37ae48f2c5b7ead10a407f015b398ad866912f0d3b8a1c9da74a27730ae"
+  },
+  {
+    "flags": {
+      "functions": false,
+      "events": true,
+      "templates": true,
+      "checks": true,
+      "surfaces": true
+    },
+    "markdown": "a3dada266648564dacf6286bd7dddc6efbf321b3ead4be50061faeaf3b6cfe13",
+    "tool": "541ad9d56614d3f611f6dc0873ec87e61abb499405e50bac0bd03af3263ba035"
+  },
+  {
+    "flags": {
+      "functions": true,
+      "events": true,
+      "templates": true,
+      "checks": true,
+      "surfaces": true
+    },
+    "markdown": "8aedaae7606007869f5530e5a0378f8143c371c103cb557c459a174bf5b1ff0d",
+    "tool": "8ac027462d8448d3286401e9d520dad6b8d18c8c95912fd1baf7767fbca2ae1d"
+  }
+]

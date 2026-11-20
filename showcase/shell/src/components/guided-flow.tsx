@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { type Integration } from "@/lib/registry";
+import type { Integration } from "@/lib/registry";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -433,7 +433,7 @@ export function GuidedFlow({ integrations }: { integrations: Integration[] }) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="group inline-flex items-center gap-2 px-5 py-2.5 rounded-full border border-[var(--accent)] text-[var(--accent)] text-sm font-medium hover:bg-[var(--accent)] hover:text-white transition-colors"
+        className="group inline-flex items-center gap-2 px-5 py-2.5 rounded-full border border-[var(--accent)] text-[var(--accent)] text-sm font-medium hover:bg-[var(--accent-fill)] hover:text-white transition-colors"
       >
         <svg
           className="w-4 h-4"
@@ -632,7 +632,7 @@ export function GuidedFlow({ integrations }: { integrations: Integration[] }) {
                 <button
                   type="button"
                   onClick={() => setOpen(false)}
-                  className="px-4 py-2 rounded-lg bg-[var(--accent)] text-white text-sm font-medium hover:opacity-90 transition-opacity"
+                  className="px-4 py-2 rounded-lg bg-[var(--accent-fill)] text-white text-sm font-medium hover:opacity-90 transition-opacity"
                 >
                   Done
                 </button>
@@ -667,7 +667,7 @@ export function GuidedFlow({ integrations }: { integrations: Integration[] }) {
                   disabled={!canAdvance}
                   className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                     canAdvance
-                      ? "bg-[var(--accent)] text-white hover:opacity-90"
+                      ? "bg-[var(--accent-fill)] text-white hover:opacity-90"
                       : "bg-[var(--bg-elevated)] text-[var(--text-faint)] cursor-not-allowed"
                   }`}
                 >

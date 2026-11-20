@@ -15,7 +15,7 @@ system message with our json-render schema prompt.
 
 from __future__ import annotations
 
-from crewai import Agent, Crew, Process, Task
+from crewai import Agent, Crew, LLM, Process, Task
 
 from agents._chat_flow_helpers import (
     install_custom_system_message,
@@ -160,7 +160,11 @@ install_custom_system_message(CREW_NAME, BYOC_JSON_RENDER_SYSTEM_PROMPT)
 
 def _build_crew() -> Crew:
     agent = Agent(
-        llm="gpt-5.4",
+        llm=LLM(
+            model="openai/gpt-6-luna",
+            is_litellm=True,
+            additional_params={"extra_body": {"reasoning_effort": "none"}},
+        ),
         role="JSON-Render Spec Emitter",
         goal="Emit a valid `{root, elements}` JSON spec.",
         backstory=BYOC_JSON_RENDER_SYSTEM_PROMPT,
@@ -183,7 +187,11 @@ def _build_crew() -> Crew:
         tasks=[task],
         process=Process.sequential,
         verbose=False,
-        chat_llm="gpt-5.4",
+        chat_llm=LLM(
+            model="openai/gpt-6-luna",
+            is_litellm=True,
+            additional_params={"extra_body": {"reasoning_effort": "none"}},
+        ),
     )
 
 

@@ -51,7 +51,7 @@ Create a `.env` file inside the `agent` folder if you need to override defaults:
 ```
 OPENAI_API_KEY=sk-...your-api-key...
 OPENAI_BASE_URL=https://api.your-provider.com/v1   # optional
-OPENAI_MODEL=gpt-5.2                               # optional
+OPENAI_MODEL=gpt-6-luna                               # optional
 ```
 
 The backend loads this `.env` automatically (via `python-dotenv`). You can also set:

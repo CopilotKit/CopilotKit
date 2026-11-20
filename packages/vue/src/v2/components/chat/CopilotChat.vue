@@ -38,6 +38,8 @@ import type { LastUserMessageState } from "./last-user-message-context";
 import type { Message } from "@ag-ui/core";
 import type { InputContent } from "@copilotkit/shared";
 import { useInspectorThreadOverride } from "../../providers/use-inspector-thread-override";
+import { GenerativeUIChatSlotKey } from "../../generative-ui/chat";
+import type { GenerativeUIChatSurfaceSlotProps } from "../../generative-ui/chat";
 import type {
   CopilotChatInputSlotProps,
   CopilotChatProps,
@@ -69,6 +71,15 @@ defineSlots<{
   "suggestion-view"?: (props: CopilotChatSuggestionViewSlotProps) => unknown;
   "welcome-screen"?: (props: CopilotChatWelcomeScreenSlotProps) => unknown;
   "welcome-message"?: () => unknown;
+  /**
+   * Experimental. Wraps each generative UI surface that the agent renders in
+   * this chat, in place of the default card. It gets `surfaceId`,
+   * `isStreaming`, `error`, `rejected`, and `children` (the surface, render
+   * it with `<component :is="children" />`).
+   */
+  "generative-ui-surface"?: (
+    props: GenerativeUIChatSurfaceSlotProps,
+  ) => unknown;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   [key: string]: ((props: any) => unknown) | undefined;
 }>();
@@ -90,6 +101,10 @@ const existingConfig = useCopilotChatConfiguration();
 const { copilotkit } = useCopilotKit();
 const forwardedChatViewSlotNames = computed(() =>
   Object.keys(componentSlots).filter((slotName) => slotName !== "chat-view"),
+);
+provide(
+  GenerativeUIChatSlotKey,
+  computed(() => componentSlots["generative-ui-surface"]),
 );
 
 const generatedThreadId = ref(randomUUID());

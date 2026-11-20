@@ -69,7 +69,8 @@ export interface CopilotKitNativeProviderProps {
   }) => void | Promise<void>;
   /**
    * Enable debug logging for the client-side event pipeline.
-   * When `true`, enables verbose logging from the core instance.
+   * `true` logs event and lifecycle summaries. Pass `{ verbose: true }` for
+   * full event payloads.
    */
   debug?: DebugConfig;
   /**

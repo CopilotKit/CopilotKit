@@ -95,7 +95,8 @@ Example response (sales dashboard):
 # aligns the wire-level contract with what the parser accepts.
 graph = create_agent(
     model=ChatOpenAI(
-        model="gpt-5-mini",
+        reasoning_effort="none",
+        model="gpt-6-luna",
         model_kwargs={"response_format": {"type": "json_object"}},
     ),
     tools=[],

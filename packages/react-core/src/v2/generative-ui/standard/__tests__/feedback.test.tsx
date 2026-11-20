@@ -1,0 +1,390 @@
+import React from "react";
+import { act, fireEvent } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { z } from "zod";
+import { createGenerativeUI } from "../../catalog";
+import { FEEDBACK_STYLE_ID, feedbackComponents } from "../feedback";
+import { SURFACE_ID, renderSurface } from "./render";
+import { standardUI } from "../index";
+
+/** Test-only leaves, so the feedback tests need no other group. */
+function Label({ text }: { text: string }) {
+  return <span>{text}</span>;
+}
+function Group({ children }: { children?: React.ReactNode }) {
+  return <div>{children}</div>;
+}
+
+const ui = createGenerativeUI({
+  id: "test/feedback@1",
+  components: {
+    ...feedbackComponents,
+    Label: { component: Label, props: z.object({ text: z.string() }) },
+    Group: { component: Group, slots: { children: "multiple" } },
+  },
+});
+
+/** The `open` prop of a Popover: a literal, or a data model binding. */
+type PopoverOpen = { open?: boolean | { "@path": string } };
+
+/** A Popover with an "Open" trigger and a "Hidden content" body. */
+function popoverNodes(popover: PopoverOpen = {}) {
+  return [
+    { id: "root", component: "Group", children: ["o", "outside"] },
+    { id: "o", component: "Popover", children: ["pt", "pc"], ...popover },
+    { id: "pt", component: "PopoverTrigger", children: ["tt"] },
+    { id: "tt", component: "Label", text: "Open" },
+    { id: "pc", component: "PopoverContent", children: ["cc"] },
+    { id: "cc", component: "Label", text: "Hidden content" },
+    { id: "outside", component: "Label", text: "Outside" },
+  ];
+}
+
+async function renderPopover(popover: PopoverOpen = {}) {
+  const view = renderSurface(ui, popoverNodes(popover));
+  const trigger = (await view.findByText("Open")).closest("button");
+  if (!trigger) throw new Error("The trigger is not a button.");
+  return { view, trigger };
+}
+
+afterEach(() => {
+  vi.useRealTimers();
+});
+
+describe("feedbackComponents", () => {
+  it("is valid input for createGenerativeUI, with a description for every component", () => {
+    const names = Object.keys(feedbackComponents);
+    expect(names).toEqual([
+      "PulseIndicator",
+      "FlashcardFlip",
+      "Popover",
+      "PopoverTrigger",
+      "PopoverContent",
+      "Modal",
+    ]);
+    for (const name of names) {
+      expect(ui.manifestComponents[name].description).toMatch(/\S/);
+    }
+    for (const name of ["Popover", "PopoverTrigger", "PopoverContent"]) {
+      expect(ui.manifestComponents[name].slots).toEqual({
+        children: "multiple",
+      });
+    }
+    expect(ui.manifestComponents.FlashcardFlip.slots).toBeUndefined();
+  });
+});
+
+describe("Modal", () => {
+  it("opens from the keyboard when the trigger is plain text, and keeps a Button trigger as the only control", async () => {
+    const view = renderSurface(standardUI, [
+      { id: "root", component: "Column", children: ["m1", "m2"] },
+      {
+        id: "m1",
+        component: "Modal",
+        title: "One",
+        trigger: "t1",
+        content: "c1",
+      },
+      { id: "t1", component: "Text", text: "Open one" },
+      { id: "c1", component: "Text", text: "Body one" },
+      {
+        id: "m2",
+        component: "Modal",
+        title: "Two",
+        trigger: "t2",
+        content: "c2",
+      },
+      { id: "t2", component: "Button", label: "Open two" },
+      { id: "c2", component: "Text", text: "Body two" },
+    ]);
+    const plain = (await view.findByText("Open one")).closest(
+      "[data-a2ui-modal-trigger]",
+    ) as HTMLElement;
+    await act(async () => {});
+    expect(plain.getAttribute("role")).toBe("button");
+    expect(plain.getAttribute("tabindex")).toBe("0");
+    fireEvent.keyDown(plain, { key: "Enter" });
+    expect((await view.findByRole("dialog")).textContent).toContain("Body one");
+    fireEvent.keyDown(document, { key: "Escape" });
+    await act(async () => {});
+    expect(view.queryByRole("dialog")).toBeNull();
+
+    const buttoned = view
+      .getByRole("button", { name: "Open two" })
+      .closest("[data-a2ui-modal-trigger]") as HTMLElement;
+    expect(buttoned.getAttribute("role")).toBeNull();
+    expect(buttoned.getAttribute("tabindex")).toBeNull();
+  });
+
+  it("does not open when the trigger is a disabled Pressable", async () => {
+    const view = renderSurface(standardUI, [
+      {
+        id: "root",
+        component: "Modal",
+        title: "Off",
+        trigger: "t",
+        content: "c",
+      },
+      { id: "t", component: "Pressable", disabled: true, children: ["l"] },
+      { id: "l", component: "Text", text: "Press" },
+      { id: "c", component: "Text", text: "Body" },
+    ]);
+    const label = await view.findByText("Press");
+    const wrapper = label.closest("[data-a2ui-modal-trigger]") as HTMLElement;
+    await act(async () => {});
+    expect(wrapper.getAttribute("role")).toBeNull();
+    fireEvent.click(label);
+    fireEvent.keyDown(wrapper, { key: "Enter" });
+    expect(view.queryByRole("dialog")).toBeNull();
+  });
+
+  it("does not open from the keyboard when the trigger is a disabled Button", async () => {
+    const view = renderSurface(standardUI, [
+      {
+        id: "root",
+        component: "Modal",
+        title: "Off",
+        trigger: "t",
+        content: "c",
+      },
+      { id: "t", component: "Button", label: "Open", disabled: true },
+      { id: "c", component: "Text", text: "Body" },
+    ]);
+    const wrapper = (await view.findByRole("button", { name: "Open" })).closest(
+      "[data-a2ui-modal-trigger]",
+    ) as HTMLElement;
+    await act(async () => {});
+    expect(wrapper.getAttribute("role")).toBeNull();
+    expect(wrapper.getAttribute("tabindex")).toBeNull();
+    fireEvent.keyDown(wrapper, { key: "Enter" });
+    fireEvent.keyDown(wrapper, { key: " " });
+    expect(view.queryByRole("dialog")).toBeNull();
+  });
+
+  it("closes only the newest overlay on Escape: a lightbox inside the dialog first, then the dialog", async () => {
+    const view = renderSurface(standardUI, [
+      {
+        id: "root",
+        component: "Modal",
+        title: "Pics",
+        trigger: "t",
+        content: "img",
+      },
+      { id: "t", component: "Text", text: "Open" },
+      {
+        id: "img",
+        component: "Image",
+        url: "https://example.com/a.png",
+        description: "A",
+      },
+    ]);
+    fireEvent.click(await view.findByText("Open"));
+    const dialog = await view.findByRole("dialog");
+    fireEvent.click(await view.findByAltText("A"));
+    await act(async () => {});
+    expect(document.querySelector("[data-a2ui-lightbox]")).not.toBeNull();
+    fireEvent.keyDown(document, { key: "Escape" });
+    await act(async () => {});
+    expect(document.querySelector("[data-a2ui-lightbox]")).toBeNull();
+    expect(document.body.contains(dialog)).toBe(true);
+    fireEvent.keyDown(document, { key: "Escape" });
+    await act(async () => {});
+    expect(view.queryByRole("dialog")).toBeNull();
+  });
+
+  it("lets a Button trigger send its own event while the dialog opens", async () => {
+    const view = renderSurface(standardUI, [
+      {
+        id: "root",
+        component: "Modal",
+        title: "Two",
+        trigger: "t",
+        content: "c",
+      },
+      {
+        id: "t",
+        component: "Button",
+        label: "Open",
+        onClick: { event: { name: "opened" } },
+      },
+      { id: "c", component: "Text", text: "Body" },
+    ]);
+    fireEvent.click(await view.findByRole("button", { name: "Open" }));
+    const dialog = await view.findByRole("dialog");
+    expect(dialog.textContent).toContain("Body");
+    // The overlay is portaled to the body, outside any transformed row, and
+    // keeps the surface style scope.
+    expect(view.container.contains(dialog)).toBe(false);
+    expect(dialog.closest(".a2ui-surface")).not.toBeNull();
+    await act(async () => {});
+    expect(view.forwardEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "opened" }),
+      expect.anything(),
+    );
+  });
+});
+
+describe("standard feedback", () => {
+  it("names a PopoverTrigger by its envelope", async () => {
+    const view = renderSurface(standardUI, [
+      { id: "root", component: "Popover", children: ["t", "c"] },
+      {
+        id: "t",
+        component: "PopoverTrigger",
+        children: ["i"],
+        accessibility: { label: "More options" },
+      },
+      { id: "i", component: "Icon", name: "ellipsis" },
+      { id: "c", component: "PopoverContent", children: ["x"] },
+      { id: "x", component: "Text", text: "Options" },
+    ]);
+    await view.findByRole("button", { name: "More options" });
+  });
+
+  it("applies the envelope of a Modal to its dialog, which is a portal", async () => {
+    const view = renderSurface(standardUI, [
+      { id: "root", component: "Column", children: ["m"] },
+      {
+        id: "m",
+        component: "Modal",
+        title: "Terms",
+        open: true,
+        trigger: "t",
+        content: "c",
+        accessibility: { label: "Terms of service", live: "polite" },
+      },
+      { id: "t", component: "Button", label: "Open" },
+      { id: "c", component: "Text", text: "Body" },
+    ]);
+    const dialog = await view.findByRole("dialog", {
+      name: "Terms of service",
+    });
+    expect(dialog.getAttribute("aria-live")).toBe("polite");
+    expect(dialog.hasAttribute("aria-labelledby")).toBe(false);
+  });
+
+  it("renders the feedback and overlay components", async () => {
+    const view = renderSurface(ui, [
+      {
+        id: "root",
+        component: "Group",
+        children: ["p", "f", "o"],
+      },
+      { id: "p", component: "PulseIndicator" },
+      { id: "f", component: "FlashcardFlip", front: "Q", back: "A" },
+      { id: "o", component: "Popover", children: ["pt", "pc"] },
+      { id: "pt", component: "PopoverTrigger", children: ["tt"] },
+      { id: "tt", component: "Label", text: "Open" },
+      { id: "pc", component: "PopoverContent", children: ["cc"] },
+      { id: "cc", component: "Label", text: "Hidden content" },
+    ]);
+    expect(await view.findByText("Q")).toBeTruthy();
+    expect(view.queryByText("Hidden content")).toBeNull();
+    fireEvent.click(view.getByText("Open"));
+    expect(await view.findByText("Hidden content")).toBeTruthy();
+  });
+
+  it("names a PulseIndicator only when it has a label", async () => {
+    const view = renderSurface(ui, [
+      { id: "root", component: "Group", children: ["a", "b"] },
+      { id: "a", component: "PulseIndicator", label: "Live" },
+      { id: "b", component: "PulseIndicator" },
+    ]);
+    expect(await view.findByRole("img", { name: "Live" })).toBeTruthy();
+    expect(view.getAllByRole("img")).toHaveLength(1);
+  });
+
+  it("keeps a pulse under reduced motion, as a fade without growth", async () => {
+    const view = renderSurface(ui, [
+      { id: "root", component: "PulseIndicator", label: "Live" },
+    ]);
+    const pulse = await view.findByRole("img", { name: "Live" });
+    expect(pulse.querySelector("[data-a2ui-pulse]")).not.toBeNull();
+    const css = document.getElementById(FEEDBACK_STYLE_ID)?.textContent;
+    expect(css).toContain(
+      "@media (prefers-reduced-motion: reduce){[data-a2ui-pulse]{animation-name:a2ui-pulse-fade !important}}",
+    );
+    expect(css).toContain("@keyframes a2ui-pulse-fade{0%{opacity:");
+  });
+});
+
+describe("FlashcardFlip", () => {
+  const cardNodes = [
+    {
+      id: "root",
+      component: "FlashcardFlip",
+      front: "Q",
+      back: "A",
+      hint: "Click to flip",
+    },
+  ];
+
+  it("flips to the back on click, and back to the front on a second click", async () => {
+    const view = renderSurface(ui, cardNodes);
+    const card = await view.findByRole("button", { pressed: false });
+    expect(card.textContent).toBe("QClick to flip");
+    fireEvent.click(card);
+    expect(card.getAttribute("aria-pressed")).toBe("true");
+    expect(card.textContent).toBe("A");
+    fireEvent.click(card);
+    expect(card.textContent).toBe("QClick to flip");
+  });
+
+  it("flips with the Enter and Space keys", async () => {
+    const user = userEvent.setup();
+    const view = renderSurface(ui, cardNodes);
+    const card = await view.findByRole("button", { pressed: false });
+    card.focus();
+    await user.keyboard("{Enter}");
+    expect(card.textContent).toBe("A");
+    await user.keyboard(" ");
+    expect(card.textContent).toBe("QClick to flip");
+  });
+});
+
+describe("Popover", () => {
+  it("opens a dialog named by its trigger, and closes on a second click", async () => {
+    const { view, trigger } = await renderPopover();
+    expect(trigger.getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(trigger);
+    const dialog = await view.findByRole("dialog", { name: "Open" });
+    expect(dialog.textContent).toBe("Hidden content");
+    expect(trigger.getAttribute("aria-expanded")).toBe("true");
+    expect(trigger.getAttribute("aria-controls")).toBe(dialog.id);
+    fireEvent.click(trigger);
+    expect(view.queryByRole("dialog")).toBeNull();
+  });
+
+  it("closes on Escape and moves focus back to the trigger", async () => {
+    const user = userEvent.setup();
+    const { view, trigger } = await renderPopover({ open: true });
+    const dialog = await view.findByRole("dialog");
+    dialog.tabIndex = -1;
+    dialog.focus();
+    await user.keyboard("{Escape}");
+    expect(view.queryByRole("dialog")).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+  });
+
+  it("closes on a pointer press outside of it", async () => {
+    const { view, trigger } = await renderPopover();
+    fireEvent.click(trigger);
+    await view.findByRole("dialog");
+    fireEvent.pointerDown(view.getByText("Hidden content"));
+    expect(view.queryByRole("dialog")).not.toBeNull();
+    fireEvent.pointerDown(view.getByText("Outside"));
+    expect(view.queryByRole("dialog")).toBeNull();
+  });
+
+  it("writes the open state to a bound data path", async () => {
+    const view = renderSurface(
+      ui,
+      popoverNodes({ open: { "@path": "/menuOpen" } }),
+      { menuOpen: false },
+    );
+    fireEvent.click(await view.findByText("Open"));
+    expect(await view.findByRole("dialog")).toBeTruthy();
+    expect(view.dataAt("/menuOpen")).toBe(true);
+  });
+});

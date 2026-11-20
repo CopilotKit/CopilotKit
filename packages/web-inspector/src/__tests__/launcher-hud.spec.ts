@@ -46,7 +46,7 @@ type Options = Readonly<{
   intelligence?: boolean;
   licenseStatus?: RuntimeLicenseStatus;
   learningSnapshot?: InspectorLearningSnapshotV1;
-  learningStatus?: number;
+  learningStatus?: number | (() => number);
   notificationContext?: NotificationContext;
   hudFeed?: unknown;
 }>;
@@ -187,7 +187,10 @@ async function setup(options: Options = {}): Promise<{
         ).href;
         if (href.startsWith(`${RUNTIME_URL}/inspector-learning`)) {
           return new Response(JSON.stringify(options.learningSnapshot), {
-            status: options.learningStatus ?? 200,
+            status:
+              typeof options.learningStatus === "function"
+                ? options.learningStatus()
+                : (options.learningStatus ?? 200),
           });
         }
         if (href === ANNOUNCEMENT_URL) {
@@ -612,20 +615,37 @@ test.each(["not_configured", "selection_required"] as const)(
   },
 );
 
-test("launcher does not treat an advertised endpoint with a failed Learning read as enabled", async () => {
-  const { inspector, openHud } = await setup({
-    intelligence: true,
-    learningSnapshot: configuredLearning,
-    learningStatus: 503,
-  });
-  await openHud();
-  await settle(inspector);
-  expect(
-    root(inspector)
-      .querySelector('[data-cpk-hud-row="learning"] [data-cpk-hud-toggle]')
-      ?.getAttribute("data-enabled"),
-  ).toBe("false");
-});
+test.each([503, 404])(
+  "launcher shows unavailable Learning after HTTP %s and retries",
+  async (initialStatus) => {
+    let status = initialStatus;
+    const { inspector, openHud } = await setup({
+      intelligence: true,
+      learningSnapshot: configuredLearning,
+      learningStatus: () => status,
+    });
+    await openHud();
+    await settle(inspector);
+    const row = requireElement(
+      root(inspector).querySelector('[data-cpk-hud-row="learning"]'),
+    );
+    expect(row.textContent).toContain("Learning status unavailable");
+    expect(row.querySelector("[data-cpk-hud-toggle]")).toBeNull();
+    const retry = requireElement(
+      row.querySelector<HTMLButtonElement>(
+        'button[aria-label="Retry Learning status"]',
+      ),
+    );
+
+    status = 200;
+    retry.click();
+    await vi.waitFor(() => {
+      expect(
+        root(inspector).querySelector('[data-cpk-hud-row="learning"]'),
+      ).toBeNull();
+    });
+  },
+);
 
 function hudFeed(
   features: Record<string, Record<string, string>>,
@@ -768,4 +788,35 @@ test("a context change re-resolves HUD content from the loaded feed", async () =
   await inspector.updateComplete;
   expect(hudRowLabels(inspector)[0]).toBe("Rich Threads");
   expect(loadHudFeed).toHaveBeenCalledTimes(1);
+});
+
+test("Home keeps unavailable Learning out of features available to add and retries", async () => {
+  let status = 503;
+  const { inspector, pressLauncher } = await setup({
+    intelligence: true,
+    learningSnapshot: configuredLearning,
+    learningStatus: () => status,
+  });
+  await pressLauncher();
+  const learning = requireElement(
+    root(inspector).querySelector('[data-inspector-service="memory"]'),
+  );
+  expect(learning.textContent).toContain("Learning status unavailable");
+  expect(learning.closest('[data-feature-state-group="available"]')).toBeNull();
+  expect(
+    learning.querySelector("[data-inspector-home-feature-prompt]"),
+  ).toBeNull();
+
+  status = 200;
+  requireElement(
+    learning.querySelector<HTMLButtonElement>(
+      'button[aria-label="Retry Learning status"]',
+    ),
+  ).click();
+  await vi.waitFor(() => {
+    expect(
+      root(inspector).querySelector('[data-inspector-service="memory"]')
+        ?.textContent,
+    ).toContain("Learning configured");
+  });
 });

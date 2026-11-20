@@ -477,6 +477,66 @@ describe("CopilotKit", () => {
     ]);
   });
 
+  it("lists custom components by name only when includeSchema is false", () => {
+    const customCatalog: A2UICatalog = Object.assign(
+      new Catalog("copilotkit://custom-catalog", [
+        { name: "FlightCard", schema: z.object({ airline: z.string() }) },
+      ]),
+      { surfaceComponent: CopilotA2UIActivityRenderer },
+    );
+    TestBed.configureTestingModule({
+      providers: [
+        provideCopilotKit({
+          licenseKey,
+          a2ui: { catalog: customCatalog, includeSchema: false },
+        }),
+      ],
+    });
+
+    TestBed.inject(CopilotKit);
+
+    expect(mockAddContext.mock.calls.map(([context]) => context.value)).toEqual(
+      [
+        [
+          "Available A2UI catalog:",
+          "- copilotkit://custom-catalog",
+          "  Custom catalog (does NOT include all basic components).",
+          "  Custom components:",
+          "  - FlightCard",
+        ].join("\n"),
+      ],
+    );
+  });
+
+  it("includes custom component schemas in the catalog description by default", () => {
+    const customCatalog: A2UICatalog = Object.assign(
+      new Catalog("copilotkit://custom-catalog", [
+        { name: "FlightCard", schema: z.object({ airline: z.string() }) },
+      ]),
+      { surfaceComponent: CopilotA2UIActivityRenderer },
+    );
+    TestBed.configureTestingModule({
+      providers: [
+        provideCopilotKit({ licenseKey, a2ui: { catalog: customCatalog } }),
+      ],
+    });
+
+    TestBed.inject(CopilotKit);
+
+    expect(mockAddContext).toHaveBeenCalledWith(
+      expect.objectContaining({
+        description:
+          "A2UI catalog capabilities: available catalog IDs and custom component definitions the client can render.",
+        value: expect.stringContaining("  - FlightCard:\n    {"),
+      }),
+    );
+    expect(mockAddContext).toHaveBeenCalledWith(
+      expect.objectContaining({
+        value: expect.stringContaining('"airline"'),
+      }),
+    );
+  });
+
   it("advertises a provided A2UI catalog in initial and updated runtime properties", () => {
     const initialProperties = { region: "eu" };
     const updatedProperties = { locale: "en" };

@@ -19,24 +19,14 @@ const CHANNELS_PACKAGES = [
   "@copilotkit/channels-teams",
   "@copilotkit/channels-intelligence",
   "@copilotkit/channels-discord",
-  "@copilotkit/channels-telegram",
   "@copilotkit/channels-whatsapp",
   "@copilotkit/channels",
 ];
 
-describe("Learning release scope", () => {
-  it("selects only Learning for independent versioning and publishing", () => {
-    expect(resolveScopes("learning")).toEqual(["learning"]);
-    expect(getScopeConfig("learning")).toEqual({
-      packages: ["@copilotkit/learning"],
-      versionSource: "@copilotkit/learning",
-      sharedVersion: false,
-    });
-    const packages = getPackagesForScope("learning");
-    expect(packages.map((pkg) => pkg.name)).toEqual(["@copilotkit/learning"]);
-    expect(getCurrentVersion("learning")).toBe(packages[0].pkg.version);
-    expect(getScopePathspecs("learning")).toEqual(["packages/learning"]);
-    expect(getScopeConfig("monorepo").packages).not.toContain(
+describe("Learning in the monorepo release", () => {
+  it("versions and publishes Learning with the monorepo packages", () => {
+    expect(() => resolveScopes("learning")).toThrow(/Unknown scope/);
+    expect(getScopeConfig("monorepo").packages).toContain(
       "@copilotkit/learning",
     );
     expect(
@@ -44,27 +34,23 @@ describe("Learning release scope", () => {
         .flatMap((scope) => scope.packages)
         .filter((name) => name === "@copilotkit/learning"),
     ).toHaveLength(1);
+    const learning = getPackagesForScope("monorepo").find(
+      (pkg) => pkg.name === "@copilotkit/learning",
+    );
+    expect(learning?.pkg.version).toBe(getCurrentVersion("monorepo"));
+    expect(getScopePathspecs("monorepo")).toContain("packages/learning");
   });
 
-  it("keeps Core's workspace dependency resolvable across independent scopes", () => {
-    const learning = getPackagesForScope("learning")[0];
+  it("pins Core to the same-release Learning version", () => {
     const core = getPackagesForScope("monorepo").find(
       (pkg) => pkg.name === "@copilotkit/core",
     );
-    expect(core?.pkg.dependencies[learning.name]).toBe("workspace:^");
-    expect(findCrossScopePins(["monorepo"])).toContainEqual({
-      from: "@copilotkit/core",
-      dep: "@copilotkit/learning",
-      depScope: "learning",
-      resolvesTo: learning.pkg.version,
-      reason: "unpublished-scope",
-    });
+    expect(core?.pkg.dependencies["@copilotkit/learning"]).toBe("workspace:*");
     expect(
-      findCrossScopePins(resolveScopes(ALL_SCOPES)).filter(
-        (pin) => pin.dep === learning.name,
+      findCrossScopePins(["monorepo"]).filter(
+        (pin) => pin.dep === "@copilotkit/learning",
       ),
     ).toEqual([]);
-    expect(findCrossScopePins(["learning"])).toEqual([]);
   });
 });
 

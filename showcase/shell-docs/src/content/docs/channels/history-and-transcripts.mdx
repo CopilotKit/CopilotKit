@@ -5,14 +5,20 @@ description: Distinguish Intelligence-managed conversation history from the opti
 doc_type: explanation
 ---
 
-Channels exposes two different history systems:
+Your agent needs earlier messages to answer well. Some apps also need one
+record per user across Slack and Teams. Pick the source by what you need:
 
-- Intelligence-managed conversation history rebuilds the selected provider
-  thread for the agent.
-- SDK transcripts create an application-owned, identity-keyed record that can
-  span providers and conversations.
+| Need                                                | Use                                                                     |
+| --------------------------------------------------- | ----------------------------------------------------------------------- |
+| Continue the current Slack or Teams conversation    | Managed conversation history                                            |
+| Inspect recent text in one provider thread          | `thread.getMessages()`                                                  |
+| Carry user context between Slack and Teams          | SDK transcripts with a stable identity                                  |
+| Store workflow progress                             | `thread.state()`                                                        |
+| Meet application deletion or retention requirements | A durable SDK transcript store plus your provider/Intelligence policies |
 
-Choose one based on the behavior you need. They are not interchangeable.
+Managed conversation history rebuilds the current provider thread for the
+agent. SDK transcripts are an application-owned record, keyed by identity, that
+can span providers and conversations. They are not interchangeable.
 
 ## Use managed conversation history
 
@@ -20,27 +26,17 @@ On each delivered turn, Intelligence fetches recent messages for that native
 conversation and seeds a fresh agent instance. The default history limit in the
 managed adapter is 20 messages.
 
-The current inbound turn is not part of the fetched history. `runAgent()`
-automatically injects it when `prompt` is omitted. Build an explicit prompt when
-you need both the message text and hydrated attachments:
+The managed conversation history already holds the current turn, with its text and hydrated
+attachments. Call `runAgent()` without a `prompt` to answer it:
 
 ```ts title="channel.ts"
-channel.onMessage(async ({ thread, message }) => {
-  await thread.runAgent({
-    prompt: message.contentParts?.length
-      ? [
-          ...(message.text
-            ? [{ type: "text" as const, text: message.text }]
-            : []),
-          ...message.contentParts,
-        ]
-      : message.text,
-  });
+channel.onMessage(async ({ thread }) => {
+  await thread.runAgent();
 });
 ```
 
 Create a fresh agent for every `conversationKey`; the managed adapter assigns
-the reconstructed messages to that instance. Sharing one mutable agent between
+the managed conversation history to that instance. Sharing one mutable agent between
 threads can leak or overwrite history.
 
 ## Read the current provider thread
@@ -55,8 +51,8 @@ const transcript = messages
   .join("\n");
 ```
 
-On the managed path, history-fetch failures return `[]` instead of failing the
-turn. The method is text-oriented: binary image, audio, and video content is
+On the managed path, `getMessages()` throws when the history fetch fails. Catch
+the error if the turn must continue without history. The method is text-oriented: binary image, audio, and video content is
 available to the agent through multimodal history, but is not reproduced as
 binary data in `ThreadMessage`.
 
@@ -77,10 +73,12 @@ and writes.
 
 ```ts title="channel.ts"
 import { createChannel } from "@copilotkit/channels";
+import { accounts } from "./accounts.js";
+import { makeAgent } from "./agent.js";
 import { durableStateStore } from "./state-store.js";
 
 const channel = createChannel({
-  name: required("CHANNEL_CODE"),
+  name: process.env.CHANNEL_CODE,
   identifyUser: async ({ provider, actor }) => {
     const account = await accounts.findByExternalIdentity({
       provider,
@@ -105,10 +103,12 @@ const channel = createChannel({
 
 ```ts title="channel.ts"
 import { createChannel } from "@copilotkit/channels";
+import { accounts } from "./accounts.js";
+import { makeAgent } from "./agent.js";
 import { durableStateStore } from "./state-store.js";
 
 const channel = createChannel({
-  name: required("CHANNEL_CODE"),
+  name: process.env.CHANNEL_CODE,
   identifyUser: async ({ provider, actor }) => {
     const account = await accounts.findByExternalIdentity({
       provider,
@@ -176,16 +176,6 @@ filter only when you intentionally want one provider's entries.
 
 `delete()` removes the SDK-owned transcript for that user; provider history and
 any separate Intelligence retention policy remain independent.
-
-## Pick the right source
-
-| Need                                                | Use                                                                     |
-| --------------------------------------------------- | ----------------------------------------------------------------------- |
-| Continue the current Slack or Teams conversation    | Managed conversation history                                            |
-| Inspect recent text in one provider thread          | `thread.getMessages()`                                                  |
-| Carry user context between Slack and Teams          | SDK transcripts with a stable identity                                  |
-| Store workflow progress                             | `thread.state()`                                                        |
-| Meet application deletion or retention requirements | A durable SDK transcript store plus your provider/Intelligence policies |
 
 See the [`Transcripts` reference](/reference/channels/classes/Transcripts) and
 [persistence guide](/channels/persistence-and-scaling) before enabling this in

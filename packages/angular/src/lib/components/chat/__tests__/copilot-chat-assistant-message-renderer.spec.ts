@@ -1,8 +1,9 @@
 import { ApplicationRef } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import DOMPurify from "dompurify";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { CopilotChatAssistantMessageRenderer } from "../copilot-chat-assistant-message-renderer";
+import { preloadMarkdownLibraries } from "../markdown";
 
 const privatePurifierSupport = vi.hoisted(() => ({ supported: true }));
 
@@ -69,6 +70,9 @@ function scriptUrls(root: HTMLElement): string[] {
 }
 
 describe("CopilotChatAssistantMessageRenderer markdown", () => {
+  // highlight.js and KaTeX load on first use; the assertions below need them.
+  beforeAll(() => preloadMarkdownLibraries());
+
   it("keeps ordinary markdown", () => {
     const root = render(
       "# Title\n\n**bold** and [link](https://example.com)\n\n- one\n- two",

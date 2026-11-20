@@ -818,6 +818,10 @@ export function wirePlaywrightPage(
   // even with multiplexing the FIFO pairing keeps durations bounded and
   // non-zero rather than colliding to 0.)
   const requestStartsByUrl = new Map<string, number[]>();
+  // Response headers already consume a FIFO start, even when the body later
+  // fails. Weak identities prevent that failure from evicting a sibling start
+  // without retaining completed requests on a pooled, long-lived page.
+  const respondedRequests = new WeakSet<object>();
   return {
     goto: async (url, opts) => {
       // Install the SSE interceptor's `document_start` init scripts BEFORE
@@ -924,6 +928,8 @@ export function wirePlaywrightPage(
           }
           const durationMs =
             startedAt !== undefined ? Math.round(nowMonoMs() - startedAt) : 0;
+          const req = resp.request();
+          respondedRequests.add(req);
           handler({
             url,
             status: resp.status(),
@@ -937,7 +943,7 @@ export function wirePlaywrightPage(
             // issues unrelated POSTs (telemetry/analytics/beacons) around the
             // agent message, and matching any POST let the LAST one overwrite
             // the captured agent-message response. See `isAgentMessagePost`.
-            isMessagePost: isAgentMessagePost(resp.request().method(), url),
+            isMessagePost: isAgentMessagePost(req.method(), url),
             // L2-C raw-byte seam: defer the (potentially large) body read until
             // the DEBUG-tier stub actually wants it. Swallow read errors so a
             // body that's already been consumed never throws into the probe.
@@ -990,6 +996,7 @@ export function wirePlaywrightPage(
       page.on("requestfailed", (arg) => {
         try {
           const req = arg as { url(): string };
+          if (respondedRequests.has(req)) return;
           const url = req.url();
           const queue = requestStartsByUrl.get(url);
           if (queue !== undefined && queue.length > 0) {
@@ -1008,17 +1015,28 @@ export function wirePlaywrightPage(
         try {
           const req = arg as {
             url(): string;
-            failure(): { errorText: string } | null;
-            response(): { status(): number } | null;
+            failure?(): { errorText: string } | null;
+            response(): Promise<{ status(): number } | null>;
           };
-          const resp = req.response?.();
-          handler({
-            url: req.url(),
-            errorClass: req.failure()?.errorText ?? "unknown",
-            responseStatus: resp ? resp.status() : null,
+          // Capture the original failure before response lookup can outlive
+          // the request/browser. Status is best-effort diagnostic enrichment.
+          const url = req.url();
+          const errorClass = req.failure?.()?.errorText ?? "unknown";
+          void (async () => {
+            let responseStatus: number | null = null;
+            try {
+              const resp = await req.response?.();
+              responseStatus = resp?.status() ?? null;
+            } catch {
+              // Browser closure must not discard the original diagnostic.
+            }
+            await handler({ url, errorClass, responseStatus });
+          })().catch(() => {
+            // EventEmitter does not await listeners. Consume a diagnostic
+            // consumer's exception instead of leaking a rejected Promise.
           });
         } catch {
-          /* ignore */
+          /* malformed request accessor: never throw out of a listener */
         }
       });
     },

@@ -35,7 +35,7 @@ const runCode = defineTool({
 });
 
 const agent = new BuiltInAgent({
-  model: process.env.MODEL ?? "openai:gpt-5.4-mini",
+  model: process.env.MODEL ?? "openai:gpt-6-luna",
   prompt:
     "You are a coding assistant. When the user asks you to run, execute, or compute " +
     "something with code, use the runCode tool to run it in a Daytona sandbox. " +

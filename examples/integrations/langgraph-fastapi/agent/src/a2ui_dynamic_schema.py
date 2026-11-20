@@ -69,8 +69,8 @@ def generate_a2ui(runtime: ToolRuntime[Any]) -> str:
 
     prompt = context_text
 
-    # COPILOTKIT_AGENT_MODEL overrides this site too; unset, it uses gpt-5-mini.
-    model = create_chat_model("openai:gpt-5-mini")
+    # COPILOTKIT_AGENT_MODEL overrides this site too; unset, it uses gpt-6-luna.
+    model = create_chat_model("openai:gpt-6-luna")
     model_with_tool = model.bind_tools(
         [render_a2ui],
         tool_choice="render_a2ui",

@@ -250,7 +250,7 @@ RULES
 
 export const airlineAgent = () =>
   new BuiltInAgent({
-    model: "openai/gpt-5.4",
+    model: "openai/gpt-6-luna",
     prompt: AIRLINE_PROMPT,
     tools: [renderTripBriefTool],
   });

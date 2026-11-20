@@ -33,6 +33,8 @@ import type {
   CopilotChatAssistantMessageToolbarSlotProps,
 } from "./types";
 import { useKatexStyles } from "../../hooks/use-katex-styles";
+import MarkdownSurfaces from "../../generative-ui/markdown/MarkdownSurfaces.vue";
+import { useGenerativeUIRuntime } from "../../generative-ui/runtime-context";
 
 useKatexStyles();
 
@@ -607,6 +609,25 @@ const markdownComponents = {
   table: MarkdownTable,
 };
 
+/** The props of each `StreamMarkdown` of the message, without the content. */
+const streamMarkdownProps = {
+  class: "copilot-chat-assistant-markdown",
+  components: markdownComponents,
+  codeBlockActions: [CodeBlockDownloadAction, CodeBlockCopyAction],
+  codeBlockShowLineNumbers: false,
+  codeBlockHideCopy: true,
+  codeBlockHideDownload: true,
+  allowedLinkPrefixes: ["https://", "http://", "#", "/", "./", "../"],
+  shikiTheme: { light: "github-light", dark: "github-dark" },
+};
+
+// With the markdown transport, ```a2ui fences render as surfaces. The fences
+// are found by the message id.
+const generativeUI = useGenerativeUIRuntime();
+const isMarkdownTransport = computed(
+  () => generativeUI.value?.transport === "markdown",
+);
+
 function normalizeContent(content: unknown): string {
   if (!content) {
     return "";
@@ -743,25 +764,19 @@ onBeforeUnmount(() => {
         :message="message"
         :content="normalizedContent"
       >
-        <StreamMarkdown
-          v-if="hasContent"
-          class="copilot-chat-assistant-markdown"
-          :content="normalizedContent"
-          :components="markdownComponents"
-          :code-block-actions="[CodeBlockDownloadAction, CodeBlockCopyAction]"
-          :code-block-show-line-numbers="false"
-          :code-block-hide-copy="true"
-          :code-block-hide-download="true"
-          :allowed-link-prefixes="[
-            'https://',
-            'http://',
-            '#',
-            '/',
-            './',
-            '../',
-          ]"
-          :shiki-theme="{ light: 'github-light', dark: 'github-dark' }"
-        />
+        <template v-if="hasContent">
+          <MarkdownSurfaces
+            v-if="isMarkdownTransport"
+            v-bind="streamMarkdownProps"
+            :content="normalizedContent"
+            :message-id="message.id"
+          />
+          <StreamMarkdown
+            v-else
+            v-bind="streamMarkdownProps"
+            :content="normalizedContent"
+          />
+        </template>
       </slot>
 
       <slot name="tool-calls-view" :message="message" :messages="messages">

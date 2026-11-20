@@ -139,7 +139,7 @@ def _part_content_to_text(content: object) -> str:
 
 
 agent = Agent(
-    model=OpenAIResponsesModel("gpt-5-mini"),
+    model=OpenAIResponsesModel("gpt-6-luna"),
     deps_type=StateDeps[EmptyState],
     system_prompt=SYSTEM_PROMPT,
 )
@@ -199,7 +199,8 @@ def generate_a2ui(ctx: RunContext[StateDeps[EmptyState]]) -> str:
         )
 
     response = client.chat.completions.create(
-        model="gpt-5-mini",
+        reasoning_effort="none",
+        model="gpt-6-luna",
         messages=llm_messages,
         tools=[tool_schema],
         tool_choice={"type": "function", "function": {"name": "render_a2ui"}},

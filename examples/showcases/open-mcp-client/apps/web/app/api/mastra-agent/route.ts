@@ -7,7 +7,7 @@ import { MastraAgent } from "@ag-ui/mastra";
 import { Agent } from "@mastra/core/agent";
 import { MCPClient } from "@mastra/mcp";
 import { createOpenAI } from "@ai-sdk/openai";
-import { NextRequest } from "next/server";
+import type { NextRequest } from "next/server";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
@@ -15,7 +15,8 @@ import { Observable } from "rxjs";
 import crypto from "crypto";
 import { z } from "zod";
 import { E2BWorkspaceProvider } from "@/lib/workspace/e2b";
-import { getDefaultMcpServers, type McpServerConfig } from "@/lib/mcp-defaults";
+import { getDefaultMcpServers } from "@/lib/mcp-defaults";
+import type { McpServerConfig } from "@/lib/mcp-defaults";
 
 // Allow up to 5 minutes for long agent loops
 export const maxDuration = 300;
@@ -779,8 +780,8 @@ const openai = createOpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-/** OpenAI chat model for the Mastra agent (`@ai-sdk/openai` id), e.g. gpt-5.2, gpt-4.1, gpt-4o. */
-const OPENAI_MODEL = process.env.OPENAI_MODEL?.trim() || "gpt-5.2";
+/** OpenAI chat model for the Mastra agent (`@ai-sdk/openai` id), defaults to gpt-6-luna. */
+const OPENAI_MODEL = process.env.OPENAI_MODEL?.trim() || "gpt-6-luna";
 
 // ── Request handler ──────────────────────────────────────────────────────────
 // Architecture:
@@ -835,7 +836,7 @@ export const POST = async (req: NextRequest) => {
         content: AGENT_SYSTEM_PROMPT,
         providerOptions: {
           openai: {
-            reasoningEffort: "minimal", // Options: "minimal", "low", "medium", "high"
+            reasoningEffort: "low", // Luna supports none, low, medium, high, xhigh, and max.
           },
         },
       },

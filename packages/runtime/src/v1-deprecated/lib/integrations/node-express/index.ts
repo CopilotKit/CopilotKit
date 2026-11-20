@@ -18,23 +18,10 @@
  */
 
 import type { CreateCopilotRuntimeServerOptions } from "../shared";
-import { copilotRuntimeNodeHttpEndpoint } from "../node-http";
-import telemetry, {
-  getRuntimeInstanceTelemetryInfo,
-} from "../../telemetry-client";
+import { createNodeHttpEndpoint } from "../node-http/endpoint";
 
 export function copilotRuntimeNodeExpressEndpoint(
   options: CreateCopilotRuntimeServerOptions,
 ) {
-  telemetry.setGlobalProperties({
-    runtime: {
-      framework: "node-express",
-    },
-  });
-
-  options.runtime.telemetry.capture(
-    "oss.runtime.instance_created",
-    getRuntimeInstanceTelemetryInfo(options),
-  );
-  return copilotRuntimeNodeHttpEndpoint(options);
+  return createNodeHttpEndpoint(options, "node-express");
 }

@@ -34,7 +34,7 @@ public sealed class D5ParityAgentFactory
 
     public AIAgent CreateGenUiToolBasedAgent()
     {
-        var chatClient = _openAiClient.GetChatClient("gpt-5-mini").AsIChatClient();
+        var chatClient = _openAiClient.GetChatClient("gpt-6-luna").AsLunaChatClient();
         var inner = chatClient.AsHarnessAgent(
             HarnessMaxContextWindowTokens,
             HarnessMaxOutputTokens,
@@ -61,7 +61,7 @@ public sealed class D5ParityAgentFactory
 
     public AIAgent CreateReadonlyStateAgentContext()
     {
-        var chatClient = _openAiClient.GetChatClient("gpt-5-mini").AsIChatClient();
+        var chatClient = _openAiClient.GetChatClient("gpt-6-luna").AsLunaChatClient();
         var inner = chatClient.AsHarnessAgent(
             HarnessMaxContextWindowTokens,
             HarnessMaxOutputTokens,
@@ -103,7 +103,7 @@ public sealed class D5ParityAgentFactory
                 SerializerOptions = _jsonSerializerOptions,
             });
 
-        var chatClient = _openAiClient.GetChatClient("gpt-5-mini").AsIChatClient();
+        var chatClient = _openAiClient.GetChatClient("gpt-6-luna").AsLunaChatClient();
         var inner = chatClient.AsHarnessAgent(
             HarnessMaxContextWindowTokens,
             HarnessMaxOutputTokens,
@@ -149,7 +149,7 @@ public sealed class D5ParityAgentFactory
                 SerializerOptions = _jsonSerializerOptions,
             });
 
-        var chatClient = _openAiClient.GetChatClient("gpt-5-mini").AsIChatClient();
+        var chatClient = _openAiClient.GetChatClient("gpt-6-luna").AsLunaChatClient();
         var inner = chatClient.AsHarnessAgent(
             HarnessMaxContextWindowTokens,
             HarnessMaxOutputTokens,
@@ -192,7 +192,7 @@ public sealed class D5ParityAgentFactory
             in one short sentence. Never fabricate data a tool could provide.
             """;
 
-        var chatClient = _openAiClient.GetChatClient("gpt-5-mini").AsIChatClient();
+        var chatClient = _openAiClient.GetChatClient("gpt-6-luna").AsLunaChatClient();
         var inner = chatClient.AsHarnessAgent(
             HarnessMaxContextWindowTokens,
             HarnessMaxOutputTokens,
@@ -247,7 +247,7 @@ public sealed class D5ParityAgentFactory
             result. Never fabricate data a tool could provide.
             """;
 
-        var chatClient = _openAiClient.GetChatClient("gpt-5-mini").AsIChatClient();
+        var chatClient = _openAiClient.GetChatClient("gpt-6-luna").AsLunaChatClient();
         return chatClient.AsHarnessAgent(
             HarnessMaxContextWindowTokens,
             HarnessMaxOutputTokens,
@@ -266,7 +266,7 @@ public sealed class D5ParityAgentFactory
 
     public AIAgent CreateVoiceAgent()
     {
-        var chatClient = _openAiClient.GetChatClient("gpt-5-mini").AsIChatClient();
+        var chatClient = _openAiClient.GetChatClient("gpt-6-luna").AsLunaChatClient();
         return chatClient.AsHarnessAgent(
             HarnessMaxContextWindowTokens,
             HarnessMaxOutputTokens,
@@ -283,6 +283,7 @@ public sealed class D5ParityAgentFactory
             });
     }
 
+    // @region[weather-tool-backend]
     [Description("Get the current weather for a given location.")]
     private static object GetWeather([Description("The city or region to describe.")] string location)
     {
@@ -295,6 +296,7 @@ public sealed class D5ParityAgentFactory
             conditions = "Sunny",
         };
     }
+    // @endregion[weather-tool-backend]
 
     [Description("Search mock flights from an origin airport to a destination airport.")]
     private static object SearchFlights(

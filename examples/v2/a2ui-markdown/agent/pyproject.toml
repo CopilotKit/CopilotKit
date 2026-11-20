@@ -1,0 +1,17 @@
+[project]
+name = "a2ui-markdown-agent"
+version = "0.1.0"
+description = "LangGraph agent for the CopilotKit A2UI markdown-mode example"
+readme = "README.md"
+requires-python = ">=3.12,<3.14"
+dependencies = [
+  "ag-ui-langgraph",
+  "copilotkit",
+  "fastapi",
+  "langchain",
+  "langchain-core",
+  "langchain-openai",
+  "langgraph",
+  "python-dotenv",
+  "uvicorn",
+]

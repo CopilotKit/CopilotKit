@@ -1,0 +1,168 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for openai-agents-python / a2ui-recovery (A2UI error recovery)",
+    "created": "2026-11-03",
+    "copiedFrom": "google-antigravity",
+    "_note": "Backend-owned A2UI with the toolkit validate->retry loop (src/demo_agents/a2ui_dynamic.py, injectA2UITool=false). Prompts are unique to this slug (a2ui-recovery/suggestions.ts, mirrored in harness d5-a2ui-recovery.ts PROMPTS). The heal retry is told apart from attempt 1 by systemMessage (the render call's instructions). turnIndex re-staged from google-antigravity's count (3 assistant-side messages per tool round) to the one aimock derives from Responses API input here: each function_call item is one assistant message and each text reply one more, so a tool round is 2."
+  },
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "Compose the OpenAI Agents quarterly revenue board and repair a malformed first render.",
+        "toolName": "render_a2ui",
+        "systemMessage": "## Previous attempt was invalid",
+        "turnIndex": 0,
+        "context": "openai-agents-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_ga_recover_heal_good",
+            "name": "render_a2ui",
+            "arguments": "{\"surfaceId\": \"recovery-demo\", \"components\": \"[{\\\"id\\\": \\\"root\\\", \\\"component\\\": \\\"Column\\\", \\\"gap\\\": 16, \\\"children\\\": [\\\"m1\\\", \\\"m2\\\"]}, {\\\"id\\\": \\\"m1\\\", \\\"component\\\": \\\"Metric\\\", \\\"label\\\": \\\"Quarterly Revenue\\\", \\\"value\\\": \\\"$4.2M\\\", \\\"trend\\\": \\\"up\\\", \\\"trendValue\\\": \\\"+12% QoQ\\\"}, {\\\"id\\\": \\\"m2\\\", \\\"component\\\": \\\"Metric\\\", \\\"label\\\": \\\"Win Rate\\\", \\\"value\\\": \\\"31%\\\", \\\"trend\\\": \\\"down\\\", \\\"trendValue\\\": \\\"-2 pts\\\"}]\", \"data\": \"{}\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Compose the OpenAI Agents quarterly revenue board and repair a malformed first render.",
+        "toolName": "render_a2ui",
+        "context": "openai-agents-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_ga_recover_heal_bad",
+            "name": "render_a2ui",
+            "arguments": "{\"surfaceId\": \"recovery-demo\", \"components\": \"[{\\\"id\\\": \\\"root\\\", \\\"component\\\": \\\"Column\\\", \\\"gap\\\": 16, \\\"children\\\": [\\\"missing-metric\\\"]}]\", \"data\": \"{}\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Compose an OpenAI Agents board that never passes validation so I can preview the fallback.",
+        "toolName": "render_a2ui",
+        "context": "openai-agents-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_ga_recover_exhaust_design",
+            "name": "render_a2ui",
+            "arguments": "{\"surfaceId\": \"recovery-demo-fail\", \"components\": \"[{\\\"id\\\": \\\"root\\\", \\\"component\\\": \\\"Column\\\", \\\"gap\\\": 16, \\\"children\\\": [\\\"never-defined\\\"]}]\", \"data\": \"{}\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Compose the OpenAI Agents quarterly revenue board and repair a malformed first render.",
+        "toolName": "generate_a2ui",
+        "turnIndex": 0,
+        "context": "openai-agents-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_ga_recover_heal_outer_00",
+            "name": "generate_a2ui",
+            "arguments": "{\"request\": \"Compose the OpenAI Agents quarterly revenue board and repair a malformed first render.\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Compose the OpenAI Agents quarterly revenue board and repair a malformed first render.",
+        "turnIndex": 1,
+        "context": "openai-agents-python"
+      },
+      "response": {
+        "content": "The first render came back malformed - I recovered and painted your quarterly revenue board."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Compose the OpenAI Agents quarterly revenue board and repair a malformed first render.",
+        "toolName": "generate_a2ui",
+        "turnIndex": 2,
+        "context": "openai-agents-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_ga_recover_heal_outer_03",
+            "name": "generate_a2ui",
+            "arguments": "{\"request\": \"Compose the OpenAI Agents quarterly revenue board and repair a malformed first render.\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Compose the OpenAI Agents quarterly revenue board and repair a malformed first render.",
+        "turnIndex": 3,
+        "context": "openai-agents-python"
+      },
+      "response": {
+        "content": "The first render came back malformed - I recovered and painted your quarterly revenue board."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Compose an OpenAI Agents board that never passes validation so I can preview the fallback.",
+        "toolName": "generate_a2ui",
+        "turnIndex": 0,
+        "context": "openai-agents-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_ga_recover_exhaust_outer_00",
+            "name": "generate_a2ui",
+            "arguments": "{\"request\": \"Compose an OpenAI Agents board that never passes validation so I can preview the fallback.\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Compose an OpenAI Agents board that never passes validation so I can preview the fallback.",
+        "turnIndex": 1,
+        "context": "openai-agents-python"
+      },
+      "response": {
+        "content": "I couldn't produce a valid surface after several attempts - showing a graceful fallback instead."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Compose an OpenAI Agents board that never passes validation so I can preview the fallback.",
+        "toolName": "generate_a2ui",
+        "turnIndex": 2,
+        "context": "openai-agents-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_ga_recover_exhaust_outer_03",
+            "name": "generate_a2ui",
+            "arguments": "{\"request\": \"Compose an OpenAI Agents board that never passes validation so I can preview the fallback.\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Compose an OpenAI Agents board that never passes validation so I can preview the fallback.",
+        "turnIndex": 3,
+        "context": "openai-agents-python"
+      },
+      "response": {
+        "content": "I couldn't produce a valid surface after several attempts - showing a graceful fallback instead."
+      }
+    }
+  ]
+}

@@ -1,11 +1,11 @@
 """Banking's agent: a LangChain deep agent, in three nested levels.
 
-    banking                       gpt-5.4, temp 0
+    banking                       gpt-6-luna, temp 0
       │  banking's own prompt; the browser's frontend tools and the
       │  Intelligence memory tools; `render_report` for the canvas
-      └─ expense-analyst          gpt-5.6-sol, reasoning_effort=medium
+      └─ expense-analyst          gpt-6-luna, reasoning_effort=medium
            │  sandboxed shell (LocalShellBackend), `submit_expense_report`
-           └─ merchant-researcher gpt-5.4, own lane, one per merchant
+           └─ merchant-researcher gpt-6-luna, own lane, one per merchant
                 `search_merchant` (Tavily)
 
 The nesting is the design, not an accident of growth. Each level exists because
@@ -632,9 +632,9 @@ def _build_expense_analyst():
     paid in latency and tokens, on every superstep, for rules that cannot apply.
 
     Splitting it also gives the beat somewhere for its own configuration to
-    live. It runs on a stronger model at high reasoning effort (the policy
-    judgement is the hard part and deserves it), while the six other banking
-    beats stay on the cheaper model. With one agent there was no such seam:
+    live. It enables reasoning for policy judgement, while the six other
+    banking beats use the same model without reasoning. With one agent there
+    was no such seam:
     model, effort and recursion limit were all agent-level, and there was only
     one agent.
 
@@ -659,7 +659,7 @@ def _build_expense_analyst():
     )
 
     analyst_model = ChatOpenAI(
-        model=os.environ.get("BANKING_EXPENSE_MODEL", "gpt-5.6-sol"),
+        model=os.environ.get("BANKING_EXPENSE_MODEL", "gpt-6-luna"),
         # The effort is real work, not padding: the judgement calls here are the
         # genuinely hard part — whether a resolved merchant kind makes a charge
         # reimbursable under the offsite's dates — so the run takes as long as it
@@ -676,7 +676,7 @@ def _build_expense_analyst():
         # the first model call inside the analyst:
         #
         #   Function tools with reasoning_effort are not supported for
-        #   gpt-5.6-sol in /v1/chat/completions. To use function tools, use
+        #   gpt-6-luna in /v1/chat/completions. To use function tools, use
         #   /v1/responses or set reasoning_effort to 'none'.
         #
         # This agent is nothing but function tools — shell, filesystem, task
@@ -705,11 +705,14 @@ def _build_expense_analyst():
     # stream, so the console still prints each dispatch and each finding
     # attributable to the merchant it belongs to.
     #
-    # They also stay on the CHEAPER model: they summarise search results, they
+    # The researchers use no reasoning effort: they summarise search results, they
     # do not make policy judgements, and high effort times ten concurrent calls
     # is real money for no gain.
     research_model = ChatOpenAI(
-        model=os.environ.get("BANKING_AGENT_MODEL", "gpt-5.4"),
+        reasoning_effort="none"
+        if os.environ.get("BANKING_AGENT_MODEL", "gpt-6-luna") == "gpt-6-luna"
+        else None,
+        model=os.environ.get("BANKING_AGENT_MODEL", "gpt-6-luna"),
         temperature=0,
         # `disable_streaming=True` USED to be here, and is deliberately gone.
         #
@@ -759,15 +762,11 @@ def build_agent():
         raise RuntimeError("Missing OPENAI_API_KEY environment variable")
 
     model = ChatOpenAI(
-        # Both values are carried over from the TypeScript `BuiltInAgent` this
-        # replaces, where each had a reason written beside it:
-        #   - the NON-mini model, because the multi-step teach-and-recall arc
-        #     (recall -> offer to record -> watch -> save) routes unreliably on
-        #     the mini model;
-        #   - temperature 0, because tool ROUTING must be deterministic. This
-        #     agent's job is picking the right tool far more often than it is
-        #     composing prose.
-        model=os.environ.get("BANKING_AGENT_MODEL", "gpt-5.4"),
+        reasoning_effort="none"
+        if os.environ.get("BANKING_AGENT_MODEL", "gpt-6-luna") == "gpt-6-luna"
+        else None,
+        # Temperature 0 keeps tool routing deterministic.
+        model=os.environ.get("BANKING_AGENT_MODEL", "gpt-6-luna"),
         temperature=0,
     )
 

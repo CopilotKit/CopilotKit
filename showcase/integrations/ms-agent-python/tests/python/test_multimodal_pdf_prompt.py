@@ -247,7 +247,7 @@ async def test_duplicate_pdf_parts_are_flattened_once() -> None:
         contents=[
             Content.from_text(text=prompt),
             _sample_pdf_content(),
-            _sample_pdf_content(),  # the legacy `binary` mirror
+            _sample_pdf_content(),  # a legacy `binary` mirror from an older client
         ],
     )
 

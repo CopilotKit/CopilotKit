@@ -196,7 +196,7 @@ export function McpAppPreview({
         ref={iframeRef}
         srcDoc={htmlSource}
         className="h-full w-full border-0"
-        sandbox="allow-scripts allow-same-origin"
+        sandbox="allow-scripts"
         title={`Preview: ${toolName}`}
       />
     </div>

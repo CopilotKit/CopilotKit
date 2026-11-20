@@ -77,7 +77,7 @@ class CanvasState(BaseModel):
 deps = StateDeps[CanvasState]
 
 agent = Agent(
-    "openai:gpt-4.1",
+    "openai:gpt-6-luna",
     deps_type=deps,
 )
 

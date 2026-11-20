@@ -42,7 +42,7 @@ function mountAgent(
   agent: StrandsAgent,
   // Reported to CVDIAG so a diagnostic row names the model the mount actually
   // uses. The reasoning mounts run a different model from the shared agent.
-  modelId: string = process.env.MODEL_ID ?? "gpt-4o",
+  modelId: string = process.env.MODEL_ID ?? "gpt-6-luna",
 ): void {
   // Mount the CVDIAG / header-forwarding middleware on the SAME path FIRST so
   // Express runs it BEFORE the aws-strands POST handler. It seeds the

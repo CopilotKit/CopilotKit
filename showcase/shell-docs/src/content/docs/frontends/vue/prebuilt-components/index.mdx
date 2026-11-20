@@ -1,0 +1,69 @@
+---
+title: Prebuilt Components
+icon: "lucide/MessageSquare"
+description: Drop-in Vue chat components with a customization path from CSS to headless composition.
+hideTOC: true
+---
+
+## Prebuilt components for agentic chat
+
+`@copilotkit/vue/v2` ships three chat surfaces:
+
+- **CopilotChat**: an inline pane that fills
+  the container you give it.
+- **CopilotSidebar**: a collapsible,
+  docked surface.
+- **CopilotPopup**: a floating launcher and
+  overlay chat.
+
+They share the same chat primitives while choosing different layouts. Pick the surface that fits the
+product; each handles streaming messages, tool rendering, suggestions, and
+Vue slot customization.
+
+Use `CopilotThreadsDrawer` beside a supported surface when you need a
+conversation-history drawer, or use `useThreads` to build your own switcher.
+
+## The customization ladder
+
+1. **Drop in a surface.** Render `CopilotChat`, `CopilotSidebar`, or
+   `CopilotPopup` below `CopilotKitProvider`.
+2. **Re-skin with CSS.** Import the Vue stylesheet and override the
+   `[data-copilotkit]` design tokens.
+3. **Recompose with slots.** Replace an empty state, message list, composer,
+   header, or launcher using Vue named and scoped slots.
+4. **Go headless.** Build your layout from `useAgent`, `useCopilotKit`, and
+   the public chat leaf components where needed.
+
+These layers are incremental. A custom welcome-screen slot and CSS token
+overrides can coexist; moving to a custom surface does not require copying the
+runtime connection logic.
+
+## Drop-in chat
+
+Import the Vue CSS once, wrap the application in `CopilotKitProvider`, and put
+the chat surface in the provider's default slot:
+
+```vue title="App.vue"
+<script setup lang="ts">
+import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue/v2";
+import "@copilotkit/vue/styles.css";
+</script>
+
+<template>
+  <CopilotKitProvider runtime-url="/api/copilotkit">
+    <CopilotChat agent-id="my-agent" />
+  </CopilotKitProvider>
+</template>
+```
+
+## Starter suggestions
+
+Call [`useConfigureSuggestions`](/reference/vue/hooks/useConfigureSuggestions)
+inside a child component of `CopilotKitProvider`. Its reactive configuration is
+then available to the nearest chat surface:
+
+```ts
+useConfigureSuggestions({
+  suggestions: [{ title: "Summarize", message: "Summarize this page" }],
+});
+```

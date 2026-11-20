@@ -666,7 +666,7 @@ describe("Partial Args Accumulation", () => {
 
     await waitFor(() => {
       const tool = screen.getByTestId("complex-tool");
-      expect(tool.textContent).toContain("Age: 30");
+      expect(tool.textContent).toContain("Age: pending");
       expect(tool.textContent).toContain("City: pending");
     });
 
@@ -679,6 +679,7 @@ describe("Partial Args Accumulation", () => {
 
     await waitFor(() => {
       const tool = screen.getByTestId("complex-tool");
+      expect(tool.textContent).toContain("Age: 30");
       expect(tool.textContent).toContain("City: Paris");
       // All args complete but no result yet - status shows inProgress until result is received
       expect(tool.textContent).toMatch(/Status: (complete|inProgress)/i);

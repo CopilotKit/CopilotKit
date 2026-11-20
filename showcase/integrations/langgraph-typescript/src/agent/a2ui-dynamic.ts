@@ -15,7 +15,10 @@ const SYSTEM_PROMPT =
   "replies to one short sentence and let the UI do the talking.";
 
 export const graph = createAgent({
-  model: new ChatOpenAI({ model: "gpt-5-mini" }),
+  model: new ChatOpenAI({
+    modelKwargs: { reasoning_effort: "none" },
+    model: "gpt-6-luna",
+  }),
   tools: [],
   middleware: [copilotkitMiddleware],
   systemPrompt: SYSTEM_PROMPT,

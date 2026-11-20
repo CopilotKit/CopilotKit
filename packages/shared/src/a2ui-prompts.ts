@@ -1,3 +1,17 @@
+import { isA2UIBasicFunction } from "./generative-ui/basic-functions";
+import { A2UI_CHILD_LIST_REF } from "./generative-ui/child-refs";
+import type { GenerativeUIManifest } from "./generative-ui/types";
+import {
+  defaultGenerativeUIPromptSpec,
+  GUIDE_COMPONENTS,
+  generativeUIPromptFeatures,
+  selectPromptItems,
+} from "./generative-ui/prompt-spec";
+import type { GenerativeUIPromptSpec } from "./generative-ui/prompt-spec";
+export {
+  GENERATIVE_UI_MARKDOWN_WHEN_TO_SHOW,
+  GENERATIVE_UI_WHEN_TO_SHOW,
+} from "./generative-ui/prompt-spec";
 /**
  * Default A2UI generation and design guideline prompts.
  *
@@ -113,3 +127,147 @@ Design principles:
   action context should reference the same paths to capture user input.
 
 Use the SAME surfaceId as the main surface. Match action names to button action event names.`;
+
+/** Description of the context entry that carries `GENERATIVE_UI_MARKDOWN_GUIDELINES`. */
+export const GENERATIVE_UI_MARKDOWN_GUIDELINES_DESCRIPTION =
+  "Generative UI markdown guide: how to write UI surfaces inside ```a2ui code fences in a normal markdown reply.";
+
+/**
+ * Description of the context entry that carries the compact component schema
+ * in the markdown transport.
+ *
+ * It must not equal `A2UI_SCHEMA_CONTEXT_DESCRIPTION` (the key that
+ * `@ag-ui/a2ui-middleware` stamps for tool mode). The LangGraph and Strands
+ * adapters find that exact string and move the entry into
+ * `state["ag-ui"]["a2ui_schema"]` for the `render_a2ui` tool, so it never
+ * gets to the system prompt. The markdown transport has no tool, so the
+ * schema must stay ordinary context that the model reads as App Context.
+ */
+export const GENERATIVE_UI_MARKDOWN_SCHEMA_CONTEXT_DESCRIPTION =
+  "Generative UI component schema: the components, props, events, slots, functions, and targets that ```a2ui code fences can use, and the surfaces that already exist.";
+
+/** Which optional parts of A2UI a manifest uses. The guides leave out the rules for the others. */
+export interface GenerativeUIGuideFeatures {
+  /** A function is mounted: function calls and callRendererFunction. */
+  functions: boolean;
+  /** A component has an event prop. */
+  events: boolean;
+  /** A component has a "multiple" slot, which takes templates and @index. */
+  templates: boolean;
+  /** A component has a "checks" prop: validation rules on inputs. */
+  checks: boolean;
+  /**
+   * The component names of the catalog. A guide line that names a standard
+   * component missing from it is left out. Unset keeps every line.
+   */
+  components?: readonly string[];
+}
+
+/** Every optional rule group. Use it when the manifest is not known. */
+export const ALL_GENERATIVE_UI_GUIDE_FEATURES: GenerativeUIGuideFeatures = {
+  functions: true,
+  events: true,
+  templates: true,
+  checks: true,
+};
+
+/**
+ * The optional parts of A2UI that a manifest uses, so that a guide sends only
+ * the rules that the model can apply.
+ *
+ * @param manifest - The components and the mounted functions of a run.
+ * @returns Which optional rule groups the guides include.
+ *
+ * @example
+ * ```ts
+ * const guide = buildGenerativeUIMarkdownGuidelines(
+ *   generativeUIGuideFeatures(manifest),
+ * );
+ * ```
+ */
+export function generativeUIGuideFeatures(
+  manifest: Pick<GenerativeUIManifest, "components" | "functions">,
+): GenerativeUIGuideFeatures {
+  const components = Object.values(manifest.components);
+  const hasChildList = (schema: unknown): boolean => {
+    if (Array.isArray(schema)) return schema.some(hasChildList);
+    if (typeof schema !== "object" || schema === null) return false;
+    const node = schema as Record<string, unknown>;
+    if (node.$ref === A2UI_CHILD_LIST_REF) return true;
+    return Object.values(node).some(hasChildList);
+  };
+  return {
+    components: Object.keys(manifest.components),
+    // App functions only: the built-in ones are always there and have
+    // their own rules.
+    functions: Object.keys(manifest.functions).some(
+      (name) => !isA2UIBasicFunction(name),
+    ),
+    events: components.some((c) => Object.keys(c.events ?? {}).length > 0),
+    templates: components.some(
+      (c) =>
+        Object.values(c.slots ?? {}).includes("multiple") ||
+        hasChildList(c.props),
+    ),
+    checks: components.some((c) => {
+      const properties = c.props.properties;
+      return (
+        typeof properties === "object" &&
+        properties !== null &&
+        Object.prototype.hasOwnProperty.call(properties, "checks")
+      );
+    }),
+  };
+}
+
+/**
+ * Whether a guide line names only standard components (`GUIDE_COMPONENTS`,
+ * also in the plural) that the catalog has. With no catalog, every line fits.
+ */
+function namesOnlyCatalogComponents(catalog: readonly string[] | undefined) {
+  if (!catalog) return () => true;
+  const has = new Set(catalog);
+  return (line: string) =>
+    (line.match(/\b[A-Z][A-Za-z0-9]*\b/g) ?? []).every((word) => {
+      const name =
+        !GUIDE_COMPONENTS.has(word) && word.endsWith("s")
+          ? word.slice(0, -1)
+          : word;
+      return !GUIDE_COMPONENTS.has(name) || has.has(name);
+    });
+}
+
+/**
+ * Builds the markdown-transport guideline. The model writes A2UI v1.0
+ * operations inside ```a2ui fences between normal markdown prose. The rules
+ * for functions, events, and templates are left out when the manifest has
+ * none of them, so the guideline stays small.
+ *
+ * @param features - The optional rule groups to include. Defaults to all.
+ * @param spec - The wording. Defaults to the prompts that ship.
+ * @returns The guideline text, one rule per line.
+ */
+export function buildGenerativeUIMarkdownGuidelines(
+  features: GenerativeUIGuideFeatures = ALL_GENERATIVE_UI_GUIDE_FEATURES,
+  spec: GenerativeUIPromptSpec = defaultGenerativeUIPromptSpec(),
+) {
+  const { intro, rules } = spec.markdown;
+  const fits = namesOnlyCatalogComponents(features.components);
+  const selected = selectPromptItems(
+    rules,
+    generativeUIPromptFeatures(features),
+  ).filter(fits);
+  const whenToShow = spec.markdown.whenToShow
+    .split("\n")
+    .filter(fits)
+    .join("\n");
+  const when = whenToShow ? `${whenToShow}\n\n` : "";
+  return `${intro}\n\n${when}RULES\n${selected.map((rule) => `- ${rule}`).join("\n")}\n`;
+}
+
+/**
+ * The markdown-transport guideline with every rule group. A run sends
+ * `buildGenerativeUIMarkdownGuidelines` for its own manifest instead.
+ */
+export const GENERATIVE_UI_MARKDOWN_GUIDELINES =
+  buildGenerativeUIMarkdownGuidelines();

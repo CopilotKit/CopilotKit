@@ -31,7 +31,9 @@ class SharedStateReadFlow(Flow[SharedStateReadState]):
         recipe = json.dumps(self.state.recipe or {}, indent=2, ensure_ascii=False)
         response = await copilotkit_stream(
             await acompletion(
-                model="openai/gpt-5.4",
+                allowed_openai_params=["reasoning_effort"],
+                reasoning_effort="none",
+                model="openai/gpt-6-luna",
                 messages=[
                     {"role": "system", "content": SYSTEM_PROMPT.format(recipe=recipe)},
                     *self.state.messages,

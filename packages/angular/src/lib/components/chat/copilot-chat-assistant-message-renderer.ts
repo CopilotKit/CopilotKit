@@ -12,12 +12,13 @@ import {
   input,
   inputBinding,
   viewChild,
+  signal,
 } from "@angular/core";
 
 import { injectChatLabels } from "../../chat-config";
 import { explicitEffect } from "../../explicit-effect";
 import { CopilotChatCodeBlockHeader } from "./copilot-chat-code-block-header";
-import { renderMarkdown } from "./markdown";
+import { onMarkdownLibrariesLoaded, renderMarkdown } from "./markdown";
 
 @Component({
   selector: "copilot-chat-assistant-message-renderer",
@@ -162,12 +163,15 @@ export class CopilotChatAssistantMessageRenderer {
   private readonly environmentInjector = inject(EnvironmentInjector);
   private readonly injector = inject(Injector);
   private codeBlockHeaders: ComponentRef<CopilotChatCodeBlockHeader>[] = [];
+  /** Changes when highlight.js or KaTeX arrives, so the message renders again. */
+  private readonly libraries = signal(0);
 
   constructor() {
     explicitEffect(
       () => ({
         container: this.markdownContainer()?.nativeElement,
         content: this.content(),
+        libraries: this.libraries(),
       }),
       ({ container, content }) => {
         if (!container) return;
@@ -184,7 +188,13 @@ export class CopilotChatAssistantMessageRenderer {
       },
     );
 
-    inject(DestroyRef).onDestroy(() => this.destroyCodeBlockHeaders());
+    const stopListening = onMarkdownLibrariesLoaded(() =>
+      this.libraries.update((n) => n + 1),
+    );
+    inject(DestroyRef).onDestroy(() => {
+      stopListening();
+      this.destroyCodeBlockHeaders();
+    });
   }
 
   /** Wraps a rendered code block and mounts its header component above it. */

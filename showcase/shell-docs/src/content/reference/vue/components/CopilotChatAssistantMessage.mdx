@@ -5,7 +5,14 @@ description: "Vue 3 component for displaying assistant messages with Markdown, t
 
 ## Overview
 
-`CopilotChatAssistantMessage` is a Vue 3 component that displays assistant messages with Markdown support, tool call rendering, and an action toolbar. Markdown is rendered with `streamdown-vue` (`StreamMarkdown`), which supports GitHub Flavored Markdown tables, math expressions (KaTeX styles are loaded automatically), and syntax-highlighted code blocks via Shiki (`github-light` / `github-dark` themes). Tables and code blocks include built-in copy and download actions, and images get a hover download button.
+`CopilotChatAssistantMessage` is a Vue 3 component that displays assistant messages with Markdown support, tool call rendering, and an action toolbar. [`CopilotChatMessageView`](/reference/vue/components/CopilotChatMessageView) renders it as the default assistant message. For user messages, see [`CopilotChatUserMessage`](/reference/vue/components/CopilotChatUserMessage).
+
+Markdown is rendered with `streamdown-vue` (`StreamMarkdown`):
+
+- GitHub Flavored Markdown tables, with copy and download actions.
+- Math expressions. KaTeX styles load automatically.
+- Code blocks highlighted by Shiki (`github-light` and `github-dark` themes), with copy and download actions.
+- Images, with a download button on hover.
 
 The toolbar provides copy, thumbs up, thumbs down, read aloud, and regenerate buttons. Tooltip and aria labels are sourced from the nearest `CopilotChatConfigurationProvider` (see [`useCopilotChatConfiguration`](/reference/vue/hooks/useCopilotChatConfiguration)). The thumbs up, thumbs down, read aloud, and regenerate buttons are only rendered when a listener for the corresponding event is attached; the copy button is always shown when the toolbar is visible.
 
@@ -139,23 +146,23 @@ behavior to the message and toolbar handlers.
 </PropertyReference>
 
 <PropertyReference name="thumbs-up-button" type="slot">
-  Replaces the thumbs-up button. Receives `on-thumbs-up` and `label`. Only
-  rendered when a `thumbs-up` listener is attached.
+  Replaces the thumbs-up button. Receives `on-thumbs-up` and `label`. Rendered
+  when a `thumbs-up` listener is attached or when you provide this slot.
 </PropertyReference>
 
 <PropertyReference name="thumbs-down-button" type="slot">
-  Replaces the thumbs-down button. Receives `on-thumbs-down` and `label`. Only
-  rendered when a `thumbs-down` listener is attached.
+  Replaces the thumbs-down button. Receives `on-thumbs-down` and `label`. Rendered
+  when a `thumbs-down` listener is attached or when you provide this slot.
 </PropertyReference>
 
 <PropertyReference name="read-aloud-button" type="slot">
-  Replaces the read-aloud button. Receives `on-read-aloud` and `label`. Only
-  rendered when a `read-aloud` listener is attached.
+  Replaces the read-aloud button. Receives `on-read-aloud` and `label`. Rendered
+  when a `read-aloud` listener is attached or when you provide this slot.
 </PropertyReference>
 
 <PropertyReference name="regenerate-button" type="slot">
-  Replaces the regenerate button. Receives `on-regenerate` and `label`. Only
-  rendered when a `regenerate` listener is attached.
+  Replaces the regenerate button. Receives `on-regenerate` and `label`. Rendered
+  when a `regenerate` listener is attached or when you provide this slot.
 </PropertyReference>
 
 <PropertyReference name="toolbar-items" type="slot">
@@ -289,10 +296,3 @@ defineProps<{ message: AssistantMessage }>();
   </CopilotChatAssistantMessage>
 </template>
 ```
-
-## Related
-
-- `CopilotChatToolCallsView` - Renders the tool calls contained in an assistant message
-- [`CopilotChatUserMessage`](/reference/vue/components/CopilotChatUserMessage) - Companion component for user messages
-- [`CopilotChatMessageView`](/reference/vue/components/CopilotChatMessageView) - Parent component that renders this as the default assistant message
-- [`useCopilotChatConfiguration`](/reference/vue/hooks/useCopilotChatConfiguration) - Provides the localized toolbar labels

@@ -44,6 +44,10 @@ export function decodeInteraction(raw: unknown): InteractionEvent | undefined {
   // (number/boolean/object) round-trips to its original type — mirroring bot-slack.
   let id = customId;
   let value: unknown;
+  // The chosen select value(s) exactly as Discord sent them. JSON-parsing
+  // `value` loses the original string ("9.90" becomes 9.9), so awaitChoice
+  // matches the offered option by this raw string instead.
+  let rawValue: string | string[] | undefined;
   if (isSelect) {
     // Discord sends `values: string[]` for both single and multi selects; the
     // unambiguous signal is the component's value bounds (the renderer sets
@@ -51,9 +55,11 @@ export function decodeInteraction(raw: unknown): InteractionEvent | undefined {
     // values; single → the one value (mirrors bot-slack).
     const c = i.component;
     const multi = (c?.maxValues ?? 1) > 1 || c?.minValues === 0;
-    value = multi
-      ? (i.values ?? []).map(parseSelectValue)
-      : parseSelectValue(i.values?.[0]);
+    const chosen = (i.values ?? []).filter(
+      (v): v is string => typeof v === "string",
+    );
+    value = multi ? chosen.map(parseSelectValue) : parseSelectValue(chosen[0]);
+    rawValue = multi ? chosen : chosen[0];
   } else {
     const sep = customId.startsWith("ck:") ? customId.indexOf(";v:") : -1;
     if (sep !== -1) {
@@ -69,6 +75,7 @@ export function decodeInteraction(raw: unknown): InteractionEvent | undefined {
     conversationKey: channelId,
     replyTarget: { channelId, ...(i.guildId ? { guildId: i.guildId } : {}) },
     value,
+    ...(rawValue !== undefined ? { rawValue } : {}),
     actor: actor ?? { id: "unknown", kind: "unknown" },
     identityContext: identityContext({
       guildId: i.guildId,

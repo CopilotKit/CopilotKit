@@ -102,6 +102,8 @@ export interface ProxiedCopilotRuntimeAgentConfig extends Omit<
   HttpAgentConfig,
   "url"
 > {
+  /** Human-readable agent name. The ID used for routing is `agentId`. */
+  name?: string;
   runtimeUrl?: string;
   transport?: CopilotRuntimeTransport;
   credentials?: RequestCredentials;
@@ -124,6 +126,7 @@ export interface ProxiedCopilotRuntimeAgentConfig extends Omit<
 }
 
 export class ProxiedCopilotRuntimeAgent extends HttpAgent {
+  name?: string;
   runtimeUrl?: string;
   credentials?: RequestCredentials;
   // `readonly` because `super.url` is baked at construction; mutating
@@ -183,6 +186,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
       ...config,
       url: runUrl,
     });
+    this.name = config.name || config.agentId;
     this.runtimeUrl = normalizedRuntimeUrl ?? config.runtimeUrl;
     this.runtimeEndpointUrl = config.runtimeUrl;
     this.credentials = config.credentials;
@@ -804,6 +808,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     const cloned = new ProxiedCopilotRuntimeAgent({
       runtimeUrl: this.runtimeEndpointUrl ?? this.runtimeUrl,
       agentId: this.agentId,
+      name: this.name,
       runtimeAgentId: this.runtimeAgentId,
       description: this.description,
       headers: { ...this.headers },
@@ -853,9 +858,15 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
         __copilotkitMcpResourceReadOnly: true,
       },
     };
-    return this.runtimeMode === RUNTIME_MODE_INTELLIGENCE
-      ? this.clone().runAgent(resourceParameters)
-      : this.runAgent(resourceParameters);
+    if (this.runtimeMode !== RUNTIME_MODE_INTELLIGENCE) {
+      return this.runAgent(resourceParameters);
+    }
+    const resourceAgent = this.clone();
+    // A resource read does not resume the conversation. Only its disposable
+    // client skips the pending-interrupt gate; the original agent and ordinary
+    // clones must retain every approval for the next conversation run.
+    resourceAgent.pendingInterrupts = [];
+    return resourceAgent.runAgent(resourceParameters);
   }
 
   /**

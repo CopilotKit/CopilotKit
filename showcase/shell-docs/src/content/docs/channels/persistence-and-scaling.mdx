@@ -5,18 +5,21 @@ description: Make Slack and Teams workflow state restart-safe, implement the Sta
 doc_type: how-to
 ---
 
-Intelligence durably owns provider ingress and canonical Thread history.
-Redis-backed claims and ordered packets coordinate active provider delivery.
-Your Channels process still owns SDK workflow state. Those are separate
-persistence boundaries.
+A deploy or a crash restarts your Channels process. State that lives only in
+process memory is lost. Intelligence keeps provider ingress and canonical
+Thread history. Your Channels process owns SDK workflow state.
 
 ## Know what is process-local by default
 
-Without `createChannel({ store: { adapter } })`, the SDK uses `MemoryStore`.
-These values disappear when the process restarts:
+Without `createChannel({ store: { adapter } })`, a managed Channel uses a store
+from Intelligence. Its key-value data is durable, so these values survive a
+restart:
 
 - `thread.state()`
 - registered component snapshots used to restore callbacks
+
+These values stay in process memory and disappear when the process restarts:
+
 - SDK transcript lists
 - SDK locks, deduplication windows, and queues
 
@@ -42,6 +45,7 @@ npm install zod
 ```ts title="channel.ts"
 import { createChannel } from "@copilotkit/channels";
 import { z } from "zod";
+import { makeAgent } from "./agent.js";
 import { durableStateStore } from "./state-store.js";
 
 const workflowState = z.object({
@@ -50,7 +54,7 @@ const workflowState = z.object({
 });
 
 const channel = createChannel({
-  name: required("CHANNEL_CODE"),
+  name: process.env.CHANNEL_CODE,
   identifyUser: "platform",
   agent: makeAgent,
   store: {
@@ -78,6 +82,7 @@ channel.onMessage(async ({ thread, message }) => {
 ```ts title="channel.ts"
 import { createChannel } from "@copilotkit/channels";
 import { z } from "zod";
+import { makeAgent } from "./agent.js";
 import { durableStateStore } from "./state-store.js";
 
 const workflowState = z.object({
@@ -86,7 +91,7 @@ const workflowState = z.object({
 });
 
 const channel = createChannel({
-  name: required("CHANNEL_CODE"),
+  name: process.env.CHANNEL_CODE,
   identifyUser: "platform",
   agent: makeAgent,
   store: {
@@ -115,7 +120,8 @@ class instances, or functions.
 
 ## Implement every StateStore facet
 
-A complete production store implements:
+Read this section only if you write your own `StateStore`, for example on Redis
+or Postgres. A complete production store implements:
 
 | Facet   | Required behavior                                          |
 | ------- | ---------------------------------------------------------- |
@@ -161,13 +167,14 @@ A callback survives only when both conditions are true:
 
 1. The JSX comes from a named component registered in
    `createChannel({ components })`.
-2. The action snapshot is stored in a durable `StateStore`.
+2. The action snapshot is stored in a durable `StateStore`: the default
+   managed store, or your own `store.adapter`.
 
 <FrontendOnly frontend="slack">
 
 ```tsx title="channel.tsx"
 const channel = createChannel({
-  name: required("CHANNEL_CODE"),
+  name: process.env.CHANNEL_CODE,
   identifyUser: "platform",
   agent: makeAgent,
   components: [ApprovalCard],
@@ -181,7 +188,7 @@ const channel = createChannel({
 
 ```tsx title="channel.tsx"
 const channel = createChannel({
-  name: required("CHANNEL_CODE"),
+  name: process.env.CHANNEL_CODE,
   identifyUser: "platform",
   agent: makeAgent,
   components: [ApprovalCard],
@@ -199,15 +206,16 @@ old card.
 
 ### Delivery claims (multi-replica)
 
-Each prepared delivery has one claim winner. Every connected Runtime that
-declares the matching Channel can receive the invitation, check local capacity,
-and attempt the claim. Different replicas can serve different conversations at
-the same time; there is no Channel-wide leader.
+Each prepared delivery has one claim winner. Every connected runtime process
+that declares the matching Channel can receive the invitation, check local
+capacity, and attempt the claim. Different runtime processes can serve
+different conversations at the same time; there is no Channel-wide leader.
 
-Keep each replica's Channel declarations and agent code aligned. The managed
-listener bounds active and pending delivery work internally. A Runtime that has
-reached its internal capacity declines new invitations before claiming them;
-that capacity is not currently a public Channel configuration option.
+Keep the Channel declarations and agent code aligned across runtime processes.
+Each runtime process bounds its active and pending delivery work internally. A
+runtime process that has reached its internal capacity declines new invitations
+before claiming them; that capacity is not currently a public Channel
+configuration option.
 
 Provider effects use one ordered packet at a time. The SDK retries that exact
 packet after a known retry wait or reconnect. If a provider call becomes
@@ -218,10 +226,10 @@ application may call them more than once; use `message.eventId`,
 
 ### Turn concurrency (same conversation)
 
-Managed admission keeps one canonical Thread exclusive on a Runtime. A second
-invitation for that Thread is not claimed while the first delivery is active.
-Unrelated Threads continue in parallel within the managed listener's bounded
-capacity.
+Managed admission keeps one canonical Thread exclusive on one runtime process.
+A second invitation for that Thread is not claimed while the first delivery is
+active. Unrelated Threads continue in parallel within the bounded capacity of
+each runtime process.
 
 This delivery guard is separate from the SDK `store.concurrency` setting used
 by other adapter paths. Choose that setting for your application-state rules;
@@ -230,16 +238,22 @@ do not use it to raise the managed same-Thread delivery limit. See
 
 ## Production checklist
 
-- Prefer an agent factory; singletons are cloned per run automatically.
-- Choose `store.concurrency` deliberately if you need serial workflow state.
-- Provide a durable store before promising restart-safe state or callbacks.
+Before you deploy:
+
+- Provide a durable `store.adapter` before you rely on SDK transcripts, locks,
+  or queues after a restart.
 - Run the StateStore conformance suite against the real backend.
 - Test a restart while a card is awaiting a click.
 - Make external writes idempotent.
-- Keep Channel declarations aligned across replicas and scale horizontally when
-  the managed listener's bounded local capacity is insufficient.
-- Alert on Intelligence **Conflict**, **Offline**, and **Delivery failing**.
 - Stop the listener on `SIGINT` and `SIGTERM`.
+
+When you scale:
+
+- Prefer an agent factory; singletons are cloned per run automatically.
+- Choose `store.concurrency` deliberately if you need serial workflow state.
+- Keep Channel declarations aligned across runtime processes. Scale
+  horizontally when the bounded capacity of one runtime process is not enough.
+- Alert on Intelligence **Conflict**, **Offline**, and **Delivery failing**.
 
 Continue with [history and transcripts](/channels/history-and-transcripts), or
 use the [`StateStore` reference](/reference/channels/types/StateStore).

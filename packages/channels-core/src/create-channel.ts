@@ -11,8 +11,14 @@ import type {
   IncomingModalClose,
   ModalSubmitResult,
 } from "./platform-adapter.js";
-import { ActionRegistry, ActionExpiredError } from "./action-registry.js";
+import {
+  ActionRegistry,
+  ActionExpiredError,
+  ActionScopeMismatchError,
+  DEFAULT_ACTION_RETENTION_MS,
+} from "./action-registry.js";
 import type { ActionStore } from "./action-store.js";
+import { createHash } from "node:crypto";
 import { MemoryStore } from "./state/memory-store.js";
 import { kvActionStore } from "./state/kv-action-store.js";
 import type { StateStore } from "./state/state-store.js";
@@ -21,7 +27,9 @@ import type { ChannelTool, ContextEntry } from "./tools.js";
 import { normalizeCommandName, toCommandSpec } from "./commands.js";
 import type { ChannelCommand, CommandContext } from "./commands.js";
 import { Thread } from "./thread.js";
-import type { ThreadDeps } from "./thread.js";
+import { isMintedActionId } from "./mint-id.js";
+import { ChannelChoiceSupersededError, choiceAnswer } from "./thread.js";
+import type { ChoiceWaiter, ThreadDeps } from "./thread.js";
 import type { RenderConfig } from "./render/config.js";
 import type { AbstractAgent } from "@ag-ui/client";
 import { sanitizeAgentEventStream } from "./sanitize-agent-events.js";
@@ -36,6 +44,7 @@ import type {
   ModalView,
   ComponentFn,
   MessageRef,
+  MessageReactionHandler,
   Renderable,
 } from "@copilotkit/channels-ui";
 import {
@@ -394,7 +403,12 @@ export interface StoreConfig<
   lockTtl?: number;
   /** TTL (ms) for the inbound event dedup window. Default 300_000. */
   dedupTtl?: number;
-  /** TTL (ms) for durable actions and HITL continuations. Default 604_800_000 (7 days). */
+  /**
+   * TTL (ms) for bound actions, message reaction handlers and HITL
+   * continuations, both in the store and in the in-process cache (which also
+   * holds at most 10_000 entries, least recently used evicted first).
+   * Default 604_800_000 (7 days).
+   */
   actionRetentionMs?: number;
 }
 
@@ -631,6 +645,90 @@ function identityContextFromIngress(
 }
 
 /** Resolve the provider that produced an event without changing adapter identity. */
+/**
+ * A short, stable reference to a conversation for logs: correlates log lines
+ * about one conversation without writing its key (provider channel and thread
+ * ids) into them.
+ */
+function conversationLogRef(conversationKey: string): string {
+  return `#${createHash("sha256").update(conversationKey).digest("hex").slice(0, 12)}`;
+}
+
+/** Why an interaction did not run, as logged and as told to the clicker. */
+const INTERACTION_REFUSALS = {
+  "not-initiator": {
+    log: "only the person who started the turn may answer this picker",
+    tell: "Only the person who started this can answer it.",
+  },
+  "value-not-offered": {
+    log: "a click on a pending awaitChoice picker with a value it does not offer",
+    tell: "That option is not available.",
+  },
+  "outside-conversation": {
+    log: "the action is outside its conversation",
+    tell: "This action is not available here.",
+  },
+  expired: {
+    log: "the action has expired",
+    tell: "This action has expired.",
+  },
+  "not-open": {
+    log: "the awaitChoice picker is still being posted",
+    tell: "This choice is not open yet. Try again in a moment.",
+  },
+} as const;
+
+/** Who owns one awaitChoice picker control, and whether it is open (see `choiceControlOwners`). */
+interface ChoiceControlOwner {
+  state: "reserved" | "open" | "retired";
+  /** The only provider account allowed to click it, or `undefined` for anyone. */
+  actorId: string | undefined;
+  /** The pending choice it answers, once registered. */
+  waiter?: ChoiceWaiter;
+}
+
+type InteractionRefusal = keyof typeof INTERACTION_REFUSALS;
+
+/**
+ * Log a refused or expired interaction at warn (action id, conversation
+ * reference, reason) and, where the platform has native ephemeral messages,
+ * tell the person who clicked. Telling them is best-effort and never falls
+ * back to a direct message.
+ */
+async function refuseInteraction(
+  adapter: PlatformAdapter,
+  platform: string,
+  evt: InteractionEvent,
+  actor: ProviderActor,
+  reason: InteractionRefusal,
+): Promise<void> {
+  const refusal = INTERACTION_REFUSALS[reason];
+  console.warn(
+    `[channel] refused ${platform} interaction ${evt.id} in conversation ${conversationLogRef(evt.conversationKey)}: ${refusal.log}`,
+  );
+  if (
+    !adapter.postEphemeral ||
+    adapter.capabilities.supportsEphemeral !== true ||
+    !actor.id ||
+    actor.id === "unknown"
+  ) {
+    return;
+  }
+  try {
+    await adapter.postEphemeral(
+      evt.replyTarget,
+      actor,
+      [{ type: "text", props: { value: refusal.tell } }],
+      { fallbackToDM: false },
+    );
+  } catch (err) {
+    console.warn(
+      `[channel] could not tell the ${platform} user why interaction ${evt.id} was refused`,
+      err,
+    );
+  }
+}
+
 function ingressPlatform(
   adapter: PlatformAdapter,
   event: { platform?: string },
@@ -758,6 +856,8 @@ export function createChannel<
   const componentEntries: Array<{
     name: string;
     requireKeys: boolean;
+    /** The configured component; a posted element of it binds under `name`. */
+    source: object;
     render: (
       props: Record<string, unknown>,
       context: ChannelComponentRenderContext,
@@ -786,6 +886,7 @@ export function createChannel<
       componentEntries.push({
         name,
         requireKeys: true,
+        source: component,
         render: (props, renderContext) =>
           component.render(props, renderContext),
       });
@@ -811,6 +912,7 @@ export function createChannel<
     componentEntries.push({
       name,
       requireKeys: false,
+      source: component,
       render: (props) => component(props as never) as Renderable,
     });
   }
@@ -842,7 +944,99 @@ export function createChannel<
   }[] = [];
   const modalSubmitHandlers = new Map<string, ModalSubmitHandler>();
   const modalCloseHandlers = new Map<string, ModalCloseHandler>();
-  const waiters = new Map<string, (value: unknown) => void>();
+  const waiters = new Map<string, ChoiceWaiter>();
+  /**
+   * Who owns each awaitChoice picker control, by action id, from before the
+   * picker is posted until its controls are all invalidated. A control is
+   * `reserved` while its picker is being posted (no click may run it yet),
+   * `open` once its choice is registered, and `retired` while its revocation
+   * is in flight; the owner check applies in every state.
+   */
+  const choiceControlOwners = new Map<string, ChoiceControlOwner>();
+
+  /**
+   * Claim a picker's controls before their ids are published, so that no click
+   * can run one before its choice exists. Returns a function that gives the
+   * claim up when the picker never became a pending choice (its post failed):
+   * every control is then revoked, since its ids may have reached the
+   * platform anyway.
+   */
+  function reserveChoiceControls(
+    controlIds: Iterable<string>,
+    actorId: string | undefined,
+  ): () => void {
+    const ids = [...controlIds];
+    const owner: ChoiceControlOwner = { state: "reserved", actorId };
+    for (const id of ids) choiceControlOwners.set(id, owner);
+    return () => {
+      if (owner.state === "reserved") invalidateChoiceControls(ids, owner);
+    };
+  }
+
+  /**
+   * Revoke picker controls. They are retired synchronously (see
+   * `ActionRegistry.revokeActions`), and their owner check stays in force until
+   * the revocation has settled.
+   */
+  function invalidateChoiceControls(
+    ids: readonly string[],
+    owner: ChoiceControlOwner | undefined,
+  ): void {
+    if (owner) owner.state = "retired";
+    const revocation = registry?.revokeActions(ids) ?? Promise.resolve();
+    void revocation
+      .catch((err: unknown) => {
+        console.warn(
+          "[channel] could not revoke a settled picker's actions",
+          err,
+        );
+      })
+      .finally(() => {
+        for (const id of ids) {
+          if (owner && choiceControlOwners.get(id) === owner)
+            choiceControlOwners.delete(id);
+        }
+      });
+  }
+
+  /**
+   * Remove a settled picker and revoke its controls, so they never run or
+   * answer anything again.
+   */
+  function retireWaiter(conversationKey: string, waiter: ChoiceWaiter): void {
+    if (waiters.get(conversationKey) === waiter)
+      waiters.delete(conversationKey);
+    const ids = [...waiter.controls.keys()];
+    const owner = ids
+      .map((id) => choiceControlOwners.get(id))
+      .find((o) => o?.waiter === waiter);
+    invalidateChoiceControls(ids, owner);
+  }
+
+  /**
+   * Register a pending choice; a newer one supersedes (and settles) the old.
+   * The picker's reserved controls open for clicks from here on. Returns a
+   * function that retires this one (for a timeout or an abort).
+   */
+  function registerWaiter(
+    conversationKey: string,
+    waiter: ChoiceWaiter,
+  ): () => void {
+    const previous = waiters.get(conversationKey);
+    waiters.set(conversationKey, waiter);
+    for (const id of waiter.controls.keys()) {
+      const owner = choiceControlOwners.get(id);
+      if (owner?.state === "reserved") {
+        owner.state = "open";
+        owner.waiter = waiter;
+      }
+    }
+    if (previous) {
+      retireWaiter(conversationKey, previous);
+      previous.reject(new ChannelChoiceSupersededError());
+    }
+    return () => retireWaiter(conversationKey, waiter);
+  }
   let intelligenceMemoryAvailable = false;
 
   // Recomputed on start() so tools added via channel.tool() before start are picked up.
@@ -876,7 +1070,8 @@ export function createChannel<
       tools: toolMap,
       toolDescriptors,
       context,
-      registerWaiter: (k, r) => waiters.set(k, r),
+      registerWaiter,
+      reserveChoiceControls,
       interruptHandlers,
       state: backend,
       // Tie the retained interrupt value's lifetime to the action that resumes
@@ -1080,29 +1275,147 @@ export function createChannel<
           evt.triggerId,
         );
         if (openModal) ctx.openModal = openModal;
-        // The clicked element's `value`, recovered by the registry when it
-        // re-renders to find the handler. Used to resolve a HITL waiter on
-        // platforms whose callback payload can't carry the value (Telegram),
-        // where `evt.value` is undefined.
-        let dispatchedValue: unknown;
+        // A pending awaitChoice is answered only by a click on one of its own
+        // controls, from this conversation on this platform. When the picker is
+        // locked to the account that started the turn, refuse anyone else
+        // here, before dispatch, so they cannot run the picker's handlers either.
+        // A control of a picker that is still being posted, or whose
+        // revocation is in flight, keeps its owner check; one whose choice is
+        // not open yet runs nothing at all.
+        const owner = choiceControlOwners.get(evt.id);
+        if (owner) {
+          if (
+            owner.actorId !== undefined &&
+            owner.actorId !== identityContext.actor.id
+          ) {
+            await refuseInteraction(
+              adapter,
+              platform,
+              evt,
+              identityContext.actor,
+              "not-initiator",
+            );
+            return;
+          }
+          if (owner.state === "reserved") {
+            await refuseInteraction(
+              adapter,
+              platform,
+              evt,
+              identityContext.actor,
+              "not-open",
+            );
+            return;
+          }
+        }
+        const waiter = waiters.get(evt.conversationKey);
+        const control =
+          waiter?.platform === platform
+            ? waiter.controls.get(evt.id)
+            : undefined;
+        const picker = control ? waiter : undefined;
+        if (
+          picker?.actorId !== undefined &&
+          picker.actorId !== identityContext.actor.id
+        ) {
+          await refuseInteraction(
+            adapter,
+            platform,
+            evt,
+            identityContext.actor,
+            "not-initiator",
+          );
+          return;
+        }
+        // What the click answers the picker with: the picker's own value for
+        // the control, never one the click merely claims. A select value that
+        // is not one of the picker's options is refused outright.
+        const answer = control
+          ? choiceAnswer(control, evt.value, evt.rawValue)
+          : undefined;
+        if (answer && !answer.ok) {
+          await refuseInteraction(
+            adapter,
+            platform,
+            evt,
+            identityContext.actor,
+            "value-not-offered",
+          );
+          return;
+        }
         try {
           const explicit = interactionHandlers.get(evt.id);
           if (explicit) {
             await explicit(ctx);
+          } else if (control && !control.bound) {
+            // A picker control without a handler: nothing to dispatch.
           } else {
-            dispatchedValue = await registry!.dispatch(evt.id, ctx);
+            await registry!.dispatch(evt.id, ctx, {
+              conversationKey: evt.conversationKey,
+              platform,
+            });
           }
         } catch (err) {
-          // v1: swallow expired-action dispatches; surface anything else.
-          if (!(err instanceof ActionExpiredError)) throw err;
+          // An action presented from another conversation never runs and never
+          // answers a pending choice here.
+          if (err instanceof ActionScopeMismatchError) {
+            await refuseInteraction(
+              adapter,
+              platform,
+              evt,
+              identityContext.actor,
+              "outside-conversation",
+            );
+            return;
+          }
+          if (err instanceof ActionExpiredError) {
+            // A control that never had an action (a link button, a button
+            // without a handler) carries its renderer's fallback id, not a
+            // minted one: nothing expired, so the click is ignored quietly.
+            if (!picker && !isMintedActionId(evt.id)) {
+              console.debug(
+                `[channel] ignored ${platform} interaction in conversation ${conversationLogRef(evt.conversationKey)}: the control has no action`,
+              );
+              return;
+            }
+            // A pending picker still answers from its own record of the
+            // control; any other expired or revoked action is refused.
+            if (!picker) {
+              await refuseInteraction(
+                adapter,
+                platform,
+                evt,
+                identityContext.actor,
+                "expired",
+              );
+              return;
+            }
+            console.warn(
+              `[channel] ${platform} interaction ${evt.id} in conversation ${conversationLogRef(evt.conversationKey)}: the picker control's handler has expired; answering the picker without it`,
+            );
+          } else {
+            // The picker's own handler failed: settle the choice with the
+            // error, once, rather than leave it pending and re-runnable.
+            if (picker && waiters.get(evt.conversationKey) === picker) {
+              retireWaiter(evt.conversationKey, picker);
+              picker.reject(err);
+            }
+            throw err;
+          }
         }
-        // Resolve any HITL waiter awaiting a choice in this conversation. Prefer
-        // the value carried in the event (Slack), falling back to the value the
-        // registry recovered from the rendered element (Telegram).
-        const w = waiters.get(evt.conversationKey);
-        if (w) {
-          waiters.delete(evt.conversationKey);
-          w(evt.value !== undefined ? evt.value : dispatchedValue);
+        // Resolve the HITL waiter only for a click on one of its own controls,
+        // with the value the picker itself offered for that control.
+        if (
+          answer?.ok &&
+          picker &&
+          waiters.get(evt.conversationKey) === picker
+        ) {
+          retireWaiter(evt.conversationKey, picker);
+          picker.resolve(answer.value);
+        } else if (waiter && !picker) {
+          console.debug(
+            `[channel] ${platform} interaction ${evt.id} in conversation ${conversationLogRef(evt.conversationKey)} is not a control of the pending awaitChoice picker; the picker stays pending`,
+          );
         }
       },
       async onCommand(cmd: IncomingCommand) {
@@ -1277,9 +1590,19 @@ export function createChannel<
         // restart. Resolve by `postedMessageId` when the adapter supplies it
         // (Intelligence Channel: the reaction arrives keyed by the provider ts, not the SDK
         // post ref the handler was persisted under); else by `messageId`.
-        const perMessage = await registry!.resolveMessageReaction(
-          evt.postedMessageId ?? evt.messageId,
-        );
+        let perMessage: MessageReactionHandler | undefined;
+        try {
+          perMessage = await registry!.resolveMessageReaction(
+            evt.postedMessageId ?? evt.messageId,
+            { conversationKey: evt.conversationKey, platform: sourcePlatform },
+          );
+        } catch (err) {
+          // A reaction from another conversation never runs a message's handler.
+          if (!(err instanceof ActionScopeMismatchError)) throw err;
+          console.warn(
+            `[channel] refused ${sourcePlatform} reaction on message ${evt.postedMessageId ?? evt.messageId} in conversation ${conversationLogRef(evt.conversationKey)}: the message is outside its conversation`,
+          );
+        }
         if (perMessage) {
           await perMessage(value, {
             emoji: value,
@@ -1413,13 +1736,13 @@ export function createChannel<
           packageVersion: pkg.version,
         });
         telemetry = tel;
+        const retentionMs =
+          cfg.actionRetentionMs ?? DEFAULT_ACTION_RETENTION_MS;
         const registryInstance = new ActionRegistry({
           store:
             opts.actionStore ??
-            kvActionStore(backend, {
-              defaultTtlMs: cfg.actionRetentionMs ?? 7 * 24 * 60 * 60 * 1000,
-            }),
-          retentionMs: cfg.actionRetentionMs ?? 7 * 24 * 60 * 60 * 1000,
+            kvActionStore(backend, { defaultTtlMs: retentionMs }),
+          retentionMs,
         });
         registry = registryInstance;
         for (const component of componentEntries) {
@@ -1431,6 +1754,7 @@ export function createChannel<
           }
           registryInstance.registerComponent(component.name, component.render, {
             requireKeys: component.requireKeys,
+            source: component.source,
           });
         }
         toolDescriptors = toAgentToolDescriptors([...toolMap.values()]);

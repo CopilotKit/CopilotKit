@@ -1,7 +1,7 @@
-import { Action } from "@copilotkit/shared";
+import type { Action } from "@copilotkit/shared";
 import { researchWithLangGraph } from "./research";
 
-import { NextRequest } from "next/server";
+import type { NextRequest } from "next/server";
 import {
   CopilotRuntime,
   LangChainAdapter,
@@ -32,7 +32,8 @@ if (process.env["TAVILY_API_KEY"] && process.env["TAVILY_API_KEY"] !== "NONE") {
 }
 
 const model = new ChatOpenAI({
-  modelName: "gpt-4o-mini",
+  modelKwargs: { reasoning_effort: "none" },
+  modelName: "gpt-6-luna",
   temperature: 0,
   apiKey: process.env["OPENAI_API_KEY"],
 });

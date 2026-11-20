@@ -17,6 +17,7 @@ import { VERSION } from "../core/runtime";
 import { PlatformRequestError } from "../intelligence-platform/client";
 import { isTelemetryDisabled } from "../telemetry/telemetry-client";
 import { supportsLocalThreadEndpoints } from "../runner/agent-runner";
+import { isThreadOperationAvailable } from "./shared/thread-access";
 
 function resolveLicenseStatus(
   runtime: CopilotRuntimeLike,
@@ -144,9 +145,15 @@ export async function handleGetRuntimeInfo({
           );
           capabilities = undefined;
         }
+        // Any agent with a non-blank string `name` property supplies its
+        // display name here, including custom agent classes.
+        const displayName = (agent as { name?: unknown }).name;
 
         const description: AgentDescription = {
-          name,
+          name:
+            typeof displayName === "string" && displayName.trim() !== ""
+              ? displayName
+              : name,
           description: agent.description,
           className: agent.constructor.name,
           ...(capabilities ? { capabilities } : {}),
@@ -243,16 +250,20 @@ function resolveThreadEndpointInfo(
   runtime: CopilotRuntimeLike,
   threadEndpointsEnabled: boolean,
 ): ThreadEndpointRuntimeInfo {
-  const hasRestThreadBackend =
-    isIntelligenceRuntime(runtime) ||
-    supportsLocalThreadEndpoints(runtime.runner);
-  const restEndpointsAvailable = threadEndpointsEnabled && hasRestThreadBackend;
+  // A local route is advertised only when the Thread access policy lets it
+  // serve requests: without identity, list is refused by default while
+  // reading a Thread by id is not.
+  const available = (operation: "list" | "read") =>
+    threadEndpointsEnabled &&
+    (isIntelligenceRuntime(runtime) ||
+      (supportsLocalThreadEndpoints(runtime.runner) &&
+        isThreadOperationAvailable(runtime, operation)));
   const managedThreadMetadata =
     threadEndpointsEnabled && isIntelligenceRuntime(runtime);
 
   return {
-    list: restEndpointsAvailable,
-    inspect: restEndpointsAvailable,
+    list: available("list"),
+    inspect: available("read"),
     mutations: managedThreadMetadata,
     realtimeMetadata: managedThreadMetadata,
   };

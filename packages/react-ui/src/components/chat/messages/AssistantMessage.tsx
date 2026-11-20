@@ -88,7 +88,11 @@ export const AssistantMessage = (props: AssistantMessageProps) => {
       {content && (
         <div className="copilotKitMessage copilotKitAssistantMessage">
           {content && (
-            <Markdown content={content} components={markdownTagRenderers} />
+            <Markdown
+              content={content}
+              components={markdownTagRenderers}
+              messageId={message?.id}
+            />
           )}
 
           {content && !isLoading && (

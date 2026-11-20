@@ -29,8 +29,8 @@ Missing required prop: 'runtimeUrl' or 'publicApiKey' or 'publicLicenseKey'
   The **v1** `<CopilotKit>` provider throws in **both development and
   production** when nothing is configured, whereas the v2 `<CopilotKitProvider>`
   only warns in development. Either way, registering `selfManagedAgents` or
-  `agents__unsafe_dev_only` satisfies the check — no `runtimeUrl` or Copilot
-  Cloud key required.
+  `agents__unsafe_dev_only` satisfies the check. No `runtimeUrl` or Copilot
+  Cloud key is required.
 </Callout>
 
 **Cause:** the provider has no way to reach an agent. You didn't pass a
@@ -66,6 +66,15 @@ This is the error **name** (`error.name`). The accompanying message is one of:
 - `Agent '<name>' was not found. Available agents are: <list>. Please verify the agent name in your configuration and ensure it matches one of the available agents.`
 - `The requested agent was not found. Available agents are: <list>. ...`
 - `Agent '<name>' was not found. Please set up at least one agent before proceeding.` (when **no** agents are registered)
+
+`CopilotKitAgentDiscoveryError` comes from the v1 hooks, such as
+`useCoAgentStateRender`, and from the v1 GraphQL runtime. With
+`@copilotkit/react-core/v2`, `useAgent` throws an `Error` with this message for
+the same cause:
+
+```txt
+useAgent: Agent '<id>' not found after runtime sync (runtimeUrl=<url>). ...
+```
 
 **Cause:** the frontend asked for an `agentId` that the runtime didn't return from
 its `/info` discovery. This is usually a typo, a missing registration, or a runtime that has no
@@ -103,7 +112,7 @@ Agent '<id>' does not exist
 
 **Cause:** a `POST /agent/:agentId/run`, `/connect`, or `/stop/:threadId` request
 named an `agentId` that isn't registered on the runtime. This is the server-side
-counterpart to the client-side `CopilotKitAgentDiscoveryError`.
+counterpart to the client-side errors in [Agent discovery failed](#agent-discovery-failed).
 
 **Fix:** register the agent under that key in `new CopilotRuntime({ agents: { ... } })`.
 If you see this on the `/connect` route **before sending any message**, also read
@@ -135,17 +144,10 @@ Error string:
 Failed to fetch capabilities for agent "<name>"
 ```
 
-**Where:** logged on the client when capability discovery for an agent fails.
+**Where:** a `console.warn` in the runtime's server logs, from the `/info` handler.
 
-**Cause:** the runtime couldn't be reached, or the named agent's capabilities
-endpoint errored.
+**Cause:** the `getCapabilities()` call of the named agent threw. The `/info`
+response still lists the agent, without capabilities.
 
-**Fix:** confirm `runtimeUrl` is correct and the runtime is up; verify
-`GET {runtimeUrl}/info` returns the agent. See
-[Common Issues: Network errors](/troubleshooting/common-issues#network-errors--api-not-found).
-
-## Related
-
-- [Error Debugging](/troubleshooting/error-debugging): the `onError` callback and its programmatic error **codes**.
-- [Common Issues](/troubleshooting/common-issues): network, endpoint, and tunnel problems.
-- [Runtime HTTP endpoints](/backend/runtime-endpoints): probing `/info` and the agent routes with `curl`.
+**Fix:** read the error after the colon, and correct the `getCapabilities()`
+method of the agent.

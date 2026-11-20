@@ -3,6 +3,7 @@ import { ProxiedCopilotRuntimeAgent } from "../agent";
 import { CopilotKitCore, CopilotKitCoreErrorCode } from "../core";
 import { AgentThreadLockedError } from "../intelligence-agent";
 import { createAssistantMessage } from "./test-utils";
+import { THREAD_ALREADY_RUNNING_ERROR_CODE } from "@copilotkit/shared";
 
 describe("CopilotKitCore error handling", () => {
   describe("agent error events", () => {
@@ -69,7 +70,51 @@ describe("CopilotKitCore error handling", () => {
       )!;
       expect(evt.context.agentId).toBe("agent1");
       expect(evt.context.event).toBeDefined();
+      expect(evt.context.phase).toBe("live");
 
+      sub.unsubscribe();
+    });
+
+    it("reports an unknown phase for a connect RUN_ERROR without replay boundaries", async () => {
+      const core = new CopilotKitCore({});
+      const errors: Array<{
+        code: CopilotKitCoreErrorCode;
+        error: Error;
+        context: any;
+      }> = [];
+      const sub = core.subscribe({ onError: (e) => void errors.push(e) });
+      const agent = {
+        agentId: "agent1",
+        threadId: "t1",
+        messages: [] as any[],
+        state: {},
+        addMessages: (_m: any[]) => {},
+        addMessage: (_m: any) => {},
+        abortRun: () => {},
+        clone: () => agent,
+        subscribe: () => ({ unsubscribe() {} }),
+        detachActiveRun: async () => {},
+        setMessages: () => {},
+        setState: () => {},
+        async connectAgent(_params: any, subscriber?: any) {
+          await subscriber?.onRunErrorEvent?.({
+            event: { type: "RUN_ERROR", message: "old failure" },
+            agent: this,
+            messages: this.messages,
+            state: this.state,
+            input: { threadId: this.threadId, runId: "r1", messages: [] },
+          });
+          return { newMessages: [] };
+        },
+      } as any;
+      core.addAgent__unsafe_dev_only({ id: agent.agentId, agent });
+
+      await core.connectAgent({ agent });
+
+      const evt = errors.find(
+        (e) => e.code === CopilotKitCoreErrorCode.AGENT_RUN_ERROR_EVENT,
+      )!;
+      expect(evt.context.phase).toBe("unknown");
       sub.unsubscribe();
     });
 
@@ -142,7 +187,7 @@ describe("CopilotKitCore error handling", () => {
         async runAgent(_params: any, subscriber?: any) {
           // Simulate the user pressing Stop mid-run. RunHandler intercepts
           // agent.abortRun to abort its AbortController, so this flips
-          // _runAbortController.signal.aborted before the terminal arrives.
+          // the agent's run abort signal before the terminal arrives.
           this.abortRun();
           await subscriber?.onRunErrorEvent?.({
             event: {
@@ -223,6 +268,70 @@ describe("CopilotKitCore error handling", () => {
       expect(evt.context.agentId).toBe("agent-locked");
       expect(evt.context.source).toBe("onRunFailed");
       expect(evt.error).toBeInstanceOf(AgentThreadLockedError);
+
+      sub.unsubscribe();
+    });
+
+    it("emits AGENT_THREAD_LOCKED when the runtime sends a busy-thread RUN_ERROR", async () => {
+      const core = new CopilotKitCore({});
+      const errors: Array<{
+        code: CopilotKitCoreErrorCode;
+        error: Error;
+        context: any;
+      }> = [];
+      const sub = core.subscribe({ onError: (e) => void errors.push(e) });
+
+      const agent = {
+        agentId: "agent-busy",
+        threadId: "t-busy",
+        messages: [] as any[],
+        state: {},
+        addMessages: (_m: any[]) => {},
+        addMessage: (_m: any) => {},
+        abortRun: () => {},
+        clone: () => agent,
+        subscribe: () => ({ unsubscribe() {} }),
+        async runAgent(_params: any, subscriber?: any) {
+          // The SSE runtime's frame for a thread that already has a run.
+          const event = {
+            type: "RUN_ERROR",
+            message: "Thread already running",
+            code: THREAD_ALREADY_RUNNING_ERROR_CODE,
+          } as any;
+          await subscriber?.onRunErrorEvent?.({
+            event,
+            agent: this,
+            messages: this.messages,
+            state: this.state,
+            input: {
+              threadId: this.threadId,
+              runId: "r1",
+              messages: this.messages,
+              state: this.state,
+            },
+          });
+          return { newMessages: [] };
+        },
+      } as any;
+
+      core.addAgent__unsafe_dev_only({
+        id: agent.agentId,
+        agent: agent as any,
+      });
+      await core.runAgent({ agent });
+
+      const evt = errors.find(
+        (e) => e.code === CopilotKitCoreErrorCode.AGENT_THREAD_LOCKED,
+      );
+      expect(evt).toBeDefined();
+      expect(evt!.error).toBeInstanceOf(AgentThreadLockedError);
+      expect(evt!.context.agentId).toBe("agent-busy");
+      expect(evt!.context.source).toBe("onRunErrorEvent");
+      expect(
+        errors.some(
+          (e) => e.code === CopilotKitCoreErrorCode.AGENT_RUN_ERROR_EVENT,
+        ),
+      ).toBe(false);
 
       sub.unsubscribe();
     });

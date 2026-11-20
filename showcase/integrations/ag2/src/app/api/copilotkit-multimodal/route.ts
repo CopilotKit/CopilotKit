@@ -1,6 +1,6 @@
 // Dedicated runtime for the Multimodal Attachments demo (AG2).
 //
-// The backing AG2 agent runs gpt-4o (vision-capable). A dedicated route keeps
+// The backing AG2 agent runs gpt-6-luna (vision-capable). A dedicated route keeps
 // vision cost scoped to this cell.
 //
 // The page at src/app/demos/multimodal/page.tsx points its `runtimeUrl` at

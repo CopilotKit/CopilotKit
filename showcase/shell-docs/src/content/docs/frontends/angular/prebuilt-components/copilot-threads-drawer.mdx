@@ -1,0 +1,36 @@
+---
+title: "Threads Drawer"
+description: Put the ready-made CopilotThreadsDrawer next to an Angular chat to list, switch, and manage conversations.
+icon: "lucide/PanelLeft"
+doc_type: how-to
+---
+
+`CopilotThreadsDrawer` supplies a ready-made list, selection, filtering,
+pagination, and mutation controls. Put the drawer and chat under the same
+`provideCopilotChatConfiguration` provider so selection and new-thread actions
+update the chat. The drawer reads the platform's `threads` license feature and
+shows its locked state when that feature is unavailable.
+
+```ts
+import { Component } from "@angular/core";
+import {
+  CopilotChat,
+  CopilotThreadsDrawer,
+  provideCopilotChatConfiguration,
+} from "@copilotkit/angular";
+
+@Component({
+  selector: "app-conversations",
+  imports: [CopilotChat, CopilotThreadsDrawer],
+  providers: [provideCopilotChatConfiguration({ agentId: "support" })],
+  template: `
+    <copilot-threads-drawer agentId="support" [limit]="20" />
+    <copilot-chat />
+  `,
+})
+export class ConversationsComponent {}
+```
+
+## Next steps
+
+- [Headless Threads](/angular/headless-threads): build your own thread list with `injectThreads`.

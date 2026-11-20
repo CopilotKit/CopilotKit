@@ -5,12 +5,10 @@ import {
   A2UI_SCHEMA_CONTEXT_DESCRIPTION,
   extractCatalogComponentSchemas,
 } from "@copilotkit/a2ui-renderer";
-import {
-  A2UI_DEFAULT_GENERATION_GUIDELINES,
-  A2UI_DEFAULT_DESIGN_GUIDELINES,
-} from "@copilotkit/shared";
+import { A2UI_DEFAULT_DESIGN_GUIDELINES } from "@copilotkit/shared";
 import { useCopilotKit } from "../providers/CopilotKitProvider";
 import { useLayoutEffect, useMemo } from "react";
+import { a2uiGenerationGuidelines } from "./generation-guidelines";
 
 /**
  * Renders agent context describing the available A2UI catalog and custom components.
@@ -34,8 +32,11 @@ export function A2UICatalogContext({
   const { copilotkit } = useCopilotKit();
 
   const capabilitiesValue = useMemo(
-    () => buildCatalogContextValue(catalog),
-    [catalog],
+    () =>
+      buildCatalogContextValue(catalog, {
+        includeSchema: includeSchema !== false,
+      }),
+    [catalog, includeSchema],
   );
 
   // When includeSchema is true, send full component schemas in the same format
@@ -51,6 +52,9 @@ export function A2UICatalogContext({
   // The agents list is read fresh inside the effect; this key only exists to
   // re-register the entries if the runtime's scoping changes on a reconnect.
   const a2uiAgentsKey = copilotkit?.a2uiAgents?.join(",");
+  const generationGuidelines = a2uiGenerationGuidelines(
+    catalog?.protocolVersion,
+  );
 
   useLayoutEffect(() => {
     if (!copilotkit) return;
@@ -77,7 +81,7 @@ export function A2UICatalogContext({
         copilotkit.addContext({
           description:
             "A2UI generation guidelines — protocol rules, tool arguments, path rules, data model format, and form/two-way-binding instructions.",
-          value: A2UI_DEFAULT_GENERATION_GUIDELINES,
+          value: generationGuidelines,
           ...scope,
         }),
       );
@@ -93,7 +97,13 @@ export function A2UICatalogContext({
     return () => {
       for (const id of ids) copilotkit.removeContext(id);
     };
-  }, [copilotkit, capabilitiesValue, schemaValue, a2uiAgentsKey]);
+  }, [
+    copilotkit,
+    capabilitiesValue,
+    schemaValue,
+    a2uiAgentsKey,
+    generationGuidelines,
+  ]);
 
   return null;
 }

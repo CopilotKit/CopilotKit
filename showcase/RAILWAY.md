@@ -73,6 +73,15 @@ primary deploy path.
 4. **Git-based services**: auto-updates only apply to image-sourced
    services. Skip step 1 for git-deploy services.
 
+5. **Register it in `SERVICES`** (`showcase/scripts/railway-envs.ts`) with
+   the exact Railway name and service ID. Either order is safe. While a
+   service has a staging or prod instance but no `SERVICES` entry, the image
+   gate (`verify-railway-image-refs.ts`) prints
+   `WARN unregistered Railway service` and passes; it does not check that
+   service's image, and CI does not deploy or promote it. An unregistered
+   service with no staging or prod instance, a registered name with a
+   different ID, or a registered ID under a new name still fails the gate.
+
 ## Promoting a Staging-Only Integration to Production
 
 ### When this applies
@@ -170,8 +179,10 @@ flipping the SSOT gate.
    a secret value in the SSOT or in a commit. If the agent routes 100% to
    aimock (the `serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }]`
    case), `OPENAI_BASE_URL` points at the **prod** aimock origin and the
-   `OPENAI_API_KEY` is the non-secret `sk-aim…` aimock placeholder — so no real
-   prod secret is sourced. The `OPENAI_BASE_URL` service-ref is asserted
+   `OPENAI_API_KEY` (and any `ANTHROPIC_API_KEY` / `GOOGLE_API_KEY`) is the
+   reference `${{aimock.AIMOCK_CLIENT_KEY}}`, the aimock inbound credential
+   (see `showcase/aimock/RAILWAY.md` section 6). No provider secret is sourced,
+   but a fixed placeholder no longer works: aimock rejects it with a 401. The `OPENAI_BASE_URL` service-ref is asserted
    prod→prod by the promote preflight (never copied across envs).
 
 5. **Verify GREEN.** After the prod instance is up:

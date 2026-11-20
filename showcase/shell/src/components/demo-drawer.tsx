@@ -5,7 +5,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
-import { oneLight } from "react-syntax-highlighter/dist/esm/styles/prism";
+import { oneLightDark } from "@/lib/code-theme";
 
 interface Alternative {
   slug: string;
@@ -258,7 +258,7 @@ export function DemoDrawer({
                         </div>
                         <SyntaxHighlighter
                           language={file.language}
-                          style={oneLight}
+                          style={oneLightDark}
                           customStyle={{
                             margin: 0,
                             borderRadius: 0,

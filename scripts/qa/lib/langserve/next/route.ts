@@ -28,7 +28,12 @@ const runtime = new CopilotRuntime({
           ],
           ["user", "My name is {name}"],
         ]);
-        const chain = prompt.pipe(new ChatOpenAI());
+        const chain = prompt.pipe(
+          new ChatOpenAI({
+            model: "gpt-6-luna",
+            modelKwargs: { reasoning_effort: "none" },
+          }),
+        );
         return chain.invoke({
           name: name,
         });
@@ -54,7 +59,12 @@ const runtime = new CopilotRuntime({
           ],
           ["user", "My name is {name}"],
         ]);
-        const chain = prompt.pipe(new ChatOpenAI());
+        const chain = prompt.pipe(
+          new ChatOpenAI({
+            model: "gpt-6-luna",
+            modelKwargs: { reasoning_effort: "none" },
+          }),
+        );
         return chain.stream({
           name: name,
         });

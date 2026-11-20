@@ -44,6 +44,22 @@ function setScrollMetrics(
   });
 }
 
+/** Where an element's box ends, in viewport coordinates. */
+function setBottom(el: Element, bottom: number) {
+  el.getBoundingClientRect = () =>
+    ({
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom,
+      width: 0,
+      height: bottom,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    }) as DOMRect;
+}
+
 // Wrapper to provide required context (same pattern as CopilotChatView.slots.e2e.test.tsx)
 const TestWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <CopilotKitProvider>
@@ -110,10 +126,50 @@ describe("CopilotChatView pin-to-send mode", () => {
       scrollHeight: 1000,
       scrollTop: 100,
     });
+    // The messages end 400px below the viewport's bottom.
+    setBottom(scrollElement!, 300);
+    setBottom(spacer!.previousElementSibling!, 700);
     await waitFor(() => {
       fireEvent.scroll(scrollElement!);
       expect(screen.getByTestId("scroll-to-bottom")).toBeTruthy();
     });
+  });
+
+  it("hides the scroll-to-bottom button when only the empty spacer is below", async () => {
+    const ScrollButton = (
+      props: React.ButtonHTMLAttributes<HTMLButtonElement>,
+    ) => <button data-testid="scroll-to-bottom" {...props} />;
+
+    const screen = render(
+      <TestWrapper>
+        <LastUserMessageContext.Provider value={{ id: null, sendNonce: 0 }}>
+          <CopilotChatView
+            autoScroll="pin-to-send"
+            messages={sampleMessages}
+            scrollView={{ scrollToBottomButton: ScrollButton }}
+          />
+        </LastUserMessageContext.Provider>
+      </TestWrapper>,
+    );
+
+    await waitForMount(screen);
+
+    const spacer = screen.container.querySelector("[data-pin-to-send-spacer]");
+    const scrollElement = spacer?.parentElement as HTMLElement | null;
+    expect(scrollElement).not.toBeNull();
+
+    // A sent message pinned to the top: the spacer makes the scroll height
+    // 700px past the viewport, but the messages end above its bottom.
+    setScrollMetrics(scrollElement!, {
+      clientHeight: 300,
+      scrollHeight: 1000,
+      scrollTop: 0,
+    });
+    setBottom(scrollElement!, 300);
+    setBottom(spacer!.previousElementSibling!, 120);
+    fireEvent.scroll(scrollElement!);
+
+    expect(screen.queryByTestId("scroll-to-bottom")).toBeNull();
   });
 
   it("does not render the spacer when autoScroll='pin-to-bottom'", async () => {

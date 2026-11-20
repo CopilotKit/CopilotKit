@@ -35,6 +35,7 @@ export interface WorkflowStep {
 }
 
 export interface WorkflowJob {
+  needs?: string | string[];
   name?: string;
   if?: string;
   concurrency?: unknown;

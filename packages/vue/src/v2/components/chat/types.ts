@@ -116,7 +116,15 @@ export interface CopilotChatProps extends Omit<
   | "onStartTranscribe"
   | "onCancelTranscribe"
   | "onFinishTranscribe"
+  // Redeclared below, deprecated: the chat sets it from its own state
+  | "inputMode"
 > {
+  /**
+   * @deprecated Has no effect. `CopilotChat` sets the input mode from its own
+   * transcription state. To set it yourself, render `CopilotChatView` and pass
+   * `inputMode` there.
+   */
+  inputMode?: CopilotChatInputMode;
   agentId?: string;
   threadId?: string;
   throttleMs?: number;

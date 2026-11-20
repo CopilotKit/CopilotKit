@@ -15,6 +15,15 @@ import {
 } from "./sampling";
 import { isTelemetryDisabled } from "./telemetry-disabled";
 
+/**
+ * Events that go to the CopilotKit-owned lambda sink only. Segment is a third
+ * party: framework-per-runtime data must not land there (the sink also keeps
+ * it out of Scarf and Reo).
+ */
+const SEGMENT_EXCLUDED_EVENTS: ReadonlySet<string> = new Set([
+  "oss.runtime.agent_identified",
+]);
+
 export { isTelemetryDisabled };
 
 /** Transport identity and sampling authority resolved for one runtime. */
@@ -125,7 +134,9 @@ export class TelemetryClient {
     properties: AnalyticsEvents[K],
     identity: ResolvedTelemetryIdentity,
   ): Promise<void> {
-    if (this.telemetryDisabled) {
+    // Re-read the environment: an opt-out set after import (for example a
+    // dotenv call below the imports) must still stop events.
+    if (this.telemetryDisabled || isTelemetryDisabled()) {
       return;
     }
 
@@ -199,7 +210,7 @@ export class TelemetryClient {
       licenseToken: identity.licenseToken ?? undefined,
     });
 
-    if (this.segment && sendToSegment) {
+    if (this.segment && sendToSegment && !SEGMENT_EXCLUDED_EVENTS.has(event)) {
       this.segment.track({
         anonymousId: this.anonymousId,
         event,

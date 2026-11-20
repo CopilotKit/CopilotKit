@@ -83,7 +83,7 @@ This is a starter template for building AI agents using [Microsoft Agent Framewo
    cd ..
    ```
 
-   To use another model, also set `COPILOTKIT_AGENT_MODEL` (default `openai:gpt-5-mini`), e.g. `dotnet user-secrets set COPILOTKIT_AGENT_MODEL "anthropic:claude-sonnet-4-5"`, plus `ANTHROPIC_API_KEY` or `GOOGLE_API_KEY` for the `anthropic` or `google` provider.
+   To use another model, also set `COPILOTKIT_AGENT_MODEL` (default `openai:gpt-6-luna`), e.g. `dotnet user-secrets set COPILOTKIT_AGENT_MODEL "anthropic:claude-sonnet-4-5"`, plus `ANTHROPIC_API_KEY` or `GOOGLE_API_KEY` for the `anthropic` or `google` provider.
 
 3. Start the development server:
 

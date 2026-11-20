@@ -12,17 +12,27 @@ A2UI middleware with `injectA2UITool: false` because the backend owns
 the rendering tool itself.
 """
 
+# @region[backend-render-operations]
+# @region[backend-schema-json-load]
 from __future__ import annotations
 
 import json
 from pathlib import Path
 from typing import Annotated
 
-from autogen import ConversableAgent, LLMConfig
-from autogen.ag_ui import AGUIStream
+from ag2 import Agent
+from ag2.ag_ui import AGUIStream
+from ag2.config.openai import OpenAIResponsesConfig
 from fastapi import FastAPI
+from pydantic import Field
+# @endregion[backend-schema-json-load]
+# @endregion[backend-render-operations]
+
+from ._loop_cap import loop_cap
 
 
+# @region[backend-render-operations]
+# @region[backend-schema-json-load]
 CATALOG_ID = "copilotkit://flight-fixed-catalog"
 SURFACE_ID = "flight-fixed-schema"
 
@@ -36,13 +46,16 @@ def _load_schema(filename: str) -> list[dict]:
 
 
 FLIGHT_SCHEMA = _load_schema("flight_schema.json")
+# @endregion[backend-schema-json-load]
 
 
 async def display_flight(
-    origin: Annotated[str, "Origin airport code, e.g. 'SFO'"],
-    destination: Annotated[str, "Destination airport code, e.g. 'JFK'"],
-    airline: Annotated[str, "Airline name, e.g. 'United'"],
-    price: Annotated[str, "Price string, e.g. '$289'"],
+    origin: Annotated[str, Field(description="Origin airport code, e.g. 'SFO'")],
+    destination: Annotated[
+        str, Field(description="Destination airport code, e.g. 'JFK'")
+    ],
+    airline: Annotated[str, Field(description="Airline name, e.g. 'United'")],
+    price: Annotated[str, Field(description="Price string, e.g. '$289'")],
 ) -> str:
     """Show a flight card for the given trip.
 
@@ -90,6 +103,9 @@ async def display_flight(
     return json.dumps({"a2ui_operations": operations})
 
 
+# @endregion[backend-render-operations]
+
+
 SYSTEM_PROMPT = (
     "You help users find flights. When asked about a flight, call "
     "display_flight with origin (3-letter code), destination (3-letter "
@@ -98,13 +114,12 @@ SYSTEM_PROMPT = (
 )
 
 
-agent = ConversableAgent(
-    name="a2ui_fixed_assistant",
-    system_message=SYSTEM_PROMPT,
-    llm_config=LLMConfig({"model": "gpt-5-mini", "stream": True}),
-    human_input_mode="NEVER",
-    max_consecutive_auto_reply=4,
-    functions=[display_flight],
+agent = Agent(
+    "a2ui_fixed_assistant",
+    prompt=SYSTEM_PROMPT,
+    config=OpenAIResponsesConfig(model="gpt-6-luna", streaming=True),
+    tools=[display_flight],
+    middleware=[loop_cap(4)],
 )
 
 stream = AGUIStream(agent)

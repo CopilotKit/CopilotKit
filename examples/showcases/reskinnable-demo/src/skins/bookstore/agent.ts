@@ -87,15 +87,15 @@ answer that looks right is worse than admitting you don't have one.
 
 export const bookstoreAgent = () =>
   new BuiltInAgent({
-    // `openai/gpt-5.4` is the alias used across this app; the full (non-mini)
+    // `openai/gpt-6-luna` is the alias used across this app; the full (non-mini)
     // model routes the multi-step arc (recall_memory -> recommendBooks ->
     // addToCart -> openCheckout) more reliably.
-    model: "openai/gpt-5.4",
+    model: "openai/gpt-6-luna",
     prompt: BOOKSTORE_PROMPT,
     // No backend tools: the catalog arrives as agent context, and every action
     // is a frontend tool in tools.tsx.
     tools: [],
-    // NO `temperature`. Banking pins it to 0 for determinism, but gpt-5.4 is a
+    // NO `temperature`. Banking pins it to 0 for determinism, but gpt-6-luna is a
     // reasoning model that REJECTS the parameter — the dev server logs
     // 'The feature "temperature" is not supported' on literally every run, and
     // the value is discarded. Carrying a silently-ignored option alongside a

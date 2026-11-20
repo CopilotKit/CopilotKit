@@ -1,5 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { compactEvents, EventType } from "@ag-ui/client";
+import { MockLanguageModelV3, simulateReadableStream } from "ai/test";
+import { BuiltInAgent, convertMessagesToVercelAISDKMessages } from "../index";
 import { EventSchemas } from "@ag-ui/core/schemas";
 import {
   createAgent,
@@ -27,6 +29,136 @@ import {
 // ---------------------------------------------------------------------------
 
 describe("AI SDK Converter", () => {
+  describe.each(["classic", "factory"] as const)(
+    "Gemini tool signatures (%s)",
+    (mode) => {
+      const signature = "opaque+/signature==\n";
+      const tools = [
+        {
+          name: "render_a2ui",
+          description: "Render UI",
+          parameters: { type: "object", properties: {} },
+        },
+      ];
+      const messages = [
+        { id: "user-1", role: "user" as const, content: "Render a dashboard" },
+      ];
+
+      function signedAgent(
+        provider = "google",
+        thoughtSignature: string | number = signature,
+      ) {
+        const providerMetadata = { [provider]: { thoughtSignature } };
+        if (mode === "factory") {
+          return createAgent("aisdk", [
+            {
+              ...toolCallStreamingStart("call-1", "render_a2ui"),
+              providerMetadata,
+            },
+            { ...toolCall("call-1", "render_a2ui", {}), providerMetadata },
+            finish(),
+          ]);
+        }
+        const model = new MockLanguageModelV3({
+          doStream: async () => ({
+            stream: simulateReadableStream({
+              chunks: [
+                {
+                  type: "tool-call",
+                  toolCallId: "call-1",
+                  toolName: "render_a2ui",
+                  input: "{}",
+                  providerMetadata,
+                },
+                {
+                  type: "finish",
+                  finishReason: { unified: "tool-calls", raw: "tool-calls" },
+                  usage: {
+                    inputTokens: {
+                      total: 1,
+                      noCache: 1,
+                      cacheRead: 0,
+                      cacheWrite: 0,
+                    },
+                    outputTokens: { total: 1, text: 1, reasoning: 0 },
+                  },
+                },
+              ],
+            }),
+          }),
+        });
+        return new BuiltInAgent({ model });
+      }
+
+      it.each(["google", "vertex"])(
+        "emits the exact %s signature as a standard encrypted tool-call event",
+        async (provider) => {
+          const events = await collectEvents(
+            signedAgent(provider).run(createDefaultInput({ tools, messages })),
+          );
+          const encrypted = events.filter(
+            (e) => e.type === EventType.REASONING_ENCRYPTED_VALUE,
+          );
+          expect(encrypted).toEqual([
+            {
+              type: EventType.REASONING_ENCRYPTED_VALUE,
+              subtype: "tool-call",
+              entityId: "call-1",
+              encryptedValue: signature,
+            },
+          ]);
+          expect(
+            events.findIndex((e) => e.type === EventType.TOOL_CALL_START),
+          ).toBeLessThan(events.indexOf(encrypted[0]));
+          expect(() => EventSchemas.parse(encrypted[0])).not.toThrow();
+        },
+      );
+
+      it("round trips a signed tool call through the AG-UI client history", async () => {
+        const agent = signedAgent();
+        agent.addMessage(messages[0]);
+        await agent.runAgent({ tools });
+        const assistant = agent.messages.find(
+          (message) => message.role === "assistant",
+        );
+        expect(
+          assistant?.role === "assistant" &&
+            assistant.toolCalls?.[0].encryptedValue,
+        ).toBe(signature);
+        expect(
+          convertMessagesToVercelAISDKMessages(agent.messages).find(
+            (message) => message.role === "assistant",
+          ),
+        ).toMatchObject({
+          role: "assistant",
+          content: [
+            { providerOptions: { google: { thoughtSignature: signature } } },
+          ],
+        });
+      });
+
+      it.each([
+        ["anthropic", signature],
+        ["google", 123],
+        ["google", ""],
+      ])(
+        "does not invent a signature for %s metadata %s",
+        async (provider, value) => {
+          const events = await collectEvents(
+            signedAgent(String(provider), value).run(
+              createDefaultInput({ tools, messages }),
+            ),
+          );
+          expect(
+            events.filter(
+              (e) => e.type === EventType.REASONING_ENCRYPTED_VALUE,
+            ),
+          ).toEqual([]);
+        },
+      );
+    },
+  );
+
   describe("Basic Event Emission", () => {
     it("text delta emits TEXT_MESSAGE_CHUNK with correct role, messageId, and delta", async () => {
       const agent = createAgent("aisdk", [textDelta("Hello"), finish()]);

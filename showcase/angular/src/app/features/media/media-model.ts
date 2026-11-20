@@ -72,41 +72,6 @@ export function createMultimodalMessage(
 }
 // @endregion[multimodal-message]
 
-/** Append legacy binary mirrors needed by the published LangGraph converter. */
-export function rewriteMessagesForLegacyConverter(
-  messages: ReadonlyArray<Readonly<MediaAgentMessage>>,
-): MediaAgentMessage[] | null {
-  let mutated = false;
-  const next = messages.map((message) => {
-    if (message.role !== "user" || !Array.isArray(message.content)) {
-      return message as MediaAgentMessage;
-    }
-    const existingBinaryKeys = new Set<string>();
-    for (const part of message.content) {
-      if (!isRecord(part) || part["type"] !== "binary") continue;
-      existingBinaryKeys.add(
-        `${stringValue(part["mimeType"])}::${stringValue(part["data"] ?? part["url"])}`,
-      );
-    }
-    const content: unknown[] = [];
-    let messageMutated = false;
-    for (const part of message.content) {
-      content.push(part);
-      const mirror = legacyBinaryFor(part);
-      if (!mirror) continue;
-      const key = `${mirror.mimeType}::${mirror.data ?? mirror.url ?? ""}`;
-      if (existingBinaryKeys.has(key)) continue;
-      existingBinaryKeys.add(key);
-      content.push(mirror);
-      messageMutated = true;
-    }
-    if (!messageMutated) return message as MediaAgentMessage;
-    mutated = true;
-    return { ...message, content };
-  });
-  return mutated ? next : null;
-}
-
 /** Normalize and deduplicate media that round-trips through LangGraph. */
 export function dedupeUserMessageMedia(
   messages: ReadonlyArray<Readonly<MediaAgentMessage>>,
@@ -151,26 +116,6 @@ export function dedupeUserMessageMedia(
 function bytesStartWith(bytes: Uint8Array, prefix: readonly number[]): boolean {
   if (bytes.length < prefix.length) return false;
   return prefix.every((byte, index) => bytes[index] === byte);
-}
-
-/** Mirror one modern media part in the legacy converter representation. */
-function legacyBinaryFor(
-  part: unknown,
-): { type: "binary"; mimeType: string; data?: string; url?: string } | null {
-  if (!isRecord(part) || !isModernMediaType(part["type"])) return null;
-  const source = part["source"];
-  if (!isRecord(source)) return null;
-  const value = stringValue(source["value"]);
-  if (!value) return null;
-  const mimeType =
-    stringValue(source["mimeType"]) || "application/octet-stream";
-  if (source["type"] === "data") {
-    return { type: "binary", mimeType, data: value };
-  }
-  if (source["type"] === "url") {
-    return { type: "binary", mimeType, url: value };
-  }
-  return null;
 }
 
 /** Derive the rendered media type from the authoritative MIME type. */

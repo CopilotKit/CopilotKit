@@ -1,5 +1,6 @@
 import { handleGetRuntimeInfo } from "../handlers/get-runtime-info";
 import { CopilotRuntime } from "../core/runtime";
+import { BuiltInAgent } from "../../../agent";
 import { resolveForwardHeadersPolicy } from "../handlers/header-utils";
 import type {
   CopilotIntelligenceRuntimeLike,
@@ -368,6 +369,14 @@ describe("handleGetRuntimeInfo", () => {
     mutations: false,
     realtimeMetadata: false,
   };
+  // Without identity, a default SSE runtime refuses list but serves reads of
+  // a thread by id, so it advertises inspect only.
+  const unconfiguredLocalThreadEndpoints = {
+    list: false,
+    inspect: true,
+    mutations: false,
+    realtimeMetadata: false,
+  };
   const createRunner = (supportsLocalThreadEndpoints = false) =>
     ({
       ...(supportsLocalThreadEndpoints
@@ -418,7 +427,7 @@ describe("handleGetRuntimeInfo", () => {
       agents: {},
       audioFileTranscriptionEnabled: false,
       mode: "sse",
-      threadEndpoints: inMemoryThreadEndpoints,
+      threadEndpoints: unconfiguredLocalThreadEndpoints,
       suggestions: true,
       a2uiEnabled: false,
       openGenerativeUIEnabled: false,
@@ -446,7 +455,7 @@ describe("handleGetRuntimeInfo", () => {
       agents: {},
       audioFileTranscriptionEnabled: true,
       mode: "sse",
-      threadEndpoints: inMemoryThreadEndpoints,
+      threadEndpoints: unconfiguredLocalThreadEndpoints,
       suggestions: true,
       a2uiEnabled: false,
       openGenerativeUIEnabled: false,
@@ -486,7 +495,7 @@ describe("handleGetRuntimeInfo", () => {
       },
       audioFileTranscriptionEnabled: true,
       mode: "sse",
-      threadEndpoints: inMemoryThreadEndpoints,
+      threadEndpoints: unconfiguredLocalThreadEndpoints,
       suggestions: true,
       a2uiEnabled: false,
       openGenerativeUIEnabled: false,
@@ -528,6 +537,7 @@ describe("handleGetRuntimeInfo", () => {
   it("detects local thread endpoints from the runner capability flag", async () => {
     const runtime = createRuntimeLike({
       runner: createRunner(true),
+      threadAccess: "open",
     });
 
     const response = await handleGetRuntimeInfo({
@@ -543,8 +553,11 @@ describe("handleGetRuntimeInfo", () => {
   });
 
   it("reports no thread endpoints when multi-route REST endpoints are disabled", async () => {
+    // Open access would advertise list and inspect, so the disabled routes
+    // are the only reason left for them to be off.
     const runtime = createRuntimeLike({
       runner: createRunner(true),
+      threadAccess: "open",
     });
 
     const response = await handleGetRuntimeInfo({
@@ -695,6 +708,76 @@ describe("handleGetRuntimeInfo", () => {
 
     const data = await response.json();
     expect(data.a2uiEnabled).toBe(false);
+  });
+
+  it("should allow an agent name to differ from its registry ID", async () => {
+    const agent = new BuiltInAgent({
+      model: "openai/gpt-5-mini",
+      name: "Research Assistant",
+    });
+
+    const runtime = new CopilotRuntime({
+      agents: {
+        research_agent_v2: agent,
+      },
+    });
+
+    const response = await handleGetRuntimeInfo({
+      runtime,
+      request: mockRequest,
+    });
+
+    expect(response.status).toBe(200);
+
+    const data = await response.json();
+
+    expect(data.agents.research_agent_v2).toBeDefined();
+    expect(data.agents.research_agent_v2.name).toBe("Research Assistant");
+  });
+
+  it("should default the agent name to its registry ID", async () => {
+    const mockAgent = {
+      description: "Helps with research",
+      constructor: { name: "ResearchAgent" },
+    };
+
+    const runtime = new CopilotRuntime({
+      agents: {
+        research_agent_v2: mockAgent as unknown as AbstractAgent,
+      },
+    });
+
+    const response = await handleGetRuntimeInfo({
+      runtime,
+      request: mockRequest,
+    });
+
+    expect(response.status).toBe(200);
+
+    const data = await response.json();
+
+    expect(data.agents.research_agent_v2.name).toBe("research_agent_v2");
+  });
+
+  it("should treat a blank agent name as unset", async () => {
+    const runtime = new CopilotRuntime({
+      agents: {
+        empty_name: new BuiltInAgent({ model: "openai/gpt-5-mini", name: "" }),
+        blank_name: new BuiltInAgent({
+          model: "openai/gpt-5-mini",
+          name: "   ",
+        }),
+      },
+    });
+
+    const response = await handleGetRuntimeInfo({
+      runtime,
+      request: mockRequest,
+    });
+    const data = await response.json();
+
+    expect(data.agents.empty_name.name).toBe("empty_name");
+    expect(data.agents.blank_name.name).toBe("blank_name");
   });
 
   it("should include capabilities when agent implements getCapabilities", async () => {

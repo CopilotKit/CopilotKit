@@ -4,9 +4,14 @@ import CopilotChat from "./CopilotChat.vue";
 import CopilotSidebarView from "./CopilotSidebarView.vue";
 import CopilotSidebarWelcomeScreen from "./CopilotSidebarWelcomeScreen.vue";
 import InlineFeatureWarning from "../InlineFeatureWarning.vue";
+import { forwardedSlotNames } from "./forwarded-slots";
 import { useLicenseContext } from "../../providers/useLicenseContext";
 import type {
+  CopilotChatFeatherSlotProps,
+  CopilotChatInterruptSlotProps,
   CopilotChatMessageViewSlotProps,
+  CopilotChatScrollToBottomButtonSlotProps,
+  CopilotChatScrollViewSlotProps,
   CopilotChatViewOverrideSlotProps,
   CopilotChatWelcomeScreenSlotProps,
   CopilotSidebarProps,
@@ -16,6 +21,7 @@ import type {
   CopilotSidebarWelcomeScreenSuggestionViewSlotProps,
 } from "./types";
 import type { Suggestion } from "@copilotkit/core";
+import type { GenerativeUIChatSurfaceSlotProps } from "../../generative-ui/chat";
 
 function sidebarViewEventBindings(slotProps: CopilotChatViewOverrideSlotProps) {
   return {
@@ -50,13 +56,38 @@ defineSlots<{
   "toggle-button"?: (props: CopilotSidebarViewToggleButtonSlotProps) => unknown;
   "chat-view"?: (props: CopilotChatViewOverrideSlotProps) => unknown;
   "message-view"?: (props: CopilotChatMessageViewSlotProps) => unknown;
+  "scroll-view"?: (props: CopilotChatScrollViewSlotProps) => unknown;
+  feather?: (props: CopilotChatFeatherSlotProps) => unknown;
+  "scroll-to-bottom-button"?: (
+    props: CopilotChatScrollToBottomButtonSlotProps,
+  ) => unknown;
+  interrupt?: (props: CopilotChatInterruptSlotProps) => unknown;
   input?: (props: CopilotSidebarWelcomeScreenInputSlotProps) => unknown;
   "suggestion-view"?: (
     props: CopilotSidebarWelcomeScreenSuggestionViewSlotProps,
   ) => unknown;
   "welcome-screen"?: (props: CopilotChatWelcomeScreenSlotProps) => unknown;
   "welcome-message"?: () => unknown;
+  /** Wraps each generative UI surface in the chat, as on CopilotChat. */
+  "generative-ui-surface"?: (
+    props: GenerativeUIChatSurfaceSlotProps,
+  ) => unknown;
+  // Any other slot goes to the chat view, as on CopilotChat.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  [key: string]: ((props: any) => unknown) | undefined;
 }>();
+
+// Slots this component renders itself and does not pass to the view. It passes
+// every other slot to the view. It also renders `input` and `suggestion-view`
+// in its welcome screen, so those two go to both places.
+// `generative-ui-surface` goes to CopilotChat, which gives it to the chat
+// surfaces.
+const OWN_SLOTS = [
+  "chat-view",
+  "welcome-screen",
+  "welcome-message",
+  "generative-ui-surface",
+] as const;
 
 defineEmits<{
   "submit-message": [value: string];
@@ -100,6 +131,13 @@ watch(
     @cancel-transcribe="$emit('cancel-transcribe')"
     @finish-transcribe="$emit('finish-transcribe')"
   >
+    <template
+      v-if="$slots['generative-ui-surface']"
+      #generative-ui-surface="surfaceProps"
+    >
+      <slot name="generative-ui-surface" v-bind="surfaceProps" />
+    </template>
+
     <template #chat-view="slotProps">
       <slot v-if="$slots['chat-view']" name="chat-view" v-bind="slotProps" />
       <CopilotSidebarView
@@ -118,15 +156,12 @@ watch(
         :on-finish-transcribe-with-audio="slotProps.onFinishTranscribeWithAudio"
         v-bind="sidebarViewEventBindings(slotProps)"
       >
-        <template v-if="$slots.header" #header="headerProps">
-          <slot name="header" v-bind="headerProps" />
-        </template>
-
         <template
-          v-if="$slots['toggle-button']"
-          #toggle-button="toggleButtonProps"
+          v-for="slotName in forwardedSlotNames($slots, OWN_SLOTS)"
+          :key="slotName"
+          #[slotName]="forwardedProps"
         >
-          <slot name="toggle-button" v-bind="toggleButtonProps" />
+          <slot :name="slotName" v-bind="forwardedProps" />
         </template>
 
         <template #welcome-screen="welcomeScreenProps">
@@ -151,24 +186,6 @@ watch(
               <slot name="input" v-bind="inputProps" />
             </template>
           </CopilotSidebarWelcomeScreen>
-        </template>
-
-        <template
-          v-if="$slots['message-view']"
-          #message-view="messageViewProps"
-        >
-          <slot name="message-view" v-bind="messageViewProps" />
-        </template>
-
-        <template v-if="$slots.input" #input="inputProps">
-          <slot name="input" v-bind="inputProps" />
-        </template>
-
-        <template
-          v-if="$slots['suggestion-view']"
-          #suggestion-view="suggestionViewProps"
-        >
-          <slot name="suggestion-view" v-bind="suggestionViewProps" />
         </template>
       </CopilotSidebarView>
     </template>

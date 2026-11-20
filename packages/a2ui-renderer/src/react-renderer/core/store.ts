@@ -8,8 +8,11 @@ export interface A2UIActions {
   /** Process incoming v0.9 A2UI messages */
   processMessages: (messages: Array<Record<string, unknown>>) => void;
 
-  /** Dispatch a user action to the server */
-  dispatch: (message: any) => void;
+  /**
+   * Dispatch a user action to the server. Returns the promise from `onAction`,
+   * if it returned one, so callers can wait for the action to be handled.
+   */
+  dispatch: (message: any) => void | Promise<void>;
 
   /** Get a surface model by ID */
   getSurface: (surfaceId: string) => any | undefined;

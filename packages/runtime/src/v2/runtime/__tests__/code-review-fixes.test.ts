@@ -408,7 +408,7 @@ describe("Item 12: Vary headers on preflight", () => {
 /* ------------------------------------------------------------------------------------------------
  * Item 7: synthesizeBody null guard uses wrong comparison
  *
- * Tested indirectly through express-fetch-bridge.
+ * Tested indirectly through createCopilotNodeHandler.
  * The synthesizeBody function should treat null bodies as empty (not serialize "null").
  * This is already mitigated by hasPreParsedBody rejecting null, but we test the
  * boundary to ensure the fix is correct.
@@ -419,8 +419,8 @@ describe("Item 7: synthesizeBody null guard", () => {
   // meaning the generic (stream-based) handler runs instead of trying to
   // serialize null into the string "null".
   it("null req.body is treated as no pre-parsed body (falls through to generic handler)", async () => {
-    const { createExpressNodeHandler } =
-      await import("../endpoints/express-fetch-bridge");
+    const { createCopilotNodeHandler } =
+      await import("../endpoints/node-fetch-handler");
 
     let handlerCalled = false;
     const fetchHandler = async (_req: Request) => {
@@ -428,11 +428,11 @@ describe("Item 7: synthesizeBody null guard", () => {
       return new Response("ok", { status: 200 });
     };
 
-    const nodeHandler = createExpressNodeHandler(fetchHandler);
+    const nodeHandler = createCopilotNodeHandler(fetchHandler);
 
     // Use supertest-style approach: create a real HTTP server to exercise
     // the full path. Since we can't easily mock Node streams, we verify
-    // the hasPreParsedBody logic through the express-fetch-bridge tests.
+    // the hasPreParsedBody logic through the node-fetch-handler-preparsed tests.
     // Here we just assert the module loads and the handler is created correctly.
     expect(typeof nodeHandler).toBe("function");
     expect(handlerCalled).toBe(false);

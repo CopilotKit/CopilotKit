@@ -4252,7 +4252,7 @@ describe("WebInspectorElement memories — view states", () => {
       ).not.toBeNull();
     });
     expect(view.shadowRoot?.textContent).toContain(
-      "Learning snapshot response is invalid.",
+      "Learning status unavailable",
     );
     expect(
       Array.from(

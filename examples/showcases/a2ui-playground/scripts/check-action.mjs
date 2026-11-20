@@ -1,0 +1,51 @@
+/** Fills the signup surface in the chat, clicks submit, and checks the agent answers the action. */
+import puppeteer from "puppeteer-core";
+const b = await puppeteer.launch({
+  executablePath:
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+  headless: true,
+  defaultViewport: { width: 1440, height: 900, deviceScaleFactor: 2 },
+});
+const p = await b.newPage();
+await p.goto("http://localhost:3100/playground", { waitUntil: "networkidle2" });
+await p.evaluate(() => window.__setMode?.("fixed"));
+const ta = await p.waitForSelector("textarea");
+await ta.click();
+await ta.type("A signup form for my newsletter app");
+await p.keyboard.press("Enter");
+await p.waitForFunction(() => window.__runStore?.current()?.status === "done", {
+  timeout: 60000,
+});
+await new Promise((r) => setTimeout(r, 800));
+const inputs = await p.$$(
+  ".pg-chat .a2-surface-host input[type=text], .pg-chat .a2-surface-host input[type=email]",
+);
+await inputs[0].type("Ada Lovelace");
+await inputs[1].type("ada@analytical.engine");
+const terms = await p.$(".pg-chat .a2-surface-host button[role=checkbox]");
+await terms?.click();
+await p.evaluate(() => window.__setMode?.("auto"));
+const btn = (await p.$$(".pg-chat .a2-surface-host button")).at(-1);
+const runsBefore = await p.evaluate(() => window.__runStore.get().runs.length);
+await btn.click();
+await p.waitForFunction(
+  (n) =>
+    window.__runStore.get().runs.length > n &&
+    window.__runStore.current().status !== "running",
+  { timeout: 90000 },
+  runsBefore,
+);
+await new Promise((r) => setTimeout(r, 2000));
+const r = await p.evaluate(() => {
+  const x = window.__runStore.current();
+  return {
+    prompt: x.prompt,
+    path: x.path,
+    tool: x.tool,
+    paint: x.firstPaintMs,
+    total: x.totalMs,
+  };
+});
+console.log(JSON.stringify(r));
+await p.screenshot({ path: "/tmp/a2ui-playground-shots/action-roundtrip.png" });
+await b.close();

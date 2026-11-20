@@ -10,7 +10,8 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { parseManifest, createDemoId, type DemoId } from "../manifest.js";
+import { parseManifest, createDemoId } from "../manifest.js";
+import type { DemoId } from "../manifest.js";
 
 // chmod-enforcement probe so tests that rely on EACCES can be cleanly
 // skipped on CI runners that ignore chmod (running as root, certain
@@ -68,6 +69,30 @@ describe("parseManifest", () => {
   afterEach(() => {
     fs.rmSync(root, { recursive: true, force: true });
   });
+
+  it("preserves the explicit shared D6 coverage mode", () => {
+    const f = path.join(root, "manifest.yaml");
+    write(f, "slug: x\ntest_coverage: shared-d6\n");
+    const result = parseManifest(f);
+    expect(result.kind).toBe("ok");
+    if (result.kind === "ok") {
+      expect(result.manifest.test_coverage).toBe("shared-d6");
+      expect(Object.isFrozen(result.manifest)).toBe(true);
+    }
+  });
+
+  it.each(["shared-d5", "legacy", "", null, false, 42])(
+    "rejects unsupported test_coverage %j",
+    (mode) => {
+      const f = path.join(root, "manifest.yaml");
+      write(f, `slug: x\ntest_coverage: ${JSON.stringify(mode)}\n`);
+      expect(parseManifest(f)).toMatchObject({
+        kind: "malformed",
+        subkind: "shape",
+        error: expect.stringContaining("test_coverage"),
+      });
+    },
+  );
 
   it("returns {kind:'missing'} when the file does not exist", () => {
     const r = parseManifest(path.join(root, "does-not-exist.yaml"));

@@ -301,6 +301,19 @@ describe("Core learning wiring", () => {
     expect(warn).toHaveBeenCalledTimes(1);
   });
 
+  it("keeps an event's own Thread without reporting ambiguity", () => {
+    const core = new CopilotKitCore({ learning: createConfig() });
+    core.registerOpenThread({ agentId: "default", threadId: "t-1" });
+    core.registerOpenThread({ agentId: "sidebar", threadId: "t-2" });
+    core.startTrajectory({ trajectoryId: "traj-1" });
+
+    core.emitTrajectoryEvent("message.feedback", { threadId: "t-2" });
+
+    expect(valuesOf(drain(), "message.feedback")).toEqual([
+      expect.not.objectContaining({ threadAmbiguity: expect.anything() }),
+    ]);
+  });
+
   it("does not capture CopilotKit's own telemetry requests", async () => {
     vi.stubGlobal(
       "fetch",
@@ -497,6 +510,51 @@ describe("Core learning wiring", () => {
     core.setLearningConfig(undefined);
     expect(changed).toHaveBeenCalledTimes(2);
     expect(new CopilotKitCore({}).ɵlearningConfigured).toBe(false);
+  });
+
+  it("tells whether captured events may carry agent message text", () => {
+    expect(
+      new CopilotKitCore({ learning: createConfig() })
+        .ɵlearningCapturesAgentText,
+    ).toBe(true);
+    expect(
+      new CopilotKitCore({
+        learning: createConfig({
+          capture: { clicks: false, agentText: false },
+        }),
+      }).ɵlearningCapturesAgentText,
+    ).toBe(false);
+    expect(new CopilotKitCore({}).ɵlearningCapturesAgentText).toBe(false);
+    // Authenticated capture (no sink) honors the option too.
+    expect(
+      new CopilotKitCore({
+        learning: { capture: { clicks: false, agentText: false } },
+      }).ɵlearningCapturesAgentText,
+    ).toBe(false);
+    expect(
+      new CopilotKitCore({ learning: { capture: { clicks: false } } })
+        .ɵlearningCapturesAgentText,
+    ).toBe(true);
+  });
+
+  it("keeps the running capture's agent text choice until it stops", () => {
+    const core = new CopilotKitCore({
+      learning: createConfig({
+        capture: {
+          clicks: false,
+          navigation: false,
+          network: false,
+          agentText: false,
+        },
+      }),
+    });
+    core.startTrajectory({ trajectoryId: "traj-1" });
+
+    core.setLearningConfig(createConfig());
+    expect(core.ɵlearningCapturesAgentText).toBe(false);
+
+    core.stopTrajectory();
+    expect(core.ɵlearningCapturesAgentText).toBe(true);
   });
 
   it("keeps notifying learning listeners when one throws", () => {

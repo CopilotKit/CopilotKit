@@ -11,6 +11,7 @@ export const INSPECTOR_GROUPS = {
     "frontend-tools",
     "capabilities",
     "agent-context",
+    "generative-ui",
   ],
 } as const satisfies Record<ShellGroupKey, readonly InspectorLeafKey[]>;
 

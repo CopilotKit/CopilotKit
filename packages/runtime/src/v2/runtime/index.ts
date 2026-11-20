@@ -1,6 +1,10 @@
 export * from "./core/runtime";
 export * from "./endpoints";
 
+// Export experimental generative UI middleware and surface writer
+export { GenerativeUIMiddleware, createSurfaceWriter } from "./generative-ui";
+export type { GenerativeUISurfaceWriter } from "./generative-ui";
+
 // Export agent runners and base types
 export * from "./runner";
 
@@ -10,6 +14,7 @@ export * from "./transcription-service/transcription-service";
 // Export CopilotKit Intelligence client and types
 export {
   CopilotKitIntelligence,
+  PlatformRequestError,
   LearnedSkillsError,
   type LearnedSkillsErrorCode,
   type GetLearnedSkillsSnapshotRequest,
@@ -29,6 +34,16 @@ export {
 // it directly to type their MCP wiring. `MCPClient` is the value users pass
 // into `mcpClients`; `MCPTransport` is the contract for custom transports.
 export type { MCPClient, MCPTransport } from "@ai-sdk/mcp";
+
+// Export runs in an Intelligence Thread with no client attached
+export {
+  runAgentInThread,
+  ThreadRunError,
+  type ThreadRunErrorReason,
+  type RunAgentInThreadOptions,
+  type RunAgentInThreadResult,
+  type RunAgentInThreadRuntime,
+} from "./core/thread-run";
 
 // Export framework-agnostic fetch handler
 export { createCopilotRuntimeHandler } from "./core/fetch-handler";
@@ -60,3 +75,5 @@ export type { ChannelsControl, ChannelStatus } from "./core/channel-manager";
 export type CopilotKitRequestHandler = (params: {
   request: Request;
 }) => Promise<Response>;
+
+export type { experimental } from "./intelligence-platform";

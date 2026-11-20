@@ -6,6 +6,7 @@ import { validateSecondRecovery } from "./second-recovery-contract.mjs";
 import {
   BUILD_WORKFLOW,
   DEPLOY_WORKFLOW,
+  DEV_DEPLOY_WORKFLOW,
   IMAGE,
   REPOSITORY,
   REPOSITORY_ID,
@@ -228,15 +229,20 @@ export async function readBaselineReceipt(
   { bootstrapSha } = {},
 ) {
   const run = await github.run(runId);
+  const development =
+    run.path === DEV_DEPLOY_WORKFLOW &&
+    /^dev\/railway-runner-[A-Za-z0-9._/-]+$/.test(run.head_branch ?? "");
+  const workflowPath = development ? DEV_DEPLOY_WORKFLOW : DEPLOY_WORKFLOW;
   validateRun(run, {
     runId,
     runAttempt: run.run_attempt,
     sourceRevision: run.head_sha,
-    workflowPath: DEPLOY_WORKFLOW,
+    workflowPath,
     success: false,
   });
   requireThat(
-    run.head_branch === "main" ||
+    development ||
+      run.head_branch === "main" ||
       (REVISION.test(bootstrapSha ?? "") &&
         run.head_sha === bootstrapSha &&
         run.head_branch === "fix/PNI-605-registry-activation"),
@@ -249,7 +255,7 @@ export async function readBaselineReceipt(
       receipt.run?.id === runId &&
       receipt.run.attempt === run.run_attempt &&
       receipt.run.sha === run.head_sha &&
-      receipt.run.workflowPath === DEPLOY_WORKFLOW &&
+      receipt.run.workflowPath === workflowPath &&
       SHA256.test(receipt.releaseSha256) &&
       ["deployed", "rolled-back", "unchanged"].includes(receipt.outcome),
     "Invalid baseline receipt",

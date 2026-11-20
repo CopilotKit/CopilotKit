@@ -60,6 +60,16 @@ import type { AbstractAgent, AgentSubscriber, Message } from "@ag-ui/client";
 import type { InspectorLearningSnapshotV1 } from "@copilotkit/shared";
 import { deriveLearningViewState } from "./components/learning-view.js";
 import type { LearningViewState } from "./components/learning-view.js";
+import "./components/generative-ui-view.js";
+import {
+  CpkJsonBlock,
+  JSON_BLOCK_TAG,
+  coerceJsonValue,
+  escapeHtml,
+  renderHighlightedJsonBlock,
+} from "./lib/json-block.js";
+export { setInspectorJsonRenderer } from "./lib/json-block.js";
+export type { InspectorJsonRenderer } from "./lib/json-block.js";
 import type {
   Anchor,
   ContextKey,
@@ -1641,208 +1651,6 @@ function getMetadataActionPlacement(
   placement: "threads-footer" | "locked",
 ): MetadataActionPlacement {
   return placement === "threads-footer" ? "threads_footer" : "threads_locked";
-}
-
-// ─── JSON syntax highlighter ─────────────────────────────────────────────────
-// Inline-styled so shadow DOM encapsulation preserves colors when the output
-// is injected via unsafeHTML. Only for structured data — never raw user HTML.
-
-function escapeHtml(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
-// Memoize highlight output by payload reference. Tab switches cause Lit to
-// re-render the active panel from scratch, and the JSON.stringify + regex
-// pass below is by far the most expensive thing in the events / state
-// panels (potentially MB of agent state). Caching by object reference
-// turns subsequent renders of an unchanged event list into near-zero JS work.
-const highlightedJsonCache = new WeakMap<object, string>();
-
-function highlightedJson(obj: unknown): string {
-  if (typeof obj === "object" && obj !== null) {
-    const cached = highlightedJsonCache.get(obj);
-    if (cached !== undefined) return cached;
-  }
-  const json = JSON.stringify(obj, null, 2);
-  if (!json) return "";
-  const parts: string[] = [];
-  let lastIndex = 0;
-  const re =
-    /("(?:\\u[a-fA-F0-9]{4}|\\[^u]|[^\\"])*"(?:\s*:)?|\b(?:true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+-]?\d+)?)/g;
-  let match: RegExpExecArray | null;
-  while ((match = re.exec(json)) !== null) {
-    parts.push(escapeHtml(json.slice(lastIndex, match.index)));
-    const m = match[0];
-    let token = "num";
-    if (m.startsWith('"')) {
-      token = m.trimEnd().endsWith(":") ? "key" : "str";
-    } else if (m === "true" || m === "false") {
-      token = "bool";
-    } else if (m === "null") {
-      token = "nil";
-    }
-    parts.push(
-      `<span class="cpk-json-token cpk-json-token--${token}">${escapeHtml(m)}</span>`,
-    );
-    lastIndex = match.index + m.length;
-  }
-  parts.push(escapeHtml(json.slice(lastIndex)));
-  const result = parts.join("");
-  if (typeof obj === "object" && obj !== null) {
-    highlightedJsonCache.set(obj, result);
-  }
-  return result;
-}
-
-function coerceJsonValue(value: unknown): unknown {
-  if (typeof value !== "string") {
-    return value;
-  }
-
-  const trimmed = value.trim();
-  if (trimmed.length === 0) {
-    return value;
-  }
-
-  const looksJson =
-    (trimmed.startsWith("{") && trimmed.endsWith("}")) ||
-    (trimmed.startsWith("[") && trimmed.endsWith("]"));
-  if (!looksJson) {
-    return value;
-  }
-
-  try {
-    return JSON.parse(trimmed);
-  } catch {
-    return value;
-  }
-}
-
-/**
- * Draws one JSON value of the inspector into a container that the host page
- * owns. `value` is the raw value: a JSON string or an already-parsed value.
- * Return a function to run when the inspector removes or replaces the value.
- */
-export type InspectorJsonRenderer = (
-  container: HTMLElement,
-  value: unknown,
-) => (() => void) | void;
-
-let inspectorJsonRenderer: InspectorJsonRenderer | null = null;
-let inspectorJsonSlotCount = 0;
-
-const JSON_BLOCK_TAG = "cpk-json-block";
-
-/**
- * Replaces the inspector's built-in JSON blocks (tool arguments and results,
- * state, events, and context) with a host renderer. Pass `null` to restore the
- * built-in blocks. Set it before the inspector renders: a block that is
- * already on screen changes at the inspector's next render.
- *
- * @example
- * ```ts
- * setInspectorJsonRenderer((container, value) => {
- *   const root = createRoot(container);
- *   root.render(<JsonView value={value} />);
- *   return () => root.unmount();
- * });
- * ```
- */
-export function setInspectorJsonRenderer(
-  renderer: InspectorJsonRenderer | null,
-): void {
-  inspectorJsonRenderer = renderer;
-}
-
-/**
- * Hosts one value drawn by the host renderer. Inside a shadow root, the
- * container lives in the shadow host's light DOM and shows here through a
- * named slot, so the host page's own styles apply to what the renderer draws.
- */
-// The fallback keeps module import safe where no DOM exists (server render).
-class CpkJsonBlock extends ((globalThis.HTMLElement ??
-  class {}) as typeof HTMLElement) {
-  #value: unknown = undefined;
-  #hasValue = false;
-  #cleanup: (() => void) | undefined;
-  #container: HTMLElement | undefined;
-
-  get value(): unknown {
-    return this.#value;
-  }
-
-  set value(next: unknown) {
-    if (this.#hasValue && Object.is(next, this.#value)) return;
-    this.#value = next;
-    this.#hasValue = true;
-    if (this.isConnected) this.#render();
-  }
-
-  connectedCallback(): void {
-    this.style.display = "block";
-    this.#render();
-  }
-
-  disconnectedCallback(): void {
-    this.#teardown();
-  }
-
-  #render(): void {
-    this.#teardown();
-    const renderer = inspectorJsonRenderer;
-    if (!renderer) return;
-    const root = this.getRootNode();
-    const container = this.ownerDocument.createElement("div");
-    // `instanceof ShadowRoot` fails across realms (the pop-out window).
-    if (root.nodeType === Node.DOCUMENT_FRAGMENT_NODE && "host" in root) {
-      inspectorJsonSlotCount += 1;
-      const name = `cpk-json-${inspectorJsonSlotCount}`;
-      const slot = this.ownerDocument.createElement("slot");
-      slot.name = name;
-      this.replaceChildren(slot);
-      container.slot = name;
-      (root as ShadowRoot).host.append(container);
-    } else {
-      this.replaceChildren(container);
-    }
-    this.#container = container;
-    const cleanup = renderer(container, this.#value);
-    this.#cleanup = typeof cleanup === "function" ? cleanup : undefined;
-  }
-
-  #teardown(): void {
-    const cleanup = this.#cleanup;
-    this.#cleanup = undefined;
-    cleanup?.();
-    this.#container?.remove();
-    this.#container = undefined;
-    this.replaceChildren();
-  }
-}
-
-function renderHighlightedJsonBlock(
-  value: unknown,
-  options: { maxHeight?: string } = {},
-) {
-  if (inspectorJsonRenderer) {
-    // The raw value keeps its identity across renders, so an unchanged
-    // value does not draw again.
-    return html`<cpk-json-block
-      .value=${value}
-      style=${
-        options.maxHeight
-          ? `overflow:auto;max-height:${options.maxHeight}`
-          : nothing
-      }
-    ></cpk-json-block>`;
-  }
-  const parsed = coerceJsonValue(value);
-  const style = options.maxHeight
-    ? `max-height:${options.maxHeight}`
-    : undefined;
-  return html`<pre class="cpk-json-block" style=${style || nothing}>
-${unsafeHTML(highlightedJson(parsed))}</pre
-  >`;
 }
 
 function humanizeEventType(type: string): string {
@@ -6910,6 +6718,7 @@ export class WebInspectorElement extends LitElement {
   // list route). Drives the "live" indicator: only "connected" shows "live".
   private _memoriesRealtimeStatus: MemoryRealtimeStatus = "connecting";
   private _memoryUnsub: (() => void) | null = null;
+  private _generativeUIUnsub: (() => void) | null = null;
   // Lazy-subscription guard. The memory store is created + started + opens
   // realtime the first time `core.getMemoryStore()` is called, so we defer
   // that call until the user actually activates the Memories tab (see
@@ -7410,6 +7219,15 @@ export class WebInspectorElement extends LitElement {
         label: "Context",
         icon: "FileText" as LucideIconName,
       },
+      ...(this._core?.ɵgenerativeUIDebugSource
+        ? [
+            {
+              key: "generative-ui" as const,
+              label: "Generative UI",
+              icon: "LayoutTemplate" as LucideIconName,
+            },
+          ]
+        : []),
       {
         key: "threads",
         label: "Rich Threads",
@@ -8151,6 +7969,12 @@ export class WebInspectorElement extends LitElement {
     } satisfies CopilotKitCoreSubscriber;
 
     this.coreUnsubscribe = core.subscribe(this.coreSubscriber).unsubscribe;
+    // The Generative UI leaf shows only while a provider sets a debug source.
+    this._generativeUIUnsub =
+      core.ɵsubscribeToGenerativeUIDebugSource?.(() => {
+        this.reconcileSelectedMenuVisibility();
+        this.requestUpdate();
+      }) ?? null;
     this.processAgentsChanged(core.agents);
 
     if (core.runtimeConnectionStatus === "connected") {
@@ -8574,15 +8398,9 @@ export class WebInspectorElement extends LitElement {
         return;
       if (error instanceof InspectorLearningUnsupportedError) {
         loadOutcome = "unsupported";
-        this.learningSupported = false;
-        this.learningSnapshot = null;
-      } else {
-        this.learningError =
-          error instanceof Error
-            ? error.message
-            : "Learning data is unavailable.";
-        this.learningPollFailureCount += 1;
       }
+      this.learningError = "Learning status unavailable";
+      this.learningPollFailureCount += 1;
     } finally {
       if (generation === this.learningRequestGeneration) {
         this.learningLoading = false;
@@ -8760,6 +8578,8 @@ export class WebInspectorElement extends LitElement {
     }
     this._memoryUnsub?.();
     this._memoryUnsub = null;
+    this._generativeUIUnsub?.();
+    this._generativeUIUnsub = null;
     this._memories = [];
     this._memoriesLoading = false;
     this._memoriesError = null;
@@ -12611,6 +12431,28 @@ export class WebInspectorElement extends LitElement {
       : title;
   }
 
+  /** A failed or pending read must never imply that Learning is disabled. */
+  private getLearningStatus():
+    | "configured"
+    | "not_configured"
+    | "unavailable"
+    | "checking" {
+    if (this.learningError) return "unavailable";
+    if (this.learningSupported && !this.learningSnapshot) return "checking";
+    return this.learningSnapshot?.configuration.state === "configured"
+      ? "configured"
+      : "not_configured";
+  }
+
+  private retryLearningStatus = (event: Event): void => {
+    event.stopPropagation();
+    // refreshLearningSnapshot owns errors and cancellation for this request.
+    this.refreshLearningSnapshot().catch(() => {
+      this.learningError = "Learning status unavailable";
+      this.requestUpdate();
+    });
+  };
+
   private renderHudRow(args: {
     id: LauncherHudRowId;
     icon: LucideIconName;
@@ -12618,6 +12460,17 @@ export class WebInspectorElement extends LitElement {
     introIndex: number;
   }): TemplateResult | typeof nothing {
     if (args.connected) return nothing;
+    const learningStatus =
+      args.id === "learning" ? this.getLearningStatus() : null;
+    if (learningStatus === "unavailable" || learningStatus === "checking") {
+      return html`
+        <li class="cpk-launcher-hud__row" data-cpk-hud-row="learning">
+          <span class="cpk-launcher-hud__label" role="status">${learningStatus === "unavailable" ? "Learning status unavailable" : "Checking Learning status"}</span>
+          <button type="button" class="cpk-launcher-hud__action" aria-label="Retry Learning status"
+            ?disabled=${this.learningLoading || this.learningRefreshing}
+            @click=${this.retryLearningStatus}>Retry</button>
+        </li>`;
+    }
     const detailId = `cpk-hud-detail-${args.id}`;
     // Feed text is bound as text, never as markup.
     const { label, description } = this.hudContent[args.id];
@@ -13819,19 +13672,36 @@ export class WebInspectorElement extends LitElement {
 
   private renderHomeFeatures(model: HomeModel) {
     const enabledServices = model.services.filter((service) => service.enabled);
+    const learningStatus = this.getLearningStatus();
+    const unavailableServices = model.services.filter(
+      (service) =>
+        service.id === "memory" &&
+        (learningStatus === "unavailable" || learningStatus === "checking"),
+    );
     const disabledServices = model.services.filter(
-      (service) => !service.enabled,
+      (service) => !service.enabled && !unavailableServices.includes(service),
     );
     const renderService = (service: HomeModel["services"][number]) => {
       const copyState =
         this.homeFeaturePromptCopyState?.serviceId === service.id
           ? this.homeFeaturePromptCopyState.state
           : "idle";
-      const stateDescription = `${service.label} is ${
-        service.enabled
-          ? "enabled in your runtime"
-          : "not enabled in your runtime"
-      }`;
+      const learningStatus =
+        service.id === "memory" ? this.getLearningStatus() : null;
+      const learningUnavailable =
+        learningStatus === "unavailable" || learningStatus === "checking";
+      const stateDescription = learningStatus
+        ? {
+            configured: "Learning configured",
+            not_configured: "Learning not configured",
+            unavailable: "Learning status unavailable",
+            checking: "Checking Learning status",
+          }[learningStatus]
+        : `${service.label} is ${
+            service.enabled
+              ? "enabled in your runtime"
+              : "not enabled in your runtime"
+          }`;
       const copyLabel =
         copyState === "copied"
           ? "Copied"
@@ -13843,7 +13713,7 @@ export class WebInspectorElement extends LitElement {
       <div
         class="inspector-home-feature"
         data-inspector-service=${service.id}
-        data-state=${service.enabled ? "on" : "off"}
+        data-state=${learningUnavailable ? "unavailable" : service.enabled ? "on" : "off"}
         role="listitem"
       >
         <span
@@ -13862,14 +13732,21 @@ export class WebInspectorElement extends LitElement {
           rel="noopener noreferrer"
           aria-label="Open ${service.label} documentation in a new tab"
         >
-          <span>${service.label}</span>
+          <span>${learningStatus ? stateDescription : service.label}</span>
           <span class="inspector-home-feature-label-icon" aria-hidden="true"
             >${this.renderIcon("ArrowUpRight")}</span
           >
         </a>
         <span class="inspector-home-feature-actions">
           ${
-            service.enabled
+            learningUnavailable
+              ? html`<button type="button" class="inspector-home-feature-action" aria-label="Retry Learning status"
+            ?disabled=${this.learningLoading || this.learningRefreshing}
+            @click=${this.retryLearningStatus}>Retry</button>`
+              : nothing
+          }
+          ${
+            service.enabled || learningUnavailable
               ? nothing
               : html`
                   <button
@@ -13930,6 +13807,14 @@ export class WebInspectorElement extends LitElement {
               `
             : html`
               <div class="inspector-home-feature-groups">
+                ${
+                  unavailableServices.length
+                    ? html`
+                  <section class="inspector-home-feature-group" data-feature-state-group="unavailable" aria-label="Feature status unavailable">
+                    <div class="inspector-home-feature-list" role="list">${unavailableServices.map(renderService)}</div>
+                  </section>`
+                    : nothing
+                }
                 <section
                   class="inspector-home-feature-group"
                   data-feature-state-group="active"
@@ -17049,6 +16934,13 @@ export class WebInspectorElement extends LitElement {
 
     if (this.selectedMenu === "agent-context") {
       return this.renderContextView();
+    }
+
+    if (this.selectedMenu === "generative-ui") {
+      return html`<cpk-generative-ui-view
+        data-color-scheme=${this.colorScheme}
+        .source=${this._core?.ɵgenerativeUIDebugSource}
+      ></cpk-generative-ui-view>`;
     }
 
     if (this.selectedMenu === "threads") {

@@ -23,10 +23,7 @@
  * runtime — but with no upload race because we build the
  * already-base64'd content part ourselves before calling addMessage.
  *
- * The `LegacyConverterShim` in page.tsx still rewrites our modern
- * `image|document` parts to the legacy `binary` shape the published
- * `@ag-ui/langgraph` converter understands, so the agent ultimately
- * receives the attachment in the form `multimodal_agent.py` expects.
+ * The agent receives these modern `image|document` parts unchanged.
  */
 
 import { useCallback, useState } from "react";

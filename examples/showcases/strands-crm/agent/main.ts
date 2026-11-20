@@ -20,7 +20,7 @@ import { generateWeeklyReportTool } from "./src/tools/report.js";
 
 const model = new OpenAIModel({
   apiKey: process.env.OPENAI_API_KEY ?? "",
-  modelId: "gpt-5.4",
+  modelId: "gpt-6-luna",
   // Deterministic capture: launch with OPENAI_API_MODE=chat so the agent uses
   // the Chat Completions API, which aimock intercepts with chat-shaped fixtures.
   // Pair with OPENAI_BASE_URL=<aimock>/v1 (the default OpenAI client reads it).

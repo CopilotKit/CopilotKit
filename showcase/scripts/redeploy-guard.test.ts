@@ -44,6 +44,8 @@ interface GhContext {
   needs: Record<string, unknown>;
   /** Whether the WORKFLOW RUN was cancelled (drives `cancelled()`). */
   runCancelled: boolean;
+  /** Repository variables (`vars.*`). Omitted = none set. */
+  vars?: Record<string, string>;
 }
 
 /**
@@ -60,6 +62,11 @@ function anyDepFailed(ctx: GhContext): boolean {
 
 function resolvePath(path: string, ctx: GhContext): string {
   const segs = path.split(".");
+  // GitHub resolves an unset repository variable to the empty string, so
+  // `vars.X != 'false'` is true when X is not set.
+  if (segs[0] === "vars" && segs.length === 2) {
+    return ctx.vars?.[segs[1]] ?? "";
+  }
   let cur: unknown = { needs: ctx.needs };
   for (const seg of segs) {
     if (cur == null || typeof cur !== "object" || !(seg in (cur as object))) {
@@ -282,6 +289,7 @@ function contextFor(
         outputs: { has_changes: String(opts.hasChanges ?? true) },
       },
       build: { result: buildResult },
+      "verify-image-refs": { result: "success" },
       "aggregate-build-results": {
         outputs: aggregatorRan
           ? {
@@ -360,6 +368,7 @@ function starterContextFor(
         outputs: { has_changes: String(opts.hasChanges ?? true) },
       },
       "build-starters": { result: rollupBuildResult(legResults) },
+      "verify-image-refs": { result: "success" },
     },
   };
 }
@@ -407,6 +416,17 @@ describe("redeploy-staging guard — matrix cancellation regression", () => {
     const legs = Array(28).fill("success");
     expect(jobRuns(guard, contextFor(legs, { hasChanges: false }))).toBe(false);
   });
+
+  it("skips when SHOWCASE_AUTO_REDEPLOY is 'false', runs otherwise", () => {
+    const legs = Array(28).fill("success");
+    const withVar = (v?: string): GhContext => ({
+      ...contextFor(legs),
+      vars: v === undefined ? {} : { SHOWCASE_AUTO_REDEPLOY: v },
+    });
+    expect(jobRuns(guard, withVar("false"))).toBe(false);
+    expect(jobRuns(guard, withVar("true"))).toBe(true);
+    expect(jobRuns(guard, withVar())).toBe(true);
+  });
 });
 
 describe("redeploy-staging-starters guard — matrix cancellation regression", () => {
@@ -447,6 +467,17 @@ describe("redeploy-staging-starters guard — matrix cancellation regression", (
     expect(runStarters(starterContextFor(legs, { hasChanges: false }))).toBe(
       false,
     );
+  });
+
+  it("skips when SHOWCASE_AUTO_REDEPLOY is 'false', runs otherwise", () => {
+    const legs = Array(6).fill("success");
+    const withVar = (v?: string): GhContext => ({
+      ...starterContextFor(legs),
+      vars: v === undefined ? {} : { SHOWCASE_AUTO_REDEPLOY: v },
+    });
+    expect(runStarters(withVar("false"))).toBe(false);
+    expect(runStarters(withVar("true"))).toBe(true);
+    expect(runStarters(withVar())).toBe(true);
   });
 });
 
@@ -653,4 +684,84 @@ describe("notify-cancelled-builds guard", () => {
   it("does NOT fire when there were no changes to build", () => {
     expect(jobRuns(guard, contextFor([], { hasChanges: false }))).toBe(false);
   });
+});
+
+describe("image publication and deployment eligibility", () => {
+  function dependencies(jobId: string): string[] {
+    const needs = jobOf(jobId).needs ?? [];
+    return typeof needs === "string" ? [needs] : needs;
+  }
+
+  function ancestors(jobId: string): string[] {
+    return dependencies(jobId).flatMap((id) => [id, ...ancestors(id)]);
+  }
+
+  it.each(["build", "build-starters"])(
+    "%s can publish even when live image refs fail policy",
+    (jobId) => {
+      // A failed ancestor suppresses a job with an implicit success() guard,
+      // even if the live-state check is not a direct dependency.
+      expect(ancestors(jobId)).not.toContain("verify-image-refs");
+      const ctx: GhContext = {
+        runCancelled: false,
+        needs: {
+          "detect-changes": { outputs: { has_changes: "true" } },
+          "detect-starter-changes": { outputs: { has_changes: "true" } },
+          "verify-image-refs": { result: "failure" },
+        },
+      };
+      expect(evalGuard(readJobGuard(jobId), ctx)).toBe(true);
+    },
+  );
+
+  it.each([
+    [true, false, true],
+    [false, true, true],
+    [true, true, true],
+    [false, false, false],
+  ])(
+    "checks live refs for showcase=%s, starters=%s",
+    (showcase, starters, expected) => {
+      expect(dependencies("verify-image-refs")).toEqual(
+        expect.arrayContaining(["detect-changes", "detect-starter-changes"]),
+      );
+      expect(
+        evalGuard(readJobGuard("verify-image-refs"), {
+          runCancelled: false,
+          needs: {
+            "detect-changes": { outputs: { has_changes: String(showcase) } },
+            "detect-starter-changes": {
+              outputs: { has_changes: String(starters) },
+            },
+          },
+        }),
+      ).toBe(expected);
+    },
+  );
+
+  describe.each(["redeploy-staging", "redeploy-staging-starters"])(
+    "%s requires successful live image policy",
+    (jobId) => {
+      it.each(["success", "failure", "cancelled", "skipped"])(
+        "handles image-policy result %s with auto-deploy on or off",
+        (result) => {
+          expect(dependencies(jobId)).toContain("verify-image-refs");
+          for (const autoDeploy of ["true", "false"]) {
+            // Keep the existing partial-build behavior: one cancelled matrix
+            // leg does not block eligible successful slots, but a non-success
+            // policy check must block both retagging and deployment.
+            const ctx =
+              jobId === "redeploy-staging"
+                ? contextFor(["success", "cancelled"])
+                : starterContextFor(["success", "cancelled"]);
+            ctx.needs["verify-image-refs"] = { result };
+            ctx.vars = { SHOWCASE_AUTO_REDEPLOY: autoDeploy };
+            expect(evalGuard(readJobGuard(jobId), ctx)).toBe(
+              result === "success" && autoDeploy === "true",
+            );
+          }
+        },
+      );
+    },
+  );
 });

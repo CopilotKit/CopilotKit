@@ -1,0 +1,7 @@
+Here's your standup update:
+
+**Yesterday:** Finished the login page.
+**Today:** Working on the password reset flow.
+**Blockers:** None.
+
+Or as a single line for chat: *Finished the login page yesterday, on password reset today, no blockers.*

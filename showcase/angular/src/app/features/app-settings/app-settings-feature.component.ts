@@ -75,7 +75,11 @@ const DEMO_AUTH_HEADERS: Readonly<Record<string, string>> = {
       min-height: 0;
       place-items: center;
       padding: 1.5rem;
-      background: radial-gradient(circle at 50% 20%, #eef2ff, #eef3f7 55%);
+      background: radial-gradient(
+        circle at 50% 20%,
+        light-dark(#eef2ff, rgb(30 27 75 / 40%)),
+        light-dark(#eef3f7, #0a0a0a) 55%
+      );
     }
     .settings-page {
       display: grid;
@@ -83,7 +87,7 @@ const DEMO_AUTH_HEADERS: Readonly<Record<string, string>> = {
       grid-template-rows: auto minmax(0, 1fr);
       gap: 1rem;
       padding: 1rem;
-      background: #eef3f7;
+      background: light-dark(#eef3f7, #0a0a0a);
     }
     .settings-panel {
       min-width: 0;
@@ -91,9 +95,9 @@ const DEMO_AUTH_HEADERS: Readonly<Record<string, string>> = {
     .chat-surface {
       min-height: 0;
       overflow: hidden;
-      border: 1px solid #d8e0ea;
+      border: 1px solid light-dark(#d8e0ea, #303136);
       border-radius: 1rem;
-      background: #fff;
+      background: light-dark(#fff, #191a1e);
     }
   `,
 })

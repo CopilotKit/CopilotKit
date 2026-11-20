@@ -1,7 +1,7 @@
 // Dedicated runtime for the Multimodal Attachments demo (Agno).
 //
 // Why its own route? The backing graph (multimodal_agent) runs a vision-
-// capable model (gpt-4o). Other showcase cells use cheaper text-only models;
+// capable model (gpt-6-luna). Other showcase cells use cheaper text-only models;
 // scoping the vision capability — and its cost — to exactly the cell that
 // exercises it matches the pattern used by the LangGraph reference.
 //

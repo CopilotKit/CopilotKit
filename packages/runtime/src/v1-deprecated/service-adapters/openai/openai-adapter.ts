@@ -92,7 +92,7 @@ import {
 import { randomUUID } from "@copilotkit/shared";
 import { convertServiceAdapterError, getSdkClientOptions } from "../shared";
 
-const DEFAULT_MODEL = "gpt-4o";
+const DEFAULT_MODEL = "gpt-6-luna";
 
 export interface OpenAIAdapterParams {
   /**
@@ -244,21 +244,29 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
     try {
       const openai = this.ensureOpenAI();
       const completions = getChatCompletionsForStreaming(openai);
-      const stream = completions.stream({
-        model: model,
-        stream: true,
-        messages: openaiMessages,
-        ...(tools.length > 0 && { tools }),
-        ...(forwardedParameters?.maxTokens && {
-          max_completion_tokens: forwardedParameters.maxTokens,
-        }),
-        ...(forwardedParameters?.stop && { stop: forwardedParameters.stop }),
-        ...(toolChoice && { tool_choice: toolChoice }),
-        ...(this.disableParallelToolCalls && { parallel_tool_calls: false }),
-        ...(forwardedParameters?.temperature && {
-          temperature: forwardedParameters.temperature,
-        }),
-      });
+      const chatRequest: OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming =
+        {
+          model: model,
+          stream: true,
+          messages: openaiMessages,
+          ...(tools.length > 0 && { tools }),
+          ...(forwardedParameters?.maxTokens && {
+            max_completion_tokens: forwardedParameters.maxTokens,
+          }),
+          ...(forwardedParameters?.stop && { stop: forwardedParameters.stop }),
+          ...(toolChoice && { tool_choice: toolChoice }),
+          ...(this.disableParallelToolCalls && { parallel_tool_calls: false }),
+          ...(forwardedParameters?.temperature && {
+            temperature: forwardedParameters.temperature,
+          }),
+        };
+      // SDK v4 predates Luna's "none" effort; extend its typed request body.
+      const stream = completions.stream(
+        chatRequest,
+        model === "gpt-6-luna"
+          ? { body: { ...chatRequest, reasoning_effort: "none" } }
+          : undefined,
+      );
 
       eventSource.stream(async (eventStream$) => {
         let mode: "function" | "message" | null = null;

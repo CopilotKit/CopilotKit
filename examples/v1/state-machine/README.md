@@ -68,8 +68,8 @@ The example showcases how to implement complex conversational flows using a stat
 
    ```
    OPENAI_API_KEY=your_api_key_here
-   # Optional: defaults to openai/gpt-5-mini
-   COPILOTKIT_MODEL=openai/gpt-5-mini
+   # Optional: defaults to openai/gpt-6-luna
+   COPILOTKIT_MODEL=openai/gpt-6-luna
    ```
 
 4. Start the development server:
@@ -176,7 +176,7 @@ import {
 const runtime = new CopilotRuntime({
   agents: {
     default: new BuiltInAgent({
-      model: "openai/gpt-5-mini",
+      model: "openai/gpt-6-luna",
       prompt: systemPrompt,
     }),
   },

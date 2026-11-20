@@ -1,4 +1,4 @@
-FROM node:22-alpine AS build
+FROM node:22.23.4-alpine@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914 AS build
 WORKDIR /repo
 
 RUN corepack enable
@@ -66,7 +66,7 @@ RUN pnpm --filter @copilotkit/showcase-harness --prod --legacy --ignore-scripts 
 # lets `playwright install --with-deps chromium` succeed without a
 # custom apk dance. Build stage stays Alpine (just compiles TS and
 # prunes node_modules — no browser needed there).
-FROM node:22-bookworm-slim
+FROM node:22.23.4-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d
 WORKDIR /app
 ENV NODE_ENV=production
 # qa probe: repo-root override so the walk-up from dist/probes/drivers/
@@ -268,3 +268,6 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
 #     than the leak it fixes. Verify both properties before changing this line.
 ENTRYPOINT ["/usr/bin/tini", "--"]
 CMD ["/bin/bash", "-c", "ulimit -u $(ulimit -Hu) 2>/dev/null || true; exec node dist/orchestrator.js"]
+
+# Fail the build if any base or install path regresses the accepted Node runtime.
+RUN test "$(node --version)" = "v22.23.4"

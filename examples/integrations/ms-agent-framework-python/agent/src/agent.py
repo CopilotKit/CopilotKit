@@ -7,6 +7,7 @@ from typing import Annotated, Any
 
 from agent_framework import Agent, ContextProvider, SupportsChatGetResponse, tool
 from agent_framework_ag_ui import AgentFrameworkAgent
+from agent_framework.openai import OpenAIChatCompletionClient
 from pydantic import Field
 
 STATE_SCHEMA: dict[str, object] = {
@@ -143,6 +144,12 @@ def create_agent(chat_client: SupportsChatGetResponse) -> AgentFrameworkAgent:
             """.strip()
         ),
         client=chat_client,
+        default_options=(
+            {"reasoning_effort": "none"}
+            if isinstance(chat_client, OpenAIChatCompletionClient)
+            and chat_client.model == "gpt-6-luna"
+            else None
+        ),
         # `go_to_moon` is a frontend-only tool registered by
         # `useHumanInTheLoop`. AG-UI adds it to each run automatically.
         tools=[update_proverbs, get_weather],

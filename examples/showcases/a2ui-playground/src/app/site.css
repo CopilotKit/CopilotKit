@@ -1,0 +1,108 @@
+/* Site chrome (the header and the component docs). Reuses the tokens in globals.css. Light by default, with the
+   dark values under .dark (src/lib/theme.ts). */
+
+.site-container {
+  width: 100%;
+  max-width: 1400px;
+  margin-inline: auto;
+  padding-inline: 24px;
+}
+@media (max-width: 640px) {
+  .site-container {
+    padding-inline: 16px;
+  }
+}
+
+.site-header {
+  background: var(--background);
+}
+.dark .site-header {
+  background: #000;
+}
+
+/* Framed preview stage with a dotted floor. */
+.docs-stage {
+  --docs-floor: oklch(0.975 0.003 285);
+  background-color: var(--docs-floor);
+  background-image: radial-gradient(
+    oklch(var(--ink) / 9%) 1px,
+    transparent 1px
+  );
+  background-size: 16px 16px;
+}
+.dark .docs-stage {
+  --docs-floor: oklch(0.15 0.004 285);
+  background-image: radial-gradient(oklch(1 0 0 / 6%) 1px, transparent 1px);
+}
+
+/* Tile preview: clipped to the tile's fixed height with a soft fade. */
+.docs-tile-preview {
+  --docs-floor: oklch(0.975 0.003 285);
+  background-color: var(--docs-floor);
+  background-image: radial-gradient(
+    oklch(var(--ink) / 8%) 1px,
+    transparent 1px
+  );
+  background-size: 14px 14px;
+}
+.dark .docs-tile-preview {
+  --docs-floor: oklch(0.15 0.004 285);
+  background-image: radial-gradient(oklch(1 0 0 / 5%) 1px, transparent 1px);
+}
+.docs-tile-fade {
+  background: linear-gradient(to bottom, transparent, var(--docs-floor));
+}
+.docs-tile:hover .docs-tile-name {
+  color: var(--foreground);
+}
+
+/* Previews are illustrations inside tiles, not controls. */
+.docs-tile-preview [data-preview-inner] {
+  pointer-events: none;
+}
+
+/* Code panes (sugar-high). */
+.docs-code {
+  --sh-class: oklch(0.55 0.14 65);
+  --sh-identifier: oklch(0.3 0.02 285);
+  --sh-sign: oklch(0.5 0.02 285);
+  --sh-property: oklch(0.48 0.12 235);
+  --sh-entity: oklch(0.5 0.12 165);
+  --sh-jsxliterals: oklch(0.48 0.11 145);
+  --sh-string: oklch(0.48 0.11 145);
+  --sh-keyword: oklch(0.5 0.17 320);
+  --sh-comment: oklch(0.56 0.012 285);
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 12.5px;
+  line-height: 1.65;
+  white-space: pre;
+  tab-size: 2;
+}
+.dark .docs-code {
+  --sh-class: oklch(0.82 0.12 75);
+  --sh-identifier: oklch(0.9 0.02 285);
+  --sh-sign: oklch(0.62 0.02 285);
+  --sh-property: oklch(0.78 0.1 225);
+  --sh-entity: oklch(0.78 0.12 165);
+  --sh-jsxliterals: oklch(0.82 0.06 140);
+  --sh-string: oklch(0.82 0.06 140);
+  --sh-keyword: oklch(0.75 0.13 320);
+  --sh-comment: oklch(0.52 0.012 285);
+}
+
+/* Thin scrollbars for sidebars and code panes. */
+.docs-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: oklch(var(--ink) / 14%) transparent;
+}
+.dark .docs-scroll {
+  scrollbar-color: oklch(1 0 0 / 10%) transparent;
+}
+
+/* Tiles are static illustrations: skip the build-in motion (dozens at once is noise). */
+.docs-tile-preview *,
+.docs-tile-preview *::before,
+.docs-tile-preview *::after {
+  animation: none !important;
+  transition: none !important;
+}

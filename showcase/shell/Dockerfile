@@ -1,18 +1,17 @@
-FROM node:20-slim AS builder
+FROM node:22.23.4-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d AS builder
 ARG COMMIT_SHA=unknown
 ARG BRANCH=unknown
 WORKDIR /app
 
 # Copy only what the shell + scripts need
 COPY showcase/scripts/package.json ./scripts/package.json
+COPY showcase/scripts/package-lock.json ./scripts/package-lock.json
 COPY showcase/shell/package.json ./shell/package.json
 COPY showcase/shell/package-lock.json ./shell/package-lock.json
 
-# The scripts package is workspace-managed and has no standalone npm lockfile.
-# Ignore optional peer auto-installation here: npm 10 can crash while resolving
-# Vitest's optional Vite devtools peers. The shell is standalone and must use its
-# committed lockfile so a partially-published CopilotKit release cannot break CI.
-RUN cd scripts && npm install --legacy-peer-deps --no-audit --no-fund \
+# Use both committed standalone locks so partially-published dependencies cannot
+# break an otherwise unchanged build.
+RUN cd scripts && npm ci --no-audit --no-fund \
     && cd ../shell && npm ci --no-audit --no-fund
 
 # Copy source
@@ -21,21 +20,14 @@ COPY showcase/integrations/ ./integrations/
 COPY showcase/scripts/ ./scripts/
 COPY showcase/shell/ ./shell/
 COPY showcase/angular/src/ ./angular/src/
+COPY showcase/vue/src/ ./vue/src/
 COPY showcase/shell-docs/src/content/ ./shell-docs/src/content/
 
 # generate-search-index.ts only indexes docs pages a reader can reach from a
-# sidebar, and that decision is computed by shell-docs (see
-# shell-docs/scripts/emit-searchable-pages.ts). This app consumes the docs rows
-# too — its header search links across to the docs host — so it needs the same
-# decision, or its search silently loses every docs row.
-#
-# Stage the two trees the emit script needs plus the tsconfig that resolves
-# shell-docs' `@/…` alias. No shell-docs install is needed: the generator
-# runs the emit script with this image's scripts node_modules on NODE_PATH,
-# and `scripts/package.json` declares tsx and gray-matter for exactly that.
-COPY showcase/shell-docs/src/lib/ ./shell-docs/src/lib/
-COPY showcase/shell-docs/scripts/ ./shell-docs/scripts/
-COPY showcase/shell-docs/tsconfig.json ./shell-docs/tsconfig.json
+# sidebar (scripts/lib/docs-searchable/emit-searchable-pages.ts). This app
+# consumes the docs rows too: its header search links across to the docs host.
+# The rules read shell-docs/src/content, staged above, and run on this image's
+# scripts node_modules.
 
 # Bake commit info into Next.js build
 ENV NEXT_PUBLIC_COMMIT_SHA=${COMMIT_SHA}
@@ -63,11 +55,12 @@ RUN ln -s ../scripts/node_modules harness/node_modules
 RUN cd scripts && node node_modules/tsx/dist/cli.mjs generate-registry.ts \
     && node node_modules/tsx/dist/cli.mjs bundle-demo-content.ts \
     && node node_modules/tsx/dist/cli.mjs bundle-angular-source-content.ts \
+    && node node_modules/tsx/dist/cli.mjs bundle-vue-source-content.ts \
     && node node_modules/tsx/dist/cli.mjs bundle-starter-content.ts \
     && node node_modules/tsx/dist/cli.mjs generate-search-index.ts \
     && cd ../shell && npx next build
 
-FROM node:20-slim AS runner
+FROM node:22.23.4-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d AS runner
 WORKDIR /app
 ARG COMMIT_SHA=unknown
 ARG BRANCH=unknown
@@ -84,3 +77,6 @@ COPY --from=builder /app/shell/public ./public
 EXPOSE 10000
 CMD ["npx", "next", "start", "-p", "10000"]
 # Cache bust: 1775013460
+
+# Fail the build if any base or install path regresses the accepted Node runtime.
+RUN test "$(node --version)" = "v22.23.4"

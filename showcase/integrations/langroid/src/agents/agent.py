@@ -24,6 +24,8 @@ aligned.
 # @region[weather-tool-backend]
 from __future__ import annotations
 
+from agents._openai_params import LunaCallParams
+
 import json
 import logging
 import os
@@ -355,9 +357,9 @@ SYSTEM_PROMPT = (
 def create_agent(system_message: str | None = None) -> lr.ChatAgent:
     """Create a Langroid ChatAgent configured with all showcase tools.
 
-    Default model is the bare ``gpt-5-mini`` (not ``openai/gpt-5-mini``): langroid
+    Default model is the bare ``gpt-6-luna`` (not ``openai/gpt-6-luna``): langroid
     does NOT strip the ``openai/`` prefix before passing the string to the
-    OpenAI SDK, and the SDK rejects ``openai/gpt-5-mini`` as "model not found".
+    OpenAI SDK, and the SDK rejects ``openai/gpt-6-luna`` as "model not found".
 
     ``system_message`` — optional override for the agent's system prompt.
     Used by the Agent Config Object demo to steer tone / expertise /
@@ -365,10 +367,11 @@ def create_agent(system_message: str | None = None) -> lr.ChatAgent:
     ``SYSTEM_PROMPT`` is used so behavior for every other demo is
     unchanged.
     """
-    model = os.getenv("LANGROID_MODEL", "gpt-5-mini")
+    model = os.getenv("LANGROID_MODEL", "gpt-6-luna")
 
     llm_config = lm.OpenAIGPTConfig(
         chat_model=model,
+        params=LunaCallParams() if model == "gpt-6-luna" else None,
         stream=True,
     )
 

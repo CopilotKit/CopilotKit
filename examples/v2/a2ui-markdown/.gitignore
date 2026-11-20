@@ -1,0 +1,7 @@
+.next
+next-env.d.ts
+.env.local
+agent/.venv
+agent/.env
+*.tsbuildinfo
+__pycache__

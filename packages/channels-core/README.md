@@ -129,7 +129,14 @@ interface Thread {
       subject?: "initiator" | "actor";
     },
   ): Promise<MessageRef | undefined>;
-  awaitChoice<T = unknown>(ui: Renderable): Promise<T>;
+  awaitChoice<T = unknown>(
+    ui: Renderable,
+    options?: {
+      answerableBy?: "initiator" | "conversation";
+      timeoutMs?: number;
+      signal?: AbortSignal;
+    },
+  ): Promise<T>;
   // Capability-gated (return { ok: false } on surfaces without support):
   setSuggestedPrompts(
     prompts: ReadonlyArray<{ title: string; message: string }>,
@@ -147,9 +154,39 @@ interface Thread {
   `context` are merged on top of the channel-level defaults for that run only.
 - `resume(value)` re-enters a paused interrupt run with
   `forwardedProps.command`.
-- `awaitChoice<T>(ui)` posts a picker and blocks until an interaction in this
-  conversation resolves it to the clicked control's value (HITL); pass `T` to
-  type the returned value.
+- `awaitChoice<T>(ui, options?)` posts a picker and blocks until a click on one
+  of the picker's own controls resolves it (HITL); pass `T` to type the
+  returned value. See [Waiting for a choice](#waiting-for-a-choice).
+
+### Waiting for a choice
+
+`awaitChoice` resolves with the value the picker itself offered for the
+clicked control: a button's `value`, the matching option(s) of a select, or
+the text typed into an input. Clicks on any other control (an earlier card, a
+stale picker, an unrelated select) never answer it, and a select value the
+picker does not offer is refused.
+
+- `answerableBy` decides who may answer. `"initiator"` (the default, set by
+  `DEFAULT_AWAIT_CHOICE_ANSWERABLE_BY`) accepts only the provider account that
+  started the turn, matched by its id; the actor's `kind` is never consulted,
+  so a turn started by a bot is answerable only by that bot. When the turn's
+  actor has no id, the call rejects at once with
+  `ChannelChoiceInitiatorUnknownError` (`channel_choice_initiator_unknown`).
+  `"conversation"` accepts anyone in the conversation the picker was posted
+  to, still only through the picker's own controls.
+- `timeoutMs` bounds the wait (default `DEFAULT_AWAIT_CHOICE_TIMEOUT_MS`, one
+  hour; `Infinity` for no limit). On timeout the choice rejects with
+  `ChannelChoiceTimeoutError` (`channel_choice_timeout`). A finite timeout
+  must be at most 2147483647 ms (2^31-1, about 24.8 days, the longest delay a
+  timer holds); a larger one rejects at once with a `RangeError`.
+- `signal` aborts the wait: the choice rejects with `ChannelChoiceAbortedError`
+  (`channel_choice_aborted`).
+
+A conversation has one pending choice at a time: a newer `awaitChoice` there
+rejects the older one with `ChannelChoiceSupersededError`
+(`channel_choice_superseded`). If the clicked control's own `onClick` throws,
+the choice rejects with that error. Once a choice settles, its picker's
+controls neither run nor answer anything.
 
 ## Tools & context
 
@@ -229,20 +266,44 @@ recovery for old snapshots.
 
 ## ActionStore
 
-Inline JSX handlers are bound by content. Each interactive node gets a
-**content-stable, opaque** minted id — `mintId(componentName, path, props)`
-= `"ck:" + sha1(name | path | stableStringify(props)).slice(0,16)`. Only the
-opaque id (plus any small `bind()` args) is stamped on the native token; no
-props, PII, or secrets go over the wire.
+Each rendered interactive node gets a fresh **random, opaque** action id
+(`mintActionId()`: `"ck:"` + 128 random bits, base64url). Only the opaque id
+(plus any small `bind()` args) is stamped on the native token; no props, PII,
+or secrets go over the wire.
+
+Every action is bound to the conversation and platform it was posted to. A
+click is dispatched only when it arrives from that same conversation and
+platform (`ActionRegistry.dispatch(id, ctx, { conversationKey, platform })`,
+both taken from the ingress event); anything else is refused with
+`ActionScopeMismatchError`. `<Message onReaction>` handlers are scoped the same
+way.
 
 On a click, the `ActionRegistry` resolves the handler from a hot in-memory
 cache; on a miss it **rehydrates** by loading the snapshot from the
 `ActionStore`, re-rendering the named component with the frozen props, and
 re-walking to the handler's path.
 
+Only a component registered by name (`createChannel({ components })`, or
+`ActionRegistry.registerComponent(name, fn)`) is rehydrated: a posted
+`<Component />` element binds under the name it was registered with. A name
+identifies exactly one component, so registering it for a different one, or
+one component under two names, throws. An element of an unregistered
+function binds inline, like a plain tree: once its in-process cache entry is
+gone (restart or eviction), a click on it reports `ActionExpiredError`. A
+function's own `name` is never used, because two functions can share it.
+
+Actions are retained for `actionRetentionMs` (default 7 days,
+`DEFAULT_ACTION_RETENTION_MS`): every stored snapshot is written with that TTL,
+and the in-process cache expires its entries after it too and holds at most
+`DEFAULT_MAX_HOT_ACTIONS` (10,000) of them, evicting the least recently used.
+
 The default `ActionStore` is `InMemoryActionStore` (a `Map` with optional
 TTL). It is lost on restart: after a restart an old button click degrades to
-an `ActionExpiredError` ("this action expired"), which `createChannel` swallows.
+an `ActionExpiredError`. `createChannel` logs it at warn and, where the
+platform has native ephemeral messages, tells the clicker "This action has
+expired." A click on a control that never had an action (a link button, a
+button without a handler) carries a fallback id rather than a minted `ck:` id,
+and is ignored quietly (debug log).
 **Durable actions require an external store (Redis / DB) — not shipped in
 v1.** Implement the `ActionStore` interface (`put` / `get` / `delete`) and
 pass it as `actionStore` to make actions survive restarts.
@@ -270,6 +331,11 @@ opened" lifecycle event. Direct-adapter slash commands are also capability-gated
 invocations via `sink.onCommand(IncomingCommand)`, and may implement
 `registerCommands(specs)` to publish the channel's declared commands up front
 (e.g. Discord's application-command API); adapters that omit it are skipped.
+If a click (or reaction) on a message you posted is keyed by a different
+`conversationKey` than the turn that posted it (Slack keys a click on a
+top-level message by that message's own ts), implement
+`postedConversationKey(target, posted, kind)` so the engine scopes the
+message's actions to the key your `decodeInteraction` will report.
 See `@copilotkit/channels-slack` for a complete implementation.
 
 ## Exports

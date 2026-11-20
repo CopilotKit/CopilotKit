@@ -40,6 +40,31 @@ tests, and Markdown. The invocation CLI is not a staged runtime input.
 
 ## Retry and recovery
 
+For branch development, push `dev/railway-runner-*` with `[runner-staging-dev]` in
+the head commit message. `intelligence-rich-threads-dev.yml` validates control
+tests/lint and invokes this same fixed-staging controller with `--development`.
+It uses the reviewed `releases/staging.json`, the same credentials, concurrency,
+provenance verification and same-run checkpoint/rerun rules. Receipts bind the
+actual development workflow bytes. No merge to `main` is needed for this entrypoint.
+The existing image build workflow on `test/pni-596-rich-intelligence-persistence`
+already builds branch images; generate release records with the existing tool.
+This entrypoint preserves existing recovery fences. It does not transfer a prior
+run's checkpoint or bypass recovery requirements.
+
+The controller recognizes the original policy and the reviewed inspector-image
+append. Ordinary deployments still require identical baseline and candidate
+policy and compatibility hashes. A policy-changing upgrade must use its separately
+reviewed recovery authorization. After such an upgrade, reactivate each configured
+HTTPS registry reader through `POST /consumers/<role>` before waiting for cleanup
+and resume. Use the current `/registry` snapshot and policy digests, the configured
+`recordsFile` URL, and `reader: railway-lifecycle-records-v1`; old activation
+receipts intentionally retain their previous policy. Same-policy branch updates
+keep those activations.
+
+Railway can report a deployment successful before its HTTP route is ready.
+Read-only runner requests retry that temporary 404 within the existing deadline;
+owner-changing requests remain single attempts.
+
 The workflow keeps a durable drain owner across deployment restarts. Before it
 changes the image, it saves the verified drain, baseline deployment, template,
 and volume proof in the redacted receipt. It also records candidate and rollback
@@ -67,13 +92,16 @@ verified deployment receipt first.
 The temporary bootstrap branch exception requires both
 `fix/PNI-605-registry-activation` and an exact matching
 `RICH_RUNNER_DEPLOY_BOOTSTRAP_SHA` repository variable. Remove that variable after
-credential proof. Normal deployment requires `main`. No schedule is enabled.
+credential proof. Operational deployment uses `main`; the development entrypoint
+above uses its opted-in branch. No schedule is enabled.
 
 ## Recovery of the October 16 ambiguous create
 
 The optional `--recovery PATH` generator input selects the single incident in
 `recovery-contract.mjs`. The release still requires review, immutable build
-provenance, and deployment from `main`. It is not a general compatibility bypass.
+provenance, and deployment from `main` for the operational workflow. Controlled
+branch development uses the opted-in entrypoint above. It is not a general
+compatibility bypass.
 The old runner first persists a same-image drain fence for the exact failed run.
 The controller then sets only `RICH_RECOVERY_AUTHORIZATION_JSON` with deployment
 suppressed, and replaces the image on the verified retained volume.
@@ -92,8 +120,9 @@ which cannot interpret the new metadata. After a lost deploy response, rerun the
 same workflow only to adopt a fully verified candidate using its saved checkpoint.
 If the old runtime remains or deployment is unresolved, the fence remains closed;
 the controller does not issue a second deployment. Future updates while the watch
-exists require an explicit compatible recovery transition; ordinary clean-drain
-updates cannot certify the unresolved old request as cleaned up.
+exists use the normal compatible drain/deploy/resume path once an established
+watch has an immutable deployment binding. The watch and original failed receipts
+remain intact. Prepared recovery still requires its explicit recovery transition.
 
 ## Recovery of the October 19 failed fork
 
@@ -134,7 +163,9 @@ Both watch receipts must retain failed outcomes and unknown provider finality.
 The source environment remains owned while late-fork provenance requires it;
 this is retained cleanup responsibility, not a fully cleaned result. Explicit
 recover and resume remain mandatory. Scheduling stays off. Build provenance and
-a reviewed release merged to `main` are required before any live handoff.
+a reviewed release are required before any live handoff. The operational workflow
+requires the release merged to `main`; controlled branch development uses the
+opted-in entrypoint above.
 
 ## Local checks
 

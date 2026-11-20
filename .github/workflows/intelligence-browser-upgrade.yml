@@ -1,0 +1,68 @@
+name: Intelligence browser framework upgrade
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - tools/railway-runner-deploy/browser-upgrade*.mjs
+      - tools/railway-runner-deploy/releases/browser-upgrade.json
+      - .github/workflows/intelligence-browser-upgrade.yml
+
+permissions:
+  contents: read
+  actions: read
+  packages: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24.18.0"
+          package-manager-cache: false
+      - run: pnpm install --filter CopilotKit --frozen-lockfile --ignore-scripts
+      - name: Test and lint deployment control
+        run: pnpm nx run-many -t test,lint --projects=railway-runner-deploy --parallel=1
+      - name: Validate reviewed release provenance
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node tools/railway-runner-deploy/browser-upgrade-cli.mjs --validate
+
+  deploy:
+    needs: validate
+    if: github.event_name == 'workflow_dispatch' && github.repository == 'CopilotKit/CopilotKit' && github.ref == 'refs/heads/main'
+    concurrency:
+      group: intelligence-runner-staging-deploy
+      cancel-in-progress: false
+    runs-on: ubuntu-26.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24.18.0"
+          package-manager-cache: false
+      - name: Install exact reviewed browser compatibility upgrade
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RICH_RUNNER_TOKEN: ${{ secrets.RICH_RUNNER_TOKEN }}
+        run: node tools/railway-runner-deploy/browser-upgrade-cli.mjs
+      - name: Retain redacted deployment receipt
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: runner-deployment-receipt-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/runner-deployment-receipt/deployment-receipt.json
+          if-no-files-found: warn
+          retention-days: 90

@@ -1,6 +1,6 @@
 import { BuiltInAgent, convertInputToTanStackAI } from "@copilotkit/runtime/v2";
 import { chat, toolDefinition } from "@tanstack/ai";
-import { openaiText } from "@tanstack/ai-openai";
+import { openaiText } from "../openai-text";
 import { z } from "zod";
 // Custom fetch that injects ALS-bound inbound x-* headers (e.g.
 // x-aimock-context) onto every outbound OpenAI call. Required so aimock
@@ -196,7 +196,7 @@ async function runA2uiDesignAttempt(
   // use. `stripJsonFences` below defensively unwraps a ```json … ``` block in
   // case the model adds one anyway.
   const text = await chat({
-    adapter: openaiText("gpt-5.4", { fetch: forwardingFetch }),
+    adapter: openaiText("gpt-6-luna", { fetch: forwardingFetch }),
     messages: [{ role: "user", content: brief }],
     systemPrompts: [systemPrompt],
     stream: false,
@@ -441,7 +441,7 @@ function createA2uiAgent(recovery?: A2uiRecoveryConfig) {
       );
 
       return chat({
-        adapter: openaiText("gpt-5.4", { fetch: forwardingFetch }),
+        adapter: openaiText("gpt-6-luna", { fetch: forwardingFetch }),
         messages,
         systemPrompts: recovery
           ? [SYSTEM_PROMPT, SINGLE_CALL_ADDENDUM, ...systemPrompts]

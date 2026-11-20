@@ -49,8 +49,8 @@ import {
     section {
       height: 100%;
       padding: 1.25rem;
-      border: 1px solid #dbe3eb;
-      background: #fff;
+      border: 1px solid light-dark(#dbe3eb, #303136);
+      background: light-dark(#fff, #191a1e);
     }
     header {
       display: flex;
@@ -64,7 +64,7 @@ import {
     }
     p {
       margin-top: 0.45rem;
-      color: #52637a;
+      color: light-dark(#52637a, #adadb2);
       font-size: 0.9rem;
     }
     button {
@@ -85,8 +85,8 @@ import {
       margin-top: 1rem;
       place-items: center;
       padding: 1rem;
-      border: 1px dashed #cbd5e1;
-      color: #64748b;
+      border: 1px dashed light-dark(#cbd5e1, #303136);
+      color: light-dark(#64748b, #adadb2);
       text-align: center;
     }
     ol {
@@ -100,11 +100,11 @@ import {
       display: flex;
       gap: 0.7rem;
       padding: 0.7rem;
-      border: 1px solid #e2e8f0;
-      background: #f8fafc;
+      border: 1px solid light-dark(#e2e8f0, #303136);
+      background: light-dark(#f8fafc, #242529);
     }
     li span {
-      color: #64748b;
+      color: light-dark(#64748b, #adadb2);
       font:
         0.72rem ui-monospace,
         monospace;

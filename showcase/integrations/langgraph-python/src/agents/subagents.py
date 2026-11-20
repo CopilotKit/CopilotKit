@@ -76,7 +76,7 @@ class AgentState(BaseAgentState):
 # Each sub-agent is a full-fledged `create_agent(...)` with its own
 # system prompt. They don't share memory or tools with the supervisor —
 # the supervisor only sees their return value.
-_sub_model = ChatOpenAI(model="gpt-5.4")
+_sub_model = ChatOpenAI(reasoning_effort="none", model="gpt-6-luna")
 
 # Each sub-agent gets the minimal HeaderForwardingMiddleware so the
 # inbound x-aimock-context (and other x-*) headers from the supervisor's
@@ -274,7 +274,7 @@ def critique_agent(task: str, runtime: ToolRuntime) -> Command:
 # ---------------------------------------------------------------------------
 
 graph = create_agent(
-    model=ChatOpenAI(model="gpt-5.4"),
+    model=ChatOpenAI(reasoning_effort="none", model="gpt-6-luna"),
     tools=[research_agent, writing_agent, critique_agent],
     middleware=[CopilotKitMiddleware()],
     state_schema=AgentState,

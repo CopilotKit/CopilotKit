@@ -324,7 +324,7 @@ You MUST follow these exact sequences. NEVER skip the render step.
 
 agent_llm = OpenAiCompatibleConfig(
     name="my_llm",
-    model_id=os.environ.get("OPENAI_MODEL", "gpt-5.2"),
+    model_id=os.environ.get("OPENAI_MODEL", "gpt-6-luna"),
     url=os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1"),
     api_type=OpenAIAPIType.RESPONSES,
     default_generation_parameters=LlmGenerationConfig(reasoning={"effort": "low"}),

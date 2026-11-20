@@ -1,15 +1,75 @@
-/* Storybook dark mode custom background */
-html.dark {
-  background-color: #212121;
+/*
+ * The Storybook preview plays the part of a host app: its own unprefixed
+ * Tailwind build (like most CopilotKit users have), with shadcn-style tokens.
+ * CopilotKit's components bring their own `cpk:`-prefixed CSS scoped under
+ * [data-copilotkit], so anything that looks right here looks right in an app.
+ *
+ * The token values mirror CopilotKit's defaults so the canvas matches the
+ * component surfaces in both themes.
+ */
+@import "tailwindcss";
+@source "../stories";
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
 }
 
-html.dark body {
-  background-color: #212121;
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.985 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --ring: oklch(0.556 0 0);
 }
 
-/* Ensure the story canvas also uses the dark background */
-html.dark .docs-story,
-html.dark .sb-show-main,
-html.dark .sb-main-padded {
-  background-color: #212121;
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-ring: var(--ring);
+}
+
+@layer base {
+  html,
+  body,
+  .sb-show-main,
+  .docs-story {
+    background-color: var(--background);
+    color: var(--foreground);
+  }
+
+  body {
+    -webkit-font-smoothing: antialiased;
+  }
 }

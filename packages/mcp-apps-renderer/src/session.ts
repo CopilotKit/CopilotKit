@@ -7,7 +7,7 @@ import type { AbstractAgent } from "@ag-ui/client";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import { randomUUID } from "@copilotkit/shared";
-import { buildSandboxHTML } from "./sandbox";
+import { buildSandboxHTML, ɵmcpAppSandboxFlags } from "./sandbox";
 import {
   mcpAppsRequestQueue,
   MCP_APPS_QUEUE_IDLE_TIMEOUT_MS,
@@ -21,6 +21,14 @@ import {
 } from "./constants";
 import { MCPAppsActivityContentSchema } from "./content-schema";
 import type { MCPAppsActivityContent } from "./content-schema";
+import {
+  MCP_APPS_MODEL_CONTEXT_CAPABILITY,
+  McpModelContextError,
+  ɵbuildModelContextEntry,
+  ɵmodelContextKey,
+  ɵsupportsModelContext,
+} from "./model-context";
+import type { McpModelContextStore } from "./model-context";
 
 /** Structural shape of an ag-ui activity message (avoids a hard type import). */
 interface ActivityLike {
@@ -192,8 +200,14 @@ export interface BindMcpAppOptions {
   getContent: () => MCPAppsActivityContent;
   /** Returns the current agent (may change across renders). */
   getAgent: () => AbstractAgent | undefined;
-  /** CopilotKit host, for ui/message follow-up runs (issue #5819). */
-  host: ɵMcpFollowUpHost;
+  /**
+   * CopilotKit host, for ui/message follow-up runs (issue #5819). When
+   * `options.modelContext` is on and the host can also store model context
+   * (`upsertContext` + `removeContext`, as `CopilotKitCore` does), the session
+   * announces `updateModelContext` and keeps the state widgets report through
+   * `ui/update-model-context`.
+   */
+  host: ɵMcpFollowUpHost & Partial<McpModelContextStore>;
   /**
    * The id of the activity message this session renders. When provided, the
    * session subscribes to the agent's message store, finds this activity, and
@@ -262,6 +276,27 @@ export interface McpAppSessionOptions {
   hostCapabilities?: Record<string, unknown>;
   /** Non-secret UI context announced to embedded MCP Apps. */
   hostContext?: Record<string, unknown>;
+  /**
+   * Restore `allow-same-origin` on the sandbox frames. Default `false`.
+   *
+   * **Unsafe.** The sandbox proxy is loaded via `srcdoc`, so with this flag the
+   * widget runs with the host page's origin: it can read the host's cookies,
+   * storage and DOM, and call the host's APIs as the signed-in user. Only set
+   * it for widgets you wrote and trust that genuinely need `localStorage`,
+   * `IndexedDB` or cookies. By default widgets get an opaque origin.
+   */
+  allowSameOriginFallback?: boolean;
+  /**
+   * Accept `ui/update-model-context`. Default `false`.
+   *
+   * **Security.** The state a widget reports reaches the model with every
+   * later run of its conversation; the built-in agent puts it in the system
+   * prompt. The user does not see it. With this on, the widget of any MCP
+   * server the agent uses can write there. While it is off, the host does not
+   * announce `updateModelContext` and answers the request with "method not
+   * found".
+   */
+  modelContext?: boolean;
 }
 
 /** Defaults every frontend inherits unless it overrides them. */
@@ -273,6 +308,8 @@ export const MCP_APPS_SESSION_DEFAULTS: Readonly<
   hostInfo: { name: "CopilotKit MCP Apps Host", version: "1.0.0" },
   hostCapabilities: { openLinks: {}, logging: {}, message: { text: {} } },
   hostContext: { platform: "web" },
+  allowSameOriginFallback: false,
+  modelContext: false,
 };
 
 /**
@@ -323,6 +360,14 @@ export const denyDangerousSchemes: McpAppOpenLinkPolicy = (url) => {
     } catch {
       return undefined;
     }
+    // A leading "/" does not guarantee the resolution stays on the host: per the
+    // URL spec a backslash is normalized to "/" inside the path of a
+    // special-scheme base, so "/\evil.com" parses as a protocol-relative
+    // authority and resolves to "http://evil.com/". Rule 3 promises a relative
+    // link reaches a path of the HOST application, so require the origin to be
+    // unchanged. Only reachable through the relative branch, so an absolute URL
+    // is still handed back exactly as the widget wrote it.
+    if (parsed.origin !== window.location.origin) return undefined;
   }
   if (MCP_OPEN_LINK_BLOCKED_SCHEMES.has(parsed.protocol)) return undefined;
   if (parsed.username || parsed.password) return undefined;
@@ -381,6 +426,34 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
   // time. The store subscription refuses to forward content for any other
   // identity (see `pushFromContent`).
   const boundIdentity = identityKeyOf(getContent());
+
+  // ui/update-model-context: the snapshot belongs to the agent and the
+  // conversation the widget was opened in, captured now. An iframe still
+  // mounted after the shared agent moved to another thread must not write
+  // into the new conversation. Off unless the frontend opted in.
+  const modelContextStore =
+    settings.modelContext === true && ɵsupportsModelContext(host)
+      ? host
+      : undefined;
+  const boundAgent = getAgent();
+  const boundAgentId = boundAgent?.agentId;
+  const boundThreadId = boundAgent?.threadId;
+  const boundResource = (({ resourceUri, serverHash, serverId }) => ({
+    resourceUri,
+    serverHash,
+    serverId,
+  }))(getContent());
+  // Announce the capability only when the context is really stored, and never
+  // keep one a frontend passed in its options without the opt-in and the
+  // storage behind it.
+  const { updateModelContext: _ignored, ...capabilitiesWithoutModelContext } =
+    settings.hostCapabilities as Record<string, unknown>;
+  const hostCapabilities = modelContextStore
+    ? {
+        ...capabilitiesWithoutModelContext,
+        updateModelContext: MCP_APPS_MODEL_CONTEXT_CAPABILITY,
+      }
+    : capabilitiesWithoutModelContext;
 
   // Ownership token for this session's queued work. Widget-scoped requests
   // (resources/read, tools/call) exist only to feed THIS iframe, so `teardown`
@@ -629,11 +702,10 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
       if (disposed) return;
       hooks?.onResource?.(resource);
 
-      // Configure the sandbox iframe (contract shared across frontends).
-      iframe.setAttribute(
-        "sandbox",
-        "allow-scripts allow-same-origin allow-forms",
-      );
+      // Configure the sandbox iframe (contract shared across frontends). The
+      // same flags go to the widget frame in sandbox-resource-ready below.
+      const sandbox = ɵmcpAppSandboxFlags(settings.allowSameOriginFallback);
+      iframe.setAttribute("sandbox", sandbox);
       // Cross-frontend MCP-apps surface contract: every frontend must expose the
       // sandbox iframe under the SAME testid so one shared probe (harness
       // `d5-mcp-apps`) and one shared e2e spec can assert the surface mounted
@@ -661,7 +733,7 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
       bridge = new AppBridge(
         null,
         settings.hostInfo,
-        settings.hostCapabilities,
+        hostCapabilities,
         // Seed the host context at construction so it is already in place when
         // the widget's ui/initialize is handled (deterministic, not a race).
         {
@@ -709,7 +781,7 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
           clearTimeout(sandboxTimer);
           sandboxTimer = undefined;
         }
-        void bridge?.sendSandboxResourceReady({ html }).then(() => {
+        void bridge?.sendSandboxResourceReady({ html, sandbox }).then(() => {
           if (!disposed) hooks?.onSandboxReady?.();
         });
       };
@@ -850,6 +922,52 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
           runResult.result ?? {},
         );
       };
+
+      // ui/update-model-context: keep the widget's latest state for the next
+      // turns of its conversation. It adds no chat message, starts no run and
+      // goes through no queue. Only installed when the frontend opted in and
+      // the host can store it; otherwise the widget gets "method not found"
+      // instead of an acknowledgement for context that is never kept.
+      if (modelContextStore) {
+        bridge.onupdatemodelcontext = async (params) => {
+          if (disposed) {
+            throw new McpModelContextError(
+              "The MCP App session is closed; the model context was not stored.",
+            );
+          }
+          const currentAgent = getAgent();
+          if (
+            boundAgentId === undefined ||
+            boundThreadId === undefined ||
+            currentAgent?.agentId !== boundAgentId ||
+            currentAgent.threadId !== boundThreadId
+          ) {
+            throw new McpModelContextError(
+              "The conversation this MCP App was opened in is no longer the current one; the model context was not stored.",
+            );
+          }
+          // Validates and serializes first: a refused update leaves the
+          // previous snapshot untouched.
+          const entry = ɵbuildModelContextEntry(params, boundResource);
+          // One entry per widget resource in the conversation: another
+          // instance of the same widget, or a remount, replaces it.
+          const id = ɵmodelContextKey({
+            agentId: boundAgentId,
+            threadId: boundThreadId,
+            ...boundResource,
+          });
+          if (entry === null) {
+            modelContextStore.removeContext(id);
+          } else {
+            modelContextStore.upsertContext(id, {
+              ...entry,
+              agentIds: [boundAgentId],
+              threadId: boundThreadId,
+            });
+          }
+          return {};
+        };
+      }
 
       // --- App -> host notifications ---
       bridge.onsizechange = (p) => {

@@ -1,4 +1,9 @@
-import { describe, it, expect } from "vitest";
+import { createRequire } from "node:module";
+import { describe, it, expect, vi } from "vitest";
+import { registerProbesRoutes } from "../harness/src/http/probes";
+import { createScheduler } from "../harness/src/scheduler/scheduler";
+import type { ProbeRunWriter } from "../harness/src/probes/run-history";
+import type { ProbeConfig } from "../harness/src/probes/loader/schema";
 import {
   enqueueProdResweep,
   pollProdFreshness,
@@ -12,6 +17,75 @@ import type {
   ProdResweepDeps,
   FakeProdControlPlane,
 } from "./verify-prod-resweep";
+
+it("the default starter enqueue reaches the real router's scheduler ID and preserves filter keys", async () => {
+  const { Hono } = createRequire(
+    new URL("../harness/package.json", import.meta.url),
+  )("hono");
+  const app = new Hono();
+  const logger = {
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+  };
+  const scheduler = createScheduler({ logger });
+  const handler = vi.fn(async () => {});
+  scheduler.register({ id: "probe:starter_smoke", cron: "0 0 1 1 *", handler });
+  const writer: ProbeRunWriter = {
+    start: async () => ({ id: "unused" }),
+    findByJobId: async () => null,
+    update: async () => {},
+    finish: async () => {},
+    recent: async () => [],
+  };
+  registerProbesRoutes(app, {
+    scheduler,
+    writer,
+    triggerToken: "contract-test-only",
+    getProbeConfig: (id) =>
+      id === "probe:starter_smoke"
+        ? ({ id: "starter_smoke", kind: "starter_smoke" } as ProbeConfig)
+        : undefined,
+  });
+  // Requests execute the real auth/router/scheduler in memory. No network,
+  // service credentials, model calls, or actual probe implementation are used.
+  const fetcher = vi.fn((url: string | URL | Request, init?: RequestInit) =>
+    app.request(url, init),
+  );
+  vi.stubGlobal("fetch", fetcher);
+  try {
+    const cp = createRealProdControlPlane({
+      cells: cellsFromClosureCsv("starter-ms-agent-framework-dotnet"),
+      prodPb: { url: "http://unused", email: "unused", password: "unused" },
+      prodRailwayEnv: {
+        token: "unused",
+        projectId: "unused",
+        environmentId: "unused",
+      },
+      workersProvisioned: true,
+      prodHarnessBaseUrl: "http://harness.test/",
+      prodHarnessTriggerToken: "contract-test-only",
+      agentEnqueue: async () => {
+        throw new Error(
+          "starter-only verification must not enqueue the agent axis",
+        );
+      },
+    });
+    const result = await cp.enqueue(Date.now());
+    expect(result.enqueued).toBe(1);
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(fetcher.mock.calls[0][0]).toBe(
+      "http://harness.test/api/probes/probe%3Astarter_smoke/trigger",
+    );
+    expect(handler).toHaveBeenCalledWith({
+      filter: { slugs: ["starter_smoke:starter-ms-agent-framework-dotnet"] },
+    });
+  } finally {
+    vi.unstubAllGlobals();
+    await scheduler.stop();
+  }
+});
 import type {
   LiveStatusMap,
   StatusRow,

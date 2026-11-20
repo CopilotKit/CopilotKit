@@ -1,4 +1,4 @@
-from crewai import Agent, Crew, Process, Task
+from crewai import LLM, Agent, Crew, Process, Task
 from crewai.project import CrewBase, agent, crew, task
 from crewai.agents.agent_builder.base_agent import BaseAgent
 from typing import List
@@ -24,6 +24,11 @@ class LatestAiDevelopment:
     @agent
     def researcher(self) -> Agent:
         return Agent(
+            llm=LLM(
+                model="openai/gpt-6-luna",
+                is_litellm=True,
+                additional_params={"extra_body": {"reasoning_effort": "none"}},
+            ),
             config=self.agents_config["researcher"],  # type: ignore[index]
             verbose=True,
         )
@@ -31,6 +36,11 @@ class LatestAiDevelopment:
     @agent
     def reporting_analyst(self) -> Agent:
         return Agent(
+            llm=LLM(
+                model="openai/gpt-6-luna",
+                is_litellm=True,
+                additional_params={"extra_body": {"reasoning_effort": "none"}},
+            ),
             config=self.agents_config["reporting_analyst"],  # type: ignore[index]
             verbose=True,
         )
@@ -63,6 +73,10 @@ class LatestAiDevelopment:
             tasks=self.tasks,  # Automatically created by the @task decorator
             process=Process.sequential,
             verbose=True,
-            chat_llm="gpt-4o",
+            chat_llm=LLM(
+                model="openai/gpt-6-luna",
+                is_litellm=True,
+                additional_params={"extra_body": {"reasoning_effort": "none"}},
+            ),
             # process=Process.hierarchical, # In case you wanna use that instead https://docs.crewai.com/how-to/Hierarchical/
         )

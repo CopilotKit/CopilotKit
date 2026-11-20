@@ -26,7 +26,9 @@ function useAttachments(props: UseNativeAttachmentsProps): UseNativeAttachmentsR
     Attachment configuration.
 
     <PropertyReference name="enabled" type="boolean" required>
-      Enable file attachments. When `false`, the hook is inert.
+      Enable file attachments. The hook returns this value as `enabled`. It
+      does not block `openPicker` or `processFiles`, so check `enabled` before
+      you show an attach control.
     </PropertyReference>
 
     <PropertyReference name="accept" type="string" default='"*/*"'>
@@ -76,8 +78,8 @@ function useAttachments(props: UseNativeAttachmentsProps): UseNativeAttachmentsR
 </PropertyReference>
 
 <PropertyReference name="consumeAttachments" type="() => Attachment[]">
-  Return the ready attachments and clear the queue. Call this when submitting a
-  message.
+  Return the ready attachments and remove them from the queue. Attachments that
+  are still uploading stay in the queue. Call this when submitting a message.
 </PropertyReference>
 
 ### `NativeFileInput`
@@ -143,6 +145,4 @@ Most apps enable attachments declaratively through `CopilotChat` instead:
 </CopilotChat>
 ```
 
-## Related
-
-- [`CopilotChat`](/reference/react-native/components/CopilotChat): wires up attachments via its `attachments` prop and exposes `openPicker` / `removeAttachment` through `useCopilotChatContext`
+Children of `CopilotChat` read `openPicker` and `removeAttachment` from [`useCopilotChatContext`](/reference/react-native/components/CopilotChat#usecopilotchatcontext).

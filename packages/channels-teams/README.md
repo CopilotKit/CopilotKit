@@ -186,15 +186,139 @@ use the same serializer and Bot Framework attachment shape.
 ```ts
 teams({
   port: 3978, // POST /api/messages port (Playground default)
+  host, // interface to listen on (see below)
   clientId, // Microsoft app id; omit for anonymous local dev
   clientSecret, // omit for anonymous local dev
   tenantId, // omit for multi-tenant / anonymous
   interruptEventNames, // custom-event names treated as agent interrupts
+  allowedServiceUrls, // extra Bot Connector origins to accept (see below)
 });
 ```
 
 Credentials also resolve from the `clientId` / `clientSecret` / `tenantId`
-environment variables (the names the M365 Agents SDK reads).
+environment variables, or from `Connections__<id>__Settings__ClientId` /
+`ClientSecret` / `TenantId` (the names the M365 Agents SDK reads). The Bot
+Framework SDK's `MicrosoftAppId` / `MicrosoftAppPassword` variables are not
+read; if any of them is set and no app id resolves, `start` fails instead of
+running unauthenticated. Rename them to one of the supported forms.
+
+### Request authentication
+
+With a `clientId` configured (as an option, or through any of the env vars the
+M365 Agents SDK reads, including `Connections__*`), `POST /api/messages` only
+accepts requests that carry a valid token for that app. The SDK's `authorizeJWT`
+checks the signature, audience and expiry. The listener then requires the bot's
+own app id as the audience, and an issuer the SDK configured for the app (Bot
+Framework, `https://api.botframework.com`, or your tenant's Azure AD issuers;
+the botframework.com tenant when no `tenantId` is set). A Bot Framework token
+must also carry a `serviceurl` claim, and its signing key must be endorsed for
+the activity's `channelId` (see below). Anything else gets `401` or `403` and
+never reaches your handlers. Settings such as `authorityEndpoint`, or a custom issuer
+list (`Connections__<id>__Settings__Issuers`), resolve from the environment the
+same way the SDK reads them.
+
+The `Connections__*` env settings take precedence: when any of them is set, the
+SDK builds its auth settings from those env vars alone and ignores the
+`clientId` / `clientSecret` / `tenantId` options. If the app id it resolves is
+missing or differs from the `clientId` you configured, `start` fails with an
+error that names the conflict, rather than running anonymously or as another
+app.
+
+The bot sends its app token to the activity's `serviceUrl` when it replies, so
+that URL is checked too. It must be one of the Microsoft connector hosts below
+and, when the token carries a `serviceurl` claim, have the same origin as that
+claim. Otherwise the request gets `403`, and the bot never sends to it:
+
+- `https://smba.trafficmanager.net` (Teams)
+- `https://smba.infra.gcc.teams.microsoft.com` (Teams GCC)
+- `https://smba.infra.gov.teams.microsoft.us` (Teams GCC High)
+- `https://smba.infra.dod.teams.microsoft.us` (Teams DoD)
+- `https://*.botframework.com` (Bot Framework channels such as Web Chat)
+- `https://msteams.botframework.azure.cn` (Teams operated by 21Vianet)
+- `https://*.botframework.azure.us` (Azure Government)
+
+Add any other connector origin with
+`allowedServiceUrls: ["https://connector.example"]`. A leading `*.` on the host
+allows any subdomain, and needs at least two labels after it
+(`https://*.example.com`, not `https://*.com`). Plain `http` is accepted only
+for `localhost`, `127.0.0.1` and `[::1]`. An entry that breaks these rules is
+ignored with a warning.
+
+To test a credentialed bot with the Bot Framework Emulator, allow the
+Emulator's local connector, for example
+`allowedServiceUrls: ["http://localhost:<port>"]`.
+
+**Channel endorsements.** Each key in the Bot Connector's signing-key document
+lists the channels it may sign for. For a Bot Framework token
+(`iss: https://api.botframework.com`) whose key lists endorsements, the
+activity's `channelId` must be one of them, or the request gets `403`. Like the
+Bot Framework SDK, keys whose `endorsements` field is absent or empty are not
+checked; Azure AD keys (single-tenant Azure Bot Service, the Bot Framework
+Emulator) have none. The key document is cached for an hour; fetching it times out after
+5 seconds, and a failed fetch rejects the request (`503`).
+
+**Anonymous mode.** Without a `clientId` the endpoint is **anonymous**: anyone
+who can reach it can drive a turn. That mode is for the local M365 Agents
+Playground only, so the listener binds to `127.0.0.1` unless you set `host`. That
+is IPv4 only: a client that connects to `localhost` over IPv6 (`::1`) without
+falling back to IPv4 needs `host: "localhost"` or `host: "::1"`.
+Setting a non-loopback `host` (for example `host: "0.0.0.0"`) exposes an
+unauthenticated bot to the network; the adapter logs a warning. With a
+`clientId` the listener binds all interfaces unless `host` says otherwise.
+
+**`createTeamsServer`.** Called directly, it uses the auth settings of the
+`CloudAdapter` you pass. An `authConfig` override must resolve to that
+adapter's app id: one that resolves to no app id (for example `{}`) or to
+another app makes `start()` fail, so an override can never turn a credentialed
+adapter anonymous or switch its identity.
+
+If you serve `POST /api/messages` yourself instead of using
+`createTeamsServer`, do the same checks before `CloudAdapter.process`: run
+`authorizeJWT`, accept only your app id as the audience and only its issuers,
+check endorsements for Bot Framework tokens, and check that the activity's
+`serviceUrl` is a connector you trust and matches the token's `serviceurl`
+claim. `authorizeJWT` alone accepts any issuer and does not look at
+`serviceUrl`, and the bot will send its app token there.
+
+### Inbound attachment downloads
+
+Remote attachments require HTTPS on port 443 and a recognized Microsoft file
+host. The built-in policy accepts tenant subdomains of SharePoint
+(`sharepoint.com`, `sharepoint.us`, `sharepoint.cn`, `sharepoint.de`),
+Teams (`teams.microsoft.com`, `teams.microsoft.us`), `asm.skype.com`,
+`botframework.com`, `botframework.azure.us`, `files.1drv.com`, and `svc.ms`,
+plus `graph.microsoft.com` and the exact Teams connector hosts listed above.
+URLs containing credentials or pointing elsewhere are skipped. For local
+Playground uploads, use bounded `data:` attachments.
+
+Every download and redirect resolves DNS and rejects the destination if any
+address is private, loopback, link-local, reserved, or an unsupported IPv6
+transition address. The TLS connection uses only the validated addresses and
+still verifies the original hostname. Redirects are limited to five. Graph
+file-content redirects use their preauthenticated URL; the Graph bearer token
+is never forwarded to a redirect destination. Connector `allowedServiceUrls`
+does not extend this attachment policy.
+
+The downloader enforces size limits while reading and cancels oversized or
+timed-out requests. Inline data is bounded before decoding. Configure limits
+with the adapter's `files` option:
+
+| Option               | Default | Scope                                                                                      |
+| -------------------- | ------- | ------------------------------------------------------------------------------------------ |
+| `maxBytesPerFile`    | 8 MiB   | Each attachment                                                                            |
+| `maxFiles`           | 5       | Download attempts per message, including failed attempts                                   |
+| `maxTextBytes`       | 200 KiB | Decoded text passed to the agent                                                           |
+| `maxBytesPerMessage` | 40 MiB  | Combined download bytes, including Graph metadata                                          |
+| `downloadTimeoutMs`  | 30,000  | DNS, connection, redirects, and body of each download; each Graph metadata/token operation |
+| `maxDownloadTimeMs`  | 60,000  | Shared elapsed download time for the message                                               |
+
+The adapter validates download-budget limits when constructed. They must be
+nonnegative safe integers; invalid values such as `Infinity` fail immediately
+with an error naming the option. Each message gets a fresh budget.
+
+The inline and Graph fallback paths share one budget. Failed downloads produce
+short skip notes without including preauthenticated URLs or transport error
+details. The Graph channel fallback uses the commercial Graph endpoint.
 
 ## Status & roadmap
 

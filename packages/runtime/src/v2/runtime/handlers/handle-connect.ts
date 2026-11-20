@@ -1,5 +1,6 @@
 import { handleIntelligenceConnect } from "./intelligence/connect";
 import { handleSseConnect } from "./sse/connect";
+import { resolveLocalThreadOwner } from "./shared/thread-access";
 import { isIntelligenceRuntime } from "../core/runtime";
 import { telemetry } from "../telemetry";
 import type { RunAgentParameters as ConnectAgentParameters } from "./shared/agent-utils";
@@ -38,7 +39,8 @@ export async function handleConnectAgent({
       return agent;
     }
 
-    const connectRequest = await parseConnectRequest(request);
+    // Parse a clone, so `identifyUser` can still read the original body.
+    const connectRequest = await parseConnectRequest(request.clone());
     if (connectRequest instanceof Response) {
       return connectRequest;
     }
@@ -52,11 +54,21 @@ export async function handleConnectAgent({
       });
     }
 
+    // Replay only the caller's own thread; another identity's thread replays
+    // like an unknown one.
+    const ownerId = await resolveLocalThreadOwner({
+      runtime,
+      request,
+      operation: "connect",
+    });
+    if (ownerId instanceof Response) return ownerId;
+
     return handleSseConnect({
       runtime,
       request,
       agentId,
       threadId: connectRequest.input.threadId,
+      ownerId,
       // Pass the per-request clone so its server-configured `agent.headers` are
       // folded into the merged header set threaded into `runner.connect`. That
       // merge is forward-looking plumbing — no shipped runner consumes

@@ -24,7 +24,7 @@ from __future__ import annotations
 import os
 
 from llama_index.core.tools import FunctionTool
-from llama_index.llms.openai import OpenAI
+from agents._openai_models import OpenAI
 from llama_index.protocols.ag_ui.router import get_ag_ui_workflow_router
 
 from agents.hitl_in_chat_agent import FixedAGUIChatWorkflow
@@ -76,7 +76,7 @@ _schedule_meeting_tool = FunctionTool.from_defaults(
 
 async def _workflow_factory():
     return FixedAGUIChatWorkflow(
-        llm=OpenAI(model="gpt-5-mini", **_openai_kwargs),
+        llm=OpenAI(model="gpt-6-luna", **_openai_kwargs),
         frontend_tools=[_schedule_meeting_tool],
         backend_tools=[],
         system_prompt=SYSTEM_PROMPT,

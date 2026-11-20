@@ -52,7 +52,7 @@ function ThreadIdRoundTripChat() {
           <FrontendToolRegistration />
           <CopilotChat
             agentId={AGENT_ID}
-            className="h-full rounded-2xl border border-white/10 bg-white text-slate-950"
+            className="h-full rounded-2xl border border-white/10 bg-white text-slate-950 dark:bg-card dark:text-foreground"
             welcomeScreen={false}
           />
         </CopilotChatConfigurationProvider>
@@ -72,7 +72,7 @@ function FrontendToolRegistration() {
     handler: async ({ label }) => `handled ${label}`,
     render: ({ args, result }) => (
       <div
-        className="rounded-xl border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-950"
+        className="rounded-xl border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-950 dark:border-cyan-800 dark:bg-cyan-950/40 dark:text-cyan-100"
         data-testid="ent-658-tool-card"
       >
         <div className="font-semibold">testFrontendToolCalling</div>

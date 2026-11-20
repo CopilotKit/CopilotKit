@@ -34,7 +34,7 @@ import { createDiscoveryRegistry } from "./probes/discovery/index.js";
 import { createProbeLoader } from "./probes/loader/probe-loader.js";
 import { buildProbeInvoker } from "./probes/loader/probe-invoker.js";
 import type { ProbeConfig } from "./probes/loader/schema.js";
-import type { ProbeRegistry } from "./probes/types.js";
+import type { DiscoveryRegistry, ProbeRegistry } from "./probes/types.js";
 import { createProbeRunWriter, sweepStaleRuns } from "./probes/run-history.js";
 import type { ProbeRunWriter } from "./probes/run-history.js";
 import { aimockWiringDriver } from "./probes/drivers/aimock-wiring.js";
@@ -69,6 +69,7 @@ import { railwayServicesSource } from "./probes/discovery/railway-services.js";
 import { crossEnvPinDriftDiscoverySource } from "./probes/discovery/cross-env-pin-drift-discovery.js";
 import { pnpmPackagesDiscoverySource } from "./probes/discovery/pnpm-packages.js";
 import { withCache } from "./probes/discovery/caching-source.js";
+import type { DiscoveryAuthTrackerLike } from "./probes/discovery/caching-source.js";
 import { DiscoveryAuthTracker } from "./probes/discovery/auth-tracker.js";
 import { logger, reloadLogLevel } from "./logger.js";
 import { logErrorWithStack } from "./probes/loader/probe-invoker.js";
@@ -383,6 +384,14 @@ export function subscribeDeployResults(
   });
 }
 
+/**
+ * In-process (non-fleet) harness boot: wires PocketBase, the scheduler, every
+ * probe driver (`registerAllProbeDrivers`) and discovery source
+ * (`registerAllDiscoverySources`), the probe/rule loaders, and the HTTP
+ * server. The fleet entrypoint (`bootFleet`) uses `runControlPlane` /
+ * `runWorker` instead; both paths share the registration helpers so their
+ * loaders resolve the same `config/probes/*.yml` set.
+ */
 export async function boot(opts: BootOptions = {}): Promise<{
   stop: () => Promise<void>;
   port: number;
@@ -777,20 +786,7 @@ export async function boot(opts: BootOptions = {}): Promise<{
     now: () => Date.now(),
   });
 
-  discoveryRegistry.register(
-    withCache(railwayServicesSource, {
-      ttlMs: 86_400_000,
-      logger,
-      authTracker,
-    }),
-  );
-  // Cross-env pin-drift discovery (U11): delegates the showcase-* roster to
-  // railway-services then stamps the prod/staging env-ids. Registered
-  // un-cached — its sole consumer is the weekly `pin_drift_cross_env` probe,
-  // so the per-tick re-enumeration cost is negligible and a stale cache
-  // would only hide a freshly-promoted digest.
-  discoveryRegistry.register(crossEnvPinDriftDiscoverySource);
-  discoveryRegistry.register(pnpmPackagesDiscoverySource);
+  registerAllDiscoverySources(discoveryRegistry, { logger, authTracker });
   const probeConfigDir =
     opts.configDir !== undefined
       ? path.resolve(opts.configDir, "../probes")
@@ -1669,6 +1665,39 @@ export function buildProducerSchedules(producers: {
       producer: producers.deep,
     },
   ];
+}
+
+/**
+ * Register every discovery source onto the given registry. Shared by BOTH
+ * probe loaders — `boot()` and the control-plane's in-process HTTP loader in
+ * `runControlPlane()` — so the two can never drift. They did: the
+ * cross-env-pin-drift source was wired only into `boot()`, so on the fleet
+ * control-plane every boot logged `probe-loader.file-failed ...
+ * discovery.source 'cross-env-pin-drift' is not registered` and the weekly
+ * `pin_drift_cross_env` probe never loaded. Exported so a unit test can lock
+ * the set against `config/probes/*.yml`.
+ *
+ * - railway-services: cached (24h TTL) with the auth-failure tracker.
+ * - cross-env-pin-drift (U11): delegates the showcase-* roster to
+ *   railway-services then stamps the prod/staging env-ids. Un-cached — its
+ *   sole consumer is the weekly `pin_drift_cross_env` probe, so per-tick
+ *   re-enumeration is negligible and a stale cache would only hide a
+ *   freshly-promoted digest.
+ * - pnpm-packages: `version_drift` discovery.
+ */
+export function registerAllDiscoverySources(
+  discoveryRegistry: Pick<DiscoveryRegistry, "register">,
+  deps: { logger: Logger; authTracker: DiscoveryAuthTrackerLike },
+): void {
+  discoveryRegistry.register(
+    withCache(railwayServicesSource, {
+      ttlMs: 86_400_000,
+      logger: deps.logger,
+      authTracker: deps.authTracker,
+    }),
+  );
+  discoveryRegistry.register(crossEnvPinDriftDiscoverySource);
+  discoveryRegistry.register(pnpmPackagesDiscoverySource);
 }
 
 /**
@@ -3234,26 +3263,19 @@ export async function runControlPlane(
   assertHttpBrowserKindPartition(httpProbeRegistry.list());
 
   const httpDiscoveryRegistry = createDiscoveryRegistry();
-  // `qa` and `image_drift` are per-service discovery probes (railway-services);
-  // `version_drift` uses pnpm-packages discovery. (`pin_drift` is single-target
-  // — it has NO discovery source.) Register the SAME discovery sources boot()
-  // wires so the HTTP families fan out to the identical target set.
-  // railway-services is cached (24h TTL) with an auth-failure tracker,
-  // mirroring boot().
+  // Same discovery sources boot() wires (shared helper), so the HTTP families
+  // fan out to the identical target set and every non-browser probe YAML
+  // resolves its `discovery.source` here too.
   const httpAuthTracker = new DiscoveryAuthTracker({
     threshold: 3,
     writer: statusWriter,
     logger,
     now: () => Date.now(),
   });
-  httpDiscoveryRegistry.register(
-    withCache(railwayServicesSource, {
-      ttlMs: 86_400_000,
-      logger,
-      authTracker: httpAuthTracker,
-    }),
-  );
-  httpDiscoveryRegistry.register(pnpmPackagesDiscoverySource);
+  registerAllDiscoverySources(httpDiscoveryRegistry, {
+    logger,
+    authTracker: httpAuthTracker,
+  });
 
   const httpProbeConfigDir =
     opts.configDir !== undefined

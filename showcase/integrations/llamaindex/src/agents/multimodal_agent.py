@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import os
 
-from llama_index.llms.openai import OpenAI
+from agents._openai_models import OpenAI
 from llama_index.protocols.ag_ui.router import get_ag_ui_workflow_router
 
 
@@ -25,7 +25,7 @@ if os.environ.get("OPENAI_BASE_URL"):
 
 
 multimodal_router = get_ag_ui_workflow_router(
-    llm=OpenAI(model="gpt-5-mini", temperature=0.2, **_openai_kwargs),
+    llm=OpenAI(model="gpt-6-luna", temperature=0.2, **_openai_kwargs),
     frontend_tools=[],
     backend_tools=[],
     system_prompt=SYSTEM_PROMPT,

@@ -539,15 +539,16 @@ export class CopilotKit {
 
     const catalog = this.#config.a2ui?.catalog;
     if (!catalog) return;
+    const includeSchema = this.#config.a2ui?.includeSchema !== false;
     this.#a2UIContextIds.push(
       this.core.addContext({
         description:
           "A2UI catalog capabilities: available catalog IDs and custom component definitions the client can render.",
-        value: buildCatalogContextValue(catalog),
+        value: buildCatalogContextValue(catalog, { includeSchema }),
       }),
     );
 
-    if (this.#config.a2ui?.includeSchema === false) return;
+    if (!includeSchema) return;
 
     this.#a2UIContextIds.push(
       this.core.addContext({

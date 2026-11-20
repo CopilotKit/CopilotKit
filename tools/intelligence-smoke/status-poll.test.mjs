@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { pollRunStatus } from "./status-poll.mjs";
+import { reportCleanupVerified } from "./rich-threads/cleanup-verdict.mjs";
 
 function harness(sequence, duration = 60000) {
   let now = 0;
@@ -140,6 +141,97 @@ const pendingCleanup = {
     },
   ],
 };
+const acknowledgedWithoutInstances = structuredClone(pendingCleanup);
+Object.assign(acknowledgedWithoutInstances.retainedVolumes[0].receipt, {
+  outcome: "acknowledged",
+  response: true,
+  returnedAt: "2026-10-19T12:00:00.500Z",
+});
+Object.assign(acknowledgedWithoutInstances.retainedVolumes[0].evidence, {
+  instances: [],
+  inspectedEnvironmentIds: ["environment"],
+});
+test("accepts acknowledged retained volumes with no remaining attachments or references", () => {
+  assert.equal(
+    reportCleanupVerified({
+      cleanup: "passed-pending-provider-deletion",
+      cleanupEvidence: [acknowledgedWithoutInstances],
+    }),
+    true,
+  );
+});
+for (const invalid of [
+  { name: "unknown deletion", receipt: { outcome: "unknown" } },
+  { name: "pending deletion", receipt: { outcome: "pending" } },
+  { name: "refused deletion", receipt: { response: false } },
+  { name: "unsent deletion", receipt: { requestSent: false } },
+  { name: "missing acknowledgement time", receipt: { returnedAt: null } },
+  {
+    name: "remaining environment reference",
+    evidence: { environmentReferences: [pendingInstance] },
+  },
+  { name: "incomplete inventory", evidence: { inventoryComplete: false } },
+  {
+    name: "remaining service attachment",
+    evidence: { instances: [{ ...pendingInstance, serviceId: "service" }] },
+  },
+]) {
+  test(`rejects retained volume proof with ${invalid.name}`, () => {
+    const cleanup = structuredClone(acknowledgedWithoutInstances);
+    Object.assign(cleanup.retainedVolumes[0].receipt, invalid.receipt);
+    Object.assign(cleanup.retainedVolumes[0].evidence, invalid.evidence);
+    assert.equal(
+      reportCleanupVerified({
+        cleanup: "passed-pending-provider-deletion",
+        cleanupEvidence: [cleanup],
+      }),
+      false,
+    );
+  });
+}
+for (const cleanup of [completeCleanup, pendingCleanup]) {
+  test(`waits for cleanup recovery on the same failed run: ${cleanup.status}`, async () => {
+    const failed = {
+      id: "run-test",
+      status: "failed",
+      exitCode: 1,
+      cleanup: "failed",
+      deadlineExceeded: false,
+    };
+    const recovered = {
+      ...failed,
+      status: "interrupted-cleaned",
+      cleanup: cleanup.status,
+      cleanupEvidence: [cleanup],
+    };
+    const h = harness([response(200, failed), response(200, recovered)]);
+    assert.deepEqual(await pollRunStatus(h.options), recovered);
+    assert.deepEqual(h.waits, [10000]);
+  });
+}
+test("cleanup recovery cannot extend the original deadline", async () => {
+  const failed = {
+    id: "run-test",
+    status: "failed",
+    cleanup: "failed",
+    deadlineExceeded: false,
+  };
+  const h = harness([response(200, failed), response(200, failed)], 15000);
+  await assert.rejects(pollRunStatus(h.options), /still active/);
+  assert.deepEqual(h.waits, [10000, 5000]);
+  assert.deepEqual(h.timeouts, [15000, 5000]);
+});
+test("cleanup past its lifetime is returned without waiting", async () => {
+  const failed = {
+    id: "run-test",
+    status: "failed",
+    cleanup: "failed",
+    deadlineExceeded: true,
+  };
+  const h = harness([response(200, failed)]);
+  assert.deepEqual(await pollRunStatus(h.options), failed);
+  assert.deepEqual(h.waits, []);
+});
 for (const cleanupCase of [
   {
     name: "physical absence",
@@ -154,6 +246,12 @@ for (const cleanupCase of [
     accepted: true,
   },
   {
+    name: "acknowledged deletion without attachment records",
+    cleanup: acknowledgedWithoutInstances,
+    status: "passed-pending-provider-deletion",
+    accepted: true,
+  },
+  {
     name: "status without evidence",
     cleanup: undefined,
     status: "passed",
@@ -164,6 +262,13 @@ for (const cleanupCase of [
     cleanup: { ...pendingCleanup, retainedVolumes: [] },
     status: "passed-pending-provider-deletion",
     accepted: false,
+  },
+  {
+    name: "failed browser with recovered cleanup",
+    cleanup: pendingCleanup,
+    status: "passed-pending-provider-deletion",
+    accepted: false,
+    recovering: true,
   },
 ])
   test(`trigger sends POST once and retains evidence: ${cleanupCase.name}`, async () => {
@@ -186,8 +291,10 @@ for (const cleanupCase of [
         const path=url.pathname;
         if(path==='/runs') { posts++; return Response.json({id:'run-test',statusUrl:'/runs/run-test',resultsUrl:'/results/run-test/'}); }
         if(path==='/runs/run-test') {
+          assert.equal(options.method ?? 'GET','GET');
           if(status++===0) return new Response('',{status:503});
-          return Response.json({id:'run-test',status:'interrupted-cleaned',cleanup:${JSON.stringify(cleanupCase.status)},cleanupEvidence:${JSON.stringify(cleanupCase.cleanup ? [cleanupCase.cleanup] : null)},deadlineExceeded:false,crashReached:true});
+          if(${!!cleanupCase.recovering} && status===2) return Response.json({id:'run-test',status:'failed',cleanup:'failed',deadlineExceeded:false,exitCode:1});
+          return Response.json({id:'run-test',status:'interrupted-cleaned',cleanup:${JSON.stringify(cleanupCase.status)},cleanupEvidence:${JSON.stringify(cleanupCase.cleanup ? [cleanupCase.cleanup] : null)},deadlineExceeded:false,crashReached:true,exitCode:1});
         }
         assert.equal(path,'/results/run-test/manifest');
         assert.equal(posts,1);
@@ -201,7 +308,7 @@ for (const cleanupCase of [
           "--import",
           preload,
           "tools/intelligence-smoke/rich-threads/trigger.mjs",
-          "--mode=crash-recovery",
+          `--mode=${cleanupCase.recovering ? "single" : "crash-recovery"}`,
           `--output=${join(dir, "output")}`,
         ],
         {
@@ -223,7 +330,9 @@ for (const cleanupCase of [
       } else
         await assert.rejects(
           execution,
-          /Hosted active-resource cleanup not verified/,
+          cleanupCase.recovering
+            ? /Hosted run did not pass/
+            : /Hosted active-resource cleanup not verified/,
         );
       assert.equal(
         await readFile(join(dir, "proof"), "utf8"),

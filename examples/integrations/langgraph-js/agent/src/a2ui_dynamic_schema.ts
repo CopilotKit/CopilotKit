@@ -50,8 +50,8 @@ export const generate_a2ui = tool(
       .filter(Boolean)
       .join("\n\n");
 
-    // COPILOTKIT_AGENT_MODEL overrides this site too; unset, it uses gpt-5-mini.
-    const model = createChatModel("openai:gpt-5-mini");
+    // COPILOTKIT_AGENT_MODEL overrides this site too; unset, it uses gpt-6-luna.
+    const model = createChatModel("openai:gpt-6-luna");
     const modelWithTool = model.bindTools!([renderA2ui], {
       tool_choice: "render_a2ui",
     });

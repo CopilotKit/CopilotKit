@@ -3,7 +3,7 @@ import type { TanStackChatMessage } from "@copilotkit/runtime/v2";
 import { EventType } from "@ag-ui/client";
 import type { BaseEvent } from "@ag-ui/client";
 import { chat, toolDefinition } from "@tanstack/ai";
-import { openaiText } from "@tanstack/ai-openai";
+import { openaiText } from "../openai-text";
 import { z } from "zod";
 import { stateTools } from "./state-tools";
 import { baseServerTools } from "./server-tools";
@@ -439,7 +439,7 @@ export function createBuiltInAgent(options: BuiltInAgentOptions = {}) {
         // x-* headers (e.g. x-aimock-context) bound into ALS by the
         // route handler. Without this, /v1/responses calls to aimock
         // miss every fixture (404) and the D6 subset goes 0/6.
-        adapter: openaiText("gpt-5.4", { fetch: forwardingFetch }),
+        adapter: openaiText("gpt-6-luna", { fetch: forwardingFetch }),
         messages,
         systemPrompts: options.systemPrompt
           ? [options.systemPrompt, ...systemPrompts]

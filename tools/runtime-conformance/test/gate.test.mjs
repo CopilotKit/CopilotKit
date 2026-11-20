@@ -62,7 +62,6 @@ test("workspace packages the conformance build compiles require conformance", ()
     "packages/channels-intelligence/src/index.ts",
     "packages/channels-slack/src/index.ts",
     "packages/channels-teams/src/index.ts",
-    "packages/channels-telegram/src/index.ts",
     "packages/channels-ui/src/index.ts",
     "packages/channels-whatsapp/src/index.ts",
     "packages/learning/src/index.ts",

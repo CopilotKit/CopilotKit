@@ -305,7 +305,7 @@ public sealed class SubagentsAgentFactory
 {
     private const int HarnessMaxContextWindowTokens = 128_000;
     private const int HarnessMaxOutputTokens = 8_192;
-    private const string SubAgentModel = "gpt-5-mini";
+    private const string SubAgentModel = "gpt-6-luna";
 
     // Each sub-agent is a single-shot ChatClient call (built per-delegation
     // in DelegateAsync) with its own system prompt. They don't share memory
@@ -362,7 +362,7 @@ public sealed class SubagentsAgentFactory
 
     public AIAgent CreateAgent()
     {
-        var chatClient = _openAiClient.GetChatClient("gpt-5-mini").AsIChatClient();
+        var chatClient = _openAiClient.GetChatClient("gpt-6-luna").AsLunaChatClient();
 
         // Each sub-agent is exposed to the supervisor LLM as an AIFunction
         // tool. When the supervisor invokes one, DelegateAsync runs a fresh
@@ -435,7 +435,7 @@ public sealed class SubagentsAgentFactory
 
         try
         {
-            var secondary = _openAiClient.GetChatClient(SubAgentModel).AsIChatClient();
+            var secondary = _openAiClient.GetChatClient(SubAgentModel).AsLunaChatClient();
             var messages = new List<ChatMessage>
             {
                 new(ChatRole.System, systemPrompt),

@@ -52,7 +52,10 @@ export async function pollRunStatus({
           ].includes(receipt.status),
           "Invalid runner receipt status",
         );
-        if (receipt.status !== "running") return receipt;
+        // Background recovery can finish cleanup after the controller exits.
+        const recoveringCleanup =
+          receipt.cleanup === "failed" && receipt.deadlineExceeded === false;
+        if (receipt.status !== "running" && !recoveringCleanup) return receipt;
         backoff = 1000;
       }
     } catch (error) {

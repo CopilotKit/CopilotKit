@@ -1,0 +1,113 @@
+<Steps>
+  <Step>
+    ### Declare the state with `state_schema`
+
+    Pass a `state_schema` to `AgentFrameworkAgent`. The adapter adds the
+    current shared state to the model's context on every turn, so values the
+    UI writes with `agent.setState(...)` reach the model. Without a
+    `state_schema`, the agent never sees those writes.
+
+    ```python title="src/agents/shared_state_read_write_agent.py"
+    STATE_SCHEMA: dict[str, object] = {
+        "preferences": {
+            "type": "object",
+            "description": (
+                "User-supplied preferences. Adapt every response to match. "
+                "Address the user by name when appropriate."
+            ),
+            "properties": {
+                "name": {"type": "string"},
+                "tone": {"type": "string"},
+                "language": {"type": "string"},
+                "interests": {"type": "array", "items": {"type": "string"}},
+            },
+        },
+        "notes": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": (
+                "Short notes the agent has chosen to remember about the "
+                "user. Updated by calling `set_notes` with the FULL list."
+            ),
+        },
+    }
+    ```
+
+  </Step>
+  <Step>
+    ### Write state from a tool with `predict_state_config`
+
+    The agent writes state through a tool call. `predict_state_config` maps a
+    tool argument to a state key, and the adapter sends the new value to the
+    UI. The tool itself only returns a string for the model:
+
+    ```python title="src/agents/shared_state_read_write_agent.py"
+    from typing import Annotated
+
+    from agent_framework import Agent, BaseChatClient, tool
+    from agent_framework_ag_ui import AgentFrameworkAgent
+    from pydantic import Field
+
+    PREDICT_STATE_CONFIG: dict[str, dict[str, str]] = {
+        "notes": {
+            "tool": "set_notes",
+            "tool_argument": "notes",
+        },
+    }
+
+
+    @tool(
+        name="set_notes",
+        description=(
+            "Replace the notes array in shared state with the full updated "
+            "list. Always pass the FULL list of short note strings "
+            "(existing notes + any new ones), not a diff. Keep each note "
+            "short (< 120 chars)."
+        ),
+    )
+    def set_notes(
+        notes: Annotated[
+            list[str],
+            Field(
+                description=(
+                    "The complete updated list of short note strings. "
+                    "Must include every existing note you want to keep "
+                    "plus any new ones."
+                )
+            ),
+        ],
+    ) -> str:
+        """Push the agent-authored notes into AG-UI shared state."""
+        return f"Notes updated. Tracking {len(notes)} note(s)."
+
+
+    def create_shared_state_read_write_agent(
+        chat_client: BaseChatClient,
+    ) -> AgentFrameworkAgent:
+        base_agent = Agent(
+            client=chat_client,
+            name="shared_state_read_write_agent",
+            instructions=SYSTEM_PROMPT,  # tells the model to call set_notes
+            tools=[set_notes],
+        )
+
+        return AgentFrameworkAgent(
+            agent=base_agent,
+            name="CopilotKitMSAgentSharedStateReadWriteAgent",
+            description=(
+                "Bidirectional shared-state demo. Reads UI-written "
+                "`preferences` from shared state every turn and writes "
+                "agent-authored `notes` back via the `set_notes` tool."
+            ),
+            state_schema=STATE_SCHEMA,
+            predict_state_config=PREDICT_STATE_CONFIG,
+            require_confirmation=False,
+        )
+    ```
+
+    The mapped value replaces the state key, so have the tool take the
+    whole value (the full `notes` list), not a diff. Tell the model the same
+    thing in its instructions.
+
+  </Step>
+</Steps>

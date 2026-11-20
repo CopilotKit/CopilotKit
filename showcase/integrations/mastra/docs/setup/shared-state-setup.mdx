@@ -1,0 +1,83 @@
+<Steps>
+  <Step>
+    ### Make the state your agent's working memory
+
+    On Mastra, the shared state is the agent's
+    [working memory](https://mastra.ai/en/docs/memory/working-memory). Give
+    the agent a `Memory` with working memory enabled and a Zod schema. The
+    schema is the shape of `agent.state` in the UI.
+
+    <DemoCode file="src/mastra/agents/index.ts" region="shared-state-rw-state-schema" title="src/mastra/agents/index.ts — state schema" />
+
+    The AG-UI Mastra adapter merges the state that the UI writes with
+    `agent.setState` into working memory before each run. After a run that
+    changed working memory, it sends the new contents to the UI as a
+    `STATE_SNAPSHOT`.
+
+    <DemoCode file="src/mastra/agents/index.ts" region="shared-state-rw-agent" title="src/mastra/agents/index.ts — agent with working memory" />
+
+  </Step>
+  <Step>
+    ### Tell the agent to use the state
+
+    Mastra shared state is prompt-driven. The model only acts on a value the
+    UI wrote, or writes a value back, when its `instructions` tell it to.
+    Name the state fields in `instructions` and say what to do with them, as
+    the agent above does for `preferences` and `notes`.
+
+    The agent can write state with Mastra's built-in `updateWorkingMemory`
+    tool. The demo's `set_notes` tool writes working memory itself, so the
+    UI updates even when the model does not call `updateWorkingMemory`:
+
+    <DemoCode file="src/mastra/tools/shared-state-read-write.ts" region="set-notes-tool-backend" title="src/mastra/tools/shared-state-read-write.ts" />
+
+    `writeNotesToWorkingMemory` is the demo's helper in
+    `src/mastra/tools/working-memory.ts`.
+
+  </Step>
+  <Step>
+    ### Embed the agent in the runtime
+
+    Shared state works when the Mastra agent runs inside Copilot Runtime
+    through `getLocalAgents` (or `getLocalAgent`):
+
+    ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
+    const runtime = new CopilotRuntime({
+      agents: MastraAgent.getLocalAgents({ mastra, resourceId: "user-1" }),
+    });
+    ```
+
+    It does **not** work through a remote Mastra agent from
+    `MastraAgent.getRemoteAgents`. That bridge does not carry working memory,
+    so the UI never receives the state and nothing reports an error.
+
+  </Step>
+  <Step>
+    ### Use the agent's registered key
+
+    The `agentId` you pass to `useAgent` must exactly match the key the
+    runtime registers the agent under. With `getLocalAgents`, that is the key
+    in your Mastra `agents` map, for example `searchAgent` in
+    `agents: { searchAgent }`.
+
+    Working memory starts empty. To show a default before the agent writes
+    anything, set the missing value with `agent.setState` once `isReady` is
+    true:
+
+    ```tsx title="app/page.tsx"
+    import { useEffect } from "react";
+    import { useAgent } from "@copilotkit/react-core/v2";
+    import type { AgentState } from "@/mastra/agents/language-agent";
+
+    // inside your component
+    const { agent, isReady } = useAgent({ agentId: "languageAgent" });
+    const state = (agent.state ?? {}) as Partial<AgentState>;
+
+    useEffect(() => {
+      if (!isReady || state.language !== undefined) return;
+      agent.setState({ ...(agent.state ?? {}), language: "english" });
+    }, [agent, isReady, state.language]);
+    ```
+
+  </Step>
+</Steps>
