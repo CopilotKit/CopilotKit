@@ -17,8 +17,11 @@
  *   - `driverInputs` = the serialized d6 `E2eFullDriverInput`
  *                      (`key`/`backendUrl`/`demos`/`notSupportedFeatures`/
  *                      `shape`/`deployedAt`/`name`) the WORKER re-hydrates via
- *                      `createD6PayloadToInput`. The d6 driver's own zod schema
- *                      is the validation gate.
+ *                      `createD6PayloadToInput`, which runs the d6 driver's zod
+ *                      `inputSchema` as the validation gate. (That gate is the
+ *                      MAPPER's, not `driver.run`'s — the fleet worker never
+ *                      validated inputs itself. See the `payload-mapper.ts`
+ *                      module docstring.)
  *
  * ── WHY IT REUSES railwayServicesSource ────────────────────────────────
  * The in-process d6 path discovers its services through the `railway-services`
