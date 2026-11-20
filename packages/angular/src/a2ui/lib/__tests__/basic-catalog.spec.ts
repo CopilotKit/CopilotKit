@@ -416,6 +416,38 @@ describe("basic catalog components", () => {
     });
   });
 
+  it("exposes chip selection with aria-pressed", async () => {
+    const { fixture, element } = await render(
+      surface(
+        [
+          {
+            id: "root",
+            component: "ChoicePicker",
+            variant: "multipleSelection",
+            displayStyle: "chips",
+            options: [
+              { label: "Red", value: "red" },
+              { label: "Blue", value: "blue" },
+            ],
+            value: { path: "/tags" },
+          },
+        ],
+        { tags: [] },
+      ),
+    );
+
+    const pressed = () =>
+      [...element.querySelectorAll<HTMLButtonElement>(".chip")].map((chip) =>
+        chip.getAttribute("aria-pressed"),
+      );
+    expect(pressed()).toEqual(["false", "false"]);
+
+    element.querySelector<HTMLButtonElement>(".chip")!.click();
+    await settle(fixture);
+
+    expect(pressed()).toEqual(["true", "false"]);
+  });
+
   it("shows falsy values such as 0 in text fields", async () => {
     const { element } = await render(
       surface(
