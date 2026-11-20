@@ -7,13 +7,15 @@
  * exercised as a Vue functional component and the pending-interaction key comes
  * from core's real tool call id rather than a synthesized handler context.
  */
-import { defineComponent } from "vue";
+import { defineComponent, h } from "vue";
 import type { PropType } from "vue";
 import { screen, fireEvent, waitFor, cleanup } from "@testing-library/vue";
 import { afterEach, describe, expect, it } from "vitest";
 import { z } from "zod";
 import { ToolCallStatus } from "@copilotkit/core";
 import CopilotChat from "../../components/chat/CopilotChat.vue";
+import { useCopilotKit } from "../useCopilotKit";
+import type { VueHumanInTheLoopRenderProps } from "../../types";
 import {
   MockStepwiseAgent,
   renderWithCopilotKit,
@@ -140,6 +142,136 @@ describe("CopilotKitProvider humanInTheLoop prop E2E", () => {
       expect(screen.getByTestId("hitl-result").textContent).toContain(
         "approved",
       );
+    });
+  });
+
+  it("renders an aborted request as Complete with aborted: true and no result", async () => {
+    const agent = new MockStepwiseAgent();
+    const rendered: VueHumanInTheLoopRenderProps<{ action: string }>[] = [];
+    let stopRun: (() => void) | undefined;
+    const StopHandle = defineComponent({
+      setup() {
+        const { copilotkit } = useCopilotKit();
+        stopRun = () =>
+          copilotkit.value.stopAgent({
+            agent: copilotkit.value.getAgent("default")!,
+          });
+        return () => null;
+      },
+    });
+
+    renderWithCopilotKit({
+      agent,
+      humanInTheLoop: [
+        {
+          name: "approvalTool",
+          description: "Requires human approval",
+          parameters: z.object({ action: z.string() }),
+          render: (props: VueHumanInTheLoopRenderProps<{ action: string }>) => {
+            rendered.push(props);
+            return h("div", { "data-testid": "hitl-status" }, props.status);
+          },
+        },
+      ],
+      children: defineComponent({
+        components: { ChatHost, StopHandle },
+        template: `<div><StopHandle /><ChatHost /></div>`,
+      }),
+    });
+
+    await submitMessage("Request approval");
+    await agent.emit(runStartedEvent());
+    await agent.emit(
+      toolCallChunkEvent({
+        toolCallId: testId("tc"),
+        toolCallName: "approvalTool",
+        parentMessageId: testId("msg"),
+        delta: JSON.stringify({ action: "delete" }),
+      }),
+    );
+    await agent.emit(runFinishedEvent());
+    await agent.complete();
+    await waitFor(() => {
+      expect(screen.getByTestId("hitl-status").textContent).toBe(
+        ToolCallStatus.Executing,
+      );
+    });
+
+    stopRun?.();
+
+    await waitFor(() => {
+      const complete = rendered.filter(
+        (p) => p.status === ToolCallStatus.Complete,
+      );
+      expect(complete.length).toBeGreaterThan(0);
+      const last = complete[complete.length - 1];
+      expect(last.aborted).toBe(true);
+      expect(last.result).toBeUndefined();
+      expect(last.error).toBe("Human-in-the-loop interaction aborted");
+    });
+  });
+
+  it("renders a real respond() as Complete with the answer and no aborted flag", async () => {
+    const agent = new MockStepwiseAgent();
+    const rendered: VueHumanInTheLoopRenderProps<{ action: string }>[] = [];
+
+    renderWithCopilotKit({
+      agent,
+      humanInTheLoop: [
+        {
+          name: "approvalTool",
+          description: "Requires human approval",
+          parameters: z.object({ action: z.string() }),
+          render: (props: VueHumanInTheLoopRenderProps<{ action: string }>) => {
+            rendered.push(props);
+            return h("div", [
+              h("div", { "data-testid": "hitl-status" }, props.status),
+              props.respond
+                ? h(
+                    "button",
+                    {
+                      "data-testid": "hitl-approve",
+                      onClick: () => props.respond?.("approved"),
+                    },
+                    "Approve",
+                  )
+                : null,
+            ]);
+          },
+        },
+      ],
+      children: ChatHost,
+    });
+
+    await submitMessage("Request approval");
+    await agent.emit(runStartedEvent());
+    await agent.emit(
+      toolCallChunkEvent({
+        toolCallId: testId("tc"),
+        toolCallName: "approvalTool",
+        parentMessageId: testId("msg"),
+        delta: JSON.stringify({ action: "delete" }),
+      }),
+    );
+    await agent.emit(runFinishedEvent());
+    await agent.complete();
+    await waitFor(() => {
+      expect(screen.getByTestId("hitl-status").textContent).toBe(
+        ToolCallStatus.Executing,
+      );
+    });
+
+    await fireEvent.click(screen.getByTestId("hitl-approve"));
+
+    await waitFor(() => {
+      const complete = rendered.filter(
+        (p) => p.status === ToolCallStatus.Complete,
+      );
+      expect(complete.length).toBeGreaterThan(0);
+      const last = complete[complete.length - 1];
+      expect(last.result).toBe("approved");
+      expect(last.aborted).toBeUndefined();
+      expect(last.error).toBeUndefined();
     });
   });
 
