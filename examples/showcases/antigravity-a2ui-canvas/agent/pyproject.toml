@@ -12,6 +12,8 @@ dependencies = [
   "fastapi==0.143.2",
   "uvicorn[standard]==0.54.0",
   "python-dotenv==1.0.1",
+  "a2ui-agent-sdk==0.10.0",
+  "a2ui-core==0.5.0",
 ]
 
 # A plain script (main.py), not an installable package.

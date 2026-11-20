@@ -55,14 +55,15 @@ from google.antigravity.models import (
 )
 from google.antigravity.types import BuiltinTools, GeminiAPIEndpoint
 
+from express import express_events
+
 MODEL = os.environ.get("GEMINI_MODEL") or DEFAULT_MODEL
 # The models the page may ask for. Anything else runs on MODEL. Keep this in
 # step with src/lib/models.ts.
 MODELS = [
     m.strip()
     for m in (
-        os.environ.get("GEMINI_MODELS")
-        or f"{MODEL},gemini-4-neon,gemini-3.1-pro-preview"
+        os.environ.get("GEMINI_MODELS") or f"{MODEL},gemini-4-neon,gemini-4-hydrogen"
     ).split(",")
     if m.strip()
 ]
@@ -303,9 +304,9 @@ def _sse(event) -> str:
     return f"data: {event.model_dump_json(by_alias=True, exclude_none=True)}\n\n"
 
 
-async def _events(agent: AntigravityAgent, input_data: RunAgentInput):
+async def _events(events):
     try:
-        async for event in agent.run(input_data):
+        async for event in events:
             yield _sse(event)
     except Exception as error:  # the run already started streaming
         logging.getLogger(__name__).exception("Agent run failed")
@@ -330,14 +331,27 @@ app = FastAPI(title="Antigravity A2UI Canvas Agent", lifespan=_lifespan)
 
 @app.post("/")
 async def run(input_data: RunAgentInput):
-    """The AG-UI run endpoint. `forwardedProps.model` picks the model."""
-    model = (input_data.forwarded_props or {}).get("model")
-    agent = await _agent_for(model)
+    """The AG-UI run endpoint.
+
+    `forwardedProps.model` picks the model, and `forwardedProps.path` the
+    renderer: "express" streams A2UI Express from one Gemini call (see
+    express.py); anything else runs the Antigravity agent.
+    """
+    props = input_data.forwarded_props or {}
+    model = props.get("model")
+    model = model if isinstance(model, str) and model in MODELS else MODEL
+    if props.get("path") == "express":
+        events = express_events(input_data, model, THINKING_LEVEL)
+    else:
+        events = (await _agent_for(model)).run(input_data)
     logging.getLogger("canvas").info(
-        "run %s on %s", input_data.run_id, agent._model or MODEL
+        "run %s on %s via %s",
+        input_data.run_id,
+        model,
+        "express" if props.get("path") == "express" else "antigravity",
     )
     return StreamingResponse(
-        _events(agent, input_data),
+        _events(events),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
