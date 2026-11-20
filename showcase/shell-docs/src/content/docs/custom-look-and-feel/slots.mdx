@@ -20,33 +20,78 @@ Slots are recursive: you can drill into nested sub-components at any depth.
 ## What it looks like in code
 
 The demo above overrides many slots on `<CopilotChat>` and outlines each one.
-The three examples below show the welcome screen, the assistant message, and the input disclaimer.
-Each slot is just a prop; the demo extracts them into locals so the override
-points are easy to see.
+The example below replaces three of them. Each slot is a prop:
 
-### Welcome screen slot
+- `welcomeScreen` replaces the empty-state view shown before the first message.
+  This one shows a gradient card and still renders the default `input` and
+  `suggestionView` it receives.
+- `messageView={{ assistantMessage: ... }}` wraps every assistant response.
+  This one adds a tinted card around the default component.
+- `input={{ disclaimer: ... }}` replaces the small text below the input. It
+  shows on the welcome screen and after the first message.
 
-The `welcomeScreen` prop replaces the empty-state view shown before the first
-message is sent. The demo swaps in a gradient card that still renders the
-default input and suggestions:
+Put slot overrides in a Client Component (`"use client"`), because you pass
+functions to the chat:
 
-<Snippet region="register-welcome-slot" title="frontend/src/app/page.tsx — welcomeScreen slot" />
+```tsx title="app/page.tsx"
+"use client";
 
-### Assistant message slot
+import {
+  CopilotChat,
+  CopilotChatAssistantMessage,
+  CopilotChatView,
+  type CopilotChatAssistantMessageProps,
+} from "@copilotkit/react-core/v2";
 
-Drill into `messageView={{ assistantMessage: ... }}` to wrap every assistant
-response. The demo wraps the default component with a tinted card and a small
-"slot" badge so you can see the override is active during the message flow:
+type WelcomeScreenProps = React.ComponentProps<
+  typeof CopilotChatView.WelcomeScreen
+>;
 
-<Snippet region="register-assistant-message-slot" title="frontend/src/app/page.tsx — assistantMessage slot" />
+function MyWelcome({ input, suggestionView }: WelcomeScreenProps) {
+  return (
+    <div className="flex flex-1 flex-col items-center justify-center gap-4 px-4">
+      <div className="rounded-2xl bg-gradient-to-br from-indigo-500 to-pink-500 p-6 text-white">
+        What do you want to build today?
+      </div>
+      <div className="w-full max-w-2xl">{input}</div>
+      {suggestionView}
+    </div>
+  );
+}
 
-### Disclaimer slot
+function MyAssistantMessage(props: CopilotChatAssistantMessageProps) {
+  return (
+    <div className="rounded-xl bg-indigo-50 p-2">
+      <CopilotChatAssistantMessage {...props} />
+    </div>
+  );
+}
 
-The `input={{ disclaimer: ... }}` sub-slot lets you replace the small text
-shown below the input. The demo tags its disclaimer, so you can see that the
-override stays after the first message:
+function MyDisclaimer(props: React.HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div {...props} className="py-1 text-center text-xs text-gray-500">
+      Answers come from an AI agent. Check important facts.
+    </div>
+  );
+}
 
-<Snippet region="register-disclaimer-slot" title="frontend/src/app/page.tsx — disclaimer slot" />
+export default function Page() {
+  return (
+    <CopilotChat
+      welcomeScreen={MyWelcome}
+      messageView={{
+        assistantMessage:
+          MyAssistantMessage as typeof CopilotChatAssistantMessage,
+      }}
+      input={{ disclaimer: MyDisclaimer }}
+    />
+  );
+}
+```
+
+Reload the page. The gradient card shows, with the input and your disclaimer
+below it. Send a message: the reply sits in a tinted card, and your disclaimer
+stays below the input.
 
 ## Tailwind Classes
 
@@ -65,17 +110,19 @@ export function Chat() {
 }
 ```
 
-Reload the page. The message list has a gray background and the input has a blue border.
+Reload the page. The message list has a gray background. The `input` string
+goes on the outer input container, so the blue border frames the whole bottom
+area, including the disclaimer. To style the text box itself, pass a class
+string to its sub-slot: `input={{ textArea: "..." }}`.
 
 ## Props Override
 
-Pass an object to override specific props on the default component. This is useful for adding `className`, event handlers, data attributes, or any other prop the default component accepts.
+Pass an object to override specific props on the default component. This is useful for adding `className`, event handlers, or any other prop the default component accepts.
 
 ```tsx title="page.tsx"
 <CopilotChat
   messageView={{
     className: "my-custom-messages",
-    "data-testid": "message-view",
   }}
   input={{ autoFocus: true }}
 />
@@ -117,6 +164,28 @@ Slots are recursive. You can customize sub-components at any depth by nesting ob
 Override the assistant message's toolbar within the message view:
 
 ```tsx title="page.tsx"
+import {
+  CopilotChat,
+  CopilotChatUserMessage,
+  type CopilotChatUserMessageProps,
+} from "@copilotkit/react-core/v2";
+
+const CustomToolbar = (props: React.HTMLAttributes<HTMLDivElement>) => (
+  <div {...props} className="mt-1 flex gap-2 border-t pt-1" />
+);
+
+const CustomCopyButton = ({
+  onClick,
+}: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
+  <button onClick={onClick}>Copy</button>
+);
+
+const CustomUserMessage = ((props: CopilotChatUserMessageProps) => (
+  <div className="rounded-lg bg-blue-50">
+    <CopilotChatUserMessage {...props} />
+  </div>
+)) as typeof CopilotChatUserMessage;
+
 <CopilotChat
   messageView={{
     assistantMessage: {

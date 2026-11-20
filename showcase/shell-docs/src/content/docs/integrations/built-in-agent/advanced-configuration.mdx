@@ -10,7 +10,8 @@ The `BuiltInAgent` accepts a full set of configuration options to control model 
 
 By default, the agent performs a single generation step. Set `maxSteps` to allow the agent to call tools and then continue reasoning:
 
-```typescript title="src/copilotkit.ts"
+```typescript
+// searchDocs and createTicket are server tools made with defineTool. See Server Tools.
 const agent = new BuiltInAgent({
   model: "openai:gpt-6-luna",
   maxSteps: 5, // [!code highlight]
@@ -65,7 +66,7 @@ const agent = new BuiltInAgent({
 ```
 
 <Callout type="info">
-Not all parameters are supported by every provider. For example, `topK` is supported by Google but not OpenAI. Unsupported parameters are ignored.
+Not all parameters are supported by every provider. For example, `topK` is supported by Google but not OpenAI. Unsupported parameters are ignored. Reasoning models such as `gpt-6-luna` also ignore `temperature`, `topP`, `topK`, `presencePenalty`, and `frequencyPenalty`. Use a non-reasoning model when you need these sampling settings.
 </Callout>
 
 ## Provider-specific options
@@ -81,6 +82,8 @@ const agent = new BuiltInAgent({
   },
 });
 ```
+
+On the Chat Completions API, the agent always runs `gpt-6-luna` with `reasoningEffort: "none"`, because Luna supports tools there only with reasoning off. The agent uses Chat Completions when `OPENAI_BASE_URL` points at a host that is not OpenAI or Azure. Set `COPILOTKIT_OPENAI_API=responses` to keep your `reasoningEffort`.
 
 ```typescript
 // Anthropic with adaptive thinking
@@ -100,13 +103,15 @@ Allow the frontend to override specific configuration at runtime. This is useful
 const agent = new BuiltInAgent({
   model: "openai:gpt-6-luna",
   temperature: 0.5,
-  overridableProperties: ["model", "temperature", "prompt"], // [!code highlight]
+  overridableProperties: ["model", "temperature"], // [!code highlight]
 });
 ```
 
 The frontend sends overrides in the provider's `properties`, which reach the agent as `forwardedProps`. The agent applies only the keys in `overridableProperties`:
 
 ```tsx
+import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+
 <CopilotKitProvider
   runtimeUrl="/api/copilotkit"
   properties={{ model: "anthropic:claude-sonnet-4-6" }}
@@ -117,14 +122,15 @@ The frontend sends overrides in the provider's `properties`, which reach the age
 
 <Callout type="warn">
   The browser picks these values. With `model` overridable, any client can run
-  any provider and model on your server's keys. With `prompt` overridable, any
-  client can replace the system prompt. To let users choose from a fixed set,
+  any provider and model on your server's keys. To let users choose from a fixed set,
   check the value on the server in a
   [factory](/backend/custom-agent#with-forwardedprops).
 </Callout>
 
 The full list of overridable properties:
-`model`, `toolChoice`, `maxOutputTokens`, `temperature`, `topP`, `topK`, `presencePenalty`, `frequencyPenalty`, `stopSequences`, `seed`, `maxRetries`, `prompt`, `providerOptions`
+`model`, `toolChoice`, `maxOutputTokens`, `temperature`, `topP`, `topK`, `presencePenalty`, `frequencyPenalty`, `stopSequences`, `seed`, `maxRetries`, `providerOptions`
+
+The system prompt is not overridable. The agent always uses its own `prompt`.
 
 ## Message forwarding
 
@@ -172,14 +178,24 @@ The default downloader needs Node.js networking modules. On a runtime without th
 In AI SDK factory mode you call `streamText()` yourself, so `urlDownload` does not apply; setting it there throws when the agent is created. Pass the same downloader to get the same protection, with the run's abort signal so that an aborted run stops its downloads:
 
 ```typescript
-import { createSafeUrlDownload } from "@copilotkit/runtime/v2";
+import {
+  BuiltInAgent,
+  convertMessagesToVercelAISDKMessages,
+  createSafeUrlDownload,
+} from "@copilotkit/runtime/v2";
+import { streamText } from "ai";
+import { openai } from "@ai-sdk/openai";
 
-factory: (ctx) =>
-  streamText({
-    // ...
-    abortSignal: ctx.abortSignal,
-    experimental_download: createSafeUrlDownload({ signal: ctx.abortSignal }),
-  }),
+const agent = new BuiltInAgent({
+  type: "aisdk",
+  factory: ({ input, abortSignal }) =>
+    streamText({
+      model: openai("gpt-6-luna"),
+      messages: convertMessagesToVercelAISDKMessages(input.messages),
+      abortSignal,
+      experimental_download: createSafeUrlDownload({ signal: abortSignal }), // [!code highlight]
+    }),
+});
 ```
 
 ## Full configuration reference

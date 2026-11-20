@@ -24,6 +24,10 @@ new ProxiedCopilotRuntimeAgent(config: ProxiedCopilotRuntimeAgentConfig)
 <PropertyReference name="config" type="ProxiedCopilotRuntimeAgentConfig" required>
   Configuration object. Extends AG-UI's `HttpAgentConfig` (minus `url`). See [ProxiedCopilotRuntimeAgentConfig](/reference/core/types/ProxiedCopilotRuntimeAgentConfig).
 
+  <PropertyReference name="name" type="string">
+    Human-readable name. Defaults to `agentId`.
+  </PropertyReference>
+
   <PropertyReference name="runtimeUrl" type="string">
     Base URL of the CopilotRuntime. One trailing slash is removed before REST paths such as `/info` are joined. With `transport: "single"`, requests go to the URL exactly as you give it. Required when `transport` is `"single"`.
   </PropertyReference>
@@ -55,48 +59,66 @@ new ProxiedCopilotRuntimeAgent(config: ProxiedCopilotRuntimeAgentConfig)
   <PropertyReference name="debug" type="ResolvedDebugConfig">
     Debug configuration applied to the agent.
   </PropertyReference>
+
+  <PropertyReference name="messageFilter" type="CopilotKitMessageFilter">
+    Rewrites the outbound message list on every run. Not applied in
+    Intelligence mode.
+  </PropertyReference>
 </PropertyReference>
 
 ## Methods
 
-<PropertyReference name="run" type="(input: RunAgentInput) => Observable<BaseEvent>" required>
+<PropertyReference name="run" type="(input: RunAgentInput) => Observable<BaseEvent>">
   Runs the agent against the runtime, returning the AG-UI event stream. Routes via HTTP, single-route, or the Intelligence delegate depending on the resolved runtime mode.
 </PropertyReference>
 
-<PropertyReference name="connect" type="(input: RunAgentInput) => Observable<BaseEvent>" required>
+<PropertyReference name="connect" type="(input: RunAgentInput, lifecycle?: ConnectionReplayLifecycle) => Observable<BaseEvent>">
   Connects to the runtime agent to receive its event stream without starting a new run.
 </PropertyReference>
 
-<PropertyReference name="connectAgent" type="(parameters?, subscriber?) => Promise<RunAgentResult>" required>
+<PropertyReference name="connectAgent" type="(parameters?, subscriber?) => Promise<RunAgentResult>">
   Higher-level connect that resolves the result and, in Intelligence mode, bridges the delegate's messages, state, and run lifecycle back onto this proxy.
 </PropertyReference>
 
-<PropertyReference name="abortRun" type="() => void" required>
+<PropertyReference name="abortRun" type="() => void">
   Aborts the active run. In Intelligence mode, aborts the delegate and detaches the local run pipeline; in HTTP (`rest`/`single`) mode, sends a stop request to the runtime. No-op when the agent has no `agentId`/`threadId` or no `fetch` is available.
 </PropertyReference>
 
-<PropertyReference name="detachActiveRun" type="() => Promise<void>" required>
+<PropertyReference name="detachActiveRun" type="() => Promise<void>">
   Detaches the currently attached run pipeline (and the delegate's, if present) without aborting the underlying run.
 </PropertyReference>
 
-<PropertyReference name="getCapabilities" type="() => Promise<AgentCapabilities>" required>
+<PropertyReference name="getCapabilities" type="() => Promise<AgentCapabilities>">
   Resolves the agent's advertised capabilities (empty object if none were configured).
 </PropertyReference>
 
-<PropertyReference name="clearReplayCursor" type="(threadId: string) => void" required>
+<PropertyReference name="clearReplayCursor" type="(threadId: string) => void">
   In Intelligence mode, drops the delegate's cached event cursor for a thread so the next connect replays full history. No-op for other runtime modes.
 </PropertyReference>
 
-<PropertyReference name="clone" type="() => ProxiedCopilotRuntimeAgent" required>
+<PropertyReference name="adoptRuntimeMode" type="(runtimeMode: ResolvedRuntimeMode, intelligence: IntelligenceRuntimeInfo | undefined) => void">
+  Switches the agent to a new runtime mode. When the mode or the Intelligence
+  websocket URL changes, the agent drops its delegate and cached runtime info,
+  and detaches the active run. `CopilotKitCore` calls it when the runtime
+  answers `/info`.
+</PropertyReference>
+
+<PropertyReference name="clone" type="() => ProxiedCopilotRuntimeAgent">
   Returns a new, independent instance carrying over runtime URL, ids, transport, mode, capabilities, headers, messages, and state. `state` and `messages` are deep-cloned, so mutating the clone does not affect the original; the delegate, if present, is cloned via its own `clone()`.
 </PropertyReference>
 
-<PropertyReference name="capabilities" type="AgentCapabilities | undefined" required>
+<PropertyReference name="capabilities" type="AgentCapabilities | undefined">
   Read-only. The configured capabilities, or `undefined`.
 </PropertyReference>
 
-<PropertyReference name="runtimeAgentId" type="string | undefined" required>
+<PropertyReference name="runtimeAgentId" type="string | undefined">
   Read-only. The runtime-side agent id outbound requests are routed to, when configured.
+</PropertyReference>
+
+<PropertyReference name="messageFilter" type="CopilotKitMessageFilter | undefined">
+  The filter applied to the outbound message list. `CopilotKitCore` owns this
+  value and overwrites a value set by hand. Set it with
+  `CopilotKitCore.setMessageFilter` instead.
 </PropertyReference>
 
 ## Usage

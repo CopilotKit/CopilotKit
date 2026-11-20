@@ -42,9 +42,8 @@ export interface Integration {
   deployed: boolean;
   /**
    * How shell-docs renders this framework's docs pages.
-   * - `generated` (default): data-driven `FrameworkOverview` + agnostic
-   *   root MDX merged with per-framework overrides. Kept for the three
-   *   "ready" frameworks (langgraph-{python,typescript}, google-adk).
+   * - `generated` (default): agnostic root MDX merged with per-framework
+   *   overrides.
    * - `authored`: render the per-framework MDX tree under
    *   `content/docs/integrations/<docsFolder>/` with its own sidebar
    *   (built from that folder's meta.json). Root MDX may still be used
@@ -195,8 +194,7 @@ export function getIntegration(slug: string): Integration | undefined {
 
 /**
  * Frameworks that have no `showcase/integrations/<slug>/` package (and
- * therefore no `manifest.yaml`) but DO have a `frameworkOverviews`
- * entry and/or per-framework docs MDX. These are the "docs-only"
+ * therefore no `manifest.yaml`) but DO have per-framework docs MDX. These are the "docs-only"
  * frameworks (`a2a`, `agent-spec`, `deepagents`). They never come
  * through the registry, so `docs_mode` resolution falls through to
  * this map. Keep entries here in sync with `DOCS_ONLY_FRAMEWORK_MODES` in

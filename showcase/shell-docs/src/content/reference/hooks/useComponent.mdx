@@ -60,6 +60,9 @@ function useComponent<TSchema extends StandardSchemaV1<any, Record<string, unkno
 ## Usage
 
 ```tsx
+import { useComponent } from "@copilotkit/react-core/v2";
+import { z } from "zod";
+
 const weatherCardSchema = z.object({
   city: z.string().describe("City name"),
   unit: z.enum(["c", "f"]).default("c"),

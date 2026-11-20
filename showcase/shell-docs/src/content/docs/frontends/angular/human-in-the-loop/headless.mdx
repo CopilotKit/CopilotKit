@@ -9,6 +9,28 @@ When the backend agent emits an AG-UI interrupt, the agent store already holds
 the pending decision. Read it and resume the run from any component. For the
 patterns side by side, see the [HITL Overview](/angular/human-in-the-loop).
 
+<WhenAgentBackend selected={false}>
+
+<Callout type="info" title="Before you start: an agent that interrupts">
+  You need a runtime agent that pauses with an AG-UI interrupt, for example a
+  LangGraph agent that calls `interrupt()`, or a `BuiltInAgent` factory that
+  calls `ctx.interrupt()`. The quickstart's Built-in Agent never interrupts. The
+  example below uses an agent named `ticketing`. Replace it with your agent's
+  id.
+</Callout>
+
+</WhenAgentBackend>
+
+<WhenAgentBackend selected>
+
+<Callout type="info" title="Before you start: an agent that interrupts">
+  You need a runtime agent that pauses with an AG-UI interrupt, for example a
+  LangGraph agent that calls `interrupt()`. The example below uses an agent
+  named `ticketing`. Replace it with your agent's id.
+</Callout>
+
+</WhenAgentBackend>
+
 ## Handle an interrupt from the store
 
 An interrupt is a state of one conversation: this agent, this thread, this run
@@ -40,6 +62,30 @@ export class TicketApprovalComponent {
   protected readonly store = injectAgentStore("ticketing");
 }
 ```
+
+Start runs from a chat on the same agent, and render the panel next to it:
+
+```ts title="src/app/app.ts"
+import { Component } from "@angular/core";
+import { CopilotChat } from "@copilotkit/angular";
+import { TicketApprovalComponent } from "./ticket-approval.component";
+
+@Component({
+  selector: "app-root",
+  imports: [CopilotChat, TicketApprovalComponent],
+  template: `
+    <app-ticket-approval />
+    <div style="height: 80vh"><copilot-chat agentId="ticketing" /></div>
+  `,
+})
+export class App {}
+```
+
+Send a message that makes the agent pause. The panel shows the interrupt's
+message with **Approve** and **Reject**. Click one, and the agent resumes.
+
+`interrupt()` is set only for standard AG-UI interrupts. For a legacy
+`on_interrupt` event, read the payload from `interrupts.event()?.value`.
 
 The controller is created and connected with the store, then destroyed when the
 store is torn down or replaced. Standard AG-UI interrupts already retained by

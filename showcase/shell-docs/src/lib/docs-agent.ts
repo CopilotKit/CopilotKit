@@ -14,6 +14,19 @@ import { getPageMarkdown, listPages } from "./llms/page-tools";
 const MODEL = "openai/gpt-6-luna";
 
 const COPILOTKIT_MCP_URL = "https://mcp.copilotkit.ai/mcp";
+// How long a run waits for the CopilotKit MCP server before going on with the
+// site's own tools.
+const MCP_TIMEOUT_MS = 5_000;
+
+// A tool result is sent back to the model on every later step of the run, so
+// one long page or listing can't take over the prompt.
+const MAX_TOOL_RESULT_CHARS = 30_000;
+
+/** Text cut to `max` characters, saying so for the model. */
+function capped(text: string, max = MAX_TOOL_RESULT_CHARS): string {
+  if (text.length <= max) return text;
+  return `${text.slice(0, max)}\n\n[Truncated: ${text.length - max} more characters. Ask for a narrower section or page.]`;
+}
 
 // Read-only search tools only. Its feedback tool writes, and its bash-based
 // explore tools are open-ended; neither belongs on a public chat.
@@ -90,11 +103,11 @@ const siteTools = [
     }),
     execute: async ({ under }) => {
       const all = await listPages();
-      if (!under) return all;
+      if (!under) return capped(all);
       const prefix = `](${under.replace(/\/$/, "")}`;
       const lines = all.split("\n").filter((line) => line.includes(prefix));
       return lines.length
-        ? lines.join("\n")
+        ? capped(lines.join("\n"))
         : `No pages under ${under}. Try search_pages instead.`;
     },
   }),
@@ -115,22 +128,42 @@ const siteTools = [
     description:
       "Read a page on this docs site as Markdown, by its URL (like /mastra/quickstart).",
     parameters: z.object({ url: z.string().max(300) }),
-    execute: async ({ url }) =>
-      (await getPageMarkdown(url)) ??
-      `No page at ${url}. Call search_pages to find it.`,
+    execute: async ({ url }) => {
+      const page = await getPageMarkdown(url);
+      return page
+        ? capped(page)
+        : `No page at ${url}. Call search_pages to find it.`;
+    },
   }),
 ];
 
 let copilotkitMcpClient: Promise<MCPClient> | undefined;
 
+/**
+ * Rejects after `MCP_TIMEOUT_MS`, so a server that never answers can't hold
+ * every run (and the shared client promise) forever.
+ */
+function withTimeout<T>(promise: Promise<T>): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(
+      () => reject(new Error(`no answer in ${MCP_TIMEOUT_MS}ms`)),
+      MCP_TIMEOUT_MS,
+    );
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
 /** The hosted CopilotKit MCP server, held open across runs and filtered. */
 const copilotkitMcp: MCPClientProvider = {
   async tools() {
     try {
-      copilotkitMcpClient ??= createMCPClient({
-        transport: { type: "http", url: COPILOTKIT_MCP_URL },
-      });
-      const tools = await (await copilotkitMcpClient).tools();
+      copilotkitMcpClient ??= withTimeout(
+        createMCPClient({
+          transport: { type: "http", url: COPILOTKIT_MCP_URL },
+        }),
+      );
+      const tools = await withTimeout((await copilotkitMcpClient).tools());
       return Object.fromEntries(
         Object.entries(tools).filter(([name]) =>
           COPILOTKIT_MCP_TOOLS.includes(name),

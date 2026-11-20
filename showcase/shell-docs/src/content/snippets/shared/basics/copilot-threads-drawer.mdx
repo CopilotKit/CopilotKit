@@ -41,7 +41,7 @@ It requires CopilotKit Intelligence (threads are stored and synced
 server-side). <SignupLink surface="docs_drawer">Start cloud-hosted setup</SignupLink> to create or select a project.
 
 For multi-user applications, configure the Runtime to
-[scope threads to the signed-in user](/threads-lifecycle#scope-rich-threads-to-the-signed-in-user).
+[scope threads to the signed-in user](/threads-lifecycle#scope-threads-to-the-signed-in-user).
 
 <OpsPlatformCTA
   variant="inline"
@@ -51,6 +51,9 @@ For multi-user applications, configure the Runtime to
 />
 
 ## Set up the Threads Drawer
+
+Before you start, connect your Copilot Runtime to CopilotKit Intelligence. On a
+runtime without Intelligence the drawer shows no threads.
 
 Place `<CopilotThreadsDrawer>` next to [`<CopilotChat>`](/prebuilt-components/chat) and wrap **both** in a
 shared `<CopilotChatConfigurationProvider>`. If you are using a CLI-created
@@ -140,6 +143,8 @@ from that button, call `startNewThread()` from
 This is the same function the Drawer calls for its own row.
 
 ```tsx title="app/page.tsx"
+"use client";
+
 import {
   CopilotKitProvider,
   CopilotChatConfigurationProvider,
@@ -201,6 +206,15 @@ How it works:
   4. Call the same function as `onNewThread` from your button.
 
   ```tsx
+  "use client";
+
+  import { useState } from "react";
+  import {
+    CopilotChat,
+    CopilotChatConfigurationProvider,
+    CopilotThreadsDrawer,
+  } from "@copilotkit/react-core/v2";
+
   function ControlledChat() {
     const [threadId, setThreadId] = useState(() => crypto.randomUUID());
     const startNew = () => setThreadId(crypto.randomUUID());
@@ -244,9 +258,10 @@ finds, in this order:
 3. The `agentId` on `<CopilotKitProvider>`.
 4. `"default"`.
 
-Most framework quickstarts use `<CopilotKit agent="...">`. The built-in agent
-and LangGraph quickstarts use `<CopilotKitProvider agentId="...">`. The drawer
-finds the agent under either one.
+Most framework quickstarts use `<CopilotKit agent="...">`. The LangGraph
+quickstart uses `<CopilotKitProvider agentId="sample_agent">`. The Built-in
+Agent quickstart sets no agent, so the drawer uses `"default"`. The drawer finds
+the agent in each case.
 
 If your runtime registers several agents, the drawer shows only the threads of
 the agent it resolved. To list another agent's threads, pass that agent's ID:
@@ -272,6 +287,8 @@ the chat to another agent together, set `agentId` once on the shared
 | `onNewThread` | Escape hatch to handle the "New Conversation" row yourself. |
 | `renderRow` | Render custom content per row (keeps the row chrome around it). |
 | `limit` | Page size for pagination. Shows a "Load more" control while more threads remain. Omit to load all at once. |
+| `collapsible` | Show the collapse toggle on desktop. Defaults to `true`. Pass `false` to keep the drawer expanded. |
+| `onCollapseChange` | Called with `true` or `false` when the drawer collapses or expands. |
 
 See the [Threads Drawer reference](/reference/components/CopilotThreadsDrawer) for the full prop and type list.
 
@@ -307,12 +324,14 @@ your project, the key is already in `.env` and the drawer needs nothing further.
 
 **Self-hosted and open source.** Give the Runtime a license token, either as the
 `licenseToken` option or as the `COPILOTKIT_LICENSE_TOKEN` environment variable.
-The option wins when you set both. Without a token the drawer shows a locked
-view with an Upgrade link in place of the list, and it issues no thread
-requests.
+The option wins when you set both.
 
-The locked view appears whenever the Runtime reports no active entitlement: a
-self-hosted deployment whose license token is missing or expired, or a cloud-hosted
-project whose subscription is inactive.
+On an Intelligence runtime with no active entitlement, the drawer shows a
+locked view with an Upgrade link in place of the list, and it issues no thread
+requests. That happens when a self-hosted license token is missing or expired,
+or when a cloud-hosted project's subscription is inactive.
+
+A runtime without Intelligence reports no license status. There the drawer
+stays on "Loading threads…" and shows no locked view.
 
 To compare thread UIs and deployment paths, see the [threads overview](/AG-UI-Streams).

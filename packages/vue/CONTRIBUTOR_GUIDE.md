@@ -84,8 +84,8 @@ the top-level `docs/` path is only a symlink. Follow the repository's
 `docs_mode` and `getDocsFolder()` when framework-owned docs are involved.
 
 For showcase-driven docs, edit source inputs such as manifests, shared/root MDX,
-snippets, demos, source regions, or sparse overrides. Do not edit generated
-`showcase/shell-docs/src/data/frameworks/` files. Authored framework docs live in
+snippets, demos, source regions, or sparse overrides. Do not edit the generated
+data under `showcase/shell-docs/src/data/`. Authored framework docs live in
 their MDX tree and `meta.json`.
 
 Runnable Vue journeys belong to the [`showcase/vue` host](../../showcase/vue/).

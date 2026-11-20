@@ -306,23 +306,6 @@ export function getSetupSource(
   return null;
 }
 
-/** One `(frontend, integration, feature)` cell of the frontend catalog. */
-export interface FrontendCatalogCell {
-  id: string;
-  frontend: string;
-  integration: string;
-  feature: string;
-  runnable: boolean;
-  demo_route?: string;
-}
-
-export function getFrontendCatalog(): FrontendCatalogCell[] {
-  return (
-    readData<{ cells?: FrontendCatalogCell[] }>("frontend-catalog.json", {})
-      .cells ?? []
-  );
-}
-
 /** Per-frontend feature support, from `showcase/shared/frontend-registry`. */
 export interface FrontendRegistry {
   feature_support: Record<

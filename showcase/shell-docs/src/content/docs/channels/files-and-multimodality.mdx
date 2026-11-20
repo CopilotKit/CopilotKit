@@ -40,6 +40,12 @@ The binary `value` is base64. Whether the agent actually understands a media
 part depends on its selected model and framework. Choose a multimodal model and
 test the exact media types you accept.
 
+If the model provider rejects a part type (for example `video/mp4` on OpenAI
+Chat Completions), the whole run fails and the user sees an error. Check
+`message.contentParts` before you call `runAgent()`. If a part's type is not
+one your model accepts, reply with a text message instead of running the
+agent.
+
 File download is best-effort. A provider-ingest failure can omit the
 attachment before the SDK receives a file handle. If Intelligence sends a file
 handle but the SDK cannot download the file, the SDK adds a short failure note
@@ -71,11 +77,9 @@ The current Intelligence-generated manifest requests both `files:read` and
 4. Invite the app to the source conversation.
 5. Send a new file and verify the model receives it.
 
-If attachments are omitted or arrive as failure notes:
-
-1. Confirm the reinstalled bot token includes `files:read`.
-2. Confirm the app is a member of the source conversation.
-3. Send a new file and inspect the real agent turn.
+If attachments are still omitted or arrive as failure notes, check that the
+reinstalled bot token includes `files:read` and that the app is a member of the
+source conversation, then send a new file and inspect the real agent turn.
 
 </FrontendOnly>
 
@@ -115,11 +119,11 @@ For Graph-backed team-channel messages:
   it by default. A tenant that already consented to `Files.ReadWrite.All` needs
   no second grant.
 
-This permission is optional and its absence does not hold the connection back
-from reporting ready. Without it the text turn still runs and the message is
-still delivered; only the referenced file is omitted or represented by a
-failure note. Files shared in a 1:1 chat and images pasted into a
-channel do not go through SharePoint and are unaffected.
+This permission is optional. Without it, the connection still reports ready,
+the text turn still runs, and the message is still delivered. Only the
+referenced file is omitted or replaced by a failure note. Files shared in a 1:1
+chat and images pasted into a channel do not go through SharePoint, so they
+still work.
 
 Test each of these separately:
 
@@ -134,28 +138,31 @@ Test each of these separately:
 ## Post a file
 
 `thread.postFile()` takes bytes and returns a result instead of throwing for an
-unsupported provider capability:
+unsupported provider capability. Call it on the `thread` your handler receives:
 
-```ts title="export-report.ts"
-const csv = new TextEncoder().encode(
-  ["id,status", "INC-421,investigating"].join("\n"),
-);
+```ts title="channel.ts"
+channel.onMessage(async ({ thread }) => {
+  const csv = new TextEncoder().encode(
+    ["id,status", "INC-421,investigating"].join("\n"),
+  );
 
-const result = await thread.postFile({
-  bytes: csv,
-  filename: "incident-report.csv",
-  title: "Incident report",
-  altText: "CSV export of the incident report",
+  const result = await thread.postFile({
+    bytes: csv,
+    filename: "incident-report.csv",
+    title: "Incident report",
+    altText: "CSV export of the incident report",
+  });
+
+  if (!result.ok) {
+    await thread.post(`The report could not be attached: ${result.error}`);
+  }
 });
-
-if (!result.ok) {
-  await thread.post(`The report could not be attached: ${result.error}`);
-}
 ```
 
-On managed Channels, `result.ok` means Intelligence stored the managed asset,
-the provider acknowledged the file or image effect, and the SDK recorded the
-asset in canonical Thread history.
+On managed Channels, `result.ok` means Intelligence stored the managed asset
+and the provider acknowledged the file or image. The SDK then records the asset
+in Thread history in the background. If that record fails, the SDK logs
+`canonical_history_gap` and does not change `result`.
 
 <FrontendOnly frontend="slack">
 
@@ -168,13 +175,16 @@ verify the real Slack message when provider-side display matters.
 
 <FrontendOnly frontend="teams">
 
-Managed Teams supports general outbound files. In standard and private Team
-channels, Intelligence uploads the original bytes to the channel's SharePoint
-files area and sends a visible card or link. In personal chat, the same
-`postFile()` call starts Microsoft's native consent-card flow when required;
-acceptance completes the trusted upload and a decline remains a normal user
-choice. Images may use the inline Bot Connector path. Always check `result.ok`
-and send a text fallback when delivery is rejected.
+Managed Teams supports general outbound files:
+
+- In standard and private Team channels, Intelligence uploads the original
+  bytes to the channel's SharePoint files area and sends a visible card or link.
+- In personal chat, the same `postFile()` call starts Microsoft's native
+  consent-card flow when required. Acceptance completes the trusted upload. A
+  decline is a normal user choice.
+- Images may use the inline Bot Connector path.
+
+Always check `result.ok` and send a text fallback when delivery is rejected.
 
 </FrontendOnly>
 

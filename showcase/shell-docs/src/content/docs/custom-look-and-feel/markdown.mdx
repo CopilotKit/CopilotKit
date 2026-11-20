@@ -13,7 +13,7 @@ renderer for text that is still streaming.
 Set the [slot](/custom-look-and-feel/slots) through the `messageView` prop of
 the chat component:
 
-```tsx title="page.tsx"
+```tsx title="components/chat.tsx"
 <CopilotChat
   messageView={{
     assistantMessage: {
@@ -35,7 +35,9 @@ Try this route first. The slot forwards its props to Streamdown,
 so a props override can set Streamdown's `components` map, which swaps the React
 component used for one HTML tag:
 
-```tsx title="page.tsx"
+```tsx title="components/chat.tsx"
+"use client";
+
 import { CopilotChat } from "@copilotkit/react-core/v2";
 
 export function Chat() {
@@ -63,6 +65,9 @@ export function Chat() {
   );
 }
 ```
+
+Render `<Chat />` from your page. The `components` map holds functions, so it
+only works in a Client Component (the file starts with `"use client"`).
 
 Three things are worth knowing about the props your component receives.
 
@@ -92,7 +97,7 @@ that tag.
 To change the block as a whole rather than one tag, pass a class string. It is
 merged onto the markdown container:
 
-```tsx title="page.tsx"
+```tsx title="components/chat.tsx"
 <CopilotChat
   messageView={{
     assistantMessage: { markdownRenderer: "text-sm leading-7" },
@@ -106,7 +111,7 @@ Passing a component instead of an object replaces the renderer outright. It
 receives two props: `content`, the assistant message's raw markdown, and
 `messageId`, the id of the message:
 
-```tsx title="page.tsx"
+```tsx title="components/chat.tsx"
 const PlainText = ({ content }: { content: string }) => (
   <pre className="whitespace-pre-wrap">{content}</pre>
 );

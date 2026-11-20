@@ -3,7 +3,7 @@ import InspectorPaneThreads from "@/snippets/shared/inspector/open-inspector-pan
 
 <span id="overview" />
 
-CopilotKit Intelligence’s AG-UI Streams complement your existing thread system, whether you use LangGraph, Google ADK, Mastra, or a custom backend. Your framework keeps managing the conversation and agent state while Intelligence records the interactions delivered through CopilotKit.
+CopilotKit Intelligence’s AG-UI streams complement your existing thread system, whether you use LangGraph, Google ADK, Mastra, or a custom backend. Your framework keeps managing the conversation and agent state while Intelligence records the interactions delivered through CopilotKit.
 
 That includes messages, thinking traces, tool calls, generative UI, uploaded files (such as images, PDFs, and Excel files), and application state. You can also use CopilotKit Intelligence as your standalone thread store.
 
@@ -62,7 +62,7 @@ These are capabilities of CopilotKit Intelligence, not guarantees provided by th
 
 ## Start with your coding agent
 
-Copy this prompt into your coding agent to inspect your existing CopilotKit app and configure AG-UI Streams with CopilotKit Intelligence. Prefer to work through the setup yourself? Follow the manual steps below.
+Copy this prompt into your coding agent to inspect your existing CopilotKit app and configure Intelligence’s AG-UI streams. Prefer to work through the setup yourself? Follow the manual steps below.
 
 <RichThreadsSetupPrompt />
 
@@ -70,7 +70,7 @@ Copy this prompt into your coding agent to inspect your existing CopilotKit app 
 
 ## Set up AG-UI Streams manually
 
-Create a new CopilotKit app connected to cloud-hosted CopilotKit Intelligence. Your application and CopilotKit Runtime run locally while CopilotKit Intelligence records AG-UI events and delivers them to connected clients. If you already have a working app, follow the [Intelligence quickstart](/intelligence/quickstart#set-it-up-manually) to connect it instead.
+Create a new CopilotKit app connected to cloud-hosted CopilotKit Intelligence. Your application and Copilot Runtime run locally while CopilotKit Intelligence records AG-UI events and delivers them to connected clients. If you already have a working app, follow the [Intelligence quickstart](/intelligence/quickstart#set-it-up-manually) to connect it instead.
 
 <Steps>
   <Step>
@@ -148,7 +148,7 @@ Threads Drawer and Headless Threads both use Intelligence’s AG-UI streams. A s
   Your application authenticates its users, and `CopilotRuntime` resolves that
   verified identity on the server with `identifyUser`. CopilotKit Intelligence
   uses the stable user ID to scope thread lists and lifecycle actions. See
-  [Scope AG-UI Streams to the signed-in user](/threads-lifecycle#scope-rich-threads-to-the-signed-in-user)
+  [Scope threads to the signed-in user](/threads-lifecycle#scope-threads-to-the-signed-in-user)
   for the Runtime contract and an implementation pattern.
 </Callout>
 
@@ -164,7 +164,7 @@ Threads Drawer and Headless Threads both use Intelligence’s AG-UI streams. A s
 | Cloud-hosted or self-hosted platform infrastructure | The deployment model that fits your organization |
 
 <Callout type="info" title="Headless means custom UI, not custom infrastructure">
-  Threads Drawer and Headless Threads use the same persistence, replay, synchronization, and locking infrastructure. Choose Headless Threads when you want to build the interface yourself, not when you want to rebuild the AG-UI Streams backend.
+  Threads Drawer and Headless Threads use the same persistence, replay, synchronization, and locking infrastructure. Choose Headless Threads when you want to build the interface yourself, not when you want to rebuild the backend for Intelligence’s AG-UI streams.
 </Callout>
 
 ## Choose how to build the UI

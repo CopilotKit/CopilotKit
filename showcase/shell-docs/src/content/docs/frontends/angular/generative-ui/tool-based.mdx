@@ -37,17 +37,37 @@ export class IncidentCardComponent implements ToolRenderer<IncidentArgs> {
 }
 ```
 
-```ts
-registerComponent({
-  name: "show_incident",
-  description: "Show one incident from the incident table.",
-  parameters: z.object({
-    id: z.string().describe("The incident id, such as INC-4711"),
-    severity: z.string().describe("One of sev1, sev2, sev3"),
-  }),
-  component: IncidentCardComponent,
-});
+Register the component from an injection context, such as the constructor of
+the component that holds the chat. The tool is removed when that component is
+destroyed:
+
+```ts title="src/app/incident-chat.component.ts"
+import { Component } from "@angular/core";
+import { CopilotChat, registerComponent } from "@copilotkit/angular";
+import { z } from "zod";
+import { IncidentCardComponent } from "./incident-card.component";
+
+@Component({
+  selector: "app-incident-chat",
+  imports: [CopilotChat],
+  template: `<copilot-chat />`,
+})
+export class IncidentChatComponent {
+  constructor() {
+    registerComponent({
+      name: "show_incident",
+      description: "Show one incident from the incident table.",
+      parameters: z.object({
+        id: z.string().describe("The incident id, such as INC-4711"),
+        severity: z.string().describe("One of sev1, sev2, sev3"),
+      }),
+      component: IncidentCardComponent,
+    });
+  }
+}
 ```
+
+Ask the agent to show incident INC-4711. The incident card appears in the chat.
 
 There is no `handler`, and nothing changes in your agent. The tool is declared by
 the frontend and forwarded over AG-UI, so this works the same behind a Python

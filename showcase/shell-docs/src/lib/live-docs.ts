@@ -16,8 +16,6 @@ import {
 import { whereIs } from "./live-pages";
 import type { PageIndex, PageLocation } from "./live-pages";
 import { liveSource, referenceSource } from "./live-source";
-import { frameworkOverviews } from "@/data/frameworks";
-import type { FrameworkOverviewData } from "@/data/frameworks";
 
 export { LIVE_FRAMEWORKS, scopedHref } from "./live-scope";
 
@@ -32,8 +30,7 @@ export { LIVE_FRAMEWORKS, scopedHref } from "./live-scope";
  *   /vue/mastra/frontend-tools      docs/frontends/vue/frontend-tools.mdx
  *   /slack/tools                    docs/channels/tools.mdx
  *   /backend/copilot-runtime        docs/(shared)/backend/copilot-runtime.mdx
- *   /mastra                         docs/integrations/mastra/index.mdx
- *   /google-adk                     src/data/frameworks/google-adk.ts
+ *   /mastra/quickstart              docs/integrations/mastra/quickstart.mdx
  *   /vue                            docs/frontends/vue/index.mdx
  *   /reference/v2/hooks/use-agent   reference/hooks/use-agent.mdx
  */
@@ -49,12 +46,6 @@ export interface ResolvedLivePage {
   scope: DocsScope;
   /** Path under `src/content`, the source of truth for edits. */
   contentPath: string;
-  /**
-   * A generated framework's landing (`/google-adk`), drawn from its record in
-   * `src/data/frameworks`. `page` is then the framework's quickstart, which
-   * the landing's Markdown serves.
-   */
-  overview?: FrameworkOverviewData;
   /** The page's one indexed URL (`canonicalUrl`). */
   canonical: string;
   /**
@@ -146,9 +137,8 @@ export function resolveLivePage(input: string[]): ResolvedLivePage | null {
 
   const { frontend, framework, slug } = scopeFromPath(path);
   const scope: DocsScope = { framework, frontend };
-  if (!slug && framework && frontend === "react") {
-    return frameworkLanding(framework);
-  }
+  // A framework has no landing of its own: `/mastra` redirects to its
+  // quickstart (`goneRedirect`).
   if (!slug && frontend === "react") return null;
   const at = whereIs(getPageIndex(), frontend, framework, slug);
   if (!at) return null;
@@ -173,7 +163,8 @@ export function resolveLivePage(input: string[]): ResolvedLivePage | null {
         : scope,
     contentPath: `docs/${page.path}`,
     canonical: canonicalUrl(at, scope),
-    variant: frameworkVariant(at, scope) ?? undefined,
+    variant:
+      frameworkVariant(at, scope) ?? frontendQuickstartVariant(at, scope),
   };
 }
 
@@ -184,48 +175,21 @@ function pageAt(at: PageLocation): DocPage | undefined {
 }
 
 /**
- * A framework's landing: its overview record (`src/data/frameworks`), else
- * its folder's `index.mdx`.
- */
-function frameworkLanding(slug: string): ResolvedLivePage | null {
-  // The built-in agent's landing is the docs home (`/built-in-agent`
-  // redirects there).
-  if (slug === ROOT_FRAMEWORK) return null;
-  const { folder } = LIVE_FRAMEWORKS[slug];
-  const scope = { framework: slug, frontend: "react" as const };
-  const canonical = `/${slug}`;
-  const overview = frameworkOverviews[slug];
-  if (overview) {
-    const quickstart =
-      docPage(`integrations/${folder}/quickstart`) ?? docPage("quickstart");
-    return quickstart
-      ? {
-          page: quickstart,
-          scope,
-          contentPath: `docs/${quickstart.path}`,
-          overview,
-          canonical,
-        }
-      : null;
-  }
-  const page = docPage(`integrations/${folder}`);
-  return page
-    ? { page, scope, contentPath: `docs/${page.path}`, canonical }
-    : null;
-}
-
-/**
  * The one URL a page is indexed under. The reader's framework is dropped
  * unless the page is the framework's own, and the frontend is dropped
  * unless the page is the frontend's own, so `/vue/mastra/backend/copilot-runtime`
  * is `/backend/copilot-runtime` and `/teams/mastra/tools` is `/teams/tools`.
  * A shared page the built-in agent has no showcase cell for lives under the
  * first framework that has one. Framework quickstarts keep their framework,
- * so every framework's quickstart is indexed.
+ * so every framework's quickstart is indexed. So do the Vue, Angular, and
+ * React Native quickstarts (`/vue/mastra`), which show that framework's
+ * agent steps.
  */
 export function canonicalUrl(at: PageLocation, scope: DocsScope): string {
   const variant = frameworkVariant(at, scope);
   if (variant) return url(variant, at.slug);
+  const quickstart = frontendQuickstartVariant(at, scope);
+  if (quickstart) return url(frontendSegment(scope.frontend), quickstart);
   if (at.kind === "framework") {
     const fw = scope.framework ?? ROOT_FRAMEWORK;
     const first = at.slug === "quickstart" ? fw : firstFrameworkFor(at.folder);
@@ -266,6 +230,28 @@ function frameworkVariant(at: PageLocation, scope: DocsScope): string | null {
   return getFrameworkVariants().variants[indexed]?.includes(at.slug)
     ? indexed
     : null;
+}
+
+/** Frontends whose quickstart (`/vue`) shows the URL's framework's agent steps. */
+const FRAMEWORK_QUICKSTARTS = new Set([
+  "frontends/vue",
+  "frontends/angular",
+  "frontends/react-native",
+]);
+
+/**
+ * The framework a frontend's quickstart is indexed under, or undefined:
+ * `/vue/mastra` shows Mastra's agent steps, so it is a page of its own.
+ * `/vue` is the built-in agent's.
+ */
+function frontendQuickstartVariant(
+  at: PageLocation,
+  scope: DocsScope,
+): string | undefined {
+  if (at.kind !== "frontend" || at.slug) return undefined;
+  if (!FRAMEWORK_QUICKSTARTS.has(at.folder)) return undefined;
+  const fw = scope.framework;
+  return fw && fw !== ROOT_FRAMEWORK ? fw : undefined;
 }
 
 /**
@@ -363,7 +349,19 @@ function parentTopic(
       return url(fe, framework ?? "", lead);
     }
   }
-  return url(fe, framework ?? "");
+  return scopeHome(url(fe, framework ?? ""));
+}
+
+/**
+ * A scope's root page. A bare React framework URL (`/mastra`) has no page
+ * and redirects to its quickstart, so go there directly.
+ */
+function scopeHome(prefix: string): string {
+  const { frontend, framework } = scopeFromPath(segmentsOf(prefix));
+  if (frontend === "react" && framework && framework !== ROOT_FRAMEWORK) {
+    return `${prefix}/quickstart`;
+  }
+  return prefix || "/";
 }
 
 /**
@@ -424,9 +422,16 @@ const UNSCOPED_SECTIONS = new Set(["reference", "examples"]);
  * reader's frontend doesn't have (`/vue/voice`), the nearest parent page it
  * does have, else that frontend's home. Unknown URLs still 404.
  */
-export function goneRedirect(path: string[]): string | null {
+export function goneRedirect(input: string[]): string | null {
+  // `/mastra/index` is `/mastra`, as in `resolveLivePage`.
+  const path = input.at(-1) === "index" ? input.slice(0, -1) : input;
   const { frontend, framework, prefix, slug } = scopeFromPath(path);
-  if (!slug) return null;
+  // Frameworks had landing pages (`/mastra`); the quickstart replaced them.
+  if (!slug) {
+    return frontend === "react" && framework && framework !== ROOT_FRAMEWORK
+      ? `${prefix}/quickstart`
+      : null;
+  }
   if (prefix && UNSCOPED_SECTIONS.has(slug.split("/")[0])) return `/${slug}`;
   if (droppedKey(slug)) return dropTarget(prefix, slug);
   if (!prefix) return null;
@@ -445,7 +450,7 @@ export function goneRedirect(path: string[]): string | null {
       return `${prefix}/${parent}`;
     }
   }
-  return prefix;
+  return scopeHome(prefix);
 }
 
 /** The DROPPED_PAGES key that covers `slug`, if any. */
@@ -468,7 +473,7 @@ function dropTarget(prefix: string, slug: string): string {
     if (resolveLivePage(segmentsOf(scoped))) return scoped;
     parts.pop();
   }
-  return prefix || "/";
+  return scopeHome(prefix);
 }
 
 /**
@@ -488,7 +493,7 @@ export function liveHref(href: string | undefined, scope: DocsScope) {
 
 /**
  * Every page once, at its canonical URL (`canonicalUrl`), plus each
- * framework's landing and quickstart, each framework's own version of a
+ * framework's quickstart, each framework's own version of a
  * shared page (`variant`), and the reference. Channel guide pages are listed
  * once per channel, since each channel reads its own version. The sitemap
  * lists them all; llms-full.txt and search skip the framework versions,
@@ -520,9 +525,18 @@ export function livePages(): ResolvedLivePage[] {
         );
       }
     }
+    // Each framework's version of the quickstart (`/vue/mastra`).
+    if (FRAMEWORK_QUICKSTARTS.has(folder) && slugs.includes("")) {
+      for (const fw of frameworks) {
+        const scope = { framework: fw, frontend: frontends[0] as FrontendId };
+        const at = { kind: "frontend", folder, slug: "" } as const;
+        if (frontendQuickstartVariant(at, scope)) {
+          urls.add(canonicalUrl(at, scope));
+        }
+      }
+    }
   }
   for (const fw of frameworks) {
-    if (fw !== ROOT_FRAMEWORK) urls.add(`/${fw}`);
     const folder = `integrations/${LIVE_FRAMEWORKS[fw].folder}`;
     for (const slug of pages.folders[folder] ?? []) {
       if (!slug) continue;

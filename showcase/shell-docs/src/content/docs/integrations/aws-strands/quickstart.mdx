@@ -28,9 +28,9 @@ Before you begin, you'll need the following:
 
 <Steps>
     <Step>
-        ### Set up CopilotKit Intelligence
+        ### Optional: set up CopilotKit Intelligence
 
-        <SignupLink surface="docs_aws_strands_quickstart_step1">Sign in to cloud-hosted Intelligence</SignupLink>. Cloud-hosted setup uses a server-side project API key and does not issue `COPILOTKIT_LICENSE_TOKEN`. You will connect the app after you create it below.
+        Intelligence keeps your threads in the cloud. Skip this step to run with an in-memory runner. To use it, <SignupLink surface="docs_aws_strands_quickstart_step1">sign in to cloud-hosted Intelligence</SignupLink>. Cloud-hosted setup uses a server-side project API key and does not issue `COPILOTKIT_LICENSE_TOKEN`. You will connect the app after you create it below.
     </Step>
 
     <Step>
@@ -124,7 +124,7 @@ Before you begin, you'll need the following:
                     </Tab>
                 </Tabs>
 
-                This will start both the UI and agent servers concurrently.
+                This starts the UI and the agent server together.
             </Step>
         </TailoredContentOption>
         <TailoredContentOption
@@ -169,14 +169,11 @@ Before you begin, you'll need the following:
                         ```
                     </Tab>
                     <Tab value="TypeScript">
-                        Add the Strands SDK, the AG-UI integration, and the Express helpers:
+                        Add the Strands SDK, the AG-UI integration, the Express helpers, and the OpenAI client that Strands' `OpenAIModel` loads:
 
                         ```bash
-                        npm install @ag-ui/aws-strands @strands-agents/sdk express
+                        npm install @ag-ui/aws-strands @strands-agents/sdk express openai
                         npm install -D @types/express
-                        # `@modelcontextprotocol/sdk` is loaded unconditionally by `@strands-agents/sdk`
-                        # and is required at runtime even when your agent doesn't use MCP.
-                        npm install @modelcontextprotocol/sdk
                         ```
                     </Tab>
                 </Tabs>
@@ -234,7 +231,7 @@ Before you begin, you'll need the following:
 
                 <Tabs groupId="language_strands_agent" items={['Python', 'TypeScript']} persist>
                     <Tab value="Python">
-                        Update your agent file to expose it as an AG-UI ASGI application:
+                        Replace the contents of `main.py` (`uv init` created it) to expose your agent as an AG-UI ASGI application:
 
                         ```python title="main.py"
                         import os
@@ -261,8 +258,9 @@ Before you begin, you'll need the following:
                             name="strands_agent",
                         )
 
-                        # Create the FastAPI app
-                        app = create_strands_app(agui_agent, "/")
+                        # Create the FastAPI app. The Copilot Runtime calls the agent from the
+                        # server, so the agent needs no browser CORS.
+                        app = create_strands_app(agui_agent, "/", cors_enabled=False)
 
                         if __name__ == "__main__":
                             import uvicorn
@@ -276,7 +274,7 @@ Before you begin, you'll need the following:
                         </Callout>
                     </Tab>
                     <Tab value="TypeScript">
-                        Update your agent file to expose it as an AG-UI Express application:
+                        Create `main.ts` to expose your agent as an AG-UI Express application:
 
                         ```typescript title="main.ts"
                         import { Agent } from "@strands-agents/sdk";
@@ -320,10 +318,12 @@ Before you begin, you'll need the following:
             <Step>
                 ### Create your frontend
 
-                CopilotKit works with any React-based frontend. We'll use Next.js for this example.
+                CopilotKit works with any React-based frontend. This example uses Next.js.
+
+                Run this inside `my-agent`, so the frontend lives in `my-agent/frontend`. `--yes` accepts the recommended defaults (TypeScript, Tailwind, App Router):
 
                 ```bash
-                npx create-next-app@latest frontend
+                npx create-next-app@latest frontend --yes
                 cd frontend
                 ```
             </Step>
@@ -331,8 +331,10 @@ Before you begin, you'll need the following:
                 ### Install CopilotKit packages
 
                 ```npm
-                npm install @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime @ag-ui/client@1.0.2
+                npm install @copilotkit/react-core @copilotkit/runtime @ag-ui/client
                 ```
+
+                `@ag-ui/client` must be the same version that `@copilotkit/runtime` uses. Two versions make TypeScript report that `HttpAgent` is not assignable to `AbstractAgent`. Run `npm ls @ag-ui/client`: the top-level copy must be the version that `@copilotkit/runtime` lists as `deduped`.
             </Step>
             <Step>
                 ### Setup Copilot Runtime
@@ -341,7 +343,6 @@ Before you begin, you'll need the following:
 
                 ```tsx title="app/api/copilotkit/[[...slug]]/route.ts" doctest="component"
                 import {
-                  CopilotKitIntelligence,
                   CopilotRuntime,
                   createCopilotRuntimeHandler,
                 } from "@copilotkit/runtime/v2";
@@ -351,15 +352,6 @@ Before you begin, you'll need the following:
                   agents: {
                     strands_agent: new HttpAgent({ url: "http://localhost:8000" }),
                   },
-                  // [!code highlight:8]
-                  intelligence: new CopilotKitIntelligence({
-                    apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
-                  }),
-                  // Threads are per-user. Without this, every visitor shares one history.
-                  identifyUser: (request) => ({
-                    id: request.headers.get("x-user-id") ?? "anonymous",
-                    name: request.headers.get("x-user-name") ?? "Anonymous",
-                  }),
                 });
 
                 const handler = createCopilotRuntimeHandler({
@@ -369,27 +361,43 @@ Before you begin, you'll need the following:
 
                 export const GET = handler;
                 export const POST = handler;
-               ```
-
-                From this frontend app directory, connect the runtime to an Intelligence project:
-
-                ```bash title="Terminal"
-                npx copilotkit@latest project select
+                export const PATCH = handler;
+                export const DELETE = handler;
                 ```
 
-                The command writes the server-side project API key to `.env`. The runtime reads it here:
+                This route runs with an in-memory runner. Chat and the Inspector work without any key.
 
-                ```plaintext title=".env"
-                CPK_INTELLIGENCE_API_KEY=cpk-...
-                ```
+                <Accordions className="mb-4">
+                    <Accordion title="Optional: connect CopilotKit Intelligence">
+                        From this frontend app directory, sign in and select an Intelligence project:
 
-                <Callout type="info" title="Running without the Intelligence Platform?">
-                  Drop the `intelligence` and `identifyUser` options and the runtime falls back
-                  to SSE mode with an in-memory runner. Chat and the Inspector still work, but
-                  Rich Threads stay locked and the key is never read. See
-                  [Connect your runtime to Intelligence](/intelligence/quickstart) for the
-                  full constructor and how to confirm the key is in use.
-                </Callout>
+                        ```bash title="Terminal"
+                        npx copilotkit@latest login
+                        npx copilotkit@latest project select
+                        ```
+
+                        `login` opens a browser sign-in. `project select` writes the server-side project API key to `.env`:
+
+                        ```plaintext title=".env"
+                        CPK_INTELLIGENCE_API_KEY=cpk-...
+                        ```
+
+                        Then add `CopilotKitIntelligence` to the imports and these two options to `new CopilotRuntime({ ... })`:
+
+                        ```ts
+                        intelligence: new CopilotKitIntelligence({
+                          apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
+                        }),
+                        // Threads are per-user. Without this, every visitor shares one history.
+                        identifyUser: (request) => ({
+                          id: request.headers.get("x-user-id") ?? "anonymous",
+                          name: request.headers.get("x-user-name") ?? "Anonymous",
+                        }),
+                        ```
+
+                        Without the key, the route fails when it loads, with an error that the `CopilotKitIntelligence` `apiKey` is required. See [Connect your runtime to Intelligence](/intelligence/quickstart) to confirm the key is in use.
+                    </Accordion>
+                </Accordions>
             </Step>
             <Step>
                 ### Configure CopilotKit Provider
@@ -410,11 +418,12 @@ Before you begin, you'll need the following:
                 }
                 ```
 
-                Render `Providers` in `app/layout.tsx`:
+                Render `Providers` in `app/layout.tsx`. Keep the generated file. Add the highlighted imports and wrap `{children}` in `<Providers>`:
 
                 ```tsx title="app/layout.tsx"
+                import { Suspense } from "react"; // [!code highlight]
                 import { Providers } from "./providers"; // [!code highlight]
-                import "@copilotkit/react-core/v2/styles.css";
+                import "@copilotkit/react-core/v2/styles.css"; // [!code highlight]
                 import './globals.css';
 
                 // ...
@@ -423,15 +432,19 @@ Before you begin, you'll need the following:
                   return (
                     <html lang="en">
                       <body>
-                        {/* [!code highlight:3] */}
-                        <Providers>
-                          {children}
-                        </Providers>
+                        {/* [!code highlight:5] */}
+                        <Suspense>
+                          <Providers>
+                            {children}
+                          </Providers>
+                        </Suspense>
                       </body>
                     </html>
                   );
                 }
                 ```
+
+                `<Suspense>` keeps `npm run build` working when `next.config.ts` sets `cacheComponents: true`, the `create-next-app` default in Next.js 16. Without it, the build fails with `encountered the unstable value require('node:crypto').randomUUID()`.
             </Step>
             <Step>
               ### Add the chat interface
@@ -479,7 +492,7 @@ Before you begin, you'll need the following:
             <Step>
                 ### Start your UI
 
-                In a separate terminal, navigate to your frontend directory and start the development server:
+                In a separate terminal, start the development server. From `my-agent`:
 
                 <Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn', 'bun']}>
                     <Tab value="npm">
@@ -530,7 +543,7 @@ Before you begin, you'll need the following:
 
         <Accordions className="mb-4">
             <Accordion title="Troubleshooting">
-                - If you're having connection issues, try using `0.0.0.0` or `127.0.0.1` instead of `localhost`
+                - If you're having connection issues, use `127.0.0.1` instead of `localhost` in the agent URL
                 - Make sure your agent is running on port 8000
                 - Check that your OpenAI API key is correctly set
                 - Verify that the `@ag-ui/client` package is installed in your frontend
@@ -549,21 +562,19 @@ Before you begin, you'll need the following:
 
 If you're planning to deploy your Strands agent to AWS Bedrock AgentCore, see the [AgentCore deploy guide](/deploy/agentcore).
 
-## What's next?
+## Next steps
 
-Now that you have your basic agent setup, explore these advanced features:
+Strands runs your agent: a model, a tool loop and the state it keeps between turns. CopilotKit puts that agent in your app, where your users can see the run, interrupt it and steer it.
 
-<Cards>
-  <Card
-    title="Add some generative UI"
-    description="Render your agent's progress and output in the UI."
-    href="/aws-strands/generative-ui/tool-rendering"
-    icon={<PaintbrushIcon />}
-  />
-  <Card
-    title="Setup frontend tools"
-    description="Give your agent the ability to call frontend tools, directly updating your application."
-    href="/aws-strands/frontend-tools"
-    icon={<WrenchIcon />}
-  />
-</Cards>
+Add a capability:
+
+- [Generative UI](/aws-strands/generative-ui/tool-rendering): show the agent's tool calls and progress as components that update while it runs.
+- [Human-in-the-loop](/aws-strands/human-in-the-loop): a frontend tool shows your own UI, waits for the user's answer, and returns it to the agent as the tool result.
+- [Shared state](/aws-strands/shared-state): keep the agent's server-side state and your app's state in sync, in both directions.
+- [Frontend tools](/aws-strands/frontend-tools): let the agent call tools that update your app directly.
+- [And more](/aws-strands/build-with-agents): chat surfaces, headless UI and multi-agent flows work with Strands too. Give your AI coding agent current CopilotKit knowledge, so it can help you build them.
+
+Go further:
+
+- Live demos: try each capability with a Strands agent in [Python](/examples?framework=strands) or [TypeScript](/examples?framework=strands-typescript).
+- Using Vue, Angular, or React Native? Pick it in the sidebar's **Frontend** menu. Its quickstart connects this agent.

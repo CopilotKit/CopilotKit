@@ -1,44 +1,112 @@
 ---
 title: "Message Persistence"
 icon: "lucide/Database"
+description: Keep the threads of a self-hosted LangGraph agent after a server restart with a Postgres checkpointer.
 ---
 
-To keep the threads of a self-hosted agent after a server restart, compile the graph with a database checkpointer, such as `AsyncPostgresSaver` or `AsyncSqliteSaver`. Set up the checkpointer in a FastAPI lifespan function, as follows. In this sample, `workflow` is your `StateGraph` builder.
+A self-hosted agent that compiles its graph with `MemorySaver` loses every thread when the server restarts. To keep the threads, compile the graph with a database checkpointer, such as `AsyncPostgresSaver` or `AsyncSqliteSaver`.
 
-```python
-from fastapi import FastAPI
+This page is for an agent that you serve with FastAPI, as in the [quickstart](/langgraph-python/quickstart). A LangGraph Platform deployment (`langgraph dev` or LangSmith) supplies its own persistence.
+
+<Steps>
+<Step>
+### Install the Postgres checkpointer
+
+From your agent project:
+
+```bash
+uv add langgraph-checkpoint-postgres "psycopg[binary]"
+```
+
+`psycopg[binary]` includes the Postgres client library, so you do not need a system `libpq`.
+
+For SQLite, install `langgraph-checkpoint-sqlite` and import `AsyncSqliteSaver` from `langgraph.checkpoint.sqlite.aio`.
+</Step>
+
+<Step>
+### Start Postgres
+
+For local development, start Postgres in Docker:
+
+```bash
+docker run -d --name cpk-pg -p 5432:5432 -e POSTGRES_PASSWORD=postgres postgres:16
+```
+
+The code below reads the connection string from `DATABASE_URL`. Without it, the code uses this container.
+</Step>
+
+<Step>
+### Compile the graph with the checkpointer
+
+Set up the checkpointer in a FastAPI lifespan function. In this sample, `workflow` is your `StateGraph` builder, before you compile it.
+
+If you start from the quickstart's FastAPI `main.py`:
+
+1. Rename the builder to `workflow`: `workflow = StateGraph(MessagesState)`, then `workflow.add_node(...)` and `workflow.add_edge(...)`.
+2. Delete `graph = graph.compile(...)`, `app = FastAPI()` and the `add_langgraph_fastapi_endpoint(...)` call.
+3. Add this code in their place:
+
+```python title="main.py"
+import os
 from contextlib import asynccontextmanager
+
+from fastapi import FastAPI
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from copilotkit import LangGraphAGUIAgent
 from ag_ui_langgraph import add_langgraph_fastapi_endpoint
 
+DATABASE_URL = os.getenv(
+    "DATABASE_URL", "postgresql://postgres:postgres@127.0.0.1:5432/postgres"
+)
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    async with AsyncPostgresSaver.from_conn_string(
-        "postgresql://postgres:postgres@127.0.0.1:5432/postgres"
-    ) as checkpointer:
-        # NOTE: you need to call .setup() the first time you're using your checkpointer
+    async with AsyncPostgresSaver.from_conn_string(DATABASE_URL) as checkpointer:
+        # Creates the checkpoint tables if they do not exist. Safe to run on every startup.
         await checkpointer.setup()
-        # Create an async graph
         graph = workflow.compile(checkpointer=checkpointer)
         # Serve the compiled graph, now that it exists
         add_langgraph_fastapi_endpoint(
             app=app,
             agent=LangGraphAGUIAgent(
-                name="research_agent",
-                description="Research agent.",
+                name="sample_agent",
+                description="An agent that keeps its threads in Postgres.",
                 graph=graph,
             ),
-            path="/agents/research_agent"
+            path="/",
         )
         yield
 
 app = FastAPI(lifespan=lifespan)
-
 ```
 
-Restart the server and send a message on an existing thread. The agent answers with the earlier messages of that thread in its context.
+`path="/"` keeps the URL that the quickstart's Copilot Runtime route already uses (`http://localhost:8123`).
+</Step>
+
+<Step>
+### Run the agent
+
+```bash
+uv run uvicorn main:app --port 8123
+```
+</Step>
+
+<Step>
+### Check that threads persist
+
+Send a message in your app. Then stop the agent server and start it again.
+
+The browser sends the whole conversation on each run, so a reply after the restart does not prove that the checkpointer works. Look in the database instead:
+
+```bash
+psql postgresql://postgres:postgres@127.0.0.1:5432/postgres \
+  -c "select thread_id, count(*) from checkpoints group by 1"
+```
+
+Your thread is listed, and its count stays after the restart.
+</Step>
+</Steps>
 
 To load earlier messages and agent state in the frontend, see [Thread & History Lifecycle](/threads-lifecycle).
 
-To learn more about persistence in LangGraph, check out the [LangGraph documentation](https://docs.langchain.com/oss/python/langgraph/persistence).
+To learn more about persistence in LangGraph, see the [LangGraph documentation](https://docs.langchain.com/oss/python/langgraph/persistence).

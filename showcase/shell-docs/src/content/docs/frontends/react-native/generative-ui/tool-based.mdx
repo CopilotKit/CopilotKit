@@ -25,7 +25,7 @@ For components that need user input, see [Human-in-the-loop](/human-in-the-loop)
 
 <FrameworkSetup concept="frontend-tools-setup" />
 
-Define your component's props as a `zod` schema. The schema becomes the tool's parameters, which tell the model which arguments to send. Add `zod` to your app if it isn't there yet (`npm install zod`).
+Define your component's props as a `zod` schema. The schema becomes the tool's parameters, which tell the model which arguments to send. Add `zod` to your app if it isn't there yet (`npm install "zod@^3.25"`).
 
 ```tsx title="src/BarChart.tsx"
 import { Text, View } from "react-native";

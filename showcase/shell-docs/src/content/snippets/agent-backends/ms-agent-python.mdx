@@ -1,0 +1,114 @@
+{/*
+  The Microsoft Agent Framework (Python) backend for the Vue, Angular and
+  React Native quickstarts (`/vue/ms-agent-python` and so on), picked by
+  `index.mdx`. The page around it already created the app and installed
+  `@copilotkit/runtime` and `tsx`. Its next steps start `npx tsx server.ts`
+  from the app folder, so the agent here must be running by then.
+*/}
+
+<Step>
+  ### Create your Microsoft Agent Framework agent
+
+  You need Python 3.12+, [`uv`](https://docs.astral.sh/uv/) and an OpenAI API key. The agent gets its own folder next to your app. From your app folder:
+
+  ```bash
+  cd ..
+  uv init my-agent
+  cd my-agent
+  uv add agent-framework-ag-ui agent-framework-openai python-dotenv uvicorn
+  ```
+
+  `agent-framework-ag-ui` serves a Microsoft Agent Framework agent over AG-UI, the protocol that Copilot Runtime speaks.
+
+  Replace the contents of `main.py` with a small agent. If you already have an agent, pass it to `add_agent_framework_fastapi_endpoint` and use this as a reference:
+
+  ```python title="main.py"
+  import os
+
+  from agent_framework import Agent
+  from agent_framework.ag_ui import add_agent_framework_fastapi_endpoint
+  from agent_framework.openai import OpenAIChatClient
+  from dotenv import load_dotenv
+  from fastapi import FastAPI
+
+  load_dotenv()
+
+  agent = Agent(
+      name="MyAgent",
+      instructions="You are a helpful assistant.",
+      client=OpenAIChatClient(
+          model=os.getenv("OPENAI_CHAT_MODEL_ID", "gpt-6-luna"),
+          api_key=os.getenv("OPENAI_API_KEY"),
+      ),
+  )
+
+  app = FastAPI()
+  # Local demo: one user, no sign-in.
+  add_agent_framework_fastapi_endpoint(app=app, agent=agent, path="/", single_user=True)
+  ```
+
+  `single_user=True` declares that the endpoint has no sign-in. Without an authorization mode, the server stops at startup with `AG-UI endpoint authorization must be explicit`.
+
+  Put your OpenAI key in `.env`:
+
+  ```plaintext title=".env"
+  OPENAI_API_KEY=your_openai_api_key
+  OPENAI_CHAT_MODEL_ID=gpt-6-luna
+  ```
+</Step>
+
+<Step>
+  ### Start the agent
+
+  ```bash
+  uv run uvicorn main:app --port 8000
+  ```
+
+  Keep this terminal open. The agent listens on `http://localhost:8000`.
+</Step>
+
+<Step>
+  ### Create the Copilot Runtime
+
+  Open a new terminal in your app folder. The runtime reaches the agent with `HttpAgent` from `@ag-ui/client`:
+
+  ```bash
+  npm install @ag-ui/client
+  ```
+
+  `@ag-ui/client` must be the same version that `@copilotkit/runtime` uses. Run `npm ls @ag-ui/client`. The top-level copy must be the version that `@copilotkit/runtime` lists as `deduped`.
+
+  Add `server.ts`, a small Node server that hosts Copilot Runtime at `/api/copilotkit` and registers your agent as the `default` agent:
+
+  ```ts title="server.ts"
+  import { createServer } from "node:http";
+  import { HttpAgent } from "@ag-ui/client";
+  import { CopilotRuntime } from "@copilotkit/runtime/v2";
+  import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
+
+  const runtime = new CopilotRuntime({
+    agents: {
+      // [!code highlight:3]
+      default: new HttpAgent({
+        url: process.env.AGENT_URL ?? "http://localhost:8000/",
+      }),
+    },
+  });
+
+  const port = Number(process.env.PORT ?? 8200);
+
+  createServer(
+    createCopilotNodeListener({
+      runtime,
+      basePath: "/api/copilotkit",
+      cors: true,
+    }),
+  ).listen(port, () => {
+    console.log(
+      `Copilot Runtime listening at http://localhost:${port}/api/copilotkit`,
+    );
+  });
+  ```
+
+  `cors: true` lets the app's dev server, on another port, call the runtime. The model key stays with the agent, so the runtime needs none.
+</Step>

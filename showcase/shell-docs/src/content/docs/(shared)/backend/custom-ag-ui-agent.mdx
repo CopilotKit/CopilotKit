@@ -16,18 +16,20 @@ use [`HttpAgent`](#remote-agents-use-httpagent) instead.
 
 ## Install
 
-Your `@ag-ui/client` must be the version your `@copilotkit/runtime` depends on,
-so the app has one copy of it.
+Your `@ag-ui/client` and `rxjs` must be the versions your `@copilotkit/runtime`
+depends on, so the app has one copy of each. `@ag-ui/client` pins `rxjs` to an
+exact version. With a second copy of `rxjs`, the `Observable` your agent returns
+does not type-check against `AbstractAgent`.
 
 1. Install the packages:
 
    ```bash
-   npm install @copilotkit/runtime @ag-ui/client@1.0.2 rxjs
+   npm install @copilotkit/runtime @ag-ui/client rxjs@7.8.1
    ```
 
-2. Run `npm ls @ag-ui/client`. It shows one deduped version.
-3. If it shows two versions, reinstall `@ag-ui/client` at the version listed
-   under `@copilotkit/runtime`.
+2. Run `npm ls @ag-ui/client rxjs`. Each shows one deduped version.
+3. If one shows two versions, reinstall it at the version listed under
+   `@copilotkit/runtime`.
 
 ## A minimal agent
 

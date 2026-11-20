@@ -127,8 +127,8 @@ Pass a `children` function to get the `messageView`, `input`, `scrollView`, and 
 </PropertyReference>
 
 <PropertyReference name="suggestionLoadingIndexes" type="ReadonlyArray<number>">
-  Indexes of suggestions that are currently in a loading state (e.g. the user
-  just clicked them and the agent is processing).
+  Indexes of suggestions that are currently in a loading state (for example, the
+  user clicked them and the agent is processing).
 </PropertyReference>
 
 <PropertyReference
@@ -142,10 +142,10 @@ Pass a `children` function to get the `messageView`, `input`, `scrollView`, and 
 <PropertyReference name="welcomeScreen" type='SlotValue<React.FC<WelcomeScreenProps>> | boolean'>
   Controls the welcome screen shown when the `messages` array is empty.
 
-- `true` -- show the default welcome screen
-- `false` -- disable the welcome screen
-- **`className` string** -- style the default welcome screen
-- **Component** -- replace the welcome screen entirely
+- `true`: show the default welcome screen
+- `false`: disable the welcome screen
+- **`className` string**: style the default welcome screen
+- **Component**: replace the welcome screen entirely
 
 The welcome screen component receives `input` and `suggestionView` as React elements, plus a `welcomeMessage` slot, so you can compose them in any layout.
 
@@ -154,23 +154,49 @@ The welcome screen component receives `input` and `suggestionView` as React elem
 <PropertyReference name="connectingIndicator" type='SlotValue<React.FC<React.HTMLAttributes<HTMLDivElement>>> | boolean'>
   Controls the loading indicator shown while a thread's history is being restored (`isConnecting` is `true` and `messages` is still empty).
 
-- `true` (default) -- show the default spinner
-- `false` -- disable the indicator
-- **`className` string** -- style the default indicator
-- **Component** -- replace the indicator entirely
+- `true` (default): show the default spinner
+- `false`: disable the indicator
+- **`className` string**: style the default indicator
+- **Component**: replace the indicator entirely
 
 </PropertyReference>
+
+<PropertyReference name="isConnecting" type="boolean">
+  `true` while a thread's history is being restored. Hides the welcome screen
+  and shows `connectingIndicator` until messages arrive.
+</PropertyReference>
+
+<PropertyReference name="intelligenceIndicator" type="SlotValue<typeof IntelligenceIndicatorView>">
+  Slot for the "Using CopilotKit Intelligence" indicator. Passed through to
+  the `intelligenceIndicator` slot of `CopilotChatMessageView`.
+</PropertyReference>
+
+### Input Props
+
+`CopilotChatView` passes these props to its `input` slot. `CopilotChat` sets
+them for you; pass them yourself only when you render `CopilotChatView`
+directly.
+
+- `onSubmitMessage?: (value: string) => void`: called when the user sends a message.
+- `onStop?: () => void`: called when the user clicks stop during a run.
+- `inputValue?: string` and `onInputChange?: (value: string) => void`: control the input text.
+- `inputMode?: "input" | "transcribe" | "processing"`: the input mode. See [`CopilotChatInput`](/reference/components/CopilotChatInput).
+- `onStartTranscribe`, `onCancelTranscribe`, `onFinishTranscribe`, and `onFinishTranscribeWithAudio`: voice input callbacks, as on `CopilotChatInput`.
+
+For attachments, the view also takes `attachments` (`Attachment[]`),
+`onRemoveAttachment`, `onAddFile`, `dragOver`, `onDragOver`, `onDragLeave`,
+and `onDrop`.
 
 ## Static Sub-Components
 
 `CopilotChatView` exposes its default slot implementations as static properties for use in custom compositions:
 
-- `CopilotChatView.ScrollView` -- default scroll container with auto-scroll support
-- `CopilotChatView.ScrollToBottomButton` -- default scroll-to-bottom button
-- `CopilotChatView.Feather` -- default feather, an empty element
-- `CopilotChatView.ConnectingIndicator` -- default loading indicator shown while a thread connects
-- `CopilotChatView.WelcomeMessage` -- default welcome message
-- `CopilotChatView.WelcomeScreen` -- default welcome screen layout
+- `CopilotChatView.ScrollView`: default scroll container with auto-scroll support
+- `CopilotChatView.ScrollToBottomButton`: default scroll-to-bottom button
+- `CopilotChatView.Feather`: default feather, an empty element
+- `CopilotChatView.ConnectingIndicator`: default loading indicator shown while a thread connects
+- `CopilotChatView.WelcomeMessage`: default welcome message
+- `CopilotChatView.WelcomeScreen`: default welcome screen layout
 
 ## Usage
 

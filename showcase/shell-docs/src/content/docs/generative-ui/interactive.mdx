@@ -16,7 +16,7 @@ Interactive generative UI creates flows where the agent pauses execution and wai
 
 Use interactive generative UI when you need:
 
-- Approval/rejection flows (e.g. "Run this command?")
+- Approval/rejection flows (for example, "Run this command?")
 - User decisions that the agent should know about
 - Confirmation dialogs with structured responses
 - Any flow where the agent pauses for human judgment
@@ -33,12 +33,12 @@ choice, and resumes the run with that input. The excerpt imports the demo's
 `TimePickerCard`, its fallback slots, and its suggestions. Use your own picker
 component in their place.
 
-<Snippet region="frontend-useinterrupt-render" title="frontend/src/app/page.tsx — useInterrupt" />
+<Snippet region="frontend-useinterrupt-render" title="frontend/src/app/page.tsx: useInterrupt" />
 
 On the backend, the agent pauses the run with its framework's interrupt
 primitive and waits for the user's answer before it continues.
 
-<Snippet region="backend-interrupt-tool" title="backend — interrupt tool" />
+<Snippet region="backend-interrupt-tool" title="backend: interrupt tool" />
 
 Ask the agent to book a call, for example `Book an intro call with the sales
 team to discuss pricing`. The time picker appears in the chat. Pick a slot,
@@ -55,9 +55,9 @@ This framework registers `schedule_meeting` as a frontend tool with
 The tool call resolves when the picker calls `respond(...)`, after the user
 chooses a slot or cancels.
 
-<Snippet region="frontend-useinterrupt-render" title="frontend/src/app/page.tsx — Promise-based frontend tool" />
+<Snippet region="frontend-useinterrupt-render" title="frontend/src/app/page.tsx: Promise-based frontend tool" />
 
-<Snippet region="backend-tool-call" title="backend — agent instructed to call schedule_meeting" />
+<Snippet region="backend-tool-call" title="backend: agent instructed to call schedule_meeting" />
 
 Ask the agent to book a call, for example `Book an intro call with the sales
 team to discuss pricing`. The time picker appears in the chat. Pick a slot,
@@ -67,10 +67,11 @@ and the agent confirms the booked time.
 
 <WhenFrameworkHas flag="interrupt_pattern" absent>
 
-> **Not available on this framework.** Interactive generative UI requires
-> either a native interrupt primitive or a Promise-resolving frontend tool.
-> For tool-call-based approval flows, use
-> [Human-in-the-loop](../human-in-the-loop) instead.
+This page has no interrupt code for this framework. Build the same flow with a frontend
+tool that waits for the user: `useHumanInTheLoop` registers the tool, the
+agent calls it, the chat renders your component, and the tool call resolves
+when your component calls `respond(...)`. See
+[Human-in-the-loop](../human-in-the-loop) for the code.
 
 </WhenFrameworkHas>
 

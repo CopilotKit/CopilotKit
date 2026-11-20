@@ -50,21 +50,29 @@ const EMPTY_STATE: WorkspaceState = {
 })
 export class WorkspaceComponent {
   readonly store = injectAgentStore("default");
-  readonly state = computed(
-    () => (this.store().state() as WorkspaceState | undefined) ?? EMPTY_STATE,
-  );
+  readonly state = computed(() => ({
+    ...EMPTY_STATE,
+    ...(this.store().state() as Partial<WorkspaceState> | undefined),
+  }));
 
   protected setPriority(priority: WorkspaceState["priority"]): void {
     const agent = this.store().agent;
-    const current = (agent.state as WorkspaceState | undefined) ?? EMPTY_STATE;
-    agent.setState({ ...current, priority });
+    agent.setState({
+      ...EMPTY_STATE,
+      ...(agent.state as Partial<WorkspaceState>),
+      priority,
+    });
   }
 }
 ```
 
-Read through `store().state()` so Angular tracks changes. Write through the
-plain AG-UI agent at `store().agent`. Replace the object instead of mutating it
-in place.
+Read through `store().state()` so Angular tracks changes. The agent state
+starts as an empty object, so merge it over `EMPTY_STATE` to fill in defaults.
+Write through the plain AG-UI agent at `store().agent`. Replace the object
+instead of mutating it in place.
+
+Add `WorkspaceComponent` to the `imports` of your root component
+(`src/app/app.ts`) and render `<app-workspace />` next to `<copilot-chat />`.
 
 Click **Mark high priority**, then ask the agent for the current priority. It
 answers "high".
@@ -83,7 +91,7 @@ That call sends your registered frontend tools and agent context with the run.
 
 - Use shared state for data that the agent may change.
 - Use context for application-owned facts.
-- Keep durable user preferences in your own data store; publish only the part
+- Keep durable user preferences in your own data store. Publish only the part
   the current agent needs.
 - Scope `injectAgentStore` to the same agent id as the chat or workflow that
   reads the state.

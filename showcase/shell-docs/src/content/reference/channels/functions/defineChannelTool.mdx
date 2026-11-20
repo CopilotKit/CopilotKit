@@ -56,7 +56,7 @@ before startup, or pass turn-scoped tools to `thread.runAgent({ tools })`.
 | `message`  | `IncomingMessage \| undefined` | Current inbound message when the run began from a message trigger.        |
 | `user`     | `ApplicationUser \| null`      | Application user selected for this event.                                 |
 | `actor`    | `ProviderActor`                | Provider account that caused this event.                                  |
-| `signal`   | `AbortSignal \| undefined`     | Reserved optional field; the current SDK tool runner leaves it undefined. |
+| `signal`   | `AbortSignal` (typed optional) | Abort signal of the running agent. The SDK always sets it. Pass it to `fetch()` so a cancelled run stops the tool. |
 | `platform` | `string`                       | Normalized source provider, such as `"slack"` or `"teams"`.               |
 
 Return raw objects or arrays for data. The SDK JSON-serializes non-string

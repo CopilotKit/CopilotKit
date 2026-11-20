@@ -156,7 +156,7 @@ return surfaces.length > 0 ? (
 
 Render every chat surface, not only the latest activity message: the latest can be a deleted surface, or one aimed at a named target, and render nothing. Filtering with `isChatSurface` keeps the skeleton up until a surface that renders here arrives; `agent.messages.filter(isGenerativeUIActivity)` would drop the skeleton for a named-target or deleted surface and leave the screen blank. `isChatSurface` is defined in the [guide](/react-native#render-surfaces-in-your-message-list).
 
-Something has to run the `home` agent, and this part does not: on its own it shows the skeleton forever. The [home screen step](/react-native#compose-a-screen-with-no-chat) of the guide starts the run once `isReady` from `useAgent` is true, so it goes to the registered agent rather than the stand-in used while the runtime connects, and shows a spinner while it runs and, when a run fails or renders nothing here, the reason with a retry, after it has taken the run's prompt back.
+Something has to run the `home` agent, and this part does not: on its own it shows the skeleton forever. The [home screen step](/react-native#compose-a-screen-with-no-chat) of the guide starts the run once `isReady` from `useAgent` is true. So the run goes to the registered agent, not to the stand-in used while the runtime connects. The step shows a spinner while the run is in progress. When a run fails or renders nothing here, the step takes the run's prompt back and shows the reason with a retry.
 
 ### With your own streaming and error state
 

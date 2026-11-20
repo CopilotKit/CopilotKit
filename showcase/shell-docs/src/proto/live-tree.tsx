@@ -56,7 +56,11 @@ export function liveTree(nav: LiveNav, pathname: string): PageTree.Root {
     };
   }
   if (path[0] === "cookbook") {
-    return { name: "Cookbook", children: nav.cookbook.map(recipeIcon) };
+    return {
+      $id: "cookbook",
+      name: "Cookbook",
+      children: nav.cookbook.map(recipeIcon),
+    };
   }
 
   const scope = scopeFromPath(path);
@@ -69,6 +73,12 @@ export function liveTree(nav: LiveNav, pathname: string): PageTree.Root {
   ];
   const draw = drawer(nav, scope);
   return {
+    // Fumadocs keeps a tree until its `$id` changes. Without one, the first
+    // page's sidebar stayed after a picker moved the reader to another
+    // frontend or framework, and its rows kept linking to the old scope.
+    // One id per scope rebuilds it then, and keeps folders as the reader
+    // left them while they move between pages of the same scope.
+    $id: `docs:${scope.frontend}:${scope.framework ?? ""}`,
     name: "Docs",
     children: dropEmptySections(
       sidebar.flatMap((n, i) => draw(n, isTopRow(sidebar, i))),

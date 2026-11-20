@@ -73,6 +73,10 @@ export class AssistantComponent {
 
 The current release applies `markdownRendererClass`, `toolbarClass`, and `copyButtonClass` to their default parts.
 
+<PropertyReference name="inputClass" type="string">
+  Extra CSS classes merged onto the message container. Applied in releases after 0.6.0. In 0.6.0 this input has no effect.
+</PropertyReference>
+
 <PropertyReference name="markdownRendererClass" type="string">
   Classes for the default markdown renderer.
 </PropertyReference>
@@ -86,7 +90,7 @@ The current release applies `markdownRendererClass`, `toolbarClass`, and `copyBu
 </PropertyReference>
 
 <Callout type="warn">
-  `inputClass`, the thumbs, read-aloud, regenerate class inputs, and `toolCallsViewClass` are declared but do not affect rendering in the current release. Use component or template overrides for those parts.
+  The thumbs, read-aloud, and regenerate class inputs and `toolCallsViewClass` are declared but do not affect rendering in the current release. Use component or template overrides for those parts.
 </Callout>
 
 ### Slot component inputs

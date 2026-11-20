@@ -1,0 +1,110 @@
+{/*
+  The Deep Agents backend for the Vue, Angular and React Native quickstarts
+  (`/vue/deepagents` and so on), picked by `index.mdx`.
+  The page around it already created the app and installed
+  `@copilotkit/runtime` and `tsx`. Its next steps start `npx tsx server.ts`
+  from the app folder, so the agent here must be running by then.
+*/}
+
+<Step>
+  ### Create your Deep Agent
+
+  You need Python 3.11+, [`uv`](https://docs.astral.sh/uv/) and an OpenAI API key. The agent gets its own folder next to your app. From your app folder:
+
+  ```bash
+  cd ..
+  uv init my-agent
+  cd my-agent
+  uv add deepagents copilotkit langchain-openai
+  uv add --dev "langgraph-cli[inmem]"
+  ```
+
+  Replace the contents of `main.py` with a small Deep Agent. If you already have one, add `CopilotKitMiddleware` to it and use this as a reference:
+
+  ```python title="main.py"
+  from copilotkit import CopilotKitMiddleware
+  from deepagents import create_deep_agent
+
+
+  def get_weather(location: str):
+      """Get weather for a location"""
+      return f"The weather in {location} is sunny."
+
+
+  agent = create_deep_agent(
+      model="openai:gpt-6-luna",
+      tools=[get_weather],
+      middleware=[CopilotKitMiddleware()],  # for frontend tools and context
+      system_prompt="You are a helpful research assistant.",
+  )
+  ```
+
+  Do not pass a `checkpointer` to `create_deep_agent()`. The LangGraph server supplies persistence.
+
+  Add `langgraph.json` next to `main.py`. The key under `graphs` is the graph ID the runtime connects to:
+
+  ```json title="langgraph.json"
+  {
+    "dependencies": ["."],
+    "graphs": {
+      "sample_agent": "./main.py:agent"
+    },
+    "env": ".env"
+  }
+  ```
+
+  Put your OpenAI key in `.env`:
+
+  ```plaintext title=".env"
+  OPENAI_API_KEY=your_openai_api_key
+  ```
+</Step>
+
+<Step>
+  ### Start the agent
+
+  ```bash
+  uv run langgraph dev --port 8123 --no-browser
+  ```
+
+  Keep this terminal open. The agent server listens on `http://localhost:8123`. Without `--port`, the LangGraph CLI uses `2024`, and the runtime below would not find it.
+</Step>
+
+<Step>
+  ### Create the Copilot Runtime
+
+  Open a new terminal in your app folder. Add `server.ts`, a small Node server that hosts Copilot Runtime at `/api/copilotkit` and registers your Deep Agent as the `default` agent:
+
+  ```ts title="server.ts"
+  import { createServer } from "node:http";
+  import { CopilotRuntime } from "@copilotkit/runtime/v2";
+  import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
+  import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
+
+  const runtime = new CopilotRuntime({
+    agents: {
+      // [!code highlight:4]
+      default: new LangGraphAgent({
+        deploymentUrl: process.env.LANGGRAPH_URL ?? "http://localhost:8123",
+        graphId: "sample_agent",
+      }),
+    },
+  });
+
+  const port = Number(process.env.PORT ?? 8200);
+
+  createServer(
+    createCopilotNodeListener({
+      runtime,
+      basePath: "/api/copilotkit",
+      cors: true,
+    }),
+  ).listen(port, () => {
+    console.log(
+      `Copilot Runtime listening at http://localhost:${port}/api/copilotkit`,
+    );
+  });
+  ```
+
+  `cors: true` lets the app's dev server, on another port, call the runtime. The model key stays with the agent, so the runtime needs none.
+</Step>

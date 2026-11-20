@@ -1,7 +1,7 @@
 ---
 title: "CopilotKit Intelligence architecture"
 nav_title: "Architecture"
-description: "How a CopilotKit runtime connects to Intelligence, and how cloud-hosted differs from self-hosted."
+description: "How Copilot Runtime connects to Intelligence, and how cloud-hosted differs from self-hosted."
 icon: "lucide/Server"
 doc_type: explanation
 ---
@@ -26,7 +26,7 @@ To connect a runtime, follow the [quickstart](/intelligence/quickstart). For the
 A CopilotKit app has three layers:
 
 - **Frontend.** Your application uses the CopilotKit frontend SDK to render chat, generative UI, tools, and thread controls.
-- **Runtime.** Your application server hosts the CopilotKit runtime and connects to your agent framework through AG-UI.
+- **Runtime.** Your application server hosts Copilot Runtime and connects to your agent framework through AG-UI.
 - **CopilotKit Intelligence.** The service that stores threads, serves project APIs, and powers the web app.
 
 The runtime is the bridge. It receives requests from your app, streams AG-UI events to and from your agent, and uses CopilotKit Intelligence when a capability needs durable state.

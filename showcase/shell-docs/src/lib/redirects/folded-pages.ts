@@ -895,7 +895,11 @@ export const FOLDED_PAGES: RedirectEntry[] = [
   // Root-level copies of the Agent Spec and Deep Agents docs answered under
   // every framework's prefix (`/ag2/agent-spec/quickstart`); they're gone, so
   // those URLs open the framework's own page.
-  { id: "FOLD-stale", source: "/ag2/agent-spec", destination: "/agent-spec" },
+  {
+    id: "FOLD-stale",
+    source: "/ag2/agent-spec",
+    destination: "/agent-spec/quickstart",
+  },
   {
     id: "FOLD-stale",
     source: "/ag2/agent-spec/human-in-the-loop",
@@ -916,8 +920,16 @@ export const FOLDED_PAGES: RedirectEntry[] = [
     source: "/ag2/agent-spec/wayflow",
     destination: "/agent-spec/wayflow",
   },
-  { id: "FOLD-stale", source: "/ag2/deepagents", destination: "/deepagents" },
-  { id: "FOLD-stale", source: "/agno/agent-spec", destination: "/agent-spec" },
+  {
+    id: "FOLD-stale",
+    source: "/ag2/deepagents",
+    destination: "/deepagents/quickstart",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/agno/agent-spec",
+    destination: "/agent-spec/quickstart",
+  },
   {
     id: "FOLD-stale",
     source: "/agno/agent-spec/human-in-the-loop",
@@ -938,11 +950,15 @@ export const FOLDED_PAGES: RedirectEntry[] = [
     source: "/agno/agent-spec/wayflow",
     destination: "/agent-spec/wayflow",
   },
-  { id: "FOLD-stale", source: "/agno/deepagents", destination: "/deepagents" },
+  {
+    id: "FOLD-stale",
+    source: "/agno/deepagents",
+    destination: "/deepagents/quickstart",
+  },
   {
     id: "FOLD-stale",
     source: "/claude-sdk-python/agent-spec",
-    destination: "/agent-spec",
+    destination: "/agent-spec/quickstart",
   },
   {
     id: "FOLD-stale",
@@ -967,12 +983,12 @@ export const FOLDED_PAGES: RedirectEntry[] = [
   {
     id: "FOLD-stale",
     source: "/claude-sdk-python/deepagents",
-    destination: "/deepagents",
+    destination: "/deepagents/quickstart",
   },
   {
     id: "FOLD-stale",
     source: "/claude-sdk-typescript/agent-spec",
-    destination: "/agent-spec",
+    destination: "/agent-spec/quickstart",
   },
   {
     id: "FOLD-stale",
@@ -997,12 +1013,12 @@ export const FOLDED_PAGES: RedirectEntry[] = [
   {
     id: "FOLD-stale",
     source: "/claude-sdk-typescript/deepagents",
-    destination: "/deepagents",
+    destination: "/deepagents/quickstart",
   },
   {
     id: "FOLD-stale",
     source: "/crewai-crews/agent-spec",
-    destination: "/agent-spec",
+    destination: "/agent-spec/quickstart",
   },
   {
     id: "FOLD-stale",
@@ -1027,12 +1043,12 @@ export const FOLDED_PAGES: RedirectEntry[] = [
   {
     id: "FOLD-stale",
     source: "/crewai-crews/deepagents",
-    destination: "/deepagents",
+    destination: "/deepagents/quickstart",
   },
   {
     id: "FOLD-stale",
     source: "/deepagents/agent-spec",
-    destination: "/agent-spec",
+    destination: "/agent-spec/quickstart",
   },
   {
     id: "FOLD-stale",
@@ -1057,12 +1073,12 @@ export const FOLDED_PAGES: RedirectEntry[] = [
   {
     id: "FOLD-stale",
     source: "/deepagents/deepagents",
-    destination: "/deepagents",
+    destination: "/deepagents/quickstart",
   },
   {
     id: "FOLD-stale",
     source: "/google-adk/agent-spec",
-    destination: "/agent-spec",
+    destination: "/agent-spec/quickstart",
   },
   {
     id: "FOLD-stale",
@@ -1087,12 +1103,12 @@ export const FOLDED_PAGES: RedirectEntry[] = [
   {
     id: "FOLD-stale",
     source: "/google-adk/deepagents",
-    destination: "/deepagents",
+    destination: "/deepagents/quickstart",
   },
   {
     id: "FOLD-stale",
     source: "/google-antigravity/agent-spec",
-    destination: "/agent-spec",
+    destination: "/agent-spec/quickstart",
   },
   {
     id: "FOLD-stale",
@@ -1117,12 +1133,12 @@ export const FOLDED_PAGES: RedirectEntry[] = [
   {
     id: "FOLD-stale",
     source: "/google-antigravity/deepagents",
-    destination: "/deepagents",
+    destination: "/deepagents/quickstart",
   },
   {
     id: "FOLD-stale",
     source: "/langgraph-fastapi/agent-spec",
-    destination: "/agent-spec",
+    destination: "/agent-spec/quickstart",
   },
   {
     id: "FOLD-stale",
@@ -1147,12 +1163,12 @@ export const FOLDED_PAGES: RedirectEntry[] = [
   {
     id: "FOLD-stale",
     source: "/langgraph-fastapi/deepagents",
-    destination: "/deepagents",
+    destination: "/deepagents/quickstart",
   },
   {
     id: "FOLD-stale",
     source: "/langgraph-python/agent-spec",
-    destination: "/agent-spec",
+    destination: "/agent-spec/quickstart",
   },
   {
     id: "FOLD-stale",
@@ -1177,12 +1193,12 @@ export const FOLDED_PAGES: RedirectEntry[] = [
   {
     id: "FOLD-stale",
     source: "/langgraph-python/deepagents",
-    destination: "/deepagents",
+    destination: "/deepagents/quickstart",
   },
   {
     id: "FOLD-stale",
     source: "/langgraph-typescript/agent-spec",
-    destination: "/agent-spec",
+    destination: "/agent-spec/quickstart",
   },
   {
     id: "FOLD-stale",
@@ -1207,12 +1223,12 @@ export const FOLDED_PAGES: RedirectEntry[] = [
   {
     id: "FOLD-stale",
     source: "/langgraph-typescript/deepagents",
-    destination: "/deepagents",
+    destination: "/deepagents/quickstart",
   },
   {
     id: "FOLD-stale",
     source: "/llamaindex/agent-spec",
-    destination: "/agent-spec",
+    destination: "/agent-spec/quickstart",
   },
   {
     id: "FOLD-stale",
@@ -1237,12 +1253,12 @@ export const FOLDED_PAGES: RedirectEntry[] = [
   {
     id: "FOLD-stale",
     source: "/llamaindex/deepagents",
-    destination: "/deepagents",
+    destination: "/deepagents/quickstart",
   },
   {
     id: "FOLD-stale",
     source: "/mastra/agent-spec",
-    destination: "/agent-spec",
+    destination: "/agent-spec/quickstart",
   },
   {
     id: "FOLD-stale",
@@ -1267,12 +1283,12 @@ export const FOLDED_PAGES: RedirectEntry[] = [
   {
     id: "FOLD-stale",
     source: "/mastra/deepagents",
-    destination: "/deepagents",
+    destination: "/deepagents/quickstart",
   },
   {
     id: "FOLD-stale",
     source: "/ms-agent-dotnet/agent-spec",
-    destination: "/agent-spec",
+    destination: "/agent-spec/quickstart",
   },
   {
     id: "FOLD-stale",
@@ -1297,12 +1313,12 @@ export const FOLDED_PAGES: RedirectEntry[] = [
   {
     id: "FOLD-stale",
     source: "/ms-agent-dotnet/deepagents",
-    destination: "/deepagents",
+    destination: "/deepagents/quickstart",
   },
   {
     id: "FOLD-stale",
     source: "/ms-agent-harness-dotnet/agent-spec",
-    destination: "/agent-spec",
+    destination: "/agent-spec/quickstart",
   },
   {
     id: "FOLD-stale",
@@ -1327,12 +1343,12 @@ export const FOLDED_PAGES: RedirectEntry[] = [
   {
     id: "FOLD-stale",
     source: "/ms-agent-harness-dotnet/deepagents",
-    destination: "/deepagents",
+    destination: "/deepagents/quickstart",
   },
   {
     id: "FOLD-stale",
     source: "/ms-agent-python/agent-spec",
-    destination: "/agent-spec",
+    destination: "/agent-spec/quickstart",
   },
   {
     id: "FOLD-stale",
@@ -1357,12 +1373,12 @@ export const FOLDED_PAGES: RedirectEntry[] = [
   {
     id: "FOLD-stale",
     source: "/ms-agent-python/deepagents",
-    destination: "/deepagents",
+    destination: "/deepagents/quickstart",
   },
   {
     id: "FOLD-stale",
     source: "/pydantic-ai/agent-spec",
-    destination: "/agent-spec",
+    destination: "/agent-spec/quickstart",
   },
   {
     id: "FOLD-stale",
@@ -1387,12 +1403,12 @@ export const FOLDED_PAGES: RedirectEntry[] = [
   {
     id: "FOLD-stale",
     source: "/pydantic-ai/deepagents",
-    destination: "/deepagents",
+    destination: "/deepagents/quickstart",
   },
   {
     id: "FOLD-stale",
     source: "/strands-typescript/agent-spec",
-    destination: "/agent-spec",
+    destination: "/agent-spec/quickstart",
   },
   {
     id: "FOLD-stale",
@@ -1417,12 +1433,12 @@ export const FOLDED_PAGES: RedirectEntry[] = [
   {
     id: "FOLD-stale",
     source: "/strands-typescript/deepagents",
-    destination: "/deepagents",
+    destination: "/deepagents/quickstart",
   },
   {
     id: "FOLD-stale",
     source: "/strands/agent-spec",
-    destination: "/agent-spec",
+    destination: "/agent-spec/quickstart",
   },
   {
     id: "FOLD-stale",
@@ -1447,6 +1463,6 @@ export const FOLDED_PAGES: RedirectEntry[] = [
   {
     id: "FOLD-stale",
     source: "/strands/deepagents",
-    destination: "/deepagents",
+    destination: "/deepagents/quickstart",
   },
 ];

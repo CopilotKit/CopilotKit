@@ -1,0 +1,120 @@
+{/*
+  The Microsoft Agent Harness (.NET) backend for the Vue, Angular and
+  React Native quickstarts (`/vue/ms-agent-harness-dotnet` and so on),
+  picked by `index.mdx`. The page around it already created the app and
+  installed `@copilotkit/runtime` and `tsx`. Its next steps start
+  `npx tsx server.ts` from the app folder, so the agent here must be
+  running by then.
+*/}
+
+<Step>
+  ### Create your Microsoft Agent Framework agent
+
+  You need the .NET 9.0 SDK or later and an OpenAI API key. The agent gets its own folder next to your app. From your app folder:
+
+  ```bash
+  cd ..
+  dotnet new web -n my-agent
+  cd my-agent
+  dotnet add package Microsoft.Agents.AI.Hosting.AGUI.AspNetCore --version 1.19.0-preview.260822.1
+  dotnet add package Microsoft.Agents.AI.OpenAI --version 1.19.0
+  dotnet user-secrets init
+  ```
+
+  `Microsoft.Agents.AI.Hosting.AGUI.AspNetCore` serves a Microsoft Agent Framework agent over AG-UI, the protocol that Copilot Runtime speaks.
+
+  Replace the contents of `Program.cs` with a small agent. If you already have an agent, pass it to `MapAGUIServer` and use this as a reference:
+
+  ```csharp title="Program.cs"
+  #pragma warning disable OPENAI001
+  using Microsoft.Agents.AI;
+  using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
+  using Microsoft.Extensions.AI;
+  using OpenAI;
+  using OpenAI.Chat;
+
+  var builder = WebApplication.CreateBuilder(args);
+  builder.Services.AddAGUIServer();
+  var app = builder.Build();
+
+  var openAiApiKey = builder.Configuration["OPENAI_API_KEY"]
+      ?? throw new InvalidOperationException("Set OPENAI_API_KEY");
+  var openAI = new OpenAIClient(openAiApiKey);
+
+  var agent = openAI.GetChatClient("gpt-6-luna")
+      .AsIChatClient().AsBuilder()
+      .ConfigureOptions(options => options.RawRepresentationFactory = _ =>
+          new ChatCompletionOptions { ReasoningEffortLevel = new("none") })
+      .Build()
+      .AsAIAgent(
+          name: "MyAgent",
+          instructions: "You are a helpful assistant.");
+
+  app.MapAGUIServer("/", agent);
+  app.Run();
+  ```
+
+  This is a plain Microsoft Agent Framework agent. A `HarnessAgent` from `AsHarnessAgent` (package `Microsoft.Agents.AI.Harness`) is an `AIAgent` too, so `MapAGUIServer` serves it the same way.
+
+  Save your OpenAI key as a .NET user secret:
+
+  ```bash
+  dotnet user-secrets set OPENAI_API_KEY "<your-openai-api-key>"
+  ```
+</Step>
+
+<Step>
+  ### Start the agent
+
+  ```bash
+  dotnet run --urls http://localhost:8000
+  ```
+
+  Keep this terminal open. The agent listens on `http://localhost:8000`. Without `--urls`, it uses the random port in `Properties/launchSettings.json`, and the runtime below does not find it.
+</Step>
+
+<Step>
+  ### Create the Copilot Runtime
+
+  Open a new terminal in your app folder. The runtime reaches the agent with `HttpAgent` from `@ag-ui/client`:
+
+  ```bash
+  npm install @ag-ui/client
+  ```
+
+  `@ag-ui/client` must be the same version that `@copilotkit/runtime` uses. Run `npm ls @ag-ui/client`. The top-level copy must be the version that `@copilotkit/runtime` lists as `deduped`.
+
+  Add `server.ts`, a small Node server that hosts Copilot Runtime at `/api/copilotkit` and registers your agent as the `default` agent:
+
+  ```ts title="server.ts"
+  import { createServer } from "node:http";
+  import { HttpAgent } from "@ag-ui/client";
+  import { CopilotRuntime } from "@copilotkit/runtime/v2";
+  import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
+
+  const runtime = new CopilotRuntime({
+    agents: {
+      // [!code highlight:3]
+      default: new HttpAgent({
+        url: process.env.AGENT_URL ?? "http://localhost:8000/",
+      }),
+    },
+  });
+
+  const port = Number(process.env.PORT ?? 8200);
+
+  createServer(
+    createCopilotNodeListener({
+      runtime,
+      basePath: "/api/copilotkit",
+      cors: true,
+    }),
+  ).listen(port, () => {
+    console.log(
+      `Copilot Runtime listening at http://localhost:${port}/api/copilotkit`,
+    );
+  });
+  ```
+
+  `cors: true` lets the app's dev server, on another port, call the runtime. The model key stays with the agent, so the runtime needs none.
+</Step>

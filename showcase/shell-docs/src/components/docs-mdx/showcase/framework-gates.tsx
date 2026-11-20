@@ -95,11 +95,11 @@ export function frameworkSupports(slug: string, feature: string): boolean {
 }
 
 /**
- * The Angular quickstart's two paths: `selected` (the default) renders when
- * the URL names an agent backend, `selected={false}` on the standalone
- * built-in agent path.
+ * A frontend quickstart's two paths (Vue, Angular, React Native):
+ * `selected` (the default) renders when the URL names an agent backend,
+ * `selected={false}` on the standalone built-in agent path.
  */
-export function WhenAngularBackend({
+export function WhenAgentBackend({
   scope,
   selected = true,
   currentFramework,
@@ -111,10 +111,46 @@ export function WhenAngularBackend({
   children?: ReactNode;
 }) {
   const framework = scope.framework ?? currentFramework;
-  return hasAngularBackend(framework) === selected ? <>{children}</> : null;
+  return hasAgentBackend(framework) === selected ? <>{children}</> : null;
 }
 
 /** The URL names an agent backend, not the standalone built-in agent. */
-export function hasAngularBackend(framework: string | null | undefined) {
+export function hasAgentBackend(framework: string | null | undefined) {
   return Boolean(framework && framework !== ROOT_FRAMEWORK);
+}
+
+/**
+ * `<WhenFramework is="langgraph-python,langgraph-fastapi">` renders its
+ * children only when the URL's framework (else `currentFramework`) is one of
+ * the comma-separated slugs. The frontend quickstarts pick each framework's
+ * backend steps with it (`src/content/snippets/agent-backends`).
+ */
+export function WhenFramework({
+  scope,
+  is,
+  currentFramework,
+  children,
+}: {
+  scope: DocsScope;
+  is: string;
+  currentFramework?: string | null;
+  children?: ReactNode;
+}) {
+  return frameworkIs(scope.framework ?? currentFramework, is) ? (
+    <>{children}</>
+  ) : null;
+}
+
+/** Whether `framework` is one of `<WhenFramework is>`'s comma-separated slugs. */
+export function frameworkIs(
+  framework: string | null | undefined,
+  is: string,
+): boolean {
+  return Boolean(
+    framework &&
+    is
+      .split(",")
+      .map((s) => s.trim())
+      .includes(framework),
+  );
 }

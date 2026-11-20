@@ -71,12 +71,43 @@ export class HeadlessChatComponent {
 }
 ```
 
+<Callout type="warn" title="TS2739 on `runAgent({ agent })`">
+  `@copilotkit/angular` 0.6.0 pins `@ag-ui/client` 1.0.2, and the
+  `@copilotkit/core` it installs pins 1.0.5. The two `AbstractAgent` types then
+  differ, and `ng serve` fails with `TS2739` on the `runAgent` line. Make both
+  use one version. Add this to `package.json` and run `npm install`:
+
+  ```json title="package.json"
+  "overrides": {
+    "@ag-ui/client": "1.0.5",
+    "@ag-ui/core": "1.0.5"
+  }
+  ```
+</Callout>
+
 Add error handling around `runAgent` in production and disable repeated sends
 while `isRunning()` is true. The store tears down its agent subscription with
 the owning injector.
 
+## Render the chat
+
+Render the component from `src/app/app.ts`:
+
+```ts title="src/app/app.ts"
+import { Component } from "@angular/core";
+import { HeadlessChatComponent } from "./headless-chat.component"; // [!code highlight]
+
+@Component({
+  selector: "app-root",
+  imports: [HeadlessChatComponent], // [!code highlight]
+  template: `<app-headless-chat />`, // [!code highlight]
+})
+export class App {}
+```
+
 Type a message and click **Send**. Your message appears, then "Agent is
-working…", then the agent's reply.
+working…", then the agent's reply. The component has no styles, so it shows
+plain HTML until you add your own CSS.
 
 ## Next steps
 

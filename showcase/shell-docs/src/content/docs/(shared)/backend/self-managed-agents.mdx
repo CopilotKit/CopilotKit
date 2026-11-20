@@ -5,18 +5,35 @@ description: "Connect AG-UI agents that you host and secure yourself."
 ---
 
 If you host and secure your own AG-UI agent, the frontend can call it directly,
-without the CopilotKit [runtime](/backend/copilot-runtime). Use
+without [Copilot Runtime](/backend/copilot-runtime). Use
 `selfManagedAgents` in production. For local development, use
 `agents__unsafe_dev_only` in React or `agents` in Angular.
 
 ## Production: self-managed agents
 
+<Callout type="info" title="Part of CopilotKit Intelligence">
+  `selfManagedAgents` is part of the CopilotKit Intelligence [Enterprise
+  plan](/intelligence/intelligence-platform). [Talk to an
+  engineer](https://copilotkit.ai/talk-to-an-engineer) about licensing for
+  production use.
+</Callout>
+
 `selfManagedAgents` is the supported configuration option for connecting agents you manage
 yourself, for example an [`HttpAgent`](/backend/ag-ui) pointing at an
-AG-UI-compatible backend you own and have already secured:
+AG-UI-compatible backend you own and have already secured.
+
+Install the AG-UI client:
+
+```bash
+npm install @ag-ui/client
+```
 
 <FrontendOnly frontend="react">
-```tsx
+Register the agent on the provider:
+
+```tsx title="app/providers.tsx"
+"use client";
+
 import { HttpAgent } from "@ag-ui/client";
 import { CopilotKit } from "@copilotkit/react-core/v2";
 
@@ -24,12 +41,30 @@ const supportAgent = new HttpAgent({
   url: "https://agents.example.com/support",
 });
 
-<CopilotKit
-  selfManagedAgents={{ "support-agent": supportAgent }}
->
-  <YourApp />
-</CopilotKit>;
+export function Providers({ children }: { children: React.ReactNode }) {
+  return (
+    <CopilotKit selfManagedAgents={{ "support-agent": supportAgent }}>
+      {children}
+    </CopilotKit>
+  );
+}
 ```
+
+Wrap your app in `<Providers>` in `app/layout.tsx`. Then point a chat at the
+agent with `agentId`:
+
+```tsx title="app/page.tsx"
+"use client";
+
+import { CopilotChat } from "@copilotkit/react-core/v2";
+
+export default function Page() {
+  return <CopilotChat agentId="support-agent" />;
+}
+```
+
+Chat components use the agent `default` unless you pass `agentId`. You can also
+register the agent under the key `default`.
 </FrontendOnly>
 
 <FrontendOnly frontend="angular">
@@ -54,20 +89,20 @@ export const appConfig: ApplicationConfig = {
 
 Each key is the `agentId` that chat components and frontend agent APIs use to
 address that agent. Self-managed agents use your transport and your security
-model. Because the requests don't pass through the CopilotKit runtime, the
+model. Because the requests don't pass through Copilot Runtime, the
 runtime's server-side auth, middleware, and routing do not apply. Your agent
 endpoint must [authenticate and authorize every request](/auth).
 
-Open a chat that uses the `support-agent` agent ID and send a message. The
+<Callout type="warn" title="Your agent must allow CORS">
+The browser sends these requests straight to your agent. If the agent runs on
+another origin (another port counts), its server must answer the CORS preflight
+and allow your app's origin, the `Content-Type` header, and any auth headers you
+send. Otherwise the run fails with `TypeError: Failed to fetch`.
+</Callout>
+
+Open the chat that uses the `support-agent` agent ID and send a message. The
 endpoint at `https://agents.example.com/support` receives the run, and its reply
 streams into the chat.
-
-<Callout type="info" title="Part of CopilotKit Intelligence">
-  `selfManagedAgents` is part of the CopilotKit Intelligence [Enterprise
-  plan](/intelligence/intelligence-platform). [Talk to an
-  engineer](https://copilotkit.ai/talk-to-an-engineer) about licensing for
-  production use.
-</Callout>
 
 <Callout type="info">
 You can combine `selfManagedAgents` with `runtimeUrl`. Runtime-discovered agents
@@ -81,16 +116,25 @@ and self-managed agents coexist; address each by its `agentId`.
 `AbstractAgent`. The name is intentionally loud. Use it only for local
 development and prototyping.
 
-```tsx
+```tsx title="app/providers.tsx"
+"use client";
+
 import { HttpAgent } from "@ag-ui/client";
 import { CopilotKit } from "@copilotkit/react-core/v2";
 
 const myAgent = new HttpAgent({ url: "http://localhost:8000" });
 
-<CopilotKit agents__unsafe_dev_only={{ "my-agent": myAgent }}>
-  <YourApp />
-</CopilotKit>;
+export function Providers({ children }: { children: React.ReactNode }) {
+  return (
+    <CopilotKit agents__unsafe_dev_only={{ "my-agent": myAgent }}>
+      {children}
+    </CopilotKit>
+  );
+}
 ```
+
+Point the chat at it with `<CopilotChat agentId="my-agent" />`. The agent on
+port 8000 must allow CORS from your app's origin, as described above.
 
 Use it when you connect an agent on your own machine and do not have a runtime
 yet. Don't ship it to production. Switch to `selfManagedAgents` if you

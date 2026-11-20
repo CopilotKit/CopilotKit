@@ -66,8 +66,14 @@ event.
       ],
     ]);
 
+    function required(name: string): string {
+      const value = process.env[name];
+      if (!value) throw new Error(`Missing ${name}`);
+      return value;
+    }
+
     export const channel = createChannel({
-      name: "support",
+      name: required("CHANNEL_CODE"),
       identifyUser: async ({ provider, tenant, actor }) =>
         linkedAccounts.get(`${provider}:${tenant.id}:${actor.id}`) ?? null,
       agent: makeAgent,
@@ -93,8 +99,14 @@ event.
       ],
     ]);
 
+    function required(name: string): string {
+      const value = process.env[name];
+      if (!value) throw new Error(`Missing ${name}`);
+      return value;
+    }
+
     export const channel = createChannel({
-      name: "support",
+      name: required("CHANNEL_CODE"),
       identifyUser: async ({ provider, tenant, actor }) =>
         linkedAccounts.get(`${provider}:${tenant.id}:${actor.id}`) ?? null,
       agent: makeAgent,
@@ -120,10 +132,14 @@ event.
 
     Intelligence Memory is off unless the current `runAgent` call grants
     access. Each `user` or `project` scope accepts `"none"`, `"read"`, or
-    `"read-write"`:
+    `"read-write"`. Add this handler below the Channel from step 1:
 
-    ```ts title="channel.ts"
+    ```ts title="channel.ts (add the handler)"
     channel.onMessage(async ({ thread, message }) => {
+      if (!message.user) {
+        await thread.post("Link your account to use personal memory.");
+        return;
+      }
       await thread.runAgent({
         prompt: message.text,
         memory: {
@@ -135,8 +151,9 @@ event.
     ```
 
     Omitting a scope disables it for that run. Project-only Memory works when
-    `identifyUser` returns `null`; user Memory fails before the agent starts
-    unless the current event resolved to an application user.
+    `identifyUser` returns `null`. User Memory fails before the agent starts
+    unless the current event resolved to an application user. The user then
+    gets no reply, so the handler checks `message.user` first and tells them.
 
     In a shared channel or group chat, project Memory is the safer default.
     Grant user Memory only when the current turn clearly acts for the resolved
@@ -150,35 +167,61 @@ event.
 
     A resumed run can grant Memory too. In the callback for a registered
     component, choose which trusted participant supplies the subject when you
-    grant user Memory:
+    grant user Memory.
 
-    ```tsx title="approval-button.tsx"
-    import { Button } from "@copilotkit/channels/ui";
+    This step uses Channels JSX. First add `"jsx": "react-jsx"` and
+    `"jsxImportSource": "@copilotkit/channels"` to `tsconfig.json`, and rename
+    `channel.ts` to `channel.tsx`. See
+    [Enable Channels JSX](/channels/interactive#enable-channels-jsx).
 
-    export function ApprovalButton() {
+    ```tsx title="approval-card.tsx"
+    import { Actions, Button, Message, Section } from "@copilotkit/channels/ui";
+
+    export function ApprovalCard() {
       return (
-        <Button
-          value={{ approved: true }}
-          onClick={async ({ thread, action }) => {
-            const value = action.value;
-            if (value === undefined) {
-              await thread.post("The approval value was missing.");
-              return;
-            }
+        <Message>
+          <Section>Approve the deploy?</Section>
+          <Actions>
+            <Button
+              value={{ approved: true }}
+              onClick={async ({ thread, action }) => {
+                const value = action.value;
+                if (value === undefined) {
+                  await thread.post("The approval value was missing.");
+                  return;
+                }
 
-            await thread.resume(value, {
-              memory: {
-                user: "read",
-                project: "read",
-              },
-              subject: "initiator",
-            });
-          }}
-        >
-          Approve
-        </Button>
+                await thread.resume(value, {
+                  memory: {
+                    user: "read",
+                    project: "read",
+                  },
+                  subject: "initiator",
+                });
+              }}
+            >
+              Approve
+            </Button>
+          </Actions>
+        </Message>
       );
     }
+    ```
+
+    Keep the `<Button>` inside `<Message>` and `<Actions>`. A bare button
+    posts as an empty message with nothing to click.
+
+    Register the card on the Channel and post it when the agent interrupts:
+
+    ```tsx title="channel.tsx"
+    import { ApprovalCard } from "./approval-card.js";
+
+    // In createChannel({ ... }) from step 1, add:
+    //   components: [ApprovalCard],
+
+    channel.onInterrupt("on_interrupt", async ({ thread }) => {
+      await thread.post(<ApprovalCard />);
+    });
     ```
 
     - `"initiator"` keeps the application user who started the continuation
@@ -190,7 +233,7 @@ event.
     Use `"initiator"` when an approval belongs to the person who started the
     workflow. Use `"actor"` when the current approver should supply the user
     Memory. See [Interactive messages and approvals](/channels/interactive)
-    for the complete registered component and post-and-resume flow.
+    for the post-and-resume flow and the agent side of `on_interrupt`.
 
   </Step>
 
@@ -203,8 +246,9 @@ event.
     1. Send a message from two actors in the same conversation. Confirm each
        event looks up the full provider, tenant, and actor tuple and resolves
        the correct application user independently.
-    2. Test an intentionally unlinked actor. A project-only run should work;
-       requesting user Memory should fail with
+    2. Test an intentionally unlinked actor. A project-only run should work.
+       The step 2 handler should reply "Link your account to use personal
+       memory." Without that check, a run that requests user Memory fails with
        `channel_memory_user_required` before the agent starts.
     3. If the Channel uses approvals, start a workflow as one user and click it
        as another. Verify `"initiator"` preserves the starter and `"actor"`

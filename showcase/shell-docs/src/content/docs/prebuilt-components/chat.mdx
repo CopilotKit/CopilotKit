@@ -41,13 +41,54 @@ import "@copilotkit/react-core/v2/styles.css";
 
 Import from `@copilotkit/react-core/v2`. The `CopilotChat` in `@copilotkit/react-ui` is the [deprecated v1 chat](/migrate/v2).
 
-<Snippet region="provider-setup" title="frontend/src/app/page.tsx — provider + chat" />
+<Snippet region="provider-setup" title="frontend/src/app/page.tsx: provider + chat" />
+
+`agentic_chat` is the demo's agent name. It must match a key in your runtime's
+`agents` (for example `new CopilotRuntime({ agents: { agentic_chat: myAgent } })`).
+If you followed the [quickstart](/quickstart), leave out `agent` and `agentId`.
+The chat then uses the agent your provider selects, or `default` when it
+selects none.
 
 ## Code example
 
-A component that renders the chat. `useAgenticChatSuggestions` is a demo hook that wraps `useConfigureSuggestions` to add starter suggestions:
+The demo's `Chat` component renders the chat with starter suggestions:
 
-<Snippet region="chat-component" title="frontend/src/app/page.tsx — the Chat component" />
+<Snippet region="chat-component" title="frontend/src/app/page.tsx: the Chat component" />
+
+`useAgenticChatSuggestions` is a demo hook. It calls `useConfigureSuggestions`:
+
+<Snippet region="configure-suggestions" title="frontend/src/app/suggestions.ts: the demo hook" />
+
+### Put it in your app
+
+This page uses the provider from the quickstart and the agent it selects. If
+your app has no provider yet, wrap the page in
+`<CopilotKit runtimeUrl="/api/copilotkit">`.
+
+```tsx title="app/chat/page.tsx"
+"use client";
+
+import { CopilotChat, useConfigureSuggestions } from "@copilotkit/react-core/v2";
+
+export default function ChatPage() {
+  useConfigureSuggestions({
+    suggestions: [
+      { title: "Tell me a joke", message: "Tell me a one-line joke." },
+    ],
+    available: "always",
+  });
+
+  // CopilotChat fills its parent, so give the parent a height
+  return (
+    <div style={{ height: "100vh" }}>
+      <CopilotChat />
+    </div>
+  );
+}
+```
+
+Open `/chat`. The chat fills the window and shows the **Tell me a joke**
+suggestion.
 
 ## Common props
 
@@ -57,10 +98,10 @@ accept the same slots and labels, plus a few wrapper-specific props.
 | Prop | Description |
 |------|-------------|
 | `agentId` | Agent slug the chat should talk to (must match an agent configured on the runtime). |
-| `labels` | User-facing copy: header title, placeholder, welcome, disclaimer. |
+| `labels` | User-facing copy: placeholder, welcome text, disclaimer. The header title applies to the popup and sidebar only. |
 | `messageView` | Slot for the message list. See [slots](/custom-look-and-feel/slots). |
 | `input` | Slot for the composer area (text area, send button, disclaimer). |
-| `scrollView` | Slot for the scroll container (e.g. custom feather/gradient). |
+| `scrollView` | Slot for the scroll container. Its `feather` sub-slot is the fade above the input. |
 | `suggestionView` | Slot for the suggestion pills shown below messages. |
 | `welcomeScreen` | Slot for the empty-state. Pass `false` to disable. |
 

@@ -1,7 +1,6 @@
 {
   "title": "Built-in Agent",
   "pages": [
-    "index",
     "quickstart",
     "server-tools",
     "mcp-servers",

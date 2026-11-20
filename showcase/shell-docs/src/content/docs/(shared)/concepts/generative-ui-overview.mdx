@@ -13,7 +13,7 @@ Seven primitives. Each one solves a different problem.
 
 | Primitive | What it does |
 |---|---|
-| **[Components as Tools](/generative-ui/tool-based)** | Register an application component as a frontend tool; the agent calls it and CopilotKit renders it inline with typed inputs. |
+| **[Components as Tools](/generative-ui/tool-based)** | Register an application component as a frontend tool. The agent calls it, and CopilotKit renders it inline with typed inputs. |
 | **[Tool Call Rendering](/generative-ui/tool-rendering)** | Map your agent's existing backend tool calls to custom UI cards showing live status, arguments, and results. |
 | **[State Rendering](/generative-ui/state-rendering)** | Subscribe to the agent's streamed state and re-render UI as values arrive. |
 | **[Reasoning](/generative-ui/reasoning)** | Render the model's reasoning tokens inline as a first-class message type (default card, or fully custom). |
@@ -78,6 +78,6 @@ These primitives sit along a spectrum from author-controlled to
 agent-invented. All of them use the same frontend, runtime, and AG-UI protocol,
 so you can choose a different primitive for each feature.
 
-- **Controlled**: you wrote the component; the agent only picks *which* one to render and *what data* to pass. Highest predictability, highest engineering cost per capability. *Components as Tools, Tool Call Rendering, State Rendering, Reasoning.*
-- **Declarative**: the agent emits a structured spec; the frontend composes from a catalog you registered. Creativity inside a guardrail. *A2UI (Dynamic and Fixed Schema).*
+- **Controlled**: you wrote the component, and the agent only picks *which* one to render and *what data* to pass. Highest predictability, highest engineering cost per capability. *Components as Tools, Tool Call Rendering, State Rendering, Reasoning.*
+- **Declarative**: the agent emits a structured spec, and the frontend composes from a catalog you registered. Creativity inside a guardrail. *A2UI (Dynamic and Fixed Schema).*
 - **Open-Ended**: the UI is invented outside your app (by an MCP server or by the agent) and you sandbox it. Highest expressive range, hardest to guarantee accessibility / brand / security. *MCP Apps, Open Generative UI.*

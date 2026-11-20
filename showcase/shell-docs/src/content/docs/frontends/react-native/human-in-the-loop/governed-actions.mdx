@@ -40,7 +40,7 @@ The app handles each verdict the same way every time:
 
 ## The approval card
 
-Both patterns below render the same card, built from React Native views:
+Both patterns below render the same card, built from React Native views. The card answers `allow` and `deny` at once, and asks the user only for `require_approval`:
 
 ```tsx title="src/GovernedActionCard.tsx"
 import { useEffect } from "react";
@@ -101,9 +101,82 @@ export function GovernedActionCard({
 }
 ```
 
+## Tool-call approval with `useHumanInTheLoop`
+
+This pattern works with every agent, the Built-in Agent included. For pauses the model decides on, register the approval checkpoint as a human-in-the-loop [frontend tool](/frontend-tools). To compare this pattern with interrupts, see the [HITL Overview](/human-in-the-loop). The model asks to call `approve_governed_action`, your UI renders the card, and the tool result tells the agent whether it may continue:
+
+```tsx title="src/GovernedActionTool.tsx"
+import { ToolCallStatus, useHumanInTheLoop } from "@copilotkit/react-native/headless";
+import { z } from "zod";
+import { GovernedActionCard } from "./GovernedActionCard";
+
+const governedActionSchema = z.object({
+  id: z.string(),
+  summary: z.string(),
+  tool: z.string(),
+  reference: z.string(),
+  arguments: z.record(z.unknown()),
+});
+
+export function useGovernedActionTool() {
+  useHumanInTheLoop({
+    name: "approve_governed_action",
+    description: "Ask the user to approve a governed side-effect action before it runs.",
+    parameters: governedActionSchema,
+    render: ({ args, status, respond }) => {
+      if (status !== ToolCallStatus.Executing || !respond) {
+        return null;
+      }
+
+      const answer = (approved: boolean) =>
+        respond({ approved, actionId: args.id, reference: args.reference });
+
+      return (
+        <GovernedActionCard
+          action={{ ...args, verdict: "require_approval" }}
+          onApprove={() => answer(true)}
+          onReject={() => answer(false)}
+          onBlock={() => answer(false)}
+        />
+      );
+    },
+  });
+}
+```
+
+The model fills these arguments, so this pattern always asks the user. Apply `allow` and `deny` verdicts only when your server attaches them, as in the interrupt pattern below.
+
+Call the hook in a component under `CopilotKitProvider`, next to the rendered chat:
+
+```tsx title="App.tsx"
+import { CopilotKitProvider } from "@copilotkit/react-native/headless";
+import { CopilotChat } from "@copilotkit/react-native/components";
+import { useGovernedActionTool } from "./src/GovernedActionTool";
+
+const runtimeUrl = "http://localhost:8200/api/copilotkit";
+
+function Approvals() {
+  useGovernedActionTool();
+  return null;
+}
+
+export default function App() {
+  return (
+    <CopilotKitProvider runtimeUrl={runtimeUrl}>
+      <Approvals />
+      <CopilotChat />
+    </CopilotKitProvider>
+  );
+}
+```
+
+The card shows only while the call is running, which is when `respond` is set. The rendered chat from `/components` draws it in the conversation. In your own chat, render tool calls with `useRenderToolCall`. See [Headless UI](/custom-look-and-feel/headless-ui).
+
+Ask the agent to send an email. The approval card shows the tool, the reference, and the arguments. Tap **Reject**, and the agent replies that it did not send the email.
+
 ## Inline approval with `useInterrupt`
 
-If your agent can pause a run, model the approval as an interrupt. The agent proposes the action, the UI renders the checkpoint, and the run resumes with the user's decision. The rendered `CopilotChat` from `/components` draws the card after the last message:
+If your agent can pause a run, model the approval as an interrupt. Then your server attaches the verdict, and the model cannot change it. The agent proposes the action, the UI renders the checkpoint, and the run resumes with the user's decision. The rendered `CopilotChat` from `/components` draws the card after the last message:
 
 ```tsx title="src/GovernedActionApproval.tsx"
 import { Text } from "react-native";
@@ -123,7 +196,7 @@ function parseInterruptValue(value: unknown): { action?: unknown } | undefined {
 export function useGovernedActionApproval(agentId: string) {
   useInterrupt({
     agentId, // the same agent as your chat
-    render: ({ event, interrupt, resolve, cancel }) => {
+    render: ({ event, interrupt, resolve }) => {
       const action = (interrupt?.metadata?.action ??
         parseInterruptValue(event.value)?.action) as GovernedAction | undefined;
 
@@ -140,7 +213,9 @@ export function useGovernedActionApproval(agentId: string) {
           onReject={() =>
             resolve({ approved: false, actionId: action.id, reference: action.reference })
           }
-          onBlock={() => cancel()}
+          onBlock={() =>
+            resolve({ approved: false, denied: true, actionId: action.id, reference: action.reference })
+          }
         />
       );
     },
@@ -148,10 +223,14 @@ export function useGovernedActionApproval(agentId: string) {
 }
 ```
 
+Call `useGovernedActionApproval("default")` in a component under `CopilotKitProvider`, as `useGovernedActionTool` above. Pass the id of the agent that your chat uses.
+
 The sample reads the action from either interrupt shape:
 
 - A standard AG-UI interrupt: the agent puts the action in `interrupt.metadata.action`.
 - A custom `on_interrupt` event: `interrupt` is `null`, and `event.value` holds the value from the agent. A LangGraph agent sends this event by default, with the value that the graph passed to `interrupt()` as JSON.
+
+A `deny` verdict also answers with a rejection. For an `on_interrupt` event, `cancel()` only hides the card and the thread stays paused, so the sample calls `resolve(...)` instead.
 
 On resume, the agent runs the action only when it receives an approved answer for the same action id and reference. In a LangGraph Python agent, the tool calls `interrupt()` with the action and checks the resume value:
 
@@ -191,55 +270,9 @@ def send_email(to: str, subject: str, body: str) -> str:
     return "The user did not approve this action. The email was not sent."
 ```
 
-For other agent frameworks, see [Pausing the Agent for Input](/human-in-the-loop/useInterrupt) for how each one emits an interrupt. On the Built-in Agent, interrupts are temporarily unavailable, so use the tool-call pattern below.
+Add `send_email` to your agent's tools, for example `create_agent(model=..., tools=[send_email], middleware=[CopilotKitMiddleware()])`. Replace `deliver_email` with your own email client. Then serve the graph and register it in Copilot Runtime, as in [Serve the agent](/shared-state/streaming#serve-the-agent).
 
-## Tool-call approval with `useHumanInTheLoop`
-
-For pauses the model decides on, register the approval checkpoint as a human-in-the-loop [frontend tool](/frontend-tools). To compare this pattern with interrupts, see the [HITL Overview](/human-in-the-loop). The model asks to call `approve_governed_action`, your UI renders the card, and the tool result tells the agent whether it may continue:
-
-```tsx title="src/GovernedActionTool.tsx"
-import { ToolCallStatus, useHumanInTheLoop } from "@copilotkit/react-native/headless";
-import { z } from "zod";
-import { GovernedActionCard } from "./GovernedActionCard";
-
-const governedActionSchema = z.object({
-  id: z.string(),
-  summary: z.string(),
-  tool: z.string(),
-  reference: z.string(),
-  verdict: z.enum(["allow", "deny", "require_approval"]),
-  arguments: z.record(z.unknown()),
-});
-
-export function useGovernedActionTool() {
-  useHumanInTheLoop({
-    name: "approve_governed_action",
-    description: "Ask the user to approve a governed side-effect action before it runs.",
-    parameters: governedActionSchema,
-    render: ({ args, status, respond }) => {
-      if (status !== ToolCallStatus.Executing || !respond) {
-        return null;
-      }
-
-      const answer = (approved: boolean) =>
-        respond({ approved, actionId: args.id, reference: args.reference });
-
-      return (
-        <GovernedActionCard
-          action={args}
-          onApprove={() => answer(true)}
-          onReject={() => answer(false)}
-          onBlock={() => answer(false)}
-        />
-      );
-    },
-  });
-}
-```
-
-The card shows only while the call is running, which is when `respond` is set. The rendered chat from `/components` draws it in the conversation. In your own chat, render tool calls with `useRenderToolCall`. See [Headless UI](/custom-look-and-feel/headless-ui).
-
-Ask the agent to send an email. The approval card shows the tool, the reference, and the arguments. Tap **Reject**, and the agent replies that it did not send the email.
+For other agent frameworks, see [Pausing the Agent for Input](/human-in-the-loop/useInterrupt) for how each one emits an interrupt. On the Built-in Agent, interrupt tools carry no action payload, so use the tool-call pattern above.
 
 ## Recommended guardrails
 

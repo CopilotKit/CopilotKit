@@ -1,0 +1,105 @@
+{/*
+  The OpenAI Agents SDK (Python) backend for the Vue, Angular and React
+  Native quickstarts (`/vue/openai-agents-python` and so on), picked by
+  `index.mdx`. The page around it already created the app and installed
+  `@copilotkit/runtime` and `tsx`. Its next steps start `npx tsx server.ts`
+  from the app folder, so the agent here must be running by then.
+*/}
+
+<Step>
+  ### Create your OpenAI Agents SDK agent
+
+  You need Python 3.10+, [`uv`](https://docs.astral.sh/uv/) and an OpenAI API key. The agent gets its own folder next to your app. From your app folder:
+
+  ```bash
+  cd ..
+  uv init my-agent
+  cd my-agent
+  uv add openai-agents ag-ui-openai-agents fastapi uvicorn
+  ```
+
+  Replace the contents of `main.py` with this file. It wraps an SDK `Agent` in the adapter's `OpenAIAgentsAgent` and serves it over AG-UI at `/agent`. If you already have an OpenAI Agents SDK agent, pass it to `OpenAIAgentsAgent` instead:
+
+  ```python title="main.py"
+  from agents import Agent
+  from ag_ui_openai_agents import (
+      OpenAIAgentsAgent,
+      add_openai_agents_fastapi_endpoint,
+  )
+  from fastapi import FastAPI
+
+  agent = OpenAIAgentsAgent(
+      Agent(
+          name="assistant",
+          instructions="You are a helpful assistant embedded in a CopilotKit app.",
+      )
+  )
+
+  app = FastAPI()
+  add_openai_agents_fastapi_endpoint(app, agent, "/agent")
+  ```
+
+  The adapter turns each AG-UI request into a streamed SDK run, and streams the run back as AG-UI events.
+
+  Put your OpenAI key in `.env`:
+
+  ```plaintext title=".env"
+  OPENAI_API_KEY=your_openai_api_key
+  ```
+</Step>
+
+<Step>
+  ### Start the agent
+
+  ```bash
+  uv run --env-file .env uvicorn main:app --port 8000
+  ```
+
+  Keep this terminal open. The agent listens on `http://localhost:8000/agent`. To check it, open `http://localhost:8000/agent/health`.
+</Step>
+
+<Step>
+  ### Create the Copilot Runtime
+
+  Open a new terminal in your app folder. The runtime reaches the agent with `HttpAgent` from `@ag-ui/client`:
+
+  ```bash
+  npm install @ag-ui/client
+  ```
+
+  `@ag-ui/client` must be the same version that `@copilotkit/runtime` uses. Run `npm ls @ag-ui/client`. The top-level copy must be the version that `@copilotkit/runtime` lists as `deduped`.
+
+  Add `server.ts`, a small Node server that hosts Copilot Runtime at `/api/copilotkit` and registers your agent as the `default` agent:
+
+  ```ts title="server.ts"
+  import { createServer } from "node:http";
+  import { HttpAgent } from "@ag-ui/client";
+  import { CopilotRuntime } from "@copilotkit/runtime/v2";
+  import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
+
+  const runtime = new CopilotRuntime({
+    agents: {
+      // [!code highlight:3]
+      default: new HttpAgent({
+        url: process.env.AGENT_URL ?? "http://localhost:8000/agent",
+      }),
+    },
+  });
+
+  const port = Number(process.env.PORT ?? 8200);
+
+  createServer(
+    createCopilotNodeListener({
+      runtime,
+      basePath: "/api/copilotkit",
+      cors: true,
+    }),
+  ).listen(port, () => {
+    console.log(
+      `Copilot Runtime listening at http://localhost:${port}/api/copilotkit`,
+    );
+  });
+  ```
+
+  `cors: true` lets the app's dev server, on another port, call the runtime. The model key stays with the agent, so the runtime needs none.
+</Step>

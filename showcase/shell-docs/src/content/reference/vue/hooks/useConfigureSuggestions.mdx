@@ -184,8 +184,8 @@ useConfigureSuggestions(
   composable reads it one time. Use `deps` to *reload* (regenerate) suggestions from that captured
   config. To change the `instructions` themselves at runtime (for example to
   inject a reactive topic), remount the component that calls
-  `useConfigureSuggestions` -- e.g. give it a `:key` that changes -- so the
-  composable re-runs with the new values.
+  `useConfigureSuggestions` (for example, give it a `:key` that changes), so
+  the composable re-runs with the new values.
 </Callout>
 
 ### Conditionally Disabling Suggestions
