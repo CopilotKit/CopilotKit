@@ -7,6 +7,11 @@
  */
 
 export interface CopilotCorsConfig {
+  /**
+   * Allowed origin(s) for CORS. Required when `credentials` is true: with no
+   * origin configured, credentialed requests get no CORS headers rather than
+   * a reflection of the request origin.
+   */
   origin?: string | string[] | ((origin: string) => string | null);
   credentials?: boolean;
   allowMethods?: string[];
@@ -25,6 +30,19 @@ const DEFAULT_METHODS = [
   "OPTIONS",
 ];
 const DEFAULT_HEADERS = ["*"];
+
+let warnedCredentialsWithoutOrigin = false;
+
+function warnCredentialsWithoutOrigin(): void {
+  if (warnedCredentialsWithoutOrigin) return;
+  warnedCredentialsWithoutOrigin = true;
+  console.warn(
+    "@copilotkit/runtime: cors.credentials is enabled without cors.origin. " +
+      "Reflecting the request origin would allow any site to read " +
+      "credentialed responses, so no CORS headers are sent. Set cors.origin " +
+      "to the allowed origin (see the runtime server adapter docs).",
+  );
+}
 
 function resolveOrigin(
   config: CopilotCorsConfig,
@@ -52,6 +70,15 @@ function setCorsHeaders(
   config: CopilotCorsConfig,
   requestOrigin: string | null,
 ): void {
+  // Credentials without a configured origin can only be honored by reflecting
+  // the request's own origin, which lets any site read authenticated
+  // responses (the docs require an explicit origin with credentials).
+  // Send no CORS headers instead of reflecting.
+  if (config.credentials && config.origin === undefined) {
+    warnCredentialsWithoutOrigin();
+    return;
+  }
+
   let allowedOrigin = resolveOrigin(config, requestOrigin);
   if (!allowedOrigin) return;
 

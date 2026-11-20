@@ -98,12 +98,14 @@ describe("Item 1: methodCall preserved when hooks replace request", () => {
 /* ------------------------------------------------------------------------------------------------
  * Item 2: credentials: true + wildcard origin silently produces invalid CORS
  *
- * When credentials is true and origin resolves to "*", we must auto-resolve
- * to the request origin to comply with the Fetch spec.
+ * When credentials is true and origin resolves to "*" (an explicit wildcard),
+ * we auto-resolve to the request origin to comply with the Fetch spec. With
+ * no origin configured at all, reflecting would let any site read credentialed
+ * responses (issue #8025), so no CORS headers are sent instead.
  * --------------------------------------------------------------------------------------------- */
 
 describe("Item 2: credentials + wildcard CORS", () => {
-  it("auto-resolves wildcard to request origin when credentials enabled (preflight)", () => {
+  it("sends no CORS origin when credentials enabled without a configured origin (preflight)", () => {
     const request = new Request("http://localhost/api", {
       method: "OPTIONS",
       headers: { Origin: "https://app.example.com" },
@@ -111,23 +113,19 @@ describe("Item 2: credentials + wildcard CORS", () => {
     const config: CopilotCorsConfig = { credentials: true };
     const response = handleCors(request, config)!;
 
-    expect(response.headers.get("Access-Control-Allow-Origin")).toBe(
-      "https://app.example.com",
-    );
-    expect(response.headers.get("Access-Control-Allow-Credentials")).toBe(
-      "true",
-    );
+    // The docs require an explicit origin with credentials; reflecting the
+    // request origin here would expose credentialed responses to any site.
+    expect(response.headers.get("Access-Control-Allow-Origin")).toBeNull();
+    expect(response.headers.get("Access-Control-Allow-Credentials")).toBeNull();
   });
 
-  it("auto-resolves wildcard to request origin in addCorsHeaders", () => {
+  it("sends no CORS origin in addCorsHeaders when credentials has no configured origin", () => {
     const response = new Response("ok", { status: 200 });
     const config: CopilotCorsConfig = { credentials: true };
     const result = addCorsHeaders(response, config, "https://mysite.com");
 
-    expect(result.headers.get("Access-Control-Allow-Origin")).toBe(
-      "https://mysite.com",
-    );
-    expect(result.headers.get("Access-Control-Allow-Credentials")).toBe("true");
+    expect(result.headers.get("Access-Control-Allow-Origin")).toBeNull();
+    expect(result.headers.get("Access-Control-Allow-Credentials")).toBeNull();
   });
 
   it("skips CORS entirely when credentials enabled, wildcard origin, and no request origin", () => {
@@ -158,7 +156,7 @@ describe("Item 2: credentials + wildcard CORS", () => {
     );
   });
 
-  it("end-to-end: handler CORS with credentials does not produce wildcard + credentials", async () => {
+  it("end-to-end: handler CORS with credentials and no origin sends no CORS headers", async () => {
     const handler = createCopilotRuntimeHandler({
       runtime: createRuntime(),
       basePath: "/api",
@@ -175,11 +173,10 @@ describe("Item 2: credentials + wildcard CORS", () => {
     const allowOrigin = response.headers.get("Access-Control-Allow-Origin");
     const allowCreds = response.headers.get("Access-Control-Allow-Credentials");
 
-    // Must NEVER be "*" + "true" — that's the invalid combo
-    if (allowCreds === "true") {
-      expect(allowOrigin).not.toBe("*");
-    }
-    expect(allowOrigin).toBe("https://app.example.com");
+    // `cors: { credentials: true }` without an origin must not reflect the
+    // request origin: any site could otherwise read credentialed responses.
+    expect(allowOrigin).toBeNull();
+    expect(allowCreds).toBeNull();
   });
 });
 

@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { handleCors, addCorsHeaders } from "../core/fetch-cors";
 import type { CopilotCorsConfig } from "../core/fetch-cors";
 
@@ -200,10 +200,12 @@ describe("fetch-cors", () => {
         { origin: () => "*", credentials: true },
       ],
     ])(
-      "does not echo requested headers when credentials reflect %s",
+      "does not echo requested headers when credentials resolve to %s",
       (_, config) => {
-        // The wildcard is reflected as the request origin, so echoing would
-        // let any site send credentialed requests with arbitrary headers.
+        // These configurations do not name a specific origin, so echoing
+        // requested headers would let an arbitrary site send credentialed
+        // requests. (Without an origin the response carries no CORS headers
+        // at all, see the "credentials without a configured origin" suite.)
         const request = new Request("http://localhost/api", {
           method: "OPTIONS",
           headers: {
@@ -284,6 +286,87 @@ describe("fetch-cors", () => {
       const config: CopilotCorsConfig = {};
       const result = addCorsHeaders(response, config, null);
       expect(result.headers.get("Vary")).toBeNull();
+    });
+  });
+
+  describe("credentials without a configured origin", () => {
+    // https://github.com/CopilotKit/CopilotKit/issues/8025
+    // Reflecting the request origin when `credentials` is on and `origin`
+    // is not configured answers every origin with
+    // `Access-Control-Allow-Origin: <that origin>` +
+    // `Access-Control-Allow-Credentials: true`, so any site can read
+    // authenticated responses. The documented contract requires an explicit
+    // origin with credentials, so no CORS headers are sent instead.
+
+    it("does not reflect the request origin on a preflight", () => {
+      const request = new Request("http://localhost/api", {
+        method: "OPTIONS",
+        headers: { Origin: "https://evil.example" },
+      });
+      const response = handleCors(request, { credentials: true })!;
+      expect(response.status).toBe(204);
+      expect(response.headers.get("Access-Control-Allow-Origin")).toBeNull();
+      expect(
+        response.headers.get("Access-Control-Allow-Credentials"),
+      ).toBeNull();
+    });
+
+    it("does not reflect the request origin on an actual response", () => {
+      const response = new Response("ok", { status: 200 });
+      const result = addCorsHeaders(
+        response,
+        { credentials: true },
+        "https://evil.example",
+      );
+      expect(result.headers.get("Access-Control-Allow-Origin")).toBeNull();
+      expect(result.headers.get("Access-Control-Allow-Credentials")).toBeNull();
+    });
+
+    it("warns once, not per request", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      vi.resetModules();
+      try {
+        const { handleCors: freshHandleCors } =
+          await import("../core/fetch-cors");
+        for (let i = 0; i < 3; i++) {
+          const request = new Request("http://localhost/api", {
+            method: "OPTIONS",
+            headers: { Origin: "https://evil.example" },
+          });
+          freshHandleCors(request, { credentials: true });
+        }
+        expect(warn).toHaveBeenCalledTimes(1);
+        expect(warn.mock.calls[0][0]).toMatch(
+          /credentials.*origin|origin.*credentials/i,
+        );
+      } finally {
+        warn.mockRestore();
+        vi.resetModules();
+      }
+    });
+
+    it("still reflects an explicit wildcard with credentials", () => {
+      // An explicit `origin: "*"` is a deliberate configuration; the
+      // Fetch-spec wildcard+credentials workaround keeps reflecting it.
+      const response = new Response("ok", { status: 200 });
+      const result = addCorsHeaders(
+        response,
+        { origin: "*", credentials: true },
+        "https://example.com",
+      );
+      expect(result.headers.get("Access-Control-Allow-Origin")).toBe(
+        "https://example.com",
+      );
+      expect(result.headers.get("Access-Control-Allow-Credentials")).toBe(
+        "true",
+      );
+    });
+
+    it("keeps permissive CORS when credentials are off", () => {
+      const response = new Response("ok", { status: 200 });
+      const result = addCorsHeaders(response, {}, "https://example.com");
+      expect(result.headers.get("Access-Control-Allow-Origin")).toBe("*");
+      expect(result.headers.get("Access-Control-Allow-Credentials")).toBeNull();
     });
   });
 });
