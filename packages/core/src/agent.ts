@@ -338,7 +338,8 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
    */
   #prepareOutboundMessages(input: RunAgentInput): RunAgentInput {
     const full = input.messages;
-    const kept = this.#applyMessageFilter(full);
+    const filtered = this.#applyMessageFilter(full);
+    const kept = filtered?.kept;
 
     // The pairing step is a best-effort fix-up, so it is guarded on its own
     // and kept apart from the filter call: a bug here is reported as the
@@ -355,7 +356,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
       const messages =
         kept === undefined
           ? ɵkeepToolResultsWithCalls(full)
-          : ɵrepairToolCallPairs(kept, full);
+          : ɵrepairToolCallPairs(kept, full, filtered?.copyToOriginal);
       return { ...input, messages };
     } catch (error) {
       if (kept === undefined) {
@@ -394,7 +395,9 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
    * is an optimization, and taking the user's message down with it would be
    * the worse outcome; the warning is what surfaces the bug.
    */
-  #applyMessageFilter(full: Message[]): Message[] | undefined {
+  #applyMessageFilter(
+    full: Message[],
+  ): { kept: Message[]; copyToOriginal: Map<Message, Message> } | undefined {
     const filter = this._messageFilter;
     if (!filter) return undefined;
 
@@ -410,6 +413,12 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
       );
       return undefined;
     }
+
+    const copyToOriginal = new Map<Message, Message>();
+    copy.forEach((message, index) => {
+      const original = full[index];
+      if (original) copyToOriginal.set(message, original);
+    });
 
     let kept: unknown;
     try {
@@ -437,7 +446,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
         return undefined;
       }
     }
-    return kept as Message[];
+    return { kept: kept as Message[], copyToOriginal };
   }
 
   override requestInit(input: RunAgentInput): RequestInit {
