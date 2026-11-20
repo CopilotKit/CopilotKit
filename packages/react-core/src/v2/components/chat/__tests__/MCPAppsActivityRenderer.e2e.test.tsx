@@ -20,6 +20,7 @@ import {
 import {
   MCPAppsActivityType,
   MCPAppsActivityContentSchema,
+  ɵmcpToolResultText,
 } from "../../../components/MCPAppsActivityRenderer";
 import type { ReactActivityMessageRenderer } from "../../../types";
 import type { RunAgentInput, RunAgentResult, BaseEvent } from "@ag-ui/client";
@@ -973,6 +974,106 @@ describe("MCP Apps Activity Renderer E2E", () => {
         },
         { timeout: 2000 },
       );
+    });
+  });
+
+  // A tool call whose MCP result carries `isError: true` used to be forwarded
+  // to the app and otherwise ignored host-side: the activity rendered an empty
+  // box while the chat chip still read "Done". Captured verbatim off prod:
+  // mcp.excalidraw.com rejecting a malformed `elements` argument.
+  describe("Tool Failure Surfacing", () => {
+    const RECORDED_ERROR_TEXT =
+      "Invalid JSON in elements: Unexpected non-whitespace character after JSON " +
+      "at position 540 (line 1 column 541). Ensure no comments, no trailing " +
+      "commas, and proper quoting.";
+
+    async function renderActivityWithResult(result: {
+      content?: unknown[];
+      structuredContent?: unknown;
+      isError?: boolean;
+    }) {
+      const agent = new MockMCPProxyAgent();
+      const agentId = "mcp-test-agent";
+      agent.agentId = agentId;
+
+      renderWithCopilotKit({ agents: { [agentId]: agent }, agentId });
+
+      const input = await screen.findByRole("textbox");
+      fireEvent.change(input, { target: { value: "Draw a flowchart" } });
+      fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+
+      await waitFor(() => {
+        expect(screen.getByText("Draw a flowchart")).toBeDefined();
+      });
+
+      agent.emit(runStartedEvent());
+      agent.emit(
+        activitySnapshotEvent({
+          messageId: testId("mcp-activity"),
+          activityType: MCPAppsActivityType,
+          content: mcpAppsActivityContent({
+            resourceUri: "ui://excalidraw/view",
+            serverHash: "excalidraw-hash",
+            result,
+          }),
+        }),
+      );
+      agent.emit(runFinishedEvent());
+    }
+
+    it("shows the failure message when the tool result has isError: true", async () => {
+      await renderActivityWithResult({
+        content: [{ type: "text", text: RECORDED_ERROR_TEXT }],
+        isError: true,
+      });
+
+      await waitFor(() => {
+        const banner = screen.getByTestId("copilot-mcp-apps-tool-error");
+        expect(banner.getAttribute("role")).toBe("alert");
+        expect(banner.textContent).toContain(RECORDED_ERROR_TEXT);
+      });
+    });
+
+    it("falls back to a generic message when the failed result carries no text", async () => {
+      await renderActivityWithResult({ content: [], isError: true });
+
+      await waitFor(() => {
+        expect(
+          screen.getByTestId("copilot-mcp-apps-tool-error").textContent,
+        ).toContain("returned no message");
+      });
+    });
+
+    it("shows nothing for a successful tool result", async () => {
+      await renderActivityWithResult({
+        content: [{ type: "text", text: "Diagram displayed!" }],
+        structuredContent: { checkpointId: "71a8a6d624df4e5281" },
+        isError: false,
+      });
+
+      // The app iframe must still be created — the happy path is untouched.
+      await waitFor(
+        () => {
+          expect(document.querySelector("iframe[srcdoc]")).not.toBeNull();
+        },
+        { timeout: 3000 },
+      );
+      expect(screen.queryByTestId("copilot-mcp-apps-tool-error")).toBeNull();
+    });
+
+    it("joins only the text blocks of a mixed-content failure", () => {
+      expect(
+        ɵmcpToolResultText({
+          content: [
+            { type: "text", text: "first line" },
+            { type: "image", data: "…", mimeType: "image/png" },
+            { type: "text", text: "second line" },
+          ],
+          isError: true,
+        }),
+      ).toBe("first line\nsecond line");
+
+      expect(ɵmcpToolResultText({ isError: true })).toBe("");
     });
   });
 
