@@ -1,13 +1,14 @@
-import { Provider, Type, inject, InjectionToken } from "@angular/core";
-import { AbstractAgent } from "@ag-ui/client";
-import {
+import type { Provider, Type } from "@angular/core";
+import { inject, InjectionToken } from "@angular/core";
+import type { AbstractAgent } from "@ag-ui/client";
+import type {
   ClientTool,
   FrontendToolConfig,
   HumanInTheLoopConfig,
   RenderToolCallConfig,
 } from "./tools";
 import { LICENSE_WATERMARK_ENABLED } from "./license-watermark";
-import { RenderActivityMessageConfig } from "./activity-renderer";
+import type { RenderActivityMessageConfig } from "./activity-renderer";
 // Type-only: a VALUE import here would pull the whole `@copilotkit/core`
 // dist into the app's startup graph, since `config.ts` sits on it
 // (`provideCopilotKit` runs at bootstrap). The public-key header default is
@@ -18,8 +19,11 @@ import type {
   CopilotKitMessageFilter,
   SuggestionsConfig,
 } from "@copilotkit/core";
-import { OpenGenerativeUIConfig } from "./open-generative-ui";
-import { A2UICatalog } from "./components/a2ui/a2ui-types";
+import type { OpenGenerativeUIConfig } from "./open-generative-ui";
+import type {
+  A2UIActionInterceptor,
+  A2UICatalog,
+} from "./components/a2ui/a2ui-types";
 
 export interface A2UIConfig {
   theme?: Record<string, unknown>;
@@ -31,6 +35,8 @@ export interface A2UIConfig {
   catalog?: A2UICatalog;
   /** Shown until the first surface renders. */
   loadingComponent?: Type<unknown>;
+  /** Intercept chat surface actions before forwarding them to the agent. */
+  onAction?: A2UIActionInterceptor;
   /**
    * When true (the default), the full component schemas from the catalog are
    * sent as agent context so the agent knows what components and props are
