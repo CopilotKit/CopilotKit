@@ -4,12 +4,13 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start -H 0.0.0.0 -p ${PORT:-3000}"
+    "start": "next start -H 0.0.0.0 -p ${PORT:-3000}",
+    "test": "node --test test/*.test.mjs"
   },
   "dependencies": {
     "@copilotkit/react-core": "1.58.0",
     "@copilotkit/runtime": "1.58.0",
-    "@daytonaio/sdk": "latest",
+    "@daytonaio/sdk": "0.232.0",
     "@types/node": "^22.10.5",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",

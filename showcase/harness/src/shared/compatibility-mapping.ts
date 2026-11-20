@@ -515,6 +515,34 @@ export const COMPATIBILITY_MAPPING: VariantMapping[] = [
   },
 ];
 
+/**
+ * Scored variants: not excluded, and deployed. `undeployed` holds the slugs
+ * whose manifest says `deployed: false`; they have no image to read from.
+ */
+export function isAssessedVariant(
+  variant: VariantMapping,
+  undeployed: ReadonlySet<string>,
+): boolean {
+  return variant.excludedReason === undefined && !undeployed.has(variant.slug);
+}
+
+/** Required framework libraries per scored variant, keyed by slug. */
+export function assessedLibraryRoster(
+  undeployed: ReadonlySet<string>,
+  mapping: VariantMapping[] = COMPATIBILITY_MAPPING,
+): Record<string, string[]> {
+  return Object.fromEntries(
+    mapping
+      .filter((variant) => isAssessedVariant(variant, undeployed))
+      .map((variant) => [
+        variant.slug,
+        variant.libraries
+          .filter((library) => library.required)
+          .map((library) => library.name),
+      ]),
+  );
+}
+
 /** Reject stale, incomplete, or internally contradictory policy before collecting evidence. */
 export function assertMappingCoverage(
   mapping: VariantMapping[],

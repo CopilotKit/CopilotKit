@@ -1,0 +1,48 @@
+{
+  "name": "antigravity-a2ui-canvas",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@10.33.4",
+  "scripts": {
+    "dev": "concurrently \"pnpm dev:ui\" \"pnpm dev:agent\" --names ui,agent --prefix-colors blue,green --kill-others",
+    "dev:ui": "next dev --turbopack",
+    "dev:agent": "./scripts/run-agent.sh || scripts\\run-agent.bat",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "export:catalog": "node scripts/export-catalog.mjs",
+    "install:agent": "./scripts/setup-agent.sh || scripts\\setup-agent.bat",
+    "postinstall": "pnpm install:agent"
+  },
+  "dependencies": {
+    "@ag-ui/client": "1.0.5",
+    "@ag-ui/core": "1.0.5",
+    "@copilotkit/react-core": "1.89.0",
+    "@copilotkit/runtime": "1.89.0",
+    "@copilotkit/shared": "1.89.0",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.577.0",
+    "maplibre-gl": "^5.24.1",
+    "next": "16.3.8",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "concurrently": "^9.1.2",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  },
+  "pnpm": {
+    "overrides": {
+      "@ag-ui/client": "1.0.5",
+      "@ag-ui/core": "1.0.5",
+      "@ag-ui/encoder": "1.0.5",
+      "@ag-ui/proto": "1.0.5"
+    }
+  }
+}

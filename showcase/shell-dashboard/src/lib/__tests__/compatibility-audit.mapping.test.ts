@@ -2,9 +2,12 @@
 
 import { existsSync, readdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { fileURLToPath } from "node:url";
 import {
   assertMappingCoverage,
+  assessedLibraryRoster,
   COMPATIBILITY_MAPPING,
+  readUndeployedSlugs,
 } from "../../../scripts/compatibility-audit/mapping";
 import type { VariantMapping } from "../../../scripts/compatibility-audit/types";
 import { COMPATIBILITY_SNAPSHOT } from "../../../src/data/compatibility-snapshot";
@@ -121,6 +124,22 @@ describe("Showcase compatibility mapping", () => {
         { name: "@ag-ui/omnara", reason: expect.any(String) },
       ],
     });
+  });
+
+  it("reads undeployed integrations from manifest deployed flags", () => {
+    const repo = fileURLToPath(new URL("../../../../../", import.meta.url));
+    expect([...readUndeployedSlugs(repo)]).toEqual([
+      "cloudflare-agents",
+      "omnara",
+    ]);
+  });
+
+  it("leaves excluded and undeployed variants out of the assessed roster", () => {
+    const roster = assessedLibraryRoster(new Set(["omnara"]));
+    expect(roster).not.toHaveProperty("omnara");
+    expect(roster).not.toHaveProperty("built-in-agent");
+    expect(roster.ag2).toEqual(["ag2"]);
+    expect(assessedLibraryRoster(new Set())).toHaveProperty("omnara");
   });
 
   it("keeps historical noncontributing packages explicitly excluded", () => {

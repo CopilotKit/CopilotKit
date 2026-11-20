@@ -10,7 +10,10 @@ import {
   createLiveHttpClient,
 } from "../../../scripts/compatibility-audit/http";
 import type { CollectAdapters } from "../../../scripts/compatibility-audit/collect";
-import { COMPATIBILITY_MAPPING } from "../../../scripts/compatibility-audit/mapping";
+import {
+  COMPATIBILITY_MAPPING,
+  isAssessedVariant,
+} from "../../../scripts/compatibility-audit/mapping";
 import type {
   CollectOptions,
   LibraryMapping,
@@ -113,6 +116,8 @@ function capturedSources(): { path: string; body: string }[] {
   return [...files].map(([path, body]) => ({ path, body }));
 }
 
+const UNDEPLOYED = new Set(["omnara"]);
+
 async function fixture() {
   const root = await realpath(
     await mkdtemp(join(tmpdir(), "compatibility-cli-")),
@@ -132,7 +137,7 @@ async function fixture() {
     resources: [{ "@id": NUGET_BASE, "@type": "RegistrationsBaseUrl/3.6.0" }],
   });
   for (const variant of COMPATIBILITY_MAPPING) {
-    if (variant.excludedReason) continue;
+    if (!isAssessedVariant(variant, UNDEPLOYED)) continue;
     for (const { name, registry } of variant.libraries.filter(
       (item) => item.required,
     )) {
@@ -225,6 +230,7 @@ async function fixture() {
   };
   const adapters: CollectAdapters = {
     repo: root,
+    undeployedSlugs: UNDEPLOYED,
     snapshotPath,
     captureSourceFiles: capture,
     httpClient: { get },
@@ -384,7 +390,9 @@ describe("manual compatibility audit", () => {
       asOf: AS_OF,
       snapshot: result.snapshot,
     });
-    expect(result.packages).toHaveLength(37);
+    // 37 mapped libraries minus Omnara's SDK: its manifest is not deployed.
+    expect(result.packages).toHaveLength(36);
+    expect(result.packages.some((pkg) => pkg.slug === "omnara")).toBe(false);
     for (const slug of ["ms-agent-dotnet", "ms-agent-harness-dotnet"]) {
       const row = result.snapshot.rows.find((item) => item.slug === slug)!;
       expect(row.status).toBe("not_verified");

@@ -75,6 +75,7 @@ describe("collectAudit failure boundaries", () => {
           },
           {
             repo: f.root,
+            undeployedSlugs: new Set(),
             snapshotPath: f.snapshotPath,
             resolveOriginMain: () => SHA,
             captureSourceFiles: () => [
