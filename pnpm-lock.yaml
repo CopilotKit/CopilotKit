@@ -3015,6 +3015,9 @@ importers:
       '@tanstack/pacer':
         specifier: ^0.20.1
         version: 0.20.1
+      fast-json-patch:
+        specifier: ^3.1.1
+        version: 3.1.1
       jsonrepair:
         specifier: ^3.15.0
         version: 3.15.0
@@ -7605,6 +7608,7 @@ packages:
 
   '@browserbasehq/stagehand@1.14.0':
     resolution: {integrity: sha512-Hi/EzgMFWz+FKyepxHTrqfTPjpsuBS4zRy3e9sbMpBgLPv+9c0R+YZEvS7Bw4mTS66QtvvURRT6zgDGFotthVQ==}
+    deprecated: This version is no longer maintained. Please upgrade to the latest version of @browserbasehq/stagehand.
     peerDependencies:
       '@playwright/test': ^1.42.1
       deepmerge: ^4.3.1

@@ -10,6 +10,7 @@ import type {
   ToolCallResultEvent,
   ToolMessage,
 } from "@ag-ui/client";
+import { applyPatch } from "fast-json-patch";
 import { randomUUID, structuredClone_ } from "@ag-ui/client";
 import type { CopilotKitCore } from "./core";
 import { isForwardedToClientPlaceholder } from "./tool-result-content";
@@ -550,9 +551,10 @@ export class StateManager {
     if (!agent.agentId) return;
 
     const { threadId, runId } = input;
-    // Merge snapshot into current state
-    const mergedState = { ...state, ...event.snapshot };
-    this.saveState(agent.agentId, threadId, runId, mergedState);
+    // Upstream STATE_SNAPSHOT replaces the whole state (default.ts: "Replace
+    // state with the literal snapshot"). Store it verbatim — merging here
+    // would keep keys the agent deliberately deleted as ghosts (#8193).
+    this.saveState(agent.agentId, threadId, runId, event.snapshot);
   }
 
   /**
@@ -567,8 +569,18 @@ export class StateManager {
     if (!agent.agentId) return;
 
     const { threadId, runId } = input;
-    // State is already updated by the agent, just save it
-    this.saveState(agent.agentId, threadId, runId, state);
+    // The upstream subscriber callback receives the state BEFORE the delta is
+    // applied (default.ts notifies subscribers, then runs jsonpatch
+    // .applyPatch). Apply the incoming delta to that snapshot so the saved
+    // per-run state lands on the post-patch value instead of lagging one
+    // delta behind (#8193).
+    const { newDocument: patchedState } = applyPatch(
+      state,
+      event.delta,
+      true,
+      false,
+    );
+    this.saveState(agent.agentId, threadId, runId, patchedState);
   }
 
   /**
