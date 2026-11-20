@@ -280,6 +280,15 @@
       "repoName": "showcase-google-antigravity"
     }
   },
+  "showcase-omnara": {
+    "staging": {
+      "instanceId": "c5e4f332-6b5b-452e-aaf9-6ffea1ee9851",
+      "domain": "showcase-omnara-staging.up.railway.app",
+      "probe": true,
+      "driver": "agent",
+      "repoName": "showcase-omnara"
+    }
+  },
   "showcase-openai-agents-python": {
     "prod": {
       "instanceId": "a86ab35f-5646-48cd-bdd8-617d394d304f",
