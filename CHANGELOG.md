@@ -16,6 +16,36 @@ releases have no changelog: the per-package files from the changesets era stoppe
 at `1.55.2` while the lane shipped `1.69.3`, and they are recoverable from git
 history (for example `git show v1.69.3:packages/core/CHANGELOG.md`).
 
+## 1.90.0 - 2026-11-20
+
+This release adds framework-level telemetry to the runtime and sends the CopilotKit version to the Intelligence gateway, giving the gateway the context it needs to tailor behavior to a client's version.
+
+## Features
+
+### Runtime now reports the agent framework each adapter declares (#8500)
+
+The runtime now emits a new telemetry event, `oss.runtime.agent_identified`, which reports the framework each agent runs on. This helps CopilotKit understand which framework integrations are in active use.
+
+- **Sent once per agent class and name per server process**, on the first run of each agent. Apps that build a new `CopilotRuntime` on every request still send it only once.
+- The event is derived from the adapter's AG-UI `identity.type`, matched against a fixed list (`langgraph`, `mastra`, `built-in`, `crewai`, `adk`, and others). Unrecognized values report as `other`; agents with no declaration report as `undeclared`.
+- `BuiltInAgent` now declares `identity: { type: "built-in" }`. An identity override that sets only a name preserves the type.
+- `LangGraphAgent` and `MastraAgent` already declare their frameworks (`langgraph` and `mastra`).
+
+**Privacy and safety:**
+- The event never sends agent names, descriptions, URLs, or a developer's free-text `identity.type`.
+- It respects the existing telemetry opt-out.
+- The capabilities lookup runs in the background with a 2-second timeout, and never delays, blocks, or fails a request.
+- The event is sent only to the CopilotKit telemetry sink, never to Segment.
+- Identification runs during the request handler after forwarded headers are applied, so adapters that fetch capabilities remotely (such as ADK) use the caller's auth.
+
+The pinned runtime events are unchanged, so other runtime SDKs require no changes.
+
+### Core sends the CopilotKit version to the Intelligence gateway (#8476)
+
+The `@copilotkit/core` client now includes its CopilotKit version as a socket parameter when connecting the thread socket. This lets the Intelligence gateway tailor behavior to a client's version — for example, to safely send a thread's stored history early only to clients (1.89.0 and later) that hold it until replay completes.
+
+This is an internal connection-level change with no visible behavior difference. Older gateways ignore the parameter. The memory and thread-list sockets are unchanged.
+
 ## 1.89.0 - 2026-11-17
 
 This release improves performance and reliability for long Intelligence threads, adds support for distinct agent display names, and expands MCP Apps with model-context sharing.
