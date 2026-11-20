@@ -24,6 +24,12 @@ export const GENERATED_DRAWER_TOKEN_DEFAULTS = {
   border: "oklch(0.922 0 0)",
   ring: "oklch(0.708 0 0)",
   radius: "0.625rem",
+  sidebar: "oklch(0.985 0 0)",
+  "sidebar-fg": "oklch(0.145 0 0)",
+  "sidebar-accent": "oklch(0.97 0 0)",
+  "sidebar-accent-fg": "oklch(0.205 0 0)",
+  "sidebar-border": "oklch(0.922 0 0)",
+  "sidebar-ring": "oklch(0.708 0 0)",
 } as const satisfies Record<string, string>;
 
 export type GeneratedDrawerTokenKey =
