@@ -101,7 +101,7 @@ Capture needs a Runtime configured with `intelligence` and `identifyUser`, and a
 
 `learning` turns capture on. For options, pass an object, such as `learning={{ onError }}`. `learning={false}` or removing the prop turns capture off, which suits a consent switch: `learning={hasConsent}`.
 
-Capture starts after mount. Without `learning.trajectoryId`, the provider generates the Trajectory ID. The ID stays the same across rerenders, React StrictMode effect replays, reconnects, and option changes. Turning capture off and on again starts a new Trajectory with a new ID. Unmounting the provider stops capture. Read the active ID from `copilotkit.trajectoryId`, or subscribe with `onTrajectoryChanged`.
+Capture starts after mount. Without `learning.trajectoryId`, the provider generates the Trajectory ID. The ID stays the same across rerenders, React StrictMode effect replays, reconnects, and option changes. Turning capture off and on again starts a new Trajectory with a new ID. If the browser stays disconnected longer than Intelligence's reconnect window (120 seconds by default), Intelligence seals the Trajectory. Capture then continues on a new Trajectory with a new ID and notifies `onTrajectoryChanged`. The sealed Trajectory keeps its losses. With your own `learning.trajectoryId`, or an ID you pass to `startTrajectory()`, capture ends with `TRAJECTORY_CLOSED` instead, and you choose the next ID. Unmounting the provider stops capture. Read the active ID from `copilotkit.trajectoryId`, or subscribe with `onTrajectoryChanged`.
 
 Set `learning.trajectoryId` to use your own ID instead.
 

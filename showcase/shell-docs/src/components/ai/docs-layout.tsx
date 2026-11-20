@@ -23,6 +23,7 @@ import { KiteMark } from "./chat-parts";
 import { stashConversation } from "@/components/ask/handoff";
 import { DocsAgent, SIDE_BY_SIDE } from "./docs-agent";
 import { DocsChat } from "./docs-chat";
+import { withBasePath } from "@/lib/base-path";
 
 /**
  * Spacious' DocsLayout with CopilotKit in its `aiChat` slot, following
@@ -41,7 +42,7 @@ export function DocsLayout({
 
   return (
     <CopilotKitProvider
-      runtimeUrl="/api/copilotkit"
+      runtimeUrl={withBasePath("/api/copilotkit")}
       useSingleEndpoint
       // Its floating button would sit over the chat's close button.
       enableInspector={false}

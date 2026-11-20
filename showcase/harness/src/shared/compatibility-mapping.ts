@@ -407,6 +407,19 @@ export const COMPATIBILITY_MAPPING: VariantMapping[] = [
     excludedLibraries: [],
   },
   {
+    slug: "omnara",
+    language: "typescript",
+    libraries: [
+      framework(
+        "@omnara/sdk",
+        "npm",
+        npm("omnara"),
+        "Pinned Omnara client SDK; it does not establish the hosted service version",
+      ),
+    ],
+    excludedLibraries: [adapter("@ag-ui/omnara")],
+  },
+  {
     slug: "openai-agents-python",
     language: "python",
     libraries: [
@@ -488,6 +501,34 @@ export const COMPATIBILITY_MAPPING: VariantMapping[] = [
     excludedLibraries: [adapter("@ag-ui/aws-strands")],
   },
 ];
+
+/**
+ * Scored variants: not excluded, and deployed. `undeployed` holds the slugs
+ * whose manifest says `deployed: false`; they have no image to read from.
+ */
+export function isAssessedVariant(
+  variant: VariantMapping,
+  undeployed: ReadonlySet<string>,
+): boolean {
+  return variant.excludedReason === undefined && !undeployed.has(variant.slug);
+}
+
+/** Required framework libraries per scored variant, keyed by slug. */
+export function assessedLibraryRoster(
+  undeployed: ReadonlySet<string>,
+  mapping: VariantMapping[] = COMPATIBILITY_MAPPING,
+): Record<string, string[]> {
+  return Object.fromEntries(
+    mapping
+      .filter((variant) => isAssessedVariant(variant, undeployed))
+      .map((variant) => [
+        variant.slug,
+        variant.libraries
+          .filter((library) => library.required)
+          .map((library) => library.name),
+      ]),
+  );
+}
 
 /** Reject stale, incomplete, or internally contradictory policy before collecting evidence. */
 export function assertMappingCoverage(

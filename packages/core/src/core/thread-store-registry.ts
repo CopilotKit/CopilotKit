@@ -1,9 +1,16 @@
-import { type ɵThreadStore } from "../threads";
+import type { Subscription } from "rxjs";
+import type { ɵThreadStore } from "../threads";
 import type { CopilotKitCore } from "./core";
-import { CopilotKitCoreFriendsAccess, CopilotKitCoreSubscriber } from "./core";
+import type {
+  CopilotKitCoreFriendsAccess,
+  CopilotKitCoreSubscriber,
+} from "./core";
 
 export class ThreadStoreRegistry {
   private _stores: Record<string, ɵThreadStore> = {};
+  // Per-agent subscription to the store's thread deletions, which drop the
+  // context entries scoped to the deleted conversation.
+  private _deletionSubscriptions: Record<string, Subscription> = {};
   // Cached frozen snapshot of `_stores`. Invalidated to `null` on every
   // `register`/`unregister` so the next `getAll()` rebuilds it. Stable
   // references between mutations matter for `useSyncExternalStore` consumers
@@ -24,12 +31,14 @@ export class ThreadStoreRegistry {
       const prevStore = this._stores[agentId]!;
       delete this._stores[agentId];
       this._snapshot = null;
+      this.stopWatchingDeletions(agentId);
       this.notifyUnregistered(agentId, prevStore).catch((err) => {
         console.error("ThreadStoreRegistry notifyUnregistered failed:", err);
       });
     }
     this._stores[agentId] = store;
     this._snapshot = null;
+    this.watchDeletions(agentId, store);
     this.notifyRegistered(agentId, store).catch((err) => {
       console.error("ThreadStoreRegistry notifyRegistered failed:", err);
     });
@@ -41,9 +50,26 @@ export class ThreadStoreRegistry {
     const prevStore = this._stores[agentId]!;
     delete this._stores[agentId];
     this._snapshot = null;
+    this.stopWatchingDeletions(agentId);
     this.notifyUnregistered(agentId, prevStore).catch((err) => {
       console.error("ThreadStoreRegistry notifyUnregistered failed:", err);
     });
+  }
+
+  private watchDeletions(agentId: string, store: ɵThreadStore): void {
+    const subscription = store.subscribeToThreadDeletions?.((threadId) => {
+      if (!threadId) return;
+      (this.core as unknown as CopilotKitCoreFriendsAccess).removeThreadContext(
+        agentId,
+        threadId,
+      );
+    });
+    if (subscription) this._deletionSubscriptions[agentId] = subscription;
+  }
+
+  private stopWatchingDeletions(agentId: string): void {
+    this._deletionSubscriptions[agentId]?.unsubscribe();
+    delete this._deletionSubscriptions[agentId];
   }
 
   get(agentId: string): ɵThreadStore | undefined {

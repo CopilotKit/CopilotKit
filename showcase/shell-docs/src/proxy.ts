@@ -3,6 +3,8 @@ import type { NextFetchEvent, NextRequest } from "next/server";
 import { isMarkdownPreferred } from "fumadocs-core/negotiation";
 import { legacyRedirect } from "@/lib/redirects/legacy-redirect";
 import { trackRequest } from "@/lib/telemetry/proxy";
+import { basePath, withBasePath } from "@/lib/base-path";
+import { DOCS_VERSIONS } from "@/lib/docs-versions.mjs";
 
 /** Where a live page's Markdown is served (`src/app/llms.mdx/live`). */
 const LIVE_MARKDOWN_ROUTE = "/llms.mdx/live";
@@ -23,8 +25,41 @@ function liveMarkdownPath(pathname: string): string | null {
   return match[1];
 }
 
+/**
+ * On the stable docs, the other versions (`/v2`) and the variable that names
+ * each one's deployment (its private Railway URL).
+ */
+const OTHER_VERSIONS = basePath
+  ? []
+  : DOCS_VERSIONS.filter((version) => version.path && version.originEnv);
+
+/**
+ * A request for another version's path, forwarded to that version's
+ * deployment, or null. Read at request time, not build time: CI builds the
+ * stable docs' image, so a Railway variable never reaches its `next build`.
+ * Without the variable the path falls through to this build (a 404).
+ */
+function otherVersionRewrite(request: NextRequest): NextResponse | null {
+  const { pathname, search } = request.nextUrl;
+  for (const version of OTHER_VERSIONS) {
+    if (pathname !== version.path && !pathname.startsWith(`${version.path}/`)) {
+      continue;
+    }
+    // A computed key, so Next doesn't inline it at build time.
+    const origin = process.env[version.originEnv as string]
+      ?.trim()
+      .replace(/\/+$/, "");
+    if (!origin) return null;
+    return NextResponse.rewrite(new URL(`${origin}${pathname}${search}`));
+  }
+  return null;
+}
+
 export default function proxy(request: NextRequest, event: NextFetchEvent) {
   const { pathname } = request.nextUrl;
+
+  const otherVersion = otherVersionRewrite(request);
+  if (otherVersion) return otherVersion;
 
   // Prototype D became the site: its old /proto/d URLs open at the root.
   const proto = /^\/proto\/d(?=\/|$)/;
@@ -47,7 +82,10 @@ export default function proxy(request: NextRequest, event: NextFetchEvent) {
       request,
       event,
       NextResponse.rewrite(
-        new URL(`${LIVE_MARKDOWN_ROUTE}${liveMarkdown}`, request.nextUrl),
+        new URL(
+          withBasePath(`${LIVE_MARKDOWN_ROUTE}${liveMarkdown}`),
+          request.nextUrl,
+        ),
       ),
     );
   }
@@ -63,7 +101,7 @@ export default function proxy(request: NextRequest, event: NextFetchEvent) {
       return trackRequest(
         request,
         event,
-        NextResponse.rewrite(new URL(target, request.nextUrl), {
+        NextResponse.rewrite(new URL(withBasePath(target), request.nextUrl), {
           // this URL has two representations, selected by `Accept`
           headers: { Vary: "Accept" },
         }),
