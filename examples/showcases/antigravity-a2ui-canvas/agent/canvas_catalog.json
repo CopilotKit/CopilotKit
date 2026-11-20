@@ -20,10 +20,7 @@
           "anyOf": [
             {
               "type": "string",
-              "enum": [
-                "col",
-                "row"
-              ]
+              "enum": ["col", "row"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -41,13 +38,7 @@
           "anyOf": [
             {
               "type": "string",
-              "enum": [
-                "start",
-                "center",
-                "end",
-                "baseline",
-                "stretch"
-              ]
+              "enum": ["start", "center", "end", "baseline", "stretch"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -83,11 +74,7 @@
           "anyOf": [
             {
               "type": "string",
-              "enum": [
-                "nowrap",
-                "wrap",
-                "wrap-reverse"
-              ]
+              "enum": ["nowrap", "wrap", "wrap-reverse"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -101,10 +88,7 @@
           "description": "4px steps when a number",
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -117,10 +101,7 @@
         "rowGap": {
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -133,10 +114,7 @@
         "columnGap": {
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -150,10 +128,7 @@
           "description": "4px steps when a number",
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -310,10 +285,7 @@
         "width": {
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -326,10 +298,7 @@
         "height": {
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -342,10 +311,7 @@
         "minWidth": {
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -358,10 +324,7 @@
         "maxWidth": {
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -374,10 +337,7 @@
         "minHeight": {
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -390,10 +350,7 @@
         "maxHeight": {
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -527,10 +484,7 @@
           "description": "Minimum width and height",
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -544,10 +498,7 @@
           "description": "Maximum width and height",
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -572,9 +523,7 @@
           ]
         }
       },
-      "required": [
-        "component"
-      ]
+      "required": ["component"]
     },
     "Column": {
       "type": "object",
@@ -594,13 +543,7 @@
           "anyOf": [
             {
               "type": "string",
-              "enum": [
-                "start",
-                "center",
-                "end",
-                "baseline",
-                "stretch"
-              ]
+              "enum": ["start", "center", "end", "baseline", "stretch"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -636,11 +579,7 @@
           "anyOf": [
             {
               "type": "string",
-              "enum": [
-                "nowrap",
-                "wrap",
-                "wrap-reverse"
-              ]
+              "enum": ["nowrap", "wrap", "wrap-reverse"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -654,10 +593,7 @@
           "description": "4px steps when a number",
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -670,10 +606,7 @@
         "rowGap": {
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -686,10 +619,7 @@
         "columnGap": {
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -703,10 +633,7 @@
           "description": "4px steps when a number",
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -863,10 +790,7 @@
         "width": {
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -879,10 +803,7 @@
         "height": {
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -895,10 +816,7 @@
         "minWidth": {
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -911,10 +829,7 @@
         "maxWidth": {
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -927,10 +842,7 @@
         "minHeight": {
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -943,10 +855,7 @@
         "maxHeight": {
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -1080,10 +989,7 @@
           "description": "Minimum width and height",
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -1097,10 +1003,7 @@
           "description": "Maximum width and height",
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -1125,9 +1028,7 @@
           ]
         }
       },
-      "required": [
-        "component"
-      ]
+      "required": ["component"]
     },
     "Row": {
       "type": "object",
@@ -1147,13 +1048,7 @@
           "anyOf": [
             {
               "type": "string",
-              "enum": [
-                "start",
-                "center",
-                "end",
-                "baseline",
-                "stretch"
-              ]
+              "enum": ["start", "center", "end", "baseline", "stretch"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -1189,11 +1084,7 @@
           "anyOf": [
             {
               "type": "string",
-              "enum": [
-                "nowrap",
-                "wrap",
-                "wrap-reverse"
-              ]
+              "enum": ["nowrap", "wrap", "wrap-reverse"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -1207,10 +1098,7 @@
           "description": "4px steps when a number",
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -1223,10 +1111,7 @@
         "rowGap": {
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -1239,10 +1124,7 @@
         "columnGap": {
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -1256,10 +1138,7 @@
           "description": "4px steps when a number",
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -1416,10 +1295,7 @@
         "width": {
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -1432,10 +1308,7 @@
         "height": {
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -1448,10 +1321,7 @@
         "minWidth": {
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -1464,10 +1334,7 @@
         "maxWidth": {
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -1480,10 +1347,7 @@
         "minHeight": {
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -1496,10 +1360,7 @@
         "maxHeight": {
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -1633,10 +1494,7 @@
           "description": "Minimum width and height",
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -1650,10 +1508,7 @@
           "description": "Maximum width and height",
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -1678,9 +1533,7 @@
           ]
         }
       },
-      "required": [
-        "component"
-      ]
+      "required": ["component"]
     },
     "Grid": {
       "type": "object",
@@ -1696,10 +1549,7 @@
           "description": "Column count or CSS template. Default 2",
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -1712,10 +1562,7 @@
         "minChildWidth": {
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -1728,10 +1575,7 @@
         "rows": {
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -1749,13 +1593,7 @@
           "anyOf": [
             {
               "type": "string",
-              "enum": [
-                "start",
-                "center",
-                "end",
-                "baseline",
-                "stretch"
-              ]
+              "enum": ["start", "center", "end", "baseline", "stretch"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -1791,11 +1629,7 @@
           "anyOf": [
             {
               "type": "string",
-              "enum": [
-                "nowrap",
-                "wrap",
-                "wrap-reverse"
-              ]
+              "enum": ["nowrap", "wrap", "wrap-reverse"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -1809,10 +1643,7 @@
           "description": "4px steps when a number",
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -1825,10 +1656,7 @@
         "rowGap": {
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -1841,10 +1669,7 @@
         "columnGap": {
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -1858,10 +1683,7 @@
           "description": "4px steps when a number",
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -2018,10 +1840,7 @@
         "width": {
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -2034,10 +1853,7 @@
         "height": {
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -2050,10 +1866,7 @@
         "minWidth": {
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -2066,10 +1879,7 @@
         "maxWidth": {
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -2082,10 +1892,7 @@
         "minHeight": {
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -2098,10 +1905,7 @@
         "maxHeight": {
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -2235,10 +2039,7 @@
           "description": "Minimum width and height",
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -2252,10 +2053,7 @@
           "description": "Maximum width and height",
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -2280,9 +2078,7 @@
           ]
         }
       },
-      "required": [
-        "component"
-      ]
+      "required": ["component"]
     },
     "GridItem": {
       "type": "object",
@@ -2328,13 +2124,7 @@
           "anyOf": [
             {
               "type": "string",
-              "enum": [
-                "start",
-                "center",
-                "end",
-                "baseline",
-                "stretch"
-              ]
+              "enum": ["start", "center", "end", "baseline", "stretch"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -2370,11 +2160,7 @@
           "anyOf": [
             {
               "type": "string",
-              "enum": [
-                "nowrap",
-                "wrap",
-                "wrap-reverse"
-              ]
+              "enum": ["nowrap", "wrap", "wrap-reverse"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -2388,10 +2174,7 @@
           "description": "4px steps when a number",
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -2404,10 +2187,7 @@
         "rowGap": {
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -2420,10 +2200,7 @@
         "columnGap": {
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -2437,10 +2214,7 @@
           "description": "4px steps when a number",
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -2597,10 +2371,7 @@
         "width": {
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -2613,10 +2384,7 @@
         "height": {
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -2629,10 +2397,7 @@
         "minWidth": {
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -2645,10 +2410,7 @@
         "maxWidth": {
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -2661,10 +2423,7 @@
         "minHeight": {
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -2677,10 +2436,7 @@
         "maxHeight": {
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -2814,10 +2570,7 @@
           "description": "Minimum width and height",
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -2831,10 +2584,7 @@
           "description": "Maximum width and height",
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -2859,9 +2609,7 @@
           ]
         }
       },
-      "required": [
-        "component"
-      ]
+      "required": ["component"]
     },
     "Card": {
       "type": "object",
@@ -2905,13 +2653,7 @@
           "anyOf": [
             {
               "type": "string",
-              "enum": [
-                "start",
-                "center",
-                "end",
-                "baseline",
-                "stretch"
-              ]
+              "enum": ["start", "center", "end", "baseline", "stretch"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -2947,11 +2689,7 @@
           "anyOf": [
             {
               "type": "string",
-              "enum": [
-                "nowrap",
-                "wrap",
-                "wrap-reverse"
-              ]
+              "enum": ["nowrap", "wrap", "wrap-reverse"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -2965,10 +2703,7 @@
           "description": "4px steps when a number",
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -2981,10 +2716,7 @@
         "rowGap": {
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -2997,10 +2729,7 @@
         "columnGap": {
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -3014,10 +2743,7 @@
           "description": "4px steps when a number",
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -3174,10 +2900,7 @@
         "width": {
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -3190,10 +2913,7 @@
         "height": {
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -3206,10 +2926,7 @@
         "minWidth": {
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -3222,10 +2939,7 @@
         "maxWidth": {
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -3238,10 +2952,7 @@
         "minHeight": {
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -3254,10 +2965,7 @@
         "maxHeight": {
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -3391,10 +3099,7 @@
           "description": "Minimum width and height",
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -3408,10 +3113,7 @@
           "description": "Maximum width and height",
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -3440,11 +3142,7 @@
           "anyOf": [
             {
               "type": "string",
-              "enum": [
-                "none",
-                "sm",
-                "md"
-              ]
+              "enum": ["none", "sm", "md"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -3459,11 +3157,7 @@
           "anyOf": [
             {
               "type": "string",
-              "enum": [
-                "sm",
-                "md",
-                "lg"
-              ]
+              "enum": ["sm", "md", "lg"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -3474,9 +3168,7 @@
           ]
         }
       },
-      "required": [
-        "component"
-      ]
+      "required": ["component"]
     },
     "Spacer": {
       "type": "object",
@@ -3488,10 +3180,7 @@
         "minSize": {
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -3502,9 +3191,7 @@
           ]
         }
       },
-      "required": [
-        "component"
-      ]
+      "required": ["component"]
     },
     "Divider": {
       "type": "object",
@@ -3518,10 +3205,7 @@
           "anyOf": [
             {
               "type": "string",
-              "enum": [
-                "horizontal",
-                "vertical"
-              ]
+              "enum": ["horizontal", "vertical"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -3534,10 +3218,7 @@
         "spacing": {
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -3612,9 +3293,7 @@
           ]
         }
       },
-      "required": [
-        "component"
-      ]
+      "required": ["component"]
     },
     "Title": {
       "type": "object",
@@ -3655,12 +3334,7 @@
           "anyOf": [
             {
               "type": "string",
-              "enum": [
-                "normal",
-                "medium",
-                "semibold",
-                "bold"
-              ]
+              "enum": ["normal", "medium", "semibold", "bold"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -3674,11 +3348,7 @@
           "anyOf": [
             {
               "type": "string",
-              "enum": [
-                "start",
-                "center",
-                "end"
-              ]
+              "enum": ["start", "center", "end"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -3743,10 +3413,7 @@
         "width": {
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -3761,16 +3428,7 @@
           "anyOf": [
             {
               "type": "string",
-              "enum": [
-                "sm",
-                "md",
-                "lg",
-                "xl",
-                "2xl",
-                "3xl",
-                "4xl",
-                "5xl"
-              ]
+              "enum": ["sm", "md", "lg", "xl", "2xl", "3xl", "4xl", "5xl"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -3795,10 +3453,7 @@
           ]
         }
       },
-      "required": [
-        "component",
-        "text"
-      ]
+      "required": ["component", "text"]
     },
     "Text": {
       "type": "object",
@@ -3811,10 +3466,7 @@
           "description": "Text with inline markdown. A bound number shows as text",
           "anyOf": [
             {
-              "type": [
-                "string",
-                "number"
-              ]
+              "type": ["string", "number"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -3845,12 +3497,7 @@
           "anyOf": [
             {
               "type": "string",
-              "enum": [
-                "normal",
-                "medium",
-                "semibold",
-                "bold"
-              ]
+              "enum": ["normal", "medium", "semibold", "bold"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -3864,11 +3511,7 @@
           "anyOf": [
             {
               "type": "string",
-              "enum": [
-                "start",
-                "center",
-                "end"
-              ]
+              "enum": ["start", "center", "end"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -3933,10 +3576,7 @@
         "width": {
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -3965,14 +3605,7 @@
           "anyOf": [
             {
               "type": "string",
-              "enum": [
-                "3xs",
-                "2xs",
-                "xs",
-                "sm",
-                "md",
-                "lg"
-              ]
+              "enum": ["3xs", "2xs", "xs", "sm", "md", "lg"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -3986,10 +3619,7 @@
           "description": "Pixels when a number. Wins over size",
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -4003,10 +3633,7 @@
           "description": "A unitless ratio, or CSS",
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -4102,11 +3729,7 @@
               "anyOf": [
                 {
                   "type": "string",
-                  "enum": [
-                    "green",
-                    "orange",
-                    "pink"
-                  ]
+                  "enum": ["green", "orange", "pink"]
                 },
                 {
                   "type": "boolean"
@@ -4122,9 +3745,7 @@
           ]
         }
       },
-      "required": [
-        "component"
-      ]
+      "required": ["component"]
     },
     "Caption": {
       "type": "object",
@@ -4137,10 +3758,7 @@
           "description": "Caption text",
           "anyOf": [
             {
-              "type": [
-                "string",
-                "number"
-              ]
+              "type": ["string", "number"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -4169,11 +3787,7 @@
           "anyOf": [
             {
               "type": "string",
-              "enum": [
-                "sm",
-                "md",
-                "lg"
-              ]
+              "enum": ["sm", "md", "lg"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -4188,12 +3802,7 @@
           "anyOf": [
             {
               "type": "string",
-              "enum": [
-                "normal",
-                "medium",
-                "semibold",
-                "bold"
-              ]
+              "enum": ["normal", "medium", "semibold", "bold"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -4207,11 +3816,7 @@
           "anyOf": [
             {
               "type": "string",
-              "enum": [
-                "start",
-                "center",
-                "end"
-              ]
+              "enum": ["start", "center", "end"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -4248,10 +3853,7 @@
           ]
         }
       },
-      "required": [
-        "component",
-        "text"
-      ]
+      "required": ["component", "text"]
     },
     "Label": {
       "type": "object",
@@ -4264,10 +3866,7 @@
           "description": "Label text",
           "anyOf": [
             {
-              "type": [
-                "string",
-                "number"
-              ]
+              "type": ["string", "number"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -4309,14 +3908,7 @@
           "anyOf": [
             {
               "type": "string",
-              "enum": [
-                "3xs",
-                "2xs",
-                "xs",
-                "sm",
-                "md",
-                "lg"
-              ]
+              "enum": ["3xs", "2xs", "xs", "sm", "md", "lg"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -4331,12 +3923,7 @@
           "anyOf": [
             {
               "type": "string",
-              "enum": [
-                "normal",
-                "medium",
-                "semibold",
-                "bold"
-              ]
+              "enum": ["normal", "medium", "semibold", "bold"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -4350,11 +3937,7 @@
           "anyOf": [
             {
               "type": "string",
-              "enum": [
-                "start",
-                "center",
-                "end"
-              ]
+              "enum": ["start", "center", "end"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -4380,10 +3963,7 @@
         "width": {
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -4394,10 +3974,7 @@
           ]
         }
       },
-      "required": [
-        "component",
-        "text"
-      ]
+      "required": ["component", "text"]
     },
     "Badge": {
       "type": "object",
@@ -4425,11 +4002,7 @@
           "anyOf": [
             {
               "type": "string",
-              "enum": [
-                "soft",
-                "solid",
-                "outline"
-              ]
+              "enum": ["soft", "solid", "outline"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -4466,11 +4039,7 @@
           "anyOf": [
             {
               "type": "string",
-              "enum": [
-                "sm",
-                "md",
-                "lg"
-              ]
+              "enum": ["sm", "md", "lg"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -4499,12 +4068,7 @@
           "anyOf": [
             {
               "type": "string",
-              "enum": [
-                "normal",
-                "medium",
-                "semibold",
-                "bold"
-              ]
+              "enum": ["normal", "medium", "semibold", "bold"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -4517,10 +4081,7 @@
         "maxWidth": {
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -4533,10 +4094,7 @@
         "padding": {
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -4547,10 +4105,7 @@
           ]
         }
       },
-      "required": [
-        "component",
-        "label"
-      ]
+      "required": ["component", "label"]
     },
     "Button": {
       "type": "object",
@@ -4641,11 +4196,7 @@
                                     "anyOf": [
                                       {
                                         "type": "string",
-                                        "enum": [
-                                          "error",
-                                          "warning",
-                                          "info"
-                                        ]
+                                        "enum": ["error", "warning", "info"]
                                       },
                                       {
                                         "$ref": "common_types.json#/$defs/DataBinding"
@@ -4656,9 +4207,7 @@
                                     ]
                                   }
                                 },
-                                "required": [
-                                  "valid"
-                                ],
+                                "required": ["valid"],
                                 "additionalProperties": true
                               }
                             ]
@@ -4724,12 +4273,7 @@
           "anyOf": [
             {
               "type": "string",
-              "enum": [
-                "default",
-                "primary",
-                "soft",
-                "borderless"
-              ]
+              "enum": ["default", "primary", "soft", "borderless"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -4860,11 +4404,7 @@
           "anyOf": [
             {
               "type": "string",
-              "enum": [
-                "primary",
-                "secondary",
-                "danger"
-              ]
+              "enum": ["primary", "secondary", "danger"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -4879,11 +4419,7 @@
           "anyOf": [
             {
               "type": "string",
-              "enum": [
-                "sm",
-                "md",
-                "lg"
-              ]
+              "enum": ["sm", "md", "lg"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -4922,9 +4458,7 @@
           ]
         }
       },
-      "required": [
-        "component"
-      ]
+      "required": ["component"]
     },
     "Form": {
       "type": "object",
@@ -4958,13 +4492,7 @@
           "anyOf": [
             {
               "type": "string",
-              "enum": [
-                "start",
-                "center",
-                "end",
-                "baseline",
-                "stretch"
-              ]
+              "enum": ["start", "center", "end", "baseline", "stretch"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -5000,11 +4528,7 @@
           "anyOf": [
             {
               "type": "string",
-              "enum": [
-                "nowrap",
-                "wrap",
-                "wrap-reverse"
-              ]
+              "enum": ["nowrap", "wrap", "wrap-reverse"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -5018,10 +4542,7 @@
           "description": "4px steps when a number",
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -5034,10 +4555,7 @@
         "rowGap": {
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -5050,10 +4568,7 @@
         "columnGap": {
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -5067,10 +4582,7 @@
           "description": "4px steps when a number",
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -5227,10 +4739,7 @@
         "width": {
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -5243,10 +4752,7 @@
         "height": {
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -5259,10 +4765,7 @@
         "minWidth": {
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -5275,10 +4778,7 @@
         "maxWidth": {
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -5291,10 +4791,7 @@
         "minHeight": {
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -5307,10 +4804,7 @@
         "maxHeight": {
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -5444,10 +4938,7 @@
           "description": "Minimum width and height",
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -5461,10 +4952,7 @@
           "description": "Maximum width and height",
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -5489,9 +4977,7 @@
           ]
         }
       },
-      "required": [
-        "component"
-      ]
+      "required": ["component"]
     },
     "TextField": {
       "type": "object",
@@ -5518,10 +5004,7 @@
           "description": "Bind it with { \"@path\": \"/x\" } to read what the user typed",
           "anyOf": [
             {
-              "type": [
-                "string",
-                "number"
-              ]
+              "type": ["string", "number"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -5595,11 +5078,7 @@
                                     "anyOf": [
                                       {
                                         "type": "string",
-                                        "enum": [
-                                          "error",
-                                          "warning",
-                                          "info"
-                                        ]
+                                        "enum": ["error", "warning", "info"]
                                       },
                                       {
                                         "$ref": "common_types.json#/$defs/DataBinding"
@@ -5610,9 +5089,7 @@
                                     ]
                                   }
                                 },
-                                "required": [
-                                  "valid"
-                                ],
+                                "required": ["valid"],
                                 "additionalProperties": true
                               }
                             ]
@@ -5792,12 +5269,7 @@
           "anyOf": [
             {
               "type": "string",
-              "enum": [
-                "sm",
-                "md",
-                "lg",
-                "xl"
-              ]
+              "enum": ["sm", "md", "lg", "xl"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -5822,9 +5294,7 @@
           ]
         }
       },
-      "required": [
-        "component"
-      ]
+      "required": ["component"]
     },
     "TextArea": {
       "type": "object",
@@ -5925,11 +5395,7 @@
                                     "anyOf": [
                                       {
                                         "type": "string",
-                                        "enum": [
-                                          "error",
-                                          "warning",
-                                          "info"
-                                        ]
+                                        "enum": ["error", "warning", "info"]
                                       },
                                       {
                                         "$ref": "common_types.json#/$defs/DataBinding"
@@ -5940,9 +5406,7 @@
                                     ]
                                   }
                                 },
-                                "required": [
-                                  "valid"
-                                ],
+                                "required": ["valid"],
                                 "additionalProperties": true
                               }
                             ]
@@ -6113,12 +5577,7 @@
           "anyOf": [
             {
               "type": "string",
-              "enum": [
-                "sm",
-                "md",
-                "lg",
-                "xl"
-              ]
+              "enum": ["sm", "md", "lg", "xl"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -6129,9 +5588,7 @@
           ]
         }
       },
-      "required": [
-        "component"
-      ]
+      "required": ["component"]
     },
     "Select": {
       "type": "object",
@@ -6208,9 +5665,7 @@
                             ]
                           }
                         },
-                        "required": [
-                          "value"
-                        ],
+                        "required": ["value"],
                         "additionalProperties": false
                       }
                     ]
@@ -6310,11 +5765,7 @@
                                     "anyOf": [
                                       {
                                         "type": "string",
-                                        "enum": [
-                                          "error",
-                                          "warning",
-                                          "info"
-                                        ]
+                                        "enum": ["error", "warning", "info"]
                                       },
                                       {
                                         "$ref": "common_types.json#/$defs/DataBinding"
@@ -6325,9 +5776,7 @@
                                     ]
                                   }
                                 },
-                                "required": [
-                                  "valid"
-                                ],
+                                "required": ["valid"],
                                 "additionalProperties": true
                               }
                             ]
@@ -6499,12 +5948,7 @@
           "anyOf": [
             {
               "type": "string",
-              "enum": [
-                "sm",
-                "md",
-                "lg",
-                "xl"
-              ]
+              "enum": ["sm", "md", "lg", "xl"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -6529,9 +5973,7 @@
           ]
         }
       },
-      "required": [
-        "component"
-      ]
+      "required": ["component"]
     },
     "CheckBox": {
       "type": "object",
@@ -6632,11 +6074,7 @@
                                     "anyOf": [
                                       {
                                         "type": "string",
-                                        "enum": [
-                                          "error",
-                                          "warning",
-                                          "info"
-                                        ]
+                                        "enum": ["error", "warning", "info"]
                                       },
                                       {
                                         "$ref": "common_types.json#/$defs/DataBinding"
@@ -6647,9 +6085,7 @@
                                     ]
                                   }
                                 },
-                                "required": [
-                                  "valid"
-                                ],
+                                "required": ["valid"],
                                 "additionalProperties": true
                               }
                             ]
@@ -6740,10 +6176,7 @@
           "anyOf": [
             {
               "type": "string",
-              "enum": [
-                "round",
-                "square"
-              ]
+              "enum": ["round", "square"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -6782,9 +6215,7 @@
           ]
         }
       },
-      "required": [
-        "component"
-      ]
+      "required": ["component"]
     },
     "DateTimeInput": {
       "type": "object",
@@ -6885,11 +6316,7 @@
                                     "anyOf": [
                                       {
                                         "type": "string",
-                                        "enum": [
-                                          "error",
-                                          "warning",
-                                          "info"
-                                        ]
+                                        "enum": ["error", "warning", "info"]
                                       },
                                       {
                                         "$ref": "common_types.json#/$defs/DataBinding"
@@ -6900,9 +6327,7 @@
                                     ]
                                   }
                                 },
-                                "required": [
-                                  "valid"
-                                ],
+                                "required": ["valid"],
                                 "additionalProperties": true
                               }
                             ]
@@ -7102,9 +6527,7 @@
           ]
         }
       },
-      "required": [
-        "component"
-      ]
+      "required": ["component"]
     },
     "Table": {
       "type": "object",
@@ -7145,11 +6568,7 @@
                             "anyOf": [
                               {
                                 "type": "string",
-                                "enum": [
-                                  "start",
-                                  "center",
-                                  "end"
-                                ]
+                                "enum": ["start", "center", "end"]
                               },
                               {
                                 "$ref": "common_types.json#/$defs/DataBinding"
@@ -7162,10 +6581,7 @@
                           "width": {
                             "anyOf": [
                               {
-                                "type": [
-                                  "number",
-                                  "string"
-                                ]
+                                "type": ["number", "string"]
                               },
                               {
                                 "$ref": "common_types.json#/$defs/DataBinding"
@@ -7189,9 +6605,7 @@
                             ]
                           }
                         },
-                        "required": [
-                          "label"
-                        ],
+                        "required": ["label"],
                         "additionalProperties": false
                       },
                       {
@@ -7213,9 +6627,7 @@
                                 ]
                               }
                             },
-                            "required": [
-                              "componentId"
-                            ],
+                            "required": ["componentId"],
                             "additionalProperties": false
                           },
                           {
@@ -7235,9 +6647,7 @@
                                 ]
                               }
                             },
-                            "required": [
-                              "id"
-                            ],
+                            "required": ["id"],
                             "additionalProperties": false
                           }
                         ]
@@ -7321,10 +6731,7 @@
           "anyOf": [
             {
               "type": "string",
-              "enum": [
-                "auto",
-                "equal"
-              ]
+              "enum": ["auto", "equal"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -7380,9 +6787,7 @@
           "$ref": "common_types.json#/$defs/ChildList"
         }
       },
-      "required": [
-        "component"
-      ]
+      "required": ["component"]
     },
     "Chart": {
       "type": "object",
@@ -7498,9 +6903,7 @@
                             ]
                           }
                         },
-                        "required": [
-                          "key"
-                        ],
+                        "required": ["key"],
                         "additionalProperties": false
                       }
                     ]
@@ -7527,14 +6930,7 @@
           "anyOf": [
             {
               "type": "string",
-              "enum": [
-                "bar",
-                "line",
-                "area",
-                "scatter",
-                "pie",
-                "donut"
-              ]
+              "enum": ["bar", "line", "area", "scatter", "pie", "donut"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -7562,10 +6958,7 @@
           "anyOf": [
             {
               "type": "string",
-              "enum": [
-                "vertical",
-                "horizontal"
-              ]
+              "enum": ["vertical", "horizontal"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -7677,10 +7070,7 @@
           "description": "Pie and donut",
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -7694,10 +7084,7 @@
           "description": "Pie and donut",
           "anyOf": [
             {
-              "type": [
-                "number",
-                "string"
-              ]
+              "type": ["number", "string"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -7837,11 +7224,7 @@
           "anyOf": [
             {
               "type": "string",
-              "enum": [
-                "number",
-                "currency",
-                "percent"
-              ]
+              "enum": ["number", "currency", "percent"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -7893,9 +7276,7 @@
           ]
         }
       },
-      "required": [
-        "component"
-      ]
+      "required": ["component"]
     },
     "Icon": {
       "type": "object",
@@ -7929,9 +7310,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "svgPath"
-                  ],
+                  "required": ["svgPath"],
                   "additionalProperties": false
                 }
               ]
@@ -7965,12 +7344,7 @@
               "anyOf": [
                 {
                   "type": "string",
-                  "enum": [
-                    "sm",
-                    "md",
-                    "lg",
-                    "xl"
-                  ]
+                  "enum": ["sm", "md", "lg", "xl"]
                 },
                 {
                   "type": "number"
@@ -8017,12 +7391,7 @@
           "anyOf": [
             {
               "type": "string",
-              "enum": [
-                "normal",
-                "medium",
-                "semibold",
-                "bold"
-              ]
+              "enum": ["normal", "medium", "semibold", "bold"]
             },
             {
               "$ref": "common_types.json#/$defs/DataBinding"
@@ -8047,10 +7416,7 @@
           ]
         }
       },
-      "required": [
-        "component",
-        "name"
-      ]
+      "required": ["component", "name"]
     }
   },
   "functions": {
@@ -8071,16 +7437,11 @@
               "$ref": "common_types.json#/$defs/DynamicValue"
             }
           },
-          "required": [
-            "value"
-          ],
+          "required": ["value"],
           "additionalProperties": false
         }
       },
-      "required": [
-        "@call",
-        "args"
-      ]
+      "required": ["@call", "args"]
     },
     "regex": {
       "type": "object",
@@ -8102,17 +7463,11 @@
               "$ref": "common_types.json#/$defs/DynamicString"
             }
           },
-          "required": [
-            "value",
-            "pattern"
-          ],
+          "required": ["value", "pattern"],
           "additionalProperties": false
         }
       },
-      "required": [
-        "@call",
-        "args"
-      ]
+      "required": ["@call", "args"]
     },
     "length": {
       "type": "object",
@@ -8137,16 +7492,11 @@
               "$ref": "common_types.json#/$defs/DynamicNumber"
             }
           },
-          "required": [
-            "value"
-          ],
+          "required": ["value"],
           "additionalProperties": false
         }
       },
-      "required": [
-        "@call",
-        "args"
-      ]
+      "required": ["@call", "args"]
     },
     "numeric": {
       "type": "object",
@@ -8171,16 +7521,11 @@
               "$ref": "common_types.json#/$defs/DynamicNumber"
             }
           },
-          "required": [
-            "value"
-          ],
+          "required": ["value"],
           "additionalProperties": false
         }
       },
-      "required": [
-        "@call",
-        "args"
-      ]
+      "required": ["@call", "args"]
     },
     "email": {
       "type": "object",
@@ -8199,16 +7544,11 @@
               "$ref": "common_types.json#/$defs/DynamicString"
             }
           },
-          "required": [
-            "value"
-          ],
+          "required": ["value"],
           "additionalProperties": false
         }
       },
-      "required": [
-        "@call",
-        "args"
-      ]
+      "required": ["@call", "args"]
     },
     "formatString": {
       "type": "object",
@@ -8227,16 +7567,11 @@
               "$ref": "common_types.json#/$defs/DynamicString"
             }
           },
-          "required": [
-            "value"
-          ],
+          "required": ["value"],
           "additionalProperties": false
         }
       },
-      "required": [
-        "@call",
-        "args"
-      ]
+      "required": ["@call", "args"]
     },
     "formatNumber": {
       "type": "object",
@@ -8261,16 +7596,11 @@
               "$ref": "common_types.json#/$defs/DynamicBoolean"
             }
           },
-          "required": [
-            "value"
-          ],
+          "required": ["value"],
           "additionalProperties": false
         }
       },
-      "required": [
-        "@call",
-        "args"
-      ]
+      "required": ["@call", "args"]
     },
     "formatCurrency": {
       "type": "object",
@@ -8298,17 +7628,11 @@
               "$ref": "common_types.json#/$defs/DynamicBoolean"
             }
           },
-          "required": [
-            "value",
-            "currency"
-          ],
+          "required": ["value", "currency"],
           "additionalProperties": false
         }
       },
-      "required": [
-        "@call",
-        "args"
-      ]
+      "required": ["@call", "args"]
     },
     "formatDate": {
       "type": "object",
@@ -8337,17 +7661,11 @@
               "$ref": "common_types.json#/$defs/DynamicString"
             }
           },
-          "required": [
-            "value",
-            "format"
-          ],
+          "required": ["value", "format"],
           "additionalProperties": false
         }
       },
-      "required": [
-        "@call",
-        "args"
-      ]
+      "required": ["@call", "args"]
     },
     "pluralize": {
       "type": "object",
@@ -8384,17 +7702,11 @@
               "$ref": "common_types.json#/$defs/DynamicString"
             }
           },
-          "required": [
-            "value",
-            "other"
-          ],
+          "required": ["value", "other"],
           "additionalProperties": false
         }
       },
-      "required": [
-        "@call",
-        "args"
-      ]
+      "required": ["@call", "args"]
     },
     "openUrl": {
       "type": "object",
@@ -8413,16 +7725,11 @@
               "$ref": "common_types.json#/$defs/DynamicString"
             }
           },
-          "required": [
-            "url"
-          ],
+          "required": ["url"],
           "additionalProperties": false
         }
       },
-      "required": [
-        "@call",
-        "args"
-      ]
+      "required": ["@call", "args"]
     },
     "and": {
       "type": "object",
@@ -8454,16 +7761,11 @@
               ]
             }
           },
-          "required": [
-            "values"
-          ],
+          "required": ["values"],
           "additionalProperties": false
         }
       },
-      "required": [
-        "@call",
-        "args"
-      ]
+      "required": ["@call", "args"]
     },
     "or": {
       "type": "object",
@@ -8495,16 +7797,11 @@
               ]
             }
           },
-          "required": [
-            "values"
-          ],
+          "required": ["values"],
           "additionalProperties": false
         }
       },
-      "required": [
-        "@call",
-        "args"
-      ]
+      "required": ["@call", "args"]
     },
     "not": {
       "type": "object",
@@ -8523,16 +7820,11 @@
               "$ref": "common_types.json#/$defs/DynamicBoolean"
             }
           },
-          "required": [
-            "value"
-          ],
+          "required": ["value"],
           "additionalProperties": false
         }
       },
-      "required": [
-        "@call",
-        "args"
-      ]
+      "required": ["@call", "args"]
     },
     "calc": {
       "type": "object",
@@ -8551,9 +7843,7 @@
               "$ref": "common_types.json#/$defs/DynamicString"
             }
           },
-          "required": [
-            "expression"
-          ],
+          "required": ["expression"],
           "additionalProperties": {
             "anyOf": [
               {
@@ -8569,10 +7859,7 @@
           }
         }
       },
-      "required": [
-        "@call",
-        "args"
-      ]
+      "required": ["@call", "args"]
     },
     "series": {
       "type": "object",
@@ -8600,19 +7887,13 @@
               "$ref": "common_types.json#/$defs/DynamicNumber"
             }
           },
-          "required": [
-            "count",
-            "item"
-          ],
+          "required": ["count", "item"],
           "additionalProperties": {
             "$ref": "common_types.json#/$defs/DynamicValue"
           }
         }
       },
-      "required": [
-        "@call",
-        "args"
-      ]
+      "required": ["@call", "args"]
     }
   },
   "$defs": {
