@@ -164,6 +164,21 @@ describe("component vocabulary", () => {
     expect(chart.props.yAxisTitle).toBe("USD");
     expect(chart.props.data).toEqual(data);
   });
+  it("Image carries an optional size for surfaces that can size images", () => {
+    const [icon] = renderToIR(
+      <Image url="https://example.com/icon.svg" alt="status" size="small" />,
+    );
+    expect(icon!.type).toBe("image");
+    expect(icon!.props).toMatchObject({
+      url: "https://example.com/icon.svg",
+      alt: "status",
+      size: "small",
+    });
+  });
+  it("rejects an image size outside the portable vocabulary", () => {
+    // @ts-expect-error 'huge' is not an ImageSize
+    void renderToIR(<Image url="https://example.com/icon.svg" size="huge" />);
+  });
 });
 
 describe("component branding", () => {

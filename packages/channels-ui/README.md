@@ -104,7 +104,7 @@ capitalized component set below.
 | `Button`   | Clickable button — `onClick`, `value`, `style`, or `url` (link button).    |
 | `Select`   | Dropdown — `onSelect`, `placeholder`, `options: {label,value}[]`, `multi`. |
 | `Input`    | Text input — `onSubmit`, `placeholder`, `multiline`, `name`.               |
-| `Image`    | An image block.                                                            |
+| `Image`    | An image block — `url`, `alt`, and an optional `size`.                     |
 | `Divider`  | A horizontal rule.                                                         |
 
 ### Behavior props
