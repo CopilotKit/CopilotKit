@@ -108,7 +108,8 @@ Use this prompt to set up CopilotKit in your React Native app, configure Metro a
     <Step>
         ### Create the Copilot Runtime
 
-        Add a small Node server that hosts Copilot Runtime at `/api/copilotkit` and registers a `default` built-in agent:
+        This local smoke test uses CopilotKit's Built-in Agent, regardless of the selected framework.
+        Add a Node server that hosts Copilot Runtime at `/api/copilotkit` and registers it as `default`:
 
         ```ts title="server.ts"
         import { createServer } from "node:http";
@@ -138,6 +139,40 @@ Use this prompt to set up CopilotKit in your React Native app, configure Metro a
           );
         });
         ```
+
+        <Callout type="info" title="Connect your existing agent backend">
+          Copilot Runtime can also register an external agent through an AG-UI adapter.
+          For a backend that already exposes an AG-UI HTTP endpoint, install `@ag-ui/client` in your server project:
+
+          ```bash
+          npm install @ag-ui/client@1.0.5
+          ```
+
+          Use the same `@ag-ui/client` version as your runtime dependency (`npm ls @ag-ui/client`).
+          In `server.ts`, replace the `BuiltInAgent` import and runtime declaration with:
+
+          ```ts title="server.ts: external AG-UI agent"
+          import { HttpAgent } from "@ag-ui/client";
+          import { CopilotRuntime } from "@copilotkit/runtime/v2";
+
+          const agentUrl = process.env.AGENT_URL;
+          if (!agentUrl) throw new Error("Set AGENT_URL to your backend's AG-UI endpoint");
+
+          const runtime = new CopilotRuntime({
+            agents: {
+              default: new HttpAgent({ url: agentUrl }),
+            },
+          });
+          ```
+
+          Keep the Node listener from the example. Set `AGENT_URL` to the backend's full AG-UI endpoint before you run `server.ts`.
+          The runtime calls that URL from your server. Your app's `runtimeUrl` still points to `/api/copilotkit` on the runtime server.
+          The `default` registration matches `useAgent({ agentId: "default" })` in the chat below.
+
+          Frameworks can need their own adapters and endpoint paths.
+          For example, [Mastra's runtime setup](/mastra/backend/copilot-runtime#local-vs-remote-agents) uses `MastraAgent.getRemoteAgents` or `getLocalAgents`.
+          If your adapter registers another agent ID, use that ID in each `useAgent` call.
+        </Callout>
     </Step>
     <Step>
         ### Wrap your app with CopilotKitProvider
