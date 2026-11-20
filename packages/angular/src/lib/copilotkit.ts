@@ -544,7 +544,9 @@ export class CopilotKit {
       this.core.addContext({
         description:
           "A2UI catalog capabilities: available catalog IDs and custom component definitions the client can render.",
-        value: buildCatalogContextValue(catalog, { includeSchema }),
+        // Custom component schemas reach the model through the Component
+        // Schema entry below, so this entry only names the components.
+        value: buildCatalogContextValue(catalog, { includeSchema: false }),
       }),
     );
 

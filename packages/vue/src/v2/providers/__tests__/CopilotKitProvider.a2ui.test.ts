@@ -116,13 +116,27 @@ describe("CopilotKitProvider a2ui catalog context", () => {
     );
   });
 
-  it("includes custom component schemas by default", () => {
+  it("sends each custom component schema once by default, in the Component Schema entry only", () => {
     const { observedCore } = mountProvider({
       a2ui: { catalog: makeCustomCatalog() },
     });
 
-    const value = capabilitiesValue(observedCore.value);
-    expect(value).toContain("  - FlightCard:\n    {");
-    expect(value).toContain('"airline"');
+    // The Component Schema entry already carries every component, so the
+    // capabilities entry only names the custom components.
+    expect(capabilitiesValue(observedCore.value)).toBe(
+      [
+        "Available A2UI catalog:",
+        "- copilotkit://custom-catalog",
+        "  Custom catalog (does NOT include all basic components).",
+        "  Custom components:",
+        "  - FlightCard",
+      ].join("\n"),
+    );
+    const schemaValue = Object.values(observedCore.value?.context ?? {}).find(
+      (entry) => entry.description.startsWith("A2UI Component Schema"),
+    )?.value;
+    const schema = JSON.parse(schemaValue!);
+    expect(Object.keys(schema.components)).toEqual(["FlightCard"]);
+    expect(JSON.stringify(schema.components.FlightCard)).toContain('"airline"');
   });
 });
