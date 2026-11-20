@@ -11,6 +11,7 @@ import { randomUUID } from "@copilotkit/shared";
 import type * as SharedAgui from "@copilotkit/shared";
 import { convertToolsToVercelAITools } from "../../../agent";
 import type { BuiltInAgentClassicConfig } from "../../../agent";
+import { sortToolsByName } from "../../../agent/context-placement";
 import type { CopilotServiceAdapter } from "../../service-adapters/service-adapter";
 import {
   RuntimeEventSubject,
@@ -162,7 +163,9 @@ export class LegacyServiceAdapterAgent extends AbstractAgent {
     }
 
     const actions = [
-      ...input.tools.map((tool) => ({
+      // Sorted by name, so that a new frontend registration order does not
+      // change the tool list, which starts the provider's cached prefix.
+      ...sortToolsByName(input.tools).map((tool) => ({
         name: tool.name,
         description: tool.description ?? "",
         jsonSchema: JSON.stringify(

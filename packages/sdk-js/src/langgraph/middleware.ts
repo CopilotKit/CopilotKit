@@ -1,4 +1,4 @@
-import { createMiddleware, AIMessage } from "langchain";
+import { createMiddleware, AIMessage, HumanMessage } from "langchain";
 import type { InteropZodObject } from "@langchain/core/utils/types";
 import type {
   StandardJSONSchemaV1,
@@ -285,12 +285,78 @@ const appendSystemNote = (request: any, note: string): any => {
   };
 };
 
-const applyStateNote = (request: any, expose: ExposeStateOption): any => {
+/**
+ * Where the middleware puts the app context and the exposed state.
+ *
+ * - `"system"` (default): at the end of the system message.
+ * - `"message"`: at the start of the newest human message. The system message
+ *   then stays the same for the whole thread, so the provider's prompt cache
+ *   covers the history before the last turn. Providers cache an unchanged request
+ *   prefix (tools, system message, messages), and a context change in the
+ *   system message misses all of it.
+ */
+export type ContextPlacement = "system" | "message";
+
+// Returns the request with `note` at the start of the newest human message,
+// or undefined when the request has no human message. Only the request
+// changes: the thread's stored messages stay as they are.
+const prependToNewestHumanMessage = (
+  request: any,
+  note: string,
+): any | undefined => {
+  const messages: any[] = request.messages ?? [];
+  // An indexed backward loop: lint-fix rewrites reverse() to toReversed().
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const message = messages[i];
+    if (!HumanMessage.isInstance(message)) continue;
+    const content =
+      typeof message.content === "string"
+        ? `${note}\n\n${message.content}`
+        : [{ type: "text", text: `${note}\n\n` }, ...message.content];
+    const updated = new HumanMessage({
+      content,
+      id: message.id,
+      name: message.name,
+      additional_kwargs: message.additional_kwargs,
+      response_metadata: message.response_metadata,
+    });
+    return {
+      ...request,
+      messages: [...messages.slice(0, i), updated, ...messages.slice(i + 1)],
+    };
+  }
+  return undefined;
+};
+
+const placeNote = (
+  request: any,
+  note: string,
+  placement: ContextPlacement,
+): any =>
+  (placement === "message"
+    ? prependToNewestHumanMessage(request, note)
+    : undefined) ?? appendSystemNote(request, note);
+
+// Sorted by name: the client sends frontend tools in registration order,
+// which can change between renders, and the tool list starts the cached
+// prefix.
+const sortedByName = (tools: any[]): any[] =>
+  [...tools].sort((a, b) => {
+    const left = String(a?.function?.name ?? a?.name ?? "");
+    const right = String(b?.function?.name ?? b?.name ?? "");
+    return left < right ? -1 : left > right ? 1 : 0;
+  });
+
+const applyStateNote = (
+  request: any,
+  expose: ExposeStateOption,
+  placement: ContextPlacement,
+): any => {
   const note = buildStateNote(
     (request.state ?? {}) as Record<string, unknown>,
     expose,
   );
-  return note ? appendSystemNote(request, note) : request;
+  return note ? placeNote(request, note, placement) : request;
 };
 
 const APP_CONTEXT_PREFIX = "App Context:\n";
@@ -384,7 +450,10 @@ const isAppContextMessage = (msg: any): boolean => {
 // own: Anthropic and Gemini reject a second system message. Older releases
 // wrote an "App Context:" SystemMessage into the thread, so drop any such
 // message from the model's input too.
-const applyAppContextNote = (request: any): any => {
+const applyAppContextNote = (
+  request: any,
+  placement: ContextPlacement,
+): any => {
   const messages = request.messages ?? [];
   const keptMessages = messages.filter((msg: any) => !isAppContextMessage(msg));
   if (keptMessages.length !== messages.length) {
@@ -392,7 +461,7 @@ const applyAppContextNote = (request: any): any => {
   }
 
   const note = buildAppContextNote(request.state, request.runtime?.context);
-  return note ? appendSystemNote(request, note) : request;
+  return note ? placeNote(request, note, placement) : request;
 };
 
 /**
@@ -481,6 +550,7 @@ const rebuildAIMessageWithToolCalls = (
 const buildMiddlewareInput = (
   exposeState: ExposeStateOption,
   a2uiParams?: Omit<A2UIToolParams, "model">,
+  contextPlacement: ContextPlacement = "system",
 ) => ({
   name: "CopilotKitMiddleware",
 
@@ -489,8 +559,8 @@ const buildMiddlewareInput = (
   // Inject frontend tools, surface user state and app context, and forward
   // x-aimock-* headers
   wrapModelCall: async (request: any, handler: (req: any) => Promise<any>) => {
-    request = applyStateNote(request, exposeState);
-    request = applyAppContextNote(request);
+    request = applyStateNote(request, exposeState, contextPlacement);
+    request = applyAppContextNote(request, contextPlacement);
 
     // Forward x-aimock-* headers from the incoming AG-UI request
     const forwardedHeaders = getForwardedHeaders();
@@ -593,7 +663,7 @@ const buildMiddlewareInput = (
     const mergedTools = [
       ...existingTools,
       ...(a2uiTool ? [a2uiTool] : []),
-      ...frontendTools,
+      ...sortedByName(frontendTools),
     ];
 
     return handler({
@@ -731,11 +801,22 @@ export const createCopilotkitMiddleware = (
   options: {
     exposeState?: ExposeStateOption;
     a2uiParams?: Omit<A2UIToolParams, "model">;
+    /**
+     * Where the app context and the exposed state go. `"system"` (default)
+     * appends them to the system message. `"message"` puts them at the start
+     * of the newest human message, so the system message stays the same and
+     * the provider's prompt cache covers the history before the last turn.
+     */
+    contextPlacement?: ContextPlacement;
   } = {},
 ) => {
   const exposeState = options.exposeState ?? false;
   return createMiddleware(
-    buildMiddlewareInput(exposeState, options.a2uiParams) as any,
+    buildMiddlewareInput(
+      exposeState,
+      options.a2uiParams,
+      options.contextPlacement,
+    ) as any,
   );
 };
 
