@@ -18,9 +18,12 @@ FROM python:3.12.13 AS agent-builder
 WORKDIR /agent
 RUN python -m venv /opt/venv
 ENV PATH=/opt/venv/bin:$PATH
-COPY requirements.txt ./requirements.txt
+# requirements.lock is the hashed lock generated from requirements.txt (see the
+# header of requirements.in). --require-hashes makes the build install exactly
+# the locked versions and fail if any package is missing a pin or a hash.
+COPY requirements.lock ./requirements.lock
 RUN pip install --no-cache-dir --upgrade pip \
- && pip install --no-cache-dir -r requirements.txt
+ && pip install --no-cache-dir --require-hashes -r requirements.lock
 
 # Stage 3: Production image with Node.js + Python (runtime only — no pip,
 # no build tools). Node.js is installed via NodeSource because the package
