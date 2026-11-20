@@ -101,6 +101,8 @@ update=true)` and only the components that change.
   out). Run `pnpm export:catalog` after changing that list.
 - **One retry.** If a reply stops compiling halfway, what already painted
   stays, and the agent asks the model once to finish it with the error quoted.
+  If the retry does not compile either, the run ends with an error rather than
+  reporting success; the painted part still stays.
 
 On Gemini 3.8 Flash, the first canvas paints about 2.5 seconds after you send
 and finishes in about 9; an edit paints in about 2.5 and finishes in about 6.

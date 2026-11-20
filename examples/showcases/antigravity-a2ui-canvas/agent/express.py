@@ -39,6 +39,7 @@ from a2ui.processor import A2uiRequestProcessor
 from ag_ui.core import (
     BaseEvent,
     RunAgentInput,
+    RunErrorEvent,
     RunFinishedEvent,
     RunStartedEvent,
     TextMessageContentEvent,
@@ -351,18 +352,35 @@ def _request(messages: list) -> str | None:
     return None
 
 
+class ExpressCompileError(Exception):
+    """The reply's A2UI Express block failed to compile on both attempts."""
+
+
 async def express_events(
     input_data: RunAgentInput, model: str, thinking_level: str | None
 ) -> AsyncIterator[BaseEvent]:
-    """One AG-UI run on the Express path."""
+    """One AG-UI run on the Express path.
+
+    It ends in RUN_FINISHED when the reply compiles, and in RUN_ERROR when it
+    still does not after the retry. Either way, whatever already reached the
+    canvas stays: those operations went out, and were closed, as they arrived.
+    """
     yield RunStartedEvent(
         type="RUN_STARTED", thread_id=input_data.thread_id, run_id=input_data.run_id
     )
     messages = list(input_data.messages or [])
     request = _request(messages)
     if request is not None:
-        async for event in _reply(messages, request, model, thinking_level):
-            yield event
+        try:
+            async for event in _reply(messages, request, model, thinking_level):
+                yield event
+        except ExpressCompileError as failure:
+            yield RunErrorEvent(
+                type="RUN_ERROR",
+                message=f"The canvas reply did not compile, even after a retry: {failure}",
+                code="EXPRESS_COMPILE_ERROR",
+            )
+            return
     yield RunFinishedEvent(
         type="RUN_FINISHED", thread_id=input_data.thread_id, run_id=input_data.run_id
     )
@@ -451,3 +469,4 @@ async def _reply(
         # Retry once. What already reached the canvas stays, and the retry
         # starts from it, so a reply that broke halfway is finished, not redrawn.
         applied = applied + turn.sent
+    raise ExpressCompileError(error)
