@@ -40,9 +40,9 @@ function getOrCreateProcessor(): MessageProcessor<VueComponentImplementation> {
     const catalog = props.catalog ?? vueBasicCatalog;
     processorRef.value = new MessageProcessor<VueComponentImplementation>(
       [catalog],
-      (action: unknown) => {
-        handleAction(action);
-      },
+      // Return the promise: web_core awaits it, so `dispatchAction` resolves
+      // after the agent run and a failed run is caught there.
+      (action: unknown) => handleAction(action),
     );
   }
   return processorRef.value;
