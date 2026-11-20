@@ -243,18 +243,72 @@ function withoutNull(value: unknown, field: string): unknown {
   return Object.fromEntries(Object.entries(value).filter(([k]) => k !== field));
 }
 
-const hasLegacyBinary = (message: unknown) =>
-  isObject(message) &&
-  Array.isArray(message.content) &&
-  message.content.some((part) => isObject(part) && part.type === "binary");
+const mediaTypeFor = (mimeType: string) =>
+  mimeType.startsWith("image/")
+    ? "image"
+    : mimeType.startsWith("audio/")
+      ? "audio"
+      : mimeType.startsWith("video/")
+        ? "video"
+        : "document";
+
+type MediaPart = {
+  type: string;
+  source: { type: string; value: string; mimeType: string };
+};
+
+const sameSource = (part: unknown, converted: MediaPart) =>
+  isObject(part) &&
+  part.type === converted.type &&
+  isObject(part.source) &&
+  part.source.type === converted.source.type &&
+  part.source.value === converted.source.value &&
+  part.source.mimeType === converted.source.mimeType;
+
+/**
+ * 0.x `{ type: "binary" }` content parts, rewritten the way the runtime
+ * rewrites them (`upgradeLegacyBinaryParts`): data or url becomes the media
+ * part its mime type names, a part with neither is dropped, and so is one that
+ * only repeats a modern part already in the message.
+ */
+function upgradeBinaryParts(content: unknown[]): unknown[] {
+  return content.flatMap((part) => {
+    if (
+      !isObject(part) ||
+      part.type !== "binary" ||
+      typeof part.mimeType !== "string"
+    )
+      return [part];
+    const kind =
+      typeof part.data === "string"
+        ? "data"
+        : typeof part.url === "string"
+          ? "url"
+          : null;
+    if (kind === null) return [];
+    const converted: MediaPart & { metadata?: { filename: string } } = {
+      type: mediaTypeFor(part.mimeType),
+      source: {
+        type: kind,
+        value: String(kind === "data" ? part.data : part.url),
+        mimeType: part.mimeType,
+      },
+      ...(typeof part.filename === "string" && {
+        metadata: { filename: part.filename },
+      }),
+    };
+    return content.some((other) => sameSource(other, converted))
+      ? []
+      : [converted];
+  });
+}
 
 /**
  * Whether the runtime would start a run from this body. It checks AG-UI's own
- * `RunAgentInput` schema, the one the runtime parses with, after the same
- * clean-up the runtime does first (`normalizeLegacyRunAgentInput` in its
- * agent-utils): optional fields sent as null are dropped. A 0.x binary content
- * part, which the runtime rewrites, counts as valid here, so this check never
- * lets through for free a body the runtime would run.
+ * `RunAgentInput` schema, the one the runtime parses with, against the whole
+ * body after the same clean-up the runtime does first
+ * (`normalizeLegacyRunAgentInput` in its agent-utils): 0.x binary content parts
+ * become media parts, and optional fields sent as null are dropped.
  */
 export function isRunInput(body: string): boolean {
   let input: unknown;
@@ -265,7 +319,6 @@ export function isRunInput(body: string): boolean {
   }
   if (!isObject(input)) return false;
   const { tools, resume, messages } = input;
-  if (Array.isArray(messages) && messages.some(hasLegacyBinary)) return true;
   const cleaned = {
     ...(withoutNull(input, "forwardedProps") as JsonObject),
     ...(Array.isArray(tools) && {
@@ -279,7 +332,7 @@ export function isRunInput(body: string): boolean {
         isObject(message) && Array.isArray(message.content)
           ? {
               ...message,
-              content: message.content.map((part) =>
+              content: upgradeBinaryParts(message.content).map((part) =>
                 isObject(part) && MEDIA.has(String(part.type))
                   ? withoutNull(part, "metadata")
                   : part,
