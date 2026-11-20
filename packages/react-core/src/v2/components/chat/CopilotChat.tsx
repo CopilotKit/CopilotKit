@@ -815,24 +815,18 @@ export function CopilotChat({
     rememberRecentlyWakeRunId,
   ]);
 
-  // Serializes consecutive sends: if a run is already in flight, let it finish
-  // before dispatching the next message instead of pre-empting it.
-  // `copilotkit.runAgent` would otherwise call `agent.detachActiveRun()` and
-  // ABORT the in-flight run. That abort is harmful when the in-flight run is an
-  // interrupt RESUME: the resume re-enters and completes the paused agent
-  // graph, and aborting it mid-flight leaves the graph paused — so the new
-  // message lands as another resume of the SAME paused graph (re-interrupting
-  // with no fresh payload) instead of starting a clean new turn. This is the
-  // consecutive-interrupt regression: pick turn-1's slot (kicks off the
-  // resume), then immediately send turn-2's message — without waiting, turn-2
-  // aborts the resume and the 2nd interrupt's card never mounts. Awaiting the
-  // active run's completion serializes the two turns so the resume finishes
-  // (graph completes) before the new message starts a fresh run.
-  //
-  // The completion promise lives only on `IntelligenceAgent` (via the
-  // `RunCompletionAware` contract), not on the `AbstractAgent` type held here —
-  // so it is reached through a type guard, not a cast. Agents that don't
-  // implement the contract degrade safely (the await is skipped).
+  /**
+   * Serializes consecutive sends by waiting for replay hydration and any active
+   * run before dispatching the next message. Without this wait,
+   * `copilotkit.runAgent` can call `agent.detachActiveRun()` and abort an
+   * in-flight interrupt resume, leaving the graph paused and causing the next
+   * message to resume it again instead of starting a fresh turn.
+   *
+   * The completion promise lives only on `IntelligenceAgent` (via the
+   * `RunCompletionAware` contract), not on the `AbstractAgent` type held here,
+   * so it is reached through a type guard. Generic agents without that contract
+   * use their public lifecycle events instead.
+   */
   const waitForActiveRunToSettle = useCallback(async () => {
     const selection = previousThreadRef.current;
     const isCurrentSelection = () =>
