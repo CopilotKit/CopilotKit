@@ -30,6 +30,8 @@ export type ReactHumanInTheLoop<
         status: ToolCallStatus.InProgress;
         result: undefined;
         respond: undefined;
+        aborted?: undefined;
+        error?: undefined;
       }
     | {
         name: string;
@@ -40,6 +42,8 @@ export type ReactHumanInTheLoop<
         status: ToolCallStatus.Executing;
         result: undefined;
         respond: (result: unknown) => Promise<void>;
+        aborted?: undefined;
+        error?: undefined;
       }
     | {
         name: string;
@@ -50,6 +54,27 @@ export type ReactHumanInTheLoop<
         status: ToolCallStatus.Complete;
         result: string;
         respond: undefined;
+        aborted?: undefined;
+        /** Set when the call failed for a reason other than a stop. */
+        error?: string;
+      }
+    | {
+        /**
+         * The run was stopped while this request was still waiting on the
+         * user. There is no answer: `result` is `undefined`, `aborted` is
+         * `true` and `error` holds the abort message, so the UI can show the
+         * request as abandoned.
+         */
+        name: string;
+        description: string;
+        toolCallId: string;
+        agentId?: string;
+        args: T;
+        status: ToolCallStatus.Complete;
+        result: undefined;
+        respond: undefined;
+        aborted: true;
+        error: string;
       }
   >;
 };

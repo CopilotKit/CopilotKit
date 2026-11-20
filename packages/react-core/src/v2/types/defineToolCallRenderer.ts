@@ -18,6 +18,7 @@ type RenderProps<T> =
       args: Partial<T>;
       status: ToolCallStatus.InProgress;
       result: undefined;
+      error?: undefined;
     }
   | {
       name: string;
@@ -25,6 +26,7 @@ type RenderProps<T> =
       args: T;
       status: ToolCallStatus.Executing;
       result: undefined;
+      error?: undefined;
     }
   | {
       name: string;
@@ -32,6 +34,16 @@ type RenderProps<T> =
       args: T;
       status: ToolCallStatus.Complete;
       result: string;
+      /**
+       * Set when the tool call failed instead of returning a result. This is
+       * the tool message's raw `error` field: usually the failure message,
+       * but some history adapters restore it as a bare marker such as
+       * `"error"`, and `result` then holds the text the agent was sent
+       * (`Error: <message>` when CopilotKit produced it). An adapter can
+       * also drop `error` from a restored message entirely, so a missing
+       * `error` does not prove that the call succeeded.
+       */
+      error?: string;
     };
 
 // Overload for wildcard tools without args

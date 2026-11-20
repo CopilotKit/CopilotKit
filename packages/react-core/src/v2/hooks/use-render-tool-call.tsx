@@ -62,6 +62,7 @@ const ToolCallRenderer = React.memo(
           // contract is `result: string`, so it gets the text parts (media is
           // not something a string can hold — the message itself keeps it).
           result={contentToText(toolMessage.content)}
+          error={toolMessage.error}
         />
       );
     } else if (isExecuting) {
@@ -102,6 +103,8 @@ const ToolCallRenderer = React.memo(
     const prevResult = prevProps.toolMessage?.content;
     const nextResult = nextProps.toolMessage?.content;
     if (prevResult !== nextResult) return false;
+    if (prevProps.toolMessage?.error !== nextProps.toolMessage?.error)
+      return false;
 
     // Compare executing state
     if (prevProps.isExecuting !== nextProps.isExecuting) return false;
