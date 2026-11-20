@@ -2,9 +2,9 @@ import { createChatOptions } from "@tanstack/ai";
 import type { MCPToolSource } from "@tanstack/ai";
 import { openaiText } from "@tanstack/ai-openai";
 import { streamText } from "ai";
-import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { BuiltInAgent, createSafeUrlDownload } from "@copilotkit/runtime/agent";
 import {
-  createSafeUrlDownload,
+  createSafeUrlDownload as createSafeUrlDownloadFromAISDK,
   toAISDKTools,
 } from "@copilotkit/runtime/agent/ai-sdk";
 // @ts-expect-error The root entry no longer exports the Built-in Agent.
@@ -102,5 +102,19 @@ export const fromAISDKFactory = new BuiltInAgent({
       }),
     }),
 });
+
+/** The AI SDK entry exports the same URL guard. */
+export const sameUrlGuard: typeof createSafeUrlDownload =
+  createSafeUrlDownloadFromAISDK;
+
+/** The URL guard downloads a URL without the AI SDK. */
+export const downloaded = createSafeUrlDownload({
+  allowedHosts: ["cdn.example.com"],
+})([
+  {
+    url: new URL("https://cdn.example.com/a.png"),
+    isUrlSupportedByModel: false,
+  },
+]).then(([file]) => file?.data);
 
 export { RootBuiltInAgent };

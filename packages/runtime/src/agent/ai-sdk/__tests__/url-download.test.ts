@@ -23,7 +23,7 @@ import type { LookupAddress } from "node:dns";
 import { lookup as realLookup } from "node:dns/promises";
 import type { AddressInfo, LookupFunction } from "node:net";
 import { COPILOTKIT_VERSION } from "@copilotkit/shared";
-import { DownloadError } from "ai";
+import { AISDKError, DownloadError } from "ai";
 import {
   createGuardedUrlDownload,
   createSafeUrlDownload,
@@ -1438,6 +1438,30 @@ describe("createSafeUrlDownload responses", () => {
     expect(logged).not.toContain("SECRET-SIG");
   });
 
+  it("reports a body that breaks off as a download failure", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    // Sends part of the body it announced, then drops the connection.
+    const cut = http.createServer((_request, response) => {
+      response.writeHead(200, {
+        "content-type": "image/png",
+        "content-length": "1000",
+      });
+      response.write("partial", () => response.socket?.destroy());
+    });
+    await new Promise<void>((resolve) => cut.listen(0, "127.0.0.1", resolve));
+    const cutPort = (cut.address() as AddressInfo).port;
+    try {
+      const error = await downloadErrorOf(
+        download(),
+        `http://public.test:${cutPort}/image.png`,
+      );
+      expect(error.message).toBe("The download failed.");
+      expect(error.url).toBe(`http://public.test:${cutPort}/image.png`);
+    } finally {
+      await new Promise<void>((resolve) => cut.close(() => resolve()));
+    }
+  });
+
   it("keeps the query out of a non-2xx status error", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const error = await downloadErrorOf(
@@ -1503,5 +1527,23 @@ describe("createSafeUrlDownload responses", () => {
       const result = await fetchOne(v6, url);
       expect(Buffer.from(result!.data).toString(), url).toBe("PUBLIC-BYTES");
     }
+  });
+});
+
+describe("createSafeUrlDownload errors without the ai package", () => {
+  // The module declares its own error, so that it does not import `ai`. The
+  // AI SDK, and app code written for it, still read it as a DownloadError.
+  it("rejects with an error that the AI SDK reads as its DownloadError", async () => {
+    const error = await downloadErrorOf(
+      createSafeUrlDownload(),
+      "ftp://files.test/report.pdf",
+    );
+    expect(error).toBeInstanceOf(Error);
+    expect(AISDKError.isInstance(error)).toBe(true);
+    expect(DownloadError.isInstance(error)).toBe(true);
+    expect(error.name).toBe("AI_DownloadError");
+    expect(error.message).toBe("Only http and https URLs can be downloaded.");
+    expect(error.url).toBe("ftp://files.test/report.pdf");
+    expect(error.statusCode).toBeUndefined();
   });
 });

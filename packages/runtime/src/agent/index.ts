@@ -258,7 +258,7 @@ export type BuiltInAgentFactoryContext = AgentFactoryContext;
  * - `createSafeUrlDownload({ signal: ctx.abortSignal })`, passed as
  *   `experimental_download`, keeps the server from fetching internal
  *   addresses named in request attachments, and stops the downloads when the
- *   run is aborted.
+ *   run is aborted. `@copilotkit/runtime/agent` exports it too.
  */
 export interface BuiltInAgentAISDKFactoryConfig {
   /** Human-readable display name, independent of the agent's ID. */
@@ -1303,3 +1303,9 @@ export type {
   TanStackInputOptions,
   TanStackInputResult,
 } from "./converters/tanstack";
+// The URL guard is written for AI SDK factories, but it does not import `ai`.
+export { createSafeUrlDownload } from "./ai-sdk/url-download";
+export type {
+  CreateSafeUrlDownloadOptions,
+  SafeUrlDownloadOptions,
+} from "./ai-sdk/url-download";

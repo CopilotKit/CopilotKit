@@ -7,6 +7,7 @@ import {
 } from "@copilotkit/runtime";
 import { resolveModel, type BuiltInAgentClassicConfig } from "@copilotkit/runtime/v2";
 import { convertMessagesToVercelAISDKMessages } from "@copilotkit/runtime";
+import { createSafeUrlDownload } from "@copilotkit/runtime/v2";
 import { openai } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
 
@@ -42,4 +43,5 @@ export const handler = createCopilotRuntimeHandler({ runtime });
 export const model = resolveModel("openai/gpt-5");
 export const awaited = async () => await resolveModel("openai/gpt-5");
 export const toMessages = convertMessagesToVercelAISDKMessages;
+export const download = createSafeUrlDownload({ maxBytes: 1_000_000 });
 export type Clients = MCPClient[];

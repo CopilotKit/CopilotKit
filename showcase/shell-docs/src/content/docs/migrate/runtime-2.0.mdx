@@ -543,7 +543,7 @@ Make these changes too:
 
 In an AI SDK factory, you can still let the AI SDK download URLs. Pass
 `createSafeUrlDownload({ signal: ctx.abortSignal })` from
-`@copilotkit/runtime/agent/ai-sdk` as `experimental_download`.
+`@copilotkit/runtime/agent` as `experimental_download`.
 
 The agent also takes other TanStack AI `chat()` options, such as `promptCache`,
 `middleware`, `systemPrompts`, and `agentLoopStrategy`. See

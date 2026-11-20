@@ -196,6 +196,11 @@ const AI_SDK_HELPER: RemovedExport = {
   docs: BUILT_IN_AGENT,
 };
 
+const SAFE_URL_DOWNLOAD: RemovedExport = {
+  use: "Import it from @copilotkit/runtime/agent. It does not need the ai package.",
+  docs: BUILT_IN_AGENT,
+};
+
 const RUNTIME_LOGGER: RemovedExport = {
   use: "Pass a logger (CopilotKitRuntimeLogger) to CopilotKitRuntime from @copilotkit/runtime, or set debug: true for debug logs.",
   docs: DEBUG_LOGS,
@@ -553,9 +558,10 @@ export const REMOVED_EXPORTS: Record<string, Record<string, RemovedExport>> = {
     convertToolDefinitionsToVercelAITools: AI_SDK_HELPER,
     convertToolsToVercelAITools: AI_SDK_HELPER,
     MessageConversionOptions: AI_SDK_HELPER,
-    createSafeUrlDownload: AI_SDK_HELPER,
-    CreateSafeUrlDownloadOptions: AI_SDK_HELPER,
-    SafeUrlDownloadOptions: AI_SDK_HELPER,
+    // The URL guard, which 2.0 exports from @copilotkit/runtime/agent
+    createSafeUrlDownload: SAFE_URL_DOWNLOAD,
+    CreateSafeUrlDownloadOptions: SAFE_URL_DOWNLOAD,
+    SafeUrlDownloadOptions: SAFE_URL_DOWNLOAD,
     // MCP
     MCPClient: MCP_TYPES,
     MCPClientConfig: MCP_TYPES,

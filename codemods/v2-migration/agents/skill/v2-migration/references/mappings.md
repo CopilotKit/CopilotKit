@@ -611,7 +611,7 @@ A re-export of an old name keeps that name: the codemod exports the 2.0 name und
 
 ## Built-in Agent
 
-`BuiltInAgent` imports from `@copilotkit/runtime/agent`, and it runs on TanStack AI. The codemod already moved the imports. The AI SDK helpers (`convertMessagesToVercelAISDKMessages`, `convertToolsToVercelAITools`, `createSafeUrlDownload`, ...) moved to `@copilotkit/runtime/agent/ai-sdk`.
+`BuiltInAgent` imports from `@copilotkit/runtime/agent`, and it runs on TanStack AI. The codemod already moved the imports. `createSafeUrlDownload` also imports from `@copilotkit/runtime/agent`, and it does not need the `ai` package. The AI SDK helpers (`convertMessagesToVercelAISDKMessages`, `convertToolsToVercelAITools`, ...) moved to `@copilotkit/runtime/agent/ai-sdk`.
 
 `model` takes a TanStack AI text adapter, not a model string. The codemod rewrote each model string it could read:
 

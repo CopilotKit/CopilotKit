@@ -322,17 +322,17 @@ export const createLogger = /*#__PURE__*/ removedApi({
   docs: "/migrate/runtime-2.0#debug-logs",
 });
 
-/** @deprecated "createSafeUrlDownload" was removed in CopilotKit 2.0. 2.0 exports the AI SDK helpers from @copilotkit/runtime/agent/ai-sdk. Import it from there, and add the ai package to your app. Run `npx copilotkit@latest migrate` to update your code. See https://docs.copilotkit.ai/migrate/runtime-2.0#built-in-agent */
+/** @deprecated "createSafeUrlDownload" was removed in CopilotKit 2.0. Import it from @copilotkit/runtime/agent. It does not need the ai package. Run `npx copilotkit@latest migrate` to update your code. See https://docs.copilotkit.ai/migrate/runtime-2.0#built-in-agent */
 export const createSafeUrlDownload = /*#__PURE__*/ removedApi({
   name: "createSafeUrlDownload",
-  use: "2.0 exports the AI SDK helpers from @copilotkit/runtime/agent/ai-sdk. Import it from there, and add the ai package to your app.",
+  use: "Import it from @copilotkit/runtime/agent. It does not need the ai package.",
   docs: "/migrate/runtime-2.0#built-in-agent",
 });
 
-/** @deprecated "CreateSafeUrlDownloadOptions" was removed in CopilotKit 2.0. 2.0 exports the AI SDK helpers from @copilotkit/runtime/agent/ai-sdk. Import it from there, and add the ai package to your app. Run `npx copilotkit@latest migrate` to update your code. See https://docs.copilotkit.ai/migrate/runtime-2.0#built-in-agent */
+/** @deprecated "CreateSafeUrlDownloadOptions" was removed in CopilotKit 2.0. Import it from @copilotkit/runtime/agent. It does not need the ai package. Run `npx copilotkit@latest migrate` to update your code. See https://docs.copilotkit.ai/migrate/runtime-2.0#built-in-agent */
 export type CreateSafeUrlDownloadOptions = RemovedType<
   "CreateSafeUrlDownloadOptions",
-  "2.0 exports the AI SDK helpers from @copilotkit/runtime/agent/ai-sdk. Import it from there, and add the ai package to your app.",
+  "Import it from @copilotkit/runtime/agent. It does not need the ai package.",
   "/migrate/runtime-2.0#built-in-agent"
 >;
 
@@ -653,10 +653,10 @@ export const resolveModel = /*#__PURE__*/ removedApi({
   docs: "/migrate/runtime-2.0#if-you-used-resolvemodel-or-classifymodelspec",
 });
 
-/** @deprecated "SafeUrlDownloadOptions" was removed in CopilotKit 2.0. 2.0 exports the AI SDK helpers from @copilotkit/runtime/agent/ai-sdk. Import it from there, and add the ai package to your app. Run `npx copilotkit@latest migrate` to update your code. See https://docs.copilotkit.ai/migrate/runtime-2.0#built-in-agent */
+/** @deprecated "SafeUrlDownloadOptions" was removed in CopilotKit 2.0. Import it from @copilotkit/runtime/agent. It does not need the ai package. Run `npx copilotkit@latest migrate` to update your code. See https://docs.copilotkit.ai/migrate/runtime-2.0#built-in-agent */
 export type SafeUrlDownloadOptions = RemovedType<
   "SafeUrlDownloadOptions",
-  "2.0 exports the AI SDK helpers from @copilotkit/runtime/agent/ai-sdk. Import it from there, and add the ai package to your app.",
+  "Import it from @copilotkit/runtime/agent. It does not need the ai package.",
   "/migrate/runtime-2.0#built-in-agent"
 >;
 
