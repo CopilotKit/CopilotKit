@@ -248,10 +248,11 @@ describe("handleConnectAgent", () => {
         }),
       };
       const runtime = createIntelligenceRuntime(platform);
+      const request = createConnectRequest();
 
       const response = await handleConnectAgent({
         runtime,
-        request: createConnectRequest(),
+        request,
         agentId: "my-agent",
       });
 
@@ -270,6 +271,7 @@ describe("handleConnectAgent", () => {
         threadId: "thread-1",
         userId: "user-1",
         agentId: "my-agent",
+        signal: request.signal,
       });
     });
 
@@ -306,10 +308,11 @@ describe("handleConnectAgent", () => {
         createThread: vi.fn(),
       };
       const runtime = createIntelligenceRuntime(platform);
+      const request = createConnectRequest();
 
       const response = await handleConnectAgent({
         runtime,
-        request: createConnectRequest(),
+        request,
         agentId: "my-agent",
       });
 
@@ -320,6 +323,7 @@ describe("handleConnectAgent", () => {
         threadId: "thread-1",
         userId: "user-1",
         agentId: "my-agent",
+        signal: request.signal,
       });
     });
 
@@ -488,10 +492,11 @@ describe("handleConnectAgent", () => {
         ɵconnectThread: vi.fn().mockResolvedValue(null),
       };
       const runtime = createIntelligenceRuntime(platform);
+      const request = createConnectRequest(undefined, "event-9");
 
       const response = await handleConnectAgent({
         runtime,
-        request: createConnectRequest(undefined, "event-9"),
+        request,
         agentId: "my-agent",
       });
 
@@ -500,6 +505,7 @@ describe("handleConnectAgent", () => {
         threadId: "thread-1",
         userId: "user-1",
         agentId: "my-agent",
+        signal: request.signal,
       });
     });
 
@@ -530,6 +536,7 @@ describe("handleConnectAgent", () => {
         threadId: "thread-1",
         userId: "resolved-user",
         agentId: "my-agent",
+        signal: request.signal,
       });
     });
 

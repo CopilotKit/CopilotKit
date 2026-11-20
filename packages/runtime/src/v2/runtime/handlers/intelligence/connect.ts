@@ -49,6 +49,7 @@ export async function handleIntelligenceConnect({
       threadId,
       userId: user.id,
       agentId,
+      signal: request.signal,
     });
 
     if (result === null) {
