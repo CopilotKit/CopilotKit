@@ -95,6 +95,48 @@ function callAnthropic(apiKey: string, prompt: string): Promise<string> {
   });
 }
 
+/**
+ * GitHub Actions workflow commands are single-line and treat `%`, CR and LF as
+ * control characters, so an unescaped API error body (JSON, often multi-line)
+ * would be truncated at the first newline or mangled. Escape per
+ * https://docs.github.com/actions/reference/workflow-commands-for-github-actions.
+ */
+function escapeAnnotation(message: string): string {
+  return message
+    .replace(/%/g, "%25")
+    .replace(/\r/g, "%0D")
+    .replace(/\n/g, "%0A");
+}
+
+/**
+ * Make an enrichment failure VISIBLE without failing the step.
+ *
+ * This used to be a bare `console.error`, which GitHub renders as ordinary log
+ * text: the step stayed green, the run stayed green, and AI enrichment was dead
+ * for ~11 stable releases before anyone noticed. A release must not be blocked
+ * by enrichment being down, so this stays a warning (step still succeeds, the
+ * raw changelog still ships) — but it is now a `::warning::` annotation on the
+ * run and a line in the job summary, both carrying the real provider error.
+ *
+ * Mirrors the `annotate()` helper in extract-release-notes.ts, which annotates
+ * rather than exits for the same reason.
+ */
+function annotateFallback(message: string): void {
+  // Annotations are capped by GitHub; a provider error body can be large, and a
+  // dropped annotation would put us right back at silent-green.
+  const capped =
+    message.length > 1500 ? `${message.slice(0, 1500)}… (truncated)` : message;
+
+  console.log(`::warning title=AI release notes::${escapeAnnotation(capped)}`);
+
+  const summaryPath = process.env.GITHUB_STEP_SUMMARY;
+  if (!summaryPath) return;
+  fs.appendFileSync(
+    summaryPath,
+    `\n> [!WARNING]\n> **AI release notes fell back to the raw changelog.**\n>\n> \`\`\`\n> ${capped.replace(/\n/g, "\n> ")}\n> \`\`\`\n`,
+  );
+}
+
 async function main() {
   const version = process.argv[2];
   const scope = process.argv[3] as ReleaseScope | undefined;
@@ -163,8 +205,10 @@ Output ONLY the release notes content, nothing else.`;
       fs.writeFileSync(releaseNotesPath, finalNotes);
       console.log("AI-enhanced release notes written to release-notes.md");
     } catch (err: any) {
-      console.error(`AI generation failed: ${err.message}`);
-      console.log("Falling back to raw changelog.");
+      annotateFallback(
+        `AI generation failed, falling back to the raw changelog — these release notes are NOT AI-enhanced. ` +
+          `Underlying error: ${err?.message ?? String(err)}`,
+      );
     }
   } else {
     console.log(
