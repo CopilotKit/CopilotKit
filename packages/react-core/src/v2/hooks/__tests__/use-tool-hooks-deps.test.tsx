@@ -38,6 +38,18 @@ function makeCircularAgent(id: string): CircularAgent {
   return agent;
 }
 
+/** A ring of `length` plain nodes that all carry `label`. */
+function makeCycle({ length, label }: { length: number; label: string }) {
+  const nodes = Array.from(
+    { length },
+    (): Record<string, unknown> => ({ label }),
+  );
+  nodes.forEach((node, i) => {
+    node.next = nodes[(i + 1) % length];
+  });
+  return [nodes[0]];
+}
+
 type HookCase = {
   name: string;
   /** The core method whose call count is the number of registrations. */
@@ -185,6 +197,22 @@ describe.each(hookCases)("$name deps comparison", (hookCase) => {
     expect(h.registrations()).toBe(0);
 
     await h.set(1);
+    expect(h.registrations()).toBe(1);
+    h.ui.unmount();
+  });
+
+  it("does not throw when a cyclic dep is replaced by a cycle of another length", async () => {
+    const h = await mountWithDeps(
+      hookCase,
+      { length: 1, label: "a" },
+      makeCycle,
+    );
+
+    // Same data all the way round, so it compares equal to the self-cycle.
+    await h.set({ length: 2, label: "a" });
+    expect(h.registrations()).toBe(0);
+
+    await h.set({ length: 3, label: "b" });
     expect(h.registrations()).toBe(1);
     h.ui.unmount();
   });
