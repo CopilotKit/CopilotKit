@@ -20,7 +20,7 @@ import { ComponentStreamParser } from "./stream-parse";
 import { SurfaceStream } from "./surface";
 import type { Node, SurfaceRecord } from "./surface";
 
-export const COMPOSER_MODEL = process.env.A2UI_COMPOSER_MODEL ?? "gpt-5.4-mini";
+export const COMPOSER_MODEL = process.env.A2UI_COMPOSER_MODEL ?? "gpt-6-luna";
 export const GENERATE_A2UI_TOOL_NAME = "generate_a2ui";
 
 const RENDER_TOOL: OpenAI.Chat.Completions.ChatCompletionTool = {

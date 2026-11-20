@@ -3,8 +3,8 @@
 /**
  * The playground agent: a CopilotKit BuiltInAgent in custom-factory mode.
  *
- *   prompt ──▶ router (gpt-5.5) ──┬─▶ fixed tool: fetch real data ─▶ pre-authored template ─▶ ops
- *                                 └─▶ generate_a2ui ─▶ composer sub-agent (gpt-5.4-mini, streamed) ─▶ ops
+ *   prompt ──▶ router (gpt-6-luna) ──┬─▶ fixed tool: fetch real data ─▶ pre-authored template ─▶ ops
+ *                                    └─▶ generate_a2ui ─▶ composer sub-agent (gpt-6-luna, streamed) ─▶ ops
  *
  * Everything is emitted as AG-UI events. Each surface is a Gen UI 2.0
  * `generative-ui-surface` activity carrying A2UI 1.0 operations
@@ -31,7 +31,7 @@ import { blueprintOf, TEMPLATE_TREES } from "./surfaces/templates";
 import { DATA_TOOLS, FIXED_TOOLS } from "./tools";
 import type { ToolSpec } from "./tools";
 
-export const ROUTER_MODEL = process.env.A2UI_ROUTER_MODEL ?? "gpt-5.5";
+export const ROUTER_MODEL = process.env.A2UI_ROUTER_MODEL ?? "gpt-6-luna";
 
 export type Mode = "auto" | "fixed" | "dynamic";
 
