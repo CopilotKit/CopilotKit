@@ -1,0 +1,178 @@
+name: "AEO: Weekly Recommendation Report"
+
+# Once a week, asks a web-researching agent the unbranded AEO prompts and
+# reports how often it recommends CopilotKit. Production search, production
+# docs. The eval lives in showcase/shell-docs/scripts/aeo-eval.
+#
+# - Report: a comment on the "AEO weekly report" issue (the history), the job
+#   summary, and a short Slack message in #oss-alerts.
+# - Charts and raw results: the `aeo-weekly-report` artifact.
+# - Cost: about $12 a week at 5 runs per prompt (both modes).
+#
+# For a smoke test, start it by hand with runs 1, only W01, publish off.
+
+on:
+  schedule:
+    # Mondays, 13:00 UTC.
+    - cron: "0 13 * * 1"
+  workflow_dispatch:
+    inputs:
+      runs:
+        description: "Runs per prompt"
+        required: false
+        type: string
+        default: "5"
+      only:
+        description: "Prompt IDs to run, comma separated (empty runs all)"
+        required: false
+        type: string
+        default: ""
+      publish:
+        description: "Post to the issue and Slack"
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: aeo-weekly-report
+  cancel-in-progress: false
+
+jobs:
+  eval:
+    name: Eval (${{ matrix.mode }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [normal, blind]
+    defaults:
+      run:
+        working-directory: showcase/shell-docs
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 1
+          lfs: false
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+
+      # The eval needs only the `claude` CLI: @anthropic-ai/claude-code, pinned
+      # as a root devDependency. A CLI bump can move the numbers, so expect one
+      # noisy week after it. --ignore-scripts skips the postinstall that links
+      # the native binary, so a `claude` shim calls the package's cli-wrapper.cjs,
+      # which finds that binary itself.
+      - name: Install Claude Code from the lockfile
+        working-directory: .
+        run: |
+          pnpm install --frozen-lockfile --ignore-scripts
+          mkdir -p "$RUNNER_TEMP/bin"
+          printf '#!/bin/sh\nexec node "%s" "$@"\n' "$GITHUB_WORKSPACE/node_modules/@anthropic-ai/claude-code/cli-wrapper.cjs" > "$RUNNER_TEMP/bin/claude"
+          chmod +x "$RUNNER_TEMP/bin/claude"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/bin/claude" --version
+
+      - name: Run the web eval
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          MODE: ${{ matrix.mode }}
+          RUNS: ${{ inputs.runs || '5' }}
+          ONLY: ${{ inputs.only }}
+        run: |
+          args=(web --label "weekly-${MODE}" --runs "$RUNS" --out results-weekly)
+          if [ "$MODE" = "blind" ]; then args+=(--blind); fi
+          if [ -n "$ONLY" ]; then args+=(--only "$ONLY"); fi
+          # A run that fails twice is counted in the report, not here.
+          node scripts/aeo-eval/run.mjs "${args[@]}" || echo "::warning::Some ${MODE} runs failed. The report lists them."
+          test -f "results-weekly/weekly-${MODE}.json"
+
+      - name: Upload the report
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: aeo-weekly-${{ matrix.mode }}
+          path: showcase/shell-docs/results-weekly/weekly-${{ matrix.mode }}.json
+          if-no-files-found: error
+          retention-days: 7
+
+  report:
+    name: Report
+    needs: eval
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+    defaults:
+      run:
+        working-directory: showcase/shell-docs
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 1
+          lfs: false
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+
+      - name: Download the reports
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: aeo-weekly-*
+          merge-multiple: true
+          path: showcase/shell-docs/results-weekly
+
+      - name: Build the charts
+        run: |
+          if [ -f results-weekly/weekly-blind.json ]; then
+            compare=()
+            if [ -f results-weekly/weekly-normal.json ]; then compare=(results-weekly/weekly-normal.json); fi
+            node scripts/aeo-eval/charts.mjs results-weekly/weekly-blind.json results-weekly/charts.html "${compare[@]}"
+          fi
+
+      - name: Write and post the report
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+          PUBLISH: ${{ github.event_name == 'schedule' || inputs.publish }}
+        run: |
+          args=(--normal results-weekly/weekly-normal.json --blind results-weekly/weekly-blind.json --out results-weekly)
+          if [ "$PUBLISH" = "true" ]; then args+=(--publish); fi
+          node scripts/aeo-eval/weekly.mjs "${args[@]}"
+
+      - name: Upload charts and results
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: aeo-weekly-report
+          path: showcase/shell-docs/results-weekly
+          if-no-files-found: warn
+          retention-days: 90
+
+      - name: "Alert #oss-alerts on failure"
+        if: failure() && github.event_name == 'schedule'
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ -z "$SLACK_WEBHOOK" ]; then
+            echo "::warning::SLACK_WEBHOOK_OSS_ALERTS is not set, so #oss-alerts got no alert."
+            exit 0
+          fi
+          payload=$(node -e 'console.log(JSON.stringify({ text: `:x: *AEO weekly report failed* <${process.env.RUN_URL}|View run>` }))')
+          curl -fsS -X POST -H 'content-type: application/json' --data "$payload" "$SLACK_WEBHOOK"
