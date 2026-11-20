@@ -138,6 +138,21 @@ const PILL_MESSAGES: Record<
         "Show me a bar chart of our expenses by category. Use the query_data tool to fetch the data first, then render it with the barChart component.",
     },
   ],
+  "frontend-tools-async": [
+    {
+      pillText: "Find project-planning notes",
+      userMessage: "Find my notes about project planning.",
+    },
+    {
+      pillText: "Search for 'auth'",
+      userMessage: "Search my notes for anything related to auth.",
+    },
+    {
+      // The spec escapes the question mark in its regex button locator.
+      pillText: "What do I have about reading",
+      userMessage: "Do I have any notes tagged reading?",
+    },
+  ],
   "chat-slots": [
     {
       pillText: "Tell me a joke",
@@ -254,8 +269,8 @@ function findLineForSubstring(lines: string[], needle: string): number {
  * userMessage is a substring match against the outgoing user message —
  * this mirrors aimock's runtime matcher (see feature-parity README).
  *
- * Case-insensitive to tolerate the "Hello" vs "hello" drift that
- * feature-parity.json already maintains duplicates for.
+ * String selectors are case-sensitive, matching the runtime router.
+ * The short-prompt exemption below is independent of selector matching.
  */
 function isCovered(prompt: string, fixtures: Fixture[]): boolean {
   if (prompt.length < MIN_PROMPT_LEN) {
@@ -263,11 +278,9 @@ function isCovered(prompt: string, fixtures: Fixture[]): boolean {
     // want to brittle on exact casing.
     return true;
   }
-  const lower = prompt.toLowerCase();
   for (const f of fixtures) {
     if (!f.match.userMessage) continue;
-    const matchLower = f.match.userMessage.toLowerCase();
-    if (lower.includes(matchLower)) return true;
+    if (prompt.includes(f.match.userMessage)) return true;
   }
   return false;
 }
@@ -322,6 +335,59 @@ export async function loadAllFixtures(dirs: string[]): Promise<Fixture[]> {
 }
 
 describe("aimock feature-parity fixture coverage for langgraph-python E2E specs", () => {
+  it("covers all three async pill prompts from the shipped demo", async () => {
+    const pageSource = await fs.readFile(
+      path.resolve(
+        WORKSPACE_ROOT,
+        "showcase/integrations/langgraph-python/src/app/demos/frontend-tools-async/page.tsx",
+      ),
+      "utf8",
+    );
+    const messages = Array.from(
+      pageSource.matchAll(/title: "[^"\n]+",\s*message: "([^"\n]+)"/g),
+      (match) => match[1],
+    );
+    expect(messages).toHaveLength(3);
+    expect(new Set(messages).size).toBe(3);
+    const specSource = await fs.readFile(
+      path.join(SPEC_DIR, "frontend-tools-async.spec.ts"),
+      "utf8",
+    );
+    const extracted = extractPrompts("frontend-tools-async", specSource);
+    expect(extracted).toHaveLength(3);
+    expect(new Set(extracted.map(({ prompt }) => prompt))).toEqual(
+      new Set(messages),
+    );
+    expect(
+      extracted.every(({ source, line }) => source === "pill" && line > 0),
+    ).toBe(true);
+
+    const fixtures = await loadAllFixtures(FIXTURE_DIRS);
+    for (const { prompt } of extracted) {
+      expect(isCovered(prompt, fixtures), prompt).toBe(true);
+      const caseOnlyDrift = fixtures.map((fixture) => ({
+        ...fixture,
+        match: {
+          ...fixture.match,
+          userMessage: fixture.match.userMessage?.toUpperCase(),
+        },
+      }));
+      expect(isCovered(prompt, caseOnlyDrift), prompt).toBe(false);
+      // Remove every matching route from the actual loaded catalog. The
+      // guard must detect absence instead of passing on other specs' totals.
+      const withoutRoutes = fixtures.filter(
+        (fixture) =>
+          !fixture.match.userMessage ||
+          !prompt.includes(fixture.match.userMessage),
+      );
+      expect(isCovered(prompt, withoutRoutes), prompt).toBe(false);
+    }
+  });
+
+  it("keeps the short-prompt exemption independent of selector case", () => {
+    expect(isCovered("hi", [])).toBe(true);
+  });
+
   it("every extracted chat prompt has a matching fixture", async () => {
     // Load fixtures from the D4/D6 per-integration dirs + shared bucket.
     const fixtures = await loadAllFixtures(FIXTURE_DIRS);
