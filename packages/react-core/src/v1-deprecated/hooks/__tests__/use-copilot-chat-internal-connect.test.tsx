@@ -242,4 +242,100 @@ describe("useCopilotChatInternal – connectAgent guard", () => {
       expect.objectContaining({ agentId: "test-agent" }),
     );
   });
+
+  // Every component that calls useCopilotChatInternal (the chat itself, its
+  // messages and input, each v1 suggestion pill, any app component that
+  // calls useCopilotChat) used to connect on mount. A connect restarts the
+  // suggestions, which remounted the pills, which connected again: an idle
+  // page started and aborted a suggestion run about every 0.6s.
+  describe("one connection per agent across consumers", () => {
+    beforeEach(() => {
+      mockRuntimeConnectionStatus =
+        CopilotKitCoreRuntimeConnectionStatus.Connected;
+      applyMocks();
+    });
+
+    it("connects once for several mounted consumers", async () => {
+      const wrapper = createWrapper();
+      renderHook(() => useCopilotChatInternal(), { wrapper });
+      renderHook(() => useCopilotChatInternal(), { wrapper });
+      renderHook(() => useCopilotChatInternal(), { wrapper });
+
+      await vi.waitFor(() => {
+        expect(mockConnectAgent).toHaveBeenCalledTimes(1);
+      });
+    });
+
+    it("does not reconnect when a consumer remounts while another stays mounted", async () => {
+      const wrapper = createWrapper();
+      renderHook(() => useCopilotChatInternal(), { wrapper });
+      await vi.waitFor(() => {
+        expect(mockConnectAgent).toHaveBeenCalledTimes(1);
+      });
+
+      // A suggestion pill mounting and unmounting, over and over.
+      for (let i = 0; i < 5; i++) {
+        const pill = renderHook(() => useCopilotChatInternal(), { wrapper });
+        pill.unmount();
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(mockConnectAgent).toHaveBeenCalledTimes(1);
+      expect(mockAgent.detachActiveRun).not.toHaveBeenCalled();
+    });
+
+    it("closes the connection when the last consumer unmounts, and reconnects on the next mount", async () => {
+      const wrapper = createWrapper();
+      const first = renderHook(() => useCopilotChatInternal(), { wrapper });
+      const second = renderHook(() => useCopilotChatInternal(), { wrapper });
+      await vi.waitFor(() => {
+        expect(mockConnectAgent).toHaveBeenCalledTimes(1);
+      });
+
+      first.unmount();
+      expect(mockAgent.detachActiveRun).not.toHaveBeenCalled();
+      second.unmount();
+      expect(mockAgent.detachActiveRun).toHaveBeenCalledTimes(1);
+
+      renderHook(() => useCopilotChatInternal(), { wrapper });
+      await vi.waitFor(() => {
+        expect(mockConnectAgent).toHaveBeenCalledTimes(2);
+      });
+    });
+
+    it("reconnects when the thread changes", async () => {
+      const wrapper = createWrapper();
+      const { rerender } = renderHook(() => useCopilotChatInternal(), {
+        wrapper,
+      });
+      await vi.waitFor(() => {
+        expect(mockConnectAgent).toHaveBeenCalledTimes(1);
+      });
+
+      mockConfigThreadId = "another-thread";
+      applyMocks();
+      rerender();
+
+      await vi.waitFor(() => {
+        expect(mockConnectAgent).toHaveBeenCalledTimes(2);
+      });
+    });
+
+    it("lets a later consumer retry after a failed connect", async () => {
+      mockConnectAgent.mockRejectedValueOnce(new Error("network down"));
+      const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+      const wrapper = createWrapper();
+      renderHook(() => useCopilotChatInternal(), { wrapper });
+      await vi.waitFor(() => {
+        expect(mockConnectAgent).toHaveBeenCalledTimes(1);
+      });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      renderHook(() => useCopilotChatInternal(), { wrapper });
+      await vi.waitFor(() => {
+        expect(mockConnectAgent).toHaveBeenCalledTimes(2);
+      });
+      errors.mockRestore();
+    });
+  });
 });
