@@ -15,6 +15,7 @@ import type {
   ReasoningMessageContentEvent,
   ReasoningMessageEndEvent,
   ReasoningEndEvent,
+  ReasoningEncryptedValueEvent,
 } from "@ag-ui/client";
 import { contentToText, EventType } from "@ag-ui/client";
 import { randomUUID } from "@copilotkit/shared";
@@ -55,10 +56,12 @@ export interface TanStackChatMessage {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   content: string | null | any[];
   name?: string;
+  thinking?: Array<{ content: string; signature?: string }>;
   toolCalls?: Array<{
     id: string;
     type: "function";
     function: { name: string; arguments: string };
+    metadata?: unknown;
   }>;
   toolCallId?: string;
 }
@@ -85,7 +88,7 @@ export interface TanStackClientTool {
  * Result of converting RunAgentInput to TanStack AI format.
  */
 export interface TanStackInputResult {
-  /** Chat messages (only user/assistant/tool roles; all others excluded) */
+  /** Chat messages (reasoning is replayed as assistant thinking) */
   messages: TanStackChatMessage[];
   /** System prompts extracted from system/developer messages, context, and state */
   systemPrompts: string[];
@@ -252,7 +255,7 @@ function sanitizeClientToolSchema(schema: unknown): unknown {
 /**
  * Converts a RunAgentInput into the format expected by TanStack AI's `chat()`.
  *
- * - Keeps only user/assistant/tool messages (activity, reasoning, and other roles are also excluded)
+ * - Keeps user/assistant/tool messages and replays reasoning as assistant thinking
  * - Extracts system/developer messages into `systemPrompts`
  * - Appends context entries and application state to `systemPrompts`
  * - Preserves tool calls on assistant messages and toolCallId on tool messages
@@ -260,13 +263,25 @@ function sanitizeClientToolSchema(schema: unknown): unknown {
 export function convertInputToTanStackAI(
   input: RunAgentInput,
 ): TanStackInputResult {
-  // Allowlist: only pass user/assistant/tool messages to TanStack.
-  // Other roles (system, developer, activity, reasoning) are either
-  // extracted into systemPrompts or not applicable.
-  const chatRoles = new Set(["user", "assistant", "tool"]);
+  // Reasoning gets its own assistant message at the same history position;
+  // attaching it to a later assistant could cross a user/tool boundary.
+  const chatRoles = new Set(["user", "assistant", "tool", "reasoning"]);
   const messages: TanStackChatMessage[] = input.messages
     .filter((m: Message) => chatRoles.has(m.role))
     .map((m: Message): TanStackChatMessage => {
+      if (m.role === "reasoning") {
+        const signature = getReasoningSignature(m);
+        return {
+          role: "assistant",
+          content: null,
+          thinking: [
+            {
+              content: m.content ?? "",
+              ...(signature !== undefined ? { signature } : {}),
+            },
+          ],
+        };
+      }
       const msg: TanStackChatMessage = {
         role: m.role as "user" | "assistant" | "tool",
         content:
@@ -281,14 +296,36 @@ export function convertInputToTanStackAI(
                 : null,
       };
       if (m.role === "assistant" && "toolCalls" in m && m.toolCalls) {
-        msg.toolCalls = m.toolCalls.map((tc) => ({
-          id: tc.id,
-          type: "function" as const,
-          function: {
-            name: tc.function.name,
-            arguments: tc.function.arguments,
-          },
-        }));
+        const toolCallMetadata = getTanStackMetadata(m)?.toolCallMetadata;
+        msg.toolCalls = m.toolCalls.map((tc) => {
+          const fallbackMetadata =
+            isRecord(toolCallMetadata) &&
+            Object.prototype.hasOwnProperty.call(toolCallMetadata, tc.id) &&
+            isRecord(toolCallMetadata[tc.id])
+              ? toolCallMetadata[tc.id]
+              : undefined;
+          const metadata =
+            tc.metadata !== undefined ? tc.metadata : fallbackMetadata;
+          const signature = getReasoningSignature(tc);
+          return {
+            id: tc.id,
+            type: "function" as const,
+            function: {
+              name: tc.function.name,
+              arguments: tc.function.arguments,
+            },
+            ...(signature !== undefined
+              ? {
+                  metadata: {
+                    ...(isRecord(metadata) ? metadata : {}),
+                    thoughtSignature: signature,
+                  },
+                }
+              : metadata !== undefined
+                ? { metadata }
+                : {}),
+          };
+        });
       }
       if (m.role === "tool" && "toolCallId" in m) {
         msg.toolCallId = (m as Record<string, unknown>).toolCallId as string;
@@ -335,6 +372,26 @@ export function convertInputToTanStackAI(
   return { messages, systemPrompts, tools };
 }
 
+/** Returns the record-shaped TanStack compatibility metadata, when present. */
+function getTanStackMetadata(value: {
+  metadata?: unknown;
+}): Record<string, unknown> | undefined {
+  return isRecord(value.metadata) && isRecord(value.metadata.tanstack)
+    ? value.metadata.tanstack
+    : undefined;
+}
+
+/** Provider signatures are opaque: keep their bytes, including whitespace. */
+function getReasoningSignature(value: {
+  encryptedValue?: unknown;
+  metadata?: unknown;
+}): string | undefined {
+  const signature = value.encryptedValue;
+  if (typeof signature === "string" && signature !== "") return signature;
+  const fallback = getTanStackMetadata(value)?.signature;
+  return typeof fallback === "string" && fallback !== "" ? fallback : undefined;
+}
+
 /**
  * Converts a TanStack AI stream into AG-UI `BaseEvent` objects.
  *
@@ -364,9 +421,25 @@ export async function* convertTanStackStream(
   let reasoningRunOpen = false;
   let reasoningMessageOpen = false;
   let reasoningMessageId = randomUUID();
+  // REASONING_MESSAGE_START can supply a different ID from its enclosing span.
+  // Keep START/END paired even when the message adopts an authoritative ID.
+  let reasoningSpanId = reasoningMessageId;
+  // These survive message closure and TanStack's per-turn RUN_FINISHED markers:
+  // a signature can arrive after text/tools or while a newer reasoning is open.
+  const reasoningMessages = new Set<string>();
+  const reasoningByStep = new Map<string, string>();
+  const pendingThinkingSteps = new Set<string>();
+  let pendingEncryptedValues: Array<{
+    event: ReasoningEncryptedValueEvent;
+    sequence: number;
+  }> = [];
+  let encryptedSequence = 0;
+  const deliveredEncryptedSequence = new Map<string, number>();
   const normalizeStateEvent = createStateEventNormalizer(initialState);
 
+  /** Closes open message/span pairs while keeping aliases for late signatures. */
   function* closeReasoningIfOpen(): Generator<BaseEvent> {
+    pendingThinkingSteps.clear();
     if (reasoningMessageOpen) {
       reasoningMessageOpen = false;
       const msgEnd: ReasoningMessageEndEvent = {
@@ -379,7 +452,7 @@ export async function* convertTanStackStream(
       reasoningRunOpen = false;
       const end: ReasoningEndEvent = {
         type: EventType.REASONING_END,
-        messageId: reasoningMessageId,
+        messageId: reasoningSpanId,
       };
       yield end;
     }
@@ -402,11 +475,81 @@ export async function* convertTanStackStream(
   const startedToolCalls = new Set<string>();
   const endedToolCalls = new Set<string>();
 
+  /** Resolves a materialized message/tool ID, preferring message IDs over aliases. */
+  function encryptedTarget(
+    event: ReasoningEncryptedValueEvent,
+  ): string | undefined {
+    if (event.subtype === "tool-call") {
+      return startedToolCalls.has(event.entityId) ? event.entityId : undefined;
+    }
+    // A real message ID always wins over a step alias.
+    if (reasoningMessages.has(event.entityId)) return event.entityId;
+    const target = reasoningByStep.get(event.entityId);
+    return target && reasoningMessages.has(target) ? target : undefined;
+  }
+
+  /**
+   * Emits ready updates without regressing the latest value for each target.
+   * Unresolved aliases stay pending unless final delivery preserves their IDs.
+   */
+  function* flushEncryptedValues(final = false): Generator<BaseEvent> {
+    const unresolved: typeof pendingEncryptedValues = [];
+    for (const { event, sequence } of pendingEncryptedValues) {
+      const entityId = encryptedTarget(event);
+      if (entityId === undefined && !final) {
+        unresolved.push({ event, sequence });
+        continue;
+      }
+      const target = entityId ?? event.entityId;
+      // encryptedValue is state per message/tool, not a globally ordered log.
+      // Unknown entities must not block unrelated materialized targets. When
+      // a late alias resolves, discard only updates proven older than a value
+      // already delivered to that same entity, so replay cannot regress.
+      const entityKey = `${event.subtype}:${target}`;
+      if (sequence <= (deliveredEncryptedSequence.get(entityKey) ?? -1))
+        continue;
+      deliveredEncryptedSequence.set(entityKey, sequence);
+      yield { ...event, entityId: target };
+    }
+    pendingEncryptedValues = unresolved;
+  }
+
   for await (const chunk of stream) {
     if (abortSignal.aborted) break;
 
     const raw = chunk as Record<string, unknown>;
     const type = raw.type as string;
+
+    if (type === "REASONING_ENCRYPTED_VALUE") {
+      pendingEncryptedValues.push({
+        event: raw as ReasoningEncryptedValueEvent,
+        sequence: encryptedSequence++,
+      });
+      yield* flushEncryptedValues();
+      continue;
+    }
+
+    if (type === "STEP_STARTED") {
+      const tanstack = getTanStackMetadata(raw);
+      const stepType = raw.stepType ?? tanstack?.stepType;
+      const stepId =
+        getNonEmptyString(raw.stepId) ??
+        getNonEmptyString(tanstack?.stepId) ??
+        getNonEmptyString(raw.stepName);
+      if (stepType === "thinking" && stepId && !reasoningByStep.has(stepId)) {
+        if (reasoningMessageOpen) {
+          reasoningByStep.set(stepId, reasoningMessageId);
+        } else if (
+          reasoningRunOpen &&
+          !reasoningMessages.has(reasoningMessageId)
+        ) {
+          // MESSAGE_START supplies the authoritative ID before materialization.
+          pendingThinkingSteps.add(stepId);
+        }
+      }
+      yield* flushEncryptedValues();
+      continue;
+    }
 
     // TanStack native human-in-the-loop: a tool declared `needsApproval: true`
     // emits a CUSTOM "approval-requested" chunk. These are built from the
@@ -467,8 +610,12 @@ export async function* convertTanStackStream(
         parentMessageId: messageId,
         toolCallId,
         toolCallName: raw.toolCallName as string,
+        ...(raw.metadata !== undefined
+          ? { metadata: raw.metadata as ToolCallStartEvent["metadata"] }
+          : {}),
       };
       yield startEvent;
+      yield* flushEncryptedValues();
     } else if (type === "TOOL_CALL_ARGS") {
       // Drop args re-announced after the call has ended (the re-prompt pass);
       // forwarding them would corrupt the already-closed call's accumulated args.
@@ -559,20 +706,29 @@ export async function* convertTanStackStream(
       // new START), close it cleanly first so MSG_END / END pair correctly.
       yield* closeReasoningIfOpen();
       reasoningRunOpen = true;
-      reasoningMessageId = (raw.messageId as string) ?? randomUUID();
+      reasoningSpanId = getNonEmptyString(raw.messageId) ?? randomUUID();
+      reasoningMessageId = reasoningSpanId;
       const startEvt: ReasoningStartEvent = {
         type: EventType.REASONING_START,
-        messageId: reasoningMessageId,
+        messageId: reasoningSpanId,
       };
       yield startEvt;
     } else if (type === "REASONING_MESSAGE_START") {
+      reasoningMessageId =
+        getNonEmptyString(raw.messageId) ?? reasoningMessageId;
       reasoningMessageOpen = true;
+      reasoningMessages.add(reasoningMessageId);
+      for (const stepId of pendingThinkingSteps) {
+        reasoningByStep.set(stepId, reasoningMessageId);
+      }
+      pendingThinkingSteps.clear();
       const evt: ReasoningMessageStartEvent = {
         type: EventType.REASONING_MESSAGE_START,
         messageId: reasoningMessageId,
         role: "reasoning",
       };
       yield evt;
+      yield* flushEncryptedValues();
     } else if (type === "REASONING_MESSAGE_CONTENT") {
       const evt: ReasoningMessageContentEvent = {
         type: EventType.REASONING_MESSAGE_CONTENT,
@@ -581,6 +737,7 @@ export async function* convertTanStackStream(
       };
       yield evt;
     } else if (type === "REASONING_MESSAGE_END") {
+      if (!reasoningMessageOpen) continue;
       reasoningMessageOpen = false;
       const evt: ReasoningMessageEndEvent = {
         type: EventType.REASONING_MESSAGE_END,
@@ -588,6 +745,7 @@ export async function* convertTanStackStream(
       };
       yield evt;
     } else if (type === "REASONING_END") {
+      if (!reasoningRunOpen && !reasoningMessageOpen) continue;
       // If upstream sends REASONING_END while a message is still open, emit
       // the missing REASONING_MESSAGE_END FIRST so the closing pair stays in
       // order (MSG_END before END). Otherwise the next non-reasoning chunk
@@ -601,15 +759,18 @@ export async function* convertTanStackStream(
         yield msgEnd;
       }
       reasoningRunOpen = false;
+      pendingThinkingSteps.clear();
       const evt: ReasoningEndEvent = {
         type: EventType.REASONING_END,
-        messageId: reasoningMessageId,
+        messageId: reasoningSpanId,
       };
       yield evt;
     }
   }
 
   yield* closeReasoningIfOpen();
+  // Unknown entities retain their original IDs; never guess the latest message.
+  if (!abortSignal.aborted) yield* flushEncryptedValues(true);
 }
 
 /** Normalizes legacy and standard TanStack usage into AG-UI token usage. */
