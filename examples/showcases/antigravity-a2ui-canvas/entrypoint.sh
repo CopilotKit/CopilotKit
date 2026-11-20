@@ -42,9 +42,16 @@ cd /app
 # Take traffic only once the agent answers /health. Next.js's own health route
 # does not ask the agent, so starting it early would put a demo that cannot run
 # a prompt behind a passing health check.
+#
+# The deadline is in seconds, not attempts, and each probe has a timeout that
+# fits in what is left: an agent that accepts the connection but never answers
+# would otherwise hold a probe open forever.
 ready=
-for _ in $(seq 1 "$AGENT_STARTUP_SECONDS"); do
-  if curl -fsS http://localhost:8000/health >/dev/null 2>&1; then
+deadline=$((SECONDS + AGENT_STARTUP_SECONDS))
+while [ "$SECONDS" -lt "$deadline" ]; do
+  remaining=$((deadline - SECONDS))
+  if curl -fsS --max-time $((remaining < 5 ? remaining : 5)) \
+    http://localhost:8000/health >/dev/null 2>&1; then
     ready=1
     break
   fi
