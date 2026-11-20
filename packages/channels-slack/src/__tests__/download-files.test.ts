@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { buildFileContentParts, type SlackFileRef } from "../download-files.js";
+import { buildFileContentParts } from "../download-files.js";
+import type { SlackFileRef } from "../download-files.js";
 
 function fakeFetch(
   bodyByUrl: Record<string, { ok?: boolean; status?: number; bytes?: Buffer }>,
@@ -32,6 +33,134 @@ const csv: SlackFileRef = {
   mimetype: "text/csv",
   url_private: "https://files.slack.com/data.csv",
 };
+
+describe("Slack file host check", () => {
+  type Hop = { status: number; location?: string };
+
+  /** Answers each URL as scripted; anything else is a 200 with a body. */
+  function hopFetch(hops: Record<string, Hop>) {
+    return vi.fn(async (url: string, _init?: RequestInit) => {
+      const hop = hops[url];
+      return new Response(hop ? null : "ok", {
+        status: hop?.status ?? 200,
+        headers: hop?.location ? { location: hop.location } : {},
+      });
+    });
+  }
+
+  const file = (url_private: string): SlackFileRef => ({
+    name: "a.txt",
+    mimetype: "text/plain",
+    url_private,
+  });
+  const authHeaders = (fetchMock: ReturnType<typeof hopFetch>) =>
+    fetchMock.mock.calls.map(([url, init]) => [
+      url,
+      new Headers(init?.headers).get("authorization"),
+    ]);
+
+  it.each([
+    "https://files.slack.com/a.txt",
+    "https://files.slack-gov.com/a.txt",
+  ])("sends the token to %s", async (url) => {
+    const fetchMock = hopFetch({});
+    vi.stubGlobal("fetch", fetchMock);
+    const { parts, notes } = await buildFileContentParts([file(url)], "tok");
+    expect(notes).toEqual([]);
+    expect(parts).toHaveLength(1);
+    expect(authHeaders(fetchMock)).toEqual([[url, "Bearer tok"]]);
+  });
+
+  it.each([
+    "http://files.slack.com/a.txt",
+    "https://other.example/a.txt",
+    "https://notslack.com/a.txt",
+    "https://files.slack.com.other.example/a.txt",
+    "https://slack.com@other.example/a.txt",
+    "https://user:pw@files.slack.com/a.txt",
+    "https://files.slack.com:8443/a.txt",
+    "https://acme.slack.com/a.txt",
+    "https://slack.com/a.txt",
+    "https://files.slack.com/api/users.list",
+    "https://files.slack.com/%61pi/users.list",
+    "https://files.slack.com/API",
+    "https://files.slack.com/%zz",
+    "https://cdn.slack-edge.com/a.txt",
+    "not a url",
+  ])("refuses %s without a request", async (url) => {
+    const fetchMock = hopFetch({});
+    vi.stubGlobal("fetch", fetchMock);
+    const { parts, notes } = await buildFileContentParts([file(url)], "tok");
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(parts).toEqual([]);
+    expect(notes[0]).toContain("not an allowed Slack file URL");
+    expect(notes[0]).not.toContain("other.example");
+  });
+
+  it("follows a redirect that stays on the allowlist", async () => {
+    const start = "https://files.slack.com/a.txt";
+    const next = "https://files-edge.slack.com/a.txt";
+    const fetchMock = hopFetch({ [start]: { status: 302, location: next } });
+    vi.stubGlobal("fetch", fetchMock);
+    const { parts } = await buildFileContentParts([file(start)], "tok");
+    expect(parts).toHaveLength(1);
+    expect(authHeaders(fetchMock)).toEqual([
+      [start, "Bearer tok"],
+      [next, "Bearer tok"],
+    ]);
+  });
+
+  it.each([
+    "https://cdn.example/a.txt",
+    "http://files.slack.com/a.txt",
+    "//other.example/a.txt",
+  ])("stops at a redirect to %s", async (location) => {
+    const start = "https://files.slack.com/a.txt";
+    const fetchMock = hopFetch({ [start]: { status: 302, location } });
+    vi.stubGlobal("fetch", fetchMock);
+    const { parts, notes } = await buildFileContentParts([file(start)], "tok");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(parts).toEqual([]);
+    expect(notes[0]).toContain("not an allowed Slack file URL");
+  });
+
+  it.each([
+    "https://cdn.slack-edge.com/a.txt",
+    "https://slack-files.com/a.txt",
+  ])("fetches a redirect to %s without the token", async (next) => {
+    const start = "https://files.slack.com/a.txt";
+    const fetchMock = hopFetch({ [start]: { status: 302, location: next } });
+    vi.stubGlobal("fetch", fetchMock);
+    const { parts } = await buildFileContentParts([file(start)], "tok");
+    expect(parts).toHaveLength(1);
+    expect(authHeaders(fetchMock)).toEqual([
+      [start, "Bearer tok"],
+      [next, null],
+    ]);
+  });
+
+  it("gives up on a redirect loop", async () => {
+    const start = "https://files.slack.com/a.txt";
+    // A broken hop cap ends here and fails the assertions below, not by hanging.
+    const fetchMock = vi.fn(async (url: string, _init?: RequestInit) => {
+      if (fetchMock.mock.calls.length > 20) throw new Error("no hop cap");
+      return new Response(null, { status: 302, headers: { location: url } });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const { parts, notes } = await buildFileContentParts([file(start)], "tok");
+    expect(fetchMock).toHaveBeenCalledTimes(6);
+    expect(parts).toEqual([]);
+    expect(notes).toHaveLength(1);
+    expect(notes[0]).toContain("unusable download redirect");
+  });
+
+  it("asks fetch not to follow redirects itself", async () => {
+    const fetchMock = hopFetch({});
+    vi.stubGlobal("fetch", fetchMock);
+    await buildFileContentParts([file("https://files.slack.com/a")], "tok");
+    expect(fetchMock.mock.calls[0]![1]?.redirect).toBe("manual");
+  });
+});
 
 describe("buildFileContentParts", () => {
   it("turns an image into a base64 image part", async () => {
@@ -153,7 +282,7 @@ describe("buildFileContentParts", () => {
   it("caps the number of files processed", async () => {
     const files = Array.from({ length: 8 }, (_, i) => ({
       ...csv,
-      url_private: `u${i}`,
+      url_private: `https://files.slack.com/u${i}`,
     }));
     vi.stubGlobal(
       "fetch",
