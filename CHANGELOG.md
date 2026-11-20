@@ -32,6 +32,7 @@ The runtime now emits a new telemetry event, `oss.runtime.agent_identified`, whi
 - `LangGraphAgent` and `MastraAgent` already declare their frameworks (`langgraph` and `mastra`).
 
 **Privacy and safety:**
+
 - The event never sends agent names, descriptions, URLs, or a developer's free-text `identity.type`.
 - It respects the existing telemetry opt-out.
 - The capabilities lookup runs in the background with a 2-second timeout, and never delays, blocks, or fails a request.
