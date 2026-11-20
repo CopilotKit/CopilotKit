@@ -1,4 +1,5 @@
 import React from "react";
+import { withBasePath } from "@/lib/base-path";
 
 interface IconProps {
   className?: string;
@@ -418,7 +419,7 @@ function BrandImage({
   return (
     // oxlint-disable-next-line nextjs/no-img-element -- tiny static marks; next/image adds nothing here
     <img
-      src={src}
+      src={withBasePath(src)}
       alt=""
       aria-hidden="true"
       width={size}
@@ -472,7 +473,7 @@ export function FrameworkLogo({
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
-        src={fallbackSrc}
+        src={withBasePath(fallbackSrc)}
         alt=""
         width={size}
         height={size}

@@ -61,6 +61,15 @@ describe("resolveLegacyDojoRedirect", () => {
       "/?integration=llamaindex&demo=shared-state-read-write",
     ],
     ["/antigravity", "/?integration=google-antigravity"],
+    // Linked from the ag-ui docs and the adapter README
+    [
+      "/openai-agents-python/feature/tool_based_generative_ui",
+      "/?integration=openai-agents-python&demo=gen-ui-tool-based",
+    ],
+    [
+      "/openai-agents-python/feature/agentic_chat",
+      "/?integration=openai-agents-python&demo=agentic-chat",
+    ],
     // Params the dojo doesn't support are dropped
     [
       "/adk-middleware/feature/shared_state?openCopilot=true&view=code",
@@ -286,7 +295,6 @@ describe("resolveLegacyDojoRedirect", () => {
       "langchain",
       "middleware-starter",
       "omnara",
-      "openai-agents-python",
       "server-starter",
       "server-starter-all-features",
       "starter",
