@@ -164,6 +164,28 @@ watch(
 );
 
 /**
+ * Collapse repeated ids within one occurrence's tool calls, keeping the copy
+ * that carries arguments: a start event can add a second, blank copy of a
+ * call whose arguments arrive later on the first copy.
+ */
+function dedupeToolCalls(
+  toolCalls: NonNullable<AssistantMessage["toolCalls"]>,
+): NonNullable<AssistantMessage["toolCalls"]> {
+  const byId = new Map<string, (typeof toolCalls)[number]>();
+  for (const toolCall of toolCalls) {
+    const existing = byId.get(toolCall.id);
+    if (!existing) {
+      byId.set(toolCall.id, toolCall);
+      continue;
+    }
+    if (!existing.function?.arguments && toolCall.function?.arguments) {
+      byId.set(toolCall.id, toolCall);
+    }
+  }
+  return byId.size === toolCalls.length ? toolCalls : [...byId.values()];
+}
+
+/**
  * Unite the tool calls of two occurrences of the same assistant message,
  * keeping first-seen order. Each occurrence can hold only some of the calls,
  * so neither list may replace the other.
@@ -202,7 +224,10 @@ function deduplicateMessages(messages: Message[]): Message[] {
       const content = message.content || existing.content;
       const toolCalls =
         message.toolCalls?.length && existing.toolCalls?.length
-          ? mergeToolCalls(existing.toolCalls, message.toolCalls)
+          ? mergeToolCalls(
+              dedupeToolCalls(existing.toolCalls),
+              dedupeToolCalls(message.toolCalls),
+            )
           : (message.toolCalls ?? existing.toolCalls);
       byId.set(message.id, {
         ...existing,
