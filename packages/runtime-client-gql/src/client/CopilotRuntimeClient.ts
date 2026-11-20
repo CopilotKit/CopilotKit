@@ -177,8 +177,17 @@ export class CopilotRuntimeClient {
 
               if (handleGQLErrors) {
                 handleGQLErrors(syntheticError);
+                // The handler is only handed a plain object, so it cannot settle
+                // the stream itself. Terminate here exactly like the abort branch
+                // above, otherwise a `for await (const chunk of stream)` consumer
+                // waits forever on a run that already ended in error.
+                if (!hasNext) controller.close();
+                return;
               }
-              return; // Don't close the stream for structured errors, let the error handler decide
+
+              // With no handler configured the structured error would be dropped
+              // on the floor and the stream would never settle, so fall through
+              // to the generic error path below instead.
             }
 
             controller.error(error);

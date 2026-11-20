@@ -131,6 +131,11 @@ export function matchesAcceptFilter(file: File, accept: string): boolean {
     if (filter.startsWith(".")) {
       return (file.name ?? "").toLowerCase().endsWith(filter.toLowerCase());
     }
+    // The catch-all has to be honoured per entry too, not just as the whole
+    // string: below, the generic `/*` branch would reduce "*/*" to the prefix
+    // "*" and never match a real MIME type, so a list such as "image/*,*/*"
+    // would reject everything outside its first entry.
+    if (filter === "*/*") return true;
     if (filter.endsWith("/*")) {
       const prefix = filter.slice(0, -2);
       return file.type.startsWith(prefix + "/");

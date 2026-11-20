@@ -196,6 +196,27 @@ describe("matchesAcceptFilter", () => {
   it("returns false for empty file type against a specific filter", () => {
     expect(matchesAcceptFilter(mockFileWithType(""), "image/*")).toBe(false);
   });
+
+  it('treats "*/*" as a catch-all when it is one entry in a comma-separated accept', () => {
+    expect(
+      matchesAcceptFilter(mockFileWithType("audio/mp3"), "image/*,*/*"),
+    ).toBe(true);
+    expect(
+      matchesAcceptFilter(mockFileWithType("application/zip"), "image/*, */*"),
+    ).toBe(true);
+  });
+
+  it("still rejects a file no entry of the accept list allows", () => {
+    expect(matchesAcceptFilter(mockFileWithType("audio/mp3"), "image/*")).toBe(
+      false,
+    );
+    expect(
+      matchesAcceptFilter(
+        mockFileWithType("audio/mp3"),
+        "image/*,application/pdf",
+      ),
+    ).toBe(false);
+  });
 });
 
 describe("getSourceUrl", () => {
