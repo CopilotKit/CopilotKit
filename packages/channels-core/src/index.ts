@@ -75,6 +75,8 @@ export type {
   IngressSink,
   IncomingTurn,
   InteractionEvent,
+  InteractionOutcome,
+  InteractionRefusalReason,
   IncomingCommand,
   IncomingThreadStart,
   IncomingWelcome,

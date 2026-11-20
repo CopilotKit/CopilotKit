@@ -41,7 +41,7 @@ type FakeIngressSink = {
   ): void | Promise<void>;
   onInteraction(
     event: OptionalIdentity<InteractionEvent>,
-  ): void | Promise<void>;
+  ): ReturnType<IngressSink["onInteraction"]>;
   onCommand(event: OptionalIdentity<IncomingCommand>): void | Promise<void>;
   onThreadStarted(
     event: OptionalIdentity<IncomingThreadStart>,

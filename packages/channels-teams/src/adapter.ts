@@ -183,31 +183,30 @@ export class TeamsAdapter implements PlatformAdapter {
     // runs the button's `onClick` (which edits the picker card in place).
     const action = parseCardAction(activity);
     if (action) {
-      const onInteraction = (replyContext: TurnContext): Promise<void> =>
-        Promise.resolve(
-          sink.onInteraction({
-            id: action.id,
+      const onInteraction = async (replyContext: TurnContext) => {
+        await sink.onInteraction({
+          id: action.id,
+          conversationKey,
+          value: action.value,
+          values: action.values,
+          actor,
+          identityContext: {
+            ...identityContext,
+            trigger: "interaction",
+          },
+          replyTarget: {
             conversationKey,
-            value: action.value,
-            values: action.values,
-            actor,
-            identityContext: {
-              ...identityContext,
-              trigger: "interaction",
-            },
-            replyTarget: {
-              conversationKey,
-              reference,
-              context: replyContext,
-            } satisfies TeamsReplyTarget,
-            messageRef: {
-              id: activity.replyToId ?? "",
-              conversationKey,
-              reference,
-              context: replyContext,
-            } as TeamsMessageRef,
-          }),
-        );
+            reference,
+            context: replyContext,
+          } satisfies TeamsReplyTarget,
+          messageRef: {
+            id: activity.replyToId ?? "",
+            conversationKey,
+            reference,
+            context: replyContext,
+          } as TeamsMessageRef,
+        });
+      };
 
       if (this.canGoProactive()) {
         // Credentialed (real Teams): the inbound card-click turn's connector
