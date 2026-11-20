@@ -322,7 +322,8 @@ const MemoizedCustomMessage = React.memo(
       message: Message;
       position: "before" | "after";
     }) => React.ReactElement | null;
-    stateSnapshot?: unknown;
+    /** Changes when the state of the message's run changes. Compared only. */
+    stateToken?: unknown;
   }) {
     return renderCustomMessage({ message, position });
   },
@@ -333,12 +334,8 @@ const MemoizedCustomMessage = React.memo(
     // Compare message content - for assistant messages this is a string, for others may differ
     if (prevProps.message.content !== nextProps.message.content) return false;
     if (prevProps.message.role !== nextProps.message.role) return false;
-    // Compare state snapshot - custom renderers may depend on state
-    if (
-      JSON.stringify(prevProps.stateSnapshot) !==
-      JSON.stringify(nextProps.stateSnapshot)
-    )
-      return false;
+    // Compare run state - custom renderers may depend on state
+    if (prevProps.stateToken !== nextProps.stateToken) return false;
     // Note: We don't compare renderCustomMessage function reference because it changes
     // frequently. The message and state comparison is sufficient to determine if a re-render is needed.
     return true;
@@ -658,8 +655,9 @@ export function CopilotChatMessageView({
     return () => subscription.unsubscribe();
   }, [copilotkit]);
 
-  // Helper to get state snapshot for a message (used for memoization)
-  const getStateSnapshotForMessage = (messageId: string): unknown => {
+  // Token for the state of a message's run (used for memoization). Reading it
+  // copies nothing, where getStateByRun deep-clones the agent's whole state.
+  const getStateTokenForMessage = (messageId: string): unknown => {
     if (!config) return undefined;
     const resolvedRunId =
       copilotkit.getRunIdForMessage(
@@ -671,7 +669,7 @@ export function CopilotChatMessageView({
         .getRunIdsForThread(config.agentId, config.threadId)
         .slice(-1)[0];
     if (!resolvedRunId) return undefined;
-    return copilotkit.getStateByRun(
+    return copilotkit.ɵgetStateTokenByRun(
       config.agentId,
       config.threadId,
       resolvedRunId,
@@ -1754,12 +1752,12 @@ export function CopilotChatMessageView({
   // ---------------------------------------------------------------------------
   const renderMessageBlock = (message: Message): React.ReactElement[] => {
     const elements: (React.ReactElement | null | undefined)[] = [];
-    // Only custom message renderers consume the snapshot, and resolving it
-    // deep-clones the agent's whole state (LangGraph's includes the `messages`
-    // channel). Computing it unconditionally cost one clone per message per
-    // render even when no renderer was registered.
-    const stateSnapshot = renderCustomMessage
-      ? getStateSnapshotForMessage(message.id)
+    // Only custom message renderers depend on the run state. Compare a token,
+    // not a snapshot: a snapshot deep-clones the agent's whole state
+    // (LangGraph's includes the `messages` channel), once per message on every
+    // render, and the `<CopilotKit>` provider always registers a renderer.
+    const stateToken = renderCustomMessage
+      ? getStateTokenForMessage(message.id)
       : undefined;
     // Row key only — everything keyed to message identity (state snapshots,
     // tool lookups) must keep using message.id.
@@ -1775,7 +1773,7 @@ export function CopilotChatMessageView({
           message={message}
           position="before"
           renderCustomMessage={renderCustomMessage}
-          stateSnapshot={stateSnapshot}
+          stateToken={stateToken}
         />,
       );
     }
@@ -1850,7 +1848,7 @@ export function CopilotChatMessageView({
           message={message}
           position="after"
           renderCustomMessage={renderCustomMessage}
-          stateSnapshot={stateSnapshot}
+          stateToken={stateToken}
         />,
       );
     }
