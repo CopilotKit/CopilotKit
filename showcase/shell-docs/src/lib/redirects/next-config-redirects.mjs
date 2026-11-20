@@ -18,6 +18,9 @@
 // strips `/docs` first, so `/docs/channels` opens `/slack` instead of
 // `/slack/docs`.
 
+import { existsSync } from "node:fs";
+import { DOCS_VERSIONS } from "../docs-versions.mjs";
+
 /** @typedef {import("next/dist/lib/load-custom-routes").Redirect} Redirect */
 
 // `v1`, `v2`, ...: another docs version's prefix (src/lib/docs-versions.mjs).
@@ -1038,7 +1041,77 @@ const ANTIGRAVITY_COOKBOOK_REDIRECTS = [
   ),
 ];
 
+// ---------------------------------------------------------------------------
+// Pages of the CopilotKit 2.0 docs. Until 2.0 ships, the 2.0 docs (release
+// candidate) are served under /v2, from their own build of the `2.0.0`
+// branch (src/lib/docs-versions.mjs). The 2.0 codemod
+// (`npx copilotkit@latest migrate`) and the 2.0 packages link these pages at
+// the docs root. A build without a page sends its URL to the same page under
+// /v2. A build with the page serves it, so these redirects stop on their own
+// on the `2.0.0` branch, and on `main` when 2.0 ships. They are temporary
+// (307), so that browsers do not keep them.
+// ---------------------------------------------------------------------------
+const COPILOTKIT_2_DOCS = DOCS_VERSIONS.find(({ id }) => id === "v2")?.path;
+if (!COPILOTKIT_2_DOCS) {
+  throw new Error("docs-versions.mjs has no v2 path for the 2.0 pages");
+}
+
+/** Pages that only the 2.0 docs have, as paths below the docs root. */
+const COPILOTKIT_2_PAGES = [
+  "whats-new-2.0",
+  "migrate/agents-2.0",
+  "migrate/chat-2.0",
+  "migrate/generative-ui-2.0",
+  "migrate/markdown-renderer",
+  "migrate/providers-2.0",
+  "migrate/removed-apis-2.0",
+  "migrate/runtime-2.0",
+  "migrate/shared-2.0",
+  "markdown-rendering",
+];
+
+const DOCS_CONTENT = new URL("../../content/docs/", import.meta.url);
+
+/**
+ * Whether this build has the docs page at `slug`.
+ * @param {string} slug
+ */
+function hasDocsPage(slug) {
+  return [`${slug}.mdx`, `${slug}/index.mdx`].some((file) =>
+    existsSync(new URL(file, DOCS_CONTENT)),
+  );
+}
+
+/** @type {Redirect[]} */
+const COPILOTKIT_2_PAGE_REDIRECTS = COPILOTKIT_2_PAGES.filter(
+  (slug) => !hasDocsPage(slug),
+).flatMap((slug) =>
+  REDIRECT_SUFFIXES.map((suffix) => ({
+    source: `/${slug}${suffix}`,
+    destination: `${COPILOTKIT_2_DOCS}/${slug}${suffix}`,
+    permanent: false,
+  })),
+);
+
+// Early versions of the 2.0 codemod linked these two components by their
+// 1.x names. In 2.0 they are CopilotChatAssistantMessage and
+// CopilotChatUserMessage.
+/** @type {Redirect[]} */
+const CHAT_MESSAGE_REFERENCE_REDIRECTS = [
+  ...permanentRedirectsWithSuffixes(
+    "/reference/v2/components/AssistantMessage",
+    "/reference/v2/components/CopilotChatAssistantMessage",
+  ),
+  ...permanentRedirectsWithSuffixes(
+    "/reference/v2/components/UserMessage",
+    "/reference/v2/components/CopilotChatUserMessage",
+  ),
+];
+
 export const nextConfigRedirects = [
+  // First, so that no legacy rule catches a 2.0 link.
+  ...COPILOTKIT_2_PAGE_REDIRECTS,
+  ...CHAT_MESSAGE_REFERENCE_REDIRECTS,
   ...ANTIGRAVITY_COOKBOOK_REDIRECTS,
   ...AG_UI_STREAMS_REDIRECTS,
   ...RETIRED_OVERVIEW_REDIRECTS,
