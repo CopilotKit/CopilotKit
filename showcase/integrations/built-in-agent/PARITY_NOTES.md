@@ -26,6 +26,10 @@ Harnesses and D6 probes should therefore match BIA against LGP on
 **capability and rendered DOM**, never on source-text equality — the
 `import type` grouping is the expected and only allowed drift.
 
+The fixed-schema flight catalog has its own npm workspace. Its A2UI binder
+reads Zod 3 schemas. The rest of the integration uses Zod 4. Both integrations
+keep the same catalog source.
+
 ## Agent-id convention — named agents (SUPERSEDES the old `default` rule)
 
 > The prior convention ("every demo targets the agent literal `default`") is

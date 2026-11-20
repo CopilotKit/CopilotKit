@@ -1,0 +1,9 @@
+{
+  "name": "@copilotkit/showcase-built-in-flight-catalog",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Keep the fixed flight catalog on the Zod 3 schema format used by the A2UI binder.",
+  "dependencies": {
+    "zod": "3.25.76"
+  }
+}
