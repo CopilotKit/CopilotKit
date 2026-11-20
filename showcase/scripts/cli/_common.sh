@@ -1391,7 +1391,7 @@ with open('$tmp_compose', 'w') as f:
   # leftover containers/volumes from a prior crashed run are exactly the state
   # this pre-clean exists to remove, so at least warn that they may remain.
   local pre_down_err=""
-  if ! pre_down_err="$($COMPOSE_CMD down --remove-orphans --volumes 2>&1 >/dev/null)"; then
+  if ! pre_down_err="$(COMPOSE_PROFILES='*' $COMPOSE_CMD down --remove-orphans --volumes 2>&1 >/dev/null)"; then
     warn "pre-clean of project $name failed — stale containers/volumes may remain${pre_down_err:+: ${pre_down_err}}"
   fi
 
@@ -1492,7 +1492,8 @@ restore_isolation() {
     # manual teardown commands (keep notice + failed-down recovery above and
     # below): isolated test stacks are ephemeral, and without it every run
     # leaks project-scoped named volumes (unbounded for explicit names).
-    if ! $COMPOSE_CMD down --remove-orphans --volumes; then
+    # Compose skips services in inactive profiles even when down returns zero.
+    if ! COMPOSE_PROFILES='*' $COMPOSE_CMD down --remove-orphans --volumes; then
       warn "compose down FAILED for isolated project $ISOLATE_NAME — stack may still be running"
       warn "Keeping run dir and slot $ISOLATE_SLOT for manual recovery:"
       warn "  tear down:  docker compose -p $ISOLATE_NAME down --remove-orphans --volumes && rm -rf \"$ISOLATE_TMPDIR\" \"$ISOLATE_SLOT_DIR/$ISOLATE_SLOT\""
