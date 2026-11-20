@@ -1,10 +1,15 @@
 # A2UI Canvas: CopilotKit × Google Antigravity
 
 Chat on the left, a live canvas on the right. Ask for a dashboard, a form or a
-report, and a [Google Antigravity](https://github.com/google-antigravity/antigravity-sdk-python)
-agent on Gemini draws it as an [A2UI](https://a2ui.org) 1.0 surface, which
+report, and Gemini draws it as an [A2UI](https://a2ui.org) 1.0 surface, which
 CopilotKit renders. Then keep editing that same canvas: make it compact, add a
 chart, translate it, click its buttons, and step back through every version.
+
+Two paths draw the canvas, and the chip in the chat input switches between
+them. **Express streaming** (the default) asks Gemini for A2UI Express and
+paints each piece as it arrives, about 2.5 seconds after you send. The
+**[Google Antigravity](https://github.com/google-antigravity/antigravity-sdk-python)
+agent** draws the whole canvas in one tool call.
 
 It is meant to be forked: one agent, one canvas, CopilotKit's standard
 component catalog, and no custom components.
@@ -24,8 +29,9 @@ component catalog, and no custom components.
 5. Click **Dark**, then use the arrows at the top right to go back to v1.
 
 Typing `/` in the chat lists the canvas actions. The chip next to the send
-button picks the model: Gemini 3.8 Flash (the default, fastest), Gemini 4
-Neon, or Gemini 3.1 Pro.
+button picks the model (Gemini 3.8 Flash, the default and fastest; Gemini 4
+Hydrogen; Gemini 4 Neon) and the drawing path. Edits are outlined for a moment
+so you can see what changed.
 
 ## Run it locally
 
@@ -47,7 +53,8 @@ Browser ── CopilotChat + GenerativeUISurface("canvas")
    │  AG-UI over /api/copilotkit
 Next.js ── CopilotRuntime ── GenerativeUIMiddleware (adds render_ui + the UI guide)
    │  HttpAgent
-Python ── FastAPI ── AntigravityAgent (one per model) ── Antigravity harness ── Gemini
+Python ── FastAPI ─┬─ Express: one streaming Gemini call ── A2UI SDK compiler
+                   └─ AntigravityAgent (one per model) ── Antigravity harness ── Gemini
 ```
 
 - **The canvas** is a `GenerativeUISurface` with the id `canvas`
@@ -68,9 +75,35 @@ Python ── FastAPI ── AntigravityAgent (one per model) ── Antigravity
   chat's surface renderer (`src/components/stored-version.tsx`).
 - **Buttons** on the canvas carry an A2UI event with a `userMessage`. A click
   becomes that chat message and a new run.
-- **The model picker** sends the chosen model with every run as
-  `forwardedProps.model`. The agent server keeps one Antigravity agent per
-  model and routes each run to it.
+- **The model chip** sends the chosen model and path with every run as
+  `forwardedProps.model` and `forwardedProps.path`. The agent server routes
+  each run: Express to `agent/express.py`, Antigravity to one agent per model.
+
+## The Express path
+
+`agent/express.py` makes one streaming Gemini call per turn and asks for A2UI
+Express, a compact, line-oriented notation that Google's A2UI SDK compiles to
+standard A2UI operations as the text arrives.
+
+- **It paints as it writes.** The model writes `root =` first and then each
+  component below its parent. The SDK turns the first line into
+  `createSurface` and every statement after it into an `updateComponents`
+  delta. Each one goes out at once inside a streamed `render_ui` call, so
+  CopilotKit validates it and the canvas paints it while the model is still
+  writing. The chat sentence before the block streams as the chat message.
+- **Edits send only what changes.** The agent rebuilds the canvas from the
+  thread's earlier `render_ui` calls, seeds the compiler with it, and shows it
+  to the model as Express. The model writes `surface("canvas-main",
+update=true)` and only the components that change.
+- **The compiler and the renderer share one catalog.**
+  `scripts/export-catalog.mjs` writes `agent/canvas_catalog.json` from the
+  page's own generative UI (`src/lib/catalog-omit.json` lists what is left
+  out). Run `pnpm export:catalog` after changing that list.
+- **One retry.** If a reply stops compiling halfway, what already painted
+  stays, and the agent asks the model once to finish it with the error quoted.
+
+On Gemini 3.8 Flash, the first canvas paints about 2.5 seconds after you send
+and finishes in about 9; an edit paints in about 2.5 and finishes in about 6.
 
 ## What Antigravity changes
 
@@ -96,7 +129,7 @@ workarounds are worth knowing before you change it.
   arguments in one piece, so nothing paints until the whole call is written.
   Thinking defaults to `low` to keep that wait short: about 20 seconds for the
   first dashboard on Gemini 3.8 Flash, and 10–20 seconds for an edit.
-- **A conversation keeps its model.** Picking another model mid-chat starts a
+- **A conversation keeps its model and path.** A new choice mid-chat starts a
   new chat.
 
 ## Settings
@@ -105,8 +138,8 @@ workarounds are worth knowing before you change it.
 | ------------------------ | ------------------------ | ------------------------------------------------------------------------ |
 | `GEMINI_API_KEY`         | (required)               | The key the harness uses for every model call                            |
 | `GEMINI_MODEL`           | `gemini-3.8-flash`       | The model when the page asks for none                                    |
-| `GEMINI_MODELS`          | Flash, Neon, 3.1 Pro     | The models the picker may ask for; keep in step with `src/lib/models.ts` |
-| `GEMINI_THINKING_LEVEL`  | `low`                    | `minimal`, `low`, `medium` or `high`                                     |
+| `GEMINI_MODELS`          | Flash, Neon, Hydrogen    | The models the picker may ask for; keep in step with `src/lib/models.ts` |
+| `GEMINI_THINKING_LEVEL`  | `low`                    | `minimal`, `low`, `medium` or `high`, on both paths                      |
 | `GOOGLE_GEMINI_BASE_URL` | Google's API             | A Gemini-compatible server to call instead                               |
 | `LOG_LEVEL`              | `WARNING`                | `DEBUG` logs each run's model and tool calls parking and resuming        |
 | `AGENT_URL`              | `http://localhost:8000/` | Where the Next.js runtime reaches the agent                              |
@@ -139,7 +172,10 @@ instance counts on its own.
 ## Files
 
 ```
-agent/main.py                    The agent server: instructions, one agent per model, routing
+agent/main.py                    The agent server: routing, and the Antigravity agent per model
+agent/express.py                 The Express path: streaming Gemini call, A2UI SDK compiler
+agent/canvas_catalog.json        The A2UI catalog the Express compiler checks against
+scripts/export-catalog.mjs       Writes that catalog from the page's generative UI
 src/app/page.tsx                 Chat, input (model chip, "/" actions) and canvas
 src/app/providers.tsx            CopilotKit, the trimmed catalog, the model sent with each run
 src/app/api/copilotkit/          The CopilotKit runtime endpoint
@@ -148,4 +184,5 @@ src/components/canvas.tsx        The canvas, version arrows and quick actions
 src/components/model-picker.tsx  The model chip and its menu
 src/lib/use-canvas-repair.ts     Hands each render result back to the agent
 src/lib/use-canvas-versions.ts   Stores a version after each finished render
+src/lib/use-change-highlight.ts  Outlines what each edit changed
 ```
