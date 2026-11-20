@@ -23,7 +23,11 @@ function isPlainObject(value: object): boolean {
  * by identity. A cycle inside plain data is safe: a pair already being
  * compared counts as equal for that branch.
  */
-function depEqual(a: unknown, b: unknown, seen: Map<object, object>): boolean {
+function depEqual(
+  a: unknown,
+  b: unknown,
+  seen: Map<object, Set<object>>,
+): boolean {
   if (Object.is(a, b)) return true;
   if (typeof a === "function" && typeof b === "function") return true;
   if (
@@ -41,8 +45,17 @@ function depEqual(a: unknown, b: unknown, seen: Map<object, object>): boolean {
   if (aIsArray !== Array.isArray(b)) return false;
   if (!aIsArray && !(isPlainObject(a) && isPlainObject(b))) return false;
 
-  if (seen.get(a) === b) return true;
-  seen.set(a, b);
+  // Remember every pair, not just the latest partner of `a`: one object can be
+  // compared against several (a self-cycle against a two-node cycle), and
+  // forgetting a pair would let the walk go round the cycles forever.
+  let partners = seen.get(a);
+  if (partners === undefined) {
+    partners = new Set();
+    seen.set(a, partners);
+  } else if (partners.has(b)) {
+    return true;
+  }
+  partners.add(b);
 
   if (aIsArray) {
     const left = a as unknown[];
@@ -71,7 +84,7 @@ export function depsEqual(
   next: ReadonlyArray<unknown>,
 ): boolean {
   if (prev.length !== next.length) return false;
-  const seen = new Map<object, object>();
+  const seen = new Map<object, Set<object>>();
   for (let i = 0; i < prev.length; i++) {
     if (!depEqual(prev[i], next[i], seen)) return false;
   }
