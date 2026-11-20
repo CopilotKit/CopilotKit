@@ -4,9 +4,10 @@
  * A button rendered by {@link ../render/adaptive-card.renderButton} carries its
  * opaque minted action id (`ck:...`) and tiny `value` in the action's `data`.
  * When clicked, Teams delivers a **Message activity** whose `value` is that
- * `data` object (merged with any card inputs) and whose `text` is empty. These
- * helpers recognize and decode that activity so the engine's `awaitChoice`
- * waiter resolves.
+ * `data` object (merged with any card inputs) and whose `text` is empty. An
+ * `Action.Execute` click instead arrives as an `adaptiveCard/action` invoke
+ * whose `value.action.data` holds the same `data`. These helpers recognize and
+ * decode both so the engine's `awaitChoice` waiter resolves.
  */
 
 /** Minimal shape of the inbound Teams activity we read for interaction decoding. */
@@ -55,8 +56,10 @@ export function parseCardAction(
   ) {
     return undefined;
   }
+  // `Action.Submit` merges card inputs into `value`; `Action.Execute` merges
+  // them into `value.action.data`. Read the inputs from wherever `data` came.
   const values = Object.fromEntries(
-    Object.entries(activityValue ?? {}).filter(
+    Object.entries(data).filter(
       ([name]) =>
         name !== "action" && name !== "ckActionId" && name !== "value",
     ),

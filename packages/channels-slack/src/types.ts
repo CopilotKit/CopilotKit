@@ -93,7 +93,11 @@ export interface SlackAppMentionOptions {
 }
 
 export interface SlackRespondToOptions {
-  /** Respond to normal Slack DMs (`message.im`). Default true. */
+  /**
+   * @deprecated Has no effect. The adapter forwards every DM. A DM that does
+   * not mention the bot runs your `onMessage` handlers, so register no
+   * `onMessage` handler to ignore DMs.
+   */
   directMessages?: boolean;
   /**
    * Respond to Slack `app_mention` events in channels/private channels. Pass
@@ -101,10 +105,10 @@ export interface SlackRespondToOptions {
    */
   appMentions?: false | SlackAppMentionOptions;
   /**
-   * How to handle plain, non-mention replies in channel/private-channel threads.
-   * "mentionsOnly" requires every thread turn to explicitly @mention the bot.
-   * "afterBotReply" preserves the legacy behavior: once the bot has replied in a
-   * thread, future plain replies in that thread can trigger new turns.
+   * @deprecated Has no effect. The adapter forwards every channel message that
+   * Slack delivers. A message that mentions the bot runs your `onMention`
+   * handlers, and any other message runs your `onMessage` handlers. To answer
+   * mentions only, register `onMention` and no `onMessage` handler.
    */
   threadReplies?: SlackThreadReplyMode;
 }

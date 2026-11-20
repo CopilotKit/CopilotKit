@@ -94,44 +94,39 @@ channel/private-channel threads require another app mention.
 
 ## Response routing
 
-Use `respondTo` to choose which Slack message events become `onMention` turns:
+The adapter forwards every message event that your Slack app subscribes to.
+The Channel then picks the handlers:
 
-| Surface                                 | Default behavior        | Option                                                |
-| --------------------------------------- | ----------------------- | ----------------------------------------------------- |
-| Direct messages (`message.im`)          | Respond                 | `respondTo.directMessages`                            |
-| App mentions (`app_mention`)            | Respond in-thread       | `respondTo.appMentions` / `appMentions.reply`         |
-| Plain channel/private-channel replies   | Ignore unless mentioned | `respondTo.threadReplies: "afterBotReply"` for legacy |
-| Assistant pane                          | Separate default-on API | `assistant`; not controlled by `respondTo`            |
-| Slash commands, reactions, interactions | Explicit trigger paths  | Not controlled by `respondTo`                         |
+- A message that mentions the bot runs your `onMention` handlers. If you have
+  no `onMention` handler, it runs your `onMessage` handlers.
+- Any other message (a DM, or a thread reply without a mention) runs your
+  `onMessage` handlers.
+
+| Surface                                 | How to control it                                       |
+| --------------------------------------- | ------------------------------------------------------- |
+| App mentions (`app_mention`)            | `respondTo.appMentions` (`false`, or `{ reply }`)       |
+| Direct messages (`message.im`)          | Handled by `onMessage`                                  |
+| Plain channel/private-channel replies   | Handled by `onMessage`; subscribe to `message.channels` |
+| Assistant pane                          | `assistant`; not controlled by `respondTo`              |
+| Slash commands, reactions, interactions | Explicit trigger paths; not controlled by `respondTo`   |
 
 ```ts
-// Default routing made explicit.
+// Answer mentions in a top-level channel reply instead of a thread.
 slack({
   botToken,
   appToken,
-  respondTo: {
-    directMessages: true,
-    appMentions: { reply: "thread" },
-    threadReplies: "mentionsOnly",
-  },
+  respondTo: { appMentions: { reply: "channel" } },
 });
 ```
 
-```ts
-// Legacy owned-thread continuation.
-slack({
-  botToken,
-  appToken,
-  respondTo: {
-    threadReplies: "afterBotReply",
-  },
-});
-```
+To answer mentions only, register `onMention` and no `onMessage` handler.
 
-For the default mention-only thread behavior, subscribe to `app_mention` and
-`message.im` events. Add `message.channels` and `message.groups` only when you
-enable `respondTo.threadReplies: "afterBotReply"` and want Slack to deliver
-plain channel/private-channel thread replies.
+`respondTo.directMessages` and `respondTo.threadReplies` are deprecated and
+have no effect.
+
+Subscribe to `app_mention` and `message.im` events. Add `message.channels` and
+`message.groups` when you want `onMessage` to receive plain channel and
+private-channel messages.
 
 ## What it provides
 
