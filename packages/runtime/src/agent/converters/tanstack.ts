@@ -566,6 +566,12 @@ export function convertInputToTanStackAI(
  * (RUN_STARTED / RUN_FINISHED / RUN_ERROR). The caller (Agent class)
  * is responsible for those.
  *
+ * A TanStack RUN_ERROR chunk ends the stream with an Error that keeps what
+ * the provider reported, so a caller can tell a rate limit from an auth
+ * failure: the chunk's `message`, `code` and `rawEvent` (the provider's error
+ * body), and the `retryAfterMs`, `errorType` and `requestId` in its
+ * `metadata.tanstack`.
+ *
  * `pendingInterrupts`, when provided, is filled with one AG-UI Interrupt per
  * tool call that waits for approval (a tool declared `needsApproval: true`):
  * from a CUSTOM "approval-requested" chunk (@tanstack/ai before 1.2) or from
@@ -668,8 +674,20 @@ export async function* convertTanStackStream(
     // wrapper emits a terminal RUN_ERROR. Without this a failed run (e.g. a
     // provider 4xx) would finish empty with no indication of what went wrong.
     if (type === "RUN_ERROR") {
-      throw new Error(
-        typeof raw.message === "string" ? raw.message : "TanStack AI run error",
+      const { tanstack } = splitTanStackMetadata(raw.metadata);
+      throw Object.assign(
+        new Error(
+          typeof raw.message === "string"
+            ? raw.message
+            : "TanStack AI run error",
+        ),
+        {
+          code: raw.code,
+          rawEvent: raw.rawEvent,
+          retryAfterMs: tanstack.retryAfterMs,
+          errorType: tanstack.errorType,
+          requestId: tanstack.requestId,
+        },
       );
     }
 
