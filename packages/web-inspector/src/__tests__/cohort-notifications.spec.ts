@@ -121,7 +121,7 @@ test("uses the existing New bubble without a second preview and X suppresses bac
 test("reading the preview opens its Markdown and leaves both notices browseable", async () => {
   const inspector = await mount();
   await openHud(inspector);
-  button(inspector, "Open new notification: Update CopilotKit").click();
+  button(inspector, "New Update CopilotKit").click();
   await inspector.updateComplete;
   expect(
     inspector.shadowRoot?.querySelector(".announcement-content strong")
