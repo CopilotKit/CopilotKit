@@ -20,9 +20,16 @@ import type { RenderPath } from "./models";
 
 interface ModelState {
   model: string;
+  /** Switches the model now, and remembers it if the browser lets us. */
   setModel: (id: string) => void;
   path: RenderPath["id"];
+  /** Switches the drawing path now, and remembers it if the browser lets us. */
   setPath: (id: RenderPath["id"]) => void;
+  /**
+   * Stores a choice for the next page load without switching to it. Returns
+   * false when the browser refuses storage.
+   */
+  remember: (kind: "model" | "path", id: string) => boolean;
 }
 
 const ModelContext = createContext<ModelState | null>(null);
@@ -36,13 +43,17 @@ function read(key: string, allowed: readonly { id: string }[]): string | null {
   }
 }
 
-function write(key: string, id: string) {
+/** Whether the browser stored it: private windows and blocked site data refuse. */
+function write(key: string, id: string): boolean {
   try {
     window.localStorage.setItem(key, id);
+    return window.localStorage.getItem(key) === id;
   } catch {
-    // Private windows can refuse storage; the choice still holds for now.
+    return false;
   }
 }
+
+const STORAGE_KEYS = { model: MODEL_STORAGE_KEY, path: PATH_STORAGE_KEY };
 
 /** Holds the chosen model and rendering path, remembered between visits. */
 export function ModelProvider({ children }: { children: ReactNode }) {
@@ -57,6 +68,7 @@ export function ModelProvider({ children }: { children: ReactNode }) {
     if (storedPath) setPathState(storedPath as RenderPath["id"]);
   }, []);
 
+  // Without storage the choice still holds until the page reloads.
   const setModel = useCallback((id: string) => {
     setModelState(id);
     write(MODEL_STORAGE_KEY, id);
@@ -67,8 +79,13 @@ export function ModelProvider({ children }: { children: ReactNode }) {
     write(PATH_STORAGE_KEY, id);
   }, []);
 
+  const remember = useCallback(
+    (kind: "model" | "path", id: string) => write(STORAGE_KEYS[kind], id),
+    [],
+  );
+
   return (
-    <ModelContext.Provider value={{ model, setModel, path, setPath }}>
+    <ModelContext.Provider value={{ model, setModel, path, setPath, remember }}>
       {children}
     </ModelContext.Provider>
   );

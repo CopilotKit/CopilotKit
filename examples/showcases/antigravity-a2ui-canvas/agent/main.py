@@ -58,13 +58,13 @@ from google.antigravity.types import BuiltinTools, GeminiAPIEndpoint
 from express import express_events
 
 MODEL = os.environ.get("GEMINI_MODEL") or DEFAULT_MODEL
-# The models the page may ask for. Anything else runs on MODEL. Keep this in
-# step with src/lib/models.ts.
+# The models the page offers (src/lib/models.ts); keep the two in step.
+PICKER_MODELS = "gemini-3.8-flash,gemini-4-hydrogen,gemini-4-neon"
+# The models a run may ask for: the picker's, or GEMINI_MODELS in their place.
+# MODEL is always allowed, and anything else runs on it.
 MODELS = [
     m.strip()
-    for m in (
-        os.environ.get("GEMINI_MODELS") or f"{MODEL},gemini-4-neon,gemini-4-hydrogen"
-    ).split(",")
+    for m in (os.environ.get("GEMINI_MODELS") or PICKER_MODELS).split(",")
     if m.strip()
 ]
 if MODEL not in MODELS:

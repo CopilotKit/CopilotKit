@@ -13,6 +13,7 @@
   --pill: #ffffff;
   --pill-line: #dfe2e6;
   --pill-hover: #f1f3f5;
+  --danger: #b3261e;
 }
 
 * {
@@ -91,30 +92,6 @@ body {
   display: none;
 }
 
-@container composer (max-width: 400px) {
-  .model-chip {
-    padding: 0 6px 0 9px;
-  }
-
-  .model-chip-label {
-    display: none;
-  }
-
-  .model-chip-tiny {
-    display: inline;
-  }
-}
-
-@container composer (max-width: 300px) {
-  .model-chip {
-    padding: 0 9px;
-  }
-
-  .model-chip svg {
-    display: none;
-  }
-}
-
 .send-with-model {
   display: flex;
   align-items: center;
@@ -160,6 +137,32 @@ body {
 
 .model-chip[aria-expanded="true"] svg {
   transform: rotate(180deg);
+}
+
+/* After the base chip rules, which have the same specificity: the chip
+   narrows with the composer. */
+@container composer (max-width: 400px) {
+  .model-chip {
+    padding: 0 6px 0 9px;
+  }
+
+  .model-chip-label {
+    display: none;
+  }
+
+  .model-chip-tiny {
+    display: inline;
+  }
+}
+
+@container composer (max-width: 300px) {
+  .model-chip {
+    padding: 0 9px;
+  }
+
+  .model-chip svg {
+    display: none;
+  }
 }
 
 .model-menu {
@@ -226,6 +229,10 @@ body {
   color: var(--ink-soft);
   font-size: 12px;
   line-height: 1.4;
+}
+
+.model-menu-error {
+  color: var(--danger);
 }
 
 @media (prefers-reduced-motion: reduce) {

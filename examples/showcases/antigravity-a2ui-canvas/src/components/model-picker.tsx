@@ -34,7 +34,7 @@ const GROUPS: Record<Option["kind"], string> = {
  * thread. Before the first message it just switches.
  */
 export function ModelPicker() {
-  const { model, setModel, path, setPath } = useModel();
+  const { model, setModel, path, setPath, remember } = useModel();
   const { agent } = useAgent({
     agentId: AGENT_ID,
     updates: [
@@ -43,6 +43,8 @@ export function ModelPicker() {
     ],
   });
   const [open, setOpen] = useState(false);
+  // Set when a mid-chat choice could not be stored, so it never took effect.
+  const [unsaved, setUnsaved] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   const items = useRef<(HTMLButtonElement | null)[]>([]);
   const menuId = useId();
@@ -67,11 +69,23 @@ export function ModelPicker() {
   }, [open, model]);
 
   const choose = (option: Option) => {
-    setOpen(false);
-    if (isChosen(option)) return;
-    if (option.kind === "model") setModel(option.id);
-    else setPath(option.id);
-    if (inChat) window.location.reload();
+    if (isChosen(option)) {
+      setOpen(false);
+      return;
+    }
+    if (!inChat) {
+      setOpen(false);
+      if (option.kind === "model") setModel(option.id);
+      else setPath(option.id);
+      return;
+    }
+    // Mid-chat, the choice applies to the new chat the reload starts, so it
+    // has to be stored first. If it can't be, keep this chat and say so.
+    if (!remember(option.kind, option.id)) {
+      setUnsaved(true);
+      return;
+    }
+    window.location.reload();
   };
 
   const onMenuKey = (event: KeyboardEvent<HTMLDivElement>) => {
@@ -99,7 +113,10 @@ export function ModelPicker() {
         aria-controls={open ? menuId : undefined}
         disabled={agent.isRunning}
         aria-label={`Model: ${current.label}`}
-        onClick={() => setOpen((value) => !value)}
+        onClick={() => {
+          setUnsaved(false);
+          setOpen((value) => !value);
+        }}
       >
         <span className="model-chip-label">{current.short}</span>
         <span className="model-chip-tiny">{current.tiny}</span>
@@ -138,8 +155,15 @@ export function ModelPicker() {
               </button>
             </Fragment>
           ))}
-          {inChat && (
-            <p className="model-menu-note">A new choice starts a new chat.</p>
+          {unsaved ? (
+            <p className="model-menu-note model-menu-error" role="alert">
+              This browser won&rsquo;t save the choice, so this chat stays as it
+              is. Allow site data for this page to switch.
+            </p>
+          ) : (
+            inChat && (
+              <p className="model-menu-note">A new choice starts a new chat.</p>
+            )
           )}
         </div>
       )}
