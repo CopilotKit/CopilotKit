@@ -4,6 +4,7 @@ import {
   extractForwardableHeaders,
   mergeForwardableHeaders,
   resolveForwardHeadersPolicy,
+  policyFor,
 } from "../handlers/header-utils";
 import type { ResolvedForwardHeadersPolicy } from "../handlers/header-utils";
 
@@ -495,6 +496,38 @@ describe("header-utils", () => {
       );
       expect(xffKeys).toHaveLength(1);
       expect(merged[xffKeys[0]]).toBe("server-set-value");
+    });
+  });
+
+  describe("policyFor", () => {
+    it("returns runtime.forwardHeadersPolicy when explicitly configured", () => {
+      const customPolicy = resolveForwardHeadersPolicy({
+        useDefaultDenylist: false,
+        allow: ["x-custom"],
+      });
+      const runtime = { forwardHeadersPolicy: customPolicy };
+
+      expect(policyFor(runtime)).toBe(customPolicy);
+    });
+
+    it("falls back to default resolved policy when runtime is undefined", () => {
+      const policy = policyFor(undefined);
+      expect(policy.useDefaultDenylist).toBe(true);
+      expect(policy.allow).toBeUndefined();
+      expect(policy.denyNames.size).toBe(0);
+      expect(policy.denyPrefixes).toHaveLength(0);
+    });
+
+    it("falls back to default resolved policy when runtime is null", () => {
+      const policy = policyFor(null);
+      expect(policy.useDefaultDenylist).toBe(true);
+      expect(policy.allow).toBeUndefined();
+    });
+
+    it("falls back to default resolved policy when runtime.forwardHeadersPolicy is undefined", () => {
+      const policy = policyFor({});
+      expect(policy.useDefaultDenylist).toBe(true);
+      expect(policy.allow).toBeUndefined();
     });
   });
 });
