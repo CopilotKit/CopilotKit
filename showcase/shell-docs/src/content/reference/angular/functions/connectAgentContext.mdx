@@ -5,7 +5,7 @@ description: "Angular function that adds reactive context for the agent and clea
 
 ## Overview
 
-`connectAgentContext` registers [context](https://docs.ag-ui.com/concepts/context) with the agent so it can read your application state. It accepts a static `Context` object or a zero-argument accessor. The internal Angular `effect` tracks any signals read by the accessor and updates the context when they change.
+`connectAgentContext` registers [context](https://docs.ag-ui.com/concepts/state) with the agent so it can read your application state. It accepts a static `Context` object or a zero-argument accessor. The internal Angular `effect` tracks any signals read by the accessor and updates the context when they change.
 
 The registration is wrapped in an Angular `effect`, so the context is cleaned up automatically when the owning component or service is destroyed.
 
