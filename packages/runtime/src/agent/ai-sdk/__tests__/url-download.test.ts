@@ -23,7 +23,7 @@ import type { LookupAddress } from "node:dns";
 import { lookup as realLookup } from "node:dns/promises";
 import type { AddressInfo, LookupFunction } from "node:net";
 import { COPILOTKIT_VERSION } from "@copilotkit/shared";
-import { DownloadError } from "ai";
+import { AISDKError, DownloadError } from "ai";
 import {
   createGuardedUrlDownload,
   createSafeUrlDownload,
@@ -1503,5 +1503,23 @@ describe("createSafeUrlDownload responses", () => {
       const result = await fetchOne(v6, url);
       expect(Buffer.from(result!.data).toString(), url).toBe("PUBLIC-BYTES");
     }
+  });
+});
+
+describe("createSafeUrlDownload errors without the ai package", () => {
+  // The module declares its own error, so that it does not import `ai`. The
+  // AI SDK, and app code written for it, still read it as a DownloadError.
+  it("rejects with an error that the AI SDK reads as its DownloadError", async () => {
+    const error = await downloadErrorOf(
+      createSafeUrlDownload(),
+      "ftp://files.test/report.pdf",
+    );
+    expect(error).toBeInstanceOf(Error);
+    expect(AISDKError.isInstance(error)).toBe(true);
+    expect(DownloadError.isInstance(error)).toBe(true);
+    expect(error.name).toBe("AI_DownloadError");
+    expect(error.message).toBe("Only http and https URLs can be downloaded.");
+    expect(error.url).toBe("ftp://files.test/report.pdf");
+    expect(error.statusCode).toBeUndefined();
   });
 });

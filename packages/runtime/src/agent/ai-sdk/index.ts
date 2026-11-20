@@ -32,6 +32,7 @@ import { jsonSchema as aiJsonSchema, tool as createVercelAISDKTool } from "ai";
 import { z } from "zod";
 import type { ToolDefinition } from "../index";
 
+// Also exported from `@copilotkit/runtime/agent`, which does not load `ai`.
 export { createSafeUrlDownload } from "./url-download";
 export type {
   CreateSafeUrlDownloadOptions,

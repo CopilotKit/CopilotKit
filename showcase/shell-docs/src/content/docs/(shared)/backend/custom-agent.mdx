@@ -656,6 +656,7 @@ From `@copilotkit/runtime/agent`:
 | Utility | Description |
 |---|---|
 | `convertInputToTanStackAI(input)` | Converts `RunAgentInput` to `{ messages, systemPrompts, tools }` for TanStack AI's `chat()`. Handles system/developer messages, context, state, and frontend tools. |
+| `createSafeUrlDownload({ signal })` | A download function for `streamText()`'s `experimental_download`. It downloads attachment URLs only from public addresses. |
 
 From `@copilotkit/runtime/agent/ai-sdk` (install `ai`):
 
@@ -665,4 +666,3 @@ From `@copilotkit/runtime/agent/ai-sdk` (install `ai`):
 | `convertToolsToVercelAITools(tools)` | Converts frontend-defined tools (JSON Schema) to AI SDK's `ToolSet`. |
 | `convertToolDefinitionsToVercelAITools(tools)` | Converts `defineTool()` definitions (Standard Schema) to AI SDK's `ToolSet`. |
 | `toAISDKTools(tools)` | Converts TanStack AI tools, such as `learnedSkills.tools`, to AI SDK's `ToolSet`. |
-| `createSafeUrlDownload({ signal })` | A download function for `streamText()`'s `experimental_download`. It downloads attachment URLs only from public addresses. |

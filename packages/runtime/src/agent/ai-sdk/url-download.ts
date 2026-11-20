@@ -1,6 +1,11 @@
 /**
  * Server-side download of URL attachments (image/file parts) for AI SDK
- * `streamText` calls, used as their `experimental_download`.
+ * `streamText` calls, used as their `experimental_download`, and for an app
+ * that downloads a URL from a request itself.
+ *
+ * It does not import `ai`, so an app that does not use the AI SDK does not
+ * need it installed. Its function type and its error are declared here with
+ * the AI SDK's shapes; see {@link DownloadFunction} and {@link DownloadError}.
  *
  * The AI SDK downloads any URL attachment that the model cannot take as a URL
  * and puts the bytes into the prompt. The URL comes from the request, so the
@@ -35,8 +40,46 @@ import type * as Net from "node:net";
 import type { LookupAddress } from "node:dns";
 import type { LookupFunction } from "node:net";
 import { COPILOTKIT_VERSION } from "@copilotkit/shared";
-import { DownloadError } from "ai";
-import type { Experimental_DownloadFunction as DownloadFunction } from "ai";
+
+/**
+ * A download function, as the AI SDK's `experimental_download` option takes
+ * it (`Experimental_DownloadFunction` in `ai`). It gets the URLs of one model
+ * call and gives, for each, its bytes and media type, or `null` for a URL it
+ * leaves to the caller.
+ */
+type DownloadFunction = (
+  requests: Array<{ url: URL; isUrlSupportedByModel: boolean }>,
+) => PromiseLike<
+  Array<{ data: Uint8Array; mediaType: string | undefined } | null>
+>;
+
+// The markers that `AISDKError.isInstance` and `DownloadError.isInstance` in
+// `ai` look for. They are registered symbols, so they are the same in every
+// copy of a package, which is how the AI SDK tells its errors apart.
+const AI_SDK_ERROR: unique symbol = Symbol.for("vercel.ai.error");
+const AI_SDK_DOWNLOAD_ERROR: unique symbol = Symbol.for(
+  "vercel.ai.error.AI_DownloadError",
+);
+
+/**
+ * The error of a refused or failed download: the AI SDK's `DownloadError`,
+ * without importing `ai`. It has the same `name`, `url` and `statusCode`, and
+ * the markers above, so `DownloadError.isInstance(error)` from `ai` is true
+ * for it, both in app code and in a `streamText` call.
+ */
+class DownloadError extends Error {
+  readonly [AI_SDK_ERROR] = true;
+  readonly [AI_SDK_DOWNLOAD_ERROR] = true;
+  readonly url: string;
+  readonly statusCode?: number;
+
+  constructor(options: { url: string; message: string; statusCode?: number }) {
+    super(options.message);
+    this.name = "AI_DownloadError";
+    this.url = options.url;
+    this.statusCode = options.statusCode;
+  }
+}
 
 /** Options for the default, public-network-only URL downloader. */
 export interface SafeUrlDownloadOptions {
@@ -628,7 +671,7 @@ async function downloadOne(
         );
       } catch (error) {
         if (signal.aborted) throw signal.reason;
-        if (DownloadError.isInstance(error)) throw error;
+        if (error instanceof DownloadError) throw error;
         throw refuse(url, DOWNLOAD_FAILED, describeError(error));
       }
       try {
@@ -672,7 +715,7 @@ async function downloadOne(
         return { data, mediaType: contentType || undefined };
       } catch (error) {
         if (signal.aborted) throw signal.reason;
-        if (DownloadError.isInstance(error)) throw error;
+        if (error instanceof DownloadError) throw error;
         throw refuse(url, DOWNLOAD_FAILED, describeError(error));
       } finally {
         response.destroy();
@@ -862,7 +905,7 @@ export interface CreateSafeUrlDownloadOptions extends SafeUrlDownloadOptions {
  *
  * ```ts
  * import { streamText } from "ai";
- * import { createSafeUrlDownload } from "@copilotkit/runtime/agent/ai-sdk";
+ * import { createSafeUrlDownload } from "@copilotkit/runtime/agent";
  *
  * factory: (ctx) =>
  *   streamText({
@@ -872,6 +915,12 @@ export interface CreateSafeUrlDownloadOptions extends SafeUrlDownloadOptions {
  *     experimental_download: createSafeUrlDownload({ signal: ctx.abortSignal }),
  *   }),
  * ```
+ *
+ * It does not need the AI SDK. To download a URL from a request yourself,
+ * call the function with `[{ url, isUrlSupportedByModel: false }]`; it gives
+ * `null` for a `data:` URL. A refused or failed download rejects with an
+ * error named `AI_DownloadError`, which `DownloadError.isInstance` from `ai`
+ * accepts.
  *
  * @param options - Host allow list, size, time and count limits, and the
  * abort `signal`. All are optional.

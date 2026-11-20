@@ -12,7 +12,10 @@ import {
 // TODO(copilotkit-2.0): `resolveModel` was removed in 2.0 and has no direct replacement. See https://docs.copilotkit.ai/migrate/runtime-2.0#built-in-agent
 // TODO(copilotkit-2.0): `resolveModel`: Model strings were removed. Pass a TanStack AI text adapter such as `openaiText("gpt-5")` from "@tanstack/ai-openai" as `model`. To handle a model name forwarded from the client, set the `resolveModel` option of the `BuiltInAgent` config.
 import { resolveModel } from "@copilotkit/runtime";
-import { type BuiltInAgentClassicConfig } from "@copilotkit/runtime/agent";
+import {
+  type BuiltInAgentClassicConfig,
+  createSafeUrlDownload,
+} from "@copilotkit/runtime/agent";
 import { convertMessagesToVercelAISDKMessages } from "@copilotkit/runtime/agent/ai-sdk";
 import { openai } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
@@ -50,4 +53,5 @@ export const handler = createCopilotKitRuntimeHandler({ runtime });
 export const model = resolveModel("openai/gpt-5");
 export const awaited = async () => await resolveModel("openai/gpt-5");
 export const toMessages = convertMessagesToVercelAISDKMessages;
+export const download = createSafeUrlDownload({ maxBytes: 1_000_000 });
 export type Clients = MCPClient[];
