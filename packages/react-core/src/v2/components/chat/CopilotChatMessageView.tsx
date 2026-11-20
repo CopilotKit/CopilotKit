@@ -29,6 +29,7 @@ import {
 } from "./message-feedback";
 import type { MessageFeedbackScope } from "./message-feedback";
 import CopilotChatWorkSummary from "./CopilotChatWorkSummary";
+import { CopilotChatApprovalDecisions } from "./CopilotChatApprovalDecisions";
 import { Collapsible } from "./CopilotChatToolCallGroup";
 import { ToolCallDisplayContext } from "./tool-call-display-context";
 import type { ToolCallDisplayContextValue } from "./tool-call-display-context";
@@ -641,6 +642,9 @@ export function CopilotChatMessageView({
 
     const subscription = agent.subscribe({
       onStateChanged: forceUpdate,
+      onCustomEvent: ({ event }) => {
+        if (event.name === "cpki.approval_decisions") forceUpdate();
+      },
     });
     return () => subscription.unsubscribe();
   }, [config?.agentId, copilotkit, forceUpdate]);
@@ -657,6 +661,24 @@ export function CopilotChatMessageView({
     });
     return () => subscription.unsubscribe();
   }, [copilotkit]);
+
+  const savedDecisions = config
+    ? copilotkit.getApprovalDecisions(config.agentId, config.threadId)
+    : undefined;
+  const decisionElement = savedDecisions ? (
+    <CopilotChatApprovalDecisions
+      snapshot={savedDecisions}
+      messages={messages}
+    />
+  ) : null;
+  const interactionElement = decisionElement ? (
+    <>
+      {decisionElement}
+      {interruptElement}
+    </>
+  ) : (
+    interruptElement
+  );
 
   // Helper to get state snapshot for a message (used for memoization)
   const getStateSnapshotForMessage = (messageId: string): unknown => {
@@ -2032,7 +2054,7 @@ export function CopilotChatMessageView({
               messageElements,
               messages,
               isRunning,
-              interruptElement,
+              interruptElement: interactionElement,
             })}
           </div>
         </ToolCallDisplayContext.Provider>
@@ -2117,7 +2139,7 @@ export function CopilotChatMessageView({
           ) : (
             messageElements
           )}
-          {interruptElement}
+          {interactionElement}
           {pendingWorkSummary && renderWorkSummary(latestTurnKey, [])}
           {showCursor && (
             <div className="cpk:mt-2">

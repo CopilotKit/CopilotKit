@@ -59,3 +59,23 @@ See the
 and
 [`CopilotKitCoreSubscriber` reference](https://docs.copilotkit.ai/reference/core/types/CopilotKitCoreSubscriber)
 for the full API.
+
+## Saved approval decisions
+
+Core retains the latest `CUSTOM` event named `cpki.approval_decisions` per agent
+and thread. `getApprovalDecisions(agentId, threadId)` returns a copy of that
+projection, `undefined` before one arrives, or `{ error: true }` for invalid data.
+
+The version 1 value is `{ version: 1, decisions: [{ requestId, toolCallId,
+approved, status: "waiting" }] }`. Both IDs must be nonempty and unique within
+the snapshot. An empty `decisions` array explicitly clears it. A decision records
+approval or decline while the native batch waits; it never creates a tool result
+or an actionable interrupt. Hosts and importers emit actual results through
+`TOOL_CALL_RESULT` and unanswered requests through the standard interrupt outcome.
+
+The React v2 chat renders these decisions read-only, including when connect
+replay finishes before the chat mounts. Once its messages contain a canonical
+result for the same call, the display says “Result recorded.” Custom message-view
+layouts receive this display with `interruptElement`. Other frontend consumers
+can use the getter and subscribe to the agent's custom events. This contract is
+separate from the graph's `STATE_SNAPSHOT` and does not modify model message context.

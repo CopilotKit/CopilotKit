@@ -551,27 +551,34 @@ describe("StateManager tool result history", () => {
     ).toHaveLength(1);
   });
 
-  it("keeps active ownership through a pre-start local failure", async () => {
-    const agent = new LocalFailureBeforeStartAgent();
-    const core = new CopilotKitCore({});
-    await addAgent(core, agent);
+  it.each([false, true])(
+    "keeps active ownership through a pre-start local failure (constructor agent: %s)",
+    async (constructorAgent) => {
+      const agent = new LocalFailureBeforeStartAgent();
+      const core = new CopilotKitCore(
+        constructorAgent
+          ? { agents__unsafe_dev_only: { [agent.agentId!]: agent } }
+          : {},
+      );
+      await addAgent(core, agent);
 
-    await core.runAgent({ agent });
-    await expect(core.runAgent({ agent })).resolves.toBeDefined();
+      await core.runAgent({ agent });
+      await expect(core.runAgent({ agent })).resolves.toBeDefined();
 
-    agent.addMessage({
-      id: "after-local-failure",
-      role: "user",
-      content: "still active",
-    });
-    expect(
-      core.getRunIdForMessage(
-        "local-failure",
-        "local-failure-thread",
-        "after-local-failure",
-      ),
-    ).toBe(agent.inputs[0]?.runId);
-  });
+      agent.addMessage({
+        id: "after-local-failure",
+        role: "user",
+        content: "still active",
+      });
+      expect(
+        core.getRunIdForMessage(
+          "local-failure",
+          "local-failure-thread",
+          "after-local-failure",
+        ),
+      ).toBe(agent.inputs[0]?.runId);
+    },
+  );
 
   it("does not add a StateManager-owned result without an assistant owner", async () => {
     const callId = "call-ownerless";
