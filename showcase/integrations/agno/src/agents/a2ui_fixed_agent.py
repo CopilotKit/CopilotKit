@@ -46,6 +46,7 @@ FLIGHT_SCHEMA = _load_schema("flight_schema.json")
 # schema is ready to wire up once the SDK exposes per-button action handlers
 # for fixed-schema surfaces (matching the langgraph-python reference).
 BOOKED_SCHEMA = _load_schema("booked_schema.json")
+# @endregion[backend-schema-json-load]
 
 
 @tool
