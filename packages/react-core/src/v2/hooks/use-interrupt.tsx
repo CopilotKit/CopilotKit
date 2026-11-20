@@ -74,9 +74,12 @@ export function isPromiseLike<TValue>(
 }
 
 /** Derive the legacy-compatible `event` for any pending interrupt. */
-function toLegacyEvent(pending: PendingInterrupt): InterruptEvent {
+function toLegacyEvent(
+  pending: PendingInterrupt,
+  interrupt: Interrupt | null,
+): InterruptEvent {
   if (pending.kind === "legacy") return pending.event;
-  return { name: INTERRUPT_EVENT_NAME, value: pending.interrupts[0] };
+  return { name: INTERRUPT_EVENT_NAME, value: interrupt };
 }
 
 /**
@@ -94,12 +97,14 @@ interface UseInterruptConfigBase<TValue = unknown, TResult = never> {
   ) => React.ReactElement;
   /**
    * Optional pre-render handler invoked when an interrupt is received.
+   * Runs again when a standard batch advances to its next unanswered prompt.
    * Return a sync or async value to expose as `result` in `render`.
    * Rejecting/throwing falls back to `result = null`.
    */
   handler?: InterruptHandlerFn<TValue, TResult>;
   /**
    * Optional predicate to filter which interrupts this hook handles.
+   * Re-evaluated when a standard batch advances to its next unanswered prompt.
    * Receives the legacy-compatible event (for standard interrupts, `value` is
    * the primary `Interrupt`). Return `false` to ignore.
    */
@@ -147,7 +152,7 @@ export type UseInterruptConfig<
  * Supports both the AG-UI standard interrupt flow (`RUN_FINISHED` with
  * `outcome.type === "interrupt"`) and the legacy custom-event flow
  * (`on_interrupt`). For standard interrupts, `render` receives `interrupt`
- * (the primary one) and `interrupts` (the full open set); call `resolve(payload)`
+ * (the first unanswered one) and `interrupts` (the full batch); call `resolve(payload)`
  * to resume or `cancel()` to cancel. Resuming addresses the targeted interrupt
  * and, once every open interrupt is addressed, submits a single spec `resume`
  * array via `copilotkit.runAgent`.
@@ -181,17 +186,33 @@ export function useInterrupt<
   const [pending, setPending] = useState<PendingInterrupt | null>(null);
   const pendingRef = useRef(pending);
   pendingRef.current = pending;
-  const [handlerResult, setHandlerResult] =
+  const [handlerResult, setHandlerResult] = useState<{
+    pending: PendingInterrupt;
+    primary: Interrupt | null;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    useState<InterruptResult<any, TResult>>(null);
+    value: InterruptResult<any, TResult>;
+  } | null>(null);
 
   const interruptStateRef = useRef(new ɵInterruptState());
+  const [, setRevision] = useState(0);
+  const refresh = useCallback(() => setRevision((value) => value + 1), []);
+  useEffect(
+    () => interruptStateRef.current.subscribe(refresh),
+    [pending, refresh],
+  );
+  const primary =
+    pending?.kind === "standard"
+      ? interruptStateRef.current.nextInterrupt(agent.messages)
+      : null;
 
   useEffect(() => {
     let localLegacy: InterruptEvent | null = null;
     let localStandard: Interrupt[] | null = null;
 
     const subscription = agent.subscribe({
+      onMessagesChanged: () => {
+        if (pendingRef.current?.kind === "standard") refresh();
+      },
       onCustomEvent: ({ event }) => {
         if (event.name === INTERRUPT_EVENT_NAME) {
           localLegacy = { name: event.name, value: event.value };
@@ -251,7 +272,7 @@ export function useInterrupt<
       subscription.unsubscribe();
       interruptStateRef.current = new ɵInterruptState();
     };
-  }, [agent]);
+  }, [agent, refresh]);
 
   /** Record an explicit answer and resume once the complete batch is addressed. */
   const resolve: InterruptResolveFn = useCallback(
@@ -259,15 +280,6 @@ export function useInterrupt<
       const current = pendingRef.current;
       if (!current) return;
 
-      if (
-        current.kind === "standard" &&
-        current.interrupts.length > 1 &&
-        interruptId === undefined
-      ) {
-        console.warn(
-          `[CopilotKit] useInterrupt: resolve()/cancel() called without an interruptId while ${current.interrupts.length} interrupts are open; defaulting to the first. Pass an interruptId to address a specific interrupt.`,
-        );
-      }
       if (
         interruptStateRef.current.isCompletedToolCall(
           interruptId,
@@ -345,15 +357,6 @@ export function useInterrupt<
       const current = pendingRef.current;
       if (!current) return;
 
-      if (
-        current.kind === "standard" &&
-        current.interrupts.length > 1 &&
-        interruptId === undefined
-      ) {
-        console.warn(
-          `[CopilotKit] useInterrupt: resolve()/cancel() called without an interruptId while ${current.interrupts.length} interrupts are open; defaulting to the first. Pass an interruptId to address a specific interrupt.`,
-        );
-      }
       if (
         interruptStateRef.current.isCompletedToolCall(
           interruptId,
@@ -442,11 +445,11 @@ export function useInterrupt<
   };
 
   useEffect(() => {
-    if (!pending) {
+    if (!pending || (pending.kind === "standard" && !primary)) {
       setHandlerResult(null);
       return;
     }
-    const legacyEvent = toLegacyEvent(pending);
+    const legacyEvent = toLegacyEvent(pending, primary);
     if (!isEnabled(legacyEvent)) {
       setHandlerResult(null);
       return;
@@ -462,7 +465,7 @@ export function useInterrupt<
     try {
       maybePromise = handler({
         event: legacyEvent,
-        interrupt: pending.kind === "standard" ? pending.interrupts[0] : null,
+        interrupt: primary,
         interrupts: pending.kind === "standard" ? [...pending.interrupts] : [],
         resolve: resolveRef.current,
         cancel: cancelRef.current,
@@ -481,7 +484,8 @@ export function useInterrupt<
     if (isPromiseLike(maybePromise)) {
       Promise.resolve(maybePromise)
         .then((resolved) => {
-          if (!cancelled) setHandlerResult(resolved);
+          if (!cancelled)
+            setHandlerResult({ pending, primary, value: resolved });
         })
         .catch((err) => {
           console.error(
@@ -491,30 +495,33 @@ export function useInterrupt<
           if (!cancelled) setHandlerResult(null);
         });
     } else {
-      setHandlerResult(maybePromise);
+      setHandlerResult({ pending, primary, value: maybePromise });
     }
 
     return () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pending]);
+  }, [pending, primary]);
 
   const element = useMemo(() => {
-    if (!pending) return null;
-    const legacyEvent = toLegacyEvent(pending);
+    if (!pending || (pending.kind === "standard" && !primary)) return null;
+    const legacyEvent = toLegacyEvent(pending, primary);
     if (!isEnabled(legacyEvent)) return null;
 
     return renderRef.current({
       event: legacyEvent,
-      interrupt: pending.kind === "standard" ? pending.interrupts[0] : null,
+      interrupt: primary,
       interrupts: pending.kind === "standard" ? [...pending.interrupts] : [],
-      result: handlerResult,
+      result:
+        handlerResult?.pending === pending && handlerResult.primary === primary
+          ? handlerResult.value
+          : null,
       resolve,
       cancel,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pending, handlerResult, resolve, cancel]);
+  }, [pending, primary, handlerResult, resolve, cancel]);
 
   // Publish to core for in-chat rendering. Publish-only.
   useEffect(() => {
