@@ -1279,6 +1279,9 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         return {
             "messages": [*messages[:-1], updated_ai_message],
             "copilotkit": {
+                # The key has no reducer, so this update replaces it. Carry the
+                # rest (context, actions) or later readers of the state lose it.
+                **(state.get("copilotkit") or {}),
                 "intercepted_tool_calls": frontend_tool_calls,
                 "original_ai_message_id": last_message.id,
                 "original_tool_calls": tool_calls,
@@ -1331,6 +1334,7 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         return {
             "messages": updated_messages,
             "copilotkit": {
+                **copilotkit_state,
                 "intercepted_tool_calls": None,
                 "original_ai_message_id": None,
                 "original_tool_calls": None,
