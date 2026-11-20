@@ -562,7 +562,7 @@ body {
 }
 
 /* Phones: chat on top, canvas below */
-@media (max-width: 860px) {
+@media (max-width: 740px) {
   .workspace {
     grid-template-columns: 1fr;
     grid-template-rows: minmax(320px, 45dvh) 1fr;
