@@ -17,6 +17,7 @@
 // check doesn't wait on page compilation or depend on the page existing yet.
 
 import { existsSync } from "node:fs";
+import { DOCS_VERSIONS } from "../src/lib/docs-versions.mjs";
 
 const BASE_URL = process.env.BASE_URL ?? "http://localhost:3003";
 const TIMEOUT_MS = Number(process.env.TIMEOUT_MS ?? 30_000);
@@ -593,9 +594,10 @@ for (const path of [
 }
 
 // --- next.config: CopilotKit 2.0 pages ------------------------------------
-// Until 2.0 ships, a build without one of these pages sends it to the 2.0
-// docs (307). A build that has the page (the 2.0.0 branch) serves it.
-const COPILOTKIT_2_DOCS = "https://next.docs.copilotkit.ai";
+// Until 2.0 ships, a build without one of these pages sends it to the same
+// page under /v2 (307). A build that has the page (the 2.0.0 branch) serves it.
+const COPILOTKIT_2_DOCS = DOCS_VERSIONS.find(({ id }) => id === "v2")?.path;
+if (!COPILOTKIT_2_DOCS) throw new Error("docs-versions.mjs has no v2 path");
 const DOCS_CONTENT = new URL("../src/content/docs/", import.meta.url);
 for (const slug of [
   "whats-new-2.0",

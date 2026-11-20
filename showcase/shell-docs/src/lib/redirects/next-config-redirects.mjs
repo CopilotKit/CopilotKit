@@ -19,6 +19,7 @@
 // `/slack/docs`.
 
 import { existsSync } from "node:fs";
+import { DOCS_VERSIONS } from "../docs-versions.mjs";
 
 /** @typedef {import("next/dist/lib/load-custom-routes").Redirect} Redirect */
 
@@ -1042,14 +1043,18 @@ const ANTIGRAVITY_COOKBOOK_REDIRECTS = [
 
 // ---------------------------------------------------------------------------
 // Pages of the CopilotKit 2.0 docs. Until 2.0 ships, the 2.0 docs (release
-// candidate) are a separate site, built from the `2.0.0` branch. The 2.0
-// codemod (`npx copilotkit@latest migrate`) and the 2.0 packages link these
-// pages on docs.copilotkit.ai. A build without a page sends its URL to the
-// 2.0 docs. A build with the page serves it, so these redirects stop on
-// their own on the `2.0.0` branch, and on `main` when 2.0 ships. They are
-// temporary (307), so that browsers do not keep them.
+// candidate) are served under /v2, from their own build of the `2.0.0`
+// branch (src/lib/docs-versions.mjs). The 2.0 codemod
+// (`npx copilotkit@latest migrate`) and the 2.0 packages link these pages at
+// the docs root. A build without a page sends its URL to the same page under
+// /v2. A build with the page serves it, so these redirects stop on their own
+// on the `2.0.0` branch, and on `main` when 2.0 ships. They are temporary
+// (307), so that browsers do not keep them.
 // ---------------------------------------------------------------------------
-const COPILOTKIT_2_DOCS = "https://next.docs.copilotkit.ai";
+const COPILOTKIT_2_DOCS = DOCS_VERSIONS.find(({ id }) => id === "v2")?.path;
+if (!COPILOTKIT_2_DOCS) {
+  throw new Error("docs-versions.mjs has no v2 path for the 2.0 pages");
+}
 
 /** Pages that only the 2.0 docs have, as paths below the docs root. */
 const COPILOTKIT_2_PAGES = [

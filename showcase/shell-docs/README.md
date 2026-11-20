@@ -36,10 +36,10 @@ npm run check-live-pages   # request every page at its live URL (dev server up)
 npm run check-redirects    # legacy docs.copilotkit.ai redirects
 ```
 
-Until CopilotKit 2.0 ships, its docs are a separate site at
-next.docs.copilotkit.ai, built from the `2.0.0` branch. The 2.0 codemod and
-packages link some pages that only the 2.0 docs have, such as
-`/migrate/chat-2.0`. A build without such a page redirects it to the 2.0 docs
+Until CopilotKit 2.0 ships, its docs are served under `/v2`, from their own
+build of the `2.0.0` branch. The 2.0 codemod and packages link some pages that
+only the 2.0 docs have, such as `/migrate/chat-2.0`. A build without such a
+page redirects it to the same page under `/v2`
 (`COPILOTKIT_2_PAGES` in `src/lib/redirects/next-config-redirects.mjs`). A
 build with the page serves it.
 
