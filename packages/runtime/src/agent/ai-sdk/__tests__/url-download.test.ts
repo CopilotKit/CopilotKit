@@ -1438,6 +1438,30 @@ describe("createSafeUrlDownload responses", () => {
     expect(logged).not.toContain("SECRET-SIG");
   });
 
+  it("reports a body that breaks off as a download failure", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    // Sends part of the body it announced, then drops the connection.
+    const cut = http.createServer((_request, response) => {
+      response.writeHead(200, {
+        "content-type": "image/png",
+        "content-length": "1000",
+      });
+      response.write("partial", () => response.socket?.destroy());
+    });
+    await new Promise<void>((resolve) => cut.listen(0, "127.0.0.1", resolve));
+    const cutPort = (cut.address() as AddressInfo).port;
+    try {
+      const error = await downloadErrorOf(
+        download(),
+        `http://public.test:${cutPort}/image.png`,
+      );
+      expect(error.message).toBe("The download failed.");
+      expect(error.url).toBe(`http://public.test:${cutPort}/image.png`);
+    } finally {
+      await new Promise<void>((resolve) => cut.close(() => resolve()));
+    }
+  });
+
   it("keeps the query out of a non-2xx status error", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const error = await downloadErrorOf(
