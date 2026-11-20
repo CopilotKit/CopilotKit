@@ -1,15 +1,131 @@
 import { describe, it, expect, vi } from "vitest";
 import { z } from "zod";
+import type { JSONSchema } from "../json-schema";
 import {
   convertJsonSchemaToZodSchema,
   actionParametersToJsonSchema,
   jsonSchemaToActionParameters,
-  JSONSchema,
 } from "../json-schema";
 import { zodToJsonSchema } from "zod-to-json-schema";
-import { Parameter } from "../../types";
+import type { Parameter } from "../../types";
 
 describe("convertJsonSchemaToZodSchema", () => {
+  it("preserves and validates dictionary-valued tool arguments", () => {
+    const schema = convertJsonSchemaToZodSchema(
+      {
+        type: "object",
+        properties: {
+          headers: { type: "object", additionalProperties: { type: "string" } },
+        },
+        required: ["headers"],
+      },
+      true,
+    );
+    const args = {
+      headers: { Authorization: "Bearer token", Accept: "application/json" },
+    };
+    expect(schema.parse(args)).toEqual(args);
+    expect(zodToJsonSchema(schema)).toMatchObject({
+      properties: {
+        headers: { type: "object", additionalProperties: { type: "string" } },
+      },
+    });
+    expect(schema.safeParse({ headers: { Accept: 123 } }).success).toBe(false);
+  });
+
+  it.each([true, {}])(
+    "preserves open object values with additionalProperties: %j",
+    (additionalProperties) => {
+      const schema = convertJsonSchemaToZodSchema(
+        { type: "object", additionalProperties },
+        true,
+      );
+      const input = {
+        title: "hello",
+        count: 2,
+        enabled: true,
+        metadata: { tags: ["a"] },
+      };
+      expect(schema.parse(input)).toEqual(input);
+    },
+  );
+
+  it("validates additional properties without applying their schema to named properties", () => {
+    const schema = convertJsonSchemaToZodSchema(
+      {
+        type: "object",
+        properties: { count: { type: "number" } },
+        required: ["count"],
+        additionalProperties: { type: "string" },
+      },
+      true,
+    );
+    expect(schema.parse({ count: 2, label: "two" })).toEqual({
+      count: 2,
+      label: "two",
+    });
+    expect(schema.safeParse({ count: "two" }).success).toBe(false);
+    expect(schema.safeParse({ count: 2, label: 2 }).success).toBe(false);
+  });
+
+  it("resolves definitions inside dictionary values and array items", () => {
+    const schema = convertJsonSchemaToZodSchema(
+      {
+        type: "object",
+        additionalProperties: {
+          type: "array",
+          items: { $ref: "#/$defs/Entry" },
+        },
+        $defs: {
+          Entry: {
+            type: "object",
+            properties: { value: { type: "number" } },
+            required: ["value"],
+          },
+        },
+      },
+      true,
+    );
+    const input = { first: [{ value: 1 }], second: [{ value: 2 }] };
+    expect(schema.parse(input)).toEqual(input);
+    expect(schema.safeParse({ first: [{ value: "wrong" }] }).success).toBe(
+      false,
+    );
+  });
+
+  it("keeps dictionary optionality and descriptions", () => {
+    const schema = convertJsonSchemaToZodSchema(
+      {
+        type: "object",
+        additionalProperties: { type: "number" },
+        description: "Scores",
+      },
+      false,
+    );
+    expect(schema.parse(undefined)).toBeUndefined();
+    expect(schema.parse({ alice: 5 })).toEqual({ alice: 5 });
+    expect(schema.description).toBe("Scores");
+  });
+
+  it.each([undefined, false])(
+    "keeps existing named-object behavior with additionalProperties: %j",
+    (additionalProperties) => {
+      const schema = convertJsonSchemaToZodSchema(
+        {
+          type: "object",
+          properties: { name: { type: "string" } },
+          required: ["name"],
+          additionalProperties,
+        },
+        true,
+      );
+      expect(schema.parse({ name: "known", extra: "value" })).toEqual({
+        name: "known",
+      });
+      expect(schema.safeParse({}).success).toBe(false);
+    },
+  );
+
   it("should convert a simple JSON schema to a Zod schema", () => {
     const jsonSchema = {
       type: "object",
