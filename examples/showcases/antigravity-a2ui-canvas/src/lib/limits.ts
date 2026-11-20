@@ -8,7 +8,9 @@
  * demo runs on; with more instances, each one counts on its own and the real
  * limits multiply by the number of instances.
  */
-import type { CopilotRuntimeHooks } from "@copilotkit/runtime/v2";
+import { RunAgentInputSchema } from "@ag-ui/core/schemas";
+import type { CopilotRuntimeHooks, RouteInfo } from "@copilotkit/runtime/v2";
+import { AGENT_ID } from "@/agent";
 
 const MINUTE = 60_000;
 
@@ -225,32 +227,77 @@ function admitAgentRun(request: Request): Response | undefined {
   return undefined;
 }
 
-const RUNS = new Set(["agent/run", "agent/suggest"]);
+/** A route that runs this page's agent, which is what spends model tokens. A run for another agent id gets a 404. */
+const runsTheAgent = (route: RouteInfo) =>
+  (route.method === "agent/run" || route.method === "agent/suggest") &&
+  route.agentId === AGENT_ID;
 
-/** Whether a body has what the runtime needs to start a run (AG-UI `RunAgentInput`): one it would refuse with a 400 spends nothing. */
-function isRunInput(body: string) {
+type JsonObject = Record<string, unknown>;
+const isObject = (value: unknown): value is JsonObject =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+const MEDIA = new Set(["image", "audio", "video", "document"]);
+
+/** `value` without `field` when it is null, which AG-UI 0.x sent where 1.0 leaves the field out. */
+function withoutNull(value: unknown, field: string): unknown {
+  if (!isObject(value) || value[field] !== null) return value;
+  return Object.fromEntries(Object.entries(value).filter(([k]) => k !== field));
+}
+
+const hasLegacyBinary = (message: unknown) =>
+  isObject(message) &&
+  Array.isArray(message.content) &&
+  message.content.some((part) => isObject(part) && part.type === "binary");
+
+/**
+ * Whether the runtime would start a run from this body. It checks AG-UI's own
+ * `RunAgentInput` schema, the one the runtime parses with, after the same
+ * clean-up the runtime does first (`normalizeLegacyRunAgentInput` in its
+ * agent-utils): optional fields sent as null are dropped. A 0.x binary content
+ * part, which the runtime rewrites, counts as valid here, so this check never
+ * lets through for free a body the runtime would run.
+ */
+export function isRunInput(body: string): boolean {
+  let input: unknown;
   try {
-    const j = JSON.parse(body) as {
-      threadId?: unknown;
-      runId?: unknown;
-      messages?: unknown;
-    } | null;
-    return (
-      typeof j?.threadId === "string" &&
-      typeof j.runId === "string" &&
-      Array.isArray(j.messages)
-    );
+    input = JSON.parse(body);
   } catch {
     return false;
   }
+  if (!isObject(input)) return false;
+  const { tools, resume, messages } = input;
+  if (Array.isArray(messages) && messages.some(hasLegacyBinary)) return true;
+  const cleaned = {
+    ...(withoutNull(input, "forwardedProps") as JsonObject),
+    ...(Array.isArray(tools) && {
+      tools: tools.map((tool) => withoutNull(tool, "parameters")),
+    }),
+    ...(Array.isArray(resume) && {
+      resume: resume.map((entry) => withoutNull(entry, "payload")),
+    }),
+    ...(Array.isArray(messages) && {
+      messages: messages.map((message) =>
+        isObject(message) && Array.isArray(message.content)
+          ? {
+              ...message,
+              content: message.content.map((part) =>
+                isObject(part) && MEDIA.has(String(part.type))
+                  ? withoutNull(part, "metadata")
+                  : part,
+              ),
+            }
+          : message,
+      ),
+    }),
+  };
+  return RunAgentInputSchema.safeParse(cleaned).success;
 }
 
 /**
  * Hooks for the CopilotKit runtime route. The body cap runs before routing.
  * Only the routes that run the agent spend model tokens, so only they count
- * toward the run limits, and only with a body that can start a run. Every
- * request counts toward RATE_LIMITS.agentRoute. A Response thrown in a hook
- * is sent as it is.
+ * toward the run limits, and only with a body the runtime will accept: one it
+ * refuses with a 400 spends nothing. Every request, refused or not, counts
+ * toward RATE_LIMITS.agentRoute. A Response thrown in a hook is sent as it is.
  */
 export function agentRouteHooks(): CopilotRuntimeHooks {
   return {
@@ -272,7 +319,7 @@ export function agentRouteHooks(): CopilotRuntimeHooks {
       });
     },
     onBeforeHandler: async ({ request, route }) => {
-      if (!RUNS.has(route.method) || !isRunInput(await request.clone().text()))
+      if (!runsTheAgent(route) || !isRunInput(await request.clone().text()))
         return;
       const refused = admitAgentRun(request);
       if (refused) throw refused;
