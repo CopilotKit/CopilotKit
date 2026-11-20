@@ -96,6 +96,7 @@ describe("CopilotRuntime — channels option", () => {
       intelligence: intelligence(),
       transcriptionService: {} as never,
       exposeMemoryRoutes: true,
+      exposeDebugEvents: true,
       channels: [createChannel({ identifyUser: "platform", name: "support" })],
     });
     const handler = createCopilotRuntimeHandler({
@@ -119,6 +120,8 @@ describe("CopilotRuntime — channels option", () => {
       ["POST", "/memories/recall"],
       ["POST", "/memories/subscribe"],
       ["POST", "/annotate"],
+      ["GET", "/cpk-debug-events"],
+      ["POST", "/cpk-debug-events"],
     ];
 
     for (const [method, path] of routes) {
@@ -126,6 +129,7 @@ describe("CopilotRuntime — channels option", () => {
         new Request(`http://runtime.test${path}`, { method }),
       );
       expect(response.status, `${method} ${path}`).toBe(404);
+      expect(response.headers.has("Allow"), `${method} ${path}`).toBe(false);
     }
 
     const infoResponse = await handler(
