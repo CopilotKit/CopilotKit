@@ -92,6 +92,8 @@ type HumanInTheLoopToolCall<Args extends Record<string, unknown>> =
       status: "in-progress";
       result: undefined;
       respond: (result: unknown) => void;
+      aborted?: undefined;
+      error?: undefined;
     }
   | {
       name?: string;
@@ -99,6 +101,8 @@ type HumanInTheLoopToolCall<Args extends Record<string, unknown>> =
       status: "executing";
       result: undefined;
       respond: (result: unknown) => void;
+      aborted?: undefined;
+      error?: undefined;
     }
   | {
       name?: string;
@@ -106,6 +110,17 @@ type HumanInTheLoopToolCall<Args extends Record<string, unknown>> =
       status: "complete";
       result: string; // stored tool-message content
       respond: (result: unknown) => void;
+      aborted?: undefined;
+      error?: string; // set when the call failed for a reason other than a stop
+    }
+  | {
+      name?: string;
+      args: Args; // fully parsed
+      status: "complete";
+      result: undefined; // there is no answer
+      respond: (result: unknown) => void;
+      aborted: true; // the run was stopped while the request was waiting
+      error: string; // the abort message
     };
 ```
 
@@ -113,7 +128,12 @@ The `respond(result)` callback is how your component resumes the agent. The valu
 
 - `in-progress`: the agent run is still active, for example while the arguments stream.
 - `executing`: the agent waits for `respond`.
-- `complete`: the tool message arrived, and `result` contains the stored tool-message string.
+- `complete`: the tool message arrived, and `result` contains the stored tool-message string, unless the call was aborted (see below).
+
+A `complete` call can also mean the request never got an answer:
+
+- **`aborted: true`** is set when the run was stopped while the request was still waiting on the user. `result` is then `undefined` and `error` holds the abort message, so render the request as abandoned rather than reading `result`.
+- **`error`** without `aborted` means the call failed for another reason. It is the tool message's raw `error` field: usually the failure message, but some history adapters restore it as a bare marker such as `"error"`. `result` then holds the failure text sent to the agent, not the user's response.
 
 ## Usage
 
@@ -133,7 +153,11 @@ type ConfirmArgs = { message: string };
   standalone: true,
   template: `
     @let call = toolCall();
-    @if (call.status === "complete") {
+    @if (call.status === "complete" && call.aborted) {
+      <p class="text-sm opacity-70">Request cancelled.</p>
+    } @else if (call.status === "complete" && call.error) {
+      <p class="text-sm text-red-600">Request failed.</p>
+    } @else if (call.status === "complete") {
       <pre class="text-sm opacity-70">{{ call.result }}</pre>
     } @else {
       <div class="rounded border p-4">

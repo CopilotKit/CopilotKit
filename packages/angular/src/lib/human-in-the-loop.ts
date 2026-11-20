@@ -8,6 +8,7 @@ import {
   take,
   takeUntil,
 } from "rxjs";
+import { HUMAN_IN_THE_LOOP_ABORTED_MESSAGE } from "./human-in-the-loop-abort";
 
 @Injectable({ providedIn: "root" })
 export class HumanInTheLoop {
@@ -41,7 +42,7 @@ export class HumanInTheLoop {
 
     const aborted = new Observable<never>((subscriber) => {
       const onAbort = () =>
-        subscriber.error(new Error("Human-in-the-loop interaction aborted"));
+        subscriber.error(new Error(HUMAN_IN_THE_LOOP_ABORTED_MESSAGE));
       if (signal.aborted) {
         onAbort();
         return;
