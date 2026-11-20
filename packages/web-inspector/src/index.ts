@@ -19576,7 +19576,10 @@ export class WebInspectorElement extends LitElement {
                 >
                   ${this.contextOptions.map(
                     (option) =>
-                      html`<option value=${option.key}>
+                      html`<option
+                        value=${option.key}
+                        ?selected=${option.key === this.selectedContext}
+                      >
                         ${option.label}
                       </option>`,
                   )}
@@ -19593,7 +19596,10 @@ export class WebInspectorElement extends LitElement {
             <option value="all">All event types</option>
             ${AGENT_EVENT_TYPES.map(
               (type) =>
-                html`<option value=${type}>
+                html`<option
+                  value=${type}
+                  ?selected=${type === this.eventTypeFilter}
+                >
                   ${type.toLowerCase().replace(/_/g, " ")}
                 </option>`,
             )}
