@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import csv
 import json
+import re
 import uuid
 from collections.abc import AsyncGenerator
 from pathlib import Path
@@ -25,11 +26,7 @@ from typing import Annotated, Any
 from ag_ui.core import BaseEvent
 from agent_framework import Agent, BaseChatClient, Content, tool
 from agent_framework_ag_ui import AgentFrameworkAgent, state_update
-from pydantic import Field
-
-# Shared tool implementations live in `showcase/shared/python/tools/`.
-from tools import search_flights_impl
-
+from pydantic import BaseModel, ConfigDict, Field
 
 # ---------------------------------------------------------------------
 # Local data for the sales dashboard -- a self-contained copy of the
@@ -145,6 +142,45 @@ def query_data(
     return json.dumps(_CACHED_DATA)
 
 
+class Flight(BaseModel):
+    """Literal flight values supplied by the model, before A2UI serialization."""
+
+    model_config = ConfigDict(strict=True, allow_inf_nan=False, extra="forbid")
+
+    airline: str
+    airlineLogo: str
+    flightNumber: str
+    origin: str
+    destination: str
+    date: str
+    departureTime: str
+    arrivalTime: str
+    duration: str
+    status: str
+    statusColor: str | None = None
+    price: str | int | float = Field(
+        description="Display price (e.g. '$349') or a numeric amount in currency."
+    )
+    currency: str = Field(description="Currency code, e.g. USD or EUR.")
+
+    def card_props(self) -> dict[str, Any]:
+        # FlightCard has no currency prop: include it in bare amounts, while
+        # preserving already formatted display strings (including aimock's $349).
+        price = str(self.price)
+        if self.currency and (
+            not isinstance(self.price, str)
+            or re.fullmatch(
+                r"[+-]?(?:\d+(?:,\d{3})*(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?",
+                price.strip(),
+            )
+        ):
+            price = f"{self.currency} {price}"
+        return {
+            **self.model_dump(exclude={"currency"}, exclude_none=True),
+            "price": price,
+        }
+
+
 @tool(
     name="search_flights",
     description=(
@@ -157,7 +193,7 @@ def query_data(
 )
 def search_flights(
     flights: Annotated[
-        list[dict],
+        list[Flight],
         Field(description="List of flight objects to search and display."),
     ],
 ) -> str:
@@ -182,17 +218,8 @@ def search_flights(
             {
                 "id": card_id,
                 "component": "FlightCard",
-                "airline": flight.get("airline", ""),
-                "airlineLogo": flight.get("airlineLogo", ""),
-                "flightNumber": flight.get("flightNumber", ""),
-                "origin": flight.get("origin", ""),
-                "destination": flight.get("destination", ""),
-                "date": flight.get("date", ""),
-                "departureTime": flight.get("departureTime", ""),
-                "arrivalTime": flight.get("arrivalTime", ""),
-                "duration": flight.get("duration", ""),
-                "status": flight.get("status", ""),
-                "price": flight.get("price", ""),
+                # FunctionTool validates nested models, then passes dictionaries.
+                **Flight.model_validate(flight).card_props(),
             }
         )
     root: dict[str, Any] = {
