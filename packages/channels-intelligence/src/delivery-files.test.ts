@@ -85,3 +85,60 @@ test("storage retries reuse one operation identity", async () => {
     expect.stringContaining("operationId=response_storage_retry_01"),
   ]);
 });
+
+test("a trailing slash on the base URL does not double up the request path", async () => {
+  const fetch = vi.fn<typeof globalThis.fetch>((async () => {
+    return new Response(new Uint8Array([1, 2, 3]), { status: 200 });
+  }) as unknown as typeof globalThis.fetch);
+  const client = new ChannelDeliveryFileClient({
+    baseUrl: "https://intelligence.example/",
+    apiKey: "test-key",
+    fetch,
+  });
+
+  await client.fetchFile("handle-1");
+
+  expect(String(fetch.mock.calls[0]?.[0])).toBe(
+    "https://intelligence.example/api/channels/files/handle-1",
+  );
+});
+
+test("a trailing slash on the base URL does not double up the upload path", async () => {
+  const fetch = vi.fn<typeof globalThis.fetch>((async () => {
+    return new Response(JSON.stringify({ handle: "file_1" }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  }) as unknown as typeof globalThis.fetch);
+  const client = new ChannelDeliveryFileClient({
+    baseUrl: "https://intelligence.example/",
+    apiKey: "test-key",
+    fetch,
+  });
+
+  await client.uploadFile("delivery-1", "response_image_upload_01", {
+    bytes: new Uint8Array([137, 80, 78, 71]),
+    filename: "chart.png",
+  });
+
+  expect(String(fetch.mock.calls[0]?.[0])).toContain(
+    "https://intelligence.example/api/channels/deliveries/delivery-1/files?",
+  );
+});
+
+test("a base URL without a trailing slash is unchanged", async () => {
+  const fetch = vi.fn<typeof globalThis.fetch>((async () => {
+    return new Response(new Uint8Array([1, 2, 3]), { status: 200 });
+  }) as unknown as typeof globalThis.fetch);
+  const client = new ChannelDeliveryFileClient({
+    baseUrl: "https://intelligence.example",
+    apiKey: "test-key",
+    fetch,
+  });
+
+  await client.fetchFile("handle-1");
+
+  expect(String(fetch.mock.calls[0]?.[0])).toBe(
+    "https://intelligence.example/api/channels/files/handle-1",
+  );
+});

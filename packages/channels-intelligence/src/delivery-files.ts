@@ -109,7 +109,18 @@ export interface ChannelDeliveryFileClientConfig {
 
 /** App-api client for channel delivery file download and upload. */
 export class ChannelDeliveryFileClient {
-  constructor(private readonly config: ChannelDeliveryFileClientConfig) {}
+  /**
+   * Normalised app-api base. A trailing slash is stripped so the request path
+   * never doubles up into `//api/...`, which is a distinct path per RFC 3986
+   * and 404s on any gateway that does not collapse duplicate slashes. Matches
+   * the sibling delivery-charge and delivery-transcript clients, which are fed
+   * the same `appApiBaseUrl`.
+   */
+  private readonly baseUrl: string;
+
+  constructor(private readonly config: ChannelDeliveryFileClientConfig) {
+    this.baseUrl = config.baseUrl.replace(/\/+$/u, "");
+  }
 
   private fetchImpl(): typeof fetch {
     const implementation = this.config.fetch ?? globalThis.fetch;
@@ -124,7 +135,7 @@ export class ChannelDeliveryFileClient {
     handle: string,
   ): Promise<{ bytes: Uint8Array; mimeType?: string }> {
     const response = await this.fetchImpl()(
-      `${this.config.baseUrl}/api/channels/files/${encodeURIComponent(handle)}`,
+      `${this.baseUrl}/api/channels/files/${encodeURIComponent(handle)}`,
       {
         method: "GET",
         headers: { authorization: `Bearer ${this.config.apiKey}` },
@@ -169,7 +180,7 @@ export class ChannelDeliveryFileClient {
     for (let attempt = 1; attempt <= 3; attempt += 1) {
       try {
         response = await this.fetchImpl()(
-          `${this.config.baseUrl}/api/channels/deliveries/${encodeURIComponent(deliveryId)}/files?${query.toString()}`,
+          `${this.baseUrl}/api/channels/deliveries/${encodeURIComponent(deliveryId)}/files?${query.toString()}`,
           {
             method: "POST",
             headers: {
