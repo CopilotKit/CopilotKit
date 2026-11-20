@@ -3,7 +3,6 @@
   "root": true,
   "pages": [
     "---Getting Started---",
-    "index",
     "quickstart",
     "---AWS Strands---",
     "deploy-agentcore",

@@ -32,10 +32,8 @@ Background tasks fit any work that is too slow to hold the chat hostage:
 - **Batch or fan-out work**: dispatch several jobs without serializing the conversation
 
 <Callout type="info">
-  Completion is delivered **out of band**. On the dispatching turn Mastra emits only the
-  `started` lifecycle plus a placeholder result, so within that turn the card stays in the
-  "working" state; the finished result is delivered on a later turn (or retrieved from the task
-  manager). See [Completion is out of band](#completion-is-out-of-band) below.
+  The card shows the task as "Working…" and does not update after the dispatching turn. To show
+  the finished result, see [Completion is out of band](#completion-is-out-of-band) below.
 </Callout>
 
 ## Implementation
@@ -80,7 +78,8 @@ Background tasks fit any work that is too slow to hold the chat hostage:
   ### Enable the BackgroundTaskManager on the Mastra instance
 
   Backgroundable tools only dispatch when the manager is enabled on the instance. A configured
-  `storage` is also required so tasks can be tracked.
+  `storage` is also required so tasks can be tracked. If you followed the quickstart, replace
+  `src/mastra/index.ts` with this file. `@mastra/libsql` comes with the `create-mastra` template.
 
   ```typescript title="src/mastra/index.ts"
   import { Mastra } from "@mastra/core/mastra";
@@ -98,16 +97,17 @@ Background tasks fit any work that is too slow to hold the chat hostage:
 <Step>
   ### Add the tool to your agent
 
+  This file replaces the quickstart's `myAgent`:
+
   ```typescript title="src/mastra/agents/index.ts"
   import { Agent } from "@mastra/core/agent";
-  import { openai } from "@ai-sdk/openai";
-  import { runDeepResearchTool } from "@/mastra/tools/background-research"; // [!code highlight]
+  import { runDeepResearchTool } from "../tools/background-research"; // [!code highlight]
 
   export const backgroundAgentsAgent = new Agent({
     id: "background-agents",
     name: "Background Agents Agent",
     tools: { runDeepResearchTool }, // [!code highlight]
-    model: openai("gpt-6-luna"),
+    model: "openai/gpt-6-luna",
     instructions:
       "You are a research assistant that dispatches long-running work to the " +
       "background. When the user asks you to research a topic, call the " +
@@ -126,12 +126,18 @@ Background tasks fit any work that is too slow to hold the chat hostage:
   <FrontendOnly frontend="react">
   Register the renderer on `<CopilotKit>` via `renderActivityMessages`.
 
-  ```tsx title="ui/app/activity-card.tsx"
+  The renderer validates the card content with zod. In your frontend app, install it:
+
+  ```bash
+  npm install zod
+  ```
+
+  ```tsx title="app/activity-card.tsx"
   import { z } from "zod";
   import type { ReactActivityMessageRenderer } from "@copilotkit/react-core/v2";
 
   const contentSchema = z
-    .object({ status: z.string().optional(), args: z.record(z.unknown()).optional() })
+    .object({ status: z.string().optional(), args: z.record(z.string(), z.unknown()).optional() })
     .passthrough();
 
   export const backgroundTaskActivityRenderer: ReactActivityMessageRenderer<
@@ -144,32 +150,40 @@ Background tasks fit any work that is too slow to hold the chat hostage:
       const topic = (content.args?.topic as string | undefined) ?? "task";
       return (
         <div data-status={content.status ?? "running"}>
-          <strong>Deep research</strong> — {topic}
-          <span>{working ? "Working…" : content.status}</span>
+          <strong>Deep research</strong>: {topic}
+          <span> ({working ? "Working…" : content.status})</span>
         </div>
       );
     },
   };
   ```
 
-  ```tsx title="ui/app/page.tsx"
+  Register the renderer on the provider that wraps your app. If you followed the quickstart,
+  update `app/providers.tsx`. Do not add a second `<CopilotKit>` in the page:
+
+  ```tsx title="app/providers.tsx"
   "use client";
 
-  import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
-  import { backgroundTaskActivityRenderer } from "./activity-card";
+  import { CopilotKit } from "@copilotkit/react-core/v2";
+  import { backgroundTaskActivityRenderer } from "./activity-card"; // [!code highlight]
 
-  export default function Page() {
+  export function Providers({ children }: { children: React.ReactNode }) {
     return (
       <CopilotKit
         runtimeUrl="/api/copilotkit"
-        agent="backgroundAgentsAgent"
+        agent="background-agents" // [!code highlight]
+        useSingleEndpoint={false}
         renderActivityMessages={[backgroundTaskActivityRenderer]} // [!code highlight]
       >
-        <CopilotChat />
+        {children}
       </CopilotKit>
     );
   }
   ```
+
+  The quickstart's runtime uses `MastraAgent.getRemoteAgents`, which names each agent by its
+  `id` (`background-agents`). With `getLocalAgents`, use the key from `new Mastra({ agents })`
+  (`backgroundAgentsAgent`) instead. Keep the `<CopilotSidebar />` in `app/page.tsx`.
   </FrontendOnly>
 
   <FrontendOnly frontend="angular">
@@ -204,27 +218,28 @@ Background tasks fit any work that is too slow to hold the chat hostage:
   Kick off deep research on the current landscape of AI agent frameworks.
   ```
 
-  The agent calls `run_deep_research`, Mastra dispatches it in the background, and a live
-  "working" activity card appears inline (with no blocking tool pill) while the conversation
-  stays responsive.
+  The agent calls `run_deep_research`, Mastra dispatches it in the background, and an activity
+  card that reads `Deep research: <topic> (Working…)` appears inline, with no tool
+  pill. The conversation stays responsive.
 </Step>
 </Steps>
 
 ## Completion is out of band
 
-By design, the dispatching run's stream carries only the `started` lifecycle plus a placeholder
-result. The tool's `execute` has not finished by the time the stream closes. So within that turn
-the card stays "working"; the finished result is delivered out of band.
+The card shows the lifecycle events that the adapter sends during the dispatching run. After that
+run closes, nothing updates the card. It stays at "Working…", in that turn and in later turns.
 
-`getLocalAgents` accepts `untilIdle: true`. It holds the run open and sends the pubsub chunks of
-the task manager, including `background-task-completed`, into the same stream. Then the card can
-change to "Completed" in the same turn. That only works when a **background worker actually executes the dispatched
-task before the idle window closes**. In a single-process app with no such worker the task is never
-executed within the run, so no completion chunk is produced and `untilIdle` only holds the stream
-open with no benefit. When you run a deployment with a real background worker, enable `untilIdle`
-and the adapter's lifecycle mapping (`running` → `completed`/`failed`/`cancelled`) flips the card
-automatically. Otherwise, retrieve results out of band via the task manager
-(`backgroundTaskManager.stream()` / `getTask(taskId)`).
+The task can also finish inside the same run. The agent then gets the result and can reply that
+the work is done, while the card still shows "Working…".
+
+To show the final state:
+
+- **Embedded Mastra (`getLocalAgents`)**: pass `untilIdle: true`. It holds the run open and sends
+  the task manager's events, including `background-task-completed`, into the same stream. If the
+  task finishes before the run closes, the adapter maps the lifecycle (`running` to `completed`,
+  `failed` or `cancelled`) and the card changes. `getRemoteAgents` does not accept `untilIdle`.
+- **Any setup**: read the result from the task manager (`backgroundTaskManager.stream()` or
+  `getTask(taskId)`), or show the status from the agent's reply.
 
 ## Observational Memory as background activity
 
@@ -238,27 +253,32 @@ Two switches, both required:
    the OM lifecycle in the first place):
 
    ```typescript title="src/mastra/agents/index.ts"
+   import { Memory } from "@mastra/memory";
+   import { LibSQLStore } from "@mastra/libsql";
+
+   // in new Agent({ ... }):
    memory: new Memory({
-     storage,
+     storage: new LibSQLStore({ id: "memory", url: "file:./memory.db" }),
      options: {
        observationalMemory: {
          scope: "thread",
          observation: { messageTokens: 600, bufferTokens: 300 },
-         model: openai("gpt-6-luna"),
+         model: "openai/gpt-6-luna",
        },
      },
    }),
    ```
 
 2. **The adapter must be told to forward it**: pass `observationalMemory: true` (or an array of
-   agent ids) to `getLocalAgents`:
+   agent ids) to `MastraAgent.getRemoteAgents` (the quickstart setup) or `MastraAgent.getLocalAgents`:
 
-   ```typescript title="app/api/copilotkit/route.ts"
-   const localAgents = getLocalAgents({
-     mastra,
-     resourceId: "user-1",
-     observationalMemory: true, // [!code highlight]
-   });
+   ```typescript title="app/api/copilotkit/[[...slug]]/route.ts"
+   agents: ({ request }) =>
+     MastraAgent.getRemoteAgents({
+       mastraClient,
+       resourceId: request.headers.get("x-user-id") ?? "anonymous",
+       observationalMemory: true, // [!code highlight]
+     }),
    ```
 
 With both on, `MastraAgent` maps the OM lifecycle to AG-UI activity events under activity type
@@ -266,18 +286,26 @@ With both on, `MastraAgent` maps the OM lifecycle to AG-UI activity events under
 renderer for that activity type:
 
 <FrontendOnly frontend="react">
-```tsx title="app/page.tsx"
-const observationalMemoryActivityRenderer = {
-  activityType: "mastra-observational-memory", // [!code highlight]
-  content: z.object({ cycleId: z.string(), phase: z.string(), status: z.string() }).passthrough(),
-  render: ({ content }) => <OMActivityCard content={content} />,
-};
+```tsx title="app/activity-card.tsx"
+const omContentSchema = z
+  .object({ cycleId: z.string(), phase: z.string(), status: z.string() })
+  .passthrough();
 
-<CopilotKit
-  runtimeUrl="/api/copilotkit"
-  renderActivityMessages={[observationalMemoryActivityRenderer]} // [!code highlight]
->
+export const observationalMemoryActivityRenderer: ReactActivityMessageRenderer<
+  z.infer<typeof omContentSchema>
+> = {
+  activityType: "mastra-observational-memory", // [!code highlight]
+  content: omContentSchema,
+  render: ({ content }) => (
+    <div>
+      Memory {content.phase}: {content.status}
+    </div>
+  ),
+};
 ```
+
+Then add it to the same `renderActivityMessages` array in `app/providers.tsx`:
+`renderActivityMessages={[backgroundTaskActivityRenderer, observationalMemoryActivityRenderer]}`.
 </FrontendOnly>
 
 <FrontendOnly frontend="angular">

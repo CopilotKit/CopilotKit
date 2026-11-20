@@ -10,7 +10,7 @@ search: false
 
 ## Overview
 
-This page lists the `learning` prop, the Core methods, and the `CopilotKitIntelligence` options that control Trajectory capture. To set up capture, see [Capture interactions](/intelligence/capture-interactions); for the fields in each event, see [Captured data](/intelligence/captured-data).
+You set up or debug Trajectory capture and need the exact API. These are the `learning` prop, the Core methods, the error codes, and the `CopilotKitIntelligence` options. To set up capture, see [Capture interactions](/intelligence/capture-interactions). For the fields in each event, see [Captured data](/intelligence/captured-data).
 
 ## `learning` prop on `CopilotKitProvider`
 
@@ -33,7 +33,7 @@ This page lists the `learning` prop, the Core methods, and the `CopilotKitIntell
   Capture starts after the provider mounts and stops when it unmounts, including Trajectories started with `startTrajectory()`. Option changes apply to the next Trajectory; they do not restart the active one.
 
   <PropertyReference name="autoStart" type="boolean" default="true">
-    Starts a Trajectory after mount. Set `false` to start capture yourself with [`startTrajectory()`](#starttrajectory).
+    Starts a Trajectory after mount. Set `false` to start capture yourself with [`startTrajectory()`](#core-methods).
   </PropertyReference>
 
   <PropertyReference name="trajectoryId" type="string">
@@ -45,8 +45,8 @@ This page lists the `learning` prop, the Core methods, and the `CopilotKitIntell
     - With `autoStart: false`, the provider ignores this option and logs a warning. Pass the ID to `startTrajectory()` instead.
   </PropertyReference>
 
-  <PropertyReference name="capture" type="{ clicks?: boolean; inputs?: boolean; navigation?: boolean; network?: boolean }" default="all true">
-    Turns capture modules on or off. A module is on unless you set it to `false`. The `page` event at start and developer events are always sent.
+  <PropertyReference name="capture" type="{ clicks?: boolean; inputs?: boolean; navigation?: boolean; network?: boolean; errors?: boolean; alerts?: boolean }">
+    Turns capture modules on or off. Every module except `alerts` is on unless you set it to `false`. The `page` event at start and developer events are always sent.
 
     <PropertyReference name="clicks" type="boolean" default="true">
       Records `click` events.
@@ -84,7 +84,7 @@ This page lists the `learning` prop, the Core methods, and the `CopilotKitIntell
   </PropertyReference>
 
   <PropertyReference name="appVersion" type="string">
-    Your app's version, such as a release tag or commit. Capture sends it as `appVersion` in the `page` event at start, so Learning can tell app releases apart. Values longer than 200 characters are cut.
+    Your app's version, such as a release tag or commit. Capture sends it as `appVersion` in the `page` event at start, so Automatic Learning can tell app releases apart. Values longer than 200 characters are cut.
   </PropertyReference>
 
   <PropertyReference name="onError" type="(error: { code: string; message: string }) => void">
@@ -130,7 +130,7 @@ if (result.status === "error") console.warn(result.code);
 <PropertyReference name="emitTrajectoryEvent(name: string, value?: JsonValue): void" type="method">
   Records an outcome that clicks cannot show, such as an approved deal. Call it after your operation succeeds.
 
-  `name` must be non-empty, at most 200 characters, and not a built-in name: `page`, `navigation`, `click`, `input`, `network`, or `thread.linked`. `value` defaults to `{}` and must be JSON. Core adds `seq` to an object value. Arrays, primitives, and objects that already contain `seq` are sent under `value.data`.
+  `name` must be non-empty, at most 200 characters, and not a built-in name: `page`, `navigation`, `click`, `input`, `network`, `page.error`, `thread.linked`, `agent.run`, `agent.message`, or `tool.call`. `value` defaults to `{}` and must be JSON. Core adds `seq` to an object value. Arrays, primitives, and objects that already contain `seq` are sent under `value.data`.
 
   The call does nothing while no Trajectory runs. Events emitted while capture reconnects count as dropped. Automatic credential redaction does not inspect these events.
 </PropertyReference>

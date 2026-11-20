@@ -1,5 +1,5 @@
 ---
-title: HITL Overview
+title: Human-in-the-Loop
 description: Pause an Angular agent flow for a user decision, then resume it from a typed component or interrupt controller.
 icon: "lucide/User"
 doc_type: how-to
@@ -65,7 +65,8 @@ export class ApprovalCardComponent
 }
 ```
 
-Register the tool from the component or service that owns the decision UI:
+Register the tool from the component or service that owns the decision UI.
+Install zod if your app does not have it: `npm install zod`.
 
 ```ts title="src/app/approval-tools.service.ts"
 import { Injectable } from "@angular/core";
@@ -92,6 +93,25 @@ export class ApprovalToolsService {
 There is no handler. CopilotKit supplies one that waits for `respond`, returns
 the decision to the agent, and continues the run. The registration is removed
 when the owning injector is destroyed.
+
+The service registers the tool only when Angular creates it. Provide it and
+inject it in the component that renders the chat:
+
+```ts title="src/app/app.ts"
+import { Component, inject } from "@angular/core";
+import { CopilotChat } from "@copilotkit/angular";
+import { ApprovalToolsService } from "./approval-tools.service";
+
+@Component({
+  selector: "app-root",
+  imports: [CopilotChat],
+  providers: [ApprovalToolsService], // [!code highlight]
+  template: `<div style="height: 100vh"><copilot-chat /></div>`,
+})
+export class App {
+  private readonly approvalTools = inject(ApprovalToolsService); // [!code highlight]
+}
+```
 
 ## Place the decision UI
 

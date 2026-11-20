@@ -6,9 +6,18 @@ hideTOC: true
 ---
 
 import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.mdx";
+import AgentBackends from "@/snippets/agent-backends/index.mdx";
 
 
-`@copilotkit/vue` provides Vue 3 components and composables for CopilotKit. This guide gets you to a working Vue app with a chat UI backed by a local [Copilot Runtime](/backend/copilot-runtime) and `BuiltInAgent`.
+`@copilotkit/vue` provides Vue 3 components and composables for CopilotKit.
+
+<WhenAgentBackend selected={false}>
+This guide gets you to a working Vue app with a chat UI backed by a local [Copilot Runtime](/backend/copilot-runtime) and `BuiltInAgent`, CopilotKit's own agent. To connect an agent you build with another framework, pick it in the sidebar's **Agent framework** menu. The backend steps below change to match.
+</WhenAgentBackend>
+
+<WhenAgentBackend selected>
+This guide gets you to a working Vue app with a chat UI backed by a local [Copilot Runtime](/backend/copilot-runtime) and an agent built with the framework you picked in the sidebar.
+</WhenAgentBackend>
 
 The runtime runs on your server, keeps model credentials out of the browser, and exposes the `default` agent that `CopilotChat` uses automatically.
 
@@ -20,9 +29,17 @@ Use this prompt to connect your Vue app to Copilot Runtime with the selected age
 
 ## Prerequisites
 
+<WhenAgentBackend selected={false}>
 - An OpenAI API key (or another model provider supported by [Model Selection](/model-selection))
 - Vue 3.3+
-- Node.js 20+
+- Node.js 22.18+ on the 22 line, or 24.12+ (the current `create-vue` scaffold requires it)
+</WhenAgentBackend>
+
+<WhenAgentBackend selected>
+- Vue 3.3+
+- Node.js 22.18+ on the 22 line, or 24.12+ (the current `create-vue` scaffold requires it)
+- The tools and the model API key that your agent needs. The agent step below lists them.
+</WhenAgentBackend>
 
 ## Getting started
 
@@ -30,10 +47,10 @@ Use this prompt to connect your Vue app to Copilot Runtime with the selected age
     <Step>
         ### Create your Vue app
 
-        If you don't have one already:
+        If you don't have one already, create a TypeScript app. The `--ts` flag also skips the interactive prompts:
 
         ```bash
-        npm create vue@latest my-copilot-app
+        npm create vue@latest my-copilot-app -- --ts
         cd my-copilot-app
         npm install
         ```
@@ -64,20 +81,18 @@ Use this prompt to connect your Vue app to Copilot Runtime with the selected age
             </Tab>
         </Tabs>
     </Step>
+    <WhenAgentBackend selected={false}>
     <Step>
         ### Create the Copilot Runtime
 
-        Add a small runtime server that hosts Copilot Runtime at `/api/copilotkit` and registers a `default` built-in agent:
+        Add a small runtime server that hosts Copilot Runtime at `/api/copilotkit` and registers a `default` Built-in Agent:
 
         <Callout type="warn" title="Already have an agent? Do not use BuiltInAgent">
-          `BuiltInAgent` is CopilotKit's own agent. It calls the model directly.
-          Registering it as `default` means chat talks to it, not to an agent you
-          already wrote. It replaces your agent rather than connecting to it.
-
-          If you already have a LangGraph, CrewAI, Mastra, ADK, Pydantic AI, or
-          other agent, use your framework's quickstart for the runtime wiring so
-          it registers your agent instead. You can still use the Vue frontend
-          steps on this page.
+          `BuiltInAgent` is CopilotKit's own agent. It calls the model directly,
+          so registering it as `default` replaces your agent instead of
+          connecting to it. Pick your agent's framework in the sidebar's
+          **Agent framework** menu, and this step shows how to register your
+          agent instead.
         </Callout>
 
         ```ts title="server.ts"
@@ -113,10 +128,14 @@ Use this prompt to connect your Vue app to Copilot Runtime with the selected age
           Vite serves the Vue app (usually on `http://localhost:5173`) while the runtime server runs on `http://localhost:8200`. Because the browser calls across those origins, `cors: true` is required for local development. `createCopilotNodeListener` does not enable CORS by default.
         </Callout>
     </Step>
+    </WhenAgentBackend>
+    <WhenAgentBackend selected>
+      <AgentBackends />
+    </WhenAgentBackend>
     <Step>
         ### Import the styles
 
-        Import the package stylesheet once in your app entry. It's self-contained, so the chat renders without any other CSS.
+        Import the package stylesheet once in your app entry. It's self-contained, so the chat renders without any other CSS. Replace `src/main.ts` with:
 
         ```ts title="src/main.ts"
         import { createApp } from "vue";
@@ -125,6 +144,8 @@ Use this prompt to connect your Vue app to Copilot Runtime with the selected age
 
         createApp(App).mount("#app");
         ```
+
+        This removes the scaffold's `./assets/main.css` import. Its `#app` grid layout squeezes the chat into a narrow column.
     </Step>
     <Step>
         ### Connect to Copilot Runtime
@@ -152,6 +173,7 @@ Use this prompt to connect your Vue app to Copilot Runtime with the selected age
           `CopilotChat` is the full-height chat surface. Use `CopilotSidebar` for a fixed side panel with open/close behavior, or `CopilotPopup` for a floating panel with a toggle button. They share core agent and chat wiring, but each surface also has layout-specific props and behavior.
         </Callout>
     </Step>
+    <WhenAgentBackend selected={false}>
     <Step>
         ### Run the runtime and app
 
@@ -161,6 +183,8 @@ Use this prompt to connect your Vue app to Copilot Runtime with the selected age
         export OPENAI_API_KEY=sk-...
         npx tsx server.ts
         ```
+
+        If you set `PORT`, change the `runtime-url` in `App.vue` to match.
 
         Start the Vue app in another terminal:
 
@@ -172,6 +196,7 @@ Use this prompt to connect your Vue app to Copilot Runtime with the selected age
 
         <Accordions className="mb-4">
             <Accordion title="Troubleshooting">
+                - **The runtime logs that listing and clearing threads need a caller identity**: This is expected in this quickstart. It only affects the thread list endpoints, not chat. Add `identifyUser` when you add [threads](/headless-threads).
                 - **Chat renders unstyled**: Make sure you imported `@copilotkit/vue/styles.css` in your app entry.
                 - **No response from the agent**: Confirm the runtime server is running and `http://localhost:8200/api/copilotkit/info` returns agent information.
                 - **CORS errors**: The Vite app and the runtime server use different origins. Keep `cors: true` in `createCopilotNodeListener` for local development. It is CORS-disabled by default. Configure an explicit allowed origin before deploying.
@@ -179,6 +204,38 @@ Use this prompt to connect your Vue app to Copilot Runtime with the selected age
             </Accordion>
         </Accordions>
     </Step>
+    </WhenAgentBackend>
+    <WhenAgentBackend selected>
+    <Step>
+        ### Run the runtime and app
+
+        Keep the agent running. In your app folder, start Copilot Runtime:
+
+        ```bash
+        npx tsx server.ts
+        ```
+
+        Check that it found your agent: `http://localhost:8200/api/copilotkit/info` lists an agent named `default`.
+
+        Start the Vue app in a third terminal:
+
+        ```bash
+        npm run dev
+        ```
+
+        Open the dev server URL (Vite prints it, usually `http://localhost:5173`) and send a message. It goes from Vue to Copilot Runtime to your agent, and the reply streams back.
+
+        <Accordions className="mb-4">
+            <Accordion title="Troubleshooting">
+                - **The runtime logs that listing and clearing threads need a caller identity**: This is expected in this quickstart. It only affects the thread list endpoints, not chat. Add `identifyUser` when you add [threads](/headless-threads).
+                - **Chat renders unstyled**: Make sure you imported `@copilotkit/vue/styles.css` in your app entry.
+                - **`/info` lists no `default` agent, or the chat shows a connection error**: Check that the agent is still running, on the port `server.ts` points at.
+                - **CORS errors**: Keep `cors: true` in `createCopilotNodeListener` for local development. Configure an explicit allowed origin before deploying.
+                - **Model auth errors**: The agent calls the model, so its key goes in the agent's environment, not the runtime's.
+            </Accordion>
+        </Accordions>
+    </Step>
+    </WhenAgentBackend>
     <Step>
         <OpenInspectorStep components={props.components} />
     </Step>

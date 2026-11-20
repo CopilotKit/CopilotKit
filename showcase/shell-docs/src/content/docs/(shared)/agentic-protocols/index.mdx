@@ -4,7 +4,7 @@ icon: "lucide/Zap"
 description: "CopilotKit connects to your agents through the Agentic Protocol of your choice"
 ---
 
-CopilotKit is fully compatible with three major agentic protocols: AG-UI, MCP, and A2A.
+CopilotKit works with three major agentic protocols: AG-UI, MCP, and A2A.
 
 <Image
   src="/images/venn-agentic-light.svg"
@@ -173,7 +173,7 @@ CopilotKit is fully compatible with three major agentic protocols: AG-UI, MCP, a
         Ecosystem)
       </td>
       <td style={{ padding: "12px" }}>
-        Declarative, LLM-friendly [generative UI specs](/generative-ui/tool-based)
+        Declarative, LLM-friendly [generative UI specs](/generative-ui/a2ui)
         that define <em>what</em> to render and how to structure agent responses
         visually. CopilotKit renders A2UI and MCP Apps.
       </td>
@@ -181,10 +181,9 @@ CopilotKit is fully compatible with three major agentic protocols: AG-UI, MCP, a
   </tbody>
 </table>
 
-## **Mixing and Matching Protocols**
+## Mixing and Matching Protocols
 
-CopilotKit lets developers connect to any of these protocols **directly or in combination.**
-CopilotKit can connect to your agent backend through any of these protocols.
+CopilotKit can connect to your agent backend through any of these protocols, **directly or in combination.**
 
 <Image
   src="/images/any-agentic-backend-light.png"
@@ -201,9 +200,12 @@ CopilotKit can connect to your agent backend through any of these protocols.
   className="hidden dark:block mb-8 w-full mx-auto"
 />
 
-AG-UI middleware connects CopilotKit to A2A agents and MCP servers through one AG-UI agent. See [A2A](/agentic-protocols/a2a) and [AG-UI middleware](/agentic-protocols/ag-ui-middleware).
+Both reach your app through one AG-UI agent:
 
-This means that if your host agent connects to subagents using **MCP** or **A2A**, their UI properties can be propagated all the way through to the user-facing application.
+- **A2A agents**: the A2A middleware wraps an orchestrator agent. See [A2A](/agentic-protocols/a2a).
+- **MCP servers**: your agent's MCP configuration connects them. See [MCP](/agentic-protocols/mcp).
+
+When your host agent calls subagents over MCP or A2A, those calls stream to the frontend as AG-UI events, so the chat can render them.
 
 <Image
   src="/images/mcp-and-a2a-through-agui-light.png"

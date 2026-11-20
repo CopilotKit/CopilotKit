@@ -1,5 +1,5 @@
 ---
-title: HITL Overview
+title: Human-in-the-Loop
 icon: "lucide/User"
 description: Let your agent and your React Native users work through tasks together.
 ---
@@ -34,11 +34,11 @@ CopilotKit has two ways to pause an agent turn and ask the user something. They 
 | Pattern | Who decides to pause? | Backend surface |
 | --- | --- | --- |
 | `useHumanInTheLoop` | The **LLM**, by calling a tool your app registered | A frontend-only tool (schema + `render`) |
-| `useInterrupt` | Your **agent code**, at a step that must stop for a person | An interrupt your agent emits, for example LangGraph `interrupt()` or Mastra `suspend()` |
+| `useInterrupt` | Your **agent code**, at a step that must stop for a person | An interrupt your agent emits, for example LangGraph `interrupt()`, Mastra `suspend()`, or a Built-in Agent tool with `interrupt: true` |
 
 **Pick `useHumanInTheLoop`** when the model decides to ask the user, and you want the question to appear in the normal tool-call flow.
 
-**Pick `useInterrupt`** when the pause is a checkpoint in your agent code: that code path always needs a human answer, and the server-side contract is an interrupt. On the Built-in Agent, interrupts are temporarily unavailable, so use `useHumanInTheLoop` there.
+**Pick `useInterrupt`** when the pause is a checkpoint in your agent code: that code path always needs a human answer, and the server-side contract is an interrupt. On the Built-in Agent, an interrupt is a server tool defined with `defineTool({ ..., interrupt: true })`. See the [`useInterrupt` deep dive](/human-in-the-loop/useInterrupt).
 
 <FrameworkSetup concept="human-in-the-loop-setup" />
 
@@ -70,7 +70,7 @@ export function useMeetingApproval() {
           Pick a time for {args.topic ?? "the meeting"}
         </Text>
         {result ? (
-          <Text>Done: {result}</Text>
+          <Text>Done: {chosenLabel(result)}</Text>
         ) : (
           <>
             {SLOTS.map((slot) => (
@@ -90,6 +90,15 @@ export function useMeetingApproval() {
       </View>
     ),
   });
+}
+
+// The result arrives as a JSON string.
+function chosenLabel(result: string) {
+  try {
+    return JSON.parse(result).chosen_label ?? "None of these work";
+  } catch {
+    return result;
+  }
 }
 ```
 

@@ -35,6 +35,12 @@ Pick your backend:
 
 <Tabs items={["AI SDK", "TanStack AI", "Custom"]}>
 <Tab value="AI SDK">
+`@copilotkit/runtime` runs on AI SDK 6. Install `ai` and each `@ai-sdk/*` provider from the `ai-v6` release line:
+
+```npm
+npm install @copilotkit/runtime ai@ai-v6 @ai-sdk/openai@ai-v6
+```
+
 ```typescript title="src/copilotkit.ts"
 import {
   CopilotRuntime,
@@ -69,6 +75,10 @@ export default handler;
 ```
 </Tab>
 <Tab value="TanStack AI">
+```npm
+npm install @copilotkit/runtime @tanstack/ai @tanstack/ai-openai
+```
+
 ```typescript title="src/copilotkit.ts"
 import {
   CopilotRuntime,
@@ -88,6 +98,9 @@ const agent = new BuiltInAgent({
       adapter: openaiText("gpt-6-luna"),
       messages,
       systemPrompts,
+      threadId: input.threadId,
+      runId: input.runId,
+      stream: true,
       abortController,
     });
   },
@@ -104,6 +117,8 @@ const handler = createCopilotRuntimeHandler({
 });
 export default handler;
 ```
+
+TanStack AI 1.x `chat()` fails without a `threadId`. Pass the run's `threadId` and `runId` in every `chat()` call.
 </Tab>
 <Tab value="Custom">
 ```typescript title="src/copilotkit.ts"
@@ -156,6 +171,14 @@ export default handler;
 </Tab>
 </Tabs>
 
+In Next.js, mount the handler from the runtime route:
+
+```typescript title="app/api/copilotkit/[[...slug]]/route.ts"
+import handler from "@/src/copilotkit";
+
+export { handler as GET, handler as POST, handler as PATCH, handler as DELETE };
+```
+
 The frontend setup is the same as [BuiltInAgent](/quickstart): configure the
 CopilotKit provider and add a chat component.
 
@@ -168,7 +191,7 @@ Factory mode accepts a config with two fields:
 - **`type`:** which backend you're using: `"aisdk"`, `"tanstack"`, or `"custom"`
 - **`factory`:** a function that receives the raw request and returns a backend-native stream
 
-The factory receives an `BuiltInAgentFactoryContext` (from `@copilotkit/runtime/v2`):
+The factory receives a `BuiltInAgentFactoryContext` (from `@copilotkit/runtime/v2`):
 
 ```typescript
 interface BuiltInAgentFactoryContext {
@@ -204,9 +227,16 @@ abstraction and how to swap in durable persistence, see
 The factory can be async. Return a `Promise` if you need to do setup before streaming:
 
 ```typescript
+import { createOpenAI } from "@ai-sdk/openai";
+
+// ...
 factory: async ({ input, abortSignal }) => {
   const apiKey = await getApiKeyFromVault();
-  return streamText({ model: openai("gpt-6-luna", { apiKey }), ... });
+  return streamText({
+    model: createOpenAI({ apiKey })("gpt-6-luna"),
+    messages: convertMessagesToVercelAISDKMessages(input.messages),
+    abortSignal,
+  });
 }
 ```
 
@@ -243,6 +273,12 @@ const agent = new BuiltInAgent({
 `ToolSet` format automatically.
 </Tab>
 <Tab value="TanStack AI">
+The server tool's schema uses zod. TanStack AI tools need zod 4.2 or later:
+
+```npm
+npm install zod@^4.2
+```
+
 ```typescript title="src/copilotkit.ts"
 import { BuiltInAgent, convertInputToTanStackAI } from "@copilotkit/runtime/v2";
 import { chat, toolDefinition } from "@tanstack/ai";
@@ -264,6 +300,9 @@ const agent = new BuiltInAgent({
       messages,
       systemPrompts,
       tools: [...tools, getWeather],
+      threadId: input.threadId,
+      runId: input.runId,
+      stream: true,
       abortController,
     });
   },
@@ -323,7 +362,7 @@ const agent = new BuiltInAgent({
 });
 ```
 
-With `type: "custom"`, you yield AG-UI events directly. See the [AG-UI event reference](https://docs.ag-ui.com/concepts/events) for all available event types.
+With `type: "custom"`, you yield AG-UI events directly. This example yields a fixed tool call to show the event shape. A real backend yields tool calls from your model's output. See the [AG-UI event reference](https://docs.ag-ui.com/concepts/events) for all available event types.
 </Tab>
 </Tabs>
 
@@ -331,6 +370,10 @@ With `type: "custom"`, you yield AG-UI events directly. See the [AG-UI event ref
 
 <Tabs items={["AI SDK", "TanStack AI"]}>
 <Tab value="AI SDK">
+```npm
+npm install @ai-sdk/anthropic@ai-v6
+```
+
 ```typescript title="src/copilotkit.ts"
 import { BuiltInAgent, convertMessagesToVercelAISDKMessages } from "@copilotkit/runtime/v2";
 import { streamText } from "ai";
@@ -361,9 +404,13 @@ Reasoning events (`REASONING_START`, `REASONING_MESSAGE_CONTENT`, `REASONING_END
 Pick the model with reasoning **visibility** in mind. Some Anthropic models return no reasoning text by default, so the events above arrive empty. See Anthropic's [extended thinking docs](https://docs.anthropic.com/en/docs/build-with-claude/extended-thinking) for the `display` setting.
 </Callout>
 
-Using `BuiltInAgent` without a custom factory? The same options go through its `providerOptions`. See [Advanced Configuration](/advanced-configuration#provider-specific-options).
+Using `BuiltInAgent` without a custom factory? The same options go through its `providerOptions`. See [Advanced Configuration](/built-in-agent/advanced-configuration#provider-specific-options).
 </Tab>
 <Tab value="TanStack AI">
+```npm
+npm install @tanstack/ai-anthropic
+```
+
 ```typescript title="src/copilotkit.ts"
 import { BuiltInAgent, convertInputToTanStackAI } from "@copilotkit/runtime/v2";
 import { chat } from "@tanstack/ai";
@@ -377,9 +424,10 @@ const agent = new BuiltInAgent({
       adapter: anthropicText("claude-sonnet-4-6"),
       messages,
       systemPrompts,
-      modelOptions: {
-        thinking: { type: "adaptive", display: "summarized" },
-      },
+      reasoning: { level: "high", summary: true },
+      threadId: input.threadId,
+      runId: input.runId,
+      stream: true,
       abortController,
     });
   },
@@ -453,6 +501,9 @@ const agent = new BuiltInAgent({
       adapter: openaiText("gpt-6-luna"),
       messages,
       systemPrompts,
+      threadId: input.threadId,
+      runId: input.runId,
+      stream: true,
       abortController,
     });
   },
@@ -485,8 +536,8 @@ const agent = new BuiltInAgent({
   factory: ({ input, abortSignal }) => {
     const props = (input.forwardedProps ?? {}) as Record<string, unknown>;
 
-    const model = props.model === "openai/gpt-6-luna"
-      ? openai("gpt-6-luna")
+    const model = props.model === "openai/gpt-4.1"
+      ? openai("gpt-4.1")
       : openai("gpt-6-luna");
 
     const temperature =
@@ -535,6 +586,9 @@ const agent = new BuiltInAgent({
       messages,
       systemPrompts,
       modelOptions,
+      threadId: input.threadId,
+      runId: input.runId,
+      stream: true,
       abortController,
     });
   },
@@ -544,12 +598,16 @@ const agent = new BuiltInAgent({
 </Tabs>
 
 The examples above accept only explicit model choices and a bounded temperature.
+Reasoning models such as `gpt-6-luna` ignore `temperature`, and the AI SDK logs
+a warning. The TanStack AI example needs `@tanstack/ai-anthropic` for its
+Anthropic branch.
+
 Forward those preferences from the frontend provider:
 
 <FrontendOnly frontend="react">
 ```tsx title="app/page.tsx"
 <CopilotKit
-  properties={{ model: "openai/gpt-6-luna", temperature: 0.3 }}
+  properties={{ model: "openai/gpt-4.1", temperature: 0.3 }}
 >
   <CopilotChat />
 </CopilotKit>

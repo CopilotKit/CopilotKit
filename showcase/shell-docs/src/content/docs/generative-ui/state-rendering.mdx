@@ -15,34 +15,70 @@ State rendering lets you build UI that reflects your agent's state in real-time.
 
 Use state rendering when you want to:
 
-- Show real-time progress (e.g. "Researching... 2/5 complete")
+- Show real-time progress (for example, "Researching... 2/5 complete")
 - Display drafts that update as the agent works
 - Build dashboards that reflect agent state
 - Render structured output outside of the chat
 
 ## How it works in code
 
+The example on this page renders a `document` key that the agent writes.
+You do three things: set up shared state, make the agent write `document`,
+and render `document` on the frontend.
+
+### 1. Set up shared state on the backend
+
 <FrameworkSetup concept="shared-state-setup" />
 
-1. On the backend, write the value to a key in the
-   [agent state](/shared-state). To stream a tool argument into a state key
-   token by token, see [State Streaming](/shared-state/streaming).
-2. On the frontend, import `useAgent` from `@copilotkit/react-core/v2`:
+### 2. Make the agent write `document`
 
-   ```tsx
-   import { useAgent, UseAgentUpdate } from "@copilotkit/react-core/v2";
-   ```
+The frontend below reads a `document` key, so your agent must write that key
+to its state. In this backend, the agent writes its text through a tool call,
+and the tool's `document` argument streams into the `document` state key while
+the model writes it:
 
-3. Subscribe to the agent state. Each time the state changes, your component
-   renders again with the latest value:
+<Snippet region="state-streaming-middleware" title="backend: write document to state" />
 
-   <Snippet region="frontend-use-coagent-state" title="frontend/src/app/page.tsx — agent state subscription" />
+[State Streaming](/shared-state/streaming) explains this mapping.
 
-4. Read the key from `agent.state` and render it:
+### 3. Render the state on the frontend
 
-   ```tsx
-   const document = (agent.state as { document?: string }).document ?? "";
-   ```
+Subscribe to the agent state with `useAgent`. Each time the state changes,
+your component renders again with the latest value:
+
+<Snippet region="frontend-use-coagent-state" title="frontend/src/app/page.tsx: agent state subscription" />
+
+The demo registers its agent as `shared-state-streaming`. Replace that id with
+the name you registered your agent under on Copilot Runtime, for example
+`sample_agent`.
+
+Then read the key from `agent.state` and render it. A complete page looks
+like this:
+
+```tsx title="app/page.tsx"
+"use client";
+
+import { CopilotChat, useAgent, UseAgentUpdate } from "@copilotkit/react-core/v2";
+
+export default function Page() {
+  const { agent } = useAgent({
+    agentId: "sample_agent", // the name you registered on Copilot Runtime
+    updates: [UseAgentUpdate.OnStateChanged, UseAgentUpdate.OnRunStatusChanged],
+  });
+  const document = (agent.state as { document?: string }).document ?? "";
+
+  return (
+    <main style={{ display: "flex", height: "100vh" }}>
+      <pre style={{ flex: 1, padding: 16, whiteSpace: "pre-wrap" }}>{document}</pre>
+      <div style={{ flex: 1 }}>
+        <CopilotChat agentId="sample_agent" />
+      </div>
+    </main>
+  );
+}
+```
+
+The page must render inside your `CopilotKit` provider.
 
 To check it, ask the agent to write a short poem. Your component renders the
 poem each time the agent updates `document` in its state.

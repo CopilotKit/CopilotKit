@@ -48,10 +48,10 @@ Before you begin, you'll need the following:
 
           The starter contains these pieces:
 
-          - `agent/src/server.ts` - the AG-UI server for the agent. It listens on port 8000.
-          - `agent/src/agent.ts` - the agent. It passes the system prompt and the backend tools to `ClaudeAgentAdapter`.
-          - `src/app/api/copilotkit/[[...slug]]/route.ts` - the CopilotKit runtime route. It registers the agent as `default` and reaches it with `HttpAgent`.
-          - `src/app/page.tsx` - the starter UI to inspect first
+          - `agent/src/server.ts`: the AG-UI server for the agent. It listens on port 8000.
+          - `agent/src/agent.ts`: the agent. It passes the system prompt and the backend tools to `ClaudeAgentAdapter`.
+          - `src/app/api/copilotkit/[[...slug]]/route.ts`: the Copilot Runtime route. It registers the agent as `default` and reaches it with `HttpAgent`.
+          - `src/app/page.tsx`: the starter UI to inspect first
         </Step>
 
         <Step>
@@ -142,12 +142,16 @@ Before you begin, you'll need the following:
         <Step>
           ### Install the required packages
 
+          The agent and the Next.js app are two separate projects. Run these commands in your agent project (the folder with its `package.json`). To start a new one, run `mkdir agent && cd agent && npm init -y` first.
+
           Install the Claude Agent SDK adapter, AG-UI event packages, and Express server dependencies for the agent process:
 
           ```bash
-          npm install @anthropic-ai/claude-agent-sdk@^0.2.58 @anthropic-ai/sdk @ag-ui/claude-agent-sdk @ag-ui/core @ag-ui/encoder express dotenv zod
+          npm install @anthropic-ai/claude-agent-sdk@0.3.306 @anthropic-ai/sdk @ag-ui/claude-agent-sdk@0.0.9 @ag-ui/core @ag-ui/encoder express dotenv zod
           npm install -D typescript tsx @types/node @types/express
           ```
+
+          Keep the two Claude packages pinned together. `@ag-ui/claude-agent-sdk@0.0.9` requires exactly `@anthropic-ai/claude-agent-sdk@0.3.306`, and npm stops with `ERESOLVE` on any other version.
         </Step>
 
         <Step>
@@ -243,17 +247,21 @@ Before you begin, you'll need the following:
         <Step>
           ### Create your frontend
 
-          CopilotKit works with any React app. This example uses Next.js App Router:
+          CopilotKit works with any React app. This example uses Next.js App Router. Run this from the folder that holds your agent project, not inside it:
 
           ```bash
-          npx create-next-app@latest frontend
+          npx create-next-app@latest frontend --yes
           cd frontend
-          npm install @copilotkit/runtime @copilotkit/react-core @ag-ui/client@1.0.2
+          npm install @copilotkit/runtime @copilotkit/react-core @ag-ui/client
           ```
+
+          `--yes` uses the recommended defaults (TypeScript, Tailwind, App Router) and skips the prompts.
+
+          `@ag-ui/client` must be the same version that `@copilotkit/runtime` uses. Two versions make TypeScript report that `HttpAgent` is not assignable to `AbstractAgent`. Run `npm ls @ag-ui/client`: the top-level copy must be the version that `@copilotkit/runtime` lists as `deduped`.
         </Step>
 
         <Step>
-          ### Add the CopilotKit runtime route
+          ### Add the Copilot Runtime route
 
           Create `app/api/copilotkit/route.ts` in your Next.js app. It registers the Claude agent server as an AG-UI `HttpAgent` under the name `default`, the same name the starter uses.
 
@@ -295,16 +303,19 @@ Before you begin, you'll need the following:
 
           export function Providers({ children }: { children: React.ReactNode }) {
             return (
-              <CopilotKit runtimeUrl="/api/copilotkit" agent="default">
+              <CopilotKit runtimeUrl="/api/copilotkit" agent="default" useSingleEndpoint>
                 {children}
               </CopilotKit>
             );
           }
           ```
 
+          `useSingleEndpoint` matches the route's `mode: "single-route"`. The client then sends every request as a `POST` to `/api/copilotkit`.
+
           Render `Providers` in `app/layout.tsx`:
 
           ```tsx title="app/layout.tsx"
+          import { Suspense } from "react";
           import { Providers } from "./providers";
           import "@copilotkit/react-core/v2/styles.css";
           import "./globals.css";
@@ -313,14 +324,18 @@ Before you begin, you'll need the following:
             return (
               <html lang="en">
                 <body>
-                  <Providers>
-                    {children}
-                  </Providers>
+                  <Suspense>
+                    <Providers>
+                      {children}
+                    </Providers>
+                  </Suspense>
                 </body>
               </html>
             );
           }
           ```
+
+          `<Suspense>` keeps `npm run build` working when `next.config.ts` sets `cacheComponents: true`, the `create-next-app` default in Next.js 16. Without it, the build fails with `encountered the unstable value require('node:crypto').randomUUID()`.
 
           Not using Next.js? See [React SPA](/react-spa), [Vue](/vue), [Angular](/angular), or [React Native](/react-native).
 
@@ -382,6 +397,80 @@ Before you begin, you'll need the following:
 
 ## Backend tools and state
 
-The minimal server above is enough for text chat. To support backend tools, shared state snapshots, and richer demos, expose your tool schemas through the Claude SDK MCP bridge and emit AG-UI state events:
+The minimal server above is enough for text chat. To support backend tools and shared state snapshots, expose your tool schemas through the Claude SDK MCP bridge and emit AG-UI state events.
+
+The steps below show two excerpts from [`claude-agent-sdk-adapter.ts`](https://github.com/CopilotKit/CopilotKit/blob/main/showcase/integrations/claude-sdk-typescript/src/claude-agent-sdk-adapter.ts). The excerpts do not run alone. The full file defines the helpers they call (`buildBackendToolServer`, `normalizeClaudeAgentSdkModel`) and the `Emit` and `ExecuteTool` types.
+
+1. Copy the whole file to `src/claude-agent-sdk-adapter.ts` in your agent project.
+2. Install the Zod alias that the file imports:
+
+   ```bash
+   npm install zod4@npm:zod@^4.3.6
+   ```
+
+3. Skip the install command in the first step below. You already installed those packages, and its `@^0.2.58` pin conflicts with `@ag-ui/claude-agent-sdk@0.0.9`.
 
 <FrameworkSetup concept="agent-setup" />
+
+Then replace the `app.post("/")` handler in `src/agent-server.ts`. `runWithClaudeAgentSdk` builds the adapter for each run, so you can remove the `ClaudeAgentAdapter` instance and its import. `toolSchemas` lists your backend tools, and `executeTool` runs them:
+
+```ts title="src/agent-server.ts"
+import type { BaseEvent } from "@ag-ui/core";
+import { runWithClaudeAgentSdk } from "./claude-agent-sdk-adapter";
+
+app.post("/", async (req, res) => {
+  const input = req.body as RunAgentInput;
+  const runId = input.runId ?? randomUUID();
+  const threadId = input.threadId ?? randomUUID();
+  const encoder = new EventEncoder();
+
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+
+  await runWithClaudeAgentSdk({
+    input,
+    runId,
+    threadId,
+    emit: (event) => res.write(encoder.encodeSSE(event as BaseEvent)),
+    model: process.env.CLAUDE_MODEL ?? "claude-opus-4-8",
+    systemPrompt: "You are a helpful assistant embedded in a CopilotKit app.",
+    initialState: {},
+    toolSchemas: [
+      {
+        name: "get_weather",
+        description: "Get the current weather for a city.",
+        input_schema: {
+          type: "object",
+          properties: { city: { type: "string" } },
+          required: ["city"],
+        },
+      },
+    ],
+    executeTool: async (toolName, toolInput) => ({
+      resultText: `It is sunny in ${String(toolInput.city)}.`,
+      state: null,
+    }),
+  });
+  res.end();
+});
+```
+
+Restart the agent server and ask `What is the weather in Rome?`. The agent calls the tool as `mcp__copilotkit__get_weather` (the MCP bridge adds the prefix), then replies with the tool result. To update shared state from a tool, return the new state as `state` instead of `null`. The adapter emits it as a `STATE_SNAPSHOT` event.
+
+## Next steps
+
+The Claude Agent SDK runs your agent loop. CopilotKit puts it in your app, where your users can see the run, interrupt it and steer it.
+
+Add a capability:
+
+- [Generative UI](/claude-sdk-typescript/generative-ui/tool-rendering): show the agent's tool calls as components that update while the agent runs.
+- [Human-in-the-loop](/claude-sdk-typescript/human-in-the-loop): the agent calls an approval tool and waits. The user decides in your app, and the same run continues with the answer.
+- [Shared state](/claude-sdk-typescript/shared-state): keep the agent's state and your app's state in sync, in both directions.
+- [Frontend tools](/claude-sdk-typescript/frontend-tools): let the agent call tools that update your app directly.
+- [And more](/claude-sdk-typescript/build-with-agents): chat surfaces, headless UI and multi-agent flows work with the Claude Agent SDK too. Give your AI coding agent current CopilotKit knowledge, so it can help you build them.
+
+Go further:
+
+- [Live demos](/examples?framework=claude-sdk-typescript): try each capability with a Claude Agent SDK agent.
+- Using Vue, Angular, or React Native? Pick it in the sidebar's **Frontend** menu. Its quickstart connects this agent.

@@ -22,8 +22,8 @@ Missing required prop: 'runtimeUrl' or 'publicApiKey' or 'publicLicenseKey'
 
 **Where:** the **v2** provider, `<CopilotKitProvider>`, imported from
 `@copilotkit/react-core/v2`. In production
-(`NODE_ENV === "production"`) it's a thrown `Error`; in development it's a
-`console.warn` so local-agent and test setups still run.
+(`NODE_ENV === "production"`) it's a thrown `Error`. In development it's a
+`console.warn`, so local-agent and test setups still run.
 
 <Callout type="info" title="v1 behaves differently">
   The **v1** `<CopilotKit>` provider throws in **both development and

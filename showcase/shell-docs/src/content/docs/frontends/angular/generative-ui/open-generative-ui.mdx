@@ -5,9 +5,52 @@ icon: "lucide/Code"
 doc_type: how-to
 ---
 
+Open Generative UI lets the agent write a small UI (HTML, CSS, and script) that
+renders in the chat. The UI runs in a sandbox. When it must ask your app to do
+something, it calls a narrow host function that you expose.
+
+## Turn it on in Copilot Runtime
+
+Add `openGenerativeUI: true` to `CopilotRuntime` in the quickstart's
+`server.ts`. Without it, the agent's UI does not render.
+
+<WhenAgentBackend selected={false}>
+
+```ts title="server.ts"
+const runtime = new CopilotRuntime({
+  openGenerativeUI: true, // [!code highlight]
+  agents: {
+    default: new BuiltInAgent({
+      model: "openai:gpt-6-luna",
+      prompt: "You are a helpful assistant for an Angular app.",
+    }),
+  },
+});
+```
+
+</WhenAgentBackend>
+
+<WhenAgentBackend selected>
+
+```ts title="server.ts"
+const runtime = new CopilotRuntime({
+  openGenerativeUI: true, // [!code highlight]
+  agents: {
+    // ...the `default` agent from the quickstart, unchanged
+  },
+});
+```
+
+</WhenAgentBackend>
+
+Restart the runtime after the change.
+
+## Turn it on in the Angular app
+
 An `openGenerativeUI` object opts the frontend into the built-in sandboxed
-renderer. Expose narrow host functions when generated UI must ask the
-application to act.
+renderer. List the host functions that generated UI may call in
+`sandboxFunctions`. Keep your other providers and the `runtimeUrl` from the
+[Angular quickstart](/angular):
 
 ```ts title="src/app/app.config.ts"
 import { ApplicationConfig } from "@angular/core";
@@ -17,6 +60,7 @@ import {
 } from "@copilotkit/angular";
 import { z } from "zod";
 
+// [!code highlight:12]
 const dashboardFilterParameters = z.object({ filter: z.string() });
 
 const setDashboardFilter: SandboxFunction = {
@@ -32,8 +76,10 @@ const setDashboardFilter: SandboxFunction = {
 
 export const appConfig: ApplicationConfig = {
   providers: [
+    // ...existing providers
     provideCopilotKit({
-      runtimeUrl: "/api/copilotkit",
+      runtimeUrl: "http://localhost:8200/api/copilotkit",
+      // [!code highlight:3]
       openGenerativeUI: {
         sandboxFunctions: [setDashboardFilter],
       },
@@ -42,8 +88,19 @@ export const appConfig: ApplicationConfig = {
 };
 ```
 
+Install zod if your app does not have it: `npm install zod`.
+
 Generated code runs in a sandboxed iframe without same-origin access. It calls
-only the host functions you list in `sandboxFunctions`.
+only the host functions you list in `sandboxFunctions`, through
+`Websandbox.connection.remote.<name>(args)`.
+
+## Check the result
+
+Ask the agent: "Build a small dashboard filter UI with a button that applies
+the open-incidents filter." A sandboxed card appears in the chat. Click its
+button. The generated code calls
+`Websandbox.connection.remote.setDashboardFilter({ filter: "open-incidents" })`,
+and `sessionStorage["dashboard-filter"]` becomes `open-incidents`.
 
 ## Next steps
 

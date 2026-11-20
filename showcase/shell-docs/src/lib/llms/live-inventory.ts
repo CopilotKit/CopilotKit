@@ -1,6 +1,7 @@
-import { statSync } from "node:fs";
 import {
+  ROOT_FRAMEWORK,
   getFrameworkVariants,
+  getIntegration,
   getSetupContent,
 } from "@/components/docs-mdx/data";
 import { getPageIndex, livePages } from "@/lib/live-docs";
@@ -25,6 +26,29 @@ export interface LiveEntry {
   live: ResolvedLivePage;
 }
 
+/**
+ * A page's title where it's listed out of context (search results, the MCP
+ * page list, and the page's `<title>`): a framework's own pages, and its
+ * own version of a shared page (`/mastra/shared-state`), name the framework,
+ * since every framework has a "Quickstart" and a "Shared State":
+ * `Mastra: Quickstart`.
+ */
+export function entryTitle(live: ResolvedLivePage): string {
+  const { title } = live.page.data;
+  const framework = live.variant ?? live.scope.framework;
+  if (
+    !framework ||
+    framework === ROOT_FRAMEWORK ||
+    !(live.variant || live.contentPath.startsWith("docs/integrations/"))
+  ) {
+    return title;
+  }
+  const name = getIntegration(framework)?.name;
+  if (!name) return title;
+  const brand = name.split(/[\s(]/)[0].toLowerCase();
+  return title.toLowerCase().includes(brand) ? title : `${name}: ${title}`;
+}
+
 /** Pages behind an early-access gate stay out of the aggregates. */
 const EARLY_ACCESS_GATES = new Set(["trajectories"]);
 
@@ -47,23 +71,28 @@ function entries(): LiveEntry[] {
  */
 export function llmsFullEntries(): LiveEntry[] {
   return entries().filter(
-    ({ live }) => !live.overview && !live.variant && !isEarlyAccess(live.page),
+    ({ live }) => !live.variant && !isEarlyAccess(live.page),
   );
 }
 
 export interface SitemapEntry {
   url: string;
-  lastModified: Date;
+  /** Only when the page says so (frontmatter `lastmod`). */
+  lastModified?: Date;
 }
 
-/** The home page and every page at its canonical URL. */
+/**
+ * The home page and every page at its canonical URL. A page's date is its
+ * frontmatter `lastmod` or nothing: file times in a checkout or an image are
+ * when the files were copied, not when the page changed, and a sitemap that
+ * marks every page as changed on every deploy teaches crawlers to ignore it.
+ */
 export function sitemapEntries(): SitemapEntry[] {
-  const now = new Date();
   return [
-    { url: "/", lastModified: now },
+    { url: "/" },
     ...entries().map(({ url, live }) => ({
       url,
-      lastModified: lastModified(live.page) ?? now,
+      lastModified: lastModified(live.page),
     })),
   ];
 }
@@ -114,10 +143,7 @@ function frontendsOf({ live, url }: LiveEntry): FrontendId[] {
  */
 export function searchEntries(): (LiveEntry & { frontends: FrontendId[] })[] {
   return entries()
-    .filter(
-      ({ live }) =>
-        !live.overview && !live.variant && !isEarlyAccess(live.page),
-    )
+    .filter(({ live }) => !live.variant && !isEarlyAccess(live.page))
     .map((entry) => ({ ...entry, frontends: frontendsOf(entry) }));
 }
 
@@ -166,20 +192,12 @@ export function frameworkSetupEntries(): FrameworkSetupEntry[] {
   });
 }
 
-/** Frontmatter `lastmod`, else the file's mtime. */
-function lastModified(page: {
-  data: object;
-  absolutePath?: string;
-}): Date | undefined {
+/** Frontmatter `lastmod`, if the page has one. */
+function lastModified(page: { data: object }): Date | undefined {
   const lastmod = (page.data as { lastmod?: unknown }).lastmod;
   if (lastmod instanceof Date || typeof lastmod === "string") {
     const date = new Date(lastmod);
     if (!Number.isNaN(date.getTime())) return date;
   }
-  if (!page.absolutePath) return undefined;
-  try {
-    return statSync(page.absolutePath).mtime;
-  } catch {
-    return undefined;
-  }
+  return undefined;
 }

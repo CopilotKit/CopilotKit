@@ -22,39 +22,53 @@ Before you begin, you'll need the following:
 - Node.js 20+
 - Python 3.13+
 - [uv](https://docs.astral.sh/uv/)
+- [Git LFS](https://git-lfs.com), for the starter's images
 - Your favorite package manager
 
 ## Getting started
 
 <Steps>
     <Step>
-        ### Set up CopilotKit Intelligence
-
-        <SignupLink surface="docs_a2a_quickstart_step1">Sign in to cloud-hosted Intelligence</SignupLink>. Cloud-hosted setup uses a server-side project API key and does not issue `COPILOTKIT_LICENSE_TOKEN`. You will connect the app after you clone it below.
-    </Step>
-
-    <Step>
         ### Clone the A2A starter template
 
+        The starter lives in the CopilotKit repository at `examples/integrations/a2a-a2ui`. Its restaurant images live in `examples/images/restaurant-food` and are stored with Git LFS. Copy the starter with its images:
+
         ```bash
-        git clone https://github.com/copilotkit/with-a2a-a2ui.git
-        cd with-a2a-a2ui
+        git lfs install
+        git clone --depth 1 --filter=blob:none --sparse https://github.com/CopilotKit/CopilotKit.git
+        cd CopilotKit
+        git sparse-checkout set examples/integrations/a2a-a2ui examples/images/restaurant-food
+        cp -rL examples/integrations/a2a-a2ui ../my-a2a-app
+        cd ../my-a2a-app
+        ```
+
+        `git lfs install` makes Git download the images when it checks them out. `cp -rL` copies the image files that the starter's `agent/images` links point to.
+    </Step>
+    <Step>
+        ### Optional: connect CopilotKit Intelligence
+
+        Skip this step to run the starter with an in-memory runner. To keep threads in cloud-hosted Intelligence, <SignupLink surface="docs_a2a_quickstart_step1">sign in to Intelligence</SignupLink>, then connect the app:
+
+        ```bash
+        npx copilotkit@latest login
         npx copilotkit@latest project select
         ```
 
-        `project select` creates or selects an Intelligence project and writes its server-side API key to `.env` as `CPK_INTELLIGENCE_API_KEY`.
+        `login` opens a browser sign-in. `project select` creates or selects an Intelligence project and writes its server-side API key to `.env` as `CPK_INTELLIGENCE_API_KEY`. The runtime route reads it from there.
     </Step>
     <Step>
         ### Install dependencies
 
+        ```bash
+        npm install
         ```
-        pnpm install
-        ```
+
+        `npm install` also runs `uv sync` in `agent/`, so `uv` must be on your `PATH`.
     </Step>
     <Step>
         ### Configure your environment
 
-        Create a `.env` file in your agent directory and add your Google API key:
+        Create a `.env` file in the `agent` directory and add your Gemini API key:
 
         ```plaintext title="agent/.env"
         GEMINI_API_KEY=your_gemini_api_key
@@ -90,7 +104,7 @@ Before you begin, you'll need the following:
             </Tab>
         </Tabs>
 
-        This will start both the UI and agent servers concurrently.
+        This starts the UI and the agent server together.
     </Step>
     <Step>
         ### Start chatting
@@ -101,11 +115,13 @@ Before you begin, you'll need the following:
         Show me chinese restaurants in NYC
         ```
 
+        The agent replies with restaurant cards, each with a photo, drawn with A2UI.
+
         <Accordions className="mb-4">
             <Accordion title="Troubleshooting">
-                - If you're having connection issues, try using `0.0.0.0` or `127.0.0.1` instead of `localhost`
+                - If you're having connection issues, change `new A2AClient("http://localhost:10002")` in `app/api/copilotkit/[[...slug]]/route.tsx` to `http://127.0.0.1:10002`
                 - Make sure your agent is running on port 10002
-                - Check that your Google API key is correctly set
+                - Check that `GEMINI_API_KEY` is set in `agent/.env`
             </Accordion>
         </Accordions>
 
@@ -118,15 +134,16 @@ Before you begin, you'll need the following:
 
 </Steps>
 
-## What's next?
+## Next steps
 
-Now that you have your basic agent setup, explore these advanced features:
+A2A lets your agents talk to each other. CopilotKit gives your users a place to talk to those agents, in your app, where they can see the answers and steer the work.
 
-<Cards>
-  <Card
-    title="Add some generative UI"
-    description="Render declarative UI components with A2UI."
-    href="/docs/integrations/a2a/generative-ui/declarative-a2ui"
-    icon={<PaintbrushIcon />}
-  />
-</Cards>
+Add a capability:
+
+- [Declarative UI](/a2a/generative-ui/declarative-a2ui): your agents describe what to show with A2UI, and CopilotKit renders it as components in your app.
+- [And more](/a2a/build-with-agents): give your AI coding agent current CopilotKit knowledge, so it can help you build the rest.
+
+Go further:
+
+- [Example app](https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/a2a-a2ui): the source of an app where an A2A agent draws its answers with A2UI.
+- Using Vue, Angular, or React Native? Pick it in the sidebar's **Frontend** menu. Its quickstart connects this agent.

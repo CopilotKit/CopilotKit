@@ -20,7 +20,8 @@ import { CopilotChat, useCopilotChatContext } from "@copilotkit/react-native";
 
 <PropertyReference name="agentId" type="string" default='"default"'>
   ID of the agent to connect to. Resolution order: `agentId` → `agentName` →
-  `"default"`.
+  the agent of the enclosing `CopilotChat` → `"default"`. A nested chat with
+  no `threadId` also uses the outer chat's thread.
 </PropertyReference>
 
 <PropertyReference name="agentName" type="string">
@@ -63,16 +64,18 @@ Call inside a `<CopilotChat>` tree to read the conversation state and actions. T
 function useCopilotChatContext(): CopilotChatContextValue;
 ```
 
-<PropertyReference name="agent" type="AbstractAgent">
-  The resolved agent instance.
+<PropertyReference name="agent" type="any">
+  The resolved agent instance. It is typed as `any`, so cast it to
+  `AbstractAgent` for type checking.
 </PropertyReference>
 
 <PropertyReference name="isRunning" type="boolean">
   Whether the agent is currently running.
 </PropertyReference>
 
-<PropertyReference name="messages" type="Message[]">
-  The current conversation messages.
+<PropertyReference name="messages" type="any[]">
+  The current conversation messages. They are typed as `any[]`, so cast them to
+  `Message[]` for type checking.
 </PropertyReference>
 
 <PropertyReference name="attachments" type="Attachment[]">
@@ -167,7 +170,7 @@ import { CopilotChat } from "@copilotkit/react-native/components";
   ID of the agent to connect to.
 </PropertyReference>
 
-<PropertyReference name="placeholder" type="string">
+<PropertyReference name="placeholder" type="string" default='"Type a message..."'>
   Placeholder text for the input field.
 </PropertyReference>
 
@@ -175,15 +178,15 @@ import { CopilotChat } from "@copilotkit/react-native/components";
   Suggestion pills shown in the empty state.
 </PropertyReference>
 
-<PropertyReference name="emptyStateTitle" type="string">
+<PropertyReference name="emptyStateTitle" type="string" default='"How can I help?"'>
   Title shown when there are no messages.
 </PropertyReference>
 
-<PropertyReference name="emptyStateSubtitle" type="string">
+<PropertyReference name="emptyStateSubtitle" type="string" default='"Ask me anything or try a suggestion below."'>
   Subtitle shown when there are no messages.
 </PropertyReference>
 
-<PropertyReference name="headerTitle" type="string">
+<PropertyReference name="headerTitle" type="string" default='"Chat"'>
   Title for the optional header bar.
 </PropertyReference>
 

@@ -34,7 +34,7 @@ follow the [Quickstart](/quickstart).
 
 ### 2. Runtime
 
-A request handler that mounts inside your application server (Next.js App Router, Express, Hono, Bun, Deno, Cloudflare Workers). The runtime accepts requests from the frontend, mediates auth and tool calls, and forwards work to your agent over AG-UI. For the framework-agnostic path you can instantiate a `BuiltInAgent` in-process and skip an external agent process entirely. See [Copilot Runtime](/backend/copilot-runtime) for agent routing and setup.
+A request handler that mounts inside your application server (Next.js App Router, Express, Hono, Bun, Deno, Cloudflare Workers). The runtime accepts requests from the frontend, mediates auth and tool calls, and forwards work to your agent over AG-UI. For the framework-agnostic path, create a `BuiltInAgent` in-process and skip an external agent process. See [Copilot Runtime](/backend/copilot-runtime) for agent routing and setup.
 
 ### 3. Agent
 
@@ -61,6 +61,6 @@ Because AG-UI is a protocol, you can:
 2. The frontend agent API posts to your runtime endpoint.
 3. Runtime opens an AG-UI session with the configured agent.
 4. Agent emits text, tool calls, and state updates as AG-UI events.
-5. Runtime streams the events back; the frontend renders them in real time.
+5. Runtime streams the events back, and the frontend renders them in real time.
 6. If the agent calls a frontend tool, the runtime relays the request, your browser handler runs, and the result flows back to the agent.
 7. Threads, persistence, and realtime sync (when configured) are mediated by [CopilotKit Intelligence](/intelligence/overview), the platform backend that sits beside the runtime.

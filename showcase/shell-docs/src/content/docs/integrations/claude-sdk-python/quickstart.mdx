@@ -50,22 +50,27 @@ Before you begin, you'll need the following:
 
           The starter contains three pieces:
 
-          - `agent/main.py` - the FastAPI server that serves the agent over AG-UI
-          - `agent/src/agent.py` - the agent: its backend tools and the `ClaudeAgentAdapter`
-          - `src/app/api/copilotkit/[[...slug]]/route.ts` - the CopilotKit runtime route that proxies to the agent
+          - `agent/main.py`: the FastAPI server that serves the agent over AG-UI
+          - `agent/src/agent.py`: the agent, with its backend tools and the `ClaudeAgentAdapter`
+          - `src/app/api/copilotkit/[[...slug]]/route.ts`: the Copilot Runtime route that proxies to the agent
         </Step>
 
         <Step>
           ### Configure your environment
 
-          Create a `.env` file in the generated project root:
+          Copy the example file in the generated project root:
+
+          ```bash
+          cp .env.example .env
+          ```
+
+          Then set your Anthropic API key in `.env`:
 
           ```plaintext title=".env"
           ANTHROPIC_API_KEY=your_anthropic_api_key
-          ANTHROPIC_MODEL=claude-opus-4-8
           ```
 
-          The runtime route defaults to `AGENT_URL=http://localhost:8000`, which is where the starter's FastAPI agent server listens.
+          `COPILOTKIT_AGENT_MODEL` (`anthropic:<model>`) sets the model. It wins over `ANTHROPIC_MODEL`. The runtime route defaults to `AGENT_URL=http://localhost:8000`, which is where the starter's FastAPI agent server listens.
         </Step>
 
         <Step>
@@ -133,7 +138,7 @@ Before you begin, you'll need the following:
         <Step>
           ### Install the required Python packages
 
-          From your agent project, install the Claude Agent SDK adapter, AG-UI protocol packages, and FastAPI:
+          From your agent project, install the Claude Agent SDK adapter, AG-UI protocol packages, and FastAPI. No uv project yet? Run `uv init` first.
 
           ```bash
           uv add claude-agent-sdk ag-ui-claude-sdk ag-ui-protocol anthropic fastapi uvicorn python-dotenv
@@ -221,6 +226,8 @@ Before you begin, you'll need the following:
               )
           ```
 
+          To connect an agent you already have, pass its existing `ClaudeAgentOptions` values (`system_prompt`, `mcp_servers`, `allowed_tools`, `model`) in `options`.
+
           Start it and confirm the health check:
 
           ```bash
@@ -232,17 +239,19 @@ Before you begin, you'll need the following:
         <Step>
           ### Create your frontend
 
-          CopilotKit works with any React app. This example uses Next.js App Router:
+          CopilotKit works with any React app. This example uses Next.js App Router. Run this inside your agent project, so the frontend lives in `frontend/`. `--yes` accepts the recommended defaults (TypeScript, Tailwind, App Router):
 
           ```bash
-          npx create-next-app@latest frontend
+          npx create-next-app@latest frontend --yes
           cd frontend
-          npm install @copilotkit/runtime @copilotkit/react-core @ag-ui/client@1.0.2
+          npm install @copilotkit/runtime @copilotkit/react-core @ag-ui/client
           ```
+
+          `@ag-ui/client` must be the same version that `@copilotkit/runtime` uses. Two versions make TypeScript report that `HttpAgent` is not assignable to `AbstractAgent`. Run `npm ls @ag-ui/client`: the top-level copy must be the version that `@copilotkit/runtime` lists as `deduped`.
         </Step>
 
         <Step>
-          ### Add the CopilotKit runtime route
+          ### Add the Copilot Runtime route
 
           Create `app/api/copilotkit/route.ts` in your Next.js app. It registers the Python agent server as an AG-UI `HttpAgent`.
 
@@ -294,6 +303,7 @@ Before you begin, you'll need the following:
           Render the provider from `app/layout.tsx`:
 
           ```tsx title="app/layout.tsx"
+          import { Suspense } from "react";
           import { Providers } from "./providers";
           import "@copilotkit/react-core/v2/styles.css";
           import "./globals.css";
@@ -302,14 +312,18 @@ Before you begin, you'll need the following:
             return (
               <html lang="en">
                 <body>
-                  <Providers>
-                    {children}
-                  </Providers>
+                  <Suspense>
+                    <Providers>
+                      {children}
+                    </Providers>
+                  </Suspense>
                 </body>
               </html>
             );
           }
           ```
+
+          `<Suspense>` keeps `npm run build` working when `next.config.ts` sets `cacheComponents: true`, the `create-next-app` default in Next.js 16. Without it, the build fails with `encountered the unstable value require('node:crypto').randomUUID()`.
 
           <Callout type="info" title="This relative runtimeUrl assumes Next.js serves the runtime">
             `/api/copilotkit` resolves only because Next.js serves your app and the runtime from the
@@ -339,7 +353,7 @@ Before you begin, you'll need the following:
         <Step>
           ### Start the UI
 
-          Keep the FastAPI agent server running, then start the frontend in a second terminal:
+          Keep the FastAPI agent server running, then start the frontend in a second terminal, from `frontend/`:
 
           ```bash
           npm run dev
@@ -377,6 +391,46 @@ Before you begin, you'll need the following:
 
 ## Backend tools and state
 
-The minimal server above is enough for text chat. To support backend tools, shared state snapshots, and richer demos, expose your tool schemas through the Claude SDK MCP bridge and emit AG-UI state events:
+The minimal server above is enough for text chat. To support backend tools, shared state snapshots, and richer demos, expose your tool schemas through the Claude SDK MCP bridge and emit AG-UI state events.
+
+The code below is an excerpt. Its helpers and constants (`_build_sdk_tools`, `_set_state`, `COPILOTKIT_MCP_SERVER_NAME`, and others) live in the full module, [`claude_agent_sdk_adapter.py`](https://github.com/CopilotKit/CopilotKit/blob/main/showcase/integrations/claude-sdk-python/src/agents/claude_agent_sdk_adapter.py). Copy that file next to `main.py`. Its install step repeats the packages you installed above, so skip it.
 
 <FrameworkSetup concept="agent-setup" />
+
+Then import it in `main.py` and return its stream from the `run_agent` route, in place of the `adapter.run` stream:
+
+```python
+from claude_agent_sdk_adapter import run_with_claude_agent_sdk
+
+# In run_agent:
+return StreamingResponse(
+    run_with_claude_agent_sdk(
+        input_data,
+        system_prompt="You are a helpful assistant embedded in a CopilotKit app.",
+        tools=TOOL_SCHEMAS,
+        state=input_data.state,
+        model=os.getenv("ANTHROPIC_MODEL", "claude-opus-4-8"),
+        execute_tool=execute_tool,
+    ),
+    media_type="text/event-stream",
+)
+```
+
+- `TOOL_SCHEMAS` is a list of `{"name", "description", "input_schema"}` dicts, one per backend tool.
+- `execute_tool(name, args, state, messages)` runs the tool and returns `(result_text, new_state_or_None)`. A new state is sent to the UI as a state snapshot.
+
+## Next steps
+
+The Claude Agent SDK runs your agent loop. CopilotKit puts it in your app, where your users can see the run, interrupt it and steer it.
+
+Add a capability:
+
+- [Generative UI](/claude-sdk-python/generative-ui/tool-rendering): show the agent's tool calls as components that update while the agent runs.
+- [Human-in-the-loop](/claude-sdk-python/human-in-the-loop): the agent calls an approval tool and waits. The user decides in your app, and the same run continues with the answer.
+- [Shared state](/claude-sdk-python/shared-state): keep the agent's state and your app's state in sync, in both directions.
+- [And more](/claude-sdk-python/build-with-agents): chat surfaces, headless UI, frontend tools and multi-agent flows work with the Claude Agent SDK too. Give your AI coding agent current CopilotKit knowledge, so it can help you build them.
+
+Go further:
+
+- [Live demos](/examples?framework=claude-sdk-python): try each capability with a Claude Agent SDK agent.
+- Using Vue, Angular, or React Native? Pick it in the sidebar's **Frontend** menu. Its quickstart connects this agent.

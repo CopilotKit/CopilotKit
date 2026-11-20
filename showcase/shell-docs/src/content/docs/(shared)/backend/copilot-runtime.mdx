@@ -90,7 +90,7 @@ import { CopilotKitProvider } from "@copilotkit/vue/v2";
 </Step>
 </Steps>
 
-For Express, NestJS, or plain Node.js HTTP variants, see the [quickstart](/quickstart).
+For Express, Hono, plain Node.js HTTP, and other servers, see [Deploy to any runtime](/runtime-server-adapter).
 For the exact HTTP routes the runtime exposes (and how to probe them with `curl`),
 see [Runtime HTTP endpoints](/backend/runtime-endpoints).
 
@@ -134,7 +134,7 @@ serves, including any required suffix.
 
 ## The default agent
 
-If you register an agent under the name `"default"`, CopilotKit's prebuilt UI components will use it automatically without any additional configuration on the frontend. This is useful when you have one primary agent and don't want to specify an `agentId` everywhere.
+If you register an agent under the name `"default"`, CopilotKit's prebuilt UI components use it with no frontend configuration. This helps when you have one primary agent and don't want to set an `agentId` everywhere.
 
 ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
 import { BuiltInAgent } from "@copilotkit/runtime/v2";
@@ -157,7 +157,7 @@ The runtime runs on your server, which means agent communication stays server-si
 
 ### AG-UI middleware
 
-The [AG-UI protocol](/backend/ag-ui) supports a middleware layer (`agent.use`) for logging, guardrails, request transformation, and more. Because the runtime runs server-side, this middleware executes in a trusted environment where it cannot be tampered with by the client.
+The [AG-UI protocol](/backend/ag-ui) supports a middleware layer (`agent.use`) for logging, guardrails, request transformation, and more. Because the runtime runs server-side, this middleware runs in a trusted environment that the client cannot change.
 
 ### Agent routing
 
@@ -165,13 +165,13 @@ When you register multiple agents, the runtime handles discovery and routing aut
 
 ### CopilotKit Intelligence
 
-[Threads](/AG-UI-Streams), the [inspector](/inspector), and other CopilotKit Intelligence capabilities are provided through the runtime. These give you conversation persistence and debugging without extra setup.
+Intelligence's [AG-UI streams](/AG-UI-Streams), the [Inspector](/inspector), and other CopilotKit Intelligence features run through the runtime. They give you conversation persistence and debugging without extra setup.
 
-To group Threads for Learning, see [Learning](/learning).
+To group threads for Automatic Learning, see [Automatic Learning](/learning).
 
 ## Built-in middleware
 
-The runtime exposes two first-class middleware options you can enable directly on `CopilotRuntime` without calling `.use()` on each agent manually.
+The runtime has two middleware options that you set once on `CopilotRuntime`, with no `.use()` call on each agent.
 
 ### A2UI
 
@@ -255,7 +255,7 @@ Earlier runtime versions forwarded `x-request-id`. It is now stripped by default
 
 ### Server-configured headers win
 
-Headers you set on an agent (e.g. `new HttpAgent({ headers: { Authorization: "Bearer <service-token>" } })`) take precedence over a forwarded inbound header of the same name, matched case-insensitively. A service-to-service token you configured on the server is never silently overridden by a browser- or edge-injected inbound header.
+Headers you set on an agent (for example, `new HttpAgent({ headers: { Authorization: "Bearer <service-token>" } })`) take precedence over a forwarded inbound header of the same name, matched case-insensitively. A service-to-service token you configured on the server is never silently overridden by a browser- or edge-injected inbound header.
 
 ### Configuring the policy
 
@@ -296,9 +296,8 @@ A run can be silent for a long time while the agent reasons or waits on a slow t
 ## Connecting to an AG-UI agent directly
 
 CopilotKit is built on the [AG-UI protocol](/backend/ag-ui), which is an open
-standard. If you want to connect your frontend directly to an AG-UI-compatible
-agent without the runtime, you can do so by registering agent instances with the
-frontend SDK:
+standard. To connect your frontend directly to an AG-UI-compatible agent
+without the runtime, register agent instances with the frontend SDK:
 
 <FrontendOnly frontend="react">
 ```tsx

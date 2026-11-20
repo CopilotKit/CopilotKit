@@ -551,7 +551,7 @@ export function StackDiagram() {
         offset={rightOffset}
         label={(id) => frameworkById(id)?.name ?? id}
         logo={(id) => <FrameworkLogo slug={id} size={22} />}
-        href={(id) => frameworkHref("d", id)}
+        href={(id) => frameworkHref("d", id, "quickstart")}
       />
 
       {/* A soft ring as each request or reply passes through CopilotKit. */}

@@ -35,7 +35,7 @@ In addition, some state properties contain a lot of information. Syncing them ba
   </Step>
   <Step>
     ### Organize state by purpose
-    Our example case lists several state properties, each with its own purpose:
+    The example uses three state properties, each with its own purpose:
       - **question**: the user asks it, and the LLM answers it.
       - **answer**: the LLM returns it.
       - **resources**: the LLM uses this list to answer. The user cannot see or set it.
@@ -142,7 +142,7 @@ In addition, some state properties contain a lot of information. Syncing them ba
   </Step>
   <Step>
     ### Use the state in your frontend
-    Now that we know which state properties our agent uses, we can work with them in the UI:
+    The UI works with each property in a different way:
     - **question**: Set by the UI to ask the agent something
     - **answer**: Read from the agent's response
     - **resources**: Not accessible to the UI. The agent keeps it under its own context key.

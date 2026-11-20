@@ -1,0 +1,108 @@
+{/*
+  The LlamaIndex backend for the Vue, Angular and React Native
+  quickstarts (`/vue/llamaindex` and so on), picked by `index.mdx`.
+  The page around it already created the app and installed
+  `@copilotkit/runtime` and `tsx`. Its next steps start `npx tsx server.ts`
+  from the app folder, so the agent here must be running by then.
+*/}
+
+<Step>
+  ### Create your LlamaIndex agent
+
+  You need Python 3.10+, [`uv`](https://docs.astral.sh/uv/) and an OpenAI API key. The agent gets its own folder next to your app. From your app folder:
+
+  ```bash
+  cd ..
+  uv init my-agent
+  cd my-agent
+  uv add llama-index llama-index-llms-openai-like llama-index-protocols-ag-ui fastapi uvicorn
+  ```
+
+  `llama-index-protocols-ag-ui` serves a LlamaIndex agent over AG-UI, the protocol that Copilot Runtime speaks.
+
+  Replace the contents of `main.py` with a small agent. If you already have a LlamaIndex agent, use this as a reference:
+
+  ```python title="main.py"
+  from fastapi import FastAPI
+  from llama_index.llms.openai_like import OpenAILike
+  from llama_index.protocols.ag_ui.router import get_ag_ui_workflow_router
+
+  llm = OpenAILike(
+      model="gpt-6-luna",
+      context_window=1_050_000,
+      is_chat_model=True,
+      is_function_calling_model=True,
+      additional_kwargs={"reasoning_effort": "none"},
+  )
+
+  agent_router = get_ag_ui_workflow_router(
+      llm=llm,
+      system_prompt="You are a helpful assistant.",
+  )
+
+  app = FastAPI()
+  app.include_router(agent_router)
+  ```
+
+  The router adds a `POST /run` endpoint to the app. To use another model, change `OpenAILike(model=...)`, or use another LLM class that LlamaIndex supports.
+
+  Put your OpenAI key in `.env`:
+
+  ```plaintext title=".env"
+  OPENAI_API_KEY=your_openai_api_key
+  ```
+</Step>
+
+<Step>
+  ### Start the agent
+
+  ```bash
+  uv run --env-file .env uvicorn main:app --port 8000
+  ```
+
+  Keep this terminal open. The agent listens on `http://127.0.0.1:8000`. `--env-file .env` loads `OPENAI_API_KEY` into the agent.
+</Step>
+
+<Step>
+  ### Create the Copilot Runtime
+
+  Open a new terminal in your app folder. The runtime reaches the agent with `LlamaIndexAgent` from `@ag-ui/llamaindex`:
+
+  ```bash
+  npm install @ag-ui/llamaindex
+  ```
+
+  Add `server.ts`, a small Node server that hosts Copilot Runtime at `/api/copilotkit` and registers your agent as the `default` agent:
+
+  ```ts title="server.ts"
+  import { createServer } from "node:http";
+  import { LlamaIndexAgent } from "@ag-ui/llamaindex";
+  import { CopilotRuntime } from "@copilotkit/runtime/v2";
+  import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
+
+  const runtime = new CopilotRuntime({
+    agents: {
+      // [!code highlight:3]
+      default: new LlamaIndexAgent({
+        url: process.env.AGENT_URL ?? "http://127.0.0.1:8000/run",
+      }),
+    },
+  });
+
+  const port = Number(process.env.PORT ?? 8200);
+
+  createServer(
+    createCopilotNodeListener({
+      runtime,
+      basePath: "/api/copilotkit",
+      cors: true,
+    }),
+  ).listen(port, () => {
+    console.log(
+      `Copilot Runtime listening at http://localhost:${port}/api/copilotkit`,
+    );
+  });
+  ```
+
+  The URL ends in `/run`, the endpoint the router added. `cors: true` lets the app's dev server, on another port, call the runtime. The model key stays with the agent, so the runtime needs none.
+</Step>

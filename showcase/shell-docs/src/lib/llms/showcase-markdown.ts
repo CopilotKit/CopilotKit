@@ -6,7 +6,8 @@ import {
 import type { DocsScope } from "@/components/docs-mdx/scope";
 import {
   frameworkHas,
-  hasAngularBackend,
+  frameworkIs,
+  hasAgentBackend,
 } from "@/components/docs-mdx/showcase/framework-gates";
 import {
   inlineDemoTarget,
@@ -19,7 +20,7 @@ import { ROOT_FRAMEWORK } from "@/lib/live-scope";
 
 // The showcase components of a page as Markdown: what `<FrameworkSetup>`,
 // `<Snippet>`, `<AngularSnippet>`, `<InlineDemo>`, and the `<FrontendOnly>`,
-// `<WhenAngularBackend>` and `<WhenFrameworkHas>` gates render on the page,
+// `<WhenAgentBackend>`, `<WhenFramework>` and `<WhenFrameworkHas>` gates render on the page,
 // resolved through the same lookups (`src/components/docs-mdx/showcase`) for
 // the page's scope. Code comes out as fenced blocks titled with the file, a
 // branch the page doesn't show is dropped, and one it shows loses its tags.
@@ -49,6 +50,21 @@ export function expandFrameworkSetups(
   });
 }
 
+/**
+ * Drops the author notes a page keeps for its editors: an MDX comment
+ * block (opened with a brace, slash and star) that fills its own lines,
+ * outside fenced code. They never render on the page, so they don't belong in its Markdown
+ * either. Comments inside code, like a highlight marker in a JSX block, stay.
+ */
+export function stripAuthorComments(body: string): string {
+  const fences = fenceRanges(body);
+  return body.replace(
+    /^[ \t]*\{\/\*(?:(?!\*\/\})[\s\S])*\*\/\}[ \t]*(?:\n|$)/gm,
+    (match, offset: number) =>
+      fences.some(([from, to]) => offset >= from && offset < to) ? match : "",
+  );
+}
+
 /** Resolve the gates, then the code, the way the page renders them. */
 export function expandShowcase(body: string, page: ShowcasePage): string {
   const { scope, defaultFramework, defaultCell } = page;
@@ -59,10 +75,16 @@ export function expandShowcase(body: string, page: ShowcasePage): string {
   );
   out = filterBlocks(
     out,
-    "WhenAngularBackend",
+    "WhenAgentBackend",
     (attrs) =>
-      hasAngularBackend(scope.framework ?? text(attrs.currentFramework)) ===
+      hasAgentBackend(scope.framework ?? text(attrs.currentFramework)) ===
       (attrs.selected !== false),
+  );
+  out = filterBlocks(out, "WhenFramework", (attrs) =>
+    frameworkIs(
+      scope.framework ?? text(attrs.currentFramework),
+      text(attrs.is) ?? "",
+    ),
   );
   out = filterBlocks(out, "WhenFrameworkHas", (attrs) =>
     frameworkHas(

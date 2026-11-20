@@ -25,6 +25,12 @@ For components that need user interaction, see [Human-in-the-loop](/vue/human-in
 
 `useComponent` takes a name, a Zod schema for its props, and the component to render. CopilotKit sends that schema to the agent when it registers the frontend tool, and TypeScript infers the component props from it. Runtime arguments are JSON-parsed but are not validated against the schema.
 
+The examples build on the [Vue quickstart](/vue) app. Install Zod first:
+
+```bash
+npm install zod
+```
+
 ```vue title="src/components/WeatherCard.vue"
 <script setup lang="ts">
 defineProps<{ city: string; temperature: number; condition: string }>();
@@ -68,7 +74,7 @@ import AgentExperience from "./components/AgentExperience.vue";
 </script>
 
 <template>
-  <CopilotKitProvider runtime-url="/api/copilotkit">
+  <CopilotKitProvider runtime-url="http://localhost:8200/api/copilotkit">
     <AgentExperience />
   </CopilotKitProvider>
 </template>
@@ -76,7 +82,7 @@ import AgentExperience from "./components/AgentExperience.vue";
 
 Ask the agent for the weather in Paris. A weather card with the city, temperature, and condition appears in the chat.
 
-The component itself is ordinary Vue: it reads only its props and can stream in as the agent fills the payload. It doesn't know anything about CopilotKit.
+The component itself is ordinary Vue: it reads only its props and doesn't know anything about CopilotKit. The card renders while the agent streams the payload, so in development Vue can log a "Missing required prop" warning until every prop arrives.
 
 <Callout type="info">
   The `name` you pass to `useComponent` is what the agent sees as the tool name. Make it a verb like `render_bar_chart` or `show_weather` so the LLM reliably picks it when the user asks for that visualization.

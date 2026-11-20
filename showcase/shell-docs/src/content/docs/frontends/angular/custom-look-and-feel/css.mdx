@@ -11,11 +11,20 @@ with plain CSS. Import the package stylesheet first, as shown in
 
 ## Scope CSS changes
 
-The package stylesheet exposes stable chat classes. Put a scope class on your
-feature host so the change stays local.
+The package stylesheet exposes stable chat classes. Put a scope class on the
+element that wraps your chat so the change stays local. For example, in the
+`SupportChatComponent` from Prebuilt Components:
+
+```html
+<section class="chat-shell support-chat" aria-label="Support assistant">
+  <copilot-chat />
+</section>
+```
+
+Then style the messages inside that scope:
 
 ```css title="src/styles.css"
-.support-chat .copilotKitUserMessage {
+.support-chat .copilotKitUserMessage copilot-chat-user-message-renderer {
   color: white;
   background: #2563eb;
   border-radius: 0.75rem;
@@ -28,6 +37,22 @@ feature host so the change stays local.
   border-radius: 0.75rem;
 }
 ```
+
+`.copilotKitUserMessage` is the full-width row around a user message. The
+bubble inside it is the `copilot-chat-user-message-renderer` element, so the
+first rule targets that element.
+
+Send a message. Your message shows in a blue bubble with white text, and the
+agent's reply shows on a light blue panel.
+
+These classes are stable:
+
+- `copilotKitChat`, `copilotKitPopup`, `copilotKitSidebar`: the chat surfaces.
+- `copilotKitMessage`: every message row. `copilotKitUserMessage` and
+  `copilotKitAssistantMessage` mark the role.
+- `copilotKitInput`: the composer.
+- `copilotKitAttachment` and `copilotKitAttachmentQueue`: attachments in
+  messages and in the composer.
 
 ## Next steps
 

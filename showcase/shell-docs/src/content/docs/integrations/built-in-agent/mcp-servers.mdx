@@ -14,15 +14,18 @@ MCP (Model Context Protocol) servers provide additional tools and capabilities t
 - You need to add capabilities from third-party MCP providers
 - You want to share tools across multiple agents or applications
 
+<Callout type="warn" title="Set maxSteps above 1">
+The Built-in Agent runs one step by default. With one step, it calls the MCP tool and stops before it answers, so the chat shows an empty reply. Every example on this page sets `maxSteps: 5`.
+</Callout>
+
 ## SSE transport
 
-Connect a server that serves the SSE (Server-Sent Events) transport:
+Connect a server that serves the SSE (Server-Sent Events) transport. Replace the `builtInAgent` in your runtime route, `app/api/copilotkit/[[...slug]]/route.ts` from the [Quickstart](/quickstart), with this code:
 
-```typescript title="src/copilotkit.ts"
-import { BuiltInAgent } from "@copilotkit/runtime/v2";
-
+```typescript
 const builtInAgent = new BuiltInAgent({
   model: "openai:gpt-6-luna",
+  maxSteps: 5, // [!code highlight]
   mcpServers: [
     {
       type: "sse", // [!code highlight]
@@ -32,6 +35,8 @@ const builtInAgent = new BuiltInAgent({
 });
 ```
 
+Ask the agent to use one of the server's tools. It calls the tool and replies with the result.
+
 ### Authentication headers
 
 Pass custom headers for authentication:
@@ -39,6 +44,7 @@ Pass custom headers for authentication:
 ```typescript
 const builtInAgent = new BuiltInAgent({
   model: "openai:gpt-6-luna",
+  maxSteps: 5,
   mcpServers: [
     {
       type: "sse",
@@ -58,6 +64,7 @@ The HTTP (Streamable HTTP) transport uses standard HTTP requests:
 ```typescript
 const builtInAgent = new BuiltInAgent({
   model: "openai:gpt-6-luna",
+  maxSteps: 5,
   mcpServers: [
     {
       type: "http", // [!code highlight]
@@ -76,6 +83,7 @@ Connect multiple MCP servers. Tools from all servers are available to the agent:
 ```typescript
 const builtInAgent = new BuiltInAgent({
   model: "openai:gpt-6-luna",
+  maxSteps: 5,
   mcpServers: [
     {
       type: "sse",
@@ -103,6 +111,7 @@ Two servers can expose tools with the same name. For example, a staging server a
 ```typescript
 const builtInAgent = new BuiltInAgent({
   model: "openai:gpt-6-luna",
+  maxSteps: 5,
   mcpServers: [
     { type: "http", url: "https://staging.example.com/mcp", name: "staging" }, // [!code highlight]
     { type: "http", url: "https://prod.example.com/mcp", name: "production" }, // [!code highlight]
@@ -137,6 +146,7 @@ const customTool = defineTool({
 
 const builtInAgent = new BuiltInAgent({
   model: "openai:gpt-6-luna",
+  maxSteps: 5,
   tools: [customTool], // Your custom tools
   mcpServers: [        // Plus tools from MCP servers
     { type: "sse", url: "https://search-mcp.example.com/sse" },
@@ -146,7 +156,13 @@ const builtInAgent = new BuiltInAgent({
 
 ## User-managed MCP clients
 
-The `mcpServers` approach creates a fresh MCP connection on every agent run. For latency-sensitive setups (or when you need persistent connections, dynamic auth, or tool caching), use `mcpClients` instead. You create and manage the MCP client yourself; the agent just calls `.tools()` to get tool definitions.
+The `mcpServers` approach creates a fresh MCP connection on every agent run. For latency-sensitive setups (or when you need persistent connections, dynamic auth, or tool caching), use `mcpClients` instead. You create and manage the MCP client yourself. The agent calls `.tools()` to get tool definitions.
+
+The Built-in Agent runs on AI SDK 6, so install `@ai-sdk/mcp` from its `ai-v6` release line:
+
+```npm
+npm install @ai-sdk/mcp@ai-v6 @modelcontextprotocol/sdk
+```
 
 ```typescript
 import { BuiltInAgent } from "@copilotkit/runtime/v2";
@@ -161,6 +177,7 @@ const client = await createMCPClient({ transport });
 
 const builtInAgent = new BuiltInAgent({
   model: "openai:gpt-6-luna",
+  maxSteps: 5,
   mcpClients: [client], // [!code highlight]
 });
 ```
@@ -187,6 +204,7 @@ const provider = {
 
 const builtInAgent = new BuiltInAgent({
   model: "openai:gpt-6-luna",
+  maxSteps: 5,
   mcpClients: [provider], // [!code highlight]
 });
 ```
@@ -198,6 +216,11 @@ Tool discovery runs once in the background. The first request waits only if warm
 When using a persistent client, auth tokens may expire between requests. Handle this inside your provider:
 
 ```typescript
+// isTokenExpired, makeTransport, and getFreshToken stand for your own code.
+let currentClient = await createMCPClient({
+  transport: makeTransport(getFreshToken()),
+});
+
 const provider = {
   async tools() {
     if (isTokenExpired()) {
@@ -212,6 +235,7 @@ const provider = {
 
 const builtInAgent = new BuiltInAgent({
   model: "openai:gpt-6-luna",
+  maxSteps: 5,
   mcpClients: [provider],
 });
 ```
@@ -225,6 +249,7 @@ You only pay the reconnection cost when the token actually expires, not on every
 ```typescript
 const builtInAgent = new BuiltInAgent({
   model: "openai:gpt-6-luna",
+  maxSteps: 5,
   mcpClients: [persistentClient],  // User-managed, persistent
   mcpServers: [                     // Agent-managed, per-request
     { type: "sse", url: "https://other-mcp.example.com/sse" },
@@ -238,5 +263,6 @@ const builtInAgent = new BuiltInAgent({
 |----------|-----|------|-------------|
 | `type` | `"sse"` | `"http"` | Transport type |
 | `url` | string | string | MCP server URL |
+| `name` | string (optional) | string (optional) | Prefix for colliding tool names. See [Tool name collisions](#tool-name-collisions) |
 | `headers` | `Record<string, string>` | not supported | Custom HTTP headers (SSE only) |
 | `options` | not supported | `StreamableHTTPClientTransportOptions` | Transport options (HTTP only) |

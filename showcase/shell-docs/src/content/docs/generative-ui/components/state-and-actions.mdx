@@ -1,5 +1,6 @@
 ---
-title: "State and actions"
+title: "Generative UI state and actions"
+nav_title: "State and actions"
 icon: "lucide/MousePointerClick"
 description: "Show live app data in generated UI, run your code when users click, and keep what they type."
 ---
@@ -16,7 +17,7 @@ Three tools connect generated UI to your app:
 
 ## Show live app state
 
-The agent does not know how many items are in the cart, and it must not guess. Declare the state in the catalog, and the library fills the prop:
+The agent does not know how many items are in the cart, and it must not guess. Declare the state in the catalog, and the library fills the prop. The examples on this page build one `shopUI` catalog (see [Catalogs](/generative-ui/components/catalogs)) step by step:
 
 <Tabs groupId="frontend_framework" items={["React", "Angular", "React Native", "Vue"]} persist>
   <Tab value="React">
@@ -125,6 +126,8 @@ Then give the state its value from your app:
       return null;
     }
     ```
+
+    `Cart` is your app's cart store, with `items` and `addItem(productId, quantity)`. Render `<CartState cart={cart} />` in a client component inside `CopilotKitProvider`, for example on the page next to your chat.
   </Tab>
   <Tab value="Angular">
     `connectGenerativeUIState` takes a signal or a function, keeps the key current, and removes it when the injection context is destroyed:
@@ -154,6 +157,8 @@ Then give the state its value from your app:
       return null;
     }
     ```
+
+    `Cart` is your app's cart store, with `items` and `addItem(productId, quantity)`. Render `<CartState cart={cart} />` inside `GenerativeUIProvider`.
   </Tab>
   <Tab value="Vue">
     `useGenerativeUIState` takes a value, a ref, or a getter. It keeps the key current, and removes it when the component unmounts. Call it in a component inside `CopilotKitProvider`:
@@ -181,24 +186,29 @@ The agent does not see the state either. To let it answer "what is in my cart?",
 
 ## Run your code on a click
 
-"Add to cart" must add to the cart, with no message to the agent. Declare a function, give the component an event with a matching name, and mount a handler:
+"Add to cart" must add to the cart, with no message to the agent. Declare a function, give the component an event with a matching name, and mount a handler. Add `functions` and `events` to the same `shopUI` (the highlighted lines):
 
 <Tabs groupId="frontend_framework" items={["React", "Angular", "React Native", "Vue"]} persist>
   <Tab value="React">
     ```tsx title="app/catalog.tsx"
     export const shopUI = createGenerativeUI({
       id: "acme/shop@1",
-      functions: {
-        addToCart: {
-          description: "Add a product to the cart",
-          parameters: z.object({ productId: z.string(), quantity: z.number().default(1) }),
-        },
-      },
+      state: { cart: cartSchema },
+      functions: { // [!code highlight]
+        addToCart: { // [!code highlight]
+          description: "Add a product to the cart", // [!code highlight]
+          parameters: z.object({ productId: z.string(), quantity: z.number().default(1) }), // [!code highlight]
+        }, // [!code highlight]
+      }, // [!code highlight]
       components: {
         ProductCard: {
           component: ProductCard,
-          props: z.object({ productId: z.string(), name: z.string() }),
-          events: { onAddToCart: {} },
+          props: z.object({ productId: z.string(), name: z.string(), inCart: z.number() }),
+          bind: {
+            inCart: (state, { productId }) =>
+              state.cart.items.find((item) => item.productId === productId)?.quantity ?? 0,
+          },
+          events: { onAddToCart: {} }, // [!code highlight]
         },
       },
     });
@@ -215,22 +225,29 @@ The agent does not see the state either. To let it answer "what is in my cart?",
       return null;
     }
     ```
+
+    Render `<CartActions cart={cart} />` next to `<CartState cart={cart} />`, with the same cart.
   </Tab>
   <Tab value="Angular">
     ```ts title="src/app/shop-ui.ts"
     export const shopUI = createGenerativeUI({
       id: "acme/shop@1",
-      functions: {
-        addToCart: {
-          description: "Add a product to the cart",
-          parameters: z.object({ productId: z.string(), quantity: z.number().default(1) }),
-        },
-      },
+      state: { cart: cartSchema },
+      functions: { // [!code highlight]
+        addToCart: { // [!code highlight]
+          description: "Add a product to the cart", // [!code highlight]
+          parameters: z.object({ productId: z.string(), quantity: z.number().default(1) }), // [!code highlight]
+        }, // [!code highlight]
+      }, // [!code highlight]
       components: {
         ProductCard: {
           component: ProductCard,
-          props: z.object({ productId: z.string(), name: z.string() }),
-          events: { onAddToCart: {} },
+          props: z.object({ productId: z.string(), name: z.string(), inCart: z.number() }),
+          bind: {
+            inCart: (state, { productId }) =>
+              state.cart.items.find((item) => item.productId === productId)?.quantity ?? 0,
+          },
+          events: { onAddToCart: {} }, // [!code highlight]
         },
       },
     });
@@ -261,17 +278,22 @@ The agent does not see the state either. To let it answer "what is in my cart?",
     ```tsx title="src/shopUI.tsx"
     export const shopUI = createGenerativeUI({
       id: "acme/shop@1",
-      functions: {
-        addToCart: {
-          description: "Add a product to the cart",
-          parameters: z.object({ productId: z.string(), quantity: z.number().default(1) }),
-        },
-      },
+      state: { cart: cartSchema },
+      functions: { // [!code highlight]
+        addToCart: { // [!code highlight]
+          description: "Add a product to the cart", // [!code highlight]
+          parameters: z.object({ productId: z.string(), quantity: z.number().default(1) }), // [!code highlight]
+        }, // [!code highlight]
+      }, // [!code highlight]
       components: {
         ProductCard: {
           component: ProductCard,
-          props: z.object({ productId: z.string(), name: z.string() }),
-          events: { onAddToCart: {} },
+          props: z.object({ productId: z.string(), name: z.string(), inCart: z.number() }),
+          bind: {
+            inCart: (state, { productId }) =>
+              state.cart.items.find((item) => item.productId === productId)?.quantity ?? 0,
+          },
+          events: { onAddToCart: {} }, // [!code highlight]
         },
       },
     });
@@ -293,17 +315,22 @@ The agent does not see the state either. To let it answer "what is in my cart?",
     ```ts title="src/shop-ui.ts"
     export const shopUI = createGenerativeUI({
       id: "acme/shop@1",
-      functions: {
-        addToCart: {
-          description: "Add a product to the cart",
-          parameters: z.object({ productId: z.string(), quantity: z.number().default(1) }),
-        },
-      },
+      state: { cart: cartSchema },
+      functions: { // [!code highlight]
+        addToCart: { // [!code highlight]
+          description: "Add a product to the cart", // [!code highlight]
+          parameters: z.object({ productId: z.string(), quantity: z.number().default(1) }), // [!code highlight]
+        }, // [!code highlight]
+      }, // [!code highlight]
       components: {
         ProductCard: {
           component: ProductCard,
-          props: z.object({ productId: z.string(), name: z.string() }),
-          events: { onAddToCart: {} },
+          props: z.object({ productId: z.string(), name: z.string(), inCart: z.number() }),
+          bind: {
+            inCart: (state, { productId }) =>
+              state.cart.items.find((item) => item.productId === productId)?.quantity ?? 0,
+          },
+          events: { onAddToCart: {} }, // [!code highlight]
         },
       },
     });
@@ -327,19 +354,26 @@ The agent does not see the state either. To let it answer "what is in my cart?",
   </Tab>
 </Tabs>
 
-In the component, the event is a typed prop, or a typed function input in Angular. It gives back a result, so you can show progress and the errors of the function it calls:
+In the component, the event is a typed prop, or a typed function input in Angular. It gives back a result, so you can show progress and the errors of the function it calls. The component also shows the bound `inCart`:
 
 <Tabs groupId="frontend_framework" items={["React", "Angular", "React Native", "Vue"]} persist>
   <Tab value="React">
-    ```tsx
-    import { useState } from "react";
-    import type { GenerativeUIComponentProps } from "@copilotkit/react-core/v2/generative-ui";
+    Put the component in `app/catalog.tsx`, above `cartSchema` and `shopUI`. These are the imports of the whole file:
 
-    function ProductCard({ productId, name, onAddToCart }: GenerativeUIComponentProps<typeof shopUI, "ProductCard">) {
+    ```tsx title="app/catalog.tsx"
+    import { useState } from "react";
+    import { z } from "zod";
+    import {
+      createGenerativeUI,
+      type GenerativeUIComponentProps,
+    } from "@copilotkit/react-core/v2/generative-ui";
+
+    function ProductCard({ productId, name, inCart, onAddToCart }: GenerativeUIComponentProps<typeof shopUI, "ProductCard">) {
       const [error, setError] = useState<string>();
       return (
         <article>
           <h4>{name}</h4>
+          <p>In cart: {inCart}</p>
           <button
             onClick={async () => {
               const result = await onAddToCart?.({ productId });
@@ -367,6 +401,7 @@ In the component, the event is a typed prop, or a typed function input in Angula
       template: `
         <article>
           <h4>{{ name() }}</h4>
+          <p>In cart: {{ inCart() }}</p>
           @if (onAddToCart(); as addToCart) {
             <button (click)="add(addToCart)">Add to cart</button>
           }
@@ -379,6 +414,7 @@ In the component, the event is a typed prop, or a typed function input in Angula
     export class ProductCard {
       readonly productId = input.required<string>();
       readonly name = input.required<string>();
+      readonly inCart = input.required<number>();
       readonly onAddToCart = input<GenerativeUIEventHandler<typeof shopUI, "onAddToCart">>();
       protected readonly error = signal<string | undefined>(undefined);
 
@@ -395,11 +431,12 @@ In the component, the event is a typed prop, or a typed function input in Angula
     import { Pressable, Text, View } from "react-native";
     import type { GenerativeUIComponentProps } from "@copilotkit/react-native/generative-ui";
 
-    function ProductCard({ productId, name, onAddToCart }: GenerativeUIComponentProps<typeof shopUI, "ProductCard">) {
+    function ProductCard({ productId, name, inCart, onAddToCart }: GenerativeUIComponentProps<typeof shopUI, "ProductCard">) {
       const [error, setError] = useState<string>();
       return (
         <View>
           <Text>{name}</Text>
+          <Text>In cart: {inCart}</Text>
           <Pressable
             accessibilityRole="button"
             onPress={async () => {
@@ -426,6 +463,7 @@ In the component, the event is a typed prop, or a typed function input in Angula
     const props = defineProps<{
       productId: string;
       name: string;
+      inCart: number;
       onAddToCart?: (args: { productId: string }) => Promise<GenerativeUIInvokeResult>;
     }>();
     const error = ref<string>();
@@ -439,6 +477,7 @@ In the component, the event is a typed prop, or a typed function input in Angula
     <template>
       <article>
         <h4>{{ name }}</h4>
+        <p>In cart: {{ inCart }}</p>
         <button v-if="onAddToCart" @click="add">Add to cart</button>
         <p v-if="error" role="alert">{{ error }}</p>
       </article>
@@ -455,18 +494,37 @@ Only your UI can call a function. In this version, the agent cannot call it. To 
 
 ## Send a click to the agent
 
-Some clicks need the agent. For example, "Show me the Team plan" needs a new answer. An event that matches no function does that. Give it `parameters`:
+Some clicks need the agent. For example, "Show me the Team plan" needs a new answer. An event that matches no function does that. Give it `parameters`. For example, a `PlanCard` in the `components` of `shopUI`:
 
 ```ts
-events: {
-  onChoose: {
-    description: "The user picked a plan",
-    parameters: z.object({ plan: z.string() }),
+PlanCard: {
+  component: PlanCard,
+  props: z.object({ plan: z.string() }),
+  events: {
+    onChoose: {
+      description: "The user picked a plan",
+      parameters: z.object({ plan: z.string() }),
+    },
   },
 },
 ```
 
-When the user clicks, the click becomes a visible user message, and the agent answers it. The agent can also choose the text of that message (its `userMessage`), for example "Show me the Team plan".
+Such an event works only after the agent binds it in its operation, with the text of the user message:
+
+```json
+"onChoose": { "event": { "name": "choose", "userMessage": "Show me the Team plan" } }
+```
+
+Until the agent binds it, the prop is `undefined` and a click does nothing. So render the button only while the prop is set:
+
+```tsx
+function PlanCard({ plan, onChoose }: GenerativeUIComponentProps<typeof shopUI, "PlanCard">) {
+  if (!onChoose) return <p>{plan}</p>;
+  return <button onClick={() => onChoose({ plan })}>Choose {plan}</button>;
+}
+```
+
+When the user clicks, the click becomes a visible user message, and the agent answers it.
 
 The result of such an event says whether the click was sent, not whether the agent's run worked. It is `ok: false` when it was not sent, for example with the code `agent_busy` while the agent is already running. Otherwise it is `ok: true` once the run that the click started has ended, also when that run failed: a failed run does not throw, and its error goes to the `onError` subscribers of the CopilotKit core, such as the `onError` of `CopilotKitProvider`. Its user message stays in the chat. To show that error next to your chat, subscribe to the core with `copilotkit.subscribe({ onError })` and match `context.agentId`, as the `runTurn` helper of the [React Native guide](/react-native#render-surfaces-in-your-message-list) does.
 
@@ -562,6 +620,8 @@ CheckoutForm: {
 
 When the agent binds `email` to a value of the surface, what the user types is written there. From then on, that value belongs to the user: a later agent update cannot write over it. The agent still sees the value on its next run.
 
-The data model keeps a copy of the value, made as `structuredClone` makes one, so a `Date`, a `Map`, a `Set`, `NaN` and `Infinity` stay as they are, and a class instance becomes a plain object. The agent reads the value from the JSON of the next request, so it sees what `JSON.stringify` makes of it: `NaN` and `Infinity` become `null`, a valid `Date` its ISO string (an invalid one `null`), and a `Map` or a `Set` `{}`. A value that JSON cannot hold (a bigint, or a value with a cycle) is still written, but the agent is not told it, and a warning is logged with `console.warn`. A value that `structuredClone` refuses (a function, a symbol, a `WeakMap`, a `Promise`) writes nothing, and the error goes to the generative UI `onError` (`errorBoundary.onError` in React and React Native) as a props failure. Setting `null` or `undefined` removes the value: the path still belongs to the user, so later agent writes to it are still ignored, and the agent sees it as `null`.
+The data model keeps a copy of the value, made as `structuredClone` makes one, so a `Date`, a `Map`, a `Set`, `NaN` and `Infinity` stay as they are, and a class instance becomes a plain object. The agent reads the value from the JSON of the next request, so it sees what `JSON.stringify` makes of it: `NaN` and `Infinity` become `null`, a valid `Date` its ISO string (an invalid one `null`), and a `Map` or a `Set` `{}`.
+
+A value that JSON cannot hold (a bigint, or a value with a cycle) is still written, but the agent is not told it, and a warning is logged with `console.warn`. A value that `structuredClone` refuses (a function, a symbol, a `WeakMap`, a `Promise`) writes nothing, and the error goes to the generative UI `onError` (`errorBoundary.onError` in React and React Native) as a props failure. Setting `null` or `undefined` removes the value: the path still belongs to the user, so later agent writes to it are still ignored, and the agent sees it as `null`.
 
 Now the card shows live cart data, its button runs your code, and the form keeps the user's input.

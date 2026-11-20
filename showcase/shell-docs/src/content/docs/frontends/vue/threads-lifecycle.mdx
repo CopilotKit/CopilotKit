@@ -29,11 +29,12 @@ When you do not supply one, CopilotKit mints a `threadId` on the client during c
 
 1. An explicit `threadId` prop on `<CopilotChat>` or `<CopilotChatConfigurationProvider>`; this is authoritative and drives replay.
 2. An active-thread override from `setActiveThreadId(...)`, a picked drawer row, or `startNewThread()`.
-3. A `threadId` passed with `:has-explicit-thread-id="false"`, which the configuration can override.
+3. A `threadId` on `<CopilotChatConfigurationProvider>` with `:has-explicit-thread-id="false"`, which an active-thread override can replace.
 4. A `threadId` inherited from a parent configuration provider.
 5. Otherwise, a freshly minted UUID.
 
 ```vue title="Explicit threadId (recommended when you own persistence)"
+<!-- Use the agent id registered in your runtime, for example "default". -->
 <CopilotChat agent-id="my-agent" :thread-id="myThreadId" />
 ```
 
@@ -63,12 +64,16 @@ For a fresh non-explicit thread, such as one created by `startNewThread()`, ther
 
 Read the current conversation from `agent.value.messages`; replace or append with `setMessages(...)` and `addMessage(...)`.
 
-## Scope Rich Threads to the signed-in user
+<span id="scope-rich-threads-to-the-signed-in-user" />
+
+## Scope threads to the signed-in user
 
 Your application owns end-user authentication. For an Intelligence-enabled runtime, implement `identifyUser(request)` with the server-verified session or token and return a stable user id and name:
 
 ```ts title="server.ts"
 import { CopilotKitIntelligence, CopilotRuntime } from "@copilotkit/runtime/v2";
+
+// verifyAppSession is your own auth check.
 
 const runtime = new CopilotRuntime({
   agents: { default: agent },
@@ -113,6 +118,33 @@ const config = useCopilotChatConfiguration();
 </template>
 ```
 
+Put `ThreadControls` and `<CopilotChat>` inside one `<CopilotChatConfigurationProvider>`. Outside a provider, `useCopilotChatConfiguration()` returns `null` and the buttons do nothing:
+
+```vue title="src/App.vue"
+<script setup lang="ts">
+import {
+  CopilotChat,
+  CopilotChatConfigurationProvider,
+  CopilotKitProvider,
+} from "@copilotkit/vue/v2";
+import ThreadControls from "./components/ThreadControls.vue";
+
+// Replace with a thread id your app saved earlier.
+const savedThreadId = "my-saved-thread-id";
+</script>
+
+<template>
+  <CopilotKitProvider runtime-url="http://localhost:8200/api/copilotkit">
+    <CopilotChatConfigurationProvider>
+      <ThreadControls :existing-id="savedThreadId" />
+      <div style="height: 90vh">
+        <CopilotChat />
+      </div>
+    </CopilotChatConfigurationProvider>
+  </CopilotKitProvider>
+</template>
+```
+
 - `setActiveThreadId(threadId, { explicit })`: `explicit: true`, the default, treats it as a known thread and replays history. `explicit: false` shows the welcome screen.
 - `startNewThread()`: resets to a freshly minted, non-explicit id. Custom sidebars must call this configuration method to mint and switch the active thread. To reproduce the built-in drawer's behavior, also call `useThreads().startNewThread()` to clear stale thread-store error state.
 
@@ -129,6 +161,7 @@ A common ask is to intercept the first message, create a row through your own ba
 **Recommended: mint up front and drive the id.** Create the thread before rendering the chat, or from the New chat action, then pass it through the configuration:
 
 ```ts
+// myApi is your own backend client.
 async function startConversation() {
   const { id } = await myApi.createThread();
   config.value?.setActiveThreadId(id, { explicit: true });

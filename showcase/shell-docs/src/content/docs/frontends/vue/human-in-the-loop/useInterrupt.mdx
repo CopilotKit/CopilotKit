@@ -26,7 +26,7 @@ Some agent frameworks cannot pause a run mid-tool the way LangGraph's `interrupt
 
 <WhenFrameworkHas flag="interrupt_pattern" absent>
 
-> **Use `useHumanInTheLoop` on this framework.** `useInterrupt` needs an agent that emits an AG-UI interrupt (`RUN_FINISHED` with `outcome.type === "interrupt"`) or an `on_interrupt` custom event, and a working resume path. On the Built-in Agent, interrupts are temporarily unavailable. [`useHumanInTheLoop`](/vue/human-in-the-loop) pauses on a tool call instead. It works on every framework that supports frontend tools.
+`useInterrupt` needs an agent that emits an AG-UI interrupt (`RUN_FINISHED` with `outcome.type === "interrupt"`) or an `on_interrupt` custom event, and a working resume path. On the Built-in Agent, a tool defined with `interrupt: true` pauses the run with a standard interrupt. [Try it](#try-it-on-the-built-in-agent) at the end of this page. On other frameworks without an interrupt primitive, use [`useHumanInTheLoop`](/vue/human-in-the-loop). It pauses on a tool call and works on every framework that supports frontend tools.
 
 </WhenFrameworkHas>
 
@@ -39,7 +39,7 @@ Reach for `useInterrupt` when the pause is a **graph-enforced checkpoint** where
 - The agent explicitly reaches an approval node in a longer workflow
 - You want the server-side contract to be `interrupt(...)` and resume with a payload
 
-For LLM-initiated pauses where the model decides on the fly to ask the user, prefer [`useHumanInTheLoop`](../human-in-the-loop).
+For LLM-initiated pauses where the model decides on the fly to ask the user, prefer [`useHumanInTheLoop`](/vue/human-in-the-loop).
 
 <WhenFrameworkHas flag="interrupt_pattern" equals="native">
 
@@ -304,7 +304,7 @@ import MeetingChat from "./components/MeetingChat.vue";
 </script>
 
 <template>
-  <CopilotKitProvider runtime-url="/api/copilotkit">
+  <CopilotKitProvider runtime-url="http://localhost:8200/api/copilotkit">
     <MeetingChat />
   </CopilotKitProvider>
 </template>
@@ -325,12 +325,65 @@ import MeetingTool from "./components/MeetingTool.vue";
 </script>
 
 <template>
-  <CopilotKitProvider runtime-url="/api/copilotkit">
+  <CopilotKitProvider runtime-url="http://localhost:8200/api/copilotkit">
     <MeetingTool />
   </CopilotKitProvider>
 </template>
 ```
 
 Ask the agent to book a call. The picker appears in the chat. Click **Tomorrow at 09:00**, and the agent continues with your choice.
+
+</WhenFrameworkHas>
+
+<WhenFrameworkHas flag="interrupt_pattern" absent>
+
+## Try it on the Built-in Agent
+
+1. In the [Vue quickstart](/vue) `server.ts`, define an interrupt tool and pass it in `tools`. Install Zod first with `npm install zod`:
+
+   ```ts title="server.ts"
+   import { BuiltInAgent, CopilotRuntime, defineTool } from "@copilotkit/runtime/v2";
+   import { z } from "zod";
+
+   const approvePayment = defineTool({
+     name: "approve_payment",
+     description: "Ask a human to approve a payment",
+     parameters: z.object({ amount: z.number() }),
+     interrupt: true,
+     interruptMessage: "Approve the payment?",
+   });
+
+   const runtime = new CopilotRuntime({
+     agents: {
+       default: new BuiltInAgent({
+         model: "openai:gpt-6-luna",
+         prompt: "You are a helpful assistant for a Vue app.",
+         tools: [approvePayment],
+       }),
+     },
+   });
+   ```
+
+   An interrupt tool has no `execute`. The value you pass to `resolve()` becomes the tool result.
+
+2. Mount the `ApprovalPanel` from the [Approve / Cancel example](#approve--cancel-example) next to the chat:
+
+   ```vue title="src/App.vue"
+   <script setup lang="ts">
+   import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue/v2";
+   import ApprovalPanel from "./components/ApprovalPanel.vue";
+   </script>
+
+   <template>
+     <CopilotKitProvider runtime-url="http://localhost:8200/api/copilotkit">
+       <ApprovalPanel />
+       <div style="height: 90vh">
+         <CopilotChat />
+       </div>
+     </CopilotKitProvider>
+   </template>
+   ```
+
+3. Restart `server.ts` and ask "Pay the invoice". The panel shows "Approve the payment?". Click **Approve**, and the run resumes with `{ approved: true }` as the tool result. Click **Cancel** instead, and the agent gets a cancelled result.
 
 </WhenFrameworkHas>

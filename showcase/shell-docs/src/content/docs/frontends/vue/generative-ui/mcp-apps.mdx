@@ -19,11 +19,20 @@ Key benefits:
 
 Add your servers to `mcpApps.servers` on the runtime. The runtime adds the MCP Apps middleware to every registered agent. When an agent calls a tool that has a UI resource, the middleware gets the resource and sends an `activity` event. The Vue `MCPAppsActivityRenderer` shows it in the chat as a sandboxed iframe.
 
+In the [Vue quickstart](/vue) `server.ts`, add `mcpApps` next to the existing agents. Replace the `url` with your MCP server's endpoint:
+
+<WhenAgentBackend selected={false}>
+
 ```ts title="server.ts"
-import { CopilotRuntime } from "@copilotkit/runtime/v2";
+import { BuiltInAgent, CopilotRuntime } from "@copilotkit/runtime/v2";
 
 const runtime = new CopilotRuntime({
-  agents: { default: agent },
+  agents: {
+    default: new BuiltInAgent({
+      model: "openai:gpt-6-luna",
+      prompt: "You are a helpful assistant for a Vue app.",
+    }),
+  },
   mcpApps: {
     servers: [
       {
@@ -36,6 +45,29 @@ const runtime = new CopilotRuntime({
 });
 ```
 
+</WhenAgentBackend>
+
+<WhenAgentBackend selected>
+
+```ts title="server.ts"
+const runtime = new CopilotRuntime({
+  agents: {
+    // ...the `default` agent from the quickstart, unchanged
+  },
+  mcpApps: {
+    servers: [
+      {
+        type: "http",
+        url: "https://mcp.example.com/mcp",
+        serverId: "support-tools",
+      },
+    ],
+  },
+});
+```
+
+</WhenAgentBackend>
+
 <Callout type="info" title="Always pin a serverId">
   In production, always provide a stable `serverId`. Without it, CopilotKit
   hashes the server URL, and a URL change (for example between environments)
@@ -45,7 +77,7 @@ const runtime = new CopilotRuntime({
 
 ## No frontend renderer needed
 
-Unlike custom activity types, the MCP Apps renderer is already registered by `CopilotKitProvider`. A plain `<CopilotChat />` is enough; no manual renderer wiring is required.
+Unlike custom activity types, the MCP Apps renderer is already registered by `CopilotKitProvider`. A plain `<CopilotChat />` is enough. No manual renderer wiring is required.
 
 ```vue title="src/App.vue"
 <script setup lang="ts">
@@ -53,7 +85,7 @@ import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue/v2";
 </script>
 
 <template>
-  <CopilotKitProvider runtime-url="/api/copilotkit">
+  <CopilotKitProvider runtime-url="http://localhost:8200/api/copilotkit">
     <main style="height: 100dvh"><CopilotChat /></main>
   </CopilotKitProvider>
 </template>
@@ -92,7 +124,7 @@ import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue/v2";
 
 <template>
   <CopilotKitProvider
-    runtime-url="/api/copilotkit"
+    runtime-url="http://localhost:8200/api/copilotkit"
     :mcp-apps="{ allowSameOriginFallback: true }"
   >
     <CopilotChat />
