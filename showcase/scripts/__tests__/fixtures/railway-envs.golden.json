@@ -216,6 +216,15 @@
       "repoName": "showcase-claude-sdk-typescript"
     }
   },
+  "showcase-cloudflare-agents": {
+    "staging": {
+      "instanceId": "9cf643f4-0eab-4e7e-882f-1c4b8d6627ec",
+      "domain": "showcase-cloudflare-agents-staging.up.railway.app",
+      "probe": true,
+      "driver": "agent",
+      "repoName": "showcase-cloudflare-agents"
+    }
+  },
   "showcase-crewai-conversational-flows": {
     "prod": {
       "instanceId": "209031fe-2e02-4fbb-8f12-1276457d1916",

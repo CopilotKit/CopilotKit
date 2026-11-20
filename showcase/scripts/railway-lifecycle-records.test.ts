@@ -22,10 +22,18 @@ const headers = {
 };
 const predecessorPolicySha256 =
   "4ded223bb02ea0cdf7ffed4fb8f78b70fbb50c9f74ae82d34addfc94f712c751";
-// Superseded intermediate policy (docs-preview only); no longer a valid publisher.
+// Superseded intermediate policies; neither is a valid publisher any more.
+// docs-preview only:
 const docsPreviewOnlyPolicySha256 =
   "d3a7fe0c6eeda2fce0dc73779d2e19fdfbf9174abeaa07468b3aca21bd097410";
-const bridgedPermanentNames = ["docs-preview", "showcase-openai-agents-python"];
+// docs-preview and showcase-openai-agents-python:
+const openaiAgentsPolicySha256 =
+  "5c3ba2cd4f895fb8051a7e33eb55e2cda04bd3ac0b56acc2c205a442815e1b0b";
+const bridgedPermanentNames = [
+  "docs-preview",
+  "showcase-openai-agents-python",
+  "showcase-cloudflare-agents",
+];
 const now = new Date("2026-11-05T12:20:00.000Z");
 const recoveryRun: RunRecord = {
   runId: "policy-recovery-test",
@@ -273,11 +281,14 @@ it.each([
   },
 );
 
-it("refuses the superseded docs-preview-only publisher", async () => {
+it.each([
+  ["docs-preview-only", docsPreviewOnlyPolicySha256],
+  ["openai-agents-python", openaiAgentsPolicySha256],
+])("refuses the superseded %s publisher", async (_label, policySha256) => {
   const fetcher = vi.fn(
     async () =>
       new Response(bytes, {
-        headers: { ...headers, "x-policy-sha256": docsPreviewOnlyPolicySha256 },
+        headers: { ...headers, "x-policy-sha256": policySha256 },
       }),
   );
   vi.stubGlobal("fetch", fetcher);

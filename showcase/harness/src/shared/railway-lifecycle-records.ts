@@ -7,15 +7,16 @@ import type {
 } from "./railway-lifecycle.js";
 
 // Reviewed bridge while the staging runner still publishes the policy from
-// before 21552a22b2: the current policy adds only docs-preview and
-// showcase-openai-agents-python to permanent protection. Keep validating with
-// the stricter current policy; acknowledge the publisher's policy. This exact
-// pair supersedes the earlier docs-preview-only pair (validator d3a7…), which no
-// committed policy produces any more. The runner is parked, so remove it with
-// the registry reader code. Neither hash may expand to an unreviewed future policy.
+// before 21552a22b2: the current policy adds only docs-preview,
+// showcase-openai-agents-python and showcase-cloudflare-agents to permanent
+// protection. Keep validating with the stricter current policy; acknowledge the
+// publisher's policy. This exact pair supersedes the earlier pairs (validators
+// d3a7… and 5c3b…), which no committed policy produces any more. The runner is
+// parked, so remove it with the registry reader code. Neither hash may expand
+// to an unreviewed future policy.
 const permanentServicesPolicyTransition = {
   publisher: "4ded223bb02ea0cdf7ffed4fb8f78b70fbb50c9f74ae82d34addfc94f712c751",
-  validator: "5c3ba2cd4f895fb8051a7e33eb55e2cda04bd3ac0b56acc2c205a442815e1b0b",
+  validator: "6480978aceb99b57e1d03763615960e48106dec5564dc87a520a8b643679e06a",
 };
 
 /**
