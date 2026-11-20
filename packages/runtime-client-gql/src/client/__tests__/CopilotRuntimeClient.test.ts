@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import { CopilotRuntimeClient } from "../CopilotRuntimeClient";
-import { CopilotKitLowLevelError } from "@copilotkit/shared";
+import {
+  CopilotKitLowLevelError,
+  ResolvedCopilotKitError,
+} from "@copilotkit/shared";
 
 type Settled<T> =
   | { status: "fulfilled"; value: T }
@@ -115,6 +118,68 @@ describe("CopilotRuntimeClient abort suppression", () => {
     expect(await readStream(stream)).toEqual({
       status: "error",
       error: streamError,
+    });
+  });
+});
+
+describe("CopilotRuntimeClient HTTP error statuses", () => {
+  const makeClient = () =>
+    new CopilotRuntimeClient({ url: "https://example.com/runtime" });
+
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const respondWith = (status: number, body: string) => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(body, {
+        status,
+        headers: { "content-type": "text/html" },
+      }),
+    );
+  };
+
+  it("maps a 5xx gateway response to a structured ResolvedCopilotKitError", async () => {
+    respondWith(502, "<html>Bad Gateway</html>");
+
+    const result = await settle(
+      makeClient()
+        .generateCopilotResponse({
+          data: {} as any,
+          properties: {} as any,
+        })
+        .toPromise(),
+    );
+
+    expect(result.status).toBe("fulfilled");
+    expect(result.value).toMatchObject({
+      error: {
+        name: "CombinedError",
+        networkError: expect.any(ResolvedCopilotKitError),
+      },
+    });
+  });
+
+  it("keeps mapping a 4xx response to a discovery error", async () => {
+    respondWith(400, "<html>Bad Request</html>");
+
+    const result = await settle(
+      makeClient()
+        .generateCopilotResponse({
+          data: {} as any,
+          properties: {} as any,
+        })
+        .toPromise(),
+    );
+
+    expect(result.status).toBe("fulfilled");
+    expect(result.value).toMatchObject({
+      error: {
+        name: "CombinedError",
+        networkError: expect.objectContaining({
+          name: "CopilotApiDiscoveryError",
+        }),
+      },
     });
   });
 });
