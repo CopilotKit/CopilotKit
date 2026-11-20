@@ -8,6 +8,7 @@
 FROM node:22.23.4-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d AS builder
 WORKDIR /app
 COPY package.json package-lock.json ./
+COPY src/app/demos/a2ui-fixed-schema/a2ui/package.json ./src/app/demos/a2ui-fixed-schema/a2ui/package.json
 RUN npm ci --legacy-peer-deps
 COPY . .
 RUN npx next build
