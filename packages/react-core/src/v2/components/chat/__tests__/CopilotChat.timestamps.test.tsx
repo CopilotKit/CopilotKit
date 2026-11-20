@@ -1,0 +1,770 @@
+import React from "react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { AgentSubscriber, RunAgentInput } from "@ag-ui/client";
+import { EventType } from "@ag-ui/client";
+import { CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";
+import { CopilotChat } from "../CopilotChat";
+import type { CopilotPopupProps } from "../CopilotPopup";
+import type { CopilotSidebarProps } from "../CopilotSidebar";
+import { useAgent } from "../../../hooks/use-agent";
+import { useCopilotKit } from "../../../context";
+import { useCopilotChatConfiguration } from "../../../providers/CopilotChatConfigurationProvider";
+import { MockStepwiseAgent } from "../../../__tests__/utils/test-helpers";
+import { readMessageTimestamp } from "../../../lib/message-timestamp";
+
+vi.mock("../../../hooks/use-agent", () => ({
+  useAgent: vi.fn(),
+}));
+
+vi.mock("../../../context", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../../context")>();
+  return {
+    ...actual,
+    useCopilotKit: vi.fn(),
+    useDefaultAgentId: vi.fn(() => undefined),
+    useLicenseContext: vi.fn(() => ({
+      checkFeature: () => true,
+    })),
+  };
+});
+
+vi.mock("../../../hooks/use-suggestions", () => ({
+  useSuggestions: vi.fn(() => ({ suggestions: [] })),
+}));
+
+vi.mock("../../../hooks/use-attachments", () => ({
+  useAttachments: vi.fn(() => ({
+    attachments: [],
+    enabled: false,
+    dragOver: false,
+    fileInputRef: { current: null },
+    containerRef: { current: null },
+    handleFileUpload: vi.fn(),
+    handleDragOver: vi.fn(),
+    handleDragLeave: vi.fn(),
+    handleDrop: vi.fn(),
+    removeAttachment: vi.fn(),
+    consumeAttachments: vi.fn(() => []),
+  })),
+}));
+
+const mockUseAgent = useAgent as ReturnType<typeof vi.fn>;
+const mockUseCopilotKit = useCopilotKit as ReturnType<typeof vi.fn>;
+
+function SubmitProbe(props: {
+  onSubmitMessage?: (value: string) => void;
+  messages?: ReadonlyArray<{
+    id?: string;
+    metadata?: { timestamp?: number };
+  }>;
+}) {
+  const config = useCopilotChatConfiguration();
+  const assistant = props.messages?.find(
+    (message) => message.id === "assistant-1",
+  );
+  return (
+    <div>
+      <div data-testid="show-timestamps">
+        {String(config?.showTimestamps ?? false)}
+      </div>
+      <div data-testid="formatted-time">
+        {config?.formatTimestamp?.(new Date(Date.UTC(2026, 0, 2, 3, 4, 5))) ??
+          ""}
+      </div>
+      <div data-testid="assistant-time">
+        {assistant?.metadata?.timestamp ?? ""}
+      </div>
+      <button type="button" onClick={() => props.onSubmitMessage?.("Hello")}>
+        send
+      </button>
+    </div>
+  );
+}
+
+describe("CopilotChat timestamps", () => {
+  let mockAgent: MockStepwiseAgent;
+  let subscribers: AgentSubscriber[];
+
+  beforeEach(() => {
+    mockAgent = new MockStepwiseAgent();
+    mockAgent.agentId = "default";
+    subscribers = [];
+    const subscribe = mockAgent.subscribe.bind(mockAgent);
+    mockAgent.subscribe = (subscriber) => {
+      subscribers.push(subscriber);
+      return subscribe(subscriber);
+    };
+
+    mockUseAgent.mockReturnValue({ agent: mockAgent, isReady: true });
+    mockUseCopilotKit.mockReturnValue({
+      copilotkit: {
+        getAgent: () => mockAgent,
+        runtimeUrl: "http://localhost:3000/api/copilot",
+        runtimeConnectionStatus:
+          CopilotKitCoreRuntimeConnectionStatus.Connected,
+        runtimeTransport: "rest",
+        headers: {},
+        agents: { [String(mockAgent.agentId)]: mockAgent },
+        connectAgent: vi.fn().mockResolvedValue(undefined),
+        subscribe: vi.fn(() => ({ unsubscribe: vi.fn() })),
+        runAgent: vi.fn().mockResolvedValue(undefined),
+        audioFileTranscriptionEnabled: false,
+      },
+      executingToolCallIds: new Set(),
+    });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  function timestampSubscriber() {
+    return subscribers.find((subscriber) => subscriber.onTextMessageStartEvent);
+  }
+
+  it("passes showTimestamps and formatTimestamp into chat configuration", () => {
+    render(
+      <CopilotChat
+        showTimestamps
+        formatTimestamp={() => "2:05 PM"}
+        chatView={SubmitProbe}
+      />,
+    );
+
+    expect(screen.getByTestId("show-timestamps").textContent).toBe("true");
+    expect(screen.getByTestId("formatted-time").textContent).toBe("2:05 PM");
+  });
+
+  it("leaves timestamps off when the prop is omitted", () => {
+    render(<CopilotChat chatView={SubmitProbe} />);
+    expect(screen.getByTestId("show-timestamps").textContent).toBe("false");
+  });
+
+  it("records a timestamp when the user sends a message", async () => {
+    render(<CopilotChat showTimestamps chatView={SubmitProbe} />);
+    const before = Date.now();
+
+    fireEvent.click(screen.getByRole("button", { name: "send" }));
+
+    await waitFor(() => {
+      expect(mockAgent.messages).toHaveLength(1);
+    });
+    const stamped = readMessageTimestamp(mockAgent.messages[0]);
+    expect(stamped).toBeGreaterThanOrEqual(before);
+    expect(stamped).toBeLessThanOrEqual(Date.now());
+    expect(mockAgent.messages[0]).toMatchObject({
+      role: "user",
+      content: "Hello",
+    });
+  });
+
+  it("shows an assistant time without mutating a frozen message", async () => {
+    render(<CopilotChat showTimestamps chatView={SubmitProbe} />);
+    const subscriber = timestampSubscriber();
+    expect(subscriber).toBeDefined();
+
+    const message = Object.freeze({
+      id: "assistant-1",
+      role: "assistant" as const,
+      content: "Hi",
+    });
+    mockAgent.messages = [message];
+    const epoch = Date.UTC(2026, 0, 2, 3, 4, 5);
+
+    act(() => {
+      subscriber?.onTextMessageStartEvent?.({
+        event: {
+          type: EventType.TEXT_MESSAGE_START,
+          messageId: "assistant-1",
+          timestamp: epoch,
+        },
+        messages: [],
+        state: {},
+        agent: mockAgent,
+        input: {} as RunAgentInput,
+      });
+      subscriber?.onMessagesChanged?.({
+        messages: mockAgent.messages,
+        state: {},
+        agent: mockAgent,
+      });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("assistant-time").textContent).toBe(
+        String(epoch),
+      );
+    });
+    expect(message).not.toHaveProperty("metadata");
+  });
+
+  it("does not throw when timestamps are off and messages are frozen", () => {
+    render(<CopilotChat chatView={SubmitProbe} />);
+    const subscriber = timestampSubscriber();
+    const frozen = Object.freeze({
+      id: "assistant-1",
+      role: "assistant" as const,
+      content: "Hi",
+    });
+    mockAgent.messages = [frozen];
+
+    expect(() => {
+      act(() => {
+        subscriber?.onTextMessageStartEvent?.({
+          event: {
+            type: EventType.TEXT_MESSAGE_START,
+            messageId: "assistant-1",
+            timestamp: Date.UTC(2026, 0, 2, 3, 4, 5),
+          },
+          messages: [],
+          state: {},
+          agent: mockAgent,
+          input: {} as RunAgentInput,
+        });
+        subscriber?.onMessagesChanged?.({
+          messages: [frozen],
+          state: {},
+          agent: mockAgent,
+        });
+      });
+    }).not.toThrow();
+
+    expect(frozen).not.toHaveProperty("metadata");
+    expect(screen.getByTestId("assistant-time").textContent).toBe("");
+  });
+
+  it("keeps a time when the agent is replaced on the same thread", async () => {
+    const view = render(
+      <CopilotChat threadId="thread-1" showTimestamps chatView={SubmitProbe} />,
+    );
+    const subscriber = timestampSubscriber();
+    const message = Object.freeze({
+      id: "assistant-1",
+      role: "assistant" as const,
+      content: "Hi",
+    });
+    const epoch = Date.UTC(2026, 0, 2, 3, 4, 5);
+    mockAgent.messages = [message];
+    act(() => {
+      subscriber?.onTextMessageStartEvent?.({
+        event: {
+          type: EventType.TEXT_MESSAGE_START,
+          messageId: "assistant-1",
+          timestamp: epoch,
+        },
+        messages: [],
+        state: {},
+        agent: mockAgent,
+        input: {} as RunAgentInput,
+      });
+      subscriber?.onMessagesChanged?.({
+        messages: mockAgent.messages,
+        state: {},
+        agent: mockAgent,
+      });
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId("assistant-time").textContent).toBe(
+        String(epoch),
+      );
+    });
+
+    const replacement = new MockStepwiseAgent();
+    replacement.agentId = "default";
+    const kept = Object.freeze({
+      id: "assistant-1",
+      role: "assistant" as const,
+      content: "Hi",
+    });
+    replacement.messages = [kept];
+    const nextSubscribers: AgentSubscriber[] = [];
+    const subscribe = replacement.subscribe.bind(replacement);
+    replacement.subscribe = (subscriber) => {
+      nextSubscribers.push(subscriber);
+      return subscribe(subscriber);
+    };
+    mockUseAgent.mockReturnValue({ agent: replacement, isReady: true });
+    view.rerender(
+      <CopilotChat threadId="thread-1" showTimestamps chatView={SubmitProbe} />,
+    );
+    await act(async () => {});
+
+    const updated = Object.freeze({
+      id: "assistant-1",
+      role: "assistant" as const,
+      content: "Hi!",
+    });
+    replacement.messages = [updated];
+    act(() => {
+      nextSubscribers
+        .find((subscriber) => subscriber.onMessagesChanged)
+        ?.onMessagesChanged?.({
+          messages: replacement.messages,
+          state: {},
+          agent: replacement,
+        });
+    });
+    expect(screen.getByTestId("assistant-time").textContent).toBe(
+      String(epoch),
+    );
+    expect(updated).not.toHaveProperty("metadata");
+
+    view.rerender(
+      <CopilotChat threadId="thread-2" showTimestamps chatView={SubmitProbe} />,
+    );
+    await act(async () => {});
+    expect(screen.getByTestId("assistant-time").textContent).toBe("");
+  });
+
+  it("applies a pending text-start from the replacement agent's initial list", async () => {
+    const view = render(
+      <CopilotChat threadId="thread-1" showTimestamps chatView={SubmitProbe} />,
+    );
+    const subscriber = timestampSubscriber();
+    const epoch = Date.UTC(2026, 0, 2, 3, 4, 5);
+    act(() => {
+      subscriber?.onTextMessageStartEvent?.({
+        event: {
+          type: EventType.TEXT_MESSAGE_START,
+          messageId: "assistant-1",
+          timestamp: epoch,
+        },
+        messages: [],
+        state: {},
+        agent: mockAgent,
+        input: {} as RunAgentInput,
+      });
+    });
+
+    const replacement = new MockStepwiseAgent();
+    replacement.agentId = "default";
+    const initial = Object.freeze({
+      id: "assistant-1",
+      role: "assistant" as const,
+      content: "Hi",
+    });
+    replacement.messages = [initial];
+    mockUseAgent.mockReturnValue({ agent: replacement, isReady: true });
+    view.rerender(
+      <CopilotChat threadId="thread-1" showTimestamps chatView={SubmitProbe} />,
+    );
+    await act(async () => {});
+
+    expect(screen.getByTestId("assistant-time").textContent).toBe(
+      String(epoch),
+    );
+    expect(initial).not.toHaveProperty("metadata");
+  });
+
+  it("applies a text-start that arrived before the agent was replaced", async () => {
+    const view = render(
+      <CopilotChat threadId="thread-1" showTimestamps chatView={SubmitProbe} />,
+    );
+    const subscriber = timestampSubscriber();
+    const epoch = Date.UTC(2026, 0, 2, 3, 4, 5);
+    const existing = Object.freeze({
+      id: "assistant-1",
+      role: "assistant" as const,
+      content: "Hi",
+    });
+    mockAgent.messages = [existing];
+    act(() => {
+      subscriber?.onTextMessageStartEvent?.({
+        event: {
+          type: EventType.TEXT_MESSAGE_START,
+          messageId: "assistant-1",
+          timestamp: epoch,
+        },
+        messages: [existing],
+        state: {},
+        agent: mockAgent,
+        input: {} as RunAgentInput,
+      });
+    });
+
+    const replacement = new MockStepwiseAgent();
+    replacement.agentId = "default";
+    replacement.messages = [];
+    const nextSubscribers: AgentSubscriber[] = [];
+    const subscribe = replacement.subscribe.bind(replacement);
+    replacement.subscribe = (subscriber) => {
+      nextSubscribers.push(subscriber);
+      return subscribe(subscriber);
+    };
+    mockUseAgent.mockReturnValue({ agent: replacement, isReady: true });
+    view.rerender(
+      <CopilotChat threadId="thread-1" showTimestamps chatView={SubmitProbe} />,
+    );
+    await act(async () => {});
+
+    const restored = Object.freeze({
+      id: "assistant-1",
+      role: "assistant" as const,
+      content: "Hi",
+    });
+    replacement.messages = [restored];
+    act(() => {
+      nextSubscribers
+        .find((subscriber) => subscriber.onMessagesChanged)
+        ?.onMessagesChanged?.({
+          messages: [restored],
+          state: {},
+          agent: replacement,
+        });
+    });
+
+    expect(screen.getByTestId("assistant-time").textContent).toBe(
+      String(epoch),
+    );
+    expect(restored).not.toHaveProperty("metadata");
+  });
+
+  it("does not keep a pending text-start after the thread changes", async () => {
+    const view = render(
+      <CopilotChat threadId="thread-1" showTimestamps chatView={SubmitProbe} />,
+    );
+    const subscriber = timestampSubscriber();
+    const epoch = Date.UTC(2026, 0, 2, 3, 4, 5);
+    act(() => {
+      subscriber?.onTextMessageStartEvent?.({
+        event: {
+          type: EventType.TEXT_MESSAGE_START,
+          messageId: "assistant-1",
+          timestamp: epoch,
+        },
+        messages: [],
+        state: {},
+        agent: mockAgent,
+        input: {} as RunAgentInput,
+      });
+    });
+
+    view.rerender(
+      <CopilotChat threadId="thread-2" showTimestamps chatView={SubmitProbe} />,
+    );
+    await act(async () => {});
+
+    const restored = Object.freeze({
+      id: "assistant-1",
+      role: "assistant" as const,
+      content: "Hi",
+    });
+    mockAgent.messages = [restored];
+    act(() => {
+      subscribers
+        .filter((item) => item.onMessagesChanged)
+        .at(-1)
+        ?.onMessagesChanged?.({
+          messages: [restored],
+          state: {},
+          agent: mockAgent,
+        });
+    });
+    view.rerender(
+      <CopilotChat threadId="thread-2" showTimestamps chatView={SubmitProbe} />,
+    );
+
+    expect(screen.getByTestId("assistant-time").textContent).toBe("");
+    expect(restored).not.toHaveProperty("metadata");
+  });
+
+  it("drops a prior history id after the replacement agent publishes another list", async () => {
+    const view = render(
+      <CopilotChat threadId="thread-1" showTimestamps chatView={SubmitProbe} />,
+    );
+    const subscriber = timestampSubscriber();
+    const epoch = Date.UTC(2026, 0, 2, 3, 4, 5);
+    const previous = Object.freeze({
+      id: "assistant-1",
+      role: "assistant" as const,
+      content: "Hi",
+    });
+    mockAgent.messages = [previous];
+    act(() => {
+      subscriber?.onTextMessageStartEvent?.({
+        event: {
+          type: EventType.TEXT_MESSAGE_START,
+          messageId: "assistant-1",
+          timestamp: epoch,
+        },
+        messages: [],
+        state: {},
+        agent: mockAgent,
+        input: {} as RunAgentInput,
+      });
+      subscriber?.onMessagesChanged?.({
+        messages: [previous],
+        state: {},
+        agent: mockAgent,
+      });
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId("assistant-time").textContent).toBe(
+        String(epoch),
+      );
+    });
+
+    const replacement = new MockStepwiseAgent();
+    replacement.agentId = "default";
+    replacement.messages = [];
+    const nextSubscribers: AgentSubscriber[] = [];
+    const subscribe = replacement.subscribe.bind(replacement);
+    replacement.subscribe = (subscriber) => {
+      nextSubscribers.push(subscriber);
+      return subscribe(subscriber);
+    };
+    mockUseAgent.mockReturnValue({ agent: replacement, isReady: true });
+    view.rerender(
+      <CopilotChat threadId="thread-1" showTimestamps chatView={SubmitProbe} />,
+    );
+    await act(async () => {});
+
+    const other = Object.freeze({
+      id: "assistant-2",
+      role: "assistant" as const,
+      content: "Other",
+    });
+    act(() => {
+      nextSubscribers
+        .find((item) => item.onMessagesChanged)
+        ?.onMessagesChanged?.({
+          messages: [other],
+          state: {},
+          agent: replacement,
+        });
+    });
+    const revived = Object.freeze({
+      id: "assistant-1",
+      role: "assistant" as const,
+      content: "Hi",
+    });
+    replacement.messages = [revived];
+    view.rerender(
+      <CopilotChat threadId="thread-1" showTimestamps chatView={SubmitProbe} />,
+    );
+
+    expect(screen.getByTestId("assistant-time").textContent).toBe("");
+    expect(revived).not.toHaveProperty("metadata");
+  });
+
+  it("keeps a remembered time when the replacement agent's first list omits it", async () => {
+    const view = render(
+      <CopilotChat threadId="thread-1" showTimestamps chatView={SubmitProbe} />,
+    );
+    const subscriber = timestampSubscriber();
+    const epoch = Date.UTC(2026, 0, 2, 3, 4, 5);
+    const message = Object.freeze({
+      id: "assistant-1",
+      role: "assistant" as const,
+      content: "Hi",
+    });
+    mockAgent.messages = [message];
+    act(() => {
+      subscriber?.onTextMessageStartEvent?.({
+        event: {
+          type: EventType.TEXT_MESSAGE_START,
+          messageId: "assistant-1",
+          timestamp: epoch,
+        },
+        messages: [],
+        state: {},
+        agent: mockAgent,
+        input: {} as RunAgentInput,
+      });
+      subscriber?.onMessagesChanged?.({
+        messages: [message],
+        state: {},
+        agent: mockAgent,
+      });
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId("assistant-time").textContent).toBe(
+        String(epoch),
+      );
+    });
+
+    const replacement = new MockStepwiseAgent();
+    replacement.agentId = "default";
+    replacement.messages = [];
+    const nextSubscribers: AgentSubscriber[] = [];
+    const subscribe = replacement.subscribe.bind(replacement);
+    replacement.subscribe = (subscriber) => {
+      nextSubscribers.push(subscriber);
+      return subscribe(subscriber);
+    };
+    mockUseAgent.mockReturnValue({ agent: replacement, isReady: true });
+    view.rerender(
+      <CopilotChat threadId="thread-1" showTimestamps chatView={SubmitProbe} />,
+    );
+    await act(async () => {});
+
+    const restored = Object.freeze({
+      id: "assistant-1",
+      role: "assistant" as const,
+      content: "Hi again",
+    });
+    replacement.messages = [restored];
+    act(() => {
+      nextSubscribers
+        .find((item) => item.onMessagesChanged)
+        ?.onMessagesChanged?.({
+          messages: [restored],
+          state: {},
+          agent: replacement,
+        });
+    });
+    view.rerender(
+      <CopilotChat threadId="thread-1" showTimestamps chatView={SubmitProbe} />,
+    );
+
+    expect(screen.getByTestId("assistant-time").textContent).toBe(
+      String(epoch),
+    );
+    expect(restored).not.toHaveProperty("metadata");
+  });
+
+  it("keeps a recorded time when a snapshot omits the message", async () => {
+    render(<CopilotChat showTimestamps chatView={SubmitProbe} />);
+    const subscriber = timestampSubscriber();
+    const epoch = Date.UTC(2026, 0, 2, 3, 4, 5);
+    const message = Object.freeze({
+      id: "assistant-1",
+      role: "assistant" as const,
+      content: "Hi",
+    });
+    mockAgent.messages = [message];
+    act(() => {
+      subscriber?.onTextMessageStartEvent?.({
+        event: {
+          type: EventType.TEXT_MESSAGE_START,
+          messageId: "assistant-1",
+          timestamp: epoch,
+        },
+        messages: [],
+        state: {},
+        agent: mockAgent,
+        input: {} as RunAgentInput,
+      });
+      subscriber?.onMessagesChanged?.({
+        messages: [message],
+        state: {},
+        agent: mockAgent,
+      });
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId("assistant-time").textContent).toBe(
+        String(epoch),
+      );
+    });
+
+    const restored = Object.freeze({
+      id: "assistant-1",
+      role: "assistant" as const,
+      content: "Hi",
+    });
+    mockAgent.messages = [restored];
+    act(() => {
+      subscriber?.onMessagesChanged?.({
+        messages: [],
+        state: {},
+        agent: mockAgent,
+      });
+      subscriber?.onMessagesChanged?.({
+        messages: [restored],
+        state: {},
+        agent: mockAgent,
+      });
+    });
+
+    expect(screen.getByTestId("assistant-time").textContent).toBe(
+      String(epoch),
+    );
+    expect(restored).not.toHaveProperty("metadata");
+  });
+
+  it("does not copy the previous thread's time onto a reset message", async () => {
+    const epoch = Date.UTC(2026, 0, 2, 3, 4, 5);
+    const stale = Object.freeze({
+      id: "assistant-1",
+      role: "assistant" as const,
+      content: "Hi",
+      metadata: { timestamp: epoch },
+    });
+    mockAgent.messages = [stale];
+    const view = render(
+      <CopilotChat threadId="thread-1" showTimestamps chatView={SubmitProbe} />,
+    );
+    await act(async () => {});
+    expect(screen.getByTestId("assistant-time").textContent).toBe(
+      String(epoch),
+    );
+
+    view.rerender(
+      <CopilotChat threadId="thread-2" showTimestamps chatView={SubmitProbe} />,
+    );
+    await act(async () => {});
+
+    const restored = Object.freeze({
+      id: "assistant-1",
+      role: "assistant" as const,
+      content: "Hi",
+    });
+    mockAgent.messages = [restored];
+    act(() => {
+      subscribers
+        .filter((subscriber) => subscriber.onMessagesChanged)
+        .at(-1)
+        ?.onMessagesChanged?.({
+          messages: [restored],
+          state: {},
+          agent: mockAgent,
+        });
+    });
+    view.rerender(
+      <CopilotChat threadId="thread-2" showTimestamps chatView={SubmitProbe} />,
+    );
+
+    expect(screen.getByTestId("assistant-time").textContent).toBe("");
+    expect(restored).not.toHaveProperty("metadata");
+  });
+
+  it("does not stamp restored assistant messages", () => {
+    render(<CopilotChat showTimestamps chatView={SubmitProbe} />);
+    const subscriber = timestampSubscriber();
+    const restored = {
+      id: "old-assistant",
+      role: "assistant" as const,
+      content: "Earlier reply",
+    };
+
+    subscriber?.onMessagesChanged?.({
+      messages: [restored],
+      state: {},
+      agent: mockAgent,
+    });
+
+    expect(readMessageTimestamp(restored)).toBeUndefined();
+  });
+});
+
+describe("timestamp prop inheritance", () => {
+  it("CopilotPopupProps includes showTimestamps", () => {
+    const props: CopilotPopupProps = { showTimestamps: true };
+    expect(props.showTimestamps).toBe(true);
+  });
+
+  it("CopilotSidebarProps includes showTimestamps", () => {
+    const props: CopilotSidebarProps = {
+      showTimestamps: true,
+      formatTimestamp: () => "now",
+    };
+    expect(props.formatTimestamp?.(new Date())).toBe("now");
+  });
+});

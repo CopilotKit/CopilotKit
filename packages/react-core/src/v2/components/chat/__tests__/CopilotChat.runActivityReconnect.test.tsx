@@ -1157,7 +1157,8 @@ test("unmounting the chat removes its run lifecycle subscriber from the agent", 
     delegatedRunLegs: 1,
   });
   await settleInitialConnect(rendered);
-  expect(rendered.agent.subscribers).toHaveLength(1);
+  // The run-activity listener plus the message-timestamp recorder.
+  expect(rendered.agent.subscribers).toHaveLength(2);
 
   rendered.unmount();
 

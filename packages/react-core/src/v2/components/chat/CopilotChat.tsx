@@ -4,7 +4,10 @@ import { useSuggestions } from "../../hooks/use-suggestions";
 import type { CopilotChatViewProps } from "./CopilotChatView";
 import { CopilotChatView } from "./CopilotChatView";
 import type { CopilotChatInputMode } from "./CopilotChatInput";
-import type { CopilotChatLabels } from "../../providers/CopilotChatConfigurationProvider";
+import type {
+  CopilotChatLabels,
+  CopilotChatTimestampFormatter,
+} from "../../providers/CopilotChatConfigurationProvider";
 import {
   CopilotChatConfigurationProvider,
   useCopilotChatConfiguration,
@@ -17,6 +20,14 @@ import {
 } from "@copilotkit/shared";
 import type { AttachmentsConfig, InputContent } from "@copilotkit/shared";
 import type { Suggestion } from "@copilotkit/core";
+import {
+  messagesWithTimestamps,
+  readMessageTimestamp,
+  pruneRememberedMessageTimestamps,
+  recordMessageTimestamps,
+  rememberPendingMessageTimestamp,
+  withMessageTimestamp,
+} from "../../lib/message-timestamp";
 import {
   CopilotKitCoreErrorCode,
   CopilotKitCoreRuntimeConnectionStatus,
@@ -116,6 +127,23 @@ export type CopilotChatProps = Omit<
    */
   throttleMs?: number;
   /**
+   * Show each user and assistant message's time in the default layout.
+   * Off by default. A message with no timestamp renders nothing.
+   *
+   * The chat records `metadata.timestamp` (Unix epoch milliseconds) when the
+   * user sends a message and when an assistant text message starts, including
+   * when this is off, so turning it on later can still show those times.
+   * Restored messages keep a time only when their saved data already has one.
+   *
+   * @default false
+   */
+  showTimestamps?: boolean;
+  /**
+   * Formats the visible timestamp. The `<time dateTime>` value stays ISO-8601.
+   * Defaults to the locale hour and minute.
+   */
+  formatTimestamp?: CopilotChatTimestampFormatter;
+  /**
    * Experimental. Wrapper for generative UI surfaces rendered in this chat.
    * Receives `{ surfaceId, isStreaming, error, children }`.
    */
@@ -132,6 +160,8 @@ export function CopilotChat({
   onError,
   throttleMs,
   generativeUISurface,
+  showTimestamps,
+  formatTimestamp,
   ...props
 }: CopilotChatProps) {
   // Check for existing configuration provider
@@ -848,6 +878,98 @@ export function CopilotChat({
     rememberRecentlyWakeRunId,
   ]);
 
+  // Assistant text messages are created from TEXT_MESSAGE_START, which does
+  // not copy the event time onto the message. Remember that time beside the
+  // messages. Subscriber payloads can be frozen, so this does not write to them.
+  const messageTimestampsRef = useRef(new Map<string, number>());
+  // Text-start times that have not met a snapshot yet. Kept across a
+  // same-thread agent replacement; cleared when the thread changes.
+  const pendingMessageTimestampsRef = useRef(new Map<string, number>());
+  const messageTimestampThreadRef = useRef<string | null>(null);
+  const [messageTimestampRevision, setMessageTimestampRevision] = useState(0);
+  useEffect(() => {
+    let active = true;
+    const pending = pendingMessageTimestampsRef.current;
+    const remembered = messageTimestampsRef.current;
+    // Ids this subscription has actually seen. A single list can omit
+    // messages, so removal waits until an id is outside this set and pending.
+    const seenIds = new Set<string>();
+    const publish = () => {
+      if (active) setMessageTimestampRevision((revision) => revision + 1);
+    };
+    // A new thread must not inherit the previous thread's times, even when a
+    // message id happens to match. Replacing the agent on the same thread
+    // keeps times for messages that agent still has.
+    const previousThreadId = messageTimestampThreadRef.current;
+    const threadChanged = previousThreadId !== resolvedThreadId;
+    if (threadChanged) {
+      messageTimestampThreadRef.current = resolvedThreadId;
+      pending.clear();
+      if (remembered.size > 0) {
+        remembered.clear();
+        publish();
+      }
+    }
+    const rememberSeen = (
+      nextMessages: Parameters<typeof recordMessageTimestamps>[0],
+    ) => {
+      for (const message of nextMessages) {
+        if (message.id) seenIds.add(message.id);
+      }
+    };
+    const note = (
+      nextMessages: Parameters<typeof recordMessageTimestamps>[0],
+    ) => {
+      // Snapshots can omit a message and restore it later without a time.
+      // Drop a remembered id only once this subscription has never seen it
+      // and it is not waiting on a text-start replay.
+      const recorded = recordMessageTimestamps(
+        nextMessages,
+        pending,
+        remembered,
+      );
+      rememberSeen(nextMessages);
+      const pruned = pruneRememberedMessageTimestamps(
+        remembered,
+        seenIds,
+        pending,
+      );
+      if (recorded || pruned) publish();
+    };
+    if (previousThreadId === null) {
+      note(agent.messages);
+    } else if (!threadChanged) {
+      // The replacement agent's first list can omit messages that a later
+      // replay restores. Record times for whoever is here, including a
+      // text-start that arrived before this effect was recreated, and do not
+      // prune the rest against this incomplete list.
+      rememberSeen(agent.messages);
+      if (recordMessageTimestamps(agent.messages, pending, remembered)) {
+        publish();
+      }
+    }
+    // A thread switch waits for onMessagesChanged. The reused agent can still
+    // hold the previous thread until that reset, and recording it here would
+    // put those times back under ids the next thread may reuse.
+    const subscription = agent.subscribe({
+      onTextMessageStartEvent: ({ event }) => {
+        const eventTimestamp = event.timestamp;
+        const timestamp =
+          typeof eventTimestamp === "number" && Number.isFinite(eventTimestamp)
+            ? eventTimestamp
+            : Date.now();
+        rememberPendingMessageTimestamp(pending, event.messageId, timestamp);
+      },
+      onMessagesChanged: ({ messages: nextMessages }) => {
+        note(nextMessages);
+      },
+    });
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
+  }, [agent, resolvedThreadId]);
+
   // Serializes consecutive sends: if a run is already in flight, let it finish
   // before dispatching the next message instead of pre-empting it.
   // `copilotkit.runAgent` would otherwise call `agent.detachActiveRun()` and
@@ -981,17 +1103,21 @@ export function CopilotChat({
           for (const att of readyAttachments) {
             contentParts.push(createAttachmentContent(att));
           }
-          agent.addMessage({
-            id: randomUUID(),
-            role: "user",
-            content: contentParts,
-          });
+          agent.addMessage(
+            withMessageTimestamp({
+              id: randomUUID(),
+              role: "user",
+              content: contentParts,
+            }),
+          );
         } else {
-          agent.addMessage({
-            id: randomUUID(),
-            role: "user",
-            content: value,
-          });
+          agent.addMessage(
+            withMessageTimestamp({
+              id: randomUUID(),
+              role: "user",
+              content: value,
+            }),
+          );
         }
 
         const localRunId = hasNativeIntelligenceRunActivity
@@ -1048,11 +1174,13 @@ export function CopilotChat({
         // typed-Enter path got — here for the suggestion path).
         if ((await waitForActiveRunToSettle()) !== true) return;
 
-        agent.addMessage({
-          id: randomUUID(),
-          role: "user",
-          content: suggestion.message,
-        });
+        agent.addMessage(
+          withMessageTimestamp({
+            id: randomUUID(),
+            role: "user",
+            content: suggestion.message,
+          }),
+        );
 
         const localRunId = hasNativeIntelligenceRunActivity
           ? randomUUID()
@@ -1300,14 +1428,24 @@ export function CopilotChat({
               )
               .join(";")
           : "";
-      return `${m.id}:${m.role}:${contentKey}:${toolCallsKey}`;
+      // Include the timestamp so a time recorded after the message appears
+      // refreshes the list without serializing the message body.
+      const timestampKey = readMessageTimestamp(m) ?? "";
+      return `${m.id}:${m.role}:${contentKey}:${toolCallsKey}:${timestampKey}`;
     })
     .join(",");
-  const messages = useMemo(
-    () => [...agent.messages],
+  const timestampsEnabled =
+    showTimestamps ?? existingConfig?.showTimestamps ?? false;
+  const messages = useMemo(() => {
+    const source = agent.messages;
+    if (!timestampsEnabled) return [...source];
+    // Copies only the messages whose time lives in the side map. Agent
+    // messages stay untouched, including frozen subscriber payloads.
+    return messagesWithTimestamps(source, messageTimestampsRef.current);
+    // messageTimestampRevision republishes remembered times that are not on
+    // the agent messages themselves.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [messagesMemoKey],
-  );
+  }, [messagesMemoKey, timestampsEnabled, messageTimestampRevision]);
 
   // Compute the ID of the last user message for scroll-pinning logic.
   const lastUserMessageId = useMemo(() => {
@@ -1386,6 +1524,8 @@ export function CopilotChat({
       hasExplicitThreadId={hasExplicitThreadId}
       labels={labels}
       isModalDefaultOpen={isModalDefaultOpen}
+      showTimestamps={showTimestamps}
+      formatTimestamp={formatTimestamp}
     >
       <div ref={chatContainerRef} style={{ display: "contents" }}>
         {attachmentsEnabled && (

@@ -69,6 +69,11 @@ export const CopilotChatDefaultLabels = {
 export type CopilotChatLabels = typeof CopilotChatDefaultLabels;
 
 /**
+ * Formats the visible message time. The `<time dateTime>` value stays ISO-8601.
+ */
+export type CopilotChatTimestampFormatter = (date: Date) => string;
+
+/**
  * Mobile breakpoint below which the chat modal and the thread-list drawer are
  * mutually exclusive. At or above this width both surfaces may coexist. This
  * mirrors the `(max-width: 767px)` / `(min-width: 768px)` split already used by
@@ -144,6 +149,16 @@ export interface CopilotChatConfigurationValue {
   // welcome screen on switch) gate on this instead of `!!threadId`.
   hasExplicitThreadId: boolean;
   /**
+   * Whether default user and assistant messages show their time. Off unless
+   * a chat opts in. A message with no timestamp still renders nothing.
+   */
+  showTimestamps: boolean;
+  /**
+   * Optional label formatter for {@link showTimestamps}. Absent means the
+   * locale hour and minute.
+   */
+  formatTimestamp?: CopilotChatTimestampFormatter;
+  /**
    * Imperatively sets the active thread for this chat configuration.
    *
    * Use this to drive the rendered thread without a host callback — e.g. a
@@ -193,6 +208,15 @@ export interface CopilotChatConfigurationProviderProps {
   // was supplied.
   hasExplicitThreadId?: boolean;
   isModalDefaultOpen?: boolean;
+  /**
+   * Show message times in the default chat layout. Undefined inherits from
+   * the parent provider, which itself defaults to off.
+   */
+  showTimestamps?: boolean;
+  /**
+   * Formats the visible timestamp. Undefined inherits from the parent provider.
+   */
+  formatTimestamp?: CopilotChatTimestampFormatter;
 }
 
 // Provider component
@@ -205,6 +229,8 @@ export const CopilotChatConfigurationProvider: React.FC<
   threadId,
   hasExplicitThreadId,
   isModalDefaultOpen,
+  showTimestamps,
+  formatTimestamp,
 }) => {
   const parentConfig = useContext(CopilotChatConfiguration);
 
@@ -523,6 +549,13 @@ export const CopilotChatConfigurationProvider: React.FC<
     [resolvedSetModalOpen, resolvedSetDrawerOpen],
   );
 
+  const resolvedShowTimestamps =
+    showTimestamps ?? parentConfig?.showTimestamps ?? false;
+  // The formatter is the value from this render. A ref updated during render
+  // can keep a formatter from a render React discarded.
+  const resolvedFormatTimestamp =
+    formatTimestamp ?? parentConfig?.formatTimestamp;
+
   const configurationValue: CopilotChatConfigurationValue = useMemo(
     () => ({
       labels: mergedLabels,
@@ -538,6 +571,8 @@ export const CopilotChatConfigurationProvider: React.FC<
       ɵregisterModalCloser: resolvedRegisterModalCloser,
       setActiveThreadId: resolvedSetActiveThreadId,
       startNewThread: resolvedStartNewThread,
+      showTimestamps: resolvedShowTimestamps,
+      formatTimestamp: resolvedFormatTimestamp,
     }),
     [
       mergedLabels,
@@ -553,6 +588,8 @@ export const CopilotChatConfigurationProvider: React.FC<
       resolvedRegisterModalCloser,
       resolvedSetActiveThreadId,
       resolvedStartNewThread,
+      resolvedShowTimestamps,
+      resolvedFormatTimestamp,
     ],
   );
 

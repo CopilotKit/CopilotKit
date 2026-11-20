@@ -31,6 +31,7 @@ export {
   useCopilotChatConfiguration,
   CopilotChatDefaultLabels,
   type CopilotChatLabels,
+  type CopilotChatTimestampFormatter,
   type CopilotChatConfigurationValue,
   type CopilotChatConfigurationProviderProps,
 } from "./providers/CopilotChatConfigurationProvider";
