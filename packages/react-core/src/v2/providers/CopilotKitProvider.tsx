@@ -1197,6 +1197,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
         .startTrajectory({
           trajectoryId,
           learningContainerIds: learningContainerIdsRef.current,
+          ...(generatesTrajectoryId ? { ɵreplaceWhenClosed: true } : {}),
         })
         .catch(() => {
           // Expected authentication/connection failures resolve with an error
