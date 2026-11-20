@@ -39,6 +39,9 @@ if (!authDemoAgent) {
 }
 
 const runtime = new CopilotRuntime({
+  // The sign-in bearer is checked by onRequest below. Mastra forwards agent
+  // headers into modelSettings, where it would override the model credential.
+  forwardHeaders: { deny: ["authorization"] },
   agents: {
     "auth-demo": authDemoAgent,
     // Fallback: useAgent() with no args resolves "default" — alias to the
