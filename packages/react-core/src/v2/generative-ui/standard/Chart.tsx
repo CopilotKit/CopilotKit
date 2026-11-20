@@ -36,6 +36,38 @@ export const VISUALLY_HIDDEN: CSSProperties = {
   border: 0,
 };
 
+/**
+ * A category label on the side axis of a horizontal bar chart: one line,
+ * shortened to fit the axis, with the full text as a tooltip. Wrapped labels
+ * there run into the labels of the neighbouring bars.
+ */
+function CategoryTick(props: {
+  x?: number;
+  y?: number;
+  payload?: { value?: unknown };
+  width: number;
+  fill?: string;
+}) {
+  const text = String(props.payload?.value ?? "");
+  // About 0.55em per character at 12px.
+  const fits = Math.max(4, Math.floor((props.width - 8) / 6.6));
+  const shown =
+    text.length > fits ? `${text.slice(0, fits - 1).trimEnd()}…` : text;
+  return (
+    <text
+      x={props.x}
+      y={props.y}
+      dy="0.35em"
+      textAnchor="end"
+      fontSize={12}
+      fill={props.fill}
+    >
+      <title>{text}</title>
+      {shown}
+    </text>
+  );
+}
+
 /** Legend labels use the text color, not the series color. */
 /**
  * A category label on the side axis of a horizontal bar chart: one line,
