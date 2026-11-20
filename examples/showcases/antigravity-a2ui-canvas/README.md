@@ -121,10 +121,13 @@ workarounds are worth knowing before you change it.
   line first and draws last.
 - **The page hands each render result straight back**
   (`src/lib/use-canvas-repair.ts`). When a run ends on a `render_ui` result,
-  the page starts one more run with no new message. If the runtime rejected
-  some operations, the model sends them again, fixed; if not, it closes the
-  turn with a short question. Sending the next user message into a paused turn
-  instead makes ag-ui-antigravity 0.2.1 stall: the run never ends.
+  the page starts one more run with no new message, so a rejected operation is
+  fixed at once instead of on the user's next message: the model sends the
+  rejected operations again, fixed, or closes the turn with a short question.
+  A hand-back counts only once its run finishes, and a failed one is tried
+  again, up to three runs per message. A result that still has not reached the
+  agent goes with the next message; ag-ui-antigravity answers the paused call
+  and adds the message to the same turn.
 - **The canvas arrives all at once.** The harness sends a tool call's
   arguments in one piece, so nothing paints until the whole call is written.
   Thinking defaults to `low` to keep that wait short: about 20 seconds for the
@@ -134,21 +137,24 @@ workarounds are worth knowing before you change it.
 
 ## Settings
 
-| Variable                 | Default                  | What it does                                                             |
-| ------------------------ | ------------------------ | ------------------------------------------------------------------------ |
-| `GEMINI_API_KEY`         | (required)               | The key the harness uses for every model call                            |
-| `GEMINI_MODEL`           | `gemini-3.8-flash`       | The model when the page asks for none                                    |
-| `GEMINI_MODELS`          | Flash, Neon, Hydrogen    | The models the picker may ask for; keep in step with `src/lib/models.ts` |
-| `GEMINI_THINKING_LEVEL`  | `low`                    | `minimal`, `low`, `medium` or `high`, on both paths                      |
-| `GOOGLE_GEMINI_BASE_URL` | Google's API             | A Gemini-compatible server to call instead                               |
-| `LOG_LEVEL`              | `WARNING`                | `DEBUG` logs each run's model and tool calls parking and resuming        |
-| `AGENT_URL`              | `http://localhost:8000/` | Where the Next.js runtime reaches the agent                              |
+| Variable                 | Default                  | What it does                                                           |
+| ------------------------ | ------------------------ | ---------------------------------------------------------------------- |
+| `GEMINI_API_KEY`         | (required)               | The key the harness uses for every model call                          |
+| `GEMINI_MODEL`           | `gemini-3.8-flash`       | The model when the page asks for none                                  |
+| `GEMINI_MODELS`          | Flash, Hydrogen, Neon    | Overrides which models a run may ask for; `GEMINI_MODEL` stays allowed |
+| `GEMINI_THINKING_LEVEL`  | `low`                    | `minimal`, `low`, `medium` or `high`, on both paths                    |
+| `GOOGLE_GEMINI_BASE_URL` | Google's API             | A Gemini-compatible server to call instead                             |
+| `LOG_LEVEL`              | `WARNING`                | `DEBUG` logs each run's model and tool calls parking and resuming      |
+| `AGENT_URL`              | `http://localhost:8000/` | Where the Next.js runtime reaches the agent                            |
 
 ## Deploy
 
 The `Dockerfile` builds one image with both processes; `entrypoint.sh` starts
-the agent on 8000, waits for its `/health`, then starts Next.js on `PORT`.
-`railway.toml` points Railway at it with `/api/health` as the healthcheck.
+the agent on 8000, waits for its `/health`, then starts Next.js on `PORT`. If
+the agent is not answering within `AGENT_STARTUP_SECONDS` (60 by default), or
+either process stops later, the container exits with a nonzero code, so
+Railway's `ON_FAILURE` restart policy brings it back. `railway.toml` points
+Railway at it with `/api/health` as the healthcheck.
 
 ```bash
 railway up            # from this folder, in a linked Railway project
@@ -158,6 +164,8 @@ echo "$GEMINI_API_KEY" | railway variable set GEMINI_API_KEY --stdin
 Anyone who can open the deployed page runs the agent on your key, so the
 runtime route rate limits agent runs (`src/lib/limits.ts`). Each message makes
 two or three runs: the turn, then one or two that hand the render result back.
+A run counts only when the runtime would accept its body; a malformed one is
+still refused, and still counts toward the per-visitor request limit.
 
 | Variable                | Default | What it does                                           |
 | ----------------------- | ------- | ------------------------------------------------------ |
