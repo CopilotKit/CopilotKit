@@ -561,6 +561,13 @@ body {
   cursor: default;
 }
 
+/* Keep the action bar inside the canvas at narrow two-column widths. */
+@media (740px < width <= 860px) {
+  .canvas-action {
+    padding-inline: 8px;
+  }
+}
+
 /* Phones: chat on top, canvas below */
 @media (max-width: 740px) {
   .workspace {
