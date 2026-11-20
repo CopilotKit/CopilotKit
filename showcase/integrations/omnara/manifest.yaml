@@ -36,6 +36,8 @@ demos:
       - src/lib/agents.ts
       - src/lib/omnara-config.ts
       - src/app/api/copilotkit/[[...slug]]/route.ts
+      - src/lib/demo-session-provider.tsx
+      - src/lib/visitor-session.ts
       - src/app/demos/agentic-chat/page.tsx
       - src/app/demos/agentic-chat/suggestions.ts
   - id: frontend-tools
@@ -46,6 +48,8 @@ demos:
     highlight:
       - src/lib/agents.ts
       - src/app/api/copilotkit/[[...slug]]/route.ts
+      - src/lib/demo-session-provider.tsx
+      - src/lib/visitor-session.ts
       - src/app/demos/frontend-tools/page.tsx
       - src/app/demos/frontend-tools/suggestions.ts
       - src/app/demos/frontend-tools/background.tsx
@@ -60,6 +64,8 @@ demos:
       - src/lib/tool-rendering.ts
       - src/lib/weather-tool.ts
       - src/app/api/copilotkit/[[...slug]]/route.ts
+      - src/lib/demo-session-provider.tsx
+      - src/lib/visitor-session.ts
       - src/app/demos/tool-rendering-default-catchall/page.tsx
       - src/app/demos/tool-rendering-default-catchall/suggestions.ts
 starter_validation:
