@@ -91,7 +91,7 @@ export function Canvas() {
       <div className="canvas-scroll">
         {stored && viewing !== null && (
           <div className="canvas-sheet canvas-sheet-old" inert>
-            <StoredVersion version={stored} index={viewing} />
+            <StoredVersion version={stored} />
           </div>
         )}
         {/* Stays mounted while an older version is on screen: unmounting it

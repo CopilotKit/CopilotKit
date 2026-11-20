@@ -8,6 +8,11 @@ import { useCanvasRepair } from "./use-canvas-repair";
 
 /** One finished state of the canvas: the operations that draw it. */
 export interface CanvasVersion {
+  /**
+   * Stable for the page's life, so drawing this version again reuses its
+   * surface instead of adding another to the shared surface manager.
+   */
+  id: string;
   surfaceId: string;
   operations: A2UIOperation[];
   /** The operations as JSON, to tell a real change from a repeat. */
@@ -61,6 +66,8 @@ export function useCanvasVersions() {
         : [
             ...previous,
             {
+              // Versions are only ever appended, so the count is unique.
+              id: `canvas-version-${previous.length + 1}`,
               surfaceId,
               operations: structuredClone(operations) as A2UIOperation[],
               signature,

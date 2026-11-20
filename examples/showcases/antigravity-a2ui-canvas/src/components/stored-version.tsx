@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useMemo } from "react";
+import { useMemo } from "react";
 import type { ComponentType } from "react";
 import {
   CopilotChatConfigurationProvider,
@@ -30,19 +30,14 @@ type RendererProps = {
  * Draws an older version of the canvas, read-only.
  *
  * It uses CopilotKit's own surface renderer (the one the chat uses), on a
- * thread of its own. The live canvas belongs to the chat's thread, so this
- * copy never replaces it and the agent never sees it.
+ * thread of its own named after the version. The live canvas belongs to the
+ * chat's thread, so this copy never replaces it and the agent never sees it.
+ * Opening the same version again finds its surface already drawn.
  */
-export function StoredVersion({
-  version,
-  index,
-}: {
-  version: CanvasVersion;
-  index: number;
-}) {
+export function StoredVersion({ version }: { version: CanvasVersion }) {
   const { copilotkit } = useCopilotKit();
   const runtime = useGenerativeUIRuntime();
-  const threadId = `canvas-v${index + 1}-${useId()}`;
+  const threadId = version.id;
   const Renderer = copilotkit.renderActivityMessages.find(
     (renderer) => renderer.activityType === GENERATIVE_UI_ACTIVITY_TYPE,
   )?.render as ComponentType<RendererProps> | undefined;
