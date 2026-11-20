@@ -222,13 +222,18 @@ default, `CopilotKitIntelligence` when configured.
 > works, the memory saves correctly, and the payoff never arrives — the prompt
 > overrode what the agent knew.
 
-> **Per-skin divergence — memory SCOPE.** `banking` saves the learned procedure at
-> `scope:"project"`. Later skins save at `scope:"user"` and say so in their
-> prompts, because one Intelligence backend is shared by every product in this
-> deployment: a project-scoped procedure is visible to skins that never learned
-> it. Prefer `"user"` for a new skin unless it genuinely owns its own backend.
+> **Memory SCOPE — always `"user"`.** Every skin, `banking` included, saves the
+> learned procedure at `scope:"user"` and says so in its prompt, because one
+> Intelligence backend is shared by every product in this deployment: a
+> project-scoped procedure is visible to skins that never learned it.
 >
-> There is a second, harder reason, and it is the one that decides the question.
+> The deciding reason is the default memory posture (`isolated` in
+> `src/shell/governance.ts`): it grants `project: "none"`, so `save_memory` only
+> accepts `"user"` and `recall_memory` never returns project rows. A skin that
+> saves at project scope fails beat 6 without an error — the agent says it
+> learned the procedure, stores nothing, and offers to record again next time.
+>
+> There is also a second reason.
 > A skin whose `intelligence/forget-memories.ts` **skips project-scoped rows** —
 > which is every skin that has one, so that no skin's reset can delete another's
 > seeded procedure out from under it (`grep -n project
@@ -327,7 +332,7 @@ This proves the loop _learned_, not that the REST works. It needs the env-gated
 2. **Teach.** The human demonstrates the unlock on the dashboard (justifying code
    → finalize → approve) while the recorder card narrates each step.
 3. **Save.** The agent summarizes and calls `save_memory` (`kind:"operational"`;
-   `scope:"project"` in banking, `"user"` in the later skins — see role #5).
+   `scope:"user"` — see role #5).
 4. **Fresh agent succeeds.** In a **new** thread (no memory of the human's
    session), ask to approve a _different_ over-limit charge. The agent
    `recall_memory` → files a justifying exception → finalizes → approves —

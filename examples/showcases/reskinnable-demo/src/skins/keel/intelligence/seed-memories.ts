@@ -93,9 +93,8 @@ export const SEED_MEMORIES: readonly SeedMemory[] = [
     // already has. `data/handling.ts` keeps the two vocabularies in separate
     // modules for the same reason, and shares no token between them.
     kind: "operational",
-    // `user`, NOT `project`. Banking scopes its equivalent procedure to `project`
-    // and `demo-beats.md` still describes it that way; both are out of date for
-    // this app. Verified against the running Intelligence stack: a project-scoped
+    // `user`, NOT `project`. Banking used to scope its equivalent procedure to
+    // `project`; it now scopes `user` like every other skin. Verified against the running Intelligence stack: a project-scoped
     // row is returned for EVERY user id in the instance, not partitioned per
     // product — and `forget-memories.ts` therefore SKIPS project-scoped rows so a
     // keel reset cannot destroy banking's seeded memories. A project-scoped

@@ -5,7 +5,7 @@ import type { Page } from "@playwright/test";
  * Deterministic cross-thread memory proof (Task 7 / FOR-149).
  *
  * Proves the RECALL half deterministically: with the over-limit procedure already
- * in project memory, a FRESH thread recalls it and completes the unlock unaided —
+ * in user memory, a FRESH thread recalls it and completes the unlock unaided —
  * never offering to record. The agent's LLM is served by aimock (fixtures pin the
  * recall_memory -> openPolicyException -> finalizePolicyException ->
  * approveTransaction sequence), while the REAL local Intelligence backend does the
@@ -101,7 +101,7 @@ async function recallProcedureIds(): Promise<string[]> {
     headers: memHeaders,
     body: JSON.stringify({
       query: "over-limit approval procedure",
-      scope: "project",
+      scope: "user",
     }),
   });
   if (!res.ok) return [];
@@ -109,7 +109,7 @@ async function recallProcedureIds(): Promise<string[]> {
   return (body.memories ?? []).map((m) => m.id);
 }
 
-/** Arrange a clean slate, then seed exactly one project/operational procedure. */
+/** Arrange a clean slate, then seed exactly one user/operational procedure. */
 async function resetAndSeedProcedure(): Promise<void> {
   for (const id of await recallProcedureIds()) {
     await fetch(`${APP_API_URL}/api/memories/${id}`, {
@@ -124,7 +124,7 @@ async function resetAndSeedProcedure(): Promise<void> {
       content:
         `To approve an over-limit charge, open a policy exception with code ${SEED_CODE} ` +
         `against the charge and finalize it, then approve the transaction.`,
-      scope: "project",
+      scope: "user",
       kind: "operational",
     }),
   });

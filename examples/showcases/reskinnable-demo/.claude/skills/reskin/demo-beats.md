@@ -691,11 +691,11 @@ A project-scoped memory is returned for EVERY user id, so it also leaks across
 products — one skin's procedure recalled inside another reads to the room like
 the memory system confused two applications.
 
-**`banking` scopes its learned procedure `project`. It is the one exception, not
-the pattern**, and it gets away with it only because its own sweep deletes every
-row including project ones — self-consistent, and the reason it is safe there is
-exactly the reason it is not safe anywhere else. Every other skin scopes `user`,
-and each seed file records why in a comment beside the field:
+**Every skin scopes `user`, `banking` included.** Banking used to scope its
+procedure `project`; that broke once the default memory posture (`isolated` in
+`src/shell/governance.ts`) stopped granting project scope — the agent could
+neither save the learned procedure nor recall the seeded one, and nothing
+errored. Each seed file records why in a comment beside the field:
 `grep -n 'scope:' src/skins/*/intelligence/seed-memories.ts`.
 
 Keeping beat 5's seeded procedure and beat 6's learned one distinguishable is then
