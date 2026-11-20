@@ -444,6 +444,21 @@ describe("CopilotKitProvider authenticated Trajectories", () => {
     expect(stop).toHaveBeenCalledTimes(1);
   });
 
+  it("lets capture replace only an ID that the provider generated", async () => {
+    const start = vi
+      .spyOn(CopilotKitCoreReact.prototype, "startTrajectory")
+      .mockResolvedValue({ status: "started", trajectoryId: FIRST_ID });
+    const view = render(<App learning />);
+    expect(start.mock.calls.at(-1)![0]).toMatchObject({
+      ɵreplaceWhenClosed: true,
+    });
+    view.rerender(<App learning={{ trajectoryId: SECOND_ID }} />);
+    expect(start.mock.calls.at(-1)![0]).toEqual({
+      trajectoryId: SECOND_ID,
+      learningContainerIds: undefined,
+    });
+  });
+
   describe("generated Trajectory IDs", () => {
     const UUID =
       /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
