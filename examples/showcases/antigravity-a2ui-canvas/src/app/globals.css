@@ -596,3 +596,139 @@ body {
     display: none;
   }
 }
+
+/* Which path draws the canvas: Express or the Antigravity agent */
+.canvas-path {
+  margin-left: 2px;
+  padding: 2px 7px;
+  border: 1px solid var(--pill-line);
+  border-radius: 999px;
+  background: var(--pill);
+  color: var(--ink-soft);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+.model-menu-group {
+  margin: 6px 0 2px;
+  padding: 4px 10px 2px;
+  color: var(--ink-soft);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.model-menu-group:first-child {
+  margin-top: 0;
+}
+
+/* While the agent works, a sheen runs along the top edge of the sheet. */
+.canvas-sheet {
+  position: relative;
+}
+
+.canvas-sheet[data-busy]::before {
+  content: "";
+  position: absolute;
+  top: -1px;
+  left: 18px;
+  right: 18px;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent, var(--brand), transparent)
+    no-repeat;
+  background-size: 35% 100%;
+  animation: canvas-sheen 1.3s ease-in-out infinite;
+}
+
+@keyframes canvas-sheen {
+  from {
+    background-position: -40% 0;
+  }
+  to {
+    background-position: 140% 0;
+  }
+}
+
+/* The first draw: a dashboard's shape until its first piece arrives */
+.canvas-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.sk {
+  border-radius: 10px;
+  background: linear-gradient(
+      90deg,
+      transparent 0,
+      color-mix(in srgb, var(--sheet) 70%, transparent) 50%,
+      transparent 100%
+    )
+    no-repeat var(--pill-hover);
+  background-size: 40% 100%;
+  animation: canvas-shimmer 1.4s ease-in-out infinite;
+}
+
+.sk-title {
+  width: 42%;
+  height: 26px;
+}
+
+.sk-caption {
+  width: 64%;
+  height: 12px;
+}
+
+.sk-row {
+  display: flex;
+  gap: 12px;
+}
+
+.sk-tile {
+  flex: 1;
+  height: 76px;
+}
+
+.sk-chart {
+  height: 160px;
+}
+
+.sk-card {
+  flex: 1;
+  height: 96px;
+}
+
+@keyframes canvas-shimmer {
+  from {
+    background-position: -50% 0;
+  }
+  to {
+    background-position: 150% 0;
+  }
+}
+
+/* What an edit changed: a ring that fades out */
+.canvas-changed {
+  animation: canvas-changed 1.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes canvas-changed {
+  from {
+    box-shadow:
+      0 0 0 2px color-mix(in srgb, var(--brand) 60%, transparent),
+      0 0 0 7px color-mix(in srgb, var(--brand) 14%, transparent);
+  }
+  to {
+    box-shadow:
+      0 0 0 2px transparent,
+      0 0 0 7px transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .canvas-sheet[data-busy]::before,
+  .sk {
+    animation: none;
+  }
+}

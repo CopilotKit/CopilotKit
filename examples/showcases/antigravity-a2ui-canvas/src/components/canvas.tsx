@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { ComponentType } from "react";
 import { clsx } from "clsx";
 import {
@@ -15,7 +15,10 @@ import {
 } from "lucide-react";
 import { GenerativeUISurface } from "@copilotkit/react-core/v2/generative-ui";
 import { CANVAS_DESCRIPTION, CANVAS_ID, QUICK_PROMPTS } from "@/lib/canvas";
+import { pathById } from "@/lib/models";
 import { useCanvasVersions } from "@/lib/use-canvas-versions";
+import { useChangeHighlight } from "@/lib/use-change-highlight";
+import { useModel } from "@/lib/use-model";
 import { useSendPrompt } from "@/lib/use-send-prompt";
 import { StoredVersion } from "./stored-version";
 
@@ -27,7 +30,9 @@ export function Canvas() {
   const { surface, versions, viewing, setViewing, streaming, repairing } =
     useCanvasVersions();
   const { send, running } = useSendPrompt();
+  const { path } = useModel();
   const [dark, setDark] = useState(false);
+  const sheet = useRef<HTMLDivElement>(null);
 
   const total = versions.length;
   const current = viewing ?? total - 1;
@@ -37,16 +42,26 @@ export function Canvas() {
 
   const show = (index: number) => setViewing(index >= total - 1 ? null : index);
 
+  // Outline what each edit changes, once there is a canvas to edit.
+  useChangeHighlight(sheet, total > 0 && viewing === null);
+
+  const status = repairing
+    ? "Fixing part of the canvas…"
+    : busy
+      ? total > 0
+        ? "Updating the canvas…"
+        : "Drawing the canvas…"
+      : "Canvas";
+
   return (
     <section className={clsx("canvas", dark && "dark")} aria-label="Canvas">
       <header className="canvas-bar">
         <div className="canvas-status" data-state={busy ? "busy" : "idle"}>
           <span className="canvas-status-dot" aria-hidden />
-          {repairing
-            ? "Antigravity is fixing the canvas…"
-            : busy
-              ? "Antigravity is working…"
-              : "Canvas"}
+          <span aria-live="polite">{status}</span>
+          <span className="canvas-path" title={pathById(path).note}>
+            {path === "express" ? "Express" : "Antigravity"}
+          </span>
         </div>
         {total > 0 && (
           <div className="canvas-versions" aria-label="Versions">
@@ -81,7 +96,12 @@ export function Canvas() {
         )}
         {/* Stays mounted while an older version is on screen: unmounting it
             would take the "canvas" target away from the agent. */}
-        <div className="canvas-sheet" hidden={Boolean(stored) || !hasCanvas}>
+        <div
+          ref={sheet}
+          className="canvas-sheet"
+          data-busy={busy || undefined}
+          hidden={Boolean(stored) || !hasCanvas}
+        >
           {/* No auto-scroll: the surface fills this pane, and scrolling it
               into view on every render pushed the sheet's top (and often
               the title) up under the bar. */}
@@ -91,7 +111,7 @@ export function Canvas() {
             autoScroll={false}
           />
         </div>
-        {!hasCanvas && <EmptyCanvas />}
+        {!hasCanvas && (busy ? <CanvasSkeleton /> : <EmptyCanvas />)}
       </div>
 
       {stored && (
@@ -157,6 +177,26 @@ function QuickAction({
       <Icon size={15} />
       {label}
     </button>
+  );
+}
+
+/** The shape of a dashboard, shimmering, until the first piece arrives. */
+function CanvasSkeleton() {
+  return (
+    <div className="canvas-sheet canvas-skeleton" aria-hidden>
+      <div className="sk sk-title" />
+      <div className="sk sk-caption" />
+      <div className="sk-row">
+        <div className="sk sk-tile" />
+        <div className="sk sk-tile" />
+        <div className="sk sk-tile" />
+      </div>
+      <div className="sk sk-chart" />
+      <div className="sk-row">
+        <div className="sk sk-card" />
+        <div className="sk sk-card" />
+      </div>
+    </div>
   );
 }
 
