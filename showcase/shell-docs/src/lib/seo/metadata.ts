@@ -7,7 +7,7 @@ import { absoluteUrl } from "./base-url";
 // URLs are absolute on the canonical origin, since social platforms don't
 // know the site's base URL.
 
-const SITE_NAME = "CopilotKit Docs";
+export const SITE_NAME = "CopilotKit Docs";
 const DEFAULT_DESCRIPTION =
   "Docs, live demos, and integrations for CopilotKit.";
 
