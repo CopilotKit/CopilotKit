@@ -41,8 +41,6 @@ import "@copilotkit/react-core/v2/styles.css";
     streams.
   - Pass a stable function (for example with `useCallback`). The transform
     reruns when `messages` or the function change.
-
-  See [Reshaping the Message List](/custom-look-and-feel/slots#reshaping-the-message-list).
 </PropertyReference>
 
 <PropertyReference name="groupMessages" type="(messages: Message[]) => MessageRow[]">
@@ -63,8 +61,6 @@ import "@copilotkit/react-core/v2/styles.css";
   - Keep keys stable while the thread streams.
   - Define wrappers at module level.
   - Pass a stable function.
-
-  See [Grouping messages into one row](/custom-look-and-feel/slots#grouping-messages-into-one-row).
 </PropertyReference>
 
 <PropertyReference name="messageFeedback" type="boolean" default="true">
@@ -89,7 +85,7 @@ import "@copilotkit/react-core/v2/styles.css";
   the reply, narration fades to muted once a call follows it, and calls appear
   as rows. When the reply is done, everything before it folds into "Worked for
   9s", leaving only the reply. The line is the
-  [`workSummary`](#worksummary) slot.
+  `workSummary` slot (see [Slots](#slots)).
 - `"separate"`: every call gets its own card.
 
 Grouping applies to calls drawn by a renderer that opts into it, which the
@@ -182,6 +178,13 @@ All slot props follow the CopilotKit slot system: each accepts a replacement Rea
 <CopilotChatMessageView cursor="text-blue-500" />
 ```
 
+</PropertyReference>
+
+<PropertyReference name="intelligenceIndicator" type="SlotValue<typeof IntelligenceIndicatorView>">
+  Slot for the "Using CopilotKit Intelligence" indicator. It shows only when
+  the runtime uses Intelligence and `showIntelligenceIndicator` on the
+  provider is not `false`. Accepts a `className`, a props object, or a
+  replacement component.
 </PropertyReference>
 
 <PropertyReference name="workSummary" type="SlotValue<typeof CopilotChatWorkSummary>">

@@ -141,6 +141,16 @@ All slot props follow the CopilotKit slot system: each accepts a replacement Rea
 </PropertyReference>
 
 <PropertyReference
+  name="inspectorButton"
+  type="SlotValue<typeof CopilotChatAssistantMessage.InspectorButton>"
+>
+  Slot for the "View in Inspector" shortcut. Defaults to
+  `CopilotChatAssistantMessage.InspectorButton`. It shows only in local
+  development while the Inspector is on (see `inspectorTools` on
+  [`CopilotChat`](/reference/components/CopilotChat)).
+</PropertyReference>
+
+<PropertyReference
   name="thumbsUpButton"
   type="SlotValue<typeof CopilotChatAssistantMessage.ThumbsUpButton>"
 >
@@ -241,7 +251,7 @@ import { CopilotChatToolCallsView } from "@copilotkit/react-core/v2";
   type='"grouped" | "line" | "stacked" | "turn" | "separate"'
 >
   How to show the calls. Inside a message view it defaults to the view's
-  [`toolCallDisplay`](/reference/components/CopilotChatMessageView#toolcalldisplay);
+  [`toolCallDisplay`](/reference/components/CopilotChatMessageView#choosing-how-tool-calls-show);
   on its own it defaults to `"grouped"`. `"separate"` renders every call on its
   own, without a group.
 </PropertyReference>

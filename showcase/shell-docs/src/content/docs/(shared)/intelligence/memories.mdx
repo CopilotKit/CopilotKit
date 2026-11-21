@@ -224,6 +224,7 @@ Configure `memory.access` whenever either surface is on.
 
 ```ts title="runtime.ts"
 const runtime = new CopilotRuntime({
+  agents,
   intelligence,
   identifyUser: async (request) => resolveUser(request),
   memory: {
@@ -300,7 +301,7 @@ the surfaces and bounds what they may do.
 
 A Channel run carries its own grant on `runAgent`, using the same three access
 levels, rather than consulting `memory.access`. See
-[Identity and Memory](/channels/identity-and-memory) for that path, including
+[Identity and Memory](/slack/identity-and-memory) for that path, including
 how to choose the memory subject in a group conversation.
 
 ### Memory policies in other runtime languages

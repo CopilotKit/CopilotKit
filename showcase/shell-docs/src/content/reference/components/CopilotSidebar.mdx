@@ -28,6 +28,12 @@ import "@copilotkit/react-core/v2/styles.css";
   default header displays a title and a close button.
 </PropertyReference>
 
+<PropertyReference name="toggleButton" type="SlotValue<typeof CopilotChatToggleButton>">
+  Slot override for the floating button that opens and closes the sidebar.
+  Accepts a replacement component, a `className` string, or a partial props
+  object.
+</PropertyReference>
+
 <PropertyReference name="defaultOpen" type="boolean" default="true">
   Whether the sidebar is open when the component first mounts. After that the
   sidebar owns the state. Use `open` instead to keep control.
@@ -47,9 +53,13 @@ import "@copilotkit/react-core/v2/styles.css";
   a change: in controlled mode nothing moves until you update `open`.
 </PropertyReference>
 
-<PropertyReference name="width" type="number | string">
+<PropertyReference name="width" type="number | string" default="480">
   Width of the sidebar panel. Accepts a number (pixels) or a CSS string (e.g.
   `"400px"`, `"30vw"`).
+</PropertyReference>
+
+<PropertyReference name="position" type='"left" | "right"' default='"right"'>
+  Side of the viewport the sidebar opens on.
 </PropertyReference>
 
 ### Inherited CopilotChat Props

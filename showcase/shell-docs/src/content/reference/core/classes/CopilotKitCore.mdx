@@ -114,6 +114,16 @@ new CopilotKitCore(config: CopilotKitCoreConfig)
   Returns a registered tool, or `undefined` if not found.
 </PropertyReference>
 
+<PropertyReference name="setToolEnabled" type="(name: string, enabled: boolean, agentId?: string) => void" required>
+  Turns a registered tool on or off without removing it. A disabled tool is
+  left out of the tool list on the next run. The setting stays when the tool
+  is registered again.
+</PropertyReference>
+
+<PropertyReference name="isToolEnabled" type="(name: string, agentId?: string) => boolean" required>
+  Whether a registered tool is on. Tools are on by default.
+</PropertyReference>
+
 <PropertyReference name="setTools" type="(tools: FrontendTool<any>[]) => void" required>
   Replaces the tools set by the `tools` config. Tools registered with `addTool` stay registered.
 </PropertyReference>
@@ -124,8 +134,15 @@ new CopilotKitCore(config: CopilotKitCoreConfig)
 
 ### Context
 
-<PropertyReference name="addContext" type="(context: Context) => string" required>
+<PropertyReference name="addContext" type="(context: { description: string; value: string; agentIds?: string[]; threadId?: string }) => string" required>
   Adds a context entry shared with the agent and returns its generated id.
+  Pass `agentIds` to send the entry only to those agents, and `threadId` to
+  keep it to one thread. Omit both to send it to every run.
+</PropertyReference>
+
+<PropertyReference name="upsertContext" type="(id: string, context: { description: string; value: string; agentIds?: string[]; threadId?: string }) => void" required>
+  Creates or replaces the context entry stored under `id`. Use it for state
+  that you report again and again, so each report replaces the last one.
 </PropertyReference>
 
 <PropertyReference name="removeContext" type="(id: string) => void" required>
@@ -175,6 +192,12 @@ new CopilotKitCore(config: CopilotKitCoreConfig)
 </PropertyReference>
 
 ### Configuration
+
+<PropertyReference name="connect" type="() => void" required>
+  Starts the runtime `/info` connection. Call it when you construct the core
+  with `deferInitialConnection: true`. Calling it again does nothing once a
+  connection has started.
+</PropertyReference>
 
 <PropertyReference name="setRuntimeUrl" type="(runtimeUrl: string | undefined) => void" required>
   Updates the runtime endpoint.

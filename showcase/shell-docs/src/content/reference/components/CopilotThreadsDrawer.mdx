@@ -48,6 +48,17 @@ import "@copilotkit/react-core/v2/styles.css";
   chat configuration so the welcome screen shows with no host wiring.
 </PropertyReference>
 
+<PropertyReference name="onLicensed" type="() => void">
+  Called when the user clicks the Upgrade button that the drawer shows when
+  CopilotKit Intelligence is not licensed.
+</PropertyReference>
+
+<PropertyReference name="licenseUrl" type="string">
+  Page that the Upgrade button opens in a new tab. When omitted, it opens the
+  CopilotKit Intelligence docs. Pass `""` to open nothing and handle the click
+  in `onLicensed`.
+</PropertyReference>
+
 <PropertyReference name="renderRow" type="(thread: Thread) => React.ReactNode">
   Optional per-row content. Rendered as light-DOM children projected into the
   element's `slot="row:{id}"`, so the element keeps the row chrome (selection,
