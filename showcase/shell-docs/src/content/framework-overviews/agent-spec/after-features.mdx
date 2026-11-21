@@ -3,20 +3,21 @@
 
 [Open Agent Spec](https://oracle.github.io/agent-spec/development/docs_home.html) is a portable language for defining agentic systems.
 
-Now, with the CopilotKit integration, you can bring your Agent Spec agents to an interactive UI using CopilotKit and AG‑UI. Use our Next.js starter to connect a CopilotKit UI to your Agent Spec FastAPI endpoint that streams AG‑UI events.
+Now, with the CopilotKit integration, you can bring your Agent Spec agents to an interactive UI using CopilotKit and AG-UI. Use our Next.js starter to connect a CopilotKit UI to your Agent Spec FastAPI endpoint that streams AG-UI events.
 
 This integration is centered on two components:
-- Backend: AG‑UI exporter for Agent Spec (`pyagentspec` Python package) at [the AG-UI GitHub repo](https://github.com/ag-ui-protocol/ag-ui/tree/main/integrations/agent-spec/python). It loads an Agent Spec config (YAML or JSON). It runs the config with a LangGraph or WayFlow adapter. It turns Agent Spec tracing events into AG-UI events and sends them to the frontend from a FastAPI endpoint.
-- Frontend: CopilotKit UI (Next.js) that consumes AG‑UI events and renders chat, tool calls/results, and generative UI.
+- Backend: the AG-UI adapter for Agent Spec (the `ag-ui-agent-spec` Python package, imported as `ag_ui_agentspec`), from [the AG-UI GitHub repo](https://github.com/ag-ui-protocol/ag-ui/tree/main/integrations/agent-spec/python). It loads an Agent Spec config (YAML or JSON). It runs the config with a LangGraph or WayFlow adapter. It turns Agent Spec tracing events into AG-UI events and sends them to the frontend from a FastAPI endpoint.
+- Frontend: CopilotKit UI (Next.js) that consumes AG-UI events and renders chat, tool calls/results, and generative UI.
 
-Quickly scaffold the UI, then wire your backend endpoint that streams AG‑UI events.
+Start from the Agent Spec starter, then wire your backend endpoint that streams AG-UI events.
 
 ## Quickstart
 
-1. Scaffold the UI:
+1. Get the starter. The CopilotKit CLI has no Agent Spec template, so clone the repository:
 
    ```bash
-   npx copilotkit@latest create
+   git clone --depth 1 https://github.com/CopilotKit/CopilotKit.git
+   cd CopilotKit/examples/integrations/agent-spec
    ```
 
 2. Set your backend endpoint in `.env.local` (default `http://localhost:8000/`):
@@ -30,6 +31,6 @@ Quickly scaffold the UI, then wire your backend endpoint that streams AG‑UI ev
 
 ## How it works
 
-- Backend: Your FastAPI endpoint (from the AG-UI Agent Spec integration) emits AG‑UI SSE events.
-- Frontend: The Next.js template proxies requests to your backend using CopilotKit Runtime.
-- Protocol: AG‑UI spans/events power streaming text, tool calls and results, and run lifecycle.
+- Backend: Your FastAPI endpoint (from the AG-UI Agent Spec integration) emits AG-UI SSE events.
+- Frontend: The Next.js template proxies requests to your backend using Copilot Runtime.
+- Protocol: AG-UI spans/events power streaming text, tool calls and results, and run lifecycle.

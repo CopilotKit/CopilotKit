@@ -21,9 +21,92 @@ Use state rendering when you want to:
 
 <FrameworkSetup concept="shared-state-setup" />
 
-1. On the backend, write the value to a key in the [agent state](/shared-state). To stream a tool argument into a state key token by token, see [State Streaming](/shared-state/streaming).
-2. On the frontend, subscribe to the agent's state with `useAgent`. Each time the state changes, your component renders again with the latest value.
-3. Read the keys from `agent.state` and render them.
+1. On the backend, write the values to keys in the [agent state](/shared-state). This page reads `status`, `completed`, `total`, and `draft`. To stream a tool argument into a state key token by token, see [State Streaming](/shared-state/streaming).
+2. Register the agent in Copilot Runtime. This page uses the id `researcher`. If your agent has another id, use that id in the code below.
+3. On the frontend, subscribe to the agent's state with `useAgent`. Each time the state changes, your component renders again with the latest value.
+4. Read the keys from `agent.state` and render them.
+
+<Accordions>
+<Accordion title="Example backend: a LangGraph Python research agent">
+  This graph writes the four keys while it works. Each `copilotkit_emit_state` call sends the state to the app before the node returns. Create a project and install the packages:
+
+  ```bash
+  uv init researcher && cd researcher
+  uv add copilotkit "langgraph-cli[inmem]"
+  ```
+
+  ```python title="agent.py"
+  import asyncio
+  from typing import Optional
+
+  from langchain_core.runnables import RunnableConfig
+  from langgraph.graph import END, StateGraph
+
+  from copilotkit import CopilotKitState
+  from copilotkit.langgraph import copilotkit_emit_state
+
+
+  class ResearchState(CopilotKitState):
+      status: Optional[str]
+      draft: Optional[str]
+      completed: Optional[int]
+      total: Optional[int]
+
+
+  async def research(state: ResearchState, config: RunnableConfig):
+      total = 3
+      draft = ""
+      for i in range(1, total + 1):
+          await asyncio.sleep(1)  # Replace with your real research step.
+          draft += f"Section {i}. "
+          await copilotkit_emit_state(
+              config,
+              {"status": f"Researching... {i}/{total}", "completed": i, "total": total, "draft": draft},
+          )
+      return {"status": "Done", "completed": total, "total": total, "draft": draft}
+
+
+  builder = StateGraph(ResearchState)
+  builder.add_node("research", research)
+  builder.set_entry_point("research")
+  builder.add_edge("research", END)
+  graph = builder.compile()
+  ```
+
+  ```json title="langgraph.json"
+  {
+    "dependencies": ["."],
+    "graphs": {
+      "researcher": "./agent.py:graph"
+    }
+  }
+  ```
+
+  Start the LangGraph server:
+
+  ```bash
+  uv run langgraph dev --port 8123 --no-browser
+  ```
+
+  Then register the graph in the `server.ts` from the [quickstart](/quickstart), next to the `default` agent:
+
+  ```ts title="server.ts"
+  import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
+
+  const runtime = new CopilotRuntime({
+    agents: {
+      default: new BuiltInAgent({ /* ... */ }),
+      researcher: new LangGraphAgent({ // [!code highlight:4]
+        deploymentUrl: "http://localhost:8123",
+        graphId: "researcher",
+      }),
+    },
+  });
+  ```
+
+  Restart the runtime with `npx tsx server.ts`.
+</Accordion>
+</Accordions>
 
 ```tsx title="src/ResearchProgress.tsx"
 import { Text, View } from "react-native";
@@ -81,7 +164,7 @@ export default function App() {
 }
 ```
 
-To check it, ask the researcher agent to write a report. The status line and the counter change while the agent runs, and the draft grows as the agent updates `draft` in its state.
+To check it, ask the researcher agent to write a report. The status line and the counter change while the agent runs (for example `Researching... 2/3` and `2 of 3 complete`), and the draft grows as the agent updates `draft` in its state.
 
 ## Inside the chat
 

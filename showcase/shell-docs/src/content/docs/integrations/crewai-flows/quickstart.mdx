@@ -17,13 +17,13 @@ Use this prompt to connect your CrewAI agent to CopilotKit and verify a working 
 
 ## Prerequisites
 
-Before you begin, you need a [CrewAI Flow](https://docs.crewai.com/guides/flows/first-flow). It can run locally or on infrastructure you manage; a CrewAI Enterprise deployment is optional. If you use the CopilotKit CLI path below, the starter creates the Flow integration for you.
+You need a [CrewAI Flow](https://docs.crewai.com/guides/flows/first-flow), or you can use the minimal Flow that the code-along path shows. The Flow runs locally. A CrewAI Enterprise deployment or a Copilot Cloud account is optional. If you use the CopilotKit CLI path below, the starter creates the Flow integration for you.
 
-The CLI starter also needs:
+Both paths also need:
 
 - Node.js 20.9+
 - Python 3.10 to 3.13
-- [uv](https://docs.astral.sh/uv/)
+- [uv](https://docs.astral.sh/uv/) (CLI path only; the code-along path uses `pip`)
 - An OpenAI API key
 
 ## Getting started
@@ -50,28 +50,19 @@ The CLI starter also needs:
     >
     <TailoredContentOption
         id="cli"
-        title="Use the CopilotKit CLI (NextJS only)"
-        description="I have a Next.js application and want to get started quickly."
+        title="Use the CopilotKit CLI"
+        description="Scaffold a new Next.js app with a CrewAI Flow agent."
         icon={<SquareTerminal />}
     >
         <Step>
             ### Run the CLI
-            Run the following command in your Next.js application:
-
-            <Accordions>
-                <Accordion title="Don't have a Next.js application?">
-                    No problem. Just use `create-next-app` to make one quickly.
-                    ```bash
-                    npx create-next-app@latest
-                    ```
-                </Accordion>
-            </Accordions>
+            Run the following command in the folder where you want the new project:
 
             ```bash
             npx copilotkit@latest init --framework flows
             ```
 
-            The starter uses a regular CrewAI Flow.
+            The CLI asks for a project name and creates the app in a new folder with that name. It does not change an existing app. The starter uses a regular CrewAI Flow.
         </Step>
         <Step>
             ### Start the app
@@ -111,13 +102,44 @@ The CLI starter also needs:
     <TailoredContentOption
         id="code-along"
         title="Code along"
-        description="I want to deeply understand what's happening under the hood or don't have a Next.js application."
+        description="I want to connect my own Flow and understand what happens under the hood."
         icon={<SquareChartGantt />}
     >
         <Step>
+            ### Create a Flow that replies in chat
+
+            A Flow replies in the chat only through CopilotKit's helpers. A plain CrewAI Flow (an `@start` method that returns `LLM.call(...)`) runs without errors, but the chat shows nothing. Use `copilotkit_stream` to stream the reply, then append the reply to `self.state.messages` so it stays after the run ends:
+
+            ```python title="flow.py"
+            from crewai.flow.flow import Flow, start
+            from litellm import acompletion
+            from ag_ui_crewai import CopilotKitState, copilotkit_stream
+
+
+            class YourFlow(Flow[CopilotKitState]):
+                @start()
+                async def chat(self) -> None:
+                    response = await copilotkit_stream(
+                        await acompletion(
+                            model="openai/gpt-6-luna",
+                            messages=[
+                                {"role": "system", "content": "You are a helpful assistant."},
+                                *self.state.messages,
+                            ],
+                            tools=[*self.state.copilotkit.actions],
+                            stream=True,
+                        )
+                    )
+                    self.state.messages.append(response.choices[0].message)
+            ```
+
+            `self.state.copilotkit.actions` holds the frontend tools that your app registers, so the model can call them.
+        </Step>
+
+        <Step>
             ### Expose your Flow as an AG-UI endpoint
 
-            CopilotKit connects to agents over [AG-UI](https://docs.ag-ui.com). A CrewAI Enterprise Live Automation URL or another plain CrewAI endpoint is not automatically AG-UI-compatible, even if it returns HTTP 200. Add the official CrewAI adapter to the service that hosts your Flow:
+            CopilotKit connects to agents over [AG-UI](https://docs.ag-ui.com), an open protocol that streams agent events to the frontend. A CrewAI Enterprise Live Automation URL or another plain CrewAI endpoint is not automatically AG-UI-compatible, even if it returns HTTP 200. Add the official CrewAI adapter to the service that hosts your Flow:
 
             ```bash title="Terminal"
             pip install -U "crewai>=1.15.11,<2" ag-ui-crewai fastapi uvicorn
@@ -134,18 +156,21 @@ The CLI starter also needs:
             add_crewai_flow_fastapi_endpoint(app, YourFlow(), "/")
             ```
 
-            Start the server locally with `uvicorn server:app --host 0.0.0.0 --port 8000`, then deploy it to a public HTTPS URL that Copilot Cloud can reach.
+            Start the server in the folder that holds `flow.py` and `server.py`. The Flow reads `OPENAI_API_KEY` from the environment:
 
-            This path connects the Flow through Copilot Cloud, so the Flow must have a public HTTPS URL. To keep the Flow local, use the CLI path, or register the Flow with an `HttpAgent` in your own [Copilot Runtime](/crewai-flows/backend/copilot-runtime).
+            ```bash title="Terminal"
+            export OPENAI_API_KEY=your_openai_api_key
+            uvicorn server:app --host 0.0.0.0 --port 8000
+            ```
         </Step>
 
         <Step>
             ### Verify the AG-UI stream
 
-            Before connecting the frontend, send one run directly to the deployed endpoint:
+            Before connecting the frontend, send one run directly to the endpoint from a second terminal:
 
             ```bash title="Terminal"
-            export AG_UI_URL="https://your-service.example.com/"
+            export AG_UI_URL="http://127.0.0.1:8000/"
 
             curl --fail-with-body --no-buffer --include \
               --request POST "$AG_UI_URL" \
@@ -168,63 +193,99 @@ The CLI starter also needs:
               }'
             ```
 
-            A compatible response has a `Content-Type: text/event-stream` header and emits `RUN_STARTED` followed by `RUN_FINISHED`. Do not register the URL if it returns a normal JSON response or emits `RUN_ERROR`; fix the agent endpoint first.
+            A compatible response has a `Content-Type: text/event-stream` header and emits `RUN_STARTED`, at least one `TEXT_MESSAGE_CONTENT`, then `RUN_FINISHED`. If it returns a normal JSON response, emits `RUN_ERROR`, or has no `TEXT_MESSAGE_CONTENT`, fix the Flow first.
         </Step>
 
         <Step>
-            ### Connect to Copilot Cloud
-            1. Go to [Copilot Cloud](https://dashboard.operations.copilotkit.ai), sign in and click Get Started
-            2. Click "Add Remote Endpoint" and enter the public AG-UI URL you verified above.
-            3. If the agent name has more than one word, separate the words with underscores (`_`).
-            4. Click "Save Endpoint"
-            5. Copy the Copilot Cloud Public API Key
+            ### Create your frontend
 
-            <img src="https://cdn.copilotkit.ai/docs/copilotkit/images/copilot-cloud/crewai-flow-cpk-setup.gif" alt="CrewAI Flow Copilot Setup" className="rounded-lg shadow-xl mt-4" />
-        </Step>
+            CopilotKit works with any React app. This example uses Next.js App Router. In a new terminal:
 
-        <Step>
-            ### Install CopilotKit
-            First, install the latest packages for CopilotKit into your frontend.
-            ```npm
-            npm install @copilotkit/react-core zod
+            ```bash
+            npx create-next-app@latest my-copilot-app --yes
+            cd my-copilot-app
+            npm install @copilotkit/react-core @copilotkit/runtime @ag-ui/client zod
             ```
+
+            `--yes` uses the recommended defaults (TypeScript, Tailwind, App Router) and skips the prompts.
+
+            `@ag-ui/client` must be the same version that `@copilotkit/runtime` uses. Two versions make TypeScript report that `HttpAgent` is not assignable to `AbstractAgent`. Run `npm ls @ag-ui/client`: the top-level copy must be the version that `@copilotkit/runtime` lists as `deduped`.
         </Step>
 
         <Step>
-            ### Setup the CopilotKit Provider
-            <CopilotCloudConfigureCopilotKit />
+            ### Add the Copilot Runtime route
+
+            The Copilot Runtime route registers your Flow as an AG-UI `HttpAgent` named `my_flow`:
+
+            ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
+            import {
+              CopilotRuntime,
+              createCopilotRuntimeHandler,
+            } from "@copilotkit/runtime/v2";
+            import { HttpAgent } from "@ag-ui/client";
+
+            const runtime = new CopilotRuntime({
+              agents: {
+                my_flow: new HttpAgent({
+                  url: process.env.AGENT_URL ?? "http://127.0.0.1:8000/",
+                }),
+              },
+            });
+
+            const handler = createCopilotRuntimeHandler({
+              runtime,
+              basePath: "/api/copilotkit",
+            });
+
+            export const GET = handler;
+            export const POST = handler;
+            ```
+
+            `AGENT_URL` is optional. Set it in `.env.local` when your Flow runs at another address. Use the path that you passed to `add_crewai_flow_fastapi_endpoint`.
         </Step>
+
         <Step>
-            ### Choose a Copilot UI
-            You are almost there. Now it's time to setup your Copilot UI.
-            <CopilotUI />
+            ### Set up the CopilotKit provider
+
+            Replace `app/layout.tsx`. The provider points at the runtime route and selects the `my_flow` agent:
+
+            ```tsx title="app/layout.tsx"
+            import { Suspense } from "react";
+            import { CopilotKit } from "@copilotkit/react-core/v2";
+            import "@copilotkit/react-core/v2/styles.css";
+            import "./globals.css";
+
+            export default function RootLayout({ children }: { children: React.ReactNode }) {
+              return (
+                <html lang="en">
+                  <body>
+                    <Suspense>
+                      <CopilotKit runtimeUrl="/api/copilotkit" agent="my_flow">
+                        {children}
+                      </CopilotKit>
+                    </Suspense>
+                  </body>
+                </html>
+              );
+            }
+            ```
+
+            `<Suspense>` keeps `npm run build` working when `next.config.ts` sets `cacheComponents: true`, the `create-next-app` default in Next.js 16. Without it, the build fails with `encountered the unstable value require('node:crypto').randomUUID()`.
         </Step>
+
         <Step>
             ### Create a CrewAI Flow component
-            Place the following snippet in your **main page** (e.g. `page.tsx` in Next.js) or wherever you want to use CopilotKit.
-            Set `NEXT_PUBLIC_COPILOT_API_KEY` to the Copilot Cloud public API key. Set `NEXT_PUBLIC_COPILOTKIT_AGENT_NAME` to the agent name that you saved.
 
-            ```tsx title="page.tsx"
+            Replace `app/page.tsx` with a chat that can also change the page background:
+
+            ```tsx title="app/page.tsx"
             "use client";
 
             import { useState } from "react";
             import { z } from "zod";
-            import {
-              CopilotKit,
-              CopilotChat,
-              useFrontendTool,
-            } from "@copilotkit/react-core/v2";
+            import { CopilotChat, useFrontendTool } from "@copilotkit/react-core/v2";
 
-            const publicApiKey = process.env.NEXT_PUBLIC_COPILOT_API_KEY || "";
-            /**
-             * AgentName refers to the Crew Flow Agent you have saved via CLI during setup.
-             * It is used to identify the agent you want to use for the chat.
-             */
-            const agentName =
-              process.env.NEXT_PUBLIC_COPILOTKIT_AGENT_NAME || "DefaultAgent";
-
-            // Main Chat Component: Handles chat interface and background customization
-            const Chat = () => {
+            export default function Page() {
               const [background, setBackground] = useState(
                 "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
               );
@@ -263,29 +324,29 @@ The CLI starter also needs:
                 </div>
               );
             }
+            ```
 
-            // App Component: Main wrapper that provides CopilotKit context
-            const CrewAIFlow: React.FC = () => (
-              <CopilotKit publicApiKey={publicApiKey} agent={agentName}>
-                <Chat />
-              </CopilotKit>
-            );
+            Start the app:
 
-            export default CrewAIFlow;
+            ```bash
+            npm run dev
             ```
         </Step>
         <Step>
             ### Talk to your agent
 
-            You've successfully integrated a CrewAI Flow chatbot to your application. To start, try asking a few questions to your agent.
+            Open `http://localhost:3000`. Your CrewAI Flow now answers in the chat. Try these:
 
             - Can you tell me a joke?
             - Can you help me understand AI?
-            - What do you think about React?
+            - Please change the background to blue.
+
+            The last one calls the `change_background` frontend tool, and the page background changes.
 
             <Accordions className="mb-4">
                 <Accordion title="Having trouble?">
-                    - Try changing the host from `localhost` to `0.0.0.0` or `127.0.0.1`.
+                    - If the chat stays empty, run the **Verify the AG-UI stream** check again. A Flow that does not call `copilotkit_stream` emits no `TEXT_MESSAGE_CONTENT`.
+                    - In the `HttpAgent` URL (or `AGENT_URL`), use `127.0.0.1` instead of `localhost`.
                 </Accordion>
             </Accordions>
         </Step>
@@ -300,6 +361,25 @@ The CLI starter also needs:
 
 </Steps>
 
+## Optional: Connect through Copilot Cloud
+
+Copilot Cloud can host the runtime for you instead of the route above. It needs a Copilot Cloud sign-in and your Flow at a public HTTPS URL.
+
+1. Deploy `server.py` to a public HTTPS URL. Run the **Verify the AG-UI stream** check against that URL.
+2. Go to [Copilot Cloud](https://dashboard.operations.copilotkit.ai), sign in and click **Get Started**.
+3. Click **Add Remote Endpoint** and enter the public AG-UI URL. If the agent name has more than one word, separate the words with underscores (`_`).
+4. Click **Save Endpoint**, then copy the Copilot Cloud Public API Key.
+5. Add both values to `.env.local`:
+
+   ```plaintext title=".env.local"
+   NEXT_PUBLIC_COPILOT_API_KEY=ck_pub_...
+   NEXT_PUBLIC_COPILOTKIT_AGENT_NAME=my_flow
+   ```
+
+6. In `app/layout.tsx`, replace `runtimeUrl="/api/copilotkit" agent="my_flow"` with `publicApiKey={process.env.NEXT_PUBLIC_COPILOT_API_KEY} agent={process.env.NEXT_PUBLIC_COPILOTKIT_AGENT_NAME}`. Set the agent name to the one you entered in Copilot Cloud. You can then delete the runtime route.
+
+<img src="https://cdn.copilotkit.ai/docs/copilotkit/images/copilot-cloud/crewai-flow-cpk-setup.gif" alt="CrewAI Flow Copilot Setup" className="rounded-lg shadow-xl mt-4" />
+
 ---
 
 ## What's next?
@@ -312,7 +392,7 @@ The CLI starter also needs:
     icon={<UserIcon />}
   />
   <Card
-    title="Utilize the Shared State"
+    title="Use the Shared State"
     description="Learn how to synchronize your agent's state with your UI's state, and vice versa."
     href="/crewai-flows/shared-state"
     icon={<RepeatIcon />}

@@ -7,7 +7,13 @@ description: "Connection states between CopilotKitCore and the CopilotRuntime."
 
 `CopilotKitCoreRuntimeConnectionStatus` represents the state of the connection between `CopilotKitCore` and its runtime. You encounter it via [`copilotkit.runtimeConnectionStatus`](/reference/core/classes/CopilotKitCore) and the [`onRuntimeConnectionStatusChanged`](/reference/core/types/CopilotKitCoreSubscriber) subscriber callback.
 
-**The status reports the outcome of the last actual contact with the runtime.** It is not a claim about the present moment. A failed runtime request moves it to `Error`, and a successful one moves it back. Nothing else moves it. There is no polling and no heartbeat, so an outage that begins while your application is idle is not noticed until something is sent.
+**The status reports the outcome of the last contact with the runtime.** It is not a claim about the present moment. These events move it:
+
+- **Connect.** Construction (unless `deferInitialConnection` is set), `connect()`, `setRuntimeUrl()` and `setRuntimeTransport()` fetch `/info`. The status goes to `Connecting`, then to `Connected` or `Error`. Setting the URL to `undefined` moves it to `Disconnected`.
+- **A failed request.** When a runtime request fails, or gets no answer within 10 seconds, while the status is `Connected`, the core sends a `GET /info` probe with a 5-second timeout. Only a failed probe moves the status to `Error`.
+- **A successful request.** A successful runtime request while the status is `Error` reconnects and moves it back to `Connected`.
+
+All of these transitions happen only in the browser. On the server, the status stays `Disconnected`. There is no polling and no heartbeat, so an outage that begins while your application is idle is not noticed until something is sent.
 
 ## Import
 
@@ -29,7 +35,7 @@ enum CopilotKitCoreRuntimeConnectionStatus {
 ## Members
 
 <PropertyReference name="Disconnected" type="disconnected">
-  No connection to the runtime has been established. This is the initial state when no `runtimeUrl` is set.
+  No connection to the runtime has been established. This is the initial state, with or without a `runtimeUrl`, until the first `/info` fetch starts. It is also the state after `runtimeUrl` is set to `undefined`.
 </PropertyReference>
 
 <PropertyReference name="Connected" type="connected">

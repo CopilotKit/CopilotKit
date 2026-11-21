@@ -108,6 +108,16 @@ export function useToolStatus() {
 }
 
 /**
+ * A path on this site (`/mastra/quickstart`). The model writes open_page's
+ * URL, so its "Opened" link never points anywhere else.
+ */
+function isSitePath(url: unknown): url is string {
+  return (
+    typeof url === "string" && url.startsWith("/") && !url.startsWith("//")
+  );
+}
+
+/**
  * Gives the "Ask AI" agent the reader's page and the sidebar, and lets it
  * open pages. Renders nothing; it sits inside the docs layout so it can read
  * the page tree, whichever tree the layout was given.
@@ -171,7 +181,7 @@ export function DocsAgent() {
     group: true,
     render: ({ parameters, status }) => (
       <ToolStatus done={status === "complete"}>
-        {status === "complete" && parameters?.url ? (
+        {status === "complete" && isSitePath(parameters?.url) ? (
           <>
             Opened{" "}
             <Link

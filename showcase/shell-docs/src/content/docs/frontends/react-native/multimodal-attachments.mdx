@@ -14,29 +14,20 @@ Attachments use [`expo-document-picker`](https://docs.expo.dev/versions/latest/s
 npx expo install expo-document-picker expo-file-system
 ```
 
-On a bare React Native app, Expo modules need the `expo` package set up first. See Expo's guide to [installing Expo modules](https://docs.expo.dev/bare/installing-expo-modules/).
+On a bare React Native app, set up Expo modules first, then install the two modules. On iOS, install the pods afterwards:
+
+```bash
+npx install-expo-modules@latest
+npx expo install expo-document-picker expo-file-system
+cd ios && pod install
+```
+
+See Expo's guide to [installing Expo modules](https://docs.expo.dev/bare/installing-expo-modules/) for details.
 
 The attachment APIs come from the package root, `@copilotkit/react-native`, not from `/headless`.
 
-<Callout type="warn" title="expo-file-system 19 and later: pass your own reader">
-  The default reader calls `readAsStringAsync` from the main `expo-file-system` entry. From `expo-file-system` 19.0.0 (Expo SDK 54), that method moved to `expo-file-system/legacy`, and the old import throws when called. Every file then fails with `upload-failed`. To see your version, run `npm ls expo-file-system`. On 19 or later, read the file yourself in `onUpload`:
-
-  ```tsx
-  import * as FileSystem from "expo-file-system/legacy";
-
-  const attachments = {
-    enabled: true,
-    onUpload: async (file: NativeFileInput) => ({
-      type: "data" as const,
-      value: await FileSystem.readAsStringAsync(file.uri, {
-        encoding: FileSystem.EncodingType.Base64,
-      }),
-      mimeType: file.mimeType,
-    }),
-  };
-  ```
-
-  `NativeFileInput` is a type export of `@copilotkit/react-native`. Pass this object as the `attachments` prop in the samples below.
+<Callout type="warn" title="The default file reader fails on expo-file-system 19 and later">
+  The default reader calls `readAsStringAsync` from the main `expo-file-system` entry. From `expo-file-system` 19.0.0 (Expo SDK 54), that method is in `expo-file-system/legacy`, and the main entry throws when you call it. Every file then fails with `upload-failed`. The Quick start below reads the file itself in `onUpload`, so it works on every version. On `expo-file-system` 18 or earlier, you can omit `onUpload`. To see your version, run `npm ls expo-file-system`.
 </Callout>
 
 ## Quick start
@@ -45,8 +36,47 @@ Pass `attachments` to the root `CopilotChat`. It draws no UI. It adds the attach
 
 ```tsx title="src/ChatScreen.tsx"
 import { useState } from "react";
-import { Image, Pressable, Text, TextInput, View } from "react-native";
-import { CopilotChat, useCopilotChatContext } from "@copilotkit/react-native";
+import { FlatList, Image, Pressable, Text, TextInput, View } from "react-native";
+import * as FileSystem from "expo-file-system/legacy";
+import {
+  CopilotChat,
+  useCopilotChatContext,
+  type NativeFileInput,
+} from "@copilotkit/react-native";
+
+// Reads each picked file as base64. The default reader fails on expo-file-system 19+.
+const attachments = {
+  enabled: true,
+  onUpload: async (file: NativeFileInput) => ({
+    type: "data" as const,
+    value: await FileSystem.readAsStringAsync(file.uri, {
+      encoding: FileSystem.EncodingType.Base64,
+    }),
+    mimeType: file.mimeType,
+  }),
+};
+
+function Messages() {
+  const { messages } = useCopilotChatContext();
+  return (
+    <FlatList
+      style={{ flex: 1 }}
+      data={messages.filter((m) => m.role === "user" || m.role === "assistant")}
+      keyExtractor={(m) => m.id}
+      renderItem={({ item }) => <Text style={{ padding: 8 }}>{textOf(item.content)}</Text>}
+    />
+  );
+}
+
+// A user message with files has a list of parts. Show its text part.
+function textOf(content: unknown): string {
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) {
+    const part = content.find((p) => p?.type === "text");
+    return part?.text ?? "";
+  }
+  return "";
+}
 
 function Composer() {
   const { attachments, openPicker, removeAttachment, submitMessage, isRunning } =
@@ -95,15 +125,15 @@ function Composer() {
 
 export function ChatScreen() {
   return (
-    <CopilotChat agentId="default" attachments={{ enabled: true }}> {/* [!code highlight] */}
-      {/* Your message list goes here. */}
+    <CopilotChat agentId="default" attachments={attachments}> {/* [!code highlight] */}
+      <Messages />
       <Composer />
     </CopilotChat>
   );
 }
 ```
 
-Tap **Attach**, pick a photo, type a question, and tap **Send**. The thumbnail clears when the message goes out, and the agent answers about the photo.
+Tap **Attach**, pick a photo, type a question, and tap **Send**. The thumbnail clears when the message goes out, and the agent's answer about the photo appears in the list.
 
 `submitMessage` does the sending work for you:
 

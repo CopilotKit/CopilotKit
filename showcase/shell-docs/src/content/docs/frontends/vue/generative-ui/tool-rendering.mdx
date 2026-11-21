@@ -38,13 +38,46 @@ useDefaultRenderTool();
 
 Once you want on-brand chrome, pass a `render` component or function to `useDefaultRenderTool`. It's a convenience wrapper around `useRenderTool({ name: "*", ... })`: one wildcard renderer handles every tool call, named or not.
 
-```ts title="src/components/AgentExperience.vue"
+The wildcard renderer receives `name`, `toolCallId`, `parameters`, `status`, and `result`:
+
+```vue title="src/components/BrandedToolCard.vue"
+<script setup lang="ts">
+defineProps<{
+  name: string;
+  toolCallId: string;
+  parameters: unknown;
+  status: "inProgress" | "executing" | "complete";
+  result: string | undefined;
+}>();
+</script>
+
+<template>
+  <p class="branded-tool-card">{{ name }}: {{ status }}</p>
+</template>
+```
+
+Pass it in place of the no-argument call in `AgentExperience.vue`:
+
+```vue title="src/components/AgentExperience.vue"
+<script setup lang="ts">
+import { CopilotChat, useDefaultRenderTool } from "@copilotkit/vue/v2";
+import BrandedToolCard from "./BrandedToolCard.vue";
+
 useDefaultRenderTool({ render: BrandedToolCard });
+</script>
+
+<template><CopilotChat /></template>
 ```
 
 ## Per-tool renderers
 
 The most expressive path is one renderer per tool name. Each renderer receives the tool's parsed arguments, a live `status`, and, once the agent returns, the `result`.
+
+Install Zod for the parameter schema:
+
+```bash
+npm install zod
+```
 
 1. Write the card component:
 
@@ -70,6 +103,7 @@ The most expressive path is one renderer per tool name. Each renderer receives t
 
    ```vue title="src/components/AgentExperience.vue"
    <script setup lang="ts">
+   import type { Component } from "vue";
    import { z } from "zod";
    import { CopilotChat, useDefaultRenderTool, useRenderTool } from "@copilotkit/vue/v2";
    import WeatherToolCard from "./WeatherToolCard.vue";
@@ -77,7 +111,8 @@ The most expressive path is one renderer per tool name. Each renderer receives t
    useRenderTool({
      name: "get_weather",
      parameters: z.object({ city: z.string() }),
-     render: WeatherToolCard,
+     // The cast keeps `vue-tsc` (run by `npm run build`) from rejecting the SFC.
+     render: WeatherToolCard as Component,
    });
 
    useDefaultRenderTool(); // wildcard fallback for every other tool
@@ -95,7 +130,7 @@ The most expressive path is one renderer per tool name. Each renderer receives t
    </script>
 
    <template>
-     <CopilotKitProvider runtime-url="/api/copilotkit"><AgentExperience /></CopilotKitProvider>
+     <CopilotKitProvider runtime-url="http://localhost:8200/api/copilotkit"><AgentExperience /></CopilotKitProvider>
    </template>
    ```
 
@@ -117,8 +152,36 @@ useRenderTool({ name: "get_weather", parameters, render: WeatherToolCard }, [loc
 
 The frontend renderer only sees what the agent sends down. The matching backend must expose a tool named `get_weather`, return structured data, and let the frontend renderer with the same name paint the card. The Vue renderer does not create or execute that backend tool.
 
+On the Built-in Agent from the [Vue quickstart](/vue), define the tool in `server.ts` and pass it in `tools`:
+
+```ts title="server.ts"
+import { BuiltInAgent, CopilotRuntime, defineTool } from "@copilotkit/runtime/v2";
+import { z } from "zod";
+
+const getWeather = defineTool({
+  name: "get_weather",
+  description: "Get the weather for a city",
+  parameters: z.object({ city: z.string() }),
+  execute: async ({ city }) => ({ city, temperature: 22, condition: "sunny" }),
+});
+
+const runtime = new CopilotRuntime({
+  agents: {
+    default: new BuiltInAgent({
+      model: "openai:gpt-6-luna",
+      prompt: "You are a helpful assistant for a Vue app.",
+      tools: [getWeather],
+    }),
+  },
+});
+```
+
+Keep the rest of `server.ts` from the quickstart and restart it. Ask "What's the weather in Paris?". The card shows "Checking Paris" while the tool runs, then the city and the result.
+
+For other agent frameworks, define the tool in your agent:
+
 <FrameworkSetup concept="tool-rendering-setup" />
 
-<Snippet region="weather-tool-backend" title="backend — weather tool" />
+<Snippet region="weather-tool-backend" title="backend: weather tool" />
 
 <IntegrationGrid path="generative-ui/tool-rendering" />

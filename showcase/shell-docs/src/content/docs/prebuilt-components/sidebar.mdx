@@ -23,8 +23,8 @@ Use the sidebar when you want:
 For a floating bubble that overlays content, see
 [CopilotPopup](/prebuilt-components/popup). For a fully embedded chat pane,
 use [`<CopilotChat>`](/prebuilt-components/chat) directly. For saved
-conversations and switching between them, the sidebar hosts the
-[Threads Drawer](/prebuilt-components/copilot-threads-drawer).
+conversations and switching between them, add the
+[Threads Drawer](/prebuilt-components/copilot-threads-drawer) next to the sidebar.
 
 ## Basic setup
 
@@ -40,23 +40,45 @@ import "@copilotkit/react-core/v2/styles.css";
 
 Import from `@copilotkit/react-core/v2`. The `CopilotSidebar` in `@copilotkit/react-ui` is the [deprecated v1 sidebar](/migrate/v2).
 
-<Snippet region="sidebar-basic-setup" title="frontend/src/app/page.tsx — CopilotSidebar wired up" />
+<Snippet region="sidebar-basic-setup" title="frontend/src/app/page.tsx: CopilotSidebar wired up" />
 
-`<MainContent />` and `<Suggestions />` are demo components. Replace them with your own content.
+Adapt the excerpt to your app:
+
+- `prebuilt-sidebar` is the demo's agent name. It must match a key in your runtime's `agents`, for example `new CopilotRuntime({ agents: { "prebuilt-sidebar": myAgent } })`. If you followed the [quickstart](/quickstart), leave out `agent` and `agentId`. The sidebar then uses the agent your provider selects, or `default` when it selects none.
+- If your app already has a CopilotKit provider (the quickstart puts one in `app/providers.tsx`), skip the `<CopilotKit>` wrapper and render only `<CopilotSidebar />`.
+- `<MainContent />` and `<Suggestions />` are demo components. Replace them with your own content.
 
 ## Configuring the sidebar
 
 `<CopilotSidebar>` accepts the same props as `<CopilotChat>` plus a few of
-its own. The example below opens the sidebar by default and targets a named
-agent:
+its own. With the quickstart setup, this page starts with the sidebar closed
+and sets its header title:
 
-<Snippet region="sidebar-configuration" title="frontend/src/app/page.tsx — defaultOpen + agentId" />
+```tsx title="app/page.tsx"
+"use client";
+
+import { CopilotSidebar } from "@copilotkit/react-core/v2";
+
+export default function Page() {
+  return (
+    <main>
+      <h1>Your App</h1>
+      <CopilotSidebar
+        defaultOpen={false}
+        labels={{ modalHeaderTitle: "Assistant" }}
+      />
+    </main>
+  );
+}
+```
+
+Click the launcher button to open the sidebar. Its header reads **Assistant**.
 
 Common sidebar-specific props:
 
 | Prop | Description |
 |------|-------------|
-| `defaultOpen` | Whether the sidebar starts open on first render. |
+| `defaultOpen` | Whether the sidebar starts open on first render. Default: `true`. |
 | `open` / `onOpenChange` | Control the open state from your own UI. See [Open, close, and feedback](/prebuilt-components/chat-controls). |
 | `agentId` | Agent slug the sidebar should talk to (must match an agent configured on the runtime). |
 | `labels` | User-facing copy for the header, placeholder, and disclaimer. |

@@ -24,10 +24,18 @@ Some agent frameworks can't pause a run mid-tool the way LangGraph's `interrupt(
 </WhenFrameworkHas>
 
 <WhenFrameworkHas flag="interrupt_pattern" absent>
+<WhenAngularBackend selected>
 
-> **Use `useHumanInTheLoop` on this framework.** `useInterrupt` needs an agent that emits an AG-UI interrupt (`RUN_FINISHED` with `outcome.type === "interrupt"`) or an `on_interrupt` custom event, and a working resume path. On the Built-in Agent, interrupts are temporarily unavailable. [`useHumanInTheLoop`](/human-in-the-loop) pauses on a tool call instead. It works on every framework that supports frontend tools.
+> **Use `useHumanInTheLoop` on this framework.** `useInterrupt` needs an agent that emits an AG-UI interrupt (`RUN_FINISHED` with `outcome.type === "interrupt"`) or an `on_interrupt` custom event, and a working resume path. [`useHumanInTheLoop`](/human-in-the-loop) pauses on a tool call instead. It works on every framework that supports frontend tools.
 
+</WhenAngularBackend>
 </WhenFrameworkHas>
+
+<WhenAngularBackend selected={false}>
+
+On the Built-in Agent, an interrupt is a server tool with `interrupt: true`. When the model calls that tool, the run ends with a standard AG-UI interrupt. Your app shows a component, and `resolve(...)` starts the run again. The agent gets your payload as the result of the tool call.
+
+</WhenAngularBackend>
 
 ## When should I use this?
 
@@ -39,6 +47,67 @@ Use `useInterrupt` when the pause is a **checkpoint in your agent code**, where 
 - You want the server-side contract to be an interrupt that resumes with a payload
 
 When the model decides on the fly to ask the user, use [`useHumanInTheLoop`](/human-in-the-loop) instead.
+
+<WhenAngularBackend selected={false}>
+
+## The backend: an interrupt tool
+
+Add an interrupt tool to the agent in the `server.ts` from the [quickstart](/quickstart). An interrupt tool has no `execute`. `zod` is already installed from the quickstart:
+
+```ts title="server.ts"
+import { BuiltInAgent, CopilotRuntime, defineTool } from "@copilotkit/runtime/v2"; // [!code highlight]
+import { z } from "zod"; // [!code highlight]
+
+const approvePayment = defineTool({ // [!code highlight:7]
+  name: "approve_payment",
+  description: "Ask the user to approve a payment before you send it.",
+  parameters: z.object({ amount: z.number(), payee: z.string() }),
+  interrupt: true,
+  interruptMessage: "Approve this payment?",
+});
+
+const runtime = new CopilotRuntime({
+  agents: {
+    default: new BuiltInAgent({
+      model: "openai:gpt-6-luna",
+      prompt: "You are a helpful assistant. Before you send a payment, call approve_payment.",
+      tools: [approvePayment], // [!code highlight]
+    }),
+  },
+});
+```
+
+Restart the runtime with `npx tsx server.ts`. The interrupt carries `interruptMessage` as `interrupt.message`. It does not carry the tool arguments.
+
+## The frontend: `useInterrupt` in the rendered chat
+
+Register `useInterrupt` in a component under `CopilotKitProvider`. `render` receives the `interrupt` and `resolve(...)`, which starts the run again with your payload:
+
+```tsx title="src/PaymentChat.tsx"
+import { Button, Text, View } from "react-native";
+import { useInterrupt } from "@copilotkit/react-native/headless";
+import { CopilotChat } from "@copilotkit/react-native/components";
+
+export function PaymentChat() {
+  useInterrupt({ // [!code highlight:9]
+    render: ({ interrupt, resolve }) => (
+      <View style={{ padding: 12, borderRadius: 12, backgroundColor: "#f4f4f8", gap: 8 }}>
+        <Text style={{ fontWeight: "600" }}>{interrupt?.message ?? "Approve this payment?"}</Text>
+        <Button title="Approve" onPress={() => resolve({ approved: true })} />
+        <Button title="Reject" onPress={() => resolve({ approved: false })} />
+      </View>
+    ),
+  });
+
+  return <CopilotChat />;
+}
+```
+
+The rendered `CopilotChat` from `/components` draws the element after the last message. It needs native peers. See [Native peers for the rendered chat](/quickstart#native-peers-for-the-rendered-chat).
+
+Render `<PaymentChat />` under `CopilotKitProvider`, as in [Provider setup](#provider-setup). Ask the agent to pay ACME $120. The card appears in the chat. Tap **Approve**, and the agent replies that the payment was approved.
+
+</WhenAngularBackend>
 
 <WhenFrameworkHas flag="interrupt_pattern" equals="native">
 
@@ -156,7 +225,7 @@ export function MeetingChat() {
 
 The agent has no local `schedule_meeting` implementation. The tool is registered entirely in your app. The backend's only job is to tell the model to call `schedule_meeting` when the user wants to book a meeting. AG-UI routes the tool call to the app, where the Promise-returning handler takes over:
 
-<Snippet region="backend-tool-call" cell="gen-ui-interrupt" title="backend — agent instructed to call schedule_meeting" />
+<Snippet region="backend-tool-call" cell="gen-ui-interrupt" title="backend: agent instructed to call schedule_meeting" />
 
 Ask the agent to book a call. The picker appears in the chat. Tap **Tomorrow at 09:00**, and the agent continues with your choice.
 
@@ -256,11 +325,11 @@ If both signals arrive on the same run, the standard flow wins.
 
 ### Approve / Cancel example
 
-```tsx
+```tsx title="src/ApprovalPanel.tsx"
 import { Button, Text, View } from "react-native";
 import { useInterrupt } from "@copilotkit/react-native/headless";
 
-function ApprovalPanel() {
+export function ApprovalPanel() {
   const element = useInterrupt({
     renderInChat: false,
     render: ({ interrupt, resolve, cancel }) => (
@@ -276,7 +345,7 @@ function ApprovalPanel() {
 }
 ```
 
-Both methods return the run result once the run restarts, or nothing while other open interrupts still wait for an answer.
+Both methods return the run result once the run restarts, or nothing while other open interrupts still wait for an answer. Render `<ApprovalPanel />` anywhere under `CopilotKitProvider`, for example above your chat.
 
 ### More than one open interrupt
 
@@ -306,6 +375,27 @@ An `Interrupt` can carry a `responseSchema`, a JSON Schema that describes the an
 
 The component that calls `useInterrupt` or `useHumanInTheLoop` must be under `CopilotKitProvider`:
 
+<WhenAngularBackend selected={false}>
+
+```tsx title="App.tsx"
+import { CopilotKitProvider } from "@copilotkit/react-native/headless";
+import { PaymentChat } from "./src/PaymentChat";
+
+const runtimeUrl = "http://localhost:8200/api/copilotkit";
+
+export default function App() {
+  return (
+    <CopilotKitProvider runtimeUrl={runtimeUrl}>
+      <PaymentChat />
+    </CopilotKitProvider>
+  );
+}
+```
+
+</WhenAngularBackend>
+
+<WhenAngularBackend selected>
+
 ```tsx title="App.tsx"
 import { CopilotKitProvider } from "@copilotkit/react-native/headless";
 import { MeetingChat } from "./src/MeetingChat";
@@ -320,3 +410,5 @@ export default function App() {
   );
 }
 ```
+
+</WhenAngularBackend>

@@ -18,7 +18,7 @@ Use this prompt to connect your Microsoft Agent Framework agent to CopilotKit an
 
 Before you begin, you'll need the following:
 
-- An [OpenAI API key](https://platform.openai.com/api-keys) for the .NET starter
+- An [OpenAI API key](https://platform.openai.com/api-keys), or an Azure OpenAI deployment for a Python agent
 - .NET 9.0 SDK or later, for a .NET agent
 - Python 3.12 or later and [uv](https://docs.astral.sh/uv/), for a Python agent
 - Node.js 20+
@@ -28,9 +28,9 @@ Before you begin, you'll need the following:
 
 <Steps>
     <Step>
-        ### Set up CopilotKit Intelligence
+        ### Optional: set up CopilotKit Intelligence
 
-        <SignupLink surface="docs_microsoft_agent_framework_quickstart_step1">Sign in to cloud-hosted Intelligence</SignupLink>. You will connect the app after you create it below.
+        Intelligence keeps your threads in the cloud. Skip this step to run with an in-memory runner. To use it, <SignupLink surface="docs_microsoft_agent_framework_quickstart_step1">sign in to cloud-hosted Intelligence</SignupLink>. You will connect the app after you create it below.
     </Step>
 
     <Step>
@@ -57,7 +57,7 @@ Before you begin, you'll need the following:
                 The CLI walks you through:
 
                 - **Project name**
-                - **CopilotKit Intelligence**: persistent threads and the Inspector. Choose **Yes** for a project that is wired to Intelligence. Choose **No** for a standard Microsoft Agent Framework setup.
+                - **CopilotKit Intelligence**: every starter ships with it. The CLI walks you through sign-in and project selection. `--project <ref>` or `--create <name>` skip the picker.
                 - **Framework**: pick **Microsoft Agent Framework (.NET)** or **Microsoft Agent Framework (Python)**.
             </Step>
             <Step>
@@ -150,7 +150,7 @@ Before you begin, you'll need the following:
                     </Tab>
                 </Tabs>
 
-                This will start both the Next.js UI (port 3000) and agent server (port 8000) concurrently.
+                This starts the Next.js UI (port 3000) and the agent server (port 8000) together.
             </Step>
         </TailoredContentOption>
         <TailoredContentOption
@@ -272,11 +272,14 @@ using Microsoft.Extensions.AI;
                         )
 
                         app = FastAPI(title="Microsoft Agent Framework - Quickstart")
-                        add_agent_framework_fastapi_endpoint(app=app, agent=agent, path="/")
+                        # Local demo: one user, no sign-in.
+                        add_agent_framework_fastapi_endpoint(app=app, agent=agent, path="/", single_user=True)
 
                         if __name__ == "__main__":
                             uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
                         ```
+
+                        `single_user=True` declares that the endpoint has no sign-in. Without an authorization mode, the server stops at startup with `AG-UI endpoint authorization must be explicit`. For an app with sign-in, pass `authorization_scope_resolver` instead.
 
                         3. Create a `.env` file in `my-agent` with your OpenAI key:
 
@@ -298,12 +301,12 @@ using Microsoft.Extensions.AI;
             </Step>
             <Step>
                 ### Frontend Setup
-                CopilotKit works with any React-based frontend. We'll use Next.js for this example.
+                CopilotKit works with any React-based frontend. This example uses Next.js.
 
-                In a new terminal window, run the following commands:
+                In a new terminal window, go to the folder that holds your agent project and run the following commands. `--yes` accepts the recommended defaults (TypeScript, Tailwind, App Router):
 
                 ```bash
-                npx create-next-app@latest my-copilot-app
+                npx create-next-app@latest my-copilot-app --yes
                 cd my-copilot-app
                 ```
             </Step>
@@ -311,20 +314,21 @@ using Microsoft.Extensions.AI;
                 ### Install CopilotKit packages
 
                 ```npm
-                npm install @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime @ag-ui/client@1.0.2
+                npm install @copilotkit/react-core @copilotkit/runtime @ag-ui/client
                 ```
+
+                `@ag-ui/client` must be the same version that `@copilotkit/runtime` uses. Two versions make TypeScript report that `HttpAgent` is not assignable to `AbstractAgent`. Run `npm ls @ag-ui/client`: the top-level copy must be the version that `@copilotkit/runtime` lists as `deduped`.
             </Step>
             <Step>
                 ### Add the Copilot Runtime route
 
-                CopilotKit requires a Copilot Runtime endpoint to safely communicate with your agent. This can be served
-                anywhere that Node.js can run, but for this example we'll use Next.js.
+                CopilotKit needs a Copilot Runtime endpoint to talk to your agent safely. The endpoint can run
+                anywhere that Node.js runs. This example serves it from Next.js.
 
                 Create a new API route at `app/api/copilotkit/[[...slug]]/route.ts`:
 
                 ```tsx title="app/api/copilotkit/[[...slug]]/route.ts" doctest="component"
                 import {
-                  CopilotKitIntelligence,
                   CopilotRuntime,
                   createCopilotRuntimeHandler,
                 } from "@copilotkit/runtime/v2";
@@ -335,16 +339,6 @@ using Microsoft.Extensions.AI;
                   agents: {
                     my_agent: new HttpAgent({ url: "http://localhost:8000/" }),
                   },
-                  // [!code highlight:9]
-                  intelligence: new CopilotKitIntelligence({
-                    apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
-                  }),
-                  // Demo only: the browser sends no x-user-id header, so all visitors share
-                  // one "anonymous" history. Before you deploy, return the verified session user.
-                  identifyUser: (request) => ({
-                    id: request.headers.get("x-user-id") ?? "anonymous",
-                    name: request.headers.get("x-user-name") ?? "Anonymous",
-                  }),
                 });
 
                 const handler = createCopilotRuntimeHandler({
@@ -358,25 +352,40 @@ using Microsoft.Extensions.AI;
                 export const DELETE = handler;
                 ```
 
-                From this frontend app directory, connect the runtime to an Intelligence project:
+                This route runs with an in-memory runner. Chat and the Inspector work without any key.
 
-                ```bash title="Terminal"
-                npx copilotkit@latest project select
-                ```
+                <Accordions className="mb-4">
+                    <Accordion title="Optional: connect CopilotKit Intelligence">
+                        From this frontend app directory, sign in and select an Intelligence project:
 
-                The command writes the server-side project API key to `.env`. The runtime reads it here:
+                        ```bash title="Terminal"
+                        npx copilotkit@latest login
+                        npx copilotkit@latest project select
+                        ```
 
-                ```plaintext title=".env"
-                CPK_INTELLIGENCE_API_KEY=cpk-...
-                ```
+                        `login` opens a browser sign-in. `project select` writes the server-side project API key to `.env`:
 
-                <Callout type="info" title="Running without the Intelligence Platform?">
-                  Drop the `intelligence` and `identifyUser` options and the runtime falls back
-                  to SSE mode with an in-memory runner. Chat and the Inspector still work, but
-                  Rich Threads stay locked and the key is never read. See
-                  [Connect your runtime to Intelligence](/intelligence/quickstart) for the
-                  full constructor and how to confirm the key is in use.
-                </Callout>
+                        ```plaintext title=".env"
+                        CPK_INTELLIGENCE_API_KEY=cpk-...
+                        ```
+
+                        Then add `CopilotKitIntelligence` to the imports and these two options to `new CopilotRuntime({ ... })`:
+
+                        ```ts
+                        intelligence: new CopilotKitIntelligence({
+                          apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
+                        }),
+                        // Demo only: the browser sends no x-user-id header, so all visitors share
+                        // one "anonymous" history. Before you deploy, return the verified session user.
+                        identifyUser: (request) => ({
+                          id: request.headers.get("x-user-id") ?? "anonymous",
+                          name: request.headers.get("x-user-name") ?? "Anonymous",
+                        }),
+                        ```
+
+                        Without the key, the route fails when it loads, with an error that the `CopilotKitIntelligence` `apiKey` is required. See [Connect your runtime to Intelligence](/intelligence/quickstart) to confirm the key is in use.
+                    </Accordion>
+                </Accordions>
             </Step>
             <Step>
                 ### Configure CopilotKit Provider
@@ -398,26 +407,31 @@ using Microsoft.Extensions.AI;
                 }
                 ```
 
-                Render `Providers` around your app in `app/layout.tsx`:
+                Render `Providers` around your app in `app/layout.tsx`. Keep the generated file. Add the highlighted imports and wrap `{children}` in `<Providers>`:
 
                 ```tsx title="app/layout.tsx"
+                import { Suspense } from "react"; // [!code highlight]
                 import { Providers } from "./providers"; // [!code highlight]
-                import "@copilotkit/react-core/v2/styles.css";
+                import "@copilotkit/react-core/v2/styles.css"; // [!code highlight]
                 import './globals.css';
 
                 export default function RootLayout({ children }: {children: React.ReactNode}) {
                   return (
                     <html lang="en">
                       <body>
-                        {/* [!code highlight:3] */}
-                        <Providers>
-                          {children}
-                        </Providers>
+                        {/* [!code highlight:5] */}
+                        <Suspense>
+                          <Providers>
+                            {children}
+                          </Providers>
+                        </Suspense>
                       </body>
                     </html>
                   );
                 }
                 ```
+
+                `<Suspense>` keeps `npm run build` working when `next.config.ts` sets `cacheComponents: true`, the `create-next-app` default in Next.js 16. Without it, the build fails with `encountered the unstable value require('node:crypto').randomUUID()`.
 
                 <Callout type="info" title="This relative runtimeUrl assumes Next.js serves the runtime">
                   `/api/copilotkit` resolves only because Next.js serves your app and the runtime from the
@@ -456,7 +470,7 @@ using Microsoft.Extensions.AI;
             </Step>
             <Step>
               ### Run and start your Next.js app
-              To run the Next.js app we just created, use the following command:
+              Start the Next.js app:
 
               <Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn', 'bun']}>
                   <Tab value="npm">
@@ -496,7 +510,7 @@ using Microsoft.Extensions.AI;
         <Accordions className="mb-4">
             <Accordion title="Troubleshooting">
                 **Agent Connection Issues**
-                - If you see "I'm having trouble connecting to my tools", make sure:
+                - If the assistant does not reply, check the terminal of `npm run dev` for `ECONNREFUSED` (the agent is not running on port 8000) or a 401 from the model provider (API key). Make sure:
                   - The agent is running on port 8000
                   - Your OpenAI API key is set: in .NET user secrets for a .NET agent, or in the `.env` file of a Python agent
                   - Both servers started successfully (check terminal output)
@@ -521,10 +535,15 @@ using Microsoft.Extensions.AI;
                   ```
 
                 **Port Conflicts**
-                - If port 8000 is already in use, you can change it in:
+                - If port 8000 is already in use, change the port in both the agent and the frontend.
+                - Starter project:
                   - .NET agent: `agent/Properties/launchSettings.json` - Update `applicationUrl`
                   - Python agent: `agent/.env` - Set `AGENT_PORT`
                   - Frontend: `.env` - Set `AGENT_URL` to the new agent URL (read in `src/agent.ts`)
+                - Existing agent:
+                  - .NET agent: `app.Run("http://localhost:8000")` in `Program.cs`
+                  - Python agent: `uvicorn.run(..., port=8000)` in `main.py`
+                  - Frontend: the `url` of `HttpAgent` in `app/api/copilotkit/[[...slug]]/route.ts`
             </Accordion>
         </Accordions>
 
@@ -548,7 +567,7 @@ Now that you have your basic agent setup, explore these advanced features:
     icon={<UserIcon />}
   />
   <Card
-    title="Utilize Shared State"
+    title="Use Shared State"
     description="Learn how to synchronize your agent's state with your UI's state, and vice versa."
     href="/microsoft-agent-framework/shared-state"
     icon={<RepeatIcon />}

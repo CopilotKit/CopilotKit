@@ -11,8 +11,8 @@ snippet_cell: prebuilt-popup
 
 `<CopilotPopup>` is a prebuilt floating launcher that opens an overlay chat
 window on top of your page content. It adds a copilot to an existing app
-without changing your page layout. Drop it in once and a bubble appears in the
-corner ready to chat.
+without changing your page layout. Drop it in once and a chat window opens
+above a launcher bubble in the corner.
 
 ## When should I use this?
 
@@ -40,9 +40,33 @@ import "@copilotkit/react-core/v2/styles.css";
 
 Import from `@copilotkit/react-core/v2`. The `CopilotPopup` in `@copilotkit/react-ui` is the [deprecated v1 popup](/migrate/v2).
 
-<Snippet region="popup-basic-setup" title="frontend/src/app/page.tsx — CopilotPopup wired up" />
+<Snippet region="popup-basic-setup" title="frontend/src/app/page.tsx: CopilotPopup wired up" />
 
-`<MainContent />` and `<Suggestions />` are demo components. Replace them with your own content.
+Adapt the excerpt to your app:
+
+- `prebuilt-popup` is the demo's agent name. It must match a key in your runtime's `agents`, for example `new CopilotRuntime({ agents: { "prebuilt-popup": myAgent } })`. If you followed the [quickstart](/quickstart), leave out `agent` and `agentId`. The popup then uses the agent your provider selects, or `default` when it selects none.
+- If your app already has a CopilotKit provider (the quickstart puts one in `app/providers.tsx`), skip the `<CopilotKit>` wrapper and render only `<CopilotPopup />`.
+- `<MainContent />` and `<Suggestions />` are demo components. Replace them with your own content.
+
+With the quickstart setup, a complete page looks like this:
+
+```tsx title="app/page.tsx"
+"use client";
+
+import { CopilotPopup } from "@copilotkit/react-core/v2";
+
+export default function Page() {
+  return (
+    <main>
+      <h1>Your App</h1>
+      <CopilotPopup
+        defaultOpen={true}
+        labels={{ chatInputPlaceholder: "Ask the popup anything..." }}
+      />
+    </main>
+  );
+}
+```
 
 ## Configuring the popup
 
@@ -51,7 +75,7 @@ its own. Commonly used options:
 
 | Prop | Description |
 |------|-------------|
-| `defaultOpen` | Whether the popup starts open on first render. |
+| `defaultOpen` | Whether the popup starts open on first render. Default: `true`. Pass `false` to show only the launcher bubble. |
 | `open` / `onOpenChange` | Control the open state from your own UI. See [Open, close, and feedback](/prebuilt-components/chat-controls). |
 | `agentId` | Agent slug the popup should talk to (must match an agent configured on the runtime). |
 | `labels` | User-facing copy for the header, placeholder, and disclaimer. |

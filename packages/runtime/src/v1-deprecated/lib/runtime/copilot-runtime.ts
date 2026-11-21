@@ -326,16 +326,16 @@ export interface CopilotRuntimeConstructorParams_BASE<
   /**
    * A function that creates an MCP client instance for a given endpoint configuration.
    * This function is responsible for using the appropriate MCP client library
-   * (e.g., `@copilotkit/runtime`, `ai`) to establish a connection.
+   * (for example, `@ai-sdk/mcp`) to establish a connection.
    * Required if `mcpServers` is provided.
    *
    * ```typescript
-   * import { experimental_createMCPClient } from "ai"; // Import from vercel ai library
+   * import { createMCPClient } from "@ai-sdk/mcp"; // Vercel AI SDK MCP client
    * // ...
    * const runtime = new CopilotRuntime({
    *   mcpServers: [{ endpoint: "..." }],
    *   async createMCPClient(config) {
-   *     return await experimental_createMCPClient({
+   *     return await createMCPClient({
    *       transport: {
    *         type: "sse",
    *         url: config.endpoint,

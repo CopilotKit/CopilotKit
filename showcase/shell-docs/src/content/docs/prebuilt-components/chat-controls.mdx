@@ -1,10 +1,12 @@
 ---
-title: "Open, close, and feedback"
+title: "Chat Open State and Feedback"
+nav_title: "Open, close, and feedback"
 icon: "lucide/SlidersHorizontal"
 description: "Open and close the prebuilt chat from your UI, and capture assistant message feedback."
 ---
 
-This page covers two tasks for the prebuilt chat:
+You use the prebuilt chat, and you want to open it from your own UI or learn
+which replies helped your users.
 
 - [Open and close the chat from your own UI](#control-the-open-state-from-your-own-ui), for example from a button in your nav bar.
 - [Capture thumbs-up and thumbs-down feedback](#capture-message-feedback-thumbs-up--down) on assistant replies.
@@ -13,10 +15,13 @@ This page covers two tasks for the prebuilt chat:
 
 Pass `open` and `onOpenChange` to `<CopilotSidebar>` or `<CopilotPopup>` to own
 the open state yourself. This is the controlled pattern. The surface shows
-whatever `open` says. The toggle button and click-outside on the popup send
-their request to `onOpenChange`, and the surface does not move by itself.
+whatever `open` says. The toggle button (and click-outside on the popup, when
+you pass `clickOutsideToClose`) sends its request to `onOpenChange`, and the
+surface does not move by itself.
 
 ```tsx
+"use client";
+
 import { useState } from "react";
 import { CopilotSidebar } from "@copilotkit/react-core/v2";
 
@@ -53,22 +58,40 @@ you are notified each time it opens or closes.
 If you would rather not lift the state into your own component, the open state
 for `<CopilotPopup>` and `<CopilotSidebar>` also lives in the **chat
 configuration context**. Read it with `useCopilotChatConfiguration()` and call
-`setModalOpen(true | false)` from anywhere inside the provider:
+`setModalOpen(true | false)`.
+
+The modal state exists only inside a `<CopilotChatConfigurationProvider>`. The
+`<CopilotKit>` provider does not create one. Wrap your button and the chat in
+the same `<CopilotChatConfigurationProvider>`:
 
 ```tsx
-import { useCopilotChatConfiguration } from "@copilotkit/react-core/v2";
+"use client";
+
+import {
+  CopilotChatConfigurationProvider,
+  CopilotPopup,
+  useCopilotChatConfiguration,
+} from "@copilotkit/react-core/v2";
 
 function OpenChatButton() {
   const config = useCopilotChatConfiguration();
 
-  // setModalOpen is only present when a provider in the tree owns modal state
-  // (the prebuilt CopilotPopup / CopilotSidebar create it for you).
+  // Outside a CopilotChatConfigurationProvider, config is null.
   if (!config?.setModalOpen) return null;
 
   return (
     <button onClick={() => config.setModalOpen(true)}>
       Ask the assistant
     </button>
+  );
+}
+
+export default function Page() {
+  return (
+    <CopilotChatConfigurationProvider isModalDefaultOpen={false}>
+      <OpenChatButton />
+      <CopilotPopup />
+    </CopilotChatConfigurationProvider>
   );
 }
 ```
@@ -82,13 +105,11 @@ To toggle, read `config.isModalOpen` and flip it:
 ```
 
 <Callout type="info">
-`setModalOpen` / `isModalOpen` are only defined when a provider in the tree owns
-modal state. The prebuilt `<CopilotPopup>` and `<CopilotSidebar>` create this
-state inside the chat only. To open the chat from a button outside it, use
-`open` and `onOpenChange`, or wrap the button and the chat in one
-`<CopilotChatConfigurationProvider isModalDefaultOpen={false}>`. If you compose
-chat yourself, wrap the relevant subtree in the same provider so the modal state
-exists. See the
+The prebuilt `<CopilotPopup>` and `<CopilotSidebar>` create their own modal
+state inside the chat only. A button outside the chat needs the shared
+`<CopilotChatConfigurationProvider>` shown above, or `open` and `onOpenChange`.
+If you compose chat yourself, wrap the relevant subtree in the same provider so
+the modal state exists. See the
 [`useCopilotChatConfiguration` reference](/reference/hooks/useCopilotChatConfiguration#modal-state-management).
 </Callout>
 
@@ -116,6 +137,7 @@ import { CopilotChat } from "@copilotkit/react-core/v2";
 <CopilotChat
   messageView={{
     assistantMessage: {
+      // Replace analytics.track with your own tracker
       onThumbsUp: (message) => {
         analytics.track("feedback", { messageId: message.id, value: "up" });
       },

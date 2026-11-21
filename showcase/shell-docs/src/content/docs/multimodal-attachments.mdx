@@ -10,16 +10,24 @@ You have a working CopilotChat and want users to attach files (images, PDFs, aud
 
 Add `attachments` to your `CopilotChat` component:
 
-```tsx title="page.tsx"
+```tsx title="app/page.tsx"
+"use client";
+
 import { CopilotChat } from "@copilotkit/react-core/v2";
 
-<CopilotChat
-  agentId="my-agent"
-  attachments={{ enabled: true }} // [!code highlight]
-/>
+export default function Page() {
+  return (
+    <CopilotChat
+      attachments={{ enabled: true }} // [!code highlight]
+    />
+  );
+}
 ```
 
-That's it. Users can now click the attachment button or drag-and-drop files into the chat. The files are sent as part of the message content to your agent.
+Users can now click the attachment button or drag and drop files into the chat. The files are sent as part of the message content to your agent.
+
+- In the Next.js App Router, render `CopilotChat` in a client component (`"use client"`). The handlers in the examples below are functions, and a server component cannot pass them.
+- If your runtime registers a named agent, add `agentId="<that name>"`. Without it, the chat uses the agent your provider selects, or `default` when it selects none.
 
 ## Configuration
 
@@ -52,7 +60,7 @@ Attachments are categorized by modality based on their MIME type:
 
 | Modality | MIME types | Preview | AI support |
 | --- | --- | --- | --- |
-| **Image** | `image/*` | Thumbnail with lightbox | Supported by most vision-capable models (GPT-4o, Claude, etc.) |
+| **Image** | `image/*` | Thumbnail with lightbox | Supported by most vision-capable models, such as GPT-4o and Claude |
 | **Audio** | `audio/*` | Audio player | Model-dependent |
 | **Video** | `video/*` | Thumbnail with play button + lightbox | Model-dependent |
 | **Document** | Everything else | File icon + name; PDF and text get lightbox preview | Sent as file content. Model support varies |
@@ -63,7 +71,7 @@ Attachments are categorized by modality based on their MIME type:
 
 ## Custom upload handler
 
-By default, files are read as base64 and sent inline. For large files or production apps, you'll want to upload to your own storage and pass a URL instead.
+By default, files are read as base64 and sent inline. For large files or production apps, upload the files to your own storage and pass a URL instead.
 
 `onUpload` returns an `AttachmentUploadResult`, a discriminated union with two variants:
 
@@ -99,6 +107,7 @@ By default, files are read as base64 and sent inline. For large files or product
         onUpload: async (file) => {
           const formData = new FormData();
           formData.append("file", file);
+          // /api/upload is your own upload endpoint. It stores the file and returns { url }.
           const res = await fetch("/api/upload", { method: "POST", body: formData });
           const { url } = await res.json();
           return {
@@ -119,20 +128,20 @@ You can attach custom metadata to any upload. It's included in the `InputContent
 
 ```tsx
 onUpload: async (file) => {
-  const url = await uploadToStorage(file);
+  const url = await uploadToStorage(file); // your storage upload, returns a public URL
   return {
     type: "url",
     value: url,
     mimeType: file.type,
     metadata: {
-      uploadedBy: currentUser.id,
+      uploadedBy: currentUser.id, // your signed-in user
       category: "support-ticket",
     },
   };
 },
 ```
 
-The filename is always included in metadata automatically. You don't need to add it yourself.
+CopilotKit adds the filename to `metadata` for you. The Built-in Agent does not pass the filename to the model. If your agent needs it, read `metadata.filename` in your own agent code.
 
 ## Upload concurrency
 
@@ -152,7 +161,7 @@ Set `maxConcurrentUploads` to upload several together. Raise it when your upload
 
 The limit covers every upload in flight, not each batch: if a paste lands while a dropped selection is still uploading, both share the same slots. `Infinity` lifts the limit entirely.
 
-Above `1`, your `onUpload` handler may be called concurrently, so it must not rely on the previous file having finished.
+Above `1`, your `onUpload` handler can run concurrently, so it must not rely on the previous file having finished.
 
 ## Handling upload errors
 
@@ -168,7 +177,7 @@ Use `onUploadFailed` to react when a file is rejected or an upload fails, for ex
       // error.reason: "file-too-large" | "invalid-type" | "upload-failed"
       // error.file: the original File object
       // error.message: human-readable description
-      toast.error(error.message);
+      toast.error(error.message); // your toast library, for example sonner
     },
   }}
 />
@@ -180,12 +189,14 @@ Use `onUploadFailed` to react when a file is rejected or an upload fails, for ex
 | `file-too-large` | File exceeds `maxSize`. |
 | `upload-failed` | The `onUpload` handler threw, or the default base64 reader failed. |
 
-For errors that happen _after_ the message is sent (e.g., the model doesn't support the file type), use the `onError` callback on `CopilotChat`:
+For errors that happen _after_ the message is sent (for example, the model doesn't support the file type), use the `onError` callback on `CopilotChat`:
 
 ```tsx
 <CopilotChat
   attachments={{ enabled: true }}
   onError={(event) => {
+    // TypeScript also accepts the DOM onError type here, so narrow first
+    if (!("code" in event)) return;
     console.error(`[${event.code}]`, event.error.message);
   }}
 />
@@ -200,4 +211,4 @@ When a user attaches files and sends a message, CopilotKit:
 3. Adds the message to the agent with `content: [{ type: "text", ... }, { type: "image", source: ... }, ...]`
 4. The agent receives the multimodal content via the AG-UI protocol and forwards it to the model
 
-The attachments are part of the standard AG-UI `InputContent` schema, so any AG-UI-compatible agent (BuiltInAgent, LangGraph, custom) can receive them.
+The attachments are part of the standard AG-UI `InputContent` schema, so any AG-UI-compatible agent (Built-in Agent, LangGraph, custom) can receive them.

@@ -7,7 +7,7 @@ description: "Primary text input and control surface for chat interactions"
 
 `CopilotChatInput` is the primary text input and control surface for chat interactions. It provides a multi-line textarea that auto-grows up to 5 rows, action buttons for sending messages, voice transcription, and file attachment, and an optional tools menu for declarative command surfaces. [`CopilotChatView`](/reference/components/CopilotChatView) renders it below the transcript. The placeholder and button labels come from [`useCopilotChatConfiguration`](/reference/hooks/useCopilotChatConfiguration).
 
-The component operates in three modes: `"input"` (default text entry), `"transcribe"` (replaces the textarea with an audio recorder), and `"processing"` (indicates background processing is underway). When text spans multiple rows, the layout stacks the textarea above the control row.
+The component operates in three modes: `"input"` (default text entry), `"transcribe"` (replaces the textarea with an audio recorder), and `"processing"` (replaces the textarea with a loading spinner). When text spans multiple rows, the layout stacks the textarea above the control row.
 
 ## Import
 
@@ -27,7 +27,7 @@ import "@copilotkit/react-core/v2/styles.css";
 
   - `"input"`: standard text entry, with the textarea and the send button.
   - `"transcribe"`: replaces the textarea with the audio recorder for voice input.
-  - `"processing"`: shows that background processing is underway.
+  - `"processing"`: replaces the textarea with a loading spinner.
 </PropertyReference>
 
 <PropertyReference name="value" type="string">
@@ -82,6 +82,16 @@ import "@copilotkit/react-core/v2/styles.css";
   send the raw audio for server-side speech-to-text processing.
 </PropertyReference>
 
+<PropertyReference name="showDisclaimer" type="boolean">
+  Whether to show the disclaimer slot. Defaults to `true` when
+  `positioning` is `"absolute"`, and `false` when it is `"static"`.
+</PropertyReference>
+
+<PropertyReference name="positioning" type='"static" | "absolute"' default='"static"'>
+  How the input container is positioned. `"absolute"` pins the input to the
+  bottom of its container.
+</PropertyReference>
+
 <PropertyReference name="onAddFile" type="() => void">
   Callback invoked when the user picks the attach item in the add-menu (+)
   button. The menu lists this item only when `onAddFile` is set.
@@ -92,6 +102,28 @@ import "@copilotkit/react-core/v2/styles.css";
   `ToolsMenuItem` object or a separator string `"-"`. See
   [ToolsMenuItem](#toolsmenuitem) for the item structure. The items appear in
   the add-menu (+) button, after the attach item.
+
+  The same items also form a slash-command menu. Type `/` at the start of the
+  input to open it. The text after `/` filters the items by label, and nested
+  items appear as a flat list. The menu label and empty text come from
+  `chatInputSlashMenuLabel` and `chatInputSlashMenuEmptyText` in
+  `CopilotChatLabels`.
+</PropertyReference>
+
+<PropertyReference name="keyboardHeight" type="number" default="0">
+  Mobile keyboard height in pixels. The input moves up by this amount so the
+  keyboard does not cover it.
+</PropertyReference>
+
+<PropertyReference name="containerRef" type="React.Ref<HTMLDivElement>">
+  Ref to the outer positioning container.
+</PropertyReference>
+
+<PropertyReference name="bottomAnchored" type="boolean" default="false">
+  Set to `true` when the input is the last flex child at the bottom of its
+  container. The input then reserves space for the CopilotKit license banner so
+  the two do not overlap. Not needed with `positioning="absolute"`, which does
+  this already.
 </PropertyReference>
 
 <PropertyReference
@@ -164,6 +196,12 @@ All slot props follow the CopilotKit slot system: each accepts a replacement Rea
 <PropertyReference name="audioRecorder" type="SlotValue<typeof CopilotChatAudioRecorder>">
   Slot for the audio recorder component displayed during `"transcribe"` mode.
   Defaults to [`CopilotChatAudioRecorder`](#copilotchataudiorecorder).
+</PropertyReference>
+
+<PropertyReference name="disclaimer" type="SlotValue<typeof CopilotChatInput.Disclaimer>">
+  Slot for the disclaimer line under the input. The default text comes from
+  `CopilotChatLabels.chatDisclaimerText`. From `CopilotChat`, replace it with
+  `input={{ disclaimer: MyDisclaimer }}`.
 </PropertyReference>
 
 ## ToolsMenuItem
@@ -247,7 +285,7 @@ The component exposes the following imperative methods via React `ref`:
 </PropertyReference>
 
 <PropertyReference name="dispose" type="() => void">
-  Cleans up all resources (media stream, audio context, etc.) used by the
+  Cleans up all resources (media stream, audio context, and more) used by the
   recorder.
 </PropertyReference>
 
@@ -403,4 +441,4 @@ function StyledInput() {
 - **Mode Switching**: Setting `mode` to `"transcribe"` replaces the textarea with the `audioRecorder` slot component. The transcription control buttons (`cancelTranscribeButton`, `finishTranscribeButton`) replace the standard send button.
 - **Controlled and Uncontrolled**: The component supports both controlled mode (via `value` and `onChange`) and uncontrolled mode (internal state management).
 - **Tools Menu**: The `toolsMenu` prop enables a declarative menu with support for flat items, separators (`"-"`), and nested submenus. The items appear in the add-menu (+) button, which always renders and is disabled when it has no items.
-- **Slot System**: Each slot prop accepts three forms -- a replacement component, a className string merged into the default, or a partial props object that extends the default component's props.
+- **Slot System**: Each slot prop accepts three forms: a replacement component, a className string merged into the default, or a partial props object that extends the default component's props.

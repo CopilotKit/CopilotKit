@@ -9,7 +9,7 @@ description: "Angular provider that configures CopilotKit through dependency inj
 
 Register it once in `app.config.ts`. A component-local config provider alone does not configure the root `CopilotKit` service.
 
-You typically configure the connection one of two ways: point at a CopilotKit runtime with `runtimeUrl`, or connect directly to one or more AG-UI agents with `selfManagedAgents`.
+You typically configure the connection one of two ways: point at Copilot Runtime with `runtimeUrl`, or connect directly to one or more AG-UI agents with `selfManagedAgents`.
 
 ## Signature
 
@@ -26,7 +26,7 @@ function provideCopilotKit(config?: CopilotKitConfig): Provider;
   The CopilotKit configuration object.
 
 <PropertyReference name="runtimeUrl" type="string">
-  The URL of your CopilotKit runtime endpoint. Set this to route agent traffic
+  The URL of your Copilot Runtime endpoint. Set this to route agent traffic
   through a runtime (for example a Next.js, Express, or Hono backend).
 </PropertyReference>
 
@@ -120,7 +120,7 @@ passing the key explicitly as `undefined`.
   type="Record<string, AbstractAgent>"
 >
   A map of agent id to AG-UI agent instance that connect directly to an agent
-  endpoint without a CopilotKit runtime. Provide an `@ag-ui/client` agent such
+  endpoint without Copilot Runtime. Provide an `@ag-ui/client` agent such
   as `HttpAgent` here to talk to an agent server directly.
 </PropertyReference>
 
@@ -247,7 +247,7 @@ Returns an Angular `Provider` that binds your config, unchanged, to the `COPILOT
 
 ### Connect through a runtime
 
-Point `runtimeUrl` at your CopilotKit runtime endpoint and register the provider in your application config.
+Point `runtimeUrl` at your Copilot Runtime endpoint and register the provider in your application config.
 
 ```ts title="src/app/app.config.ts"
 import { ApplicationConfig } from "@angular/core";
@@ -272,7 +272,7 @@ Then add [`CopilotChat`](/reference/angular/components/CopilotChat) to a templat
 
 ### Connect directly to an AG-UI agent
 
-To talk to an agent server without a CopilotKit runtime, pass `selfManagedAgents` with an `@ag-ui/client` agent such as `HttpAgent`.
+To talk to an agent server without Copilot Runtime, pass `selfManagedAgents` with an `@ag-ui/client` agent such as `HttpAgent`.
 
 ```ts title="src/app/app.config.ts"
 import { ApplicationConfig } from "@angular/core";

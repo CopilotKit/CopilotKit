@@ -22,7 +22,7 @@ Use this prompt to connect your Vue app to Copilot Runtime with the selected age
 
 - An OpenAI API key (or another model provider supported by [Model Selection](/model-selection))
 - Vue 3.3+
-- Node.js 20+
+- Node.js 22.18+ on the 22 line, or 24.12+ (the current `create-vue` scaffold requires it)
 
 ## Getting started
 
@@ -30,10 +30,10 @@ Use this prompt to connect your Vue app to Copilot Runtime with the selected age
     <Step>
         ### Create your Vue app
 
-        If you don't have one already:
+        If you don't have one already, create a TypeScript app. The `--ts` flag also skips the interactive prompts:
 
         ```bash
-        npm create vue@latest my-copilot-app
+        npm create vue@latest my-copilot-app -- --ts
         cd my-copilot-app
         npm install
         ```
@@ -67,7 +67,7 @@ Use this prompt to connect your Vue app to Copilot Runtime with the selected age
     <Step>
         ### Create the Copilot Runtime
 
-        Add a small runtime server that hosts Copilot Runtime at `/api/copilotkit` and registers a `default` built-in agent:
+        Add a small runtime server that hosts Copilot Runtime at `/api/copilotkit` and registers a `default` Built-in Agent:
 
         <Callout type="warn" title="Already have an agent? Do not use BuiltInAgent">
           `BuiltInAgent` is CopilotKit's own agent. It calls the model directly.
@@ -116,7 +116,7 @@ Use this prompt to connect your Vue app to Copilot Runtime with the selected age
     <Step>
         ### Import the styles
 
-        Import the package stylesheet once in your app entry. It's self-contained, so the chat renders without any other CSS.
+        Import the package stylesheet once in your app entry. It's self-contained, so the chat renders without any other CSS. Replace `src/main.ts` with:
 
         ```ts title="src/main.ts"
         import { createApp } from "vue";
@@ -125,6 +125,8 @@ Use this prompt to connect your Vue app to Copilot Runtime with the selected age
 
         createApp(App).mount("#app");
         ```
+
+        This removes the scaffold's `./assets/main.css` import. Its `#app` grid layout squeezes the chat into a narrow column.
     </Step>
     <Step>
         ### Connect to Copilot Runtime
@@ -161,6 +163,8 @@ Use this prompt to connect your Vue app to Copilot Runtime with the selected age
         export OPENAI_API_KEY=sk-...
         npx tsx server.ts
         ```
+
+        If you set `PORT`, change the `runtime-url` in `App.vue` to match.
 
         Start the Vue app in another terminal:
 

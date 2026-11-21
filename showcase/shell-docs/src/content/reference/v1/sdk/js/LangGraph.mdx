@@ -17,8 +17,10 @@ Customize the LangGraph configuration for use in CopilotKit.
 To install the CopilotKit SDK, run:
 
 ```bash
-npm install @copilotkit/sdk-js
+npm install @copilotkit/sdk-js @langchain/langgraph @langchain/core@1.3.7 langchain@1.6.4 zod@^3.25
 ```
+
+`@copilotkit/sdk-js` needs zod 3. `@langchain/core` 1.4 and later, and `langchain` 1.6.5 and later, need zod 4, so `npm install @copilotkit/sdk-js` alone fails with `ERESOLVE`. The pinned versions accept zod 3.
 
 ### Examples
 
@@ -58,15 +60,23 @@ The LangChain/LangGraph configuration to customize.
 </PropertyReference>
 
 <PropertyReference name="options" type="OptionsConfig"  > 
-Configuration options:
-- `emitMessages: boolean?`
-  Configure how messages are emitted. By default, all messages are emitted. Pass false to
-  disable emitting messages.
-- `emitToolCalls: boolean | string | string[]?`
-  Configure how tool calls are emitted. By default, all tool calls are emitted. Pass false to
-  disable emitting tool calls. Pass a string or list of strings to emit only specific tool calls.
-- `emitIntermediateState: IntermediateStateConfig[]?`
-  Lets you emit tool calls as streaming LangGraph state.
+Configuration options.
+
+  <PropertyReference name="emitMessages" type="boolean" default="true">
+    Emit messages to CopilotKit. Pass `false` to stop emitting messages.
+  </PropertyReference>
+
+  <PropertyReference name="emitToolCalls" type="boolean | string | string[]" default="true">
+    Emit tool calls to CopilotKit. Pass `false` to stop emitting tool calls. Pass a tool name or a list of tool names to emit only those tool calls.
+  </PropertyReference>
+
+  <PropertyReference name="emitAll" type="boolean">
+    Emit all messages and tool calls. When `true`, `emitMessages` and `emitToolCalls` are ignored.
+  </PropertyReference>
+
+  <PropertyReference name="emitIntermediateState" type="IntermediateStateConfig[]">
+    Emit tool calls as streaming LangGraph state. Each entry takes `stateKey`, `tool`, and an optional `toolArgument`.
+  </PropertyReference>
 </PropertyReference>
 
 ## copilotkitExit
@@ -187,3 +197,65 @@ Options for the tool call emission.
 The tool call ID used for the emitted call. It equals `options.toolCallId`
 when provided, otherwise a randomly generated ID.
 
+## copilotKitInterrupt
+
+Pauses the graph with a LangGraph interrupt and shows a message or a tool call to the user in CopilotKit. Pass `message` or `action`.
+
+<Callout type="warn" title="Use LangGraph's interrupt() for now">
+  In `@copilotkit/sdk-js` 1.89.0, `copilotKitInterrupt` fails the run with a `CopilotKitMisuseError` ("Failed to create interrupt") instead of pausing the graph. Call `interrupt()` from `@langchain/langgraph` in your node, and handle it in the frontend with [`useInterrupt`](/human-in-the-loop/useInterrupt). The graph needs a checkpointer.
+
+  ```typescript
+  import { interrupt } from "@langchain/langgraph";
+
+  async function approvalNode(state: AgentState) {
+    // Pauses the run. Returns the value the frontend resumes with.
+    const answer = interrupt("Do you approve this plan?");
+    return { approved: answer };
+  }
+  ```
+</Callout>
+
+### Parameters
+
+<PropertyReference name="message" type="string">
+  Text to show the user. Pass `message` or `action`. One of them is required.
+</PropertyReference>
+
+<PropertyReference name="action" type="string">
+  Name of the tool call to send to the frontend. Used when you do not pass `message`.
+</PropertyReference>
+
+<PropertyReference name="args" type="Record<string, any>" default="{}">
+  Arguments for the `action` tool call.
+</PropertyReference>
+
+### Returns
+
+`{ answer, messages }`. `messages` is the resume value, and `answer` is the `content` of its last message.
+
+## convertActionsToDynamicStructuredTools
+
+Converts the frontend actions that CopilotKit puts in `state.copilotkit.actions` into LangChain `DynamicStructuredTool` objects. Bind them to your model so it can call your frontend tools.
+
+### Examples
+
+```typescript
+import { convertActionsToDynamicStructuredTools } from "@copilotkit/sdk-js/langgraph";
+
+const modelWithTools = model.bindTools([
+  ...convertActionsToDynamicStructuredTools(state.copilotkit?.actions ?? []),
+  ...tools,
+]);
+```
+
+### Parameters
+
+<PropertyReference name="actions" type="any[]" required>
+  The actions to convert. Each entry is an action, or an object `{ type: "function", function: action }`. Each action needs `name`, `description`, and `parameters` (a JSON Schema).
+</PropertyReference>
+
+### Returns
+
+A `DynamicStructuredTool[]`, one tool per action. The tools do not run anything on the agent side. The frontend runs the tool call.
+
+To convert one action, use `convertActionToDynamicStructuredTool(action)`. It takes the same action shape and returns one `DynamicStructuredTool`.

@@ -8,7 +8,7 @@ icon: "lucide/Bug"
 
 When your agent isn't behaving as expected (events are missing, state isn't
 updating, or tool calls aren't executing), you need visibility into the event
-pipeline. Runtime debug mode provides structured server-side logging; the
+pipeline. Runtime debug mode provides structured server-side logging. The
 frontend can inspect the resulting stream with browser network tools or the
 AG-UI Event Inspector.
 
@@ -27,7 +27,7 @@ Enable it to see:
 
 Pass `debug: true` to the `CopilotRuntime` constructor:
 
-```ts title="app/api/copilotkit/route.ts"
+```ts title="app/api/copilotkit/[[...slug]]/route.ts"
 const runtime = new CopilotRuntime({
   agents: {
     // your agents
@@ -36,48 +36,78 @@ const runtime = new CopilotRuntime({
 });
 ```
 
-This produces structured Pino logs (formatted by `pino-pretty`) with a `copilotkit-debug` component label:
+This produces structured Pino logs (formatted by `pino-pretty`). Each debug line carries `component: "copilotkit-debug"`:
 
 ```
-[14:32:01.123] DEBUG (copilotkit-debug): Agent run started
+[20:42:41.150] DEBUG: Agent run started
+    component: "copilotkit-debug"
     agentName: "default"
-    threadId: "abc-123"
-[14:32:01.130] DEBUG (copilotkit-debug): SSE stream opened
-[14:32:01.145] DEBUG (copilotkit-debug): Event emitted
+    threadId: "f3127fc0-46f1-4c77-aa0a-967634fb1c37"
+[20:42:41.176] DEBUG: SSE stream opened
+    component: "copilotkit-debug"
+[20:42:41.202] DEBUG: Event emitted
+    component: "copilotkit-debug"
+    type: "RUN_STARTED"
+    threadId: "f3127fc0-46f1-4c77-aa0a-967634fb1c37"
+    runId: "c04eff64-7659-4a6f-b733-30abce72b451"
+[20:42:41.266] DEBUG: Event emitted
+    component: "copilotkit-debug"
     type: "TEXT_MESSAGE_START"
-    messageId: "msg-1"
+    messageId: "32646d64-ebb4-4165-9230-86958f3bb2fa"
     role: "assistant"
-[14:32:01.200] DEBUG (copilotkit-debug): Event emitted
+[20:42:41.268] DEBUG: Event emitted
+    component: "copilotkit-debug"
     type: "TEXT_MESSAGE_CONTENT"
-    deltaLength: 42
-[14:32:01.250] DEBUG (copilotkit-debug): Event emitted
+    messageId: "32646d64-ebb4-4165-9230-86958f3bb2fa"
+    deltaLength: 20
+[20:42:41.285] DEBUG: Event emitted
+    component: "copilotkit-debug"
     type: "TEXT_MESSAGE_END"
-[14:32:01.260] DEBUG (copilotkit-debug): Event emitted
+    messageId: "32646d64-ebb4-4165-9230-86958f3bb2fa"
+[20:42:41.287] DEBUG: Event emitted
+    component: "copilotkit-debug"
     type: "RUN_FINISHED"
-[14:32:01.261] DEBUG (copilotkit-debug): SSE stream completed
-    eventCount: 4
-    loggedEventCount: 4
+    threadId: "f3127fc0-46f1-4c77-aa0a-967634fb1c37"
+    runId: "c04eff64-7659-4a6f-b733-30abce72b451"
+[20:42:41.293] DEBUG: SSE stream completed
+    component: "copilotkit-debug"
+    eventCount: 5
+    loggedEventCount: 5
 ```
+
+If your environment sets `LOG_LEVEL` (for example to `info` or `warn`), it hides the debug lines. Unset it, or set `LOG_LEVEL=debug`.
 
 <Callout type="warn">
   Do not turn on debug mode in production. Debug mode writes a large volume of logs, especially in verbose mode.
+  It also serves `GET {runtimeUrl}/cpk-debug-events`, which streams the full content of every thread to any caller,
+  whatever `NODE_ENV` is. See [AG-UI Event Inspector](/troubleshooting/event-inspector).
 </Callout>
 
 <FrontendOnly frontend="react">
 ### Client-Side
 
-Pass `debug={true}` to the `<CopilotKit>` provider:
+Pass `debug={true}` to `CopilotKitProvider`:
 
-```tsx
-<CopilotKit
-  runtimeUrl="/api/copilotkit"
-  debug={true} // [!code highlight]
->
-  <YourApp />
-</CopilotKit>
+```tsx title="app/providers.tsx"
+"use client";
+
+import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+
+export function Providers({ children }: { children: React.ReactNode }) {
+  return (
+    <CopilotKitProvider
+      runtimeUrl="/api/copilotkit"
+      debug={true} // [!code highlight]
+    >
+      {children}
+    </CopilotKitProvider>
+  );
+}
 ```
 
-The client passes this setting to the AG-UI transport. The AG-UI library decides if it logs anything. For full event logs, turn on `debug` in `CopilotRuntime`.
+The client then logs each AG-UI event it receives in the browser console, with the tags
+`[LIFECYCLE]`, `[SSE]`, `[HTTP]`, `[VERIFY]`, and `[APPLY]`. These lines use `console.debug`.
+In Chrome DevTools, set the console log level to **Verbose** to see them.
 
 <Callout type="info">
   The server and client debug toggles are independent. Enabling debug on the client does not affect the server, and vice versa.

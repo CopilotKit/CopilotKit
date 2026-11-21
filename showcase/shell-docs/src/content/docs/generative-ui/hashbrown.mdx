@@ -6,13 +6,15 @@ snippet_framework: built-in-agent
 snippet_cell: declarative-hashbrown
 ---
 
+You want a dashboard to appear while the agent is still answering. Hashbrown parses the agent's JSON as it streams and renders each finished component from your UI kit: a set of components, each with a prop schema, that the agent may use.
+
+The demo below has all the frontend files. Copy them into `app/demos/declarative-hashbrown/`, then add the runtime from [Backend](#backend).
+
 <InlineDemo
   demo="declarative-hashbrown"
   showAllFiles
-  llmFiles="src/app/demos/declarative-hashbrown/page.tsx,src/app/demos/declarative-hashbrown/chat.tsx,src/app/demos/declarative-hashbrown/hashbrown-renderer.tsx"
+  llmFiles="src/app/demos/declarative-hashbrown/page.tsx,src/app/demos/declarative-hashbrown/chat.tsx,src/app/demos/declarative-hashbrown/hashbrown-renderer.tsx,src/app/demos/declarative-hashbrown/metric-card.tsx,src/app/demos/declarative-hashbrown/types.ts,src/app/demos/declarative-hashbrown/suggestions.ts,src/app/demos/declarative-hashbrown/charts/bar-chart.tsx,src/app/demos/declarative-hashbrown/charts/pie-chart.tsx,src/app/demos/declarative-hashbrown/charts/chart-config.ts"
 />
-
-You want a dashboard to appear while the agent is still answering. Hashbrown parses the agent's JSON as it streams and renders each finished component from your UI kit.
 
 ## When to use this
 
@@ -24,7 +26,11 @@ For a validated `{ root, elements }` spec that renders as one tree, see [JSON Re
 
 ## Frontend
 
-The bundled demos pin `@hashbrownai/core` and `@hashbrownai/react` to `0.5.0-beta.4`. The chart components also need `recharts` and `zod`.
+The bundled demos pin `@hashbrownai/core` and `@hashbrownai/react` to `0.5.0-beta.4`. The chart components also need `recharts` and `zod`. Install the same versions. The demo code does not compile with later Hashbrown releases, so `-E` saves the exact version:
+
+```bash
+npm install -E @hashbrownai/core@0.5.0-beta.4 @hashbrownai/react@0.5.0-beta.4 recharts zod
+```
 
 1. Wrap the chat in `HashBrownDashboard`. That provider creates the UI kit once and shares it with the assistant-message renderer.
 2. Register `HashBrownRenderMessage` in the `assistantMessage` slot of `CopilotChat`:
@@ -71,5 +77,45 @@ The agent sends **one JSON object** as the assistant message, without a Markdown
 ```
 
 The bundled agents use this envelope and the same component names. The parser can render finished parts of `ui` while the rest of the JSON is still streaming.
+
+`page.tsx` connects to `/api/copilotkit-declarative-hashbrown` and the agent `declarative-hashbrown-demo`. Add that runtime, with a Built-in Agent whose prompt asks for the envelope:
+
+```ts title="app/api/copilotkit-declarative-hashbrown/[[...slug]]/route.ts"
+import {
+  BuiltInAgent,
+  CopilotRuntime,
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
+
+const HASHBROWN_PROMPT = `You are a sales analytics assistant.
+Reply with ONE JSON object and nothing else: no code fence, no text before or after it.
+The object is { "ui": [ { "<component>": { "props": { ... } } }, ... ] }.
+Components:
+- "metric": { "label": string, "value": string }. value is pre-formatted, like "$1.2M".
+- "pieChart": { "title": string, "data": string }. data is a JSON-encoded STRING of [{ "label", "value" }], 3 or more items.
+- "barChart": { "title": string, "data": string }. Same data format as pieChart.
+- "dealCard": { "title": string, "stage": string, "value": number }. stage is one of "prospect", "qualified", "proposal", "negotiation", "closed-won", "closed-lost".
+- "Markdown": { "children": string }. Short headings and summaries.
+Use plausible sample data when the user gives none.`;
+
+const runtime = new CopilotRuntime({
+  agents: {
+    "declarative-hashbrown-demo": new BuiltInAgent({
+      model: "openai:gpt-6-luna",
+      prompt: HASHBROWN_PROMPT,
+    }),
+  },
+});
+
+const handler = createCopilotRuntimeHandler({
+  runtime,
+  basePath: "/api/copilotkit-declarative-hashbrown",
+});
+
+export const GET = handler;
+export const POST = handler;
+```
+
+Open `/demos/declarative-hashbrown` and ask for a dashboard, for example `Show me a Q4 sales dashboard`. The metric cards and charts appear while the JSON streams.
 
 <IntegrationGrid path="generative-ui/hashbrown" />

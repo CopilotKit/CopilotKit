@@ -67,8 +67,8 @@ channel.onMessage(async ({ thread }) => {
 ```
 
 Pass this Channel to `new CopilotRuntime({ channels: [channel], ... })` and
-start it through the runtime's Channels control, just as in the managed
-quickstarts. Intelligence-attached Slack and Teams connections select the
+start it through the runtime's Channels control, the same way as in the
+managed quickstarts. Intelligence-attached Slack and Teams connections select the
 managed provider; there is no `provider` option on `createChannel`. Direct
 adapters may coexist on the same Channel and keep their own provider traffic.
 

@@ -15,7 +15,10 @@ const data: FrameworkOverviewData = {
   subheader:
     "Open Agent Spec describes your agent. CopilotKit gives it a surface your users can see, interrupt and steer.",
   guideLink: "/agent-spec/quickstart",
-  initCommand: "npx copilotkit@latest init",
+  // The CLI has no Agent Spec template, so the landing points at the
+  // monorepo starter instead of `copilotkit init`.
+  initCommand:
+    "git clone --depth 1 https://github.com/CopilotKit/CopilotKit.git && cd CopilotKit/examples/integrations/agent-spec",
   featuresLink:
     "https://feature-viewer.copilotkit.ai/agent-spec/feature/agentic_chat",
 
@@ -26,7 +29,7 @@ const data: FrameworkOverviewData = {
       iconKey: "paintbrush",
       description:
         "Your agent's tool calls arrive as they happen. CopilotKit renders each one as a React component in your own app, instead of leaving the user with a spinner.",
-      documentationLink: "/agent-spec/generative-ui",
+      documentationLink: "/agent-spec/generative-ui/tool-rendering",
     },
     {
       title: "Human-in-the-loop",
@@ -52,7 +55,7 @@ const data: FrameworkOverviewData = {
   connect: {
     intro:
       "Your agent keeps running where it runs today, behind an AG-UI endpoint. CopilotKit reaches it over HTTP, so nothing inside the agent changes.",
-    filename: "app/api/copilotkit/route.ts",
+    filename: "app/api/copilotkit/[[...slug]]/route.ts",
     language: "ts",
     code: `import {
   CopilotRuntime,

@@ -8,13 +8,14 @@ Set up the CopilotKit monorepo, test a change, and open a pull request.
 
 - [Node.js](https://nodejs.org/en/) 20.x or later
 - [pnpm](https://pnpm.io/) v10.x installed globally (`npm i -g pnpm@^10`)
+- [Git LFS](https://git-lfs.com/). Run `git lfs install` once before you clone. The repository stores images in Git LFS.
 
 ## Step 2: Repository Setup
 
 <Steps>
   <Step>
   ### Fork The Repository
-  First, head over to the [CopilotKit repository](https://github.com/CopilotKit/CopilotKit) and create a fork.
+  Go to the [CopilotKit repository](https://github.com/CopilotKit/CopilotKit) and create a fork.
 
 Then, clone your fork to your local machine:
 
@@ -48,14 +49,14 @@ pnpm install
 
 ## Step 3: Development Mode
 
-Now that everything is set up and works as expected, you can get started developing:
+Start the packages in development mode:
 
 ```bash
 # Start all packages in development mode
 pnpm run dev
 
-# Start a specific package in development mode
-pnpm exec nx watch --projects=packages/package-name -- pnpm run build
+# Rebuild only one package when its files change (example: react-ui)
+pnpm exec nx watch --projects=@copilotkit/react-ui -- pnpm exec nx run \$NX_PROJECT_NAME:build
 ```
 
 Now you can start making changes to the code.
@@ -70,7 +71,7 @@ Now you can start making changes to the code.
 Run an example from the `examples` folder. The examples use the monorepo packages, so they show your changes.
 
 <FrontendOnly frontend="react">
-For this tutorial, we'll use the `next-openai` example, specifically the Presentation Demo (`/presentation`).
+The steps below use the `next-openai` example, specifically the Presentation Demo (`/presentation`).
 
 In a separate terminal, run the following command to start the example:
 
@@ -81,11 +82,11 @@ pnpm run example-dev
 ```
 
 <Callout type="info">
-  We use the `pnpm run example-dev` command to run examples, which is different
-  from the `pnpm run dev` command we use to work on the individual packages.
+  Examples run with `pnpm run example-dev`. This is different from
+  `pnpm run dev`, which you use to work on the individual packages.
 </Callout>
 
-Now navigate to http://localhost:3000/presentation and you should see the example running. Any changes you make to the CopilotKit packages will immediately be reflected here.
+Open http://localhost:3000/presentation to see the example running. The first load compiles the page and can take a minute or two. After that, changes you make to the CopilotKit packages show up here when you reload.
 </FrontendOnly>
 
 <FrontendOnly frontend="angular">
@@ -103,13 +104,17 @@ lifecycle behavior.
 
 ## Step 5: Formatting and Linting
 
-Before committing your changes, make sure your files are formatted properly by running the following at the root of the monorepo:
+The pre-commit hook formats and lints the files you stage, so most of the time you do not run anything by hand.
+
+To format the files you changed before you stage them, pass their paths to `oxfmt`:
 
 ```bash
-pnpm run format
+pnpm exec oxfmt --write packages/react-ui/src/components/chat/Input.tsx
 ```
 
-Also, make sure that you have no linting errors:
+Do not run `pnpm run format` from the root for a pull request. It formats the whole monorepo and can change files you did not touch. Do not commit format changes to files you did not edit.
+
+Make sure that you have no linting errors:
 
 ```bash
 pnpm run lint
@@ -117,7 +122,9 @@ pnpm run lint
 
 ## Step 6: Submit a Pull Request
 
-Now that you've made your changes, commit and push them. Then, go to the [Pull Requests page](https://github.com/CopilotKit/CopilotKit/pulls) and create a pull request.
+Commit and push your changes. Write the commit message as a [Conventional Commit](https://www.conventionalcommits.org/), for example `fix(react-ui): keep chat scroll position`. The commit-msg hook rejects other formats.
+
+Then go to the [Pull Requests page](https://github.com/CopilotKit/CopilotKit/pulls) and create a pull request.
 
 ## Debugging
 
@@ -135,10 +142,8 @@ For Angular debugging workflows, use the [Angular troubleshooting guide](/angula
 
 In some cases, you want to test your CopilotKit changes in your own project. For example, you tried to integrate CopilotKit into your own codebase and encountered a bug you want to fix.
 
-Conveniently, you can link your local CopilotKit packages to your own project to test your changes.
-
-Check out the [Advanced: Package Linking](/contributing/code-contributions/package-linking) guide to learn how to do that.
+Link your local CopilotKit packages to your own project to test your changes. See the [Advanced: Package Linking](/contributing/code-contributions/package-linking) guide for the steps.
 
 ## Need help?
 
-If you need help with anything, please don't hesitate to reach out to us on [Discord](https://discord.gg/6dffbvGU3D). We have a dedicated [#contributing](https://discord.com/channels/1122926057641742418/1183863183149117561) channel.
+If you need help, ask on [Discord](https://discord.gg/6dffbvGU3D). There's a dedicated [#contributing](https://discord.com/channels/1122926057641742418/1183863183149117561) channel.

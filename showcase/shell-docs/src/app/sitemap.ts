@@ -10,6 +10,6 @@ import { absoluteUrl } from "@/lib/seo/base-url";
 export default function sitemap(): MetadataRoute.Sitemap {
   return sitemapEntries().map(({ url, lastModified }) => ({
     url: absoluteUrl(url),
-    lastModified,
+    ...(lastModified ? { lastModified } : {}),
   }));
 }

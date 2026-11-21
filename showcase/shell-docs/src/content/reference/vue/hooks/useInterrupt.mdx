@@ -211,4 +211,4 @@ const { interrupt, hasInterrupt, result, cancel, resolve } = useInterrupt({
 - `result` is inferred from the `handler` return type and is always `TResult | null`.
 - When `enabled` returns `false`, the interrupt is ignored: `result` and `slotProps` stay `null` and nothing is published to chat.
 - With `renderInChat` omitted or `true`, `slotProps` is published into `<CopilotChat>` for the `#interrupt` slot. With `renderInChat: false`, no chat publishing occurs and you render from the returned refs.
-- `cancel()` on custom-event interrupts just dismisses without resuming.
+- `cancel()` on custom-event interrupts only dismisses the interrupt. It does not resume the run.

@@ -37,8 +37,22 @@ around a real backend tool, see [Tool rendering](/generative-ui/tool-rendering).
 
 <FrameworkSetup concept="frontend-tools-setup" />
 
-The built-in agent needs no backend step. Import the hook and Zod in the
-component that registers the tool:
+<WhenFrameworkHas flag="agent_config_pattern" equals="runtime-properties">
+
+The steps above read `SYSTEM_PROMPT` from `prompts.ts`. To wire it in:
+
+- In `route.ts`, add `import { SYSTEM_PROMPT } from "../prompts";`.
+- In factory mode, import `SYSTEM_PROMPT` from `./prompts` in `factory.ts` and pass `system: SYSTEM_PROMPT` to `streamText`. Export the agent, and register it in your route as `agents: { default: agent }`.
+
+</WhenFrameworkHas>
+
+On the frontend, install Zod:
+
+```bash
+npm install zod
+```
+
+Import the hook and Zod in the component that registers the tool:
 
 ```tsx
 import { useComponent } from "@copilotkit/react-core/v2";
@@ -60,7 +74,7 @@ arguments to send.
 
 Define the props of your component as a Zod schema:
 
-```tsx title="bar-chart.tsx"
+```tsx title="app/bar-chart.tsx"
 import { z } from "zod";
 
 export const barChartPropsSchema = z.object({
@@ -79,13 +93,55 @@ Pass the schema and your component to `useComponent`:
 
 <Snippet
   region="bar-chart-renderer"
-  title="frontend/src/app/page.tsx — bar chart component"
+  title="frontend/src/app/page.tsx: bar chart component"
   highlight="1-6"
 />
 
 `BarChart` is your own React component. It reads only its props and can
 stream in as the agent fills the payload. The demo builds it with
 [Recharts](https://recharts.org). It does not know anything about CopilotKit.
+
+Call `useComponent` inside a component that renders under your `CopilotKit`
+provider. A complete page with a plain bar chart (no chart library) looks
+like this:
+
+```tsx title="app/page.tsx"
+"use client";
+
+import { CopilotSidebar, useComponent } from "@copilotkit/react-core/v2";
+import { z } from "zod";
+import { barChartPropsSchema } from "./bar-chart";
+
+// The agent streams the props in, so each one can be missing at first.
+function BarChart({ title, description, data }: Partial<z.infer<typeof barChartPropsSchema>>) {
+  const bars = data ?? [];
+  const max = Math.max(1, ...bars.map((bar) => bar?.value ?? 0));
+  return (
+    <div style={{ border: "1px solid #ddd", borderRadius: 8, padding: 12 }}>
+      <strong>{title}</strong>
+      <p>{description}</p>
+      {bars.map((bar, i) => (
+        <div key={i} style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <span style={{ width: 48 }}>{bar?.label}</span>
+          <div style={{ background: "#6366f1", height: 12, width: `${((bar?.value ?? 0) / max) * 200}px` }} />
+          <span>{bar?.value}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export default function Page() {
+  useComponent({
+    name: "render_bar_chart",
+    description: "Display a bar chart with labeled numeric values.",
+    parameters: barChartPropsSchema,
+    render: BarChart,
+  });
+
+  return <CopilotSidebar />;
+}
+```
 
 <Callout type="info">
   The `name` you pass to `useComponent` is what the agent sees as the tool

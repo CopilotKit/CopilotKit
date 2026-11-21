@@ -27,7 +27,7 @@ interface StoreConfig<TStateSchema> {
 
 | Option              | Default                   | Behavior                                                                                                                                           |
 | ------------------- | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `adapter`           | `MemoryStore`             | Persistence backend for SDK state.                                                                                                                 |
+| `adapter`           | Adapter-provided store    | Persistence backend for SDK state. Managed Channels provide an Intelligence-backed store (durable `kv`; lists, locks, dedup and queues stay in process memory). Without an adapter-provided store, `MemoryStore` (lost on restart). |
 | `state`             | none                      | Standard Schema that types and validates `thread.state()` and `setState()`.                                                                        |
 | `transcripts`       | none                      | Optional retention and per-user cap, keyed by the application user from top-level `identifyUser`.                                                  |
 | `actionRetentionMs` | `604_800_000`             | Retention for durable callbacks and one-use HITL continuations.                                                                                    |
@@ -44,13 +44,12 @@ interface StoreConfig<TStateSchema> {
 | `"serial"`             | Later turns on the same conversation wait until the in-flight turn finishes (per-conversation queue).                                      |
 | `"drop"`               | Later turns are discarded while a turn is already in flight.                                                                               |
 
-Channels runs every turn on a clone of the configured agent (`agent.clone()`). This is true for a shared instance (`agent: sharedInstance`) and for an agent that a factory returns. The clone gets the turn's `threadId`, so parallel mode does not mutate one shared agent object. Use a factory to build a fresh agent for each conversation:
+Channels runs every turn on a clone of the configured agent (`agent.clone()`). This is true for a shared instance (`agent: sharedInstance`) and for an agent that a factory returns. The clone gets the turn's `threadId`, so parallel mode does not mutate one shared agent object.
+
+A factory is optional. Use one when the agent needs per-conversation setup from `threadId`:
 
 ```ts
-agent: (threadId) => {
-  const a = new HttpAgent({ url });
-  return a;
-};
+agent: (threadId) => new HttpAgent({ url, headers: { "x-thread-id": threadId } }),
 ```
 
 ```ts

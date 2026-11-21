@@ -1,5 +1,5 @@
 ---
-title: HITL Overview
+title: Human-in-the-Loop
 icon: "lucide/User"
 description: Allow your agent and users to collaborate on complex tasks.
 ---
@@ -39,14 +39,21 @@ CopilotKit ships two complementary ways to pause an agent turn and ask the human
 
 **Pick `useHumanInTheLoop`** when the pause is an _agent-initiated_ decision (the model chose to ask the user) and you want the picker UI inlined into the normal tool-call flow.
 
-**Pick `useInterrupt`** when the pause is a checkpoint in your agent code: the code path always requires a human answer, and the server-side contract is an interrupt. On the Built-in Agent, interrupts are temporarily unavailable, so use `useHumanInTheLoop` there.
+**Pick `useInterrupt`** when the pause is a checkpoint in your agent code: the code path always requires a human answer, and the server-side contract is an interrupt. On the Built-in Agent, an interrupt comes from a tool defined with `interrupt: true` (see the [`useInterrupt` page](/vue/human-in-the-loop/useInterrupt)). For a question the model decides to ask, `useHumanInTheLoop` is simpler.
 
 ## Pattern 1: `useHumanInTheLoop` (tool-based)
 
 The app registers a HITL tool on the client with `useHumanInTheLoop`. When the LLM calls that tool, CopilotKit renders your Vue component and gives it a `respond` callback during the executing phase. The agent sees the answer as the tool result and continues from there.
 
+The examples build on the [Vue quickstart](/vue) app. Install Zod first:
+
+```bash
+npm install zod
+```
+
 ```vue title="src/components/MeetingApproval.vue"
 <script setup lang="ts">
+import type { Component } from "vue";
 import { z } from "zod";
 import { useHumanInTheLoop } from "@copilotkit/vue/v2";
 import TimePickerCard from "./TimePickerCard.vue";
@@ -58,7 +65,8 @@ useHumanInTheLoop({
     topic: z.string(),
     attendee: z.string(),
   }),
-  render: TimePickerCard,
+  // The cast keeps `vue-tsc` (run by `npm run build`) from rejecting the SFC.
+  render: TimePickerCard as Component,
 });
 </script>
 
@@ -88,7 +96,25 @@ const props = defineProps<{
 </template>
 ```
 
-The picker UI can use static candidate slots, live availability, a calendar API, or any other application data. Mount the registration component beneath `CopilotKitProvider` so the composable can reach the runtime.
+The picker UI can use static candidate slots, live availability, a calendar API, or any other application data. Mount the registration component beneath `CopilotKitProvider` so the composable can reach the runtime:
+
+```vue title="src/App.vue"
+<script setup lang="ts">
+import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue/v2";
+import MeetingApproval from "./components/MeetingApproval.vue";
+</script>
+
+<template>
+  <CopilotKitProvider runtime-url="http://localhost:8200/api/copilotkit">
+    <MeetingApproval />
+    <div style="height: 90vh">
+      <CopilotChat />
+    </div>
+  </CopilotKitProvider>
+</template>
+```
+
+Ask the agent to schedule a meeting with Ana. The picker appears in the chat. Click **Tomorrow at 09:00**, and the agent continues with `{ chosen_time: "09:00" }`.
 
 ## Pattern 2: `useInterrupt` (graph-paused)
 
@@ -105,6 +131,6 @@ See the [`useInterrupt` deep dive](/vue/human-in-the-loop/useInterrupt) for the 
 
 ## Going headless
 
-Both patterns above can drive custom UI. For runtime interrupts, set `renderInChat: false` and use the reactive state returned by `useInterrupt`; for a frontend-tool pause, let the Promise-returning HITL tool drive application state. See the [headless interrupts guide](/vue/human-in-the-loop/headless) for the interrupt path.
+Both patterns above can drive custom UI. For runtime interrupts, set `renderInChat: false` and use the reactive state returned by `useInterrupt`. For a frontend-tool pause, let the Promise-returning HITL tool drive application state. The [headless interrupts guide](/vue/human-in-the-loop/headless) shows the path for your agent framework.
 
 <IntegrationGrid path="human-in-the-loop" />

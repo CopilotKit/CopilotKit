@@ -46,9 +46,9 @@ Reactive props accept `MaybeRefOrGetter`, so you can pass a plain value, a `ref`
 
   <PropertyReference name="updates" type="UseAgentUpdate[]" default="[OnMessagesChanged, OnStateChanged, OnRunStatusChanged]">
     Controls which agent changes trigger reactive updates. Options:
-    - `UseAgentUpdate.OnMessagesChanged` - update when messages change
-    - `UseAgentUpdate.OnStateChanged` - update when state changes
-    - `UseAgentUpdate.OnRunStatusChanged` - update when execution status changes
+    - `UseAgentUpdate.OnMessagesChanged`: update when messages change
+    - `UseAgentUpdate.OnStateChanged`: update when state changes
+    - `UseAgentUpdate.OnRunStatusChanged`: update when execution status changes
 
     Pass an empty array `[]` to prevent automatic reactive updates.
   </PropertyReference>
@@ -86,7 +86,7 @@ Reactive props accept `MaybeRefOrGetter`, so you can pass a plain value, a `ref`
       It does not send your registered frontend tools or context, does not execute frontend tool calls, and does not chain follow-up runs. For a normal run, call `copilotkit.value.runAgent({ agent: agent.value })` from [`useCopilotKit`](/reference/vue/hooks/useCopilotKit) instead. It takes the same `forwardedProps` and resolves with the same `RunAgentResult`. Unlike `agent.runAgent()`, it does not reject when the run itself fails. The core reports the error (code `AGENT_RUN_FAILED`) to its error subscribers and resolves with `{ result: undefined, newMessages: [] }`.
 
       **Parameters:**
-      - `parameters.forwardedProps?: any` - data to pass to the agent execution context
+      - `parameters.forwardedProps?: any`: data to pass to the agent execution context
 
       To answer an interrupt, use [`useInterrupt`](/reference/vue/hooks/useInterrupt). It resumes the run for you. To resume by hand, pass the standard `resume` array with the id of the interrupt that the paused run reported: `copilotkit.value.runAgent({ agent: agent.value, resume: [{ interruptId: interrupt.id, status: "resolved", payload }] })`. If your agent emits an `on_interrupt` custom event, pass the answer as `forwardedProps: { command: { resume } }`.
 

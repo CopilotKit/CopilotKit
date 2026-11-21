@@ -11,6 +11,12 @@ Middleware is an [AG-UI protocol](./ag-ui) concept from `@ag-ui/client`. For the
 
 ## Defining a Middleware
 
+Install `@ag-ui/client` and `rxjs` at the versions that `@copilotkit/runtime` uses, so the app has one copy of each:
+
+```npm
+npm install @ag-ui/client@1.0.2 rxjs@7.8.1
+```
+
 A middleware extends the `Middleware` base class from `@ag-ui/client` and implements `run(input, next)`. It receives the incoming `RunAgentInput` and returns an `Observable<BaseEvent>` of [AG-UI events](/backend/ag-ui), typically by subscribing to `runNextWithState(input, next)` and transforming the stream:
 
 ```ts title="my-middleware.ts"
@@ -76,7 +82,7 @@ Send a message in the chat. Your server log prints one `[agent event]` line for 
 
 ## Built-in Middleware
 
-The runtime ships first-class middleware options you can enable directly on `CopilotRuntime` without calling `.use()` on each agent:
+The runtime has middleware options that you set once on `CopilotRuntime`, with no `.use()` call on each agent:
 
 - **`a2ui`**: apply `A2UIMiddleware` to all (or a subset of) registered agents. See [Copilot Runtime → A2UI](/backend/copilot-runtime#a2ui).
 - **`mcpApps`**: configure MCP servers for all agents from a single place. See [Copilot Runtime → mcpApps](/backend/copilot-runtime#mcpapps).

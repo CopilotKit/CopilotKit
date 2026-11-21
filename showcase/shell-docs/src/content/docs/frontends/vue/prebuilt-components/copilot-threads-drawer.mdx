@@ -33,7 +33,7 @@ Use the drawer when you want:
 
 It requires CopilotKit Intelligence because threads are stored and synchronized server-side. To compare thread UI and deployment paths, see the [AG-UI Streams overview](/vue/AG-UI-Streams). <SignupLink surface="docs_drawer">Get a free developer account</SignupLink> to set that up.
 
-For multi-user applications, configure the runtime to [scope Rich Threads to the signed-in user](/vue/threads-lifecycle#scope-rich-threads-to-the-signed-in-user).
+For multi-user applications, configure the runtime to [scope threads to the signed-in user](/vue/threads-lifecycle#scope-threads-to-the-signed-in-user).
 
 <OpsPlatformCTA
   variant="inline"
@@ -43,6 +43,8 @@ For multi-user applications, configure the runtime to [scope Rich Threads to the
 />
 
 ## Set up the Threads Drawer
+
+Before you start, connect your Copilot Runtime to CopilotKit Intelligence. See the [Intelligence quickstart](/intelligence/quickstart#connect-your-runtime). Without it, the drawer stays on "Loading threads…".
 
 Place `<CopilotThreadsDrawer>` next to [`<CopilotChat>`](/reference/vue/components/CopilotChat) and wrap **both** in a shared `<CopilotChatConfigurationProvider>`. That shared configuration lets the Drawer drive the chat:
 
@@ -62,10 +64,10 @@ import "@copilotkit/vue/styles.css";
 
 <template>
   <CopilotKitProvider
-    runtime-url="/api/copilotkit"
+    runtime-url="http://localhost:8200/api/copilotkit"
     public-license-key="ck_pub_..."
   >
-    <CopilotChatConfigurationProvider agent-id="support">
+    <CopilotChatConfigurationProvider agent-id="default">
       <div style="display: flex; height: 100dvh">
         <CopilotThreadsDrawer />
         <CopilotChat />
@@ -74,6 +76,8 @@ import "@copilotkit/vue/styles.css";
   </CopilotKitProvider>
 </template>
 ```
+
+Use the same `runtime-url` as in the [quickstart](/vue). `agent-id` must match an agent registered in your Copilot Runtime. Replace `ck_pub_...` with your CopilotKit public license key.
 
 That's the whole integration. A hand-built sidebar would track the active thread id and pass selection/new-thread handlers between the list and chat; the shared configuration owns that state for the Drawer.
 
@@ -117,10 +121,10 @@ import "@copilotkit/vue/styles.css";
 
 <template>
   <CopilotKitProvider
-    runtime-url="/api/copilotkit"
+    runtime-url="http://localhost:8200/api/copilotkit"
     public-license-key="ck_pub_..."
   >
-    <CopilotChatConfigurationProvider agent-id="support">
+    <CopilotChatConfigurationProvider agent-id="default">
       <div style="display: flex; height: 100dvh">
         <CopilotThreadsDrawer />
         <main style="flex: 1; display: flex; flex-direction: column">
@@ -184,14 +188,20 @@ const startNewConversation = () => {
 
 <template>
   <CopilotChatConfigurationProvider :thread-id="threadId">
-    <CopilotThreadsDrawer
-      :on-thread-select="selectThread"
-      :on-new-thread="startNewConversation"
-    />
-    <button type="button" @click="startNewConversation">
-      New conversation
-    </button>
-    <CopilotChat />
+    <div style="display: flex; height: 100dvh">
+      <CopilotThreadsDrawer
+        :on-thread-select="selectThread"
+        :on-new-thread="startNewConversation"
+      />
+      <main style="flex: 1; display: flex; flex-direction: column">
+        <header>
+          <button type="button" @click="startNewConversation">
+            New conversation
+          </button>
+        </header>
+        <CopilotChat />
+      </main>
+    </div>
   </CopilotChatConfigurationProvider>
 </template>
 ```
@@ -238,8 +248,11 @@ The drawer renders in a shadow root with self-contained, theme-inheriting styles
   </CopilotThreadsDrawer>
   ```
 
-- **CSS parts and variables:** style the web component's structural `::part()` targets or override its `--cpk-drawer-*` custom properties. The reference lists the supported parts and tokens.
+- **CSS parts and variables:** style the web component's structural `::part()` targets or override its `--cpk-drawer-*` custom properties, such as `--cpk-drawer-bg`, `--cpk-drawer-fg`, `--cpk-drawer-accent`, `--cpk-drawer-border`, and `--cpk-drawer-width`. The reference lists the supported parts.
 
 ## License
 
-Threads require CopilotKit Intelligence. Without a valid Threads license, the drawer shows a locked view in place of the list.
+Threads require CopilotKit Intelligence.
+
+- Runtime connected to Intelligence, no valid Threads license: the drawer shows a locked view in place of the list.
+- Runtime not connected to Intelligence: the drawer stays on "Loading threads…".

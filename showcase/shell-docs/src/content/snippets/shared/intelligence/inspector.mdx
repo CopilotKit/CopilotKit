@@ -9,8 +9,8 @@
 />
 
 The CopilotKit Inspector overlays your development application so you can
-verify the connection, investigate a run, and work with Threads and Learning
-without leaving the page.
+verify the connection, investigate a run, and work with Threads and Automatic
+Learning without leaving the page.
 
 Reach for Inspector after a [quickstart](/quickstart) to verify that the pieces
 are connected, while adding tools or shared state, or when you need to reproduce
@@ -30,7 +30,7 @@ an issue from a real conversation. Each tool shows one layer:
 | Reproduce a saved conversation safely          | **Rich Threads** → **Try from here**    |
 | Continue a saved Thread in your application    | **Rich Threads** → **View in your app** |
 | Enable or repair Intelligence                  | **Home** or a locked **Rich Threads**   |
-| Review what Learning found                     | **Automatic Learning**                  |
+| Review what Automatic Learning found           | **Automatic Learning**                  |
 
 ## Show Inspector and confirm your setup
 
@@ -62,7 +62,7 @@ view with the most useful evidence:
 | Loading the Thread list      | **Rich Threads**       |
 | Agent run or `RUN_ERROR`     | **AG-UI Events**       |
 | Tool handler or missing tool | **Agent**              |
-| Loading Learning data        | **Automatic Learning** |
+| Loading Automatic Learning data | **Automatic Learning** |
 
 Inspector is best for locating the failing layer during development. If the
 event stream stops before it reaches the browser, enable [Runtime Debug
@@ -118,7 +118,7 @@ and reports Intelligence access to the browser. Never expose the project API
 key to the browser. See [Runtime endpoints](/backend/runtime-endpoints) for the
 complete setup.
 
-## Review what Learning found
+## Review what Automatic Learning found
 
 Open **Automatic Learning** to inspect new Threads ready for analysis, published Skills,
 their supporting Insights, and the Thread evidence behind each pattern. Select
@@ -126,8 +126,8 @@ evidence to open the matching Thread and message.
 
 Use **Open Intelligence** in the results header to open the Intelligence app in a
 new tab. Use the analysis and Skill-review links to open the selected Learning
-container in Intelligence.
-Inspector does not approve or publish candidates. If Learning is not configured,
+Space in Intelligence.
+Inspector does not approve or publish candidates. If Automatic Learning is not configured,
 choose **Copy setup prompt**. See [Automatic Learning](/learning) for the complete workflow.
 
 ## Control when Inspector appears
@@ -159,7 +159,7 @@ To disable Inspector in React:
 Vue uses `:enable-inspector="false"`; Angular uses
 `provideCopilotKit({ enableInspector: false })`.
 
-See the [`CopilotKit` provider reference](/reference/components/CopilotKit) for
+See the [`CopilotKit` provider reference](/reference/v2/components/CopilotKit) for
 the complete React provider API.
 
 Pop-out keeps the same live session in a separate browser window. A temporary

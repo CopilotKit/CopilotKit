@@ -120,7 +120,57 @@ The frontend renderer only sees what the agent sends. The matching backend must 
 
 <FrameworkSetup concept="tool-rendering-setup" />
 
-<Snippet region="weather-tool-backend" cell="tool-rendering" title="backend — weather tool" />
+<WhenAngularBackend selected={false}>
+
+On the Built-in Agent, define the tool with `defineTool` and pass it to the agent in the `server.ts` from the [quickstart](/quickstart). `zod` is already installed from the quickstart:
+
+```ts title="server.ts"
+import { BuiltInAgent, CopilotRuntime, defineTool } from "@copilotkit/runtime/v2"; // [!code highlight]
+import { z } from "zod"; // [!code highlight]
+
+const getWeather = defineTool({ // [!code highlight:6]
+  name: "get_weather",
+  description: "Get the current weather for a location.",
+  parameters: z.object({ location: z.string() }),
+  execute: async ({ location }) => ({ location, temperature: 72, condition: "Partly cloudy" }),
+});
+
+const runtime = new CopilotRuntime({
+  agents: {
+    default: new BuiltInAgent({
+      model: "openai:gpt-6-luna",
+      prompt: "You are a helpful assistant for a React Native app.",
+      tools: [getWeather], // [!code highlight]
+    }),
+  },
+});
+```
+
+Restart the runtime with `npx tsx server.ts`.
+
+</WhenAngularBackend>
+
+<WhenAngularBackend selected>
+
+<Snippet region="weather-tool-backend" cell="tool-rendering" title="backend: weather tool" />
+
+</WhenAngularBackend>
+
+Register both hooks in a component under `CopilotKitProvider`, and render the chat there:
+
+```tsx title="src/ChatScreen.tsx"
+import { CopilotChat } from "@copilotkit/react-native/components";
+import { useToolCallCards } from "./ToolCallCard";
+import { useWeatherCard } from "./WeatherCard";
+
+export function ChatScreen() {
+  useToolCallCards();
+  useWeatherCard();
+  return <CopilotChat />;
+}
+```
+
+The rendered chat needs native peers. See [Native peers for the rendered chat](/quickstart#native-peers-for-the-rendered-chat).
 
 To check it, ask the agent for the weather in San Francisco. Your card renders with the temperature from `result`.
 

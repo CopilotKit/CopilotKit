@@ -15,7 +15,7 @@ hidePageActions: true
   header="Bring your Agno agents to your users"
   subheader="Agno runs your agents. CopilotKit gives them a surface your users can see, interrupt and steer."
   guideLink="/agno/quickstart"
-  initCommand="npx copilotkit@latest init"
+  initCommand="npx copilotkit@latest init -f agno"
   lede="Agno gives you the agent: a model, tools, memory and a server that runs them. What it does not give you is the surface. Your users need a place to talk to the agent, a view of the run while it works, and a way to step in. Each capability below builds on something your agent already does."
   supportedFeatures={[
     {
@@ -23,7 +23,7 @@ hidePageActions: true
       iconKey: "paintbrush",
       description:
         "Your agent calls tools and reports progress as it works. CopilotKit streams that to the browser and renders each step as a React component your users watch update while the agent works.",
-      documentationLink: "/agno/generative-ui"
+      documentationLink: "/agno/generative-ui/tool-rendering"
     },
     {
       title: "Human-in-the-loop",

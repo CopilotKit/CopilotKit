@@ -28,7 +28,8 @@ control.
 ## What it looks like in code
 
 The examples below replace the welcome screen, the assistant message card, and
-the input disclaimer.
+the input disclaimer. Each one is a complete `SupportChat.vue`. Try one at a
+time, and render `<SupportChat />` inside `CopilotKitProvider`.
 
 ### Welcome screen slot
 
@@ -102,27 +103,45 @@ The input's `disclaimer` slot replaces the text below the composer while
 leaving the textarea, send button, attachments, and transcription controls
 alone:
 
-```vue
-<CopilotChat>
-  <template #input="inputProps">
-    <CopilotChatInput
-      v-bind="inputProps"
-      :mode="inputProps.inputMode"
-      :tools-menu="inputProps.inputToolsMenu"
-      :show-disclaimer="true"
-    >
-      <template #disclaimer>
-        <p class="support-disclaimer">Responses may be inaccurate.</p>
-      </template>
-    </CopilotChatInput>
-  </template>
-</CopilotChat>
+```vue title="SupportChat.vue"
+<script setup lang="ts">
+import { CopilotChat, CopilotChatInput } from "@copilotkit/vue/v2";
+</script>
+
+<template>
+  <CopilotChat>
+    <template #input="inputProps">
+      <CopilotChatInput
+        v-bind="inputProps"
+        :mode="inputProps.inputMode"
+        :tools-menu="inputProps.inputToolsMenu"
+        :show-disclaimer="true"
+        @update:model-value="inputProps.onUpdateModelValue"
+      >
+        <template #disclaimer>
+          <p class="support-disclaimer">Responses may be inaccurate.</p>
+        </template>
+      </CopilotChatInput>
+    </template>
+  </CopilotChat>
+</template>
 ```
+
+Keep the `@update:model-value` listener. `v-bind` does not connect the slot's
+`onUpdateModelValue` to the input, so without it the Send button stays
+disabled while you type.
+
+The examples up to **Labels** show only the template of `SupportChat.vue`. Import each
+CopilotKit component you use from `@copilotkit/vue/v2` in its
+`<script setup>`. `CustomMessageView` and `CustomToolbarAction` stand for your
+own components.
 
 ## Tailwind Classes
 
 Add `class` to the chat component you compose inside the scoped slot, or add
-classes to your own markup:
+classes to your own markup. The classes below need Tailwind in your app. The
+Vue quickstart does not install it, so use your own CSS classes if you have no
+Tailwind setup:
 
 ```vue
 <CopilotChat>
@@ -210,15 +229,24 @@ Replace a specific toolbar button and keep its imperative action attached:
 
 Use the `labels` prop on a prebuilt surface for text-only changes:
 
-```vue
-<CopilotChat
-  :labels="{
-    chatInputPlaceholder: 'Ask your agent anything…',
-    welcomeMessageText: 'How can I help you today?',
-    chatDisclaimerText: 'AI responses may be inaccurate.',
-  }"
-/>
+```vue title="SupportChat.vue"
+<script setup lang="ts">
+import { CopilotChat, type CopilotChatLabels } from "@copilotkit/vue/v2";
+
+const labels = {
+  chatInputPlaceholder: "Ask your agent anything…",
+  welcomeMessageText: "How can I help you today?",
+  chatDisclaimerText: "AI responses may be inaccurate.",
+} as unknown as Partial<CopilotChatLabels>;
+</script>
+
+<template>
+  <CopilotChat :labels="labels" />
+</template>
 ```
+
+Keep the `as unknown as Partial<CopilotChatLabels>` cast. `CopilotChatLabels` types each
+label as its default text, so `vue-tsc` rejects other strings without it.
 
 Use slots for structure and behavior, and labels for the existing user-facing
 copy.
@@ -240,6 +268,9 @@ actions needed to preserve the default behavior:
 | `welcome-screen` | Initial empty state with input and suggestion data. |
 | `welcome-message` | Only the default welcome copy area. |
 | `interrupt` | A pending interrupt and its resolver. |
+| `feather` | Area between the message list and the input. Empty by default. |
+| `scroll-to-bottom-button` | Button that scrolls to the latest message; receives `onClick`. |
+| `generative-ui-surface` | Wrapper around each generative UI surface in the chat. |
 
 Every slot above works the same on `CopilotChat`, `CopilotSidebar`, and
 `CopilotPopup`.

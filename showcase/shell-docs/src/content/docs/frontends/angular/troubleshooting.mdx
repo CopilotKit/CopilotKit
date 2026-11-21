@@ -20,19 +20,26 @@ import { provideCopilotKit } from "@copilotkit/angular";
 export const appConfig = {
   providers: [
     provideCopilotKit({
-      runtimeUrl: "/api/copilotkit",
+      runtimeUrl: "http://localhost:8200/api/copilotkit",
     }),
   ],
 };
 ```
 
+The [Angular quickstart](/angular) runs Copilot Runtime as its own process, so
+`runtimeUrl` is an absolute URL. A relative URL such as `/api/copilotkit` works
+only when the Angular dev server proxies that path to the runtime
+(`proxy.conf.json`), or when the runtime is served from the same origin.
+Otherwise the dev server answers with its own page or a 404, and the chat
+never replies.
+
 Then inspect `GET {runtimeUrl}/info`. A healthy response lists the expected
 agent ids. If the request fails:
 
-- verify the path, origin, proxy, and deployment base URL;
-- verify the runtime process is running and allows the Angular origin;
-- check authentication headers without logging their values;
-- try `127.0.0.1` when local `localhost` resolution is unreliable.
+- Verify the path, origin, proxy, and deployment base URL.
+- Verify the runtime process is running and allows the Angular origin.
+- Check authentication headers without logging their values.
+- Try `127.0.0.1` when local `localhost` resolution is unreliable.
 
 The [`CopilotKit` service](/reference/angular/services/CopilotKit) exposes
 `runtimeConnectionStatus`, `runtimeUrl`, and the resolved `agents` as signals.

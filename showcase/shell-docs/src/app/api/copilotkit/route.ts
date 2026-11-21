@@ -1,10 +1,11 @@
 import {
   CopilotRuntime,
+  InMemoryAgentRunner,
   createCopilotRuntimeHandler,
 } from "@copilotkit/runtime/v2";
 import type { CopilotRuntimeHooks } from "@copilotkit/runtime/v2";
 import { createDocsAgent } from "@/lib/docs-agent";
-import { createRateLimit } from "@/lib/rate-limit";
+import { clientKey, createRateLimit } from "@/lib/rate-limit";
 
 // What the docs' chats send: `info` to connect, `agent/run` to ask, and
 // `agent/connect` and `agent/stop` on the chat's own thread. The rest of the
@@ -61,17 +62,15 @@ const MAX_FORWARDED_PROPS_CHARS = 120_000;
 // their own budget across the conversation: about 6MB of images, 4 at most.
 const MAX_ATTACHMENT_CHARS = 8_000_000;
 const MAX_ATTACHMENTS = 4;
+// Bytes read from the wire for any request: the run's cap plus room for the
+// envelope. Bigger bodies are cut off while they stream, before the runtime
+// parses them.
+const MAX_BODY_BYTES = MAX_REQUEST_CHARS + MAX_ATTACHMENT_CHARS + 64_000;
+// Turns in one chat: a long conversation is far below this.
+const MAX_MESSAGES = 120;
 
 function reject(status: number, message: string, headers?: HeadersInit) {
   return Response.json({ error: message }, { status, headers });
-}
-
-/**
- * The reader's IP, from the X-Real-IP header Railway's edge sets.
- * X-Forwarded-For is whatever the client sent, so it isn't read.
- */
-function clientIp(request: Request) {
-  return request.headers.get("x-real-ip") ?? "unknown";
 }
 
 interface Envelope {
@@ -141,13 +140,15 @@ function attachmentsIn(messages: NonNullable<Envelope["body"]>["messages"]) {
  * as a status and a message; null when they are.
  */
 function inputProblem(body: Envelope["body"]): [number, string] | null {
-  const context = body?.context;
+  const context = body?.context ?? [];
   if (
-    (Array.isArray(context) && context.length > MAX_CONTEXT_ENTRIES) ||
+    !Array.isArray(context) ||
+    context.length > MAX_CONTEXT_ENTRIES ||
     sizeOf(context) > MAX_CONTEXT_CHARS
   ) {
     return [413, "The page context is too large."];
   }
+
   if (sizeOf(body?.state) > MAX_STATE_CHARS) {
     return [413, "The chat state is too large."];
   }
@@ -175,7 +176,7 @@ const guard: CopilotRuntimeHooks["onBeforeHandler"] = async ({
   if (route.method !== "agent/run") return;
 
   for (const limit of [perMinute, perHour]) {
-    const result = limit(clientIp(request));
+    const result = limit(clientKey(request));
     if (!result.ok) {
       throw reject(429, "Too many questions. Try again in a moment.", {
         "Retry-After": String(result.retryAfter),
@@ -188,7 +189,20 @@ const guard: CopilotRuntimeHooks["onBeforeHandler"] = async ({
     throw reject(413, "This chat is too long. Start a new chat to keep going.");
   }
 
-  const { body } = JSON.parse(raw) as Envelope;
+  let body: Envelope["body"];
+  try {
+    ({ body } = JSON.parse(raw) as Envelope);
+  } catch {
+    throw reject(400, "Bad request");
+  }
+  // The runtime also takes `body` as a JSON string and parses it again,
+  // which would carry a run past every check below.
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    throw reject(400, "Bad request");
+  }
+  if (!Array.isArray(body.messages) || body.messages.length > MAX_MESSAGES) {
+    throw reject(413, "This chat is too long. Start a new chat to keep going.");
+  }
   const attachments = attachmentsIn(body?.messages);
   if (attachments.foreign) {
     throw reject(400, "This chat only takes images you add to it.");
@@ -206,9 +220,15 @@ const guard: CopilotRuntimeHooks["onBeforeHandler"] = async ({
     throw reject(413, "This chat is too long. Start a new chat to keep going.");
   }
 
-  const question = body?.messages?.findLast((m) => m.role === "user")?.content;
-  const length = textOf(question).length;
-  if (length > MAX_QUESTION_CHARS) {
+  // Every question the reader typed, not only the last: earlier turns are
+  // sent again with each run.
+  const longest = Math.max(
+    0,
+    ...body.messages
+      .filter((m) => m?.role === "user")
+      .map((m) => textOf(m.content).length),
+  );
+  if (longest > MAX_QUESTION_CHARS) {
     throw reject(413, `Keep questions under ${MAX_QUESTION_CHARS} characters.`);
   }
 
@@ -228,6 +248,13 @@ const guard: CopilotRuntimeHooks["onBeforeHandler"] = async ({
 
 const runtime = new CopilotRuntime({
   agents: { default: createDocsAgent() },
+  // Chats only need their own thread for a while: keep a few hundred, and
+  // well under the container's memory (the default keeps up to 512MB).
+  runner: new InMemoryAgentRunner({
+    maxThreads: 300,
+    maxRunsPerThread: 40,
+    maxBytes: 64 * 1024 * 1024,
+  }),
 });
 
 const handler = createCopilotRuntimeHandler({
@@ -237,4 +264,64 @@ const handler = createCopilotRuntimeHandler({
   hooks: { onBeforeHandler: guard },
 });
 
-export const POST = (request: Request) => handler(request);
+export async function POST(request: Request) {
+  // A browser on another site can post here without a preflight (a "simple"
+  // request), so a page could spend readers' runs. The chats are same-origin.
+  if (request.headers.get("sec-fetch-site") === "cross-site") {
+    return reject(403, "Forbidden");
+  }
+  const type = request.headers.get("content-type")?.split(";")[0].trim();
+  if (type?.toLowerCase() !== "application/json") {
+    return reject(415, "Send JSON.");
+  }
+  const declared = Number(request.headers.get("content-length"));
+  if (declared > MAX_BODY_BYTES) {
+    return reject(
+      413,
+      "This chat is too long. Start a new chat to keep going.",
+    );
+  }
+  const body = await readCapped(request, MAX_BODY_BYTES);
+  if (!body) {
+    return reject(
+      413,
+      "This chat is too long. Start a new chat to keep going.",
+    );
+  }
+  return handler(
+    new Request(request.url, {
+      method: request.method,
+      headers: request.headers,
+      body,
+      signal: request.signal,
+    }),
+  );
+}
+
+/** The request's body, or null once it passes `max` bytes. */
+async function readCapped(
+  request: Request,
+  max: number,
+): Promise<Uint8Array<ArrayBuffer> | null> {
+  if (!request.body) return new Uint8Array();
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > max) {
+      await reader.cancel();
+      return null;
+    }
+    chunks.push(value);
+  }
+  const out = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) {
+    out.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return out;
+}
