@@ -1,16 +1,32 @@
 // Per-event telemetry metadata shared by both TelemetryClients.
 //
 // Two clients emit `oss.runtime.*`: the v1 client in this package and the
-// v2 client in @copilotkit/runtime. Neither samples the lambda sink any
-// more — that sink is ours, so anonymous volume costs us nothing per
-// event and full fidelity beats an extrapolation. One wire is still
-// gated: the Segment copy the v1 client sends, which is billed per event.
+// v2 client in @copilotkit/runtime. Both send to the CopilotKit telemetry
+// sink, and that is not free: the sink fans events out to PostHog, which
+// bills per event. In Nov 2026 one deployment sent 15.2M
+// `oss.runtime.copilot_request_created` events a week, 48% of the whole
+// PostHog project, and 99% of them were `requestType: "connect"`.
 //
-// Every event therefore still carries a sampling block, because the two
-// populations remain distinguishable and a Segment-sourced count still
-// needs sum(sampleWeight) to mean anything. On the lambda wire the block
-// reads sampleRate=1/sampleWeight=1, which is the honest answer rather
-// than a placeholder.
+// The lambda wire is deliberately left unsampled at the source. Neither
+// client thins it by default, so its block reads sampleRate=1 and
+// sampleWeight=1. The v2 client's COPILOTKIT_TELEMETRY_SAMPLE_RATE opt-down
+// can lower that, and the block then reports the lowered rate. Gating
+// here would only reach customers on a release and an upgrade, and the
+// same events come from five runtimes in five languages that share one
+// conformance contract.
+//
+// Volume is cut downstream instead. The telemetry sink
+// (oss-path-to-production, telemetry-sink-fanout) samples anonymous
+// connect events on their way to PostHog. It multiplies its own rate into
+// the one stamped here rather than replacing it, so sum(sampleWeight)
+// still estimates the true count. The v1 client also gates the Segment
+// copy it sends, which is billed per event, and stamps that copy with the
+// Segment rate.
+//
+// Every event therefore carries a sampling block, because the populations
+// remain distinguishable and any sampled count needs sum(sampleWeight) to
+// mean anything. A block that reads 1/1 is the honest answer for a client
+// that did not sample, not a claim that nothing downstream will.
 //
 // The two clients computed this independently and drifted: v2 sampled but
 // stamped nothing, leaving ~24% of runtime volume unweightable from the
