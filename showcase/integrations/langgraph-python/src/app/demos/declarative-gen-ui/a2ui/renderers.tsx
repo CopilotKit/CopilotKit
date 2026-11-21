@@ -90,6 +90,8 @@ function CardShell({
         width: "100%",
         minWidth: 0,
         overflow: "hidden",
+        // Fill a Row slot so sibling cards share one height.
+        flexGrow: 1,
       }}
     >
       <div>
@@ -132,7 +134,18 @@ export const myRenderers: CatalogRenderers<MyDefinitions> = {
         }}
       >
         {items.map((id, i) => (
-          <div key={`${id}-${i}`} style={{ flex: "1 1 0", minWidth: 0 }}>
+          // Each slot is a flex column so the card inside can grow to the
+          // slot's height: with the Row's default `stretch`, sibling cards
+          // (e.g. the pie and bar chart cards) end up the same height.
+          <div
+            key={`${id}-${i}`}
+            style={{
+              flex: "1 1 0",
+              minWidth: 0,
+              display: "flex",
+              flexDirection: "column",
+            }}
+          >
             {children(id)}
           </div>
         ))}
@@ -375,7 +388,8 @@ export const myRenderers: CatalogRenderers<MyDefinitions> = {
             No data available
           </div>
         ) : (
-          <div style={{ width: "100%", height: 200 }}>
+          // Grows past 200px when a taller sibling card stretches this one.
+          <div style={{ width: "100%", minHeight: 200, flex: "1 1 auto" }}>
             <ResponsiveContainer>
               <RechartsPieChart>
                 <Pie
@@ -439,7 +453,8 @@ export const myRenderers: CatalogRenderers<MyDefinitions> = {
             No data available
           </div>
         ) : (
-          <div style={{ width: "100%", height: 200 }}>
+          // Grows past 200px when a taller sibling card stretches this one.
+          <div style={{ width: "100%", minHeight: 200, flex: "1 1 auto" }}>
             <ResponsiveContainer>
               <RechartsBarChart data={data}>
                 <CartesianGrid strokeDasharray="3 3" stroke={c.divider} />
