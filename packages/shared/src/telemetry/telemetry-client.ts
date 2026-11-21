@@ -9,6 +9,7 @@ import {
 } from "./lambda-client";
 import {
   computeSamplingMeta,
+  sourceSampleRate,
   TELEMETRY_EMITTER_V1,
   TELEMETRY_SURFACE_V1,
   UNSAMPLED_RATE,
@@ -66,8 +67,9 @@ export class TelemetryClient {
   packageVersion: string;
   private telemetryDisabled: boolean = false;
   // Client-side sampling rate for anonymous events on the Segment wire
-  // only. The lambda sink is ours and takes every event; Segment is
-  // billed per event, so the anonymous population stays capped there.
+  // only. The lambda sink takes every event that passed the source gate
+  // in ./sampling; Segment is billed per event, so the anonymous
+  // population stays capped there.
   // Identified events (those whose license token yielded a telemetry_id)
   // bypass the gate on both wires.
   private segmentSampleRate: number = 0.05;
@@ -140,29 +142,39 @@ export class TelemetryClient {
       return;
     }
 
-    // The two wires are gated separately. The lambda sink takes every
-    // event: it is CopilotKit-owned, so anonymous volume costs nothing
-    // per event there and a real count beats one extrapolated from 5% of
-    // the population. Segment is billed per event, so it keeps the gate —
-    // callers without license-derived sampling authority are dropped from
-    // that copy at segmentSampleRate. Legacy license tokens with a
-    // telemetry_id send on both wires: the volume is bounded by
-    // paying-customer count and full fidelity per identified customer is
-    // worth the marginal cost.
-    const sendToSegment =
-      Boolean(identity.licenseTelemetryId) || this.shouldSendToSegment();
+    // The source gate comes first and applies to both wires: anonymous
+    // connect requests are kept at CONNECT_SAMPLE_RATE, everything else
+    // at 1 (see ./sampling). The v1 runtime hands this client's scope to
+    // the V2 runtime it builds, so a v1 app's connects arrive here, and
+    // gating only the v2 client would leave them unthinned.
+    const identified = Boolean(identity.licenseTelemetryId);
+    const sourceRate = sourceSampleRate(event, properties);
+    if (!identified && sourceRate < 1 && Math.random() >= sourceRate) {
+      return;
+    }
+
+    // Then the two wires are gated separately. The lambda sink takes every
+    // event that passed the source gate. Segment is billed per event, so it
+    // keeps its own gate — callers without license-derived sampling
+    // authority are dropped from that copy at segmentSampleRate. Legacy
+    // license tokens with a telemetry_id send on both wires: the volume is
+    // bounded by paying-customer count and full fidelity per identified
+    // customer is worth the marginal cost.
+    const sendToSegment = identified || this.shouldSendToSegment();
 
     // Sampling metadata is computed in ./sampling so this client and the
     // v2 runtime client can't drift apart again — see the note there.
     // One call per wire, because the two wires were gated differently and
     // a shared block would overweight the lambda copy by 1/sampleRate.
+    // Both carry the source rate: the Segment gate is an independent draw
+    // after it, so the rate a Segment copy was kept at is the product.
     const lambdaSamplingMeta = computeSamplingMeta({
       telemetryId: identity.licenseTelemetryId,
-      sampleRate: UNSAMPLED_RATE,
+      sampleRate: UNSAMPLED_RATE * sourceRate,
     });
     const segmentSamplingMeta = computeSamplingMeta({
       telemetryId: identity.licenseTelemetryId,
-      sampleRate: this.segmentSampleRate,
+      sampleRate: this.segmentSampleRate * sourceRate,
     });
 
     // Everything below travels identically on both copies of this event.

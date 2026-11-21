@@ -1,6 +1,9 @@
 import { describe, expect, test } from "vitest";
 import {
   computeSamplingMeta,
+  CONNECT_SAMPLE_RATE,
+  sourceSampleRate,
+  UNSAMPLED_RATE,
   TELEMETRY_EMITTER_V1,
   TELEMETRY_EMITTER_V2,
 } from "./sampling";
@@ -61,5 +64,47 @@ describe("computeSamplingMeta", () => {
     // Downstream separates the populations by this value; if they ever
     // collide the dedupe rule silently keeps or drops both.
     expect(TELEMETRY_EMITTER_V1).not.toBe(TELEMETRY_EMITTER_V2);
+  });
+});
+
+describe("sourceSampleRate", () => {
+  const requestCreated = "oss.runtime.copilot_request_created";
+
+  test("a connect request is gated at CONNECT_SAMPLE_RATE", () => {
+    expect(sourceSampleRate(requestCreated, { requestType: "connect" })).toBe(
+      CONNECT_SAMPLE_RATE,
+    );
+    expect(CONNECT_SAMPLE_RATE).toBeGreaterThan(0);
+    expect(CONNECT_SAMPLE_RATE).toBeLessThan(1);
+  });
+
+  test("a run request is never gated", () => {
+    // The denominator of the connect:run ratio stays an exact count.
+    expect(sourceSampleRate(requestCreated, { requestType: "run" })).toBe(
+      UNSAMPLED_RATE,
+    );
+  });
+
+  test("other events are never gated, whatever their properties say", () => {
+    expect(
+      sourceSampleRate("oss.runtime.instance_created", {
+        requestType: "connect",
+      }),
+    ).toBe(UNSAMPLED_RATE);
+    expect(sourceSampleRate(requestCreated, undefined)).toBe(UNSAMPLED_RATE);
+  });
+
+  test("the gate composes into the block by multiplication", () => {
+    // What a client passes after multiplying in its own rate: a connect
+    // kept at 0.05 by the source and 0.5 by an opt-down stands for 40.
+    const meta = computeSamplingMeta({
+      telemetryId: null,
+      sampleRate:
+        0.5 *
+        sourceSampleRate(requestCreated, {
+          requestType: "connect",
+        }),
+    });
+    expect(meta.sampleWeight).toBeCloseTo(1 / (0.5 * CONNECT_SAMPLE_RATE));
   });
 });

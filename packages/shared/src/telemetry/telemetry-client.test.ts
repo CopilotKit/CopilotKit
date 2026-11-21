@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import type { MockInstance } from "vitest";
 import { lambdaClient } from "./lambda-client";
 import { TelemetryClient, isTelemetryDisabled } from "./telemetry-client";
+import { CONNECT_SAMPLE_RATE } from "./sampling";
 
 // Module mock so constructing TelemetryClient doesn't spin up segment's
 // internal flush queue. Class-based (not vi.fn) so `vi.restoreAllMocks()`
@@ -251,7 +252,7 @@ describe("v1 TelemetryClient", () => {
 
   test("an anonymous event sampled out of Segment still reaches the lambda sink", async () => {
     // Math.random=0.99 vs sampleRate=0.05. The gate is Segment's alone now:
-    // the lambda sink is ours and takes every event, so a rate that drops
+    // the lambda sink takes every event the source gate kept, so a rate that drops
     // 95% of the Segment copies must drop none of the lambda copies. This is
     // the whole point of the change — if it ever reverts, this fails first.
     vi.spyOn(Math, "random").mockReturnValue(0.99);
@@ -786,6 +787,90 @@ describe("v1 TelemetryClient", () => {
     });
     expect(segmentTrackMock.mock.calls[0][0]).toMatchObject({
       properties: expect.objectContaining({ telemetry_identified: true }),
+    });
+  });
+
+  describe("connect requests are sampled at the source", () => {
+    // A connect is one per chat mount, not one per request a user makes, so
+    // one app can send hundreds per run (see ./sampling). The v1 runtime
+    // hands this client's scope to the V2 runtime it builds, so a v1 app's
+    // connects are thinned here or nowhere.
+    const request = (requestType: "connect" | "run") =>
+      ({
+        "cloud.guardrails.enabled": false,
+        requestType,
+        "cloud.api_key_provided": false,
+      }) as const;
+
+    test("an anonymous connect the source gate drops reaches neither wire", async () => {
+      vi.spyOn(Math, "random").mockReturnValue(0.5);
+      const client = makeClient();
+
+      await client.capture(
+        "oss.runtime.copilot_request_created",
+        request("connect"),
+      );
+
+      expect(lambdaSpy).not.toHaveBeenCalled();
+      expect(segmentTrackMock).not.toHaveBeenCalled();
+    });
+
+    test("a kept connect is weighted by the source rate on lambda and by the product on Segment", async () => {
+      // 0.05 at the source, then 0.05 on Segment: the Segment copy stands
+      // for 400 connects, not 20. Overwriting either rate with the other
+      // would undercount by a factor of 20.
+      vi.spyOn(Math, "random").mockReturnValue(0);
+      const client = makeClient({ sampleRate: 0.05 });
+
+      await client.capture(
+        "oss.runtime.copilot_request_created",
+        request("connect"),
+      );
+
+      expect(lambdaSpy.mock.calls[0][0].globalProperties).toMatchObject({
+        sampleRate: CONNECT_SAMPLE_RATE,
+        sampleWeight: 1 / CONNECT_SAMPLE_RATE,
+        telemetry_identified: false,
+      });
+      const segmentProps = segmentTrackMock.mock.calls[0][0].properties;
+      expect(segmentProps.sampleRate).toBeCloseTo(0.05 * CONNECT_SAMPLE_RATE);
+      expect(segmentProps.sampleWeight).toBeCloseTo(
+        1 / (0.05 * CONNECT_SAMPLE_RATE),
+      );
+    });
+
+    test("a run is never sampled at the source", async () => {
+      // Runs are the denominator of the connect:run ratio.
+      vi.spyOn(Math, "random").mockReturnValue(0.99);
+      const client = makeClient();
+
+      await client.capture(
+        "oss.runtime.copilot_request_created",
+        request("run"),
+      );
+
+      expect(lambdaSpy).toHaveBeenCalledTimes(1);
+      expect(lambdaSpy.mock.calls[0][0].globalProperties).toMatchObject(
+        unsampledMeta,
+      );
+    });
+
+    test("an identified caller's connects are never sampled", async () => {
+      vi.spyOn(Math, "random").mockReturnValue(0.99);
+      const client = makeClient();
+      client.setLicenseToken(jwtWith({ telemetry_id: "abc-123" }));
+
+      await client.capture(
+        "oss.runtime.copilot_request_created",
+        request("connect"),
+      );
+
+      expect(lambdaSpy).toHaveBeenCalledTimes(1);
+      expect(lambdaSpy.mock.calls[0][0].globalProperties).toMatchObject({
+        ...unsampledMeta,
+        telemetry_identified: true,
+      });
+      expect(segmentTrackMock).toHaveBeenCalledTimes(1);
     });
   });
 });

@@ -1,26 +1,36 @@
 // Per-event telemetry metadata shared by both TelemetryClients.
 //
 // Two clients emit `oss.runtime.*`: the v1 client in this package and the
-// v2 client in @copilotkit/runtime. Neither samples the lambda sink here,
-// on the client. That is a statement about where the gate lives, not about
-// the volume being free: owning the sink does not make the events it fans
-// out free. In Nov 2026 one deployment sent 15.2M
-// `oss.runtime.copilot_request_created` events a week — 48% of the whole
-// PostHog project, and 99% of it `requestType: "connect"` — and we were
-// billed for it downstream.
+// v2 client in @copilotkit/runtime. Owning the lambda sink they send to
+// does not make the events it fans out free. In Nov 2026 one deployment
+// sent 15.2M `oss.runtime.copilot_request_created` events a week — 48% of
+// the whole PostHog project, and 99% of it `requestType: "connect"` — and
+// we were billed for it downstream.
 //
-// So two wires are gated, neither of them here. The v1 client still gates
-// the Segment copy it sends, which is billed per event. And the sink now
-// gates connect traffic from named egress IPs on its way to PostHog,
-// stamping its own sampling block and composing it with whatever a client
-// already stamped.
+// A connect is not a request in the sense that a run is. The client sends
+// one each time a chat mounts, to replay the thread it is opening, so an
+// app that mounts its chat often (a sidebar, a modal, tabs, routes) sends
+// many of them while working perfectly. The replay itself has to happen —
+// on the plain runtime it is the only way a remounted chat picks up what
+// another tab added — so the network call stays. Only its accounting
+// changes: each client keeps {@link CONNECT_SAMPLE_RATE} of anonymous
+// connect events at the source and drops the rest, before any wire. Runs
+// are never sampled here: they are the denominator of the connect:run
+// ratio, and thinning both sides would make that ratio an estimate of an
+// estimate.
 //
-// Every event therefore still carries a sampling block, because the
-// populations remain distinguishable and any sampled-source count needs
-// sum(sampleWeight) to mean anything. On the wire out of this process the
-// block reads sampleRate=1/sampleWeight=1, which is the honest answer for
-// a client that did not sample — not a claim that nothing downstream
-// will.
+// Other gates compose with this one by multiplication, never by
+// replacement: the v2 client's COPILOTKIT_TELEMETRY_SAMPLE_RATE opt-down,
+// and the v1 client's gate on the Segment copy it sends, which is billed
+// per event. An anonymous connect that reaches Segment was kept at
+// CONNECT_SAMPLE_RATE x the Segment rate, and the block on that copy says
+// so. Anything further downstream that samples again must likewise
+// multiply its rate into the one stamped here.
+//
+// Every event therefore carries a sampling block, because the populations
+// remain distinguishable and any sampled count needs sum(sampleWeight) to
+// mean anything. An event no gate touched reads sampleRate=1 and
+// sampleWeight=1, which is the honest answer rather than a placeholder.
 //
 // The two clients computed this independently and drifted: v2 sampled but
 // stamped nothing, leaving ~24% of runtime volume unweightable from the
@@ -29,6 +39,37 @@
 
 /** The rate a sink that takes every event is "gated" at. */
 export const UNSAMPLED_RATE = 1;
+
+/**
+ * Fraction of anonymous `requestType: "connect"` request events kept at the
+ * source. Identified callers are exempt, as they are from every other gate.
+ */
+export const CONNECT_SAMPLE_RATE = 0.05;
+
+const REQUEST_CREATED_EVENT = "oss.runtime.copilot_request_created";
+
+/**
+ * The rate one event is gated at before any wire sees it, for an anonymous
+ * caller: {@link CONNECT_SAMPLE_RATE} for a connect request, and
+ * {@link UNSAMPLED_RATE} for everything else, runs included.
+ *
+ * The caller multiplies this into its own rate, keeps the event with that
+ * probability, and passes the product to {@link computeSamplingMeta}, which
+ * also lifts identified callers back to 1. Both clients ask here so the
+ * policy lives in one place.
+ */
+export function sourceSampleRate(event: string, properties: unknown): number {
+  if (event !== REQUEST_CREATED_EVENT) return UNSAMPLED_RATE;
+  if (
+    typeof properties === "object" &&
+    properties !== null &&
+    "requestType" in properties &&
+    properties.requestType === "connect"
+  ) {
+    return CONNECT_SAMPLE_RATE;
+  }
+  return UNSAMPLED_RATE;
+}
 
 /** Identifies which client emitted an event. */
 export const TELEMETRY_EMITTER_V1 = "v1-shared";
