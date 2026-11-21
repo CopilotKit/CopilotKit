@@ -1254,7 +1254,13 @@ export function CopilotChatMessageView({
     measuredThreadRef.current = firstMessageId;
     resizeAnchorRef.current = null;
     heldOffsetRef.current = 0;
-    measuredRef.current = { total: 0, sizes: new Map(), estimates: new Map() };
+    // Estimates are reset by the scroll-to-bottom effect instead, once the
+    // new thread is committed.
+    measuredRef.current = {
+      total: 0,
+      sizes: new Map(),
+      estimates: measuredRef.current.estimates,
+    };
   }
 
   // A row that left the list (messages folded into a group, a stand-in
@@ -1270,10 +1276,20 @@ export function CopilotChatMessageView({
         measured.total -= height;
       }
     }
-    for (const key of measured.estimates.keys()) {
-      if (!live.has(key)) measured.estimates.delete(key);
-    }
   }
+
+  // Kept estimates are pruned only once a list is committed. Unlike a
+  // measurement, which only nudges the mean, a dropped estimate resizes its
+  // own row; dropping it from a render React then discards would bring the
+  // row back at the current mean and move every row below it. A new thread's
+  // estimates are reset by the scroll-to-bottom effect, since row keys can
+  // repeat between threads.
+  useLayoutEffect(() => {
+    const live = new Set(rowKeys);
+    for (const key of measuredRef.current.estimates.keys()) {
+      if (!live.has(key)) measuredRef.current.estimates.delete(key);
+    }
+  }, [rowKeys]);
 
   // Kept per row key, like the sizes: a regroup moves rows to other indexes.
   const estimateRowSize = React.useCallback((index: number) => {
@@ -1732,6 +1748,35 @@ export function CopilotChatMessageView({
     // align again when the same message list becomes measurable once more.
     if (lastEndAlignedFirstMessageRef.current === firstMessageId) return;
     lastEndAlignedFirstMessageRef.current = firstMessageId;
+    // The first layout of a thread runs before any of its rows is measured,
+    // so every row was kept at the flat fallback. The rows mounted since have
+    // been measured, so lay the thread out again from their mean, once, while
+    // the view is being moved to the bottom anyway. This also drops whatever
+    // a previous thread left under row keys this one repeats. Done here
+    // rather than when the thread changes during render, so a render React
+    // discards cannot clear the estimates of the thread still on screen.
+    // Same order as the width change in observeScrollRect: take the mounted
+    // rows into the mean, rebuild every offset from it, then hand the mounted
+    // rows' sizes back — measure() forgets them, and a row that does not
+    // resize does not report again. Handing them back first would rebuild
+    // only from the lowest mounted row down.
+    //
+    // A row unmounted in this commit can still be cached: React detaches
+    // its ref before removing it from the document, and the virtualizer only
+    // drops rows that are already disconnected. Measured again, such a row
+    // would be read by its old index against the new list and replace the
+    // live row at that index, which would then stop being observed. Passing
+    // null drops the disconnected rows first.
+    virtualizer.measureElement(null);
+    measuredRef.current.estimates = new Map();
+    virtualizer.elementsCache.forEach((element) => {
+      measureRowElement(element, undefined, virtualizer);
+    });
+    virtualizer.measure();
+    virtualizer.getTotalSize();
+    virtualizer.elementsCache.forEach((element) => {
+      virtualizer.measureElement(element);
+    });
     virtualizer.scrollToIndex(rows.length - 1, {
       align: "end",
     });

@@ -106,6 +106,11 @@ function message(id: string): Message {
 
 let setMessages: ((messages: Message[]) => void) | null = null;
 
+/** Wraps the "history" group row in the long-thread tests. */
+function HistoryWrapper({ children }: { children: React.ReactNode }) {
+  return <div>{children}</div>;
+}
+
 type GroupMessages = React.ComponentProps<
   typeof CopilotChatMessageView
 >["groupMessages"];
@@ -684,6 +689,404 @@ describe("CopilotChatMessageView virtual-scroll tuning", () => {
       });
 
       expect(virtualizer().options.estimateSize(1)).toBe(300);
+    });
+
+    describe("rows above the viewport in a long thread", () => {
+      // A resumed thread long enough to virtualize, pinned to the bottom. The
+      // rows near the bottom are far taller than the ones at the top, so the
+      // mean moves a long way once they are measured. Neither height is the
+      // flat 100 px fallback, so a row still laid out at the fallback shows.
+      const thread = Array.from({ length: 80 }, (_, i) => message(`m-${i}`));
+      let container: HTMLDivElement;
+      let rect: { mockRestore: () => void };
+      let width: number;
+      let heightOf: (index: number) => number;
+
+      beforeEach(() => {
+        width = 600;
+        heightOf = (index) => (index >= 70 ? 1000 : 300);
+        container = document.createElement("div");
+        Object.defineProperties(container, {
+          clientWidth: { get: () => width },
+          clientHeight: { value: 600 },
+          offsetWidth: { get: () => width },
+          offsetHeight: { value: 600 },
+          scrollHeight: { get: () => virtualizer().getTotalSize() },
+        });
+        container.getBoundingClientRect = () =>
+          ({ width, height: 600 }) as DOMRect;
+        container.scrollTo = vi.fn(({ top }: ScrollToOptions) => {
+          container.scrollTop = top ?? 0;
+          container.dispatchEvent(new Event("scroll"));
+        }) as typeof container.scrollTo;
+        rect = vi
+          .spyOn(HTMLElement.prototype, "getBoundingClientRect")
+          .mockImplementation(function (this: HTMLElement) {
+            const index = Number(this.dataset.index);
+            return {
+              width,
+              height: Number.isInteger(index) ? heightOf(index) : 0,
+            } as DOMRect;
+          });
+      });
+
+      afterEach(async () => {
+        // TanStack's scroll-end debounce can notify after its listener is removed.
+        await act(async () => {
+          await new Promise((resolve) => setTimeout(resolve, 180));
+        });
+        cleanup();
+        rect.mockRestore();
+      });
+
+      /** Scrolls to the bottom so only the last, tall rows get measured. */
+      function settleAtBottom() {
+        expect(virtualizer().options.count).toBe(80);
+        for (let i = 0; i < 2; i++) {
+          act(() => {
+            container.scrollTop = virtualizer().getTotalSize() - 600;
+            container.dispatchEvent(new Event("scroll"));
+          });
+        }
+        const mounted = virtualizer()
+          .getVirtualItems()
+          .map((row) => row.index);
+        expect(mounted.length).toBeGreaterThan(0);
+        expect(Math.min(...mounted)).toBeGreaterThan(40);
+        // The tall rows at the bottom moved the mean away from the 300 px rows.
+        expect(virtualizer().options.estimateSize(80)).toBeGreaterThan(300);
+      }
+
+      /** Where the 40 rows at the top of the thread start. */
+      function topRowStarts() {
+        // getTotalSize() brings the layout up to date before it is read.
+        virtualizer().getTotalSize();
+        return virtualizer()
+          .measurementsCache.slice(0, 40)
+          .map((row) => row.start);
+      }
+
+      it("keeps them in place when a message is sent", () => {
+        renderWithCopilotKit({
+          children: (
+            <ScrollElementContext.Provider value={container}>
+              <Harness isPinnedToBottom initialMessages={thread} />
+            </ScrollElementContext.Provider>
+          ),
+        });
+        settleAtBottom();
+        const before = topRowStarts();
+
+        act(() => {
+          setMessages!([...thread, message("sent")]);
+        });
+
+        // Adding a row rebuilds the layout from the top. Re-estimating the
+        // rows above at the new mean would push each of them down by
+        // hundreds of pixels — the jump up the history seen after sending.
+        expect(virtualizer().options.count).toBe(81);
+        expect(topRowStarts()).toEqual(before);
+      });
+
+      it("keeps them in place after React discards a render without one of them", () => {
+        const never = new Promise<never>(() => {});
+        function SuspendsWhile({ pending }: { pending: boolean }) {
+          if (pending) throw never;
+          return null;
+        }
+        let update: (messages: Message[], pending: boolean) => void;
+        function DiscardingHarness() {
+          const [messages, setThread] = React.useState(thread);
+          const [pending, setPending] = React.useState(false);
+          update = (next, nextPending) => {
+            setThread(next);
+            setPending(nextPending);
+          };
+          return (
+            <ScrollPinnedContext.Provider value={true}>
+              <React.Suspense fallback={null}>
+                <CopilotChatMessageView messages={messages} />
+                <SuspendsWhile pending={pending} />
+              </React.Suspense>
+            </ScrollPinnedContext.Provider>
+          );
+        }
+        renderWithCopilotKit({
+          children: (
+            <ScrollElementContext.Provider value={container}>
+              <DiscardingHarness />
+            </ScrollElementContext.Provider>
+          ),
+        });
+        settleAtBottom();
+        const before = topRowStarts();
+
+        // The message view renders a list without m-30, then a sibling
+        // suspends, so React keeps the committed list and throws that render
+        // away. A second transition supersedes it.
+        act(() => {
+          React.startTransition(() => {
+            update(
+              thread.filter((m) => m.id !== "m-30"),
+              true,
+            );
+          });
+        });
+        act(() => {
+          React.startTransition(() => update(thread, false));
+        });
+
+        act(() => {
+          update([...thread, message("sent")], false);
+        });
+
+        // m-30 never left the committed list, so it keeps its estimate. Had
+        // the discarded render dropped it, m-30 would come back at the current
+        // mean and push every row below it down.
+        expect(virtualizer().options.count).toBe(81);
+        expect(topRowStarts()).toEqual(before);
+      });
+
+      it("lays the history out at the thread's measured mean, not the flat fallback", () => {
+        renderWithCopilotKit({
+          children: (
+            <ScrollElementContext.Provider value={container}>
+              <Harness isPinnedToBottom initialMessages={thread} />
+            </ScrollElementContext.Provider>
+          ),
+        });
+        settleAtBottom();
+
+        // Rows 20-39 were never mounted. They were first laid out before
+        // anything was measured, at the flat fallback; once the first rows
+        // are measured the thread is laid out again from their mean, which
+        // here is the true height of every row in the history.
+        const history = virtualizer().measurementsCache.slice(20, 40);
+        expect(history.map((row) => row.size)).toEqual(
+          Array.from({ length: 20 }, () => 300),
+        );
+      });
+
+      it("keeps the view in place when the width changes while pinned", () => {
+        // Every row is 400 px whatever the width, so a width change has
+        // nothing to correct. Rows still at the flat fallback would all be
+        // re-estimated at once and push the bottom thousands of pixels away.
+        heightOf = () => 400;
+        const observers = new Map<Element, Set<ResizeObserverCallback>>();
+        const OriginalObserver = globalThis.ResizeObserver;
+        globalThis.ResizeObserver = class {
+          constructor(private callback: ResizeObserverCallback) {}
+          observe(target: Element) {
+            const callbacks = observers.get(target) ?? new Set();
+            callbacks.add(this.callback);
+            observers.set(target, callbacks);
+          }
+          unobserve(target: Element) {
+            observers.get(target)?.delete(this.callback);
+          }
+          disconnect() {
+            for (const callbacks of observers.values()) {
+              callbacks.delete(this.callback);
+            }
+          }
+        } as unknown as typeof ResizeObserver;
+        const frames: FrameRequestCallback[] = [];
+        const frame = vi
+          .spyOn(window, "requestAnimationFrame")
+          .mockImplementation((callback) => frames.push(callback));
+        const flushFrames = () =>
+          act(() => {
+            for (const callback of frames.splice(0)) callback(0);
+          });
+        try {
+          renderWithCopilotKit({
+            children: (
+              <ScrollElementContext.Provider value={container}>
+                <Harness isPinnedToBottom initialMessages={thread} />
+              </ScrollElementContext.Provider>
+            ),
+          });
+          for (let i = 0; i < 2; i++) {
+            act(() => {
+              container.scrollTop = virtualizer().getTotalSize() - 600;
+              container.dispatchEvent(new Event("scroll"));
+            });
+          }
+          flushFrames();
+          expect(virtualizer().getTotalSize()).toBe(80 * 400);
+          const fromBottom = () =>
+            virtualizer().getTotalSize() - container.scrollTop - 600;
+          const before = fromBottom();
+
+          act(() => {
+            width = 590;
+            for (const callback of observers.get(container) ?? []) {
+              callback(
+                [
+                  {
+                    target: container,
+                    borderBoxSize: [{ inlineSize: width, blockSize: 600 }],
+                  },
+                ] as unknown as ResizeObserverEntry[],
+                {} as ResizeObserver,
+              );
+            }
+          });
+          flushFrames();
+
+          expect(virtualizer().getTotalSize()).toBe(80 * 400);
+          expect(fromBottom()).toBe(before);
+        } finally {
+          frame.mockRestore();
+          globalThis.ResizeObserver = OriginalObserver;
+        }
+      });
+
+      it("keeps tracking the new thread's rows after switching between long threads", () => {
+        renderWithCopilotKit({
+          children: (
+            <ScrollElementContext.Provider value={container}>
+              <Harness isPinnedToBottom initialMessages={thread} />
+            </ScrollElementContext.Provider>
+          ),
+        });
+        settleAtBottom();
+
+        // Another long thread, shown while the view sits at the bottom. The
+        // old thread's rows unmount as the new thread's mount at the same
+        // indexes.
+        const otherThread = Array.from({ length: 80 }, (_, i) =>
+          message(`other-${i}`),
+        );
+        act(() => {
+          setMessages!(otherThread);
+        });
+
+        // Each row on screen is the element the virtualizer tracks for its
+        // key. A row of the old thread left behind, if measured again, is read
+        // by its old index against the new thread and takes the place of the
+        // new row at that index — which then stops being observed, so its
+        // growth (a streaming reply) would go unmeasured.
+        const rows = [...document.querySelectorAll("[data-index]")];
+        expect(rows.length).toBeGreaterThan(0);
+        for (const row of rows) {
+          const key = virtualizer().options.getItemKey(
+            Number(row.getAttribute("data-index")),
+          );
+          expect(virtualizer().elementsCache.get(key)).toBe(row);
+        }
+      });
+
+      it("keeps them in place after React discards a switch to a thread that repeats a row key", () => {
+        // Folds every "old-" message into one row keyed "history", in
+        // whichever thread is showing.
+        const groupMessages: GroupMessages = (list) => {
+          const old = list.filter((m) => m.id.startsWith("old-"));
+          const rest = list.filter((m) => !m.id.startsWith("old-"));
+          return [
+            ...(old.length > 0
+              ? [
+                  messageGroup({
+                    key: "history",
+                    messages: old,
+                    wrapper: HistoryWrapper,
+                  }),
+                ]
+              : []),
+            ...rest.map(messageRow),
+          ];
+        };
+        // The same thread once two earlier messages are folded into a row at
+        // the top, and another thread with a row under the same key.
+        const withHistory = [
+          thread[0]!,
+          message("old-a-1"),
+          message("old-a-2"),
+          ...thread.slice(1),
+        ];
+        const otherThread = [
+          message("other-first"),
+          message("old-b-1"),
+          ...Array.from({ length: 78 }, (_, i) => message(`other-${i}`)),
+        ];
+        const never = new Promise<never>(() => {});
+        function SuspendsWhile({ pending }: { pending: boolean }) {
+          if (pending) throw never;
+          return null;
+        }
+        let update: (messages: Message[], pending: boolean) => void;
+        function DiscardingHarness() {
+          const [messages, setThread] = React.useState(thread);
+          const [pending, setPending] = React.useState(false);
+          update = (next, nextPending) => {
+            setThread(next);
+            setPending(nextPending);
+          };
+          return (
+            <ScrollPinnedContext.Provider value={true}>
+              <React.Suspense fallback={null}>
+                <CopilotChatMessageView
+                  messages={messages}
+                  groupMessages={groupMessages}
+                />
+                <SuspendsWhile pending={pending} />
+              </React.Suspense>
+            </ScrollPinnedContext.Provider>
+          );
+        }
+        renderWithCopilotKit({
+          children: (
+            <ScrollElementContext.Provider value={container}>
+              <DiscardingHarness />
+            </ScrollElementContext.Provider>
+          ),
+        });
+        settleAtBottom();
+        // The history row appears above the viewport, unmeasured, at this
+        // thread's current mean.
+        act(() => {
+          update(withHistory, false);
+        });
+        expect(virtualizer().options.getItemKey(0)).toBe(
+          "copilotkit-group:history",
+        );
+        const before = topRowStarts();
+        const historySize = virtualizer().measurementsCache[0]!.size;
+        expect(historySize).toBeGreaterThan(300);
+
+        // The other thread renders, then a sibling suspends and React throws
+        // the render away. A second transition supersedes it.
+        act(() => {
+          React.startTransition(() => update(otherThread, true));
+        });
+        act(() => {
+          React.startTransition(() => update(withHistory, false));
+        });
+        act(() => {
+          update([...withHistory, message("sent")], false);
+        });
+
+        // The first thread never left the screen, so its rows keep their
+        // estimates.
+        expect(virtualizer().options.count).toBe(82);
+        expect(topRowStarts()).toEqual(before);
+
+        // The other thread, once it does commit, lays its "history" row out
+        // from its own rows rather than keeping the first thread's estimate.
+        heightOf = (index) => (index >= 70 ? 1000 : 500);
+        act(() => {
+          update(otherThread, false);
+        });
+        virtualizer().getTotalSize();
+        expect(virtualizer().options.getItemKey(0)).toBe(
+          "copilotkit-group:history",
+        );
+        const history = virtualizer().measurementsCache[0]!;
+        expect(history.size).not.toBe(historySize);
+        expect(history.size).toBe(
+          virtualizer().options.estimateSize(virtualizer().options.count),
+        );
+      });
     });
   });
 
