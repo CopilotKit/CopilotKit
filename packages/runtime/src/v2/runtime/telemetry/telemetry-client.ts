@@ -47,9 +47,10 @@ export function isTelemetryDisabled(): boolean {
 export class TelemetryClient {
   private telemetryDisabled: boolean = false;
   // Opt-down for anonymous events, defaulting to 1. The lambda wire is left
-  // unsampled at the source on purpose: anonymous connect volume is sampled
-  // at the telemetry sink instead, which multiplies its rate into the one
-  // stamped here (see sampling.ts in @copilotkit/shared).
+  // unsampled at the source on purpose: anonymous connect events may be
+  // sampled at the telemetry sink instead, per its configuration, and the
+  // sink multiplies its rate into the one stamped here (see sampling.ts in
+  // @copilotkit/shared).
   // It stays configurable because it is the cross-SDK lever for reducing or
   // stopping anonymous volume — the Go, Python, Ruby, and .NET runtimes all
   // expose it, and the cross-language conformance suite drives it to 0 to

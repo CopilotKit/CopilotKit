@@ -251,8 +251,8 @@ describe("v1 TelemetryClient", () => {
 
   test("an anonymous event sampled out of Segment still reaches the lambda sink", async () => {
     // Math.random=0.99 vs sampleRate=0.05. The gate is Segment's alone now:
-    // the lambda wire takes every event (sampling happens at the telemetry
-    // sink, not here), so a rate that drops
+    // the lambda wire takes every event (any sampling happens at the
+    // telemetry sink, not here), so a rate that drops
     // 95% of the Segment copies must drop none of the lambda copies. This is
     // the whole point of the change — if it ever reverts, this fails first.
     vi.spyOn(Math, "random").mockReturnValue(0.99);
