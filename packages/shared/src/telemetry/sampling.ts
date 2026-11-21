@@ -1,16 +1,26 @@
 // Per-event telemetry metadata shared by both TelemetryClients.
 //
 // Two clients emit `oss.runtime.*`: the v1 client in this package and the
-// v2 client in @copilotkit/runtime. Neither samples the lambda sink any
-// more — that sink is ours, so anonymous volume costs us nothing per
-// event and full fidelity beats an extrapolation. One wire is still
-// gated: the Segment copy the v1 client sends, which is billed per event.
+// v2 client in @copilotkit/runtime. Neither samples the lambda sink here,
+// on the client. That is a statement about where the gate lives, not about
+// the volume being free: owning the sink does not make the events it fans
+// out free. In Nov 2026 one deployment sent 15.2M
+// `oss.runtime.copilot_request_created` events a week — 48% of the whole
+// PostHog project, and 99% of it `requestType: "connect"` — and we were
+// billed for it downstream.
 //
-// Every event therefore still carries a sampling block, because the two
-// populations remain distinguishable and a Segment-sourced count still
-// needs sum(sampleWeight) to mean anything. On the lambda wire the block
-// reads sampleRate=1/sampleWeight=1, which is the honest answer rather
-// than a placeholder.
+// So two wires are gated, neither of them here. The v1 client still gates
+// the Segment copy it sends, which is billed per event. And the sink now
+// gates connect traffic from named egress IPs on its way to PostHog,
+// stamping its own sampling block and composing it with whatever a client
+// already stamped.
+//
+// Every event therefore still carries a sampling block, because the
+// populations remain distinguishable and any sampled-source count needs
+// sum(sampleWeight) to mean anything. On the wire out of this process the
+// block reads sampleRate=1/sampleWeight=1, which is the honest answer for
+// a client that did not sample — not a claim that nothing downstream
+// will.
 //
 // The two clients computed this independently and drifted: v2 sampled but
 // stamped nothing, leaving ~24% of runtime volume unweightable from the
