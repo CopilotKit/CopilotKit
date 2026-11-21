@@ -1,0 +1,103 @@
+## The primitives
+
+Register a `useHumanInTheLoop` tool with a Vue render component that reflects the pending request into application state. The tool's handler remains pending until something calls `respond(...)`. No runtime interrupt is involved.
+
+Keep the pending request in a shared ref:
+
+```ts title="src/approval-store.ts"
+import { ref } from "vue";
+
+export const pendingApproval = ref<{
+  toolCallId: string;
+  reason: string;
+  respond: (result: unknown) => Promise<void>;
+} | null>(null);
+```
+
+The render component receives `respond` only while the tool call is executing. It hands the request to the store and renders nothing in the chat:
+
+```vue title="src/components/ApprovalBridge.vue"
+<script setup lang="ts">
+import { watchEffect } from "vue";
+import { pendingApproval } from "../approval-store";
+
+const props = defineProps<{
+  toolCallId: string;
+  args: { reason?: string };
+  respond?: (result: unknown) => Promise<void>;
+}>();
+
+watchEffect(() => {
+  if (props.respond) {
+    pendingApproval.value = {
+      toolCallId: props.toolCallId,
+      reason: props.args.reason ?? "",
+      respond: props.respond,
+    };
+  }
+});
+</script>
+
+<template></template>
+```
+
+Register the tool, and render the picker from the store anywhere in your app. Install Zod first with `npm install zod`:
+
+```vue title="src/components/HeadlessApprovalPanel.vue"
+<script setup lang="ts">
+import type { Component } from "vue";
+import { z } from "zod";
+import { useHumanInTheLoop } from "@copilotkit/vue/v2";
+import ApprovalBridge from "./ApprovalBridge.vue";
+import { pendingApproval } from "../approval-store";
+
+useHumanInTheLoop({
+  name: "request_approval",
+  description: "Ask the user to approve an action before it runs.",
+  parameters: z.object({ reason: z.string() }),
+  // The cast keeps `vue-tsc` (run by `npm run build`) from rejecting the SFC.
+  render: ApprovalBridge as Component,
+});
+
+async function answer(approved: boolean) {
+  const pending = pendingApproval.value;
+  if (!pending) return;
+  pendingApproval.value = null;
+  await pending.respond({ approved });
+}
+</script>
+
+<template>
+  <section v-if="pendingApproval">
+    <p>{{ pendingApproval.reason }}</p>
+    <button @click="answer(true)">Approve</button>
+    <button @click="answer(false)">Reject</button>
+  </section>
+</template>
+```
+
+Keep these rules:
+
+- If the agent can call the tool several times at once, key pending requests by tool-call id.
+- Clear the pending state after the user responds.
+- If the picker lives elsewhere, render nothing from the render component.
+
+## Provider setup
+
+The chat renders tool calls, so it mounts the render component. Keep `<CopilotChat>` mounted, even if the picker lives elsewhere:
+
+```vue title="src/App.vue"
+<script setup lang="ts">
+import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue/v2";
+import HeadlessApprovalPanel from "./components/HeadlessApprovalPanel.vue";
+</script>
+
+<template>
+  <CopilotKitProvider runtime-url="http://localhost:8200/api/copilotkit">
+    <HeadlessApprovalPanel />
+    <CopilotChat />
+  </CopilotKitProvider>
+</template>
+```
+
+Ask the agent to do something that needs approval. The panel shows the reason with Approve and Reject. Click **Approve**, and the agent continues with `{ approved: true }`.

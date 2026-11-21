@@ -3,12 +3,18 @@ title: "Public API inventory"
 description: "Supported entry points and API families for @copilotkit/angular."
 ---
 
-The supported entry points are `@copilotkit/angular`,
-`@copilotkit/angular/a2ui`, `@copilotkit/angular/generative-ui`,
-`@copilotkit/angular/mcp-apps`, and `@copilotkit/angular/styles.css`. The
-published package includes `API.md`, an alphabetized, machine-validated list of
-every exported value and type. A test resolves all four TypeScript entry points and
-requires every export to appear exactly once in that inventory.
+The supported entry points in `@copilotkit/angular` 0.6.0 are `@copilotkit/angular`,
+`@copilotkit/angular/a2ui`, `@copilotkit/angular/mcp-apps`, and
+`@copilotkit/angular/styles.css`.
+
+The release after 0.6.0 adds `@copilotkit/angular/generative-ui` and its
+`/generative-ui/chart`, `/generative-ui/map`, and `/generative-ui/icons`
+subpaths. On 0.6.0, importing them fails. See [Generative UI API family](#generative-ui-api-family).
+
+Starting with the release after 0.6.0, the package also includes `API.md`, an
+alphabetized, machine-validated list of every exported value and type. A test
+resolves every TypeScript entry point and requires every export to appear
+exactly once in that inventory.
 
 ## Root API families
 
@@ -64,6 +70,26 @@ The `@copilotkit/angular/mcp-apps` entry point exports `provideMCPApps`, its con
 tokens, the snapshot schema and type, the ready-made activity renderer config,
 and `CopilotMCPAppsActivityRenderer`/`CopilotMCPAppsWidget` for advanced hosts.
 
-Use the task-specific reference pages for signatures and behavior. Consult the
-`API.md` included beside the package README when reviewing the exact symbol
-inventory for an installed version; that file is the normative export list.
+## Generative UI API family
+
+Ships in the release after 0.6.0. The `@copilotkit/angular/generative-ui` entry
+point exports `provideGenerativeUI`, the `CopilotGenerativeUI` components for the
+standard catalog, `standardUI` and the component groups, and helpers such as
+`createGenerativeUI` and `registerGenerativeUIFunction`. `provideGenerativeUI({ ui })`
+lets the agent render the components of `ui` in the chat.
+
+Three subpaths add optional renderers. Each needs an optional peer dependency
+that you install yourself:
+
+| Entry point | Provider | Peer dependency |
+| --- | --- | --- |
+| `@copilotkit/angular/generative-ui/chart` | `provideGenerativeUIChart()` | `chart.js` |
+| `@copilotkit/angular/generative-ui/map` | `provideGenerativeUIMap()` | `maplibre-gl` |
+| `@copilotkit/angular/generative-ui/icons` | `provideGenerativeUIIcons()` | `lucide` |
+
+Without the chart provider, `Chart` shows its data as a table. Without the map
+provider, `Map` shows its markers as a list.
+
+Use the task-specific reference pages for signatures and behavior. On releases
+that ship `API.md`, consult it beside the package README for the exact symbol
+inventory of the installed version. That file is the normative export list.

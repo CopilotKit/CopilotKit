@@ -24,10 +24,15 @@ calling any write API.
 
 Keep the approval payload small, serializable, and vendor-neutral. The
 agent or backend can attach any policy engine result to the action as long
-as the UI receives the same basic envelope:
+as the UI receives the same basic envelope. Both patterns below render the
+same card, so save the envelope type and the card in one file:
 
-```ts
-type GovernedAction = {
+```tsx title="components/governed-action-card.tsx"
+"use client";
+
+import { useEffect } from "react";
+
+export type GovernedAction = {
   id: string;
   summary: string;
   tool: string;
@@ -35,9 +40,69 @@ type GovernedAction = {
   verdict: "allow" | "deny" | "require_approval";
   arguments: Record<string, unknown>;
 };
+
+export function GovernedActionCard({
+  action,
+  onApprove,
+  onReject,
+  onBlock,
+}: {
+  action: GovernedAction;
+  onApprove: () => void;
+  onReject: () => void;
+  onBlock: () => void;
+}) {
+  // Run once per action and verdict, not on every render.
+  useEffect(() => {
+    if (action.verdict === "allow") onApprove();
+    if (action.verdict === "deny") onBlock();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [action.id, action.verdict]);
+
+  const status =
+    action.verdict === "allow"
+      ? "Allowed by policy"
+      : action.verdict === "deny"
+        ? "Blocked by policy"
+        : "User approval required";
+
+  return (
+    <section className="rounded-lg border p-4 shadow-sm">
+      <div className="space-y-1">
+        <p className="text-sm font-medium">{status}</p>
+        <h3 className="text-base font-semibold">{action.summary}</h3>
+        <p className="text-sm text-gray-500">Tool: {action.tool}</p>
+        <p className="text-sm text-gray-500">Reference: {action.reference}</p>
+      </div>
+
+      <pre className="mt-3 overflow-auto rounded bg-gray-100 p-3 text-xs">
+        {JSON.stringify(action.arguments, null, 2)}
+      </pre>
+
+      {action.verdict === "require_approval" && (
+        <div className="mt-4 flex gap-2">
+          <button
+            type="button"
+            className="rounded bg-black px-3 py-1 text-white"
+            onClick={onApprove}
+          >
+            Approve and run
+          </button>
+          <button
+            type="button"
+            className="rounded border px-3 py-1"
+            onClick={onReject}
+          >
+            Reject
+          </button>
+        </div>
+      )}
+    </section>
+  );
+}
 ```
 
-The frontend should handle each verdict deterministically:
+The card handles each verdict deterministically:
 
 | Verdict | UI behavior |
 | --- | --- |
@@ -49,20 +114,27 @@ The frontend should handle each verdict deterministically:
 
 If your runtime can pause an agent run, model the approval as an interrupt.
 The agent proposes the action, the UI renders the checkpoint, and the run
-resumes with the user's decision:
+resumes with the user's decision.
 
-```tsx
-import { useEffect } from "react";
+This path needs an agent that pauses with an interrupt and sends the action
+with it, for example a LangGraph agent that calls `interrupt({"action": action})`
+(shown below). A Built-in Agent interrupt carries no action, so with the
+Built-in Agent use the [`useHumanInTheLoop` path](#tool-call-approval-with-usehumanintheloop).
+
+```tsx title="components/governed-action-approval.tsx"
+"use client";
+
 import { useInterrupt } from "@copilotkit/react-core/v2";
+import { GovernedActionCard, type GovernedAction } from "./governed-action-card";
 
-function GovernedActionApproval() {
+export function GovernedActionApproval() {
   useInterrupt({
     render: ({ event, interrupt, resolve, cancel }) => {
       const action = (interrupt?.metadata?.action ??
         parseInterruptValue(event.value)?.action) as GovernedAction | undefined;
 
       if (!action) {
-        return null;
+        return <></>;
       }
 
       return (
@@ -100,59 +172,10 @@ function parseInterruptValue(value: unknown): { action?: unknown } | undefined {
     return undefined;
   }
 }
-
-function GovernedActionCard({
-  action,
-  onApprove,
-  onReject,
-  onBlock,
-}: {
-  action: GovernedAction;
-  onApprove: () => void;
-  onReject: () => void;
-  onBlock: () => void;
-}) {
-  useEffect(() => {
-    if (action.verdict === "allow") onApprove();
-    if (action.verdict === "deny") onBlock();
-  }, [action.id, action.verdict]);
-
-  const status =
-    action.verdict === "allow"
-      ? "Allowed by policy"
-      : action.verdict === "deny"
-        ? "Blocked by policy"
-        : "User approval required";
-
-  return (
-    <section className="rounded-lg border p-4 shadow-sm">
-      <div className="space-y-1">
-        <p className="text-sm font-medium">{status}</p>
-        <h3 className="text-base font-semibold">{action.summary}</h3>
-        <p className="text-sm text-muted-foreground">Tool: {action.tool}</p>
-        <p className="text-sm text-muted-foreground">
-          Reference: {action.reference}
-        </p>
-      </div>
-
-      <pre className="mt-3 overflow-auto rounded bg-muted p-3 text-xs">
-        {JSON.stringify(action.arguments, null, 2)}
-      </pre>
-
-      {action.verdict === "require_approval" && (
-        <div className="mt-4 flex gap-2">
-          <button type="button" onClick={onApprove}>
-            Approve and run
-          </button>
-          <button type="button" onClick={onReject}>
-            Reject
-          </button>
-        </div>
-      )}
-    </section>
-  );
-}
 ```
+
+Render `<GovernedActionApproval />` anywhere inside your `CopilotKit`
+provider, for example next to `<CopilotSidebar />` in `app/page.tsx`.
 
 The sample reads the action from either interrupt shape:
 
@@ -172,6 +195,10 @@ import json
 
 from langchain_core.tools import tool
 from langgraph.types import interrupt
+
+
+def deliver_email(to: str, subject: str, body: str) -> None:
+    ...  # replace with your email client
 
 
 @tool
@@ -196,11 +223,14 @@ def send_email(to: str, subject: str, body: str) -> str:
         and response.get("actionId") == action["id"]
         and response.get("reference") == action["reference"]
     ):
-        deliver_email(to, subject, body)  # your own email client
+        deliver_email(to, subject, body)
         return f"Email sent to {to}."
 
     return "The user did not approve this action. The email was not sent."
 ```
+
+Add `send_email` to your graph's tools. Interrupts need a checkpointer:
+LangGraph Platform and `langgraph dev` add one for you.
 
 For other agent frameworks, see [Pausing the Agent for Input](./useInterrupt)
 for how each one emits an interrupt.
@@ -211,11 +241,20 @@ For LLM-initiated pauses, register the approval checkpoint as a
 human-in-the-loop [frontend tool](../frontend-tools). To compare this pattern
 with interrupts, see the [HITL Overview](../human-in-the-loop). The model asks to call `approve_governed_action`,
 your UI renders the card, and the tool result tells the agent whether it
-may continue:
+may continue.
 
-```tsx
+Install Zod for the tool's schema:
+
+```bash
+npm install zod
+```
+
+```tsx title="components/governed-action-tool.tsx"
+"use client";
+
 import { ToolCallStatus, useHumanInTheLoop } from "@copilotkit/react-core/v2";
 import { z } from "zod";
+import { GovernedActionCard } from "./governed-action-card";
 
 const governedActionSchema = z.object({
   id: z.string(),
@@ -223,10 +262,10 @@ const governedActionSchema = z.object({
   tool: z.string(),
   reference: z.string(),
   verdict: z.enum(["allow", "deny", "require_approval"]),
-  arguments: z.record(z.unknown()),
+  arguments: z.record(z.string(), z.unknown()),
 });
 
-function GovernedActionTool() {
+export function GovernedActionTool() {
   useHumanInTheLoop(
     {
       name: "approve_governed_action",
@@ -234,6 +273,15 @@ function GovernedActionTool() {
         "Ask the user to approve a governed side-effect action before it runs.",
       parameters: governedActionSchema,
       render: ({ args, status, respond }) => {
+        // Keep a record in the chat after the user decides.
+        if (status === ToolCallStatus.Complete) {
+          return (
+            <p className="text-sm text-gray-500">
+              Decision recorded for {args.summary}
+            </p>
+          );
+        }
+
         if (status !== ToolCallStatus.Executing || !respond) {
           return null;
         }
@@ -273,9 +321,22 @@ function GovernedActionTool() {
 }
 ```
 
+Render `<GovernedActionTool />` anywhere inside your `CopilotKit` provider,
+for example next to `<CopilotSidebar />` in `app/page.tsx`.
+
 Ask the agent to send an email. The approval card shows the tool, the
 reference, and the arguments. Click **Reject**, and the agent replies that it
 did not send the email.
+
+<Callout type="warn">
+  In this pattern the model writes the whole envelope, including `verdict`
+  and `reference`. Treat `verdict` as a display hint only: a model that sets
+  `verdict: "allow"` skips the approval prompt. Clicking **Approve and run**
+  only returns the decision to the agent. Run the side effect in a separate
+  backend tool, and check on the server that the same `actionId` and
+  `reference` were approved before it runs. For a checkpoint that the server
+  enforces, use the `useInterrupt` path.
+</Callout>
 
 ## Recommended guardrails
 

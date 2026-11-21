@@ -15,6 +15,8 @@ your tree and render it however you like.
 near the chat. Call it in your main-view component, read `agent.state`, and render:
 
 ```tsx title="components/Canvas.tsx"
+"use client";
+
 import { useEffect } from "react";
 import { useAgent } from "@copilotkit/react-core/v2";
 
@@ -74,8 +76,8 @@ It makes the canvas visible before the agent writes state. The effect sets only
 `undefined` fields and preserves all other state. If the backend owns the initial
 state, define it in the shared-state setup for that framework.
 
-Every time the agent mutates its state, whether from a tool call, node
-transition, or [streamed update](/shared-state/streaming), `useAgent` re-renders this component
+Every time the agent mutates its state, whether from a tool call or a node
+transition<WhenFrameworkSupports feature="shared-state-streaming" defaultFramework="built-in-agent"> or a [streamed update](/shared-state/streaming)</WhenFrameworkSupports>, `useAgent` re-renders this component
 with the new values. The chat can be in a sidebar, a popup, or absent entirely;
 your canvas updates the same way.
 
@@ -83,7 +85,11 @@ your canvas updates the same way.
 
 The agent lives on the `<CopilotKit>` provider, so the chat surface and your
 main-view components are two consumers of the same agent. A typical layout
-renders the canvas as the main view and the chat as a docked sidebar:
+renders the canvas as the main view and the chat as a docked sidebar.
+
+If you followed the [quickstart](/quickstart), your layout already has the
+provider. Leave out the `<CopilotKit>` wrapper here and render `<Canvas />` and
+`<CopilotSidebar />` directly.
 
 ```tsx title="app/page.tsx"
 import { CopilotKit, CopilotSidebar } from "@copilotkit/react-core/v2";
@@ -113,17 +119,23 @@ about reading `agent.state`. The sidebar is not special.
 
 The same `agent` exposes `setState`, so your canvas can be interactive, not only a
 read-only mirror. A click handler in the main view can push a new value that the
-agent reads on its next turn:
+agent reads on its next turn. Add `toggleItem` inside `Canvas`, and render a
+button for each item:
 
-```tsx
+```tsx title="components/Canvas.tsx"
 function toggleItem(id: string) {
+  const items = (agent.state?.items ?? []) as CanvasState["items"];
   agent.setState({
     ...agent.state,
-    items: (agent.state?.items ?? []).map((it) =>
-      it.id === id ? { ...it, done: !it.done } : it,
-    ),
+    items: items.map((it) => (it.id === id ? { ...it, done: !it.done } : it)),
   });
 }
+
+// In the returned JSX:
+<li key={item.id} data-done={item.done}>
+  {item.label}{" "}
+  <button onClick={() => toggleItem(item.id)}>Toggle</button>
+</li>
 ```
 
 This is the same two-way channel described in [Shared State](/shared-state). The
@@ -144,5 +156,6 @@ If the agent must only read a UI value, and never write it, use
 ## Try it
 
 Ask the agent to add a task called "Write the launch post". A new item appears in
-the canvas list. Then mark an item done with `toggleItem`, and ask the agent which
+the canvas list. With the Built-in Agent, the chat shows no text for the state
+update itself. The change appears in the canvas. Then click **Toggle** on an item, and ask the agent which
 tasks are done. The agent names the item that you marked.

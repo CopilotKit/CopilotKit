@@ -13,6 +13,10 @@ By default, agent state only updates *between* backend checkpoints, so a long-ru
 
 **State streaming** copies the value of one tool argument into an agent state key while the model writes it. The UI, subscribed through `useAgent`, re-renders every token.
 
+<Callout type="warn" title="Vue does not apply the PredictState event">
+  `@copilotkit/vue` re-renders on every `STATE_SNAPSHOT` and `STATE_DELTA` event the backend sends. It does not apply the `PredictState` event that LangGraph's `StateStreamingMiddleware` sends. With that middleware, `state.document` updates once, when the tool call finishes.
+</Callout>
+
 ## When should I use this?
 
 Use state streaming whenever a tool's output is long-form text or a growing structured value and you want the user to see it assemble in real time. Common shapes:
@@ -27,15 +31,58 @@ Without streaming, the user stares at a spinner. With streaming, they see the an
 
 <FrameworkSetup concept="state-streaming-setup" />
 
-The backend pattern is always the same: map one streaming tool argument to one shared-state key. Middleware-backed frameworks usually expose this as a declarative mapping. Direct SDK adapters do the same work in their streaming loop by parsing partial tool arguments and emitting `STATE_SNAPSHOT` whenever the mapped value changes. When the LLM streams that argument, CopilotKit writes every partial value into shared state before the tool finishes executing. The sample below is the LangGraph (Python) version.
-
-<Snippet region="state-streaming-middleware" title="backend: streaming state mapping" />
+The backend pattern is always the same: map one streaming tool argument to one shared-state key. Middleware-backed frameworks usually expose this as a declarative mapping. Direct SDK adapters do the same work in their streaming loop by parsing partial tool arguments and emitting `STATE_SNAPSHOT` whenever the mapped value changes. When the LLM streams that argument, CopilotKit writes every partial value into shared state before the tool finishes executing.
 
 A few things to note:
 
 - The state key must exist in your agent state (`document` in this example).
 - The tool and argument names must match the exact LLM-facing tool call you want to forward.
 - When the tool call completes, its final return value is written to the same key, so the streamed partial eventually becomes the authoritative final value.
+
+## Connect the agent to Copilot Runtime
+
+The frontend below talks to an agent named `writer`. Register your agent in Copilot Runtime under that id.
+
+For LangGraph (Python):
+
+1. Install the packages the sample imports, plus the LangGraph dev server:
+
+   ```bash
+   uv add langchain-openai "langgraph-cli[inmem]"
+   ```
+
+2. Save the agent sample above as `shared_state_streaming.py` in the project root. Then name the graph `writer` in `langgraph.json`:
+
+   ```json title="langgraph.json"
+   {
+     "dependencies": ["."],
+     "graphs": {
+       "writer": "./shared_state_streaming.py:graph"
+     }
+   }
+   ```
+
+3. Start the agent. It prints its API URL, `http://127.0.0.1:2024` by default:
+
+   ```bash
+   uv run langgraph dev
+   ```
+
+4. Register it in your Copilot Runtime `server.ts`. Use the URL the agent printed:
+
+   ```ts title="server.ts"
+   import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
+
+   const runtime = new CopilotRuntime({
+     agents: {
+       // ...your other agents
+       writer: new LangGraphAgent({
+         deploymentUrl: "http://127.0.0.1:2024",
+         graphId: "writer",
+       }),
+     },
+   });
+   ```
 
 ## The frontend: useAgent + OnStateChanged
 
@@ -68,7 +115,9 @@ const state = computed(
 </template>
 ```
 
-From there, `state.document` is a string that grows on every token, and `agent.isRunning` tells you whether to show a streaming indicator.
+From there, `state.document` is a string that grows with every `STATE_SNAPSHOT` the backend sends, and `agent.isRunning` tells you whether to show a streaming indicator.
+
+Render it next to the chat. Use the same `runtime-url` as in the [quickstart](/vue):
 
 ```vue title="src/App.vue"
 <script setup lang="ts">
@@ -77,14 +126,16 @@ import StreamingDocument from "./components/StreamingDocument.vue";
 </script>
 
 <template>
-  <CopilotKitProvider runtime-url="/api/copilotkit">
+  <CopilotKitProvider runtime-url="http://localhost:8200/api/copilotkit">
     <StreamingDocument />
-    <CopilotChat agent-id="writer" />
+    <div style="height: 80vh">
+      <CopilotChat agent-id="writer" />
+    </div>
   </CopilotKitProvider>
 </template>
 ```
 
-Ask the writer agent to draft a short document. The LIVE badge shows, and the text grows while the agent writes.
+Ask the writer agent to draft a short document. The LIVE badge shows while the agent runs, and the document appears under it. With the LangGraph middleware above, the full text appears when the tool call finishes.
 
 If the runtime does not emit partial state snapshots, the UI sees only the final state. The Vue frontend cannot invent updates the backend never sends.
 

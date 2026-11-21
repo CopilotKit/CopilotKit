@@ -38,7 +38,7 @@ Reach for `useAgentContext` instead of full shared state when:
 
 Think of it as "props for the agent".
 
-If the agent must also write the value, use **[shared state](/shared-state)**. To stream agent-written state to the UI during a run, see [State streaming](/shared-state/streaming).
+If the agent must also write the value, use **[shared state](/shared-state)**.<WhenFrameworkSupports feature="shared-state-streaming"> To stream agent-written state to the UI during a run, see [State streaming](/shared-state/streaming).</WhenFrameworkSupports>
 
 ## How it works in code
 
@@ -54,8 +54,8 @@ runtime that is:
   the system prompt. Python LangGraph agents need `CopilotKitMiddleware`
   to add the entries, and ADK agents need an instruction provider.
   Microsoft Agent Framework, CrewAI Flows and Pydantic AI agents drop the
-  entries silently unless you wire them. The setup above shows the code
-  for your framework.
+  entries silently unless you wire them. When your framework needs this
+  setup, its code appears at the top of this section.
 
 <Snippet region="use-agent-context-call" title="frontend/src/app/page.tsx: useAgentContext" />
 
@@ -78,6 +78,37 @@ In a real app, these values usually come from an auth provider, a router
 hook, and your domain state stores.
 
 <Snippet region="context-provider-sketch" title="frontend/src/app/page.tsx: sourcing context values" />
+
+The excerpt is the demo page. `readonly-state-agent-context` is the demo's
+agent name, and `./demo-layout` and `./suggestions` are demo files. To try the
+pattern in your own app, use a page like this one. It runs under the provider
+from the [quickstart](/quickstart) and uses the agent that the provider selects:
+
+```tsx title="app/page.tsx"
+"use client";
+
+import { useState } from "react";
+import { CopilotPopup, useAgentContext } from "@copilotkit/react-core/v2";
+
+export default function Page() {
+  const [userName, setUserName] = useState("Atai");
+
+  useAgentContext({
+    description: "The currently logged-in user's display name",
+    value: userName,
+  });
+
+  return (
+    <main>
+      <label>
+        Your name{" "}
+        <input value={userName} onChange={(e) => setUserName(e.target.value)} />
+      </label>
+      <CopilotPopup defaultOpen={true} />
+    </main>
+  );
+}
+```
 
 ## Treat entries as untrusted input
 

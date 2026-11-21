@@ -49,7 +49,6 @@ type WorkspaceState = {
 };
 
 const { agent } = useAgent({
-  agentId: "workspace",
   updates: [UseAgentUpdate.OnStateChanged],
 });
 const state = computed(
@@ -64,14 +63,33 @@ const state = computed(
 </template>
 ```
 
+`useAgent()` with no `agentId` uses the agent named `default`, which the [quickstart](/vue) registers. To use another agent, pass its id, for example `useAgent({ agentId: "workspace", ... })`, and register that id in your Copilot Runtime.
+
 The returned `agent.value.state` is a plain object. Read it like any other reactive application data and render the parts you care about: agent-written notes, structured outputs, progress indicators, or anything else the agent has put there.
 
 ## Writing agent state
 
 The same agent object exposes `setState`. Calling it from a UI event handler pushes the new value into shared state, and the agent reads it back on its next turn. The UI's writes visibly steer the model.
 
+Add a `setTone` function and a button to `SharedWorkspace.vue`. The full component:
+
 ```vue title="src/components/SharedWorkspace.vue"
 <script setup lang="ts">
+import { computed } from "vue";
+import { useAgent, UseAgentUpdate } from "@copilotkit/vue/v2";
+
+type WorkspaceState = {
+  notes?: string[];
+  preferences?: { tone?: string };
+};
+
+const { agent } = useAgent({
+  updates: [UseAgentUpdate.OnStateChanged],
+});
+const state = computed(
+  () => (agent.value?.state ?? {}) as WorkspaceState,
+);
+
 function setTone(tone: string) {
   const current = agent.value;
   if (!current) return;
@@ -85,6 +103,9 @@ function setTone(tone: string) {
 </script>
 
 <template>
+  <ul>
+    <li v-for="note in state.notes ?? []" :key="note">{{ note }}</li>
+  </ul>
   <button @click="setTone('concise')">Prefer concise answers</button>
 </template>
 ```
@@ -97,6 +118,8 @@ Because `agent.state` is plain data exposed through a Vue ref, the UI layer is o
 
 Nothing about this is chat-specific: `useAgent` works in any component under `CopilotKitProvider`, so you can render shared state in your main view or canvas, not only inside the chat panel. See **[Render agent state in your app](/vue/shared-state/rendering-in-app)** for the full main-view pattern.
 
+Render the component next to the chat. Use the same `runtime-url` as in the [quickstart](/vue):
+
 ```vue title="src/App.vue"
 <script setup lang="ts">
 import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue/v2";
@@ -104,20 +127,22 @@ import SharedWorkspace from "./components/SharedWorkspace.vue";
 </script>
 
 <template>
-  <CopilotKitProvider runtime-url="/api/copilotkit">
+  <CopilotKitProvider runtime-url="http://localhost:8200/api/copilotkit">
     <SharedWorkspace />
-    <CopilotChat agent-id="workspace" />
+    <div style="height: 80vh">
+      <CopilotChat />
+    </div>
   </CopilotKitProvider>
 </template>
 ```
 
+Ask the agent to add a note. The note appears in the list above the chat. Click **Prefer concise answers**, then ask which tone you prefer. The agent reads `preferences.tone: "concise"` from its state and answers with it.
+
 ## Streaming partial state updates
 
-By default, shared state only updates *between* backend checkpoints, so a long-running tool call appears as one big burst at the end. State streaming copies a tool argument into a state key while the model writes it, so the UI can watch the answer assemble token-by-token. The sample below is the LangGraph (Python) version.
+By default, shared state only updates *between* backend checkpoints, so a long-running tool call appears as one big burst at the end. State streaming copies a tool argument into a state key while the model writes it. The Vue UI re-renders on every `STATE_SNAPSHOT` event the backend sends.
 
-<Snippet region="state-streaming-middleware" cell="shared-state-streaming" title="backend: streaming state update" />
-
-See **[State streaming](/vue/shared-state/streaming)** for the full walkthrough, including the corresponding `useAgent` subscription on the frontend.
+See **[State streaming](/vue/shared-state/streaming)** for the backend setup, the `useAgent` subscription on the frontend, and which backends stream in Vue.
 
 ## Read-only context
 

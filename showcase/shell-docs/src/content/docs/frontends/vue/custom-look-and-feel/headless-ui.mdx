@@ -49,14 +49,16 @@ above the provider has no injected runtime context.
 ## Minimal example
 
 Start with a text-only message list and composer built from `useAgent` and
-`useCopilotKit`:
+`useCopilotKit`. The examples use the `default` agent that the
+[Vue quickstart](/vue) registers. If you registered your agent under another
+id, use that id in `agentId` and `agent-id`.
 
-```vue title="HeadlessChat.vue"
+```vue title="src/components/HeadlessChat.vue"
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { useAgent, useCopilotKit } from "@copilotkit/vue/v2";
 
-const { agent } = useAgent({ agentId: "my-agent" });
+const { agent } = useAgent({ agentId: "default" });
 const { copilotkit } = useCopilotKit();
 const input = ref("");
 const messages = computed(() => agent.value?.messages ?? []);
@@ -92,14 +94,25 @@ async function submit() {
 ```
 
 Render it below the runtime provider and a chat-configuration provider so
-agent-scoped custom renderers can resolve consistently:
+agent-scoped custom renderers can resolve consistently. Use the same
+`runtime-url` as in the quickstart:
 
-```vue
-<CopilotKitProvider runtime-url="/api/copilotkit">
-  <CopilotChatConfigurationProvider agent-id="my-agent">
-    <HeadlessChat />
-  </CopilotChatConfigurationProvider>
-</CopilotKitProvider>
+```vue title="src/App.vue"
+<script setup lang="ts">
+import {
+  CopilotChatConfigurationProvider,
+  CopilotKitProvider,
+} from "@copilotkit/vue/v2";
+import HeadlessChat from "./components/HeadlessChat.vue";
+</script>
+
+<template>
+  <CopilotKitProvider runtime-url="http://localhost:8200/api/copilotkit">
+    <CopilotChatConfigurationProvider agent-id="default">
+      <HeadlessChat />
+    </CopilotChatConfigurationProvider>
+  </CopilotKitProvider>
+</template>
 ```
 
 Type a message and press **Send**. Your message appears in the list,
@@ -116,7 +129,7 @@ composition, use these chat components rather than rebuilding their state
 machines. `CopilotChatMessageView` already dispatches assistant, user,
 reasoning, tool, activity, interrupt, and custom before/after content:
 
-```vue title="RenderedMessages.vue"
+```vue title="src/components/RenderedMessages.vue"
 <script setup lang="ts">
 import { computed } from "vue";
 import {
@@ -126,7 +139,7 @@ import {
   useAgent,
 } from "@copilotkit/vue/v2";
 
-const { agent } = useAgent({ agentId: "my-agent" });
+const { agent } = useAgent({ agentId: "default" });
 const messages = computed(() => agent.value?.messages ?? []);
 const isRunning = computed(() => agent.value?.isRunning ?? false);
 </script>
@@ -147,11 +160,11 @@ const isRunning = computed(() => agent.value?.isRunning ?? false);
 </template>
 ```
 
-### The Vue composition equivalent
-
-`CopilotChatMessageView` is the public component that renders tool calls with
-every registered tool renderer. Use it as shown above when your layout needs
-those renderers.
+`CopilotChatMessageView` renders messages only. To use it, import
+`RenderedMessages` in `HeadlessChat.vue` and render `<RenderedMessages />` in
+place of the `<article v-for>` list. Keep the `<form>` composer. Tool calls
+then render with the renderers you register through `useRenderTool` or
+`useDefaultRenderTool`.
 
 ### Per-role dispatch
 

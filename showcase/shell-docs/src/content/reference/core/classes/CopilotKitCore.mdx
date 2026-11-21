@@ -30,6 +30,12 @@ new CopilotKitCore(config: CopilotKitCoreConfig)
     Transport style for runtime endpoints. `"auto"` probes REST and falls back to single-route.
   </PropertyReference>
 
+  <PropertyReference name="deferInitialConnection" type="boolean" default="false">
+    When `true`, the constructor does not fetch `/info`. Call `connect()` to
+    start the connection, for example from a commit-phase effect in your host
+    framework.
+  </PropertyReference>
+
   <PropertyReference name="headers" type="Record<string, string> | (() => Record<string, string>) | (() => Promise<Record<string, string>>)" default="{}">
     Headers appended to every HTTP request made by the core. Pass a record for
     static headers, or a function (sync or async) to build them fresh. A
@@ -47,6 +53,11 @@ new CopilotKitCore(config: CopilotKitCoreConfig)
     Values sent as `forwardedProps` to the AG-UI agent.
   </PropertyReference>
 
+  <PropertyReference name="messageFilter" type="CopilotKitMessageFilter">
+    Rewrites the message list sent to runtime agents on every run. Use it when
+    your backend already stores the conversation. See `setMessageFilter`.
+  </PropertyReference>
+
   <PropertyReference name="tools" type="FrontendTool<any>[]" default="[]">
     Frontend tools available to the core. See [FrontendTool](/reference/core/types/FrontendTool).
   </PropertyReference>
@@ -62,128 +73,138 @@ new CopilotKitCore(config: CopilotKitCoreConfig)
   <PropertyReference name="debug" type="DebugConfig">
     Enables debug logging for the client-side event pipeline.
   </PropertyReference>
+
+  <PropertyReference name="learning" type="LearningConfig">
+    Turns on interaction capture (`@copilotkit/learning`). Capture starts when
+    `startTrajectory()` runs. Change it later with `setLearningConfig`.
+  </PropertyReference>
 </PropertyReference>
 
 ## Methods
 
 ### Agents
 
-<PropertyReference name="getAgent" type="(id: string) => AbstractAgent | undefined" required>
+<PropertyReference name="getAgent" type="(id: string) => AbstractAgent | undefined">
   Returns the agent registered under `id`, or `undefined` if none exists.
 </PropertyReference>
 
-<PropertyReference name="runAgent" type="(params: CopilotKitCoreRunAgentParams) => Promise<RunAgentResult>" required>
+<PropertyReference name="runAgent" type="(params: CopilotKitCoreRunAgentParams) => Promise<RunAgentResult>">
   Runs an agent against the runtime, streaming events and executing any frontend tool calls it produces.
 </PropertyReference>
 
-<PropertyReference name="connectAgent" type="(params: CopilotKitCoreConnectAgentParams) => Promise<RunAgentResult>" required>
+<PropertyReference name="connectAgent" type="(params: CopilotKitCoreConnectAgentParams) => Promise<RunAgentResult>">
   Connects to an agent to receive its current state and message stream without starting a new run.
 </PropertyReference>
 
-<PropertyReference name="stopAgent" type="(params: CopilotKitCoreStopAgentParams) => void" required>
+<PropertyReference name="stopAgent" type="(params: CopilotKitCoreStopAgentParams) => void">
   Aborts the current run for the given agent.
 </PropertyReference>
 
-<PropertyReference name="registerProxiedAgent" type="(params) => { agent; unregister }" required>
+<PropertyReference name="registerProxiedAgent" type="(params) => { agent; unregister }">
   Registers a [ProxiedCopilotRuntimeAgent](/reference/core/classes/ProxiedCopilotRuntimeAgent) under a local `agentId` that routes outbound requests to `runtimeAgentId`. Returns the proxy and an `unregister` cleanup handle. Throws if `agentId` is already taken.
 </PropertyReference>
 
-<PropertyReference name="addAgent__unsafe_dev_only" type="(params: CopilotKitCoreAddAgentParams) => void" required>
+<PropertyReference name="addAgent__unsafe_dev_only" type="(params: CopilotKitCoreAddAgentParams) => void">
   Adds a local agent instance. Development only.
 </PropertyReference>
 
-<PropertyReference name="removeAgent__unsafe_dev_only" type="(id: string) => void" required>
+<PropertyReference name="removeAgent__unsafe_dev_only" type="(id: string) => void">
   Removes a local agent by id. Development only.
 </PropertyReference>
 
-<PropertyReference name="setAgents__unsafe_dev_only" type="(agents: Record<string, AbstractAgent>) => void" required>
+<PropertyReference name="setAgents__unsafe_dev_only" type="(agents: Record<string, AbstractAgent>) => void">
   Replaces the full set of local agents. Development only.
 </PropertyReference>
 
 ### Tools
 
-<PropertyReference name="addTool" type="(tool: FrontendTool) => void" required>
+<PropertyReference name="addTool" type="(tool: FrontendTool) => void">
   Registers a frontend tool the agent can call. If an earlier `addTool` call registered a tool with the same name and `agentId`, this call does nothing and logs a warning. A tool with the same name and `agentId` from the `tools` config is replaced by this one. See [FrontendTool](/reference/core/types/FrontendTool).
 </PropertyReference>
 
-<PropertyReference name="removeTool" type="(id: string, agentId?: string) => void" required>
+<PropertyReference name="removeTool" type="(id: string, agentId?: string) => void">
   Removes a registered tool by name. With no `agentId`, removes only the global (unscoped) tool of that name; with `agentId`, removes only the tool scoped to that agent.
 </PropertyReference>
 
-<PropertyReference name="getTool" type="(params: CopilotKitCoreGetToolParams) => FrontendTool<any> | undefined" required>
+<PropertyReference name="getTool" type="(params: CopilotKitCoreGetToolParams) => FrontendTool<any> | undefined">
   Returns a registered tool, or `undefined` if not found.
 </PropertyReference>
 
-<PropertyReference name="setToolEnabled" type="(name: string, enabled: boolean, agentId?: string) => void" required>
+<PropertyReference name="setToolEnabled" type="(name: string, enabled: boolean, agentId?: string) => void">
   Turns a registered tool on or off without removing it. A disabled tool is
   left out of the tool list on the next run. The setting stays when the tool
   is registered again.
 </PropertyReference>
 
-<PropertyReference name="isToolEnabled" type="(name: string, agentId?: string) => boolean" required>
+<PropertyReference name="isToolEnabled" type="(name: string, agentId?: string) => boolean">
   Whether a registered tool is on. Tools are on by default.
 </PropertyReference>
 
-<PropertyReference name="setTools" type="(tools: FrontendTool<any>[]) => void" required>
+<PropertyReference name="setTools" type="(tools: FrontendTool<any>[]) => void">
   Replaces the tools set by the `tools` config. Tools registered with `addTool` stay registered.
 </PropertyReference>
 
-<PropertyReference name="runTool" type="(params: CopilotKitCoreRunToolParams) => Promise<CopilotKitCoreRunToolResult>" required>
+<PropertyReference name="runTool" type="(params: CopilotKitCoreRunToolParams) => Promise<CopilotKitCoreRunToolResult>">
   Executes a registered frontend tool directly, without an LLM turn. The handler runs, render components appear, and both the tool call and result messages are appended to `agent.messages`.
 </PropertyReference>
 
 ### Context
 
-<PropertyReference name="addContext" type="(context: { description: string; value: string; agentIds?: string[]; threadId?: string }) => string" required>
+<PropertyReference name="addContext" type="(context: { description: string; value: string; agentIds?: string[]; threadId?: string }) => string">
   Adds a context entry shared with the agent and returns its generated id.
   Pass `agentIds` to send the entry only to those agents, and `threadId` to
   keep it to one thread. Omit both to send it to every run.
 </PropertyReference>
 
-<PropertyReference name="upsertContext" type="(id: string, context: { description: string; value: string; agentIds?: string[]; threadId?: string }) => void" required>
+<PropertyReference name="upsertContext" type="(id: string, context: { description: string; value: string; agentIds?: string[]; threadId?: string }) => void">
   Creates or replaces the context entry stored under `id`. Use it for state
   that you report again and again, so each report replaces the last one.
 </PropertyReference>
 
-<PropertyReference name="removeContext" type="(id: string) => void" required>
+<PropertyReference name="removeContext" type="(id: string) => void">
   Removes a context entry by id.
+</PropertyReference>
+
+<PropertyReference name="getContextForAgent" type="(agentId?: string, threadId?: string) => Context[]">
+  Returns the context entries a run of the given agent in the given thread
+  receives, without the scoping fields.
 </PropertyReference>
 
 ### Suggestions
 
-<PropertyReference name="addSuggestionsConfig" type="(config: SuggestionsConfig) => string" required>
+<PropertyReference name="addSuggestionsConfig" type="(config: SuggestionsConfig) => string">
   Registers a suggestion configuration and returns its generated id.
 </PropertyReference>
 
-<PropertyReference name="removeSuggestionsConfig" type="(id: string) => void" required>
+<PropertyReference name="removeSuggestionsConfig" type="(id: string) => void">
   Removes a suggestion configuration by id.
 </PropertyReference>
 
-<PropertyReference name="getSuggestions" type="(agentId: string) => CopilotKitCoreGetSuggestionsResult" required>
+<PropertyReference name="getSuggestions" type="(agentId: string) => CopilotKitCoreGetSuggestionsResult">
   Returns the current suggestions and loading state for an agent.
 </PropertyReference>
 
-<PropertyReference name="reloadSuggestions" type="(agentId: string) => void" required>
+<PropertyReference name="reloadSuggestions" type="(agentId: string) => void">
   Re-generates suggestions for an agent.
 </PropertyReference>
 
-<PropertyReference name="clearSuggestions" type="(agentId: string) => void" required>
+<PropertyReference name="clearSuggestions" type="(agentId: string) => void">
   Clears the current suggestions for an agent.
 </PropertyReference>
 
 ### Subscriptions
 
-<PropertyReference name="subscribe" type="(subscriber: CopilotKitCoreSubscriber) => CopilotKitCoreSubscription" required>
+<PropertyReference name="subscribe" type="(subscriber: CopilotKitCoreSubscriber) => CopilotKitCoreSubscription">
   Subscribes to core lifecycle events (agents changed, context changed, errors, runtime connection status, and more). Returns a subscription with an `unsubscribe()` method. See [CopilotKitCoreSubscriber](/reference/core/types/CopilotKitCoreSubscriber).
 </PropertyReference>
 
-<PropertyReference name="subscribeToAgentWithOptions" type="(agent, subscriber, options?) => CopilotKitCoreSubscription" required>
+<PropertyReference name="subscribeToAgentWithOptions" type="(agent, subscriber, options?) => CopilotKitCoreSubscription">
   Subscribes to a single agent's message, state, and run-lifecycle callbacks with optional throttling. Every callback is wrapped with error protection. Use `agent.subscribe()` directly when you need AG-UI event handlers or per-item notifications.
 </PropertyReference>
 
 ### Inspector metadata
 
-<PropertyReference name="refreshInspectorMetadata" type="() => Promise<void>" required>
+<PropertyReference name="refreshInspectorMetadata" type="() => Promise<void>">
   Refreshes optional trusted Inspector metadata without reconnecting runtime
   agents. Core makes the request only while connected to a runtime that reports
   `inspectorMetadata: true` from its runtime-info response. Each refresh has a
@@ -193,21 +214,21 @@ new CopilotKitCore(config: CopilotKitCoreConfig)
 
 ### Configuration
 
-<PropertyReference name="connect" type="() => void" required>
+<PropertyReference name="connect" type="() => void">
   Starts the runtime `/info` connection. Call it when you construct the core
   with `deferInitialConnection: true`. Calling it again does nothing once a
   connection has started.
 </PropertyReference>
 
-<PropertyReference name="setRuntimeUrl" type="(runtimeUrl: string | undefined) => void" required>
+<PropertyReference name="setRuntimeUrl" type="(runtimeUrl: string | undefined) => void">
   Updates the runtime endpoint.
 </PropertyReference>
 
-<PropertyReference name="setRuntimeTransport" type="(runtimeTransport: CopilotRuntimeTransport) => void" required>
+<PropertyReference name="setRuntimeTransport" type="(runtimeTransport: CopilotRuntimeTransport) => void">
   Updates the transport style.
 </PropertyReference>
 
-<PropertyReference name="setHeaders" type="(headers: CopilotKitHeadersSource) => void" required>
+<PropertyReference name="setHeaders" type="(headers: CopilotKitHeadersSource) => void">
   Replaces the request headers and re-applies them to existing agents. Pass a
   record, a sync builder, or an async builder. See the
   [`headers`](/reference/core/types/CopilotKitCoreConfig) config option. For a
@@ -227,70 +248,89 @@ new CopilotKitCore(config: CopilotKitCoreConfig)
   identity.
 </PropertyReference>
 
-<PropertyReference name="resolveHeaders" type="() => Record<string, string> | Promise<Record<string, string>>" required>
+<PropertyReference name="resolveHeaders" type="() => Record<string, string> | Promise<Record<string, string>>">
   Resolves the current headers: synchronous for a record or a sync builder, a
   promise for an async builder. Concurrent calls share one in-flight builder
   call. Use this to get the value a builder would produce right now. The
   `headers` getter below only reflects the last resolved value.
 </PropertyReference>
 
-<PropertyReference name="setCredentials" type="(credentials: RequestCredentials | undefined) => void" required>
+<PropertyReference name="setCredentials" type="(credentials: RequestCredentials | undefined) => void">
   Replaces the fetch credentials mode and re-applies it to existing agents. Core clears trusted Inspector metadata before refreshing it with the new mode.
 </PropertyReference>
 
-<PropertyReference name="setMessageFilter" type="(messageFilter: CopilotKitMessageFilter | undefined) => void" required>
+<PropertyReference name="setMessageFilter" type="(messageFilter: CopilotKitMessageFilter | undefined) => void">
   Replaces the filter applied to the outbound message list and re-applies it to existing agents. Agents discovered later pick it up too, so a filter set before `/info` lands is not lost. Pass `undefined` to go back to sending the full thread.
 </PropertyReference>
 
-<PropertyReference name="setProperties" type="(properties: Record<string, unknown>) => void" required>
+<PropertyReference name="setProperties" type="(properties: Record<string, unknown>) => void">
   Replaces the forwarded properties sent to agents.
 </PropertyReference>
 
-<PropertyReference name="setDebug" type="(debug: DebugConfig | undefined) => void" required>
+<PropertyReference name="addScopedProperties" type="(entry: { properties: Record<string, unknown>; agentIds?: string[] }) => string">
+  Adds properties that are merged on top of the base properties for runs of
+  the agents in `agentIds` (every agent when omitted). Returns an id for
+  `removeScopedProperties`.
+</PropertyReference>
+
+<PropertyReference name="removeScopedProperties" type="(id: string) => void">
+  Removes an entry that `addScopedProperties` added. An unknown id does nothing.
+</PropertyReference>
+
+<PropertyReference name="getPropertiesForAgent" type="(agentId?: string) => Record<string, unknown>">
+  Returns the forwarded properties for a run of the given agent: the base
+  properties plus every scoped entry that matches the agent.
+</PropertyReference>
+
+<PropertyReference name="setDebug" type="(debug: DebugConfig | undefined) => void">
   Toggles debug logging for the client-side event pipeline.
 </PropertyReference>
 
-<PropertyReference name="setDefaultThrottleMs" type="(value: number | undefined) => void" required>
+<PropertyReference name="setDefaultThrottleMs" type="(value: number | undefined) => void">
   Sets the default throttle interval (ms) used by `subscribeToAgentWithOptions`. Invalid values are ignored.
 </PropertyReference>
 
 ### State queries
 
-<PropertyReference name="getStateByRun" type="(agentId, threadId, runId) => State | undefined" required>
+<PropertyReference name="getStateByRun" type="(agentId, threadId, runId) => State | undefined">
   Returns the agent state snapshot recorded for a specific run.
 </PropertyReference>
 
-<PropertyReference name="getRunIdForMessage" type="(agentId, threadId, messageId) => string | undefined" required>
+<PropertyReference name="getRunIdForMessage" type="(agentId, threadId, messageId) => string | undefined">
   Returns the run id that produced a given message.
 </PropertyReference>
 
-<PropertyReference name="getRunIdsForThread" type="(agentId, threadId) => string[]" required>
+<PropertyReference name="getRunIdsForThread" type="(agentId, threadId) => string[]">
   Returns the ordered run ids recorded for a thread.
+</PropertyReference>
+
+<PropertyReference name="getRawEventForMessage" type="(agentId, threadId, messageId) => unknown">
+  Returns the raw event recorded for a given message, if any.
 </PropertyReference>
 
 ### Properties (read-only)
 
-<PropertyReference name="agents" type="Readonly<Record<string, AbstractAgent>>" required>
+<PropertyReference name="agents" type="Readonly<Record<string, AbstractAgent>>">
   The currently registered agents, keyed by id.
 </PropertyReference>
 
-<PropertyReference name="tools" type="Readonly<FrontendTool<any>[]>" required>
+<PropertyReference name="tools" type="Readonly<FrontendTool<any>[]>">
   The currently registered frontend tools.
 </PropertyReference>
 
-<PropertyReference name="context" type="Readonly<Record<string, Context>>" required>
+<PropertyReference name="context" type="Readonly<Record<string, ScopedContext>>">
   The current shared context entries, keyed by id.
 </PropertyReference>
 
-<PropertyReference name="runtimeUrl" type="string | undefined" required>
+<PropertyReference name="runtimeUrl" type="string | undefined">
   The configured runtime endpoint.
 </PropertyReference>
 
-<PropertyReference name="runtimeConnectionStatus" type="CopilotKitCoreRuntimeConnectionStatus" required>
+<PropertyReference name="runtimeConnectionStatus" type="CopilotKitCoreRuntimeConnectionStatus">
   The current runtime connection status. See [CopilotKitCoreRuntimeConnectionStatus](/reference/core/enums/CopilotKitCoreRuntimeConnectionStatus).
 </PropertyReference>
 
-<PropertyReference name="inspectorMetadata" type="InspectorMetadataV1 | undefined" required>
+<PropertyReference name="inspectorMetadata" type="InspectorMetadataV1 | undefined">
   The latest trusted, parsed metadata from the connected runtime. It is
   `undefined` when the runtime does not advertise the capability, the optional
   request fails, or the runtime has no supported metadata. Subscribe with
@@ -298,11 +338,40 @@ new CopilotKitCore(config: CopilotKitCoreConfig)
   to react to changes.
 </PropertyReference>
 
-<PropertyReference name="headers / credentials / properties" type="getter" required>
-  Snapshots of the configured headers, credentials mode, and forwarded
-  properties. `headers` is the last resolved value. With a builder, this may
-  be `{}` before the first request, or stale between requests. Call
-  `resolveHeaders()` for the value a builder would produce right now.
+<PropertyReference name="runtimeTransport" type="CopilotRuntimeTransport">
+  The transport in use. With `"auto"`, this changes to the detected transport
+  once the runtime answers.
+</PropertyReference>
+
+<PropertyReference name="runtimeVersion" type="string | undefined">
+  The runtime version from the `/info` response.
+</PropertyReference>
+
+<PropertyReference name="headers" type="Readonly<Record<string, string>>">
+  The last resolved headers. With a builder, this may be `{}` before the first
+  request, or stale between requests. Call `resolveHeaders()` for the value a
+  builder would produce right now.
+</PropertyReference>
+
+<PropertyReference name="credentials" type="RequestCredentials | undefined">
+  The configured fetch credentials mode.
+</PropertyReference>
+
+<PropertyReference name="properties" type="Readonly<Record<string, unknown>>">
+  The base forwarded properties.
+</PropertyReference>
+
+<PropertyReference name="messageFilter" type="CopilotKitMessageFilter | undefined">
+  The current outbound message filter.
+</PropertyReference>
+
+<PropertyReference name="debug" type="DebugConfig | undefined">
+  The current debug config.
+</PropertyReference>
+
+<PropertyReference name="defaultThrottleMs" type="number | undefined">
+  The default throttle interval for `subscribeToAgentWithOptions`. `undefined`
+  means none is set. `0` means no throttling.
 </PropertyReference>
 
 ## Usage

@@ -27,9 +27,9 @@ Use this prompt to connect your Agent Spec agent to CopilotKit and verify a work
 
 <Steps>
   <Step>
-    ### Set up CopilotKit Intelligence
+    ### Optional: set up CopilotKit Intelligence
 
-    <SignupLink surface="docs_agent_spec_quickstart_step1">Sign in to cloud-hosted Intelligence</SignupLink>. You will connect the app after you create or clone it below.
+    Intelligence keeps your threads in the cloud. Skip this step to run with an in-memory runner: chat and the Inspector work, and Threads stays locked. To use it, <SignupLink surface="docs_agent_spec_quickstart_step1">sign in to cloud-hosted Intelligence</SignupLink>. You will connect the app after you create or clone it below.
   </Step>
 
   <Step>
@@ -54,10 +54,16 @@ Use this prompt to connect your Agent Spec agent to CopilotKit and verify a work
           ```bash
           git clone --depth 1 https://github.com/CopilotKit/CopilotKit.git
           cd CopilotKit/examples/integrations/agent-spec
+          ```
+
+          If you signed in to Intelligence in step 1, connect the starter to a project:
+
+          ```bash
+          npx copilotkit@latest login
           npx copilotkit@latest project select
           ```
 
-          `project select` writes the server-side project API key to `.env` as `CPK_INTELLIGENCE_API_KEY`. The starter's runtime reads it from there.
+          `login` opens a browser sign-in. `project select` writes the server-side project API key to `.env` as `CPK_INTELLIGENCE_API_KEY`. The starter's runtime reads it from there. Without the key, the starter uses an in-memory runner.
       </Step>
       <Step>
           ### Configure your environment
@@ -123,7 +129,15 @@ Use this prompt to connect your Agent Spec agent to CopilotKit and verify a work
       <Step>
           ### Install the Agent Spec AG-UI adapter (backend)
 
-          In your agent's Python environment, install the adapter with the extra for the framework that runs your agent. `uvicorn` serves the endpoint:
+          Create an agent directory with a virtual environment, if you do not have one yet:
+
+          ```bash
+          mkdir agent && cd agent
+          python -m venv .venv
+          source .venv/bin/activate
+          ```
+
+          In that environment, install the adapter with the extra for the framework that runs your agent. `uvicorn` serves the endpoint:
 
           ```bash
           pip install "ag-ui-agent-spec[langgraph]" uvicorn             # for LangGraph
@@ -160,7 +174,7 @@ Use this prompt to connect your Agent Spec agent to CopilotKit and verify a work
 
           agentspec_agent = Agent(
               name="AgentSpecAgent",
-              description="A starter Agent that can call tools.",
+              description="A starter agent.",
               system_prompt="You are a helpful assistant, named Specky, that speaks a lot.",
               llm_config=OpenAiCompatibleConfig(
                   name="my-llm",
@@ -175,7 +189,7 @@ Use this prompt to connect your Agent Spec agent to CopilotKit and verify a work
           #OR you can specify your own agent_spec_config like below
           #agent_spec_config = <loaded json/yaml string of your Agent Spec agent>
 
-          runtime = "langgraph"  # or "wayflow"
+          runtime = "langgraph"  # or "wayflow" (install the [wayflow] extra)
 
           app = FastAPI()
           agent = AgentSpecAgent(agent_spec_config=agent_spec_config, runtime=runtime)
@@ -189,10 +203,11 @@ Use this prompt to connect your Agent Spec agent to CopilotKit and verify a work
           ### Create your frontend
 
           CopilotKit works with any React-based frontend. This example uses Next.js.
-          Create it beside your agent directory:
+          Create it beside your agent directory, not inside it. `--yes` accepts the recommended defaults (TypeScript, Tailwind, App Router):
 
           ```bash
-          npx create-next-app@latest my-copilot-app
+          cd ..
+          npx create-next-app@latest my-copilot-app --yes
           cd my-copilot-app
           ```
       </Step>
@@ -200,8 +215,10 @@ Use this prompt to connect your Agent Spec agent to CopilotKit and verify a work
           ### Install CopilotKit packages
 
           ```npm
-          npm install @copilotkit/react-core @copilotkit/runtime @ag-ui/client@1.0.2
+          npm install @copilotkit/react-core @copilotkit/runtime @ag-ui/client
           ```
+
+          `@ag-ui/client` must be the same version that `@copilotkit/runtime` uses. Two versions make TypeScript report that `HttpAgent` is not assignable to `AbstractAgent`. Run `npm ls @ag-ui/client`: the top-level copy must be the version that `@copilotkit/runtime` lists as `deduped`.
       </Step>
       <Step>
           ### Add the Copilot Runtime route
@@ -210,7 +227,6 @@ Use this prompt to connect your Agent Spec agent to CopilotKit and verify a work
 
           ```tsx title="app/api/copilotkit/[[...slug]]/route.ts" doctest="component"
           import {
-            CopilotKitIntelligence,
             CopilotRuntime,
             createCopilotRuntimeHandler,
           } from "@copilotkit/runtime/v2";
@@ -220,16 +236,6 @@ Use this prompt to connect your Agent Spec agent to CopilotKit and verify a work
             agents: {
               my_agent: new HttpAgent({ url: "http://localhost:8000/" }),
             },
-            // [!code highlight:9]
-            intelligence: new CopilotKitIntelligence({
-              apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
-            }),
-            // Demo only: the browser sends no x-user-id header, so all visitors share
-            // one "anonymous" history. Before you deploy, return the verified session user.
-            identifyUser: (request) => ({
-              id: request.headers.get("x-user-id") ?? "anonymous",
-              name: request.headers.get("x-user-name") ?? "Anonymous",
-            }),
           });
 
           const handler = createCopilotRuntimeHandler({
@@ -243,25 +249,40 @@ Use this prompt to connect your Agent Spec agent to CopilotKit and verify a work
           export const DELETE = handler;
           ```
 
-          From this frontend app directory, connect the runtime to an Intelligence project:
+          This route runs with an in-memory runner. Chat and the Inspector work without any key.
 
-          ```bash title="Terminal"
-          npx copilotkit@latest project select
-          ```
+          <Accordions className="mb-4">
+              <Accordion title="Optional: connect CopilotKit Intelligence">
+                  From this frontend app directory, sign in and select an Intelligence project:
 
-          The command writes the server-side project API key to `.env`. The runtime reads it here:
+                  ```bash title="Terminal"
+                  npx copilotkit@latest login
+                  npx copilotkit@latest project select
+                  ```
 
-          ```plaintext title=".env"
-          CPK_INTELLIGENCE_API_KEY=cpk-...
-          ```
+                  `login` opens a browser sign-in. `project select` writes the server-side project API key to `.env`:
 
-          <Callout type="info" title="Running without CopilotKit Intelligence?">
-            Drop the `intelligence` and `identifyUser` options and the runtime falls back
-            to SSE mode with an in-memory runner. Chat still works, but Threads and the
-            Inspector stay locked and the key is never read. See
-            [Connect your runtime to Intelligence](/intelligence/quickstart) for the
-            full constructor and how to confirm the key is in use.
-          </Callout>
+                  ```plaintext title=".env"
+                  CPK_INTELLIGENCE_API_KEY=cpk-...
+                  ```
+
+                  Then add `CopilotKitIntelligence` to the imports and these two options to `new CopilotRuntime({ ... })`:
+
+                  ```ts
+                  intelligence: new CopilotKitIntelligence({
+                    apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
+                  }),
+                  // Demo only: the browser sends no x-user-id header, so all visitors share
+                  // one "anonymous" history. Before you deploy, return the verified session user.
+                  identifyUser: (request) => ({
+                    id: request.headers.get("x-user-id") ?? "anonymous",
+                    name: request.headers.get("x-user-name") ?? "Anonymous",
+                  }),
+                  ```
+
+                  Without the key, the route fails when it loads, with an error that the `CopilotKitIntelligence` `apiKey` is required. See [Connect your runtime to Intelligence](/intelligence/quickstart) to confirm the key is in use.
+              </Accordion>
+          </Accordions>
       </Step>
       <Step>
           ### Configure CopilotKit Provider
@@ -282,11 +303,12 @@ Use this prompt to connect your Agent Spec agent to CopilotKit and verify a work
           }
           ```
 
-          Render `Providers` around your app in `app/layout.tsx`:
+          Render `Providers` around your app in `app/layout.tsx`. Keep the generated file. Add the highlighted imports and wrap `{children}` in `<Providers>`:
 
           ```tsx title="app/layout.tsx"
+          import { Suspense } from "react"; // [!code highlight]
           import { Providers } from "./providers"; // [!code highlight]
-          import "@copilotkit/react-core/v2/styles.css";
+          import "@copilotkit/react-core/v2/styles.css"; // [!code highlight]
           import './globals.css';
 
           // ...
@@ -295,15 +317,19 @@ Use this prompt to connect your Agent Spec agent to CopilotKit and verify a work
             return (
               <html lang="en">
                 <body>
-                  {/* [!code highlight:3] */}
-                  <Providers>
-                    {children}
-                  </Providers>
+                  {/* [!code highlight:5] */}
+                  <Suspense>
+                    <Providers>
+                      {children}
+                    </Providers>
+                  </Suspense>
                 </body>
               </html>
             );
           }
           ```
+
+          `<Suspense>` keeps `npm run build` working when `next.config.ts` sets `cacheComponents: true`, the `create-next-app` default in Next.js 16. Without it, the build fails with `encountered the unstable value require('node:crypto').randomUUID()`.
 
           <Callout type="info" title="This relative runtimeUrl assumes Next.js serves the runtime">
             `/api/copilotkit` resolves only because Next.js serves your app and the runtime from the

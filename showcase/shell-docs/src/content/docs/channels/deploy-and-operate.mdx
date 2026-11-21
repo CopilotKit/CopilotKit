@@ -36,22 +36,38 @@ After you change either package, send a real message again, as in
 ## Settle before reporting ready
 
 Creating the Node listener starts the managed connection for every declared
-Channel. Await `ready()` to wait for activation to settle, then inspect
-`status()`:
+Channel. Start the HTTP server first, then await `ready()` to wait for
+activation to settle, then inspect `status()`:
 
 ```ts title="health.ts"
 const channels = listener.channels;
 
-await channels.ready({ timeoutMs: 30_000 });
+// Listen first. Liveness can answer, and the open server keeps Node running
+// while activation settles.
+server.listen(8080);
+
+try {
+  await channels.ready({ timeoutMs: 30_000 });
+} catch (err) {
+  // Activation failed, or it did not settle within timeoutMs.
+  console.error("Channels not ready", err, JSON.stringify(channels.status()));
+  process.exit(1);
+}
 
 const initial = channels.status();
 if (initial.overall !== "online") {
-  throw new Error(`Channels not online: ${JSON.stringify(initial)}`);
+  console.error(`Channels not online: ${JSON.stringify(initial)}`);
 }
 ```
 
-`ready()` can resolve in `setup_required`. That means activation settled, not
-that delivery is healthy. Treat only `status().overall === "online"` as a
+If nothing keeps the event loop alive (no listening server), an unreachable
+gateway makes Node exit with code 13 and `Detected unsettled top-level await`,
+with no error and before the timeout.
+
+`ready()` rejects when activation fails or does not settle within `timeoutMs`.
+When it resolves, still check `status().overall`: `ready()` also resolves in
+`setup_required` or with a provider `error`. That means activation settled,
+not that delivery is healthy. Treat only `status().overall === "online"` as a
 healthy connected activation.
 
 The runtime status values are:
@@ -65,11 +81,13 @@ The runtime status values are:
 | `error`          | Activation failed, reconnect give-up (~60s default) marked the session not-sendable, or the provider (Slack or Teams) is unhealthy. Read `status().detail` to see which |
 | `stopped`        | The Channels control was stopped                                                       |
 
-Treat post-online `error` carefully: after reconnect give-up the client marks
-`error` while the gateway connection **keeps retrying**. A successful rejoin
-restores `online` without a process restart. Activation-time `error` (bad key,
-unreachable gateway, config) is different. Fix configuration and restart the
-worker.
+An `error` means different things before and after the Channel was online:
+
+- **After `online`:** the client gave up reconnecting and marked `error`, but
+  the gateway connection **keeps retrying**. A successful rejoin restores
+  `online` without a process restart.
+- **During activation** (bad key, unreachable gateway, config): fix the
+  configuration and restart the worker.
 
 The Intelligence UI translates provider and runtime details into its own
 operator-facing states such as **Waiting for runtime**, **Conflict**,
@@ -79,6 +97,19 @@ operator-facing states such as **Waiting for runtime**, **Conflict**,
 
 - Liveness answers whether the Node process and event loop are running.
 - Readiness answers whether `channels.status().overall` is `online`.
+
+Serve both from the same server. Use this in place of `createServer(listener)` in the shutdown example below:
+
+```ts title="channel.ts"
+const server = createServer((req, res) => {
+  if (req.url === "/livez") return res.writeHead(200).end("ok");
+  if (req.url === "/readyz") {
+    const ready = listener.channels.status().overall === "online";
+    return res.writeHead(ready ? 200 : 503).end(ready ? "ready" : "not ready");
+  }
+  listener(req, res);
+});
+```
 
 Then act on the status:
 
@@ -103,6 +134,8 @@ default handler and leaves a live gateway session behind:
 let teardown: (() => Promise<void>) | undefined;
 const shutdown = async () => {
   await teardown?.();
+  // A pending ready() does not settle after stop(), so exit explicitly.
+  process.exit(0);
 };
 
 process.once("SIGINT", shutdown);
@@ -115,7 +148,8 @@ teardown = async () => {
   if (server.listening) server.close();
 };
 
-await listener.channels.ready({ timeoutMs: 30_000 });
+server.listen(8080);
+// Then await ready() as in health.ts above.
 ```
 
 Give the worker enough termination grace to stop its managed sessions. Avoid
@@ -127,7 +161,7 @@ shutdown is possible.
 Keep these server-side:
 
 ```dotenv title=".env"
-CPK_INTELLIGENCE_API_KEY=<project-runtime-key>
+CPK_INTELLIGENCE_API_KEY=<project-api-key>
 CHANNEL_CODE=<exact-intelligence-code>
 
 # Optional paired overrides for self-hosted or non-production Intelligence:

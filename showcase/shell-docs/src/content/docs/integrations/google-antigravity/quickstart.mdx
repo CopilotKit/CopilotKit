@@ -153,7 +153,7 @@ Before you begin, you'll need the following:
               # directories, so always set this. Keep the path short — a long,
               # high-entropy path makes the model reproduce it wrongly in tool
               # calls (see Troubleshooting below).
-              workspaces=["/srv/agents/w1"],
+              workspaces=[os.path.expanduser("~/agent-workspace")],
           )
 
           app = create_antigravity_app(agent, path="/")
@@ -164,10 +164,15 @@ Before you begin, you'll need the following:
               return {"status": "ok"}
           ```
 
-          Start it and confirm the health check:
+          Start it. `--env-file .env` loads `GEMINI_API_KEY` from the file you created. Without it, `main.py` stops with `KeyError: 'GEMINI_API_KEY'`.
 
           ```bash
-          uv run uvicorn main:app --reload --host 0.0.0.0 --port 8000
+          uv run --env-file .env uvicorn main:app --reload --host 0.0.0.0 --port 8000
+          ```
+
+          In a second terminal, confirm the health check. The response is `{"status":"ok"}`:
+
+          ```bash
           curl http://localhost:8000/health
           ```
 
@@ -190,13 +195,17 @@ Before you begin, you'll need the following:
         <Step>
           ### Create your frontend
 
-          CopilotKit works with any React app. This example uses Next.js App Router:
+          CopilotKit works with any React app. This example uses Next.js App Router. Run this from the folder that holds your agent project, not inside it:
 
           ```bash
-          npx create-next-app@latest frontend
+          npx create-next-app@latest frontend --yes
           cd frontend
-          npm install @copilotkit/runtime @copilotkit/react-core @ag-ui/client@1.0.2
+          npm install @copilotkit/runtime @copilotkit/react-core @ag-ui/client
           ```
+
+          `--yes` uses the recommended defaults (TypeScript, Tailwind, App Router) and skips the prompts.
+
+          `@ag-ui/client` must be the same version that `@copilotkit/runtime` uses. Two versions make TypeScript report that `HttpAgent` is not assignable to `AbstractAgent`. Run `npm ls @ag-ui/client`: the top-level copy must be the version that `@copilotkit/runtime` lists as `deduped`.
         </Step>
 
         <Step>
@@ -236,6 +245,7 @@ Before you begin, you'll need the following:
           Wrap your app with `CopilotKit` and target the agent name you registered in the runtime route.
 
           ```tsx title="app/layout.tsx"
+          import { Suspense } from "react";
           import { CopilotKit } from "@copilotkit/react-core/v2";
           import "@copilotkit/react-core/v2/styles.css";
           import "./globals.css";
@@ -244,14 +254,19 @@ Before you begin, you'll need the following:
             return (
               <html lang="en">
                 <body>
-                  <CopilotKit runtimeUrl="/api/copilotkit" agent="antigravity_agent">
-                    {children}
-                  </CopilotKit>
+                  <Suspense>
+                    <CopilotKit runtimeUrl="/api/copilotkit" agent="antigravity_agent" useSingleEndpoint>
+                      {children}
+                    </CopilotKit>
+                  </Suspense>
                 </body>
               </html>
             );
           }
           ```
+
+          - `useSingleEndpoint` matches the route's `mode: "single-route"`. The client then sends every request as a `POST` to `/api/copilotkit`.
+          - `<Suspense>` keeps `npm run build` working when `next.config.ts` sets `cacheComponents: true`, the `create-next-app` default in Next.js 16. Without it, the build fails with `encountered the unstable value require('node:crypto').randomUUID()`.
 
           <Callout type="info" title="This relative runtimeUrl assumes Next.js serves the runtime">
             `/api/copilotkit` resolves only because Next.js serves your app and the runtime from the

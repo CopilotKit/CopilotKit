@@ -23,16 +23,29 @@ export const appConfig: ApplicationConfig = {
 };
 ```
 
+Every field is optional. Omitted fields keep their defaults.
+
 ```ts
 interface MCPAppsConfig {
+  /** Max time to wait for a busy agent before a queued request fails. Default 30_000. */
   idleTimeoutMs?: number;
+  /** Max time to wait for the sandbox initialization handshake. Default 30_000. */
   initializationTimeoutMs?: number;
+  /** Host identity sent during initialization. Default { name: "CopilotKit MCP Apps Host", version: "1.0.0" }. */
   hostInfo?: { name: string; version: string };
+  /** Extra protocol capabilities announced to widgets. */
   hostCapabilities?: Record<string, unknown>;
+  /** Extra non-secret UI context announced to widgets. */
   hostContext?: Record<string, unknown>;
+  /** Restore allow-same-origin on the sandbox. Default false. Release after 0.6.0. */
   allowSameOriginFallback?: boolean;
+  /** Let widgets report state to the model. Default false. Release after 0.6.0. */
+  modelContext?: boolean;
 }
 ```
+
+`allowSameOriginFallback` and `modelContext` ship in the release after
+`@copilotkit/angular` 0.6.0. On 0.6.0, passing them is a TypeScript error.
 
 `provideMCPApps` contributes a lower-precedence built-in renderer for
 `activityType: "mcp-apps"`; an explicit application activity renderer still
@@ -44,6 +57,11 @@ page's cookies, storage or DOM. `allowSameOriginFallback: true` restores
 `allow-same-origin` for trusted widgets that need `localStorage`, `IndexedDB`
 or cookies. It is unsafe: every widget then runs with your page's origin.
 See [Sandbox and widget storage](/generative-ui/mcp-apps#sandbox-and-widget-storage).
+
+`modelContext: true` lets a widget report its state to the model through
+`ui/update-model-context`. That state goes with every later run of the
+conversation, and the user does not see it. Turn it on only for MCP servers you
+trust.
 
 - Host context is browser-visible and must not contain secrets.
 - Each widget owns its iframe listener. All widgets share one request queue.

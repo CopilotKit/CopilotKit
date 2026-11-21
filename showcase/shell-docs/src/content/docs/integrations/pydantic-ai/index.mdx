@@ -42,8 +42,8 @@ hidePageActions: true
   ]}
   capabilitiesFootnote={{
     text: "Chat surfaces, headless UI, frontend tools and multi-agent flows work with Pydantic AI too.",
-    linkLabel: "And more",
-    href: "/pydantic-ai/build-with-agents"
+    linkLabel: "Start with frontend tools",
+    href: "/pydantic-ai/frontend-tools"
   }}
   connect={{
     intro:
@@ -74,6 +74,8 @@ import { HttpAgent } from "@ag-ui/client";
 
 const runtime = new CopilotRuntime({
   agents: {
+    // AGENT_URL is your AGUIAdapter route, for example http://localhost:8000/
+    // Select this agent in the frontend: <CopilotKit agent="my_agent">
     my_agent: new HttpAgent({ url: process.env.AGENT_URL! }),
   },
 });

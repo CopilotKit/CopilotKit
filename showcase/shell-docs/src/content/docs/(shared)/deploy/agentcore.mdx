@@ -15,7 +15,7 @@ your browser and AgentCore. This is the same runtime that every CopilotKit agent
 AgentCore, it must run on the server. Browsers cannot sign AgentCore requests with SigV4 or OAuth2.
 
 ```
-Browser → CopilotKit Runtime → AgentCore Runtime → your agent
+Browser → Copilot Runtime → AgentCore Runtime → your agent
 ```
 
 ## What you get
@@ -28,10 +28,16 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
 
 ## Quickstart
 
-<Callout type="info" title="AWS CLI required">
-  Both paths below require AWS credentials configured locally. If you haven't done this yet,
-  follow the [AWS CLI getting started guide](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-started.html)
-  before continuing.
+<Callout type="info" title="Before you start">
+  Both paths need the AWS CLI with credentials configured locally. See the
+  [AWS CLI getting started guide](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-started.html).
+
+  The "Start from scratch" path also needs:
+
+  - Docker, running
+  - [uv](https://docs.astral.sh/uv/getting-started/installation/)
+  - Node.js 18 or later
+  - A CopilotKit account. The CLI signs you in, and the deploy script needs your CopilotKit Intelligence project API key (`CPK_INTELLIGENCE_API_KEY`).
 </Callout>
 
 <Steps>
@@ -105,7 +111,7 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
       </Step>
 
       <Step>
-        ### 🎉 Open your app
+        ### Open your app
 
         The deploy script prints an Amplify URL when it finishes. Open it and sign in with your `admin_user_email`.
       </Step>
@@ -219,24 +225,22 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
           To validate the frontend session at the runtime before you forward identity to AgentCore, see
           [Authentication](/auth).
         </Callout>
-      </Step>
 
-      <Step>
-        ### Why the route uses AgentCoreRunner
+        <Callout type="info" title="Why the route uses AgentCoreRunner">
+          AgentCore's memory layer stores conversation history on the server. When CopilotKit reconnects
+          to an existing thread (for example, on page refresh), the default runner has two problems:
 
-        AgentCore's memory layer stores conversation history server-side. When CopilotKit reconnects
-        to an existing thread (for example, on page refresh), the default runner has two problems:
+          1. **Unknown threads**: CopilotKit may call `connect()` before any `run()` has happened.
+             If the runner does not handle this, the first page load fails with an error.
+          2. **Missing tool-call results**: AgentCore's replayed history includes assistant messages
+             with tool calls, but omits the corresponding results. CopilotKit needs those to reconcile
+             its message state.
 
-        1. **Unknown threads**: CopilotKit may call `connect()` before any `run()` has happened.
-           If the runner does not handle this, the first page load fails with an error.
-        2. **Missing tool-call results**: AgentCore's replayed history includes assistant messages
-           with tool calls, but omits the corresponding results. CopilotKit needs those to reconcile
-           its message state.
-
-        `AgentCoreRunner` from `@copilotkit/agentcore-runner` fixes both. It extends
-        `InMemoryAgentRunner`, answers a `connect()` for an unknown thread with an empty message
-        snapshot, and adds an empty result for each past tool call before it replays the snapshot.
-        You configure nothing: pass `new AgentCoreRunner()` as the runtime's `runner`, as the route above does.
+          `AgentCoreRunner` from `@copilotkit/agentcore-runner` fixes both. It extends
+          `InMemoryAgentRunner`, answers a `connect()` for an unknown thread with an empty message
+          snapshot, and adds an empty result for each past tool call before it replays the snapshot.
+          You configure nothing: pass `new AgentCoreRunner()` as the runtime's `runner`, as the route above does.
+        </Callout>
       </Step>
 
       <Step>
@@ -275,6 +279,13 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
           );
         }
         ```
+
+        <Callout type="warn" title="Next.js 16 with Cache Components">
+          If `next.config.ts` sets `cacheComponents: true` (the `create-next-app` default in Next.js 16),
+          `npm run build` fails with `encountered the unstable value require('node:crypto').randomUUID()`.
+          Wrap `<Providers>` in `<Suspense>` from `react` in `app/layout.tsx`:
+          `<Suspense><Providers>{children}</Providers></Suspense>`.
+        </Callout>
         </FrontendOnly>
 
         <FrontendOnly frontend="angular">
@@ -349,7 +360,7 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
       </Step>
 
       <Step>
-        ### 🎉 Run it
+        ### Run it
 
         Point the Copilot Runtime server at the AgentCore runtime you deployed via AWS's
         [Deploy an AG-UI agent to AgentCore Runtime](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/runtime-agui.html)
@@ -396,6 +407,9 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
 Agent execution failed: Error: HTTP 401:
 {"jsonrpc":"2.0","error":{"code":-32001,"message":"Missing Authentication Token"},"id":"null"}
 ```
+
+The chat shows no reply and no error banner. Look for this error in the Copilot Runtime server log.
+In a Next.js app, that is the terminal that runs `npm run dev`.
 
 `Missing Authentication Token` is AWS's own error, not a CopilotKit or agent error. AWS returns it
 when a request reaches an AgentCore or API Gateway endpoint with no credentials, or when the request

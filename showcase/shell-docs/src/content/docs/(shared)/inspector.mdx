@@ -32,7 +32,7 @@ production error reporting.
 | ---------------------------------------------- | --------------------------------------- |
 | Confirm that CopilotKit is connected           | **Home**, then **Agent**                |
 | Find out why a run or tool failed              | The red launcher or error pill          |
-| Inspect one `CopilotChat` response             | **View in Inspector** on the message    |
+| Inspect one `CopilotChat` response (Intelligence) | **View in Inspector** on the message |
 | Follow messages, events, tools, state, context | **Agent** and the **Inspect** panes     |
 | Reproduce a saved conversation safely          | **Rich Threads** → **Try from here**    |
 | Continue a saved Thread in your application    | **Rich Threads** → **View in your app** |
@@ -44,13 +44,18 @@ production error reporting.
 
 Inspector appears by default in development builds of React, Vue, and Angular
 browser applications. In React, Inspector appears only when the page host is
-`localhost`, `127.0.0.1`, or `[::1]`. Open your application and click the Inspector button in
+`localhost`, `127.0.0.1`, or `[::1]`. In Next.js 16 dev, open the app on `localhost`. To use
+`127.0.0.1`, add `allowedDevOrigins: ["127.0.0.1"]` to `next.config.ts` and restart `next dev`.
+Next.js blocks dev resources for other hosts, so Inspector does not load and shows no error.
+
+Open your application and click the Inspector button in
 the corner. The first open lands on **Home**. Later opens return to the last
 pane you used.
 
 Confirm the connection before debugging anything else:
 
-1. Open **Agent**. Your connected agent should be listed.
+1. Open **Agent**. It starts with "No agent selected". Pick your agent (for example `default`)
+   from the agent dropdown at the top of the sidebar. Its status, messages, and tools appear.
 2. Send a message in your application, then open **AG-UI Events**. You should
    see events arrive while the run is active.
 3. Open **Rich Threads**. A connected Intelligence setup shows your saved Threads.
@@ -58,8 +63,8 @@ Confirm the connection before debugging anything else:
 
 Home summarizes project, Runtime, and service status. When Intelligence is
 connected, it shows an **Intelligence connected** chip. Otherwise, choose
-**Copy setup prompt** to give the setup task to your coding agent. If the
-Runtime supplies a trusted setup URL, you can also choose **Set it up yourself**.
+**Copy setup prompt** to give the setup task to your coding agent, or
+**Set it up yourself** to open the CopilotKit Intelligence signup page in a new tab.
 
 If the agent is missing or no events arrive, first confirm the
 [Copilot Runtime](/backend/copilot-runtime) connection. If Threads is the only
@@ -125,10 +130,11 @@ debugging question:
 | Which components can the agent render, and what did it see? | **Generative UI**                                                   | [Components and surfaces](/generative-ui/components)        |
 | What did a saved conversation contain?                      | **Rich Threads** → **Conversation**, **AG-UI Events**, or **State** | [AG-UI Streams](/AG-UI-Streams) and [Shared State](/shared-state) |
 
-In an official React `CopilotChat`, open an assistant message's toolbar and
-choose **View in Inspector** to jump directly to that message in its Thread.
-This local development shortcut is useful when you already know which response
-you need to explain. See the [`CopilotChat` reference](/reference/components/CopilotChat)
+In an official React `CopilotChat`, click the Inspector icon in an assistant
+message's toolbar to jump directly to that message in its Thread. Hover the icon
+to see the menu with **View in Inspector** and **Hide this icon**. This local
+development shortcut needs Intelligence Threads. Without Intelligence, it opens
+the locked **Rich Threads** view. Use **AG-UI Events** instead. See the [`CopilotChat` reference](/reference/components/CopilotChat)
 for its configuration.
 
 In **Rich Threads**, a saved Thread has these controls:
@@ -164,6 +170,8 @@ icons. **Talk to an Engineer** remains in the sidebar footer.
 
 ## Reproduce an issue without changing the saved Thread
 
+This section needs CopilotKit Intelligence for saved Threads.
+
 Use **Playground** when you have already observed a problem and want to vary the
 prompt, state, or next message without touching the original saved Thread. Its
 messages and state stay separate from your application chat and stored Threads,
@@ -186,6 +194,8 @@ examples do not send real Thread requests. With reduced motion enabled, the
 video starts paused. If the video fails, the examples and tour still work.
 
 ## Continue a saved Thread in your application
+
+This section needs CopilotKit Intelligence for saved Threads.
 
 Selecting a Thread in Inspector does not change the live chat. To continue the
 conversation in an official `CopilotChat`, sidebar, or popup:
@@ -307,6 +317,8 @@ Inspector is never loaded or rendered in a production build or during
 server-side rendering.
 
 ## Understand project and usage information
+
+This section applies only to an Intelligence-backed Runtime.
 
 An Intelligence-backed Runtime can send trusted organization, project, plan,
 Thread usage, retention, and action metadata. Home shows valid project context.

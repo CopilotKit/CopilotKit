@@ -88,7 +88,13 @@ export default function App() {
 ```
 
 <Callout type="info" title="Peer dependencies of the prebuilt chat">
-  `@copilotkit/react-native/components` needs `@gorhom/bottom-sheet`, `react-native-gesture-handler`, `react-native-reanimated`, and `react-native-streamdown`. If you only use the hooks, import from `/headless` and skip them. See [Import surfaces](/quickstart#import-surfaces).
+  `@copilotkit/react-native/components` needs native peers. Install them before you run the app:
+
+  ```bash
+  npx expo install @gorhom/bottom-sheet react-native-gesture-handler react-native-reanimated react-native-worklets react-native-streamdown
+  ```
+
+  In a bare React Native CLI app, run `npm install` with the same packages, add the Reanimated Babel plugin, and run `cd ios && pod install`. See [Native peers for the rendered chat](/quickstart#native-peers-for-the-rendered-chat). If you only use the hooks, import from `/headless` and skip these packages.
 </Callout>
 
 Ask the agent to show only open tasks. "Current filter" changes to `open`, and the agent replies after it reads the `{ applied: true }` result.

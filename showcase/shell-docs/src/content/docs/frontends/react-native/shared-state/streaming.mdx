@@ -31,20 +31,16 @@ Use state streaming when a tool's output is long-form text or a growing structur
 
 <FrameworkSetup concept="state-streaming-setup" />
 
+On LangGraph Python, the example also imports `langchain_openai`. Install it too: `uv add langchain-openai`. If the folder has no `pyproject.toml` yet, run `uv init` before the first `uv add`.
+
 The backend pattern is always the same: map one streaming tool argument to one shared-state key. Each framework does this in its own way:
 
 - LangGraph Python: `StateStreamingMiddleware` with `StateItem(...)` entries.
 - LangGraph TypeScript: `copilotkitCustomizeConfig` with an `emitIntermediateState` mapping.
 - Direct SDK adapters: parse partial tool arguments in the streaming loop, and emit `STATE_SNAPSHOT` whenever the mapped value changes.
-- LlamaIndex and Pydantic AI: there is no per-token mapping. A backend tool sends a state snapshot after each step or tool call instead (see the setup above).
+- LlamaIndex and Pydantic AI: there is no per-token mapping. A backend tool sends a state snapshot after each step or tool call instead (see [Shared State](/shared-state) for those frameworks).
 
 When the model streams that argument, CopilotKit writes every partial value into shared state before the tool finishes.
-
-<WhenFrameworkSupports feature="shared-state-streaming">
-
-<Snippet region="state-streaming-middleware" cell="shared-state-streaming" title="backend: streaming state mapping" />
-
-</WhenFrameworkSupports>
 
 A few things to note:
 
@@ -52,11 +48,54 @@ A few things to note:
 - The tool and argument names must match the exact tool call the model makes (`write_document.document` here).
 - Streamed values are previews. When the step ends, the state the agent saves replaces them, so save the final value when the tool finishes. On CrewAI, LlamaIndex, and Pydantic AI, write the final value to the agent state yourself, or it is overwritten when the step returns.
 
+## Serve the agent
+
+Serve the agent and register it in Copilot Runtime as `default`, the id the frontend below uses. For LangGraph Python, add a `langgraph.json` next to the agent file:
+
+```json title="langgraph.json"
+{
+  "dependencies": ["."],
+  "graphs": {
+    "default": "./shared_state_streaming.py:graph"
+  }
+}
+```
+
+Start the LangGraph server with your model key in the environment:
+
+```bash
+uv add "langgraph-cli[inmem]"
+export OPENAI_API_KEY=sk-...
+uv run langgraph dev --port 8123 --no-browser
+```
+
+Then register the graph in the `server.ts` from the [quickstart](/quickstart), in place of the Built-in Agent:
+
+```ts title="server.ts"
+import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
+
+const runtime = new CopilotRuntime({
+  agents: {
+    default: new LangGraphAgent({ // [!code highlight:4]
+      deploymentUrl: "http://localhost:8123",
+      graphId: "default",
+    }),
+  },
+});
+```
+
+Restart the runtime with `npx tsx server.ts`. For other frameworks, follow the quickstart of your framework.
+
 ## The frontend: useAgent and OnStateChanged
 
 The app side is the same as any other [shared-state](/shared-state) subscription: `useAgent` with `OnStateChanged` gives you a live `agent.state`. Add `OnRunStatusChanged` for a "writing" indicator.
 
+<Callout type="warn" title="Read the partial tool argument on React Native">
+  When the backend maps the argument with a predict-state mapping (for example LangGraph Python `StateStreamingMiddleware`), `@copilotkit/react-native` does not copy the streamed argument into `agent.state` yet. `agent.state.document` then changes only when the tool call ends. Until then, the view below reads the partial `document` argument of `write_document` from the agent's events. This also works when the backend sends state snapshots itself.
+</Callout>
+
 ```tsx title="src/DocumentView.tsx"
+import { useEffect, useState } from "react";
 import { ActivityIndicator, ScrollView, Text, View } from "react-native";
 import { useAgent, UseAgentUpdate } from "@copilotkit/react-native/headless";
 
@@ -65,7 +104,22 @@ export function DocumentView() {
     agentId: "default",
     updates: [UseAgentUpdate.OnStateChanged, UseAgentUpdate.OnRunStatusChanged],
   });
-  const document = (agent.state as { document?: string } | undefined)?.document ?? "";
+  const [preview, setPreview] = useState("");
+
+  useEffect(() => { // [!code highlight:14]
+    const { unsubscribe } = agent.subscribe({
+      onRunStartedEvent: () => setPreview(""),
+      onToolCallArgsEvent: ({ toolCallName, partialToolCallArgs }) => {
+        if (toolCallName !== "write_document") return;
+        const args = readArgs(partialToolCallArgs);
+        if (typeof args.document === "string") setPreview(args.document);
+      },
+    });
+    return unsubscribe;
+  }, [agent]);
+
+  const saved = (agent.state as { document?: string } | undefined)?.document ?? "";
+  const document = agent.isRunning && preview ? preview : saved;
 
   return (
     <View style={{ padding: 16, gap: 8 }}>
@@ -76,9 +130,21 @@ export function DocumentView() {
     </View>
   );
 }
+
+// The partial arguments can arrive as a JSON string, or as an empty string at first.
+function readArgs(args: unknown): { document?: unknown } {
+  if (typeof args !== "string") return (args ?? {}) as { document?: unknown };
+  try {
+    return JSON.parse(args);
+  } catch {
+    return {};
+  }
+}
 ```
 
-`agent.state.document` is a string that grows on every token, and `agent.isRunning` tells you whether to show the indicator. The `ScrollView` with a `maxHeight` keeps a long document from pushing the rest of the screen away.
+While the run is active, `preview` grows on every token. When the run ends, the view shows the saved `agent.state.document`. `agent.isRunning` also tells you whether to show the indicator. The `ScrollView` with a `maxHeight` keeps a long document from pushing the rest of the screen away.
+
+Render `<DocumentView />` above your chat, inside `CopilotKitProvider`, as in [Render agent state in your app](/shared-state/rendering-in-app).
 
 If a fast stream re-renders a heavy screen too often, pass `throttleMs` to `useAgent` to batch the updates.
 

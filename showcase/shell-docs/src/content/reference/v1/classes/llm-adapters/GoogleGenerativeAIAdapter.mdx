@@ -33,12 +33,12 @@ const serviceAdapter = new GoogleGenerativeAIAdapter({
 
 ## Constructor Parameters
 
-<PropertyReference name="model" type="string"  > 
+<PropertyReference name="model" type="string" default='"gemini-3.5-flash"'> 
 A custom Google Generative AI model to use.
 </PropertyReference>
 
 <PropertyReference name="apiVersion" type="'v1' | 'v1beta'"  > 
-The API version to use (e.g. "v1" or "v1beta"). Defaults to "v1".
+The API version, `"v1"` or `"v1beta"`. When omitted, the Google provider default (`v1beta`) is used. Pass `"v1"` to pin v1. The adapter's console warning says it defaults to `"v1"`. Copilot Runtime uses the provider default instead.
 </PropertyReference>
 
 <PropertyReference name="apiKey" type="string"  > 

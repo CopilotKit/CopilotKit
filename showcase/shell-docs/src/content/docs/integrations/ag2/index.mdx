@@ -42,8 +42,8 @@ hidePageActions: true
   ]}
   capabilitiesFootnote={{
     text: "Chat surfaces, headless UI, frontend tools and multi-agent flows work with AG2 too.",
-    linkLabel: "And more",
-    href: "/ag2/build-with-agents"
+    linkLabel: "Start with frontend tools",
+    href: "/ag2/frontend-tools"
   }}
   connect={{
     intro:
@@ -72,8 +72,10 @@ import {
 } from "@copilotkit/runtime/v2";
 import { HttpAgent } from "@ag-ui/client";
 
+// AGENT_URL is your AGUIStream endpoint, for example http://localhost:8000/chat
 const runtime = new CopilotRuntime({
   agents: {
+    // Select this agent in the frontend: <CopilotKit runtimeUrl="/api/copilotkit" agent="my_agent">
     my_agent: new HttpAgent({ url: process.env.AGENT_URL! }),
   },
 });

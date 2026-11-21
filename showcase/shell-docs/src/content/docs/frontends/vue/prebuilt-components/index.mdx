@@ -41,29 +41,50 @@ runtime connection logic.
 ## Drop-in chat
 
 Import the Vue CSS once, wrap the application in `CopilotKitProvider`, and put
-the chat surface in the provider's default slot:
+the chat surface in the provider's default slot. Use the same `runtime-url` as
+in the [quickstart](/vue):
 
-```vue title="App.vue"
+```vue title="src/App.vue"
 <script setup lang="ts">
 import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue/v2";
 import "@copilotkit/vue/styles.css";
 </script>
 
 <template>
-  <CopilotKitProvider runtime-url="/api/copilotkit">
-    <CopilotChat agent-id="my-agent" />
+  <CopilotKitProvider runtime-url="http://localhost:8200/api/copilotkit">
+    <div style="height: 100vh">
+      <CopilotChat />
+    </div>
   </CopilotKitProvider>
 </template>
 ```
 
+The chat uses the agent named `default`. Pass `agent-id` only when your
+Copilot Runtime registers the agent under another id.
+
 ## Starter suggestions
 
 Call [`useConfigureSuggestions`](/reference/vue/hooks/useConfigureSuggestions)
-inside a child component of `CopilotKitProvider`. Its reactive configuration is
-then available to the nearest chat surface:
+inside a child component of `CopilotKitProvider`:
 
-```ts
+```vue title="src/components/StarterSuggestions.vue"
+<script setup lang="ts">
+import { useConfigureSuggestions } from "@copilotkit/vue/v2";
+
 useConfigureSuggestions({
   suggestions: [{ title: "Summarize", message: "Summarize this page" }],
+  consumerAgentId: "default",
 });
+</script>
+
+<template>
+  <span hidden />
+</template>
 ```
+
+Render `<StarterSuggestions />` next to `<CopilotChat />` inside
+`CopilotKitProvider`. The **Summarize** pill shows on the chat's welcome
+screen.
+
+Set `consumerAgentId` to your agent id. Without it, the suggestions can stay
+hidden when the component mounts before the runtime has listed its agents.

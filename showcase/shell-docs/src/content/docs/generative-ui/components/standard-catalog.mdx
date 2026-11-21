@@ -18,6 +18,14 @@ Use it as it is:
 
 <Tabs groupId="frontend_framework" items={["React", "Angular", "Vue"]} persist>
   <Tab value="React">
+    Install `maplibre-gl` first, even if your agent never draws a map. Next.js and other bundlers fail to compile `standardUI` without it:
+
+    ```bash
+    npm install maplibre-gl
+    ```
+
+    Then give the catalog to the provider in your client component (`app/providers.tsx` in the [quickstart](/quickstart)):
+
     ```tsx
     import { standardUI } from "@copilotkit/react-core/v2/generative-ui";
 
@@ -68,7 +76,7 @@ A few things to know:
 
 - **Inputs keep what users type.** When the agent binds an input to a value, what the user types stays. A later agent update cannot write over it.
 - **`Button` and `Pressable` can act in the browser.** `href` opens a URL, and `Button` with `copy` copies text, with no message to the agent.
-- **`Map` needs one package.** Run `npm install maplibre-gl` if your agent draws maps. Without it, the map shows a list of the places. In Angular, also add `provideGenerativeUIMap()` from `@copilotkit/angular/generative-ui/map` to the root providers. In Vue, also add `app.use(GenerativeUIMap)` from `@copilotkit/vue/v2/generative-ui/map`.
+- **`Map` needs one package.** In React, install `maplibre-gl` even if your agent never draws maps: Next.js and other bundlers fail to compile `standardUI` without it, also when you `omit` the `Map`. In Angular and Vue, install it only if your agent draws maps. Without it, the map shows a list of the places. In Angular, also add `provideGenerativeUIMap()` from `@copilotkit/angular/generative-ui/map` to the root providers. In Vue, also add `app.use(GenerativeUIMap)` from `@copilotkit/vue/v2/generative-ui/map`.
 - **`Chart` needs no extra install in React.** It uses `recharts`, which comes with CopilotKit. In Angular, `Chart` draws with `chart.js` and `Icon` with `lucide`: install them and add `provideGenerativeUIChart()` and `provideGenerativeUIIcons()` from the `/chart` and `/icons` entries of `@copilotkit/angular/generative-ui`. Without them, a chart shows its data as a table and an icon shows nothing. In Vue, `Chart` draws with `chart.js`: install it and add `app.use(GenerativeUIChart)` from `@copilotkit/vue/v2/generative-ui/chart`. Without it, a chart shows its data as a table. Icons work with no setup.
 
 Component details:
@@ -149,6 +157,8 @@ Your app has its own card, with your shadows and spacing. `overrides` swaps the 
 
 <Tabs groupId="frontend_framework" items={["React", "Angular", "Vue"]} persist>
   <Tab value="React">
+    `Card` has two slots: `child` and `children`. Render both:
+
     ```tsx
     import {
       createGenerativeUI,
@@ -156,8 +166,13 @@ Your app has its own card, with your shadows and spacing. `overrides` swaps the 
       type GenerativeUIComponentProps,
     } from "@copilotkit/react-core/v2/generative-ui";
 
-    function MyCard({ children }: GenerativeUIComponentProps<typeof standardUI, "Card">) {
-      return <div className="rounded-2xl border p-6 shadow-sm">{children}</div>;
+    function MyCard({ child, children }: GenerativeUIComponentProps<typeof standardUI, "Card">) {
+      return (
+        <div className="rounded-2xl border p-6 shadow-sm">
+          {child}
+          {children}
+        </div>
+      );
     }
 
     export const appUI = createGenerativeUI({

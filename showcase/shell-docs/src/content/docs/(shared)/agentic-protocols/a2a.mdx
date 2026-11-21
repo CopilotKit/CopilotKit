@@ -58,7 +58,9 @@ To use A2A agents with CopilotKit, run an orchestrator agent and add the A2A mid
     npx copilotkit@latest create -f a2a
     ```
 
-    The project comes with a pre-configured ADK AG-UI agent. You can use any AG-UI agent instead.
+    The command signs you in to CopilotKit first. A shell without a terminal (for example a coding agent's) cannot open the sign-in. Run `npx copilotkit@latest login` in a terminal first. Then, in that shell, add `-n <app-name> --project <project-slug> --yes` to the command.
+
+    The project comes with a pre-configured ADK AG-UI agent as the orchestrator.
 
   </Step>
 
@@ -68,7 +70,7 @@ To use A2A agents with CopilotKit, run an orchestrator agent and add the A2A mid
     The starter project already includes the middleware. To add it to an existing agent, install it:
 
     ```bash
-    npm install @ag-ui/a2a-middleware@0.0.2
+    npm install @ag-ui/a2a-middleware@0.0.2 zod
     ```
 
     This version speaks the A2A protocol before v1.0, so your A2A agents must use a pre-1.0 A2A SDK.
@@ -84,7 +86,22 @@ To use A2A agents with CopilotKit, run an orchestrator agent and add the A2A mid
       InMemoryAgentRunner,
     } from "@copilotkit/runtime/v2";
     import { HttpAgent } from "@ag-ui/client";
-    import { A2AMiddlewareAgent } from "@ag-ui/a2a-middleware";
+    import {
+      A2AMiddlewareAgent,
+      type A2AAgentConfig,
+    } from "@ag-ui/a2a-middleware";
+
+    // The runtime clones the agent for every request. Keep the config so the
+    // clone keeps the A2A agent URLs and the orchestrator.
+    class CloneableA2AMiddlewareAgent extends A2AMiddlewareAgent {
+      constructor(private readonly config: A2AAgentConfig) {
+        super(config);
+      }
+
+      clone() {
+        return new CloneableA2AMiddlewareAgent(this.config);
+      }
+    }
 
     // These first two are the urls to the a2a agents
     const researchAgentUrl = process.env.RESEARCH_AGENT_URL || "http://localhost:9001";
@@ -101,7 +118,7 @@ To use A2A agents with CopilotKit, run an orchestrator agent and add the A2A mid
 
     // A2A Middleware: Wraps orchestrator and injects send_message_to_a2a_agent tool
     // This allows orchestrator to communicate with A2A agents transparently
-    const a2aMiddlewareAgent = new A2AMiddlewareAgent({
+    const a2aMiddlewareAgent = new CloneableA2AMiddlewareAgent({
       description:
         "Research assistant with 2 specialized agents: Research (LangGraph) and Analysis (ADK)",
       // We pass the urls to the a2a agents, the middleware will handle the connections
@@ -159,47 +176,60 @@ To use A2A agents with CopilotKit, run an orchestrator agent and add the A2A mid
 
     export const GET = handler;
     export const POST = handler;
+    export const PATCH = handler;
+    export const DELETE = handler;
     ```
 
   </Step>
 
   <FrontendOnly frontend="react">
   <Step>
-    ### Add a `useFrontendTool` to your Frontend
-    In the chat component, render the messages between the orchestrator and the A2A agents with the `useFrontendTool` hook.
-    The middleware's tool for these messages is called `send_message_to_a2a_agent`.
+    ### Render the A2A messages in your frontend
+    The middleware gives the orchestrator a tool called `send_message_to_a2a_agent`. Render its calls with the `useRenderTool` hook. This hook only draws the call. It does not register the tool again, so the orchestrator gets the tool once.
+
+    The chat talks to the agent you registered as `a2a_chat` in the route, so pass that ID to `<CopilotChat>`:
 
     ```tsx title="components/chat.tsx"
-    import { useFrontendTool } from "@copilotkit/react-core/v2";
+    "use client";
+
+    import { CopilotChat, useRenderTool } from "@copilotkit/react-core/v2";
     import { z } from "zod";
     import { MessageToA2A } from "./a2a/MessageToA2A";
     import { MessageFromA2A } from "./a2a/MessageFromA2A";
 
-    function YourMainContent() {
-      // ...
-
-      useFrontendTool({
+    export function A2AChat() {
+      useRenderTool({
         name: "send_message_to_a2a_agent",
-        description: "Sends a message to an A2A agent",
-        available: true,
         parameters: z.object({
-          agentName: z
-            .string()
-            .describe("The name of the A2A agent to send the message to"),
-          task: z.string().describe("The message to send to the A2A agent"),
+          agentName: z.string(),
+          task: z.string(),
         }),
-        render: (actionRenderProps) => {
-          return (
-            <>
-              <MessageToA2A {...actionRenderProps} />
-              <MessageFromA2A {...actionRenderProps} />
-            </>
-          );
-        },
+        render: ({ status, parameters }) => (
+          <>
+            <MessageToA2A status={status} args={parameters} />
+            <MessageFromA2A status={status} args={parameters} />
+          </>
+        ),
       });
 
+      return <CopilotChat agentId="a2a_chat" />;
+    }
+    ```
 
-      // ...
+    Show the chat on a page inside `<CopilotKit>`:
+
+    ```tsx title="app/page.tsx"
+    "use client";
+
+    import { CopilotKit } from "@copilotkit/react-core/v2";
+    import { A2AChat } from "@/components/chat";
+
+    export default function Page() {
+      return (
+        <CopilotKit runtimeUrl="/api/copilotkit">
+          <A2AChat />
+        </CopilotKit>
+      );
     }
     ```
 
@@ -421,6 +451,11 @@ To use A2A agents with CopilotKit, run an orchestrator agent and add the A2A mid
   <Step>
     ### Give it a try
     Ask your agent to research a topic, such as "Please research quantum computing". The orchestrator sends messages to the research agent and the analysis agent.
-    Then it presents the complete research and analysis to the user.
+    The chat shows a card for each message and each response.
+    Then the orchestrator presents the complete research and analysis to the user.
+
+    <Callout type="warn">
+      With `@ag-ui/a2a-middleware` 0.0.2, the orchestrator's own reply after the hand-offs can fail with `Cannot send 'TEXT_MESSAGE_CONTENT' event: No active text message found`. The hand-off cards still render, and the server log shows the error. The error comes from the middleware, not from your code.
+    </Callout>
   </Step>
 </Steps>

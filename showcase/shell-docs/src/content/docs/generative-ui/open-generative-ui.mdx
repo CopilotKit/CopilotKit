@@ -37,6 +37,15 @@ generate UI:
 
 <Snippet region="minimal-runtime-flag" />
 
+The excerpt is the demo's own route, with two demo agents. In your app, add `openGenerativeUI` to the `CopilotRuntime` of your existing route (`app/api/copilotkit/[[...slug]]/route.ts` in the [quickstart](/quickstart)), and list your agent id:
+
+```ts
+const runtime = new CopilotRuntime({
+  agents: { default: builtInAgent }, // your existing agents, unchanged
+  openGenerativeUI: { agents: ["default"] },
+});
+```
+
 The runtime then adds `OpenGenerativeUIMiddleware` to those agents. It
 converts the agent's streamed `generateSandboxedUi` tool call into `open-generative-ui` activity events,
 which the built-in `OpenGenerativeUIActivityRenderer` mounts inside a
@@ -72,7 +81,18 @@ Wrap your app in `CopilotKit` and render `<CopilotChat />`:
 
 The demo also passes `openGenerativeUI.designSkill` to change the visual style
 of the generated UI. This prop is optional. The demo's `Chat` component renders
-`<CopilotChat agentId="open-gen-ui" />` and adds suggestion pills.
+`<CopilotChat agentId="open-gen-ui" />` and adds suggestion pills. In your app,
+any chat inside your provider is enough, for example the quickstart's
+`<CopilotSidebar />`, or:
+
+```tsx
+<CopilotKit runtimeUrl="/api/copilotkit">
+  <CopilotChat />
+</CopilotKit>
+```
+
+To set a design skill, pass a string of style guidance:
+`openGenerativeUI={{ designSkill: "Use a dark theme with rounded cards and one accent color." }}`.
 
 That's it. Ask the agent "build me a simple greeting card" to see HTML
 stream into a sandboxed preview live.
@@ -89,7 +109,7 @@ runtime setup stays the same.
 Define an array of sandbox functions. Each function has a `name`, a
 `description`, a `parameters` schema, and a `handler`:
 
-```ts title="sandbox-functions.ts"
+```ts title="app/sandbox-functions.ts"
 import { z } from "zod";
 
 export const openGenUiSandboxFunctions = [
@@ -107,9 +127,27 @@ export const openGenUiSandboxFunctions = [
 ];
 ```
 
-Pass the array to `openGenerativeUI.sandboxFunctions` on `CopilotKit`:
+Pass the array to `openGenerativeUI.sandboxFunctions` on your provider. In the
+[quickstart](/quickstart), that is `app/providers.tsx`:
 
-<Snippet region="sandbox-function-registration" cell="open-gen-ui-advanced" />
+```tsx title="app/providers.tsx"
+"use client";
+import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+import { openGenUiSandboxFunctions } from "./sandbox-functions";
+
+export function Providers({ children }: { children: React.ReactNode }) {
+  return (
+    <CopilotKitProvider
+      runtimeUrl="/api/copilotkit"
+      openGenerativeUI={{ sandboxFunctions: openGenUiSandboxFunctions }} // [!code highlight]
+    >
+      {children}
+    </CopilotKitProvider>
+  );
+}
+```
+
+Keep the array at module level, as above. The provider warns when it gets a new array on each render.
 
 The generated iframe calls a sandbox function with
 `Websandbox.connection.remote.<name>(args)`. `parameters` describes the

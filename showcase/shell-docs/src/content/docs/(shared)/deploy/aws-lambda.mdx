@@ -12,8 +12,8 @@ Copilot Runtime is a [Fetch handler](/runtime-server-adapter), so it runs on Lam
 | --- | --- | --- |
 | [**Lambda Function URL**](#function-url-with-response-streaming) with `InvokeMode: RESPONSE_STREAM` | Yes | The default. Nothing sits between the browser and the function. |
 | [**API Gateway REST API**](#api-gateway-rest-api-with-response-streaming) with `responseTransferMode: STREAM` | Yes | You need REST API features in front of the runtime: WAF, usage plans, a custom authorizer, or an existing REST API to extend. |
-| [API Gateway **HTTP** API](#buffered-fallback-http-apis-and-alb) | No | Response streaming is REST-only. Buffered: 6 MB cap, 29-second timeout. |
-| [Application Load Balancer](#buffered-fallback-http-apis-and-alb) | No | ALB has no streaming path for Lambda targets. |
+| [API Gateway **HTTP** API](#buffered-fallback-http-apis-and-alb) | No | Response streaming is REST-only. Buffered: 6 MB cap, 30-second timeout at most. |
+| [Application Load Balancer](#buffered-fallback-http-apis-and-alb) | No | ALB has no streaming path for Lambda targets. Buffered: 1 MB cap. |
 
 <Callout type="warn" title="Streaming is opt-in on every path">
   Both streaming front doors default to buffering: a Function URL to `BUFFERED` invoke mode,
@@ -34,7 +34,18 @@ Response streaming needs three things:
 - A handler wrapped in `awslambda.streamifyResponse`.
 - A Node.js managed runtime of version 20 or later. AWS supports response streaming from Node.js 18, but `@copilotkit/runtime` requires Node.js 20.
 
-### 1. The handler
+### 1. Install the packages
+
+In your Lambda project:
+
+```bash
+npm install @copilotkit/runtime
+npm install -D @types/aws-lambda @types/node esbuild
+```
+
+`@types/aws-lambda` gives the event types the handler imports. `esbuild` bundles the handler for deployment.
+
+### 2. The handler
 
 Lambda Function URLs deliver events in payload format 2.0. Convert that into a `Request`, hand it to the CopilotKit handler, then pipe the `Response` body into the Lambda response stream.
 
@@ -124,12 +135,33 @@ declare global {
 export {};
 ```
 
-### 2. Set the invoke mode
+### 3. Deploy the function and set the invoke mode
 
 Streaming is off by default. The Function URL must be created with `InvokeMode: RESPONSE_STREAM`. Flipping it later requires updating the URL config, not the function.
 
+Set the function timeout to cover a full agent run. The Lambda default of 3 seconds cuts off almost any run.
+
 <Tabs groupId="iac" items={["AWS CLI", "AWS CDK", "AWS SAM"]}>
 <Tab value="AWS CLI">
+Bundle the handler, then create the function. Use an execution role that you already have for Lambda:
+
+```bash
+npx esbuild src/handler.ts --bundle --platform=node --target=node22 --outfile=dist/handler.js
+(cd dist && zip handler.zip handler.js)
+
+aws lambda create-function \
+  --function-name copilotkit-runtime \
+  --runtime nodejs22.x \
+  --handler handler.handler \
+  --zip-file fileb://dist/handler.zip \
+  --role arn:aws:iam::<account-id>:role/<lambda-execution-role> \
+  --timeout 300 \
+  --memory-size 1024 \
+  --environment "Variables={OPENAI_API_KEY=$OPENAI_API_KEY}"
+```
+
+Create the Function URL with streaming:
+
 ```bash
 aws lambda create-function-url-config \
   --function-name copilotkit-runtime \
@@ -137,6 +169,26 @@ aws lambda create-function-url-config \
   --invoke-mode RESPONSE_STREAM \
   --cors '{"AllowOrigins":["https://myapp.com"],"AllowHeaders":["content-type","authorization"],"AllowMethods":["GET","POST"]}'
 ```
+
+A Function URL with `--auth-type NONE` still needs a resource policy that lets anyone call it. Without it, callers get `403 Forbidden`:
+
+```bash
+aws lambda add-permission \
+  --function-name copilotkit-runtime \
+  --statement-id url-public \
+  --action lambda:InvokeFunctionUrl \
+  --principal '*' \
+  --function-url-auth-type NONE
+
+aws lambda add-permission \
+  --function-name copilotkit-runtime \
+  --statement-id url-invoke \
+  --action lambda:InvokeFunction \
+  --principal '*' \
+  --invoked-via-function-url
+```
+
+CDK `addFunctionUrl` and SAM `FunctionUrlConfig` add these permissions for you.
 </Tab>
 <Tab value="AWS CDK">
 ```ts title="lib/stack.ts"
@@ -167,12 +219,19 @@ fn.addFunctionUrl({
 </Tab>
 <Tab value="AWS SAM">
 ```yaml title="template.yaml"
+Transform: AWS::Serverless-2016-10-31
+
+Parameters:
+  OpenAiApiKey:
+    Type: String
+    NoEcho: true
+
 Resources:
   CopilotKitRuntime:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: ./
-      Handler: dist/handler.handler
+      Handler: handler.handler
       Runtime: nodejs22.x
       Timeout: 300
       MemorySize: 1024
@@ -192,20 +251,22 @@ Resources:
         Bundle: true
         EntryPoints: [src/handler.ts]
 ```
+
+`BuildMethod: esbuild` needs `esbuild` on your `PATH`, for example `npm install -g esbuild`. `sam build` does not find the dev dependency from step 1. The build writes `handler.js` at the root of the function package, so the `Handler` is `handler.handler`.
 </Tab>
 </Tabs>
 
-### 3. Point the frontend at it
+### 4. Point the frontend at it
 
 The Function URL is the origin. Append `basePath` to it.
 
 <FrontendOnly frontend="react">
 ```tsx
-<CopilotKit
+<CopilotKitProvider
   runtimeUrl="https://<url-id>.lambda-url.<region>.on.aws/api/copilotkit"
 >
-  <YourApp />
-</CopilotKit>
+  {children}
+</CopilotKitProvider>
 ```
 </FrontendOnly>
 
@@ -272,7 +333,15 @@ function toFetchRequest(event: APIGatewayProxyEvent): Request {
 }
 ```
 
-The `awslambda.streamifyResponse(...)` block from the Function URL section works as-is on top of this.
+Reuse the `awslambda.streamifyResponse(...)` block from the Function URL section, and change its event type to match:
+
+```ts
+export const handler = awslambda.streamifyResponse(
+  async (event: APIGatewayProxyEvent, responseStream) => {
+    // ...same body as the Function URL handler
+  },
+);
+```
 
 ### 2. Configure the integration
 
@@ -324,6 +393,8 @@ api.root.addResource("api").addResource("copilotkit").addResource("{proxy+}").ad
 `responseTransferMode` needs a recent `aws-cdk-lib`. The construct sets the streaming invocation URI for you.
 </Tab>
 <Tab value="AWS SAM">
+This is a fragment. Add it to a template that already defines `CopilotKitApi` (`AWS::ApiGateway::RestApi`), `CopilotKitProxyResource`, and an `AWS::Lambda::Permission` that lets `apigateway.amazonaws.com` invoke the function.
+
 ```yaml title="template.yaml"
 CopilotKitMethod:
   Type: AWS::ApiGateway::Method
@@ -391,10 +462,40 @@ app.use(
 export const handler = serverlessHttp(app);
 ```
 
+<Callout type="warn" title="Do not bundle express">
+  `createCopilotExpressHandler` loads `express` from `node_modules` at run time. A bundle that inlines
+  `express` fails on the first request. Bundle as ESM, keep `express` external, and ship
+  `node_modules/express` with the function.
+
+  With the AWS CDK, set these `NodejsFunction` bundling options
+  (`OutputFormat` comes from `aws-cdk-lib/aws-lambda-nodejs`):
+
+  ```ts
+  bundling: {
+    format: OutputFormat.ESM,
+    nodeModules: ["express"],
+    banner:
+      "import { createRequire as topLevelCreateRequire } from 'module'; const require = topLevelCreateRequire(import.meta.url);",
+  },
+  ```
+
+  To bundle it yourself, run esbuild, then zip `handler.mjs` together with `node_modules/express`
+  and its dependencies, and set the handler to `handler.handler`:
+
+  ```bash
+  npx esbuild src/handler.ts --bundle --platform=node --target=node22 --format=esm \
+    --external:express --outfile=dist/handler.mjs \
+    --banner:js="import { createRequire as topLevelCreateRequire } from 'module'; const require = topLevelCreateRequire(import.meta.url);"
+  ```
+
+  SAM's `BuildMethod: esbuild` does not copy external packages into the function package, so it does
+  not work for this handler.
+</Callout>
+
 Two constraints to plan around:
 
-- **6 MB response cap.** Lambda caps a buffered response at 6 MB. A long agent run with large tool results can exceed it, and the request fails rather than truncating.
-- **29-second integration timeout.** Agent runs longer than that return a 504 even though the Lambda keeps executing. On an HTTP API this ceiling is fixed. On a REST API, `responseTransferMode: STREAM` lifts both limits.
+- **Response cap.** Lambda caps a buffered response at 6 MB. Behind an ALB the cap is 1 MB. A long agent run with large tool results can exceed it, and the request fails rather than truncating.
+- **Integration timeout.** 29 seconds on a REST API by default, and 30 seconds at most on an HTTP API. Agent runs longer than that return a 504 even though the Lambda keeps executing. On a REST API, `responseTransferMode: STREAM` lifts both limits.
 
 Single-route mode pairs well here, since it collapses the runtime to one `POST` and avoids configuring a catch-all proxy resource:
 
@@ -418,6 +519,7 @@ const copilotHandler = createCopilotRuntimeHandler({
   cors: true,
   hooks: {
     onRequest: async ({ request }) => {
+      // verifyToken is your own function, for example a JWT check.
       const token = request.headers.get("authorization");
       if (!token || !(await verifyToken(token))) {
         // Throwing a Response short-circuits the handler.
@@ -434,7 +536,7 @@ See [Authentication](/auth) for forwarding user identity through to your agent.
 
 ## Operational notes
 
-- **Bundle your dependencies.** `@copilotkit/runtime` is not in any AWS-managed layer. Use `NodejsFunction` (CDK), `BuildMethod: esbuild` (SAM), or your own bundler.
+- **Bundle your dependencies.** `@copilotkit/runtime` is not in any AWS-managed layer. Use `NodejsFunction` (CDK), `BuildMethod: esbuild` (SAM), or your own bundler. For the buffered Express handler, keep `express` out of the bundle (see above).
 - **Construct the runtime outside the handler.** Putting `new CopilotRuntime(...)` at module scope means warm invocations reuse it rather than rebuilding it per request.
 - **Set the timeout to cover a full agent run.** Lambda's maximum is 15 minutes. The default of 3 seconds cuts off almost any run.
 - **Cold starts are visible in chat.** Provisioned concurrency is the usual fix if first-token latency matters.

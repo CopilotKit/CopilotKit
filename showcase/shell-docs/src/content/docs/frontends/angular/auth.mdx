@@ -19,7 +19,10 @@ backend secrets.
 
 ## Send the current session
 
-Set initial headers in `provideCopilotKit`:
+Set initial headers in `provideCopilotKit`. `readSessionToken()` stands for
+your app's own session lookup, for example
+`localStorage.getItem("session-token") ?? ""`. Keep the `runtimeUrl` from the
+[Angular quickstart](/angular).
 
 ```ts title="src/app/app.config.ts"
 import { ApplicationConfig } from "@angular/core";
@@ -28,9 +31,9 @@ import { provideCopilotKit } from "@copilotkit/angular";
 export const appConfig: ApplicationConfig = {
   providers: [
     provideCopilotKit({
-      runtimeUrl: "/api/copilotkit",
+      runtimeUrl: "http://localhost:8200/api/copilotkit",
       headers: {
-        Authorization: `Bearer ${readSessionToken()}`,
+        Authorization: `Bearer ${readSessionToken()}`, // [!code highlight]
       },
     }),
   ],
@@ -38,20 +41,29 @@ export const appConfig: ApplicationConfig = {
 ```
 
 When sign-in state changes after bootstrap, update the runtime connection
-through the `CopilotKit` service:
+through the `CopilotKit` service. `inject()` works only in an injection
+context, so put the call in a service:
 
-```ts
-import { inject } from "@angular/core";
+```ts title="src/app/session-sync.service.ts"
+import { Injectable, inject } from "@angular/core";
 import { CopilotKit } from "@copilotkit/angular";
 
-const copilotKit = inject(CopilotKit);
+@Injectable({ providedIn: "root" })
+export class SessionSync {
+  private readonly copilotKit = inject(CopilotKit);
 
-copilotKit.updateRuntime({
-  headers: sessionToken
-    ? { Authorization: `Bearer ${sessionToken}` }
-    : {},
-});
+  setToken(sessionToken: string | null): void {
+    this.copilotKit.updateRuntime({
+      headers: sessionToken
+        ? { Authorization: `Bearer ${sessionToken}` }
+        : {},
+    });
+  }
+}
 ```
+
+Inject `SessionSync` in your sign-in code and call `setToken(token)` after
+sign-in and `setToken(null)` on sign-out.
 
 The runnable Angular Showcase uses the same header shape:
 
@@ -59,8 +71,7 @@ The runnable Angular Showcase uses the same header shape:
 
 ## Send cookies to a cross-origin runtime
 
-To enable HTTP-only cookie authentication, set `credentials: "include"` and
-configure CORS on your runtime endpoint:
+To enable HTTP-only cookie authentication, set `credentials: "include"`:
 
 ```ts title="src/app/app.config.ts"
 import { ApplicationConfig } from "@angular/core";
@@ -70,27 +81,44 @@ export const appConfig: ApplicationConfig = {
   providers: [
     provideCopilotKit({
       runtimeUrl: "https://runtime.example.com/api/copilotkit",
-      credentials: "include",
+      credentials: "include", // [!code highlight]
     }),
   ],
 };
 ```
 
-Configure the runtime with `credentials: true` and the Angular app's exact
-origin. Credentialed CORS requests cannot use `*` as the allowed origin.
+Then replace `cors: true` on the runtime with the Angular app's exact origin
+and `credentials: true`. Credentialed CORS requests cannot use `*` as the
+allowed origin, and `cors: true` sends `*`.
+
+```ts title="server.ts"
+createCopilotNodeListener({
+  runtime,
+  basePath: "/api/copilotkit",
+  cors: { origin: "http://localhost:4200", credentials: true }, // [!code highlight]
+});
+```
 
 ## Validate every runtime request
 
 Use the runtime adapter's request hook to reject missing, expired, or
-unauthorized sessions before CopilotKit discovers or runs an agent:
+unauthorized sessions before CopilotKit discovers or runs an agent.
+`verifySession()` stands for your token check. It returns a session object, or
+`null` when the token is invalid.
+
+This replaces the `createServer(...)` call in the quickstart's `server.ts`:
 
 ```ts title="server.ts"
+import { createServer } from "node:http";
 import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
+
+// ...runtime and port from the quickstart
 
 const listener = createCopilotNodeListener({
   runtime,
   basePath: "/api/copilotkit",
   cors: true,
+  // [!code highlight:12]
   hooks: {
     onRequest: async ({ request }) => {
       const token = request.headers
@@ -104,6 +132,8 @@ const listener = createCopilotNodeListener({
     },
   },
 });
+
+createServer(listener).listen(port);
 ```
 
 Apply authorization as well as authentication. A valid user token does not

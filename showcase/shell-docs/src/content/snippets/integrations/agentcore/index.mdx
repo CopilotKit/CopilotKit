@@ -10,7 +10,7 @@ your browser and AgentCore. This is the same runtime as for any CopilotKit agent
 the runtime must run on the server. Browsers cannot sign SigV4 or OAuth2 requests to AgentCore.
 
 ```
-Browser → CopilotKit Runtime → AgentCore Runtime → your agent
+Browser → Copilot Runtime → AgentCore Runtime → your agent
 ```
 
 ## What you get
@@ -28,6 +28,9 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
   done this yet, follow the [AWS CLI getting started
   guide](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-started.html)
   before continuing.
+
+  The **Start from scratch** path also needs Docker (running), Node.js 18+, uv, and a
+  CopilotKit Intelligence API key. The deploy script stops if any of them is missing.
 </Callout>
 
 <Steps>
@@ -63,11 +66,17 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
       <Step>
         ### Configure
 
-        Open `config.yaml` and set your details:
+        Open `config.yaml` and set your details. If the folder has only `config.yaml.example`, copy it first with `cp config.yaml.example config.yaml`.
 
         ```yaml title="config.yaml"
         stack_name_base: my-agentcore-app   # prefix for all AWS resources (max 35 chars)
         admin_user_email: you@example.com   # where your Cognito invite will be sent
+        ```
+
+        The deploy script also reads `.env` in the project root. Create it and set `CPK_INTELLIGENCE_API_KEY`:
+
+        ```bash
+        cp .env.example .env
         ```
       </Step>
 
@@ -90,15 +99,15 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
       </Step>
 
       <Step>
-        ### Run locally
+        ### Run locally against your deployed stack
 
-        To run the full stack locally (agent, Copilot Runtime, and frontend) without deploying:
+        You can run the agent, Copilot Runtime, and frontend on your machine. Deploy once first: `up.sh` reads the stack outputs (stack name, AgentCore memory id, Cognito config) from AWS.
 
         ```bash
-        cp .env.example .env
         cp docker/.env.example docker/.env
         cd docker
-        # Fill in AWS credentials in docker/.env
+        # Fill in AWS credentials in docker/.env.
+        # Set AGENT=langgraph or AGENT=strands to match your stack (the file ships AGENT=strands).
         ./up.sh --build
         ```
 
@@ -114,9 +123,11 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
 
         When done, delete all AWS resources to stop charges:
 
-        ```bash
-        cd infra-cdk && npx cdk destroy --all
-        ```
+        <AgentCoreCommandTabs
+          framework={framework}
+          lgCommand="cd infra-cdk && npx cdk@latest destroy --all --output ../cdk.out-lg"
+          stCommand="cd infra-cdk && npx cdk@latest destroy --all --output ../cdk.out-st"
+        />
       </Step>
     </TailoredContentOption>
 
@@ -135,8 +146,10 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
         </Callout>
 
         ```npm
-        npm install @copilotkit/react-core @copilotkit/runtime @copilotkit/agentcore-runner @ag-ui/client@1.0.2
+        npm install @copilotkit/react-core @copilotkit/runtime @copilotkit/agentcore-runner @ag-ui/client
         ```
+
+        `@ag-ui/client` must be the same version that `@copilotkit/runtime` uses. Two versions make TypeScript report that `HttpAgent` is not assignable to `AbstractAgent`. Run `npm ls @ag-ui/client`: the top-level copy must be the version that `@copilotkit/runtime` lists as `deduped`.
       </Step>
 
       <Step>
@@ -175,6 +188,8 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
 
         export const GET = handler;
         export const POST = handler;
+        export const PATCH = handler;
+        export const DELETE = handler;
         ```
 
         <Callout type="info" title="What is AGENTCORE_ENDPOINT_URL?">
@@ -188,20 +203,21 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
           user's Cognito JWT from the frontend through to AgentCore. See the
           [AgentCore template](https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/agentcore) for a complete Cognito OIDC implementation.
         </Callout>
-      </Step>
 
-      <Step>
-        ### Why the route uses AgentCoreRunner
+        <Callout type="info" title="Why the route uses AgentCoreRunner">
+          AgentCore's memory layer stores conversation history server-side. When CopilotKit reconnects
+          to an existing thread (for example, on page refresh), two issues arise. `AgentCoreRunner` from
+          `@copilotkit/agentcore-runner` handles both:
 
-        AgentCore's memory layer stores conversation history server-side. When CopilotKit reconnects
-        to an existing thread (for example, on page refresh), two issues arise. `AgentCoreRunner` from
-        `@copilotkit/agentcore-runner` handles both:
+          1. **Unknown threads**: CopilotKit may call `connect()` before any `run()` has happened.
+             The runner answers with an empty thread instead of an error.
+          2. **Missing tool-call results**: AgentCore's replayed history includes assistant messages
+             with tool calls, but omits the corresponding results. The runner adds an empty result
+             for each past tool call, so CopilotKit can reconcile its message state.
 
-        1. **Unknown threads**: CopilotKit may call `connect()` before any `run()` has happened.
-           The runner answers with an empty thread instead of an error.
-        2. **Missing tool-call results**: AgentCore's replayed history includes assistant messages
-           with tool calls, but omits the corresponding results. The runner adds an empty result
-           for each past tool call, so CopilotKit can reconcile its message state.
+          The runner tracks threads in server memory. After the Copilot Runtime restarts, reconnecting
+          to an older thread shows an empty chat, although the agent still remembers the conversation.
+        </Callout>
       </Step>
 
       <Step>
@@ -210,13 +226,13 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
         ```tsx title="app/providers.tsx"
         "use client";
 
-        import { CopilotKit } from "@copilotkit/react-core/v2";
+        import { CopilotKitProvider } from "@copilotkit/react-core/v2";
 
         export function Providers({ children }: { children: React.ReactNode }) {
           return (
-            <CopilotKit runtimeUrl="/api/copilotkit" agent="my_agent" useSingleEndpoint={false}>
+            <CopilotKitProvider runtimeUrl="/api/copilotkit" agentId="my_agent" useSingleEndpoint={false}>
               {children}
-            </CopilotKit>
+            </CopilotKitProvider>
           );
         }
         ```
@@ -224,6 +240,7 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
         Render `Providers` in `app/layout.tsx`:
 
         ```tsx title="app/layout.tsx"
+        import { Suspense } from "react";
         import { Providers } from "./providers";
         import "@copilotkit/react-core/v2/styles.css";
 
@@ -231,14 +248,18 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
           return (
             <html lang="en">
               <body>
-                <Providers>
-                  {children}
-                </Providers>
+                <Suspense>
+                  <Providers>
+                    {children}
+                  </Providers>
+                </Suspense>
               </body>
             </html>
           );
         }
         ```
+
+        `<Suspense>` keeps `npm run build` working when `next.config.ts` sets `cacheComponents: true`, the `create-next-app` default in Next.js 16.
       </Step>
 
       <Step>
@@ -277,6 +298,10 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
         ```bash
         npm run dev
         ```
+
+        For a quick test with a Cognito user pool, you can get a token with
+        `aws cognito-idp initiate-auth --auth-flow USER_PASSWORD_AUTH --client-id <app-client-id> --auth-parameters USERNAME=<user>,PASSWORD=<password> --query AuthenticationResult.AccessToken --output text`.
+        The app client must allow the `USER_PASSWORD_AUTH` flow.
 
         Navigate to `localhost:3000`. The frontend runs locally while the agent stays on AgentCore.
         The `/api/copilotkit` route forwards each call to the invocation URL using your token.

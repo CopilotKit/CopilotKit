@@ -28,7 +28,8 @@ tool call is evaluated against policies before it runs. Requirements:
   payouts — requires human approval), and `openbox_resume_governed_action`
   (resumes after an approval). Define the governed business action with
   `createGovernedCopilotTool` from `@openbox-ai/openbox-sdk/copilotkit`, sharing
-  one adapter with the middleware. Put `createOpenBoxGovernanceMiddleware()`
+  one adapter with the middleware. Build the OpenBox LangChain middleware with
+  `adapter.createLangChainMiddleware({ createMiddleware, AIMessage })` and put it
   FIRST in the middleware array, before `copilotkitMiddleware`.
 - A Next.js frontend whose `/api/copilotkit` route hosts a CopilotKit V2
   `CopilotRuntime` wrapped by `createOpenBoxCopilotRuntime`, with the same
@@ -69,13 +70,9 @@ Walk me through it step by step, starting with the agent and its governed tools.
 
 | Layer | What it does | Where it lives |
 | --- | --- | --- |
-| **OpenBox** | Evaluates every tool call against your policies (allow / redact / approve / block / halt), records an immutable audit trail, and signs agent identity. | `createOpenBoxCopilotRuntime` (frontend) + `createOpenBoxGovernanceMiddleware` (agent) |
+| **OpenBox** | Evaluates every tool call against your policies (allow / redact / approve / block / halt), records an immutable audit trail, and signs agent identity. | `createOpenBoxCopilotRuntime` (frontend) + the adapter's `createLangChainMiddleware()` (agent) |
 | **CopilotKit** | Hosts the V2 runtime, streams the conversation, and renders each governance verdict as a generative UI card. | `frontend/`: `/api/copilotkit` route + the chat page |
 | **LangGraph** | Runs the agent: a routing system prompt classifies the request and calls exactly one governed tool (with `parallel_tool_calls: false`), whose generated business result is itself governed. | `agent/`: `openbox_copilotkit_agent` graph |
-
-## Run it
-
-Run the demo yourself by following the steps below (`agent/` on port 8123 and `frontend/` on port 3000), then send any prompt from the [governance matrix](#try-it) to watch OpenBox govern each action in real time.
 
 ## Prerequisites
 
@@ -88,41 +85,13 @@ Run the demo yourself by following the steps below (`agent/` on port 8123 and `f
 There is no offline mock. Every prompt sends a real tool call to your OpenBox Core instance, which evaluates it and writes an audit record. To disable the middleware and compare governed vs. ungoverned behavior, set `OPENBOX_ENABLED=false` in the agent `.env`.
 </Callout>
 
-## Run the agent
+## Run it
 
-```bash
-git clone https://github.com/CopilotKit/CopilotKit.git
-cd CopilotKit/examples/showcases/openbox-governed-copilotkit
-
-cd agent
-npm install
-cp .env.example .env          # then fill in your credentials
-
-# Provision the governance config on your OpenBox backend (one time).
-npm run openbox:admin:setup # [!code highlight]
-npm run openbox:verify        # end-to-end verification of the full matrix (optional)
-
-npm run dev
-```
-
-The agent starts on `http://localhost:8123`. All three scripts run from `agent/`.
-
-<Callout type="warning" title="Run the provisioning script first">
-A fresh OpenBox agent allows everything. `npm run openbox:admin:setup` installs the policy, guardrails, and behavior rules behind the allow/approve/block/halt outcomes. It is idempotent, so re-running it only refreshes them. It needs `OPENBOX_API_URL` and the `obx_key_…` `OPENBOX_BACKEND_API_KEY` from [Prerequisites](#prerequisites). Run `npm run openbox:verify` any time to confirm the policy is live.
+<Callout type="warning" title="Run the reference repo">
+The CopilotKit repository has no runnable example for this recipe. To run the stack, start from the reference repo [OpenBox-AI/openbox-x-copilotkit](https://github.com/OpenBox-AI/openbox-x-copilotkit) and follow its README.
 </Callout>
 
-## Run the frontend
-
-In a second terminal:
-
-```bash
-cd frontend
-npm install
-cp .env.local.example .env.local   # then fill in your credentials
-npm run dev
-```
-
-Open `http://localhost:3000`.
+Before you send a prompt, provision the policy, guardrails, and behavior rules on your OpenBox backend. A fresh OpenBox agent allows everything, so no prompt is blocked or held until the policy is in place. Then send any prompt from the [governance matrix](#try-it) to watch OpenBox govern each action.
 
 ## Try it
 
@@ -225,9 +194,23 @@ const handler = createCopilotRuntimeHandler({
 });
 ```
 
-In the agent graph, the OpenBox governance middleware runs **first**, ahead of CopilotKit's, so a tool call is evaluated before anything else sees it. The `systemPrompt` is a routing prompt: it maps each natural-language request to exactly one of the ten governed actions. The model runs with `parallel_tool_calls: false`, so a request can never fan out into multiple ungoverned tool calls:
+The `as any` casts cover differences between the OpenBox SDK's own CopilotKit types and the `@copilotkit/runtime` version in your app.
+
+In the agent graph, the OpenBox governance middleware runs **first**, ahead of CopilotKit's, so a tool call is evaluated before anything else sees it. The `systemPrompt` is a routing prompt: it maps each natural-language request to exactly one of the ten governed actions. The model runs with `parallel_tool_calls: false`, so a request can never fan out into multiple ungoverned tool calls.
+
+The SDK has no standalone middleware export. The middleware comes from the same `createOpenBoxCopilotKitAdapter(...)` instance that the governed tools use (`openBoxCopilotKitAdapter` below), through its `createLangChainMiddleware` method:
 
 ```ts title="agent/src/agent.ts"
+import { createMiddleware, type AgentMiddleware } from "langchain";
+import { AIMessage } from "@langchain/core/messages";
+
+function createOpenBoxGovernanceMiddleware() {
+  return openBoxCopilotKitAdapter.createLangChainMiddleware({ // [!code highlight]
+    createMiddleware,
+    AIMessage,
+  }) as AgentMiddleware;
+}
+
 const model = createConfiguredChatOpenAI({
   modelKwargs: { parallel_tool_calls: false }, // [!code highlight]
 });

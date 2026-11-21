@@ -120,28 +120,6 @@ If you see `Failed to find or contact remote endpoint at url ...` (error code `R
 
 </Accordions>
 
-## Connection issues with tunnel creation
-
-If you notice the tunnel creation process spinning indefinitely, your router or ISP might be blocking the connection to CopilotKit's tunnel service.
-
-<Accordions>
-    <Accordion title="Router or ISP blocking tunnel connections">
-        To verify connectivity to the tunnel service, try these commands:
-
-        ```bash
-        ping tunnels.devcopilotkit.com
-        curl -I https://tunnels.devcopilotkit.com
-        telnet tunnels.devcopilotkit.com 443
-        ```
-
-        If these fail, your router's security features or ISP might be blocking the connection. Common solutions:
-        - Check router security settings
-        - Contact your ISP to verify if they're blocking the connection
-        - Try a different network to confirm the issue
-    </Accordion>
-
-</Accordions>
-
 <Callout>
     Have an issue not listed here? Open a ticket on [GitHub](https://github.com/CopilotKit/CopilotKit/issues) or ask on [Discord](https://discord.com/invite/6dffbvGU3D).
 

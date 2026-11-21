@@ -27,15 +27,24 @@ Rendering runs only when you post host JSX or use the `<Render>` component. Star
     The image path renders through React and [Takumi](https://github.com/takumi-rs/takumi). Both are **optional peer dependencies** of `@copilotkit/channels`, so they are not pulled in automatically. Add them before posting images:
 
     ```bash
-    pnpm add react takumi-js
+    npm install react takumi-js
     ```
+
+    With pnpm, run `pnpm add react takumi-js`.
 
     Without a renderer, posting JSX as an image throws an error that names the `render.renderer` setting.
   </Step>
   <Step>
     ### Configure the renderer, fonts, and styling once
 
-    Takumi is a static, browser-free rasterizer with no system fonts, only a built-in Latin (Geist) fallback. Register the renderer, your fonts, and your compiled CSS once on `createChannel({ render })`, and every image post picks them up:
+    Takumi is a static, browser-free rasterizer with no system fonts, only a built-in Latin (Geist) fallback. Register the renderer, your fonts, and your compiled CSS once on `createChannel({ render })`, and every image post picks them up.
+
+    The example reads three files. Create them first:
+
+    1. Fonts: run `npm install @fontsource/inter`. Copy `node_modules/@fontsource/inter/files/inter-latin-400-normal.woff2` to `./fonts/Inter-Regular.woff2`, and `inter-latin-600-normal.woff2` to `./fonts/Inter-SemiBold.woff2`.
+    2. CSS: put your compiled CSS in `./styles/global.css`. For Tailwind, run `npm install -D tailwindcss @tailwindcss/cli`, put `@import "tailwindcss";` in `./styles/tailwind.css`, then run `npx @tailwindcss/cli -i ./styles/tailwind.css -o ./styles/global.css`.
+
+    To start without them, remove `fonts` and `stylesheets`. Takumi then uses its built-in Latin font.
 
     ```ts title="channel.ts"
     import { createChannel } from "@copilotkit/channels";
@@ -43,8 +52,14 @@ Rendering runs only when you post host JSX or use the `<Render>` component. Star
     import { readFileSync } from "node:fs";
     import { makeAgent } from "./agent.js";
 
+    function required(name: string): string {
+      const value = process.env[name];
+      if (!value) throw new Error(`Missing ${name}`);
+      return value;
+    }
+
     const channel = createChannel({
-      name: "support", // managed channel configured in Intelligence
+      name: required("CHANNEL_CODE"), // managed channel configured in Intelligence
       identifyUser: "platform",
       agent: makeAgent,
       render: {
@@ -66,6 +81,8 @@ Rendering runs only when you post host JSX or use the `<Render>` component. Star
 
     // ...same createChannel call as above, with stylesheets: [appCss]
     ```
+
+    With `takumi-js` 2.20, each render logs ``takumi: the `stylesheets` option is deprecated, use `css` instead.`` The warning is harmless. The image still renders.
 
     <Callout type="warn" title="No fonts configured means Latin-only">
       Takumi cannot detect missing glyphs before render, so the SDK warns once when no `fonts` are configured, and non-Latin text drops from the image. Any other Takumi render error is surfaced, not swallowed, so a broken font or stylesheet fails loudly.
@@ -101,7 +118,7 @@ Rendering runs only when you post host JSX or use the `<Render>` component. Star
 
     Use pure presentational components. Top-level component functions are expanded outside React's hook dispatcher, so hooks, browser APIs, and effects are unsupported. A reused native element renders again on each post or update; its output is not cached.
 
-    To check the setup, run the second `thread.post` above in a message handler. A PNG of the MRR card appears in the Slack or Teams thread.
+    To check the setup, run the second `thread.post` above in a message handler. A PNG of the MRR card appears in the Slack or Teams thread. Always pass `altText`: without it, Teams shows `image.png` as the alt text.
 
     <Callout type="info" title="Image is URL-only">
       `<Image url>` is a public URL image. It does not take children. To put a React snapshot inside native text, buttons, or a carousel, wrap it in `<Render>`. See [Render and carousel](/channels/render-and-carousel).
@@ -131,7 +148,7 @@ Rendering runs only when you post host JSX or use the `<Render>` component. Star
   <Step>
     ### Override per post
 
-    You can override canvas dimensions, fonts, and stylesheets for a single post. Use this for a wider dashboard, a taller card, or an extra font for one message:
+    You can override canvas dimensions, fonts, and stylesheets for a single post. Use this for a wider dashboard, a taller card, or an extra font for one message. In this example, `WideDashboard`, `CjkReport`, and `MrrCard` stand for your own card components, `rows` for your data, and `notoSansJP` for a font entry shaped like the `fonts` items above:
 
     ```tsx
     await thread.post(<WideDashboard data={rows} />, { width: 1200 });
@@ -180,6 +197,7 @@ Rendering runs only when you post host JSX or use the `<Render>` component. Star
     - **`update()` and `postEphemeral()` do not accept arbitrary JSX.** An uploaded image cannot be edited in place, so both reject host image markup; React wrappers that return native channel components remain supported. Post a new image instead.
     - **Snapshots inside native messages support `post()` and `update()`.** Use `<Render>` for this form. `postEphemeral()` rejects `<Render>` snapshots rather than silently dropping them.
     - **Managed image uploads do not return an addressable message reference.** A successful image post currently returns `{ id: "" }` and warns once. Do not pass this reference to `update()`, `delete()`, or `react()`. Native messages, including messages containing `<Render>`, keep their normal references.
+    - **Image posts made outside an agent run are not recorded in Thread history.** A post from a handler that does not run the agent can log `canonical_history_gap`. The image still reaches Slack or Teams.
     - **The canvas has a fixed size.** It defaults to 720 by 480. Pass `width`/`height` globally via `render`, or per post, for anything else.
   </Step>
 </Steps>

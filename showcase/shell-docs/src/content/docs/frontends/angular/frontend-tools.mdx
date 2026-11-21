@@ -11,14 +11,71 @@ when the tool should show progress or a result in chat.
 
 ## Register a browser tool
 
-Call `registerFrontendTool` from an Angular injection context. The live
-Showcase example builds a typed tool config around a writable signal:
+This example lets the agent change the page background. Install zod if your
+app does not have it:
+
+```bash
+npm install zod
+```
+
+### Define the tool
+
+Create `src/app/tool-feature-model.ts`. Start the file with these imports and
+helpers:
+
+```ts title="src/app/tool-feature-model.ts"
+import type { WritableSignal } from "@angular/core";
+import type { FrontendToolConfig } from "@copilotkit/angular";
+import { z } from "zod";
+
+type BackgroundToolArgs = { background?: string; color?: string };
+
+const resolveGradient = (value?: string) =>
+  value?.includes("gradient")
+    ? value
+    : `linear-gradient(135deg, ${value ?? "white"}, white)`;
+```
+
+Then add the tool config below them. This is the live Showcase example. It
+builds a typed tool config around a writable signal:
 
 <AngularSnippet region="frontend-tool-registration" />
 
-Register that config from a component or service with
-`registerFrontendTool(createBackgroundTool(background))`. The registration is
-removed when that injector is destroyed.
+### Register it
+
+Call `registerFrontendTool` from an Angular injection context, such as a
+component constructor. Bind the signal to the element whose background should
+change:
+
+```ts title="src/app/app.ts"
+import { Component, signal } from "@angular/core";
+import { CopilotChat, registerFrontendTool } from "@copilotkit/angular";
+import { createBackgroundTool } from "./tool-feature-model";
+
+@Component({
+  selector: "app-root",
+  imports: [CopilotChat],
+  template: `
+    <main [style.background]="background()" style="height: 100vh; padding: 2rem">
+      <div style="height: 100%"><copilot-chat /></div>
+    </main>
+  `,
+})
+export class App {
+  protected readonly background = signal("white");
+
+  constructor() {
+    registerFrontendTool(createBackgroundTool(this.background)); // [!code highlight]
+  }
+}
+```
+
+The registration is removed when that injector is destroyed.
+
+Ask the agent: "Change the background to blue". The page background around
+the chat turns to a blue-to-white gradient, and the agent confirms the change.
+
+### How the tool gets its input
 
 The schema advertises the input shape and supplies TypeScript inference.
 Runtime arguments arrive as parsed JSON. Validate inside the handler when the

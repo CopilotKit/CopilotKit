@@ -34,7 +34,7 @@ The canonical pattern is to append a user message with `agent.addMessage`, then 
 import { toRaw } from "vue";
 import { useAgent, useCopilotKit } from "@copilotkit/vue/v2";
 
-const { agent } = useAgent({ agentId: "sales" });
+const { agent } = useAgent();
 const { copilotkit } = useCopilotKit();
 
 async function run() {
@@ -74,14 +74,20 @@ import AgentTrigger from "./components/AgentTrigger.vue";
 </script>
 
 <template>
-  <CopilotKitProvider runtime-url="/api/copilotkit">
+  <CopilotKitProvider runtime-url="http://localhost:8200/api/copilotkit">
     <AgentTrigger />
-    <CopilotChat agent-id="sales" />
+    <div style="height: 90vh">
+      <CopilotChat />
+    </div>
   </CopilotKitProvider>
 </template>
 ```
 
+Use the same `runtime-url` as in the [quickstart](/vue). `useAgent()` and `<CopilotChat />` both use the agent named `default`. To drive another agent, pass the same id to both: `useAgent({ agentId: "sales" })` and `<CopilotChat agent-id="sales" />`. The id must be registered in your Copilot Runtime.
+
 Click **Run agent**. The message and the agent's reply appear in the chat, and **Stop** is enabled while the run is in progress.
+
+If **Run agent** does nothing, open the browser console. `useAgent: Agent '...' not found after runtime sync` means the agent id is not registered in your Copilot Runtime.
 
 ### `copilotkit.runAgent()` vs `agent.runAgent()`
 
@@ -93,6 +99,8 @@ Both methods trigger the agent, but they operate at different levels:
 ## Subscribing to agent events
 
 `agent.subscribe(subscriber)` returns `{ unsubscribe }`. The subscriber accepts every AG-UI lifecycle callback: `onCustomEvent`, `onRunStartedEvent`, `onRunFinalized`, `onRunFailed`, and the streaming deltas. Use it to drive progress UI, forward events to analytics, or inspect framework pause/resume events.
+
+Add this to the `<script setup>` of `AgentTrigger.vue`, below `useAgent()`:
 
 ```ts
 import { watch } from "vue";

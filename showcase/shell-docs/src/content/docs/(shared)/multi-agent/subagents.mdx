@@ -71,6 +71,149 @@ wrapper around a specialized agent call that:
 
 If the excerpt uses a header-forwarding helper, such as `forwardingFetch` or `HeaderForwardingMiddleware`, leave it out of your app. The showcase uses it only to send request headers to its test server.
 
+<Accordions>
+<Accordion title="Built-in Agent: finish the supervisor">
+The Built-in Agent excerpt stops at the tools. To run it in your own app, make these changes.
+
+1. Install the packages:
+
+   ```npm
+   npm install @tanstack/ai @tanstack/ai-openai "zod@^4.2"
+   ```
+
+2. In `subagent-tools.ts`, import `openaiText` from `@tanstack/ai-openai` instead of the showcase helper `../openai-text`.
+
+3. Give each sub-agent call the parent run's `threadId`. `chat()` from `@tanstack/ai` throws `chat() needs a threadId` without it, and the supervisor receives that error as the tool result. With `stream: false`, `chat()` returns `{ text, chunks }`, so read `text` from it:
+
+   ```ts title="src/lib/factory/subagent-tools.ts"
+   export function buildSubagentTools(
+     parentAbortController: AbortController,
+     ids: { threadId: string; runId: string }, // [!code highlight]
+   ) {
+     // ...
+         const { text } = await chat({ // [!code highlight]
+           adapter: openaiText("gpt-6-luna"),
+           messages: [{ role: "user", content: task }],
+           systemPrompts: [role.systemPrompt],
+           abortController: parentAbortController,
+           threadId: ids.threadId, // [!code highlight]
+           runId: `${ids.runId}-${role.id}`, // [!code highlight]
+           stream: false,
+         });
+     // ...
+   }
+   ```
+
+4. Add the supervisor. It runs the tools, then writes each delegation into `delegations` with a `STATE_DELTA` event:
+
+   ```ts title="src/lib/factory/supervisor.ts"
+   import {
+     BuiltInAgent,
+     convertInputToTanStackAI,
+     convertTanStackStream,
+   } from "@copilotkit/runtime/v2";
+   import { EventType, type BaseEvent } from "@ag-ui/client";
+   import { chat } from "@tanstack/ai";
+   import { openaiText } from "@tanstack/ai-openai";
+   import { buildSubagentTools } from "./subagent-tools";
+
+   const SUB_AGENTS = new Set(["research_agent", "writing_agent", "critique_agent"]);
+
+   type Delegation = {
+     id: string;
+     sub_agent: string;
+     task: string;
+     status: "completed";
+     result: string;
+   };
+
+   function parse(value: string | undefined): Record<string, unknown> {
+     try {
+       return JSON.parse(value ?? "{}");
+     } catch {
+       return {};
+     }
+   }
+
+   export const supervisor = new BuiltInAgent({
+     type: "custom",
+     factory: async function* ({ input, abortController }): AsyncGenerator<BaseEvent> {
+       const { messages, systemPrompts, tools } = convertInputToTanStackAI(input);
+       const stream = chat({
+         adapter: openaiText("gpt-6-luna"),
+         messages,
+         systemPrompts: [
+           "You are a supervisor. Delegate research, writing, and critique to your sub-agents, then summarize the result.",
+           ...systemPrompts,
+         ],
+         tools: [
+           ...tools,
+           ...buildSubagentTools(abortController, { threadId: input.threadId, runId: input.runId }),
+         ],
+         threadId: input.threadId,
+         runId: input.runId,
+         abortController,
+       });
+
+       // Keep the entries the client sent back, and merge new ones by id.
+       const state = (input.state ?? {}) as { delegations?: Delegation[] };
+       const delegations: Delegation[] = [...(state.delegations ?? [])];
+       const calls = new Map<string, { name: string; args: string }>();
+
+       for await (const event of convertTanStackStream(stream, abortController.signal)) {
+         yield event;
+         if (event.type === EventType.TOOL_CALL_START) {
+           const e = event as BaseEvent & { toolCallId: string; toolCallName: string };
+           calls.set(e.toolCallId, { name: e.toolCallName, args: "" });
+         } else if (event.type === EventType.TOOL_CALL_ARGS) {
+           const e = event as BaseEvent & { toolCallId: string; delta: string };
+           const call = calls.get(e.toolCallId);
+           if (call) call.args += e.delta;
+         } else if (event.type === EventType.TOOL_CALL_RESULT) {
+           const e = event as BaseEvent & { toolCallId: string; content: string };
+           const call = calls.get(e.toolCallId);
+           if (!call || !SUB_AGENTS.has(call.name)) continue;
+           if (delegations.some((d) => d.id === e.toolCallId)) continue;
+           delegations.push({
+             id: e.toolCallId,
+             sub_agent: call.name,
+             task: String(parse(call.args).task ?? ""),
+             status: "completed",
+             result: String(parse(e.content).text ?? e.content),
+           });
+           yield {
+             type: EventType.STATE_DELTA,
+             delta: [{ op: "add", path: "/delegations", value: [...delegations] }],
+           } as BaseEvent;
+         }
+       }
+     },
+   });
+   ```
+
+5. Register it in your Copilot Runtime route. The showcase registers this agent as `subagents`. This example uses `default`, so the prebuilt chat picks it up with no `agent` prop:
+
+   ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
+   import {
+     CopilotRuntime,
+     createCopilotRuntimeHandler,
+     InMemoryAgentRunner,
+   } from "@copilotkit/runtime/v2";
+   import { supervisor } from "@/src/lib/factory/supervisor";
+
+   const runtime = new CopilotRuntime({
+     agents: { default: supervisor },
+     runner: new InMemoryAgentRunner(),
+   });
+
+   const handler = createCopilotRuntimeHandler({ runtime, basePath: "/api/copilotkit" });
+
+   export const GET = handler;
+   export const POST = handler;
+   ```
+</Accordion>
+</Accordions>
+
 This is where CopilotKit's shared-state channel helps: the
 supervisor's tool calls mutate `delegations` as they happen, and the
 frontend renders every new entry live.
@@ -80,8 +223,9 @@ frontend renders every new entry live.
   client sends its copy of shared state back as run input on every run. A slot
   that appends everything it receives, such as a LangGraph
   `Annotated[list, operator.add]` reducer, adds those entries again. Then the
-  log doubles when a thread continues. The LangGraph excerpt above uses
-  `operator.add`, so in your app, write a reducer that merges by `id`.
+  log doubles when a thread continues. If your framework appends to the slot
+  (for example a LangGraph `Annotated[list, operator.add]` reducer), write a
+  reducer that merges by `id`.
 </Callout>
 
 ## Rendering a live delegation log
@@ -94,7 +238,64 @@ Subscribe with `useAgent({ updates:
 [UseAgentUpdate.OnStateChanged, UseAgentUpdate.OnRunStatusChanged] })`,
 read `agent.state.delegations`, and render one card per entry.
 
-<Snippet region="delegation-log-frontend" title="frontend/src/app/delegation-log.tsx: live log component" />
+The component below uses these types and styles. Put them at the top of the same file:
+
+```tsx title="app/subagents/delegation-log.tsx"
+"use client";
+
+import React from "react";
+
+export type SubAgentName = "research_agent" | "writing_agent" | "critique_agent";
+
+export interface Delegation {
+  id: string;
+  sub_agent: SubAgentName;
+  task: string;
+  status: "completed";
+  result: string;
+}
+
+export interface DelegationLogProps {
+  delegations: Delegation[];
+  /** True while the supervisor is actively running. */
+  isRunning: boolean;
+}
+
+const SUB_AGENT_STYLE: Record<SubAgentName, { label: string; color: string; emoji: string }> = {
+  research_agent: { label: "Research", color: "bg-indigo-50 border-indigo-300", emoji: "🔎" },
+  writing_agent: { label: "Writing", color: "bg-emerald-50 border-emerald-300", emoji: "✍️" },
+  critique_agent: { label: "Critique", color: "bg-amber-50 border-amber-300", emoji: "🧐" },
+};
+```
+
+<Snippet region="delegation-log-frontend" title="app/subagents/delegation-log.tsx: live log component" />
+
+Then render the log next to the chat on a page:
+
+```tsx title="app/subagents/page.tsx"
+"use client";
+
+import { CopilotChat, useAgent, UseAgentUpdate } from "@copilotkit/react-core/v2";
+import { DelegationLog, type Delegation } from "./delegation-log";
+
+export default function SubagentsPage() {
+  const { agent } = useAgent({
+    updates: [UseAgentUpdate.OnStateChanged, UseAgentUpdate.OnRunStatusChanged],
+  });
+  const delegations = (agent.state?.delegations ?? []) as Delegation[];
+
+  return (
+    <main style={{ display: "flex", gap: 16, height: "100vh" }}>
+      <div style={{ flex: 1 }}>
+        <DelegationLog delegations={delegations} isRunning={agent.isRunning} />
+      </div>
+      <div style={{ flex: 1 }}>
+        <CopilotChat />
+      </div>
+    </main>
+  );
+}
+```
 </FrontendOnly>
 
 <FrontendOnly frontend="angular">
@@ -108,8 +309,13 @@ tool. The Angular Showcase uses this source:
 />
 </FrontendOnly>
 
+<WhenFrameworkSupports feature="shared-state-streaming">
 To stream each sub-agent's output token by token inside its log entry, see
 [State streaming](/shared-state/streaming).
+</WhenFrameworkSupports>
 
 The log grows in real time as the supervisor delegates. The user sees each
 step while it happens, not a long spinner.
+
+The complete demo for each framework is in the showcase. For the Built-in Agent, see
+[showcase/integrations/built-in-agent/src/app/demos/subagents](https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/built-in-agent/src/app/demos/subagents).

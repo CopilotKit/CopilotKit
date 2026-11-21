@@ -1,9 +1,10 @@
 ---
 title: "Exiting the agent loop"
 icon: "lucide/DoorOpen"
+description: "Tell the frontend that a Flow has finished its work."
 ---
 
-After your agent has finished a workflow, you can signal the end of that workflow by calling the `copilotkit_exit()` method in your Python code.
+After your agent has finished a workflow, you can signal the end of that workflow by calling the `copilotkit_exit()` method in your Python code. Use it when your UI must react to the end of a Flow, for example to close a panel or reset a form.
 
 The exit call sends an AG-UI custom event named `Exit` to the frontend. CopilotKit does not act on this event. To react to it in your app, subscribe to the agent with an `onCustomEvent` handler and check for the name `Exit`.
 
@@ -11,7 +12,7 @@ In this example, the `send_email` method adds an assistant message, then exits:
 
 <Steps>
     <Step>
-        ### Install the CopilotKit SDK
+        ### Install the AG-UI CrewAI adapter
         ```bash
         pip install ag-ui-crewai
         ```
@@ -26,27 +27,56 @@ In this example, the `send_email` method adds an assistant message, then exits:
                 ```python
                 import uuid
 
-                from litellm import completion
-                from crewai.flow.flow import start
-                from ag_ui_crewai import copilotkit_exit
-                # ...
-                @start()
-                async def send_email(self):
-                    """Send an email."""
+                from crewai.flow.flow import Flow, start
+                from ag_ui_crewai import CopilotKitState, copilotkit_exit
 
 
-                    # get the last message and cast to ToolMessage
-                    last_message = self.state.messages[-1]
-                    if last_message["content"] == "CANCEL":
-                        text_message = "❌ Cancelled sending email."
-                    else:
-                        text_message = "✅ Sent email."
-                    self.state.messages.append({"role": "assistant", "content": text_message, "id": str(uuid.uuid4())})
-                    # Exit the agent loop after processing
-                    await copilotkit_exit() # [!code highlight]
+                class EmailFlow(Flow[CopilotKitState]):
+                    @start()
+                    async def send_email(self):
+                        """Send an email."""
+
+                        # the last message (here, the user's reply)
+                        last_message = self.state.messages[-1]
+                        if last_message["content"] == "CANCEL":
+                            text_message = "❌ Cancelled sending email."
+                        else:
+                            text_message = "✅ Sent email."
+                        self.state.messages.append({"role": "assistant", "content": text_message, "id": str(uuid.uuid4())})
+                        # Exit the agent loop after processing
+                        await copilotkit_exit() # [!code highlight]
                 ```
             </Tab>
         </Tabs>
+    </Step>
+
+    <Step>
+        ### React to the exit in your UI
+        Subscribe to the agent and check each custom event for the name `Exit`. This component calls `onExit` when the Flow exits:
+
+        ```tsx title="app/exit-listener.tsx"
+        "use client";
+
+        import { useEffect } from "react";
+        import { useAgent } from "@copilotkit/react-core/v2";
+
+        export function ExitListener({ onExit }: { onExit: () => void }) {
+          const { agent } = useAgent();
+
+          useEffect(() => {
+            const { unsubscribe } = agent.subscribe({
+              onCustomEvent: ({ event }) => {
+                if (event.name === "Exit") onExit();
+              },
+            });
+            return unsubscribe;
+          }, [agent, onExit]);
+
+          return null;
+        }
+        ```
+
+        Render it next to your chat, for example `<ExitListener onExit={() => setOpen(false)} />` in a page that controls a panel with `useState`. Send the agent a message. When the Flow exits, `onExit` runs.
     </Step>
 
 </Steps>

@@ -7,7 +7,7 @@ description: "Primary text input and control surface for chat interactions"
 
 `CopilotChatInput` is the primary text input and control surface for chat interactions. It provides a multi-line textarea that auto-grows up to 5 rows, action buttons for sending messages, voice transcription, and file attachment, and an optional tools menu for declarative command surfaces. [`CopilotChatView`](/reference/components/CopilotChatView) renders it below the transcript. The placeholder and button labels come from [`useCopilotChatConfiguration`](/reference/hooks/useCopilotChatConfiguration).
 
-The component operates in three modes: `"input"` (default text entry), `"transcribe"` (replaces the textarea with an audio recorder), and `"processing"` (indicates background processing is underway). When text spans multiple rows, the layout stacks the textarea above the control row.
+The component operates in three modes: `"input"` (default text entry), `"transcribe"` (replaces the textarea with an audio recorder), and `"processing"` (replaces the textarea with a loading spinner). When text spans multiple rows, the layout stacks the textarea above the control row.
 
 ## Import
 
@@ -27,7 +27,7 @@ import "@copilotkit/react-core/v2/styles.css";
 
   - `"input"`: standard text entry, with the textarea and the send button.
   - `"transcribe"`: replaces the textarea with the audio recorder for voice input.
-  - `"processing"`: shows that background processing is underway.
+  - `"processing"`: replaces the textarea with a loading spinner.
 </PropertyReference>
 
 <PropertyReference name="value" type="string">
@@ -102,6 +102,28 @@ import "@copilotkit/react-core/v2/styles.css";
   `ToolsMenuItem` object or a separator string `"-"`. See
   [ToolsMenuItem](#toolsmenuitem) for the item structure. The items appear in
   the add-menu (+) button, after the attach item.
+
+  The same items also form a slash-command menu. Type `/` at the start of the
+  input to open it. The text after `/` filters the items by label, and nested
+  items appear as a flat list. The menu label and empty text come from
+  `chatInputSlashMenuLabel` and `chatInputSlashMenuEmptyText` in
+  `CopilotChatLabels`.
+</PropertyReference>
+
+<PropertyReference name="keyboardHeight" type="number" default="0">
+  Mobile keyboard height in pixels. The input moves up by this amount so the
+  keyboard does not cover it.
+</PropertyReference>
+
+<PropertyReference name="containerRef" type="React.Ref<HTMLDivElement>">
+  Ref to the outer positioning container.
+</PropertyReference>
+
+<PropertyReference name="bottomAnchored" type="boolean" default="false">
+  Set to `true` when the input is the last flex child at the bottom of its
+  container. The input then reserves space for the CopilotKit license banner so
+  the two do not overlap. Not needed with `positioning="absolute"`, which does
+  this already.
 </PropertyReference>
 
 <PropertyReference
