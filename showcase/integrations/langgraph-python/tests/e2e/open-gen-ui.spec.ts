@@ -2,8 +2,7 @@ import { test, expect } from "@playwright/test";
 
 // QA reference: qa/open-gen-ui.md
 // Demo source: src/app/demos/open-gen-ui/{page.tsx,suggestions.ts}
-// Aimock fixture: showcase/harness/fixtures/d5/gen-ui-open.json
-//                 (bundled into showcase/aimock/d5-all.json)
+// Aimock fixture: showcase/aimock/d6/langgraph-python/gen-ui-open.json
 //
 // Open-Ended Generative UI (minimal). The agent streams a single
 // `generateSandboxedUi` tool call; the runtime middleware at
@@ -42,10 +41,10 @@ test.describe("Open Generative UI (minimal)", () => {
 
     // Suggestion titles are verbatim from minimalSuggestions in suggestions.ts.
     const expected = [
-      "3D axis visualization",
-      "How a neural network works",
-      "Quicksort visualization",
-      "Fourier: square wave from sines",
+      "Q3 pipeline by region & stage",
+      "Cloud spend by service",
+      "Support tickets by theme",
+      "Retention by signup cohort",
     ];
     const suggestions = page.locator('[data-testid="copilot-suggestion"]');
     for (const title of expected) {
@@ -88,27 +87,27 @@ test.describe("Open Generative UI (minimal)", () => {
       .toBe(true);
   };
 
-  test("Fourier pill renders a sandboxed iframe with non-empty source", async ({
+  test("Q3 pipeline by region & stage pill renders a sandboxed iframe with non-empty source", async ({
     page,
   }) => {
-    await assertPillRendersIframe(page, "Fourier: square wave from sines");
+    await assertPillRendersIframe(page, "Q3 pipeline by region & stage");
   });
 
-  test("3D axis pill renders a sandboxed iframe with non-empty source", async ({
+  test("Cloud spend by service pill renders a sandboxed iframe with non-empty source", async ({
     page,
   }) => {
-    await assertPillRendersIframe(page, "3D axis visualization");
+    await assertPillRendersIframe(page, "Cloud spend by service");
   });
 
-  test("Neural network pill renders a sandboxed iframe with non-empty source", async ({
+  test("Support tickets by theme pill renders a sandboxed iframe with non-empty source", async ({
     page,
   }) => {
-    await assertPillRendersIframe(page, "How a neural network works");
+    await assertPillRendersIframe(page, "Support tickets by theme");
   });
 
-  test("Quicksort pill renders a sandboxed iframe with non-empty source", async ({
+  test("Retention by signup cohort pill renders a sandboxed iframe with non-empty source", async ({
     page,
   }) => {
-    await assertPillRendersIframe(page, "Quicksort visualization");
+    await assertPillRendersIframe(page, "Retention by signup cohort");
   });
 });
