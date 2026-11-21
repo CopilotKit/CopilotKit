@@ -374,6 +374,135 @@ describe("CopilotChatMessageView duplicate message deduplication", () => {
     );
   });
 
+  it("keeps the tool calls of every duplicate when each holds some of them", () => {
+    const messages: Message[] = [
+      {
+        id: "assistant-1",
+        role: "assistant",
+        content: "",
+        toolCalls: [
+          {
+            id: "tc-1",
+            type: "function",
+            function: { name: "search", arguments: '{"q":"a"}' },
+          },
+          {
+            id: "tc-2",
+            type: "function",
+            function: { name: "search", arguments: '{"q":"b"}' },
+          },
+        ],
+      } as AssistantMessage,
+      {
+        id: "assistant-1",
+        role: "assistant",
+        content: "",
+        toolCalls: [
+          {
+            id: "tc-1",
+            type: "function",
+            function: { name: "search", arguments: "" },
+          },
+          {
+            id: "tc-3",
+            type: "function",
+            function: { name: "search", arguments: '{"q":"c"}' },
+          },
+        ],
+      } as AssistantMessage,
+    ];
+
+    const Host = defineComponent({
+      components: {
+        CopilotKitProvider,
+        CopilotChatConfigurationProvider,
+        CopilotChatMessageView,
+      },
+      setup() {
+        return { messages, agentId, threadId };
+      },
+      template: `
+        <CopilotKitProvider runtime-url="/api/copilotkit">
+          <CopilotChatConfigurationProvider :agent-id="agentId" :thread-id="threadId">
+            <CopilotChatMessageView :messages="messages">
+              <template #assistant-message="{ message }">
+                <div data-testid="assistant-tool-calls">{{ message.toolCalls?.map((tc) => tc.id + "=" + tc.function.arguments).join(" ") }}</div>
+              </template>
+            </CopilotChatMessageView>
+          </CopilotChatConfigurationProvider>
+        </CopilotKitProvider>
+      `,
+    });
+
+    render(Host);
+
+    expect(screen.getByTestId("assistant-tool-calls").textContent).toBe(
+      'tc-1={"q":"a"} tc-2={"q":"b"} tc-3={"q":"c"}',
+    );
+  });
+
+  it("keeps the populated copy of a tool call repeated within one duplicate", () => {
+    const messages: Message[] = [
+      {
+        id: "assistant-1",
+        role: "assistant",
+        content: "",
+        toolCalls: [
+          {
+            id: "tc-1",
+            type: "function",
+            function: { name: "search", arguments: '{"q":"a"}' },
+          },
+          {
+            id: "tc-1",
+            type: "function",
+            function: { name: "search", arguments: "" },
+          },
+        ],
+      } as AssistantMessage,
+      {
+        id: "assistant-1",
+        role: "assistant",
+        content: "",
+        toolCalls: [
+          {
+            id: "tc-2",
+            type: "function",
+            function: { name: "search", arguments: '{"q":"b"}' },
+          },
+        ],
+      } as AssistantMessage,
+    ];
+
+    const Host = defineComponent({
+      components: {
+        CopilotKitProvider,
+        CopilotChatConfigurationProvider,
+        CopilotChatMessageView,
+      },
+      setup() {
+        return { messages, agentId, threadId };
+      },
+      template: `
+        <CopilotKitProvider runtime-url="/api/copilotkit">
+          <CopilotChatConfigurationProvider :agent-id="agentId" :thread-id="threadId">
+            <CopilotChatMessageView :messages="messages">
+              <template #assistant-message="{ message }">
+                <div data-testid="assistant-tool-calls">{{ message.toolCalls?.map((tc) => tc.id + "=" + tc.function.arguments).join(" ") }}</div>
+              </template>
+            </CopilotChatMessageView>
+          </CopilotChatConfigurationProvider>
+        </CopilotKitProvider>
+      `,
+    });
+
+    render(Host);
+
+    expect(screen.getByTestId("assistant-tool-calls").textContent).toBe(
+      'tc-1={"q":"a"} tc-2={"q":"b"}',
+    );
+  });
+
   it("handles undefined content on both occurrences", () => {
     const messages: Message[] = [
       {
