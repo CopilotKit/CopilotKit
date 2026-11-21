@@ -50,8 +50,8 @@ agent continues. Only the mechanism is different.
 <Callout type="warn" title="Use useHumanInTheLoop on this framework">
   `useInterrupt` needs an agent that emits an AG-UI interrupt (`RUN_FINISHED` with
   `outcome.type === "interrupt"`) or an `on_interrupt` custom event, and a
-  working resume path. On the Built-in Agent, interrupts are temporarily
-  unavailable. [`useHumanInTheLoop`](../human-in-the-loop) pauses on a tool
+  working resume path. The integration for this framework does not send
+  interrupts yet. [`useHumanInTheLoop`](/human-in-the-loop) pauses on a tool
   call instead. It works on every framework that supports tool calls.
 </Callout>
 

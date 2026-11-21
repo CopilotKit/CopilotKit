@@ -84,19 +84,24 @@ that the agent filled in.
 
 ## Without parameters
 
-For simple components that don't need typed parameters, leave out
-`parameters`. The component then accepts any props:
+For a component that needs no data from the agent, leave out `parameters`.
+The tool then has an empty parameter schema, so the agent calls it with no
+arguments and the component renders with no props:
 
 ```tsx
 useComponent({
   name: "showGreeting",
-  render: ({ message }: { message: string }) => (
+  description: "Show a greeting banner to the user",
+  render: () => (
     <div className="rounded border p-3 bg-blue-50">
-      <p>{message}</p>
+      <p>Hello! How can I help?</p>
     </div>
   ),
 });
 ```
+
+If the component needs data, pass a `parameters` schema, as in the example at
+the top of this page.
 
 ## Scoping to an agent
 

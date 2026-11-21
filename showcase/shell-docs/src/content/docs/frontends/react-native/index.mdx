@@ -18,7 +18,7 @@ Use this prompt to set up CopilotKit in your React Native app, configure Metro a
 ## Prerequisites
 
 - An OpenAI API key (or another model provider supported by [Model Selection](/model-selection))
-- React Native 0.70+ (bare CLI or Expo)
+- React Native 0.72+ (bare CLI or Expo). This guide imports the `/headless` subpath, which needs package exports in Metro. On React Native 0.72 to 0.78, turn them on first (see [Metro configuration](#metro-configuration-for-release-bundles)).
 - Node.js 20+
 - `@react-native-community/cli` in your `devDependencies` **if you are on React Native 0.87 or later**, which does not bundle it. A freshly `init`ed app already has it; an app you have upgraded may not, and without it `react-native bundle` and `react-native start` stop with a message naming the missing package.
 
@@ -470,7 +470,6 @@ import "@copilotkit/react-native/polyfills/location";
 | `debug` | `DebugConfig` | Enables verbose client-side event logging |
 | `defaultThrottleMs` | `number` | Default re-render throttle for streaming updates; individual `useAgent` calls can override |
 | `useSingleEndpoint` | `boolean` | Whether the runtime uses a single-route endpoint (defaults to auto-detect) |
-| `messageFilter` | `CopilotKitMessageFilter` | Rewrites the message list sent to runtime agents on each run. The transcript the UI shows does not change. |
 
 ```tsx title="App.tsx"
 <CopilotKitProvider
