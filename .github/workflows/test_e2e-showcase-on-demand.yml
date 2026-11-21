@@ -116,7 +116,7 @@ jobs:
     # Move back to ubuntu-latest after they all lock 1.61 or later. The
     # 'Determine slug' step uses POSIX-only `grep -oE` + `sed` (no `grep -oP` /
     # PCRE), so it works on any runner.
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 15
 
     steps:
