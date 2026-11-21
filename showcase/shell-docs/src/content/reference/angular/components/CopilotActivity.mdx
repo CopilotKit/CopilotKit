@@ -18,11 +18,10 @@ The component is standalone. Reactive inputs are Angular [signals](https://angul
 ```ts title="src/app/activity-panel.component.ts"
 import { Component, computed, input } from "@angular/core";
 import { CopilotActivity } from "@copilotkit/angular";
-import type { ActivityMessage, Message } from "@ag-ui/core";
+import type { Message } from "@ag-ui/core";
 
 @Component({
   selector: "app-activity-panel",
-  standalone: true,
   imports: [CopilotActivity],
   template: `
     @for (activity of activities(); track activity.id) {
@@ -35,9 +34,7 @@ export class ActivityPanelComponent {
   agentId = input<string>();
 
   activities = computed(() =>
-    this.messages().filter(
-      (message): message is ActivityMessage => message.role === "activity",
-    ),
+    this.messages().filter((message) => message.role === "activity"),
   );
 }
 ```
