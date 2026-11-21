@@ -1,0 +1,124 @@
+# Visual regression for the Angular demo (examples/v2/angular/demo/e2e/visual).
+# Compares fixed UI states against the committed Linux reference images.
+#
+# To refresh the reference images, run this workflow manually with
+# `update_baselines` checked, download the `angular-visual-baselines` artifact,
+# and commit its contents to examples/v2/angular/demo/e2e/visual/baselines/.
+name: test / visual / angular
+
+on:
+  pull_request:
+    branches: [main, "[0-9]+.[0-9]+.[0-9]+"]
+    paths:
+      - "examples/v2/angular/demo/**"
+      - "packages/angular/**"
+      # Workspace packages the demo builds from.
+      - "packages/core/**"
+      - "packages/shared/**"
+      - "packages/web-inspector/**"
+      - "packages/mcp-apps-renderer/**"
+      - "packages/learning/**"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/test_visual-angular.yml"
+  push:
+    branches: [main]
+    paths:
+      - "examples/v2/angular/demo/**"
+      - "packages/angular/**"
+      # Workspace packages the demo builds from.
+      - "packages/core/**"
+      - "packages/shared/**"
+      - "packages/web-inspector/**"
+      - "packages/mcp-apps-renderer/**"
+      - "packages/learning/**"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/test_visual-angular.yml"
+  workflow_dispatch:
+    inputs:
+      update_baselines:
+        description: "Render new reference images and upload them as an artifact"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  NX_NO_CLOUD: "true"
+  NX_TUI: "false"
+
+jobs:
+  visual:
+    name: Angular demo visual regression
+    runs-on: depot-ubuntu-24.04-4
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      # Depot OIDC auth (runs-on: depot-ubuntu-*).
+      id-token: write
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          # Reference images are *.png, which .gitattributes stores in LFS.
+          lfs: true
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          # The Angular 22 CLI needs Node >= 22.22.3.
+          node-version: 22
+          cache: "pnpm"
+          cache-dependency-path: "pnpm-lock.yaml"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts --filter "@copilotkit/angular-demo..."
+
+      - name: Build workspace dependencies
+        run: pnpm --filter "@copilotkit/angular-demo^..." run build
+
+      - name: Install Chromium
+        working-directory: examples/v2/angular/demo
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run visual tests
+        if: ${{ !inputs.update_baselines }}
+        working-directory: examples/v2/angular/demo
+        run: pnpm run test:visual
+
+      - name: Render new reference images
+        if: ${{ inputs.update_baselines }}
+        working-directory: examples/v2/angular/demo
+        run: pnpm run test:visual:update
+
+      - name: Upload diffs
+        if: ${{ failure() && !inputs.update_baselines }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: angular-visual-diffs
+          # A missing reference image is written by the failing run, so the
+          # baselines path also carries new `*-linux.png` files to commit.
+          path: |
+            examples/v2/angular/demo/test-results/
+            examples/v2/angular/demo/playwright-report/
+            examples/v2/angular/demo/e2e/visual/baselines/**/*-linux.png
+          retention-days: 14
+
+      - name: Upload reference images
+        if: ${{ inputs.update_baselines }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: angular-visual-baselines
+          path: examples/v2/angular/demo/e2e/visual/baselines/**/*-linux.png
+          retention-days: 14

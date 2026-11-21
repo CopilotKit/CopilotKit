@@ -1,0 +1,4 @@
+# CI compares against the Linux images. Images rendered on other platforms are
+# local references only.
+*-darwin.png
+*-win32.png

@@ -8,7 +8,9 @@
     "build": "ng build",
     "dev": "pnpm -s run serve:clean",
     "serve:clean": "rimraf .angular || true && ng serve",
-    "clean": "rimraf dist .angular"
+    "clean": "rimraf dist .angular",
+    "test:visual": "playwright test",
+    "test:visual:update": "playwright test --update-snapshots"
   },
   "dependencies": {
     "@a2ui/web_core": "0.15.0",
@@ -59,6 +61,7 @@
     "@angular/build": "22.0.0",
     "@angular/cli": "22.0.0",
     "@angular/compiler-cli": "22.0.0",
+    "@playwright/test": "1.59.1",
     "nodemon": "^3.1.7",
     "rimraf": "^6.0.1",
     "typescript": "6.0.3"
