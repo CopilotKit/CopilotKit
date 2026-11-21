@@ -30,7 +30,7 @@ An A2A agent answers in text unless it sends UI. With A2UI, the agent sends a de
     ### Use the A2A starter template
 
     ```bash
-    git clone https://github.com/CopilotKit/CopilotKit.git
+    git clone --depth 1 https://github.com/CopilotKit/CopilotKit.git
     cd CopilotKit/examples/integrations/a2a-a2ui
     ```
 
@@ -42,8 +42,8 @@ An A2A agent answers in text unless it sends UI. With A2UI, the agent sends a de
 
     The install also sets up the Python agent. You need Python 3.13 or later and `uv`.
 
-    ```
-    pnpm install
+    ```bash
+    npm install
     ```
 
   </Step>
@@ -60,8 +60,8 @@ An A2A agent answers in text unless it sends UI. With A2UI, the agent sends a de
   <Step>
     ### Run and connect your agent
 
-    ```
-    pnpm dev
+    ```bash
+    npm run dev
     ```
 
   </Step>

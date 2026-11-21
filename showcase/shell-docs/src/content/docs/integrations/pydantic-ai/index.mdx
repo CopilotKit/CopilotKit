@@ -15,7 +15,7 @@ hidePageActions: true
   header="Bring your Pydantic AI agents to your users"
   subheader="Pydantic AI runs your agents. CopilotKit gives them a surface your users can see, interrupt and steer."
   guideLink="/pydantic-ai/quickstart"
-  initCommand="npx copilotkit@latest init"
+  initCommand="npx copilotkit@latest init -f pydantic-ai"
   lede="Pydantic AI gives you the agent and the types around it: validated tools, typed results and the dependencies you hand in. What it does not give you is the surface. Your users need a place to talk to the agent, a view of the run while it works, and a way to step in. Each capability below builds on something your agent already does."
   supportedFeatures={[
     {
@@ -23,7 +23,7 @@ hidePageActions: true
       iconKey: "paintbrush",
       description:
         "Your agent calls typed tools as it runs. CopilotKit streams those calls to the browser and renders each one as a React component, instead of leaving the user with a spinner.",
-      documentationLink: "/pydantic-ai/generative-ui"
+      documentationLink: "/pydantic-ai/generative-ui/tool-rendering"
     },
     {
       title: "Human-in-the-loop",

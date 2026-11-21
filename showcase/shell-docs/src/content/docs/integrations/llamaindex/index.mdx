@@ -15,7 +15,7 @@ hidePageActions: true
   header="Bring your LlamaIndex agents to your users"
   subheader="LlamaIndex runs your agents. CopilotKit gives them a surface your users can see, interrupt and steer."
   guideLink="/llamaindex/quickstart"
-  initCommand="npx copilotkit@latest init"
+  initCommand="npx copilotkit@latest init -f llamaindex"
   lede="LlamaIndex gives you the agent and everything it reads: indexes, retrievers and the workflow around them. What it does not give you is the surface. Your users need a place to talk to the agent, a view of the run while it works, and a way to step in. Each capability below builds on something your agent already does."
   supportedFeatures={[
     {
@@ -23,7 +23,7 @@ hidePageActions: true
       iconKey: "paintbrush",
       description:
         "Your workflow emits events and tool calls as it runs. CopilotKit streams them to the browser and renders each one as a React component, so retrieval and reasoning are visible instead of hidden behind a spinner.",
-      documentationLink: "/llamaindex/generative-ui"
+      documentationLink: "/llamaindex/generative-ui/tool-rendering"
     },
     {
       title: "Human-in-the-loop",

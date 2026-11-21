@@ -23,7 +23,7 @@ const data: FrameworkOverviewData = {
       iconKey: "paintbrush",
       description:
         "Your agent calls tools and reports progress as it works. CopilotKit streams those calls to the browser and renders each one as a React component, instead of leaving the user with a spinner.",
-      documentationLink: "/claude-sdk-typescript/generative-ui",
+      documentationLink: "/claude-sdk-typescript/generative-ui/tool-rendering",
     },
     {
       title: "Human-in-the-loop",

@@ -15,7 +15,7 @@ hidePageActions: true
   header="Bring your Deep Agents to your users"
   subheader="Deep Agents runs your agent. CopilotKit gives it a surface your users can see, interrupt and steer."
   guideLink="/deepagents/quickstart"
-  initCommand="npx copilotkit@latest init"
+  initCommand="uv add deepagents copilotkit langchain-openai"
   lede="Deep Agents gives you a planning agent on LangGraph: subagents, a task list and the state they share. What it does not give you is the surface. Your users need a place to talk to the agent, a view of the plan as it runs, and a way to step in. Each capability below builds on something your agent already does."
   supportedFeatures={[
     {
@@ -23,7 +23,7 @@ hidePageActions: true
       iconKey: "paintbrush",
       description:
         "Your agent updates its plan and calls tools as it works. CopilotKit streams both to the browser and renders them as React components, so the user watches the task list fill in.",
-      documentationLink: "/deepagents/generative-ui"
+      documentationLink: "/deepagents/generative-ui/tool-rendering"
     },
     {
       title: "Human-in-the-loop",

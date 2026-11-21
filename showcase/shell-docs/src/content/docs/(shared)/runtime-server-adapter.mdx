@@ -476,12 +476,12 @@ In single-route mode, no `$` splat is needed. The filename is just `api.copilotk
 
 ## TanStack Start
 
-TanStack Start uses API routes that receive standard `Request` objects and return `Response` objects.
+TanStack Start serves server routes from the same files as its pages. Add a `server.handlers` object to a file route. Each handler gets the standard `Request`, so it passes it straight to the CopilotKit handler.
 
 <Tabs groupId="runtime-mode" items={["Multi-route", "Single-route"]}>
 <Tab value="Multi-route">
-```ts title="app/routes/api/copilotkit/$.ts"
-import { createAPIFileRoute } from "@tanstack/react-start/api";
+```ts title="src/routes/api/copilotkit/$.ts"
+import { createFileRoute } from "@tanstack/react-router";
 import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime/v2";
 
 const runtime = new CopilotRuntime({
@@ -496,11 +496,15 @@ const handler = createCopilotRuntimeHandler({
 });
 
 // The $ splat matches all subpaths and forwards every Runtime method.
-export const APIRoute = createAPIFileRoute("/api/copilotkit/$")({
-  GET: ({ request }) => handler(request),
-  POST: ({ request }) => handler(request),
-  PATCH: ({ request }) => handler(request),
-  DELETE: ({ request }) => handler(request),
+export const Route = createFileRoute("/api/copilotkit/$")({
+  server: {
+    handlers: {
+      GET: ({ request }) => handler(request),
+      POST: ({ request }) => handler(request),
+      PATCH: ({ request }) => handler(request),
+      DELETE: ({ request }) => handler(request),
+    },
+  },
 });
 ```
 
@@ -509,8 +513,8 @@ The `$` in the filename is TanStack Start's splat parameter, matching all subpat
 </Callout>
 </Tab>
 <Tab value="Single-route">
-```ts title="app/routes/api/copilotkit.ts"
-import { createAPIFileRoute } from "@tanstack/react-start/api";
+```ts title="src/routes/api/copilotkit.ts"
+import { createFileRoute } from "@tanstack/react-router";
 import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime/v2";
 
 const runtime = new CopilotRuntime({
@@ -526,8 +530,12 @@ const handler = createCopilotRuntimeHandler({
   mode: "single-route",
 });
 
-export const APIRoute = createAPIFileRoute("/api/copilotkit")({
-  POST: ({ request }) => handler(request),
+export const Route = createFileRoute("/api/copilotkit")({
+  server: {
+    handlers: {
+      POST: ({ request }) => handler(request),
+    },
+  },
 });
 ```
 

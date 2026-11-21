@@ -127,7 +127,7 @@ Before you begin, you'll need the following:
 
                 <Accordions className="mb-4">
                     <Accordion title="Troubleshooting">
-                        - If the chat cannot connect to the agent, use `0.0.0.0` or `127.0.0.1` instead of `localhost`.
+                        - If the chat cannot connect to the agent, use `127.0.0.1` instead of `localhost` in the agent URL.
                         - If the chat shows a connection error, make sure that the `agent` lines in the `npm run dev` output show `Uvicorn running on http://127.0.0.1:9000`.
                         - If the `agent` lines show an OpenAI `AuthenticationError`, make sure that `OPENAI_API_KEY` in `agent/.env` holds a valid key.
                     </Accordion>
@@ -240,7 +240,7 @@ Before you begin, you'll need the following:
                 ### Install CopilotKit packages
 
                 ```npm
-                npm install @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime @ag-ui/llamaindex
+                npm install @copilotkit/react-core @copilotkit/runtime @ag-ui/llamaindex
                 ```
             </Step>
             <Step>
@@ -436,7 +436,7 @@ Before you begin, you'll need the following:
 
                 <Accordions className="mb-4">
                     <Accordion title="Troubleshooting">
-                        - If the chat cannot connect to the agent, use `0.0.0.0` or `127.0.0.1` instead of `localhost`.
+                        - If the chat cannot connect to the agent, use `127.0.0.1` instead of `localhost` in the agent URL.
                         - If the chat shows a connection error, make sure that the agent terminal prints `Uvicorn running on http://localhost:8000`.
                         - If the agent terminal shows an OpenAI `AuthenticationError`, make sure that you exported `OPENAI_API_KEY` in the terminal that runs the agent.
                         - If the build fails with `Module not found: Can't resolve '@ag-ui/llamaindex'`, install `@ag-ui/llamaindex` in your frontend.
