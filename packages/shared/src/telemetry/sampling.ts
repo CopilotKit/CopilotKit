@@ -15,11 +15,12 @@
 // same events come from five runtimes in five languages that share one
 // conformance contract.
 //
-// Volume is cut downstream instead. The telemetry sink
-// (oss-path-to-production, telemetry-sink-fanout) samples anonymous
-// connect events on their way to PostHog. It multiplies its own rate into
-// the one stamped here rather than replacing it, so sum(sampleWeight)
-// still estimates the true count. The v1 client also gates the Segment
+// Any thinning happens downstream instead. Anonymous connect events may
+// be sampled at the telemetry sink (oss-path-to-production,
+// telemetry-sink-fanout) on their way to PostHog, per the sink's own
+// configuration. Where it samples, it multiplies its rate into the one
+// stamped here rather than replacing it, so sum(sampleWeight) still
+// estimates the true count. The v1 client also gates the Segment
 // copy it sends, which is billed per event, and stamps that copy with the
 // Segment rate.
 //

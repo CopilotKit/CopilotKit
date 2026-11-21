@@ -66,8 +66,8 @@ export class TelemetryClient {
   packageVersion: string;
   private telemetryDisabled: boolean = false;
   // Client-side sampling rate for anonymous events on the Segment wire
-  // only. The lambda wire takes every event and leaves sampling to the
-  // telemetry sink (see ./sampling); Segment is billed per event, so the
+  // only. The lambda wire takes every event and leaves any sampling to
+  // the telemetry sink (see ./sampling); Segment is billed per event, so the
   // anonymous population stays capped there.
   // Identified events (those whose license token yielded a telemetry_id)
   // bypass the gate on both wires.
@@ -142,9 +142,10 @@ export class TelemetryClient {
     }
 
     // The two wires are gated separately. The lambda wire takes every
-    // event: it is left unsampled at the source on purpose, and anonymous
-    // connect volume is sampled at the telemetry sink instead, which
-    // multiplies its rate into the one stamped here (see ./sampling).
+    // event: it is left unsampled at the source on purpose. Anonymous
+    // connect events may be sampled at the telemetry sink instead, per its
+    // configuration, and the sink multiplies its rate into the one
+    // stamped here (see ./sampling).
     // Segment is billed per event, so it keeps the gate —
     // callers without license-derived sampling authority are dropped from
     // that copy at segmentSampleRate. Legacy license tokens with a
