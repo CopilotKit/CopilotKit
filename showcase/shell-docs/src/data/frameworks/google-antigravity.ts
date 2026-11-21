@@ -31,7 +31,7 @@ const data: FrameworkOverviewData = {
       title: "Human-in-the-loop",
       iconKey: "user",
       description:
-        "Antigravity awaits a tool with no timeout, so a frontend tool that asks the user just parks the run. CopilotKit resolves it from the browser once the user decides, and the same turn continues with the answer.",
+        "Antigravity awaits a tool with no timeout, so a frontend tool that asks the user parks the run. CopilotKit resolves it from the browser once the user decides, and the same turn continues with the answer.",
       documentationLink: "/google-antigravity/human-in-the-loop",
     },
     {

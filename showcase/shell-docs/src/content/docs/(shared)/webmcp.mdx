@@ -22,13 +22,13 @@ CopilotKit can publish an existing [frontend tool](/frontend-tools) to [`documen
 
 ## Start with your coding agent
 
-Use this pre-built prompt to add WebMCP to your project. Your coding agent will adapt the implementation to your app and verify that a compatible browser can discover and call the tool.
+Use this pre-built prompt to add WebMCP to your project. Your coding agent adapts the implementation to your app and verifies that a compatible browser can discover and call the tool.
 
 <WebMCPSetupPrompt />
 
 ## Do I need an agent?
 
-You do not need a CopilotKit backend agent to handle a WebMCP call. A compatible browser agent calls the frontend tool handler directly on the page; in that path, the handler context has no `agent`.
+You do not need a CopilotKit backend agent to handle a WebMCP call. A compatible browser agent calls the frontend tool handler directly on the page. In that path, the handler context has no `agent`.
 
 Choose the smallest path that fits your app:
 
@@ -204,7 +204,7 @@ Required:
 
 - Give every WebMCP tool a non-empty, specific `description`. CopilotKit skips WebMCP registration when it is missing.
 - Use `readOnlyHint: true` only when the handler cannot change state.
-- Set the frontend tool to unavailable when the action cannot currently run; CopilotKit removes it from WebMCP until it is available again.
+- Set the frontend tool to unavailable when the action cannot currently run. CopilotKit removes it from WebMCP until it is available again.
 
 For better results:
 
@@ -228,7 +228,7 @@ Annotations are hints for browser agents, not security controls. Enforce authent
 Set up the browser:
 
 1. Open Chrome 149 or newer and enable the WebMCP origin trial or local testing flag.
-2. Load the app in an [origin-isolated document](https://developer.chrome.com/docs/ai/webmcp#origin-isolation). The `tools` permissions policy defaults to `self`; cross-origin iframes also need `allow="tools"`.
+2. Load the app in an [origin-isolated document](https://developer.chrome.com/docs/ai/webmcp#origin-isolation). The `tools` permissions policy defaults to `self`. Cross-origin iframes also need `allow="tools"`.
 3. Make sure that `document.modelContext` exists.
 
 Test the tool:

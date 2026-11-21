@@ -14,7 +14,7 @@ CopilotKit authentication covers two boundaries:
    the approved identity or tenant context to the selected agent.
 
 Keep model credentials and service-to-service agent tokens on the server.
-Browser headers prove the end user's session; they are not a safe place for
+Browser headers prove the end user's session. They are not a safe place for
 backend secrets.
 
 ## Send the current session
@@ -142,7 +142,7 @@ to override a backend token.
 
 Before launch:
 
-- Validate `/info`, run, connect, stop, thread, and memory requests, not just
+- Validate `/info`, run, connect, stop, thread, and memory requests, not only
   chat sends.
 - Derive user and tenant identifiers from the verified session instead of
   trusting arbitrary browser values.

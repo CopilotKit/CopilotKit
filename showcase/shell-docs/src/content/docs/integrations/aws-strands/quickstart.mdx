@@ -124,7 +124,7 @@ Before you begin, you'll need the following:
                     </Tab>
                 </Tabs>
 
-                This will start both the UI and agent servers concurrently.
+                This starts the UI and the agent server together.
             </Step>
         </TailoredContentOption>
         <TailoredContentOption
@@ -320,7 +320,7 @@ Before you begin, you'll need the following:
             <Step>
                 ### Create your frontend
 
-                CopilotKit works with any React-based frontend. We'll use Next.js for this example.
+                CopilotKit works with any React-based frontend. This example uses Next.js.
 
                 ```bash
                 npx create-next-app@latest frontend
@@ -385,10 +385,10 @@ Before you begin, you'll need the following:
                 CPK_INTELLIGENCE_API_KEY=cpk-...
                 ```
 
-                <Callout type="info" title="Running without the Intelligence Platform?">
+                <Callout type="info" title="Running without CopilotKit Intelligence?">
                   Drop the `intelligence` and `identifyUser` options and the runtime falls back
                   to SSE mode with an in-memory runner. Chat and the Inspector still work, but
-                  Rich Threads stay locked and the key is never read. See
+                  Intelligence’s AG-UI streams stay locked and the key is never read. See
                   [Connect your runtime to Intelligence](/intelligence/quickstart) for the
                   full constructor and how to confirm the key is in use.
                 </Callout>

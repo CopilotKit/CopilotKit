@@ -115,7 +115,7 @@ channel.onMessage(async ({ thread, message }) => {
 </FrontendOnly>
 
 `setState(value)` replaces the whole value. It does not merge a partial patch.
-Store JSON-serializable values; remote backends do not preserve `Date`, `Map`,
+Store JSON-serializable values. Remote backends do not preserve `Date`, `Map`,
 class instances, or functions.
 
 ## Implement every StateStore facet
@@ -158,8 +158,8 @@ Run it against the real backend:
 npx vitest run state-store.test.ts
 ```
 
-The SDK ships `MemoryStore` and the conformance suite; it does not ship a fully
-durable Redis or Postgres implementation in the umbrella package.
+The SDK ships `MemoryStore` and the conformance suite. The umbrella package
+does not ship a fully durable Redis or Postgres implementation.
 
 ## Preserve interactive callbacks across restarts
 
@@ -209,19 +209,19 @@ old card.
 Each prepared delivery has one claim winner. Every connected runtime process
 that declares the matching Channel can receive the invitation, check local
 capacity, and attempt the claim. Different runtime processes can serve
-different conversations at the same time; there is no Channel-wide leader.
+different conversations at the same time. There is no Channel-wide leader.
 
 Keep the Channel declarations and agent code aligned across runtime processes.
 Each runtime process bounds its active and pending delivery work internally. A
 runtime process that has reached its internal capacity declines new invitations
-before claiming them; that capacity is not currently a public Channel
-configuration option.
+before claiming them. That capacity is not a public Channel configuration
+option.
 
 Provider effects use one ordered packet at a time. The SDK retries that exact
 packet after a known retry wait or reconnect. If a provider call becomes
 uncertain, Gateway records an uncertain terminal result instead of sending it
 again. Application tools still need their own idempotency keys when the
-application may call them more than once; use `message.eventId`,
+application may call them more than once. Use `message.eventId`,
 `message.turnId`, or a durable operation ID.
 
 ### Turn concurrency (same conversation)
@@ -232,8 +232,8 @@ active. Unrelated Threads continue in parallel within the bounded capacity of
 each runtime process.
 
 This delivery guard is separate from the SDK `store.concurrency` setting used
-by other adapter paths. Choose that setting for your application-state rules;
-do not use it to raise the managed same-Thread delivery limit. See
+by other adapter paths. Choose that setting for your application-state rules.
+It does not raise the managed same-Thread delivery limit. See
 [`StoreConfig`](/reference/channels/types/StoreConfig).
 
 ## Production checklist

@@ -79,7 +79,7 @@ On every run, the provider then sends the agent two context entries:
 - A compact schema of the components: their names, props, events, and slots.
 - A guide on how to write the code blocks. It has only the rules that your catalog needs, and it leaves out the advice that names a standard component your catalog does not have.
 
-The runtime adds no `render_ui` tool to these runs. The built-in agent puts the context entries into its system prompt. For a LangGraph Python agent, add `CopilotKitMiddleware`. Any other agent needs one thing: put the run's context entries into its system prompt.
+The runtime adds no `render_ui` tool to these runs. The Built-in Agent puts the context entries into its system prompt. For a LangGraph Python agent, add `CopilotKitMiddleware`. Any other agent needs one thing: put the run's context entries into its system prompt.
 
 ## How it streams
 
@@ -187,4 +187,4 @@ The v1 chat components in `@copilotkit/react-ui` (`CopilotChat`, `CopilotSidebar
 - Values are literals, bindings (`{"@path": "/seats"}`) or function values (`{"@call": "calc", "args": { "expression": "seats * 29", "seats": {"@path": "/seats"} }}`); see [function values](/generative-ui/components/state-and-actions#compute-values-in-the-browser). There are no operators outside `calc`, and no function that maps over a list.
 - A `surfaceId` is never used twice, also after `deleteSurface`.
 
-To run it, start [`examples/v2/a2ui-markdown`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/v2/a2ui-markdown) with the built-in agent or the LangGraph Python agent, and open `/?transport=markdown`.
+To run it, start [`examples/v2/a2ui-markdown`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/v2/a2ui-markdown) with the Built-in Agent or the LangGraph Python agent, and open `/?transport=markdown`.

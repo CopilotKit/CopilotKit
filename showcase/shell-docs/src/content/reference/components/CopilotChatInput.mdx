@@ -263,7 +263,7 @@ The component exposes the following imperative methods via React `ref`:
 </PropertyReference>
 
 <PropertyReference name="dispose" type="() => void">
-  Cleans up all resources (media stream, audio context, etc.) used by the
+  Cleans up all resources (media stream, audio context, and more) used by the
   recorder.
 </PropertyReference>
 
@@ -419,4 +419,4 @@ function StyledInput() {
 - **Mode Switching**: Setting `mode` to `"transcribe"` replaces the textarea with the `audioRecorder` slot component. The transcription control buttons (`cancelTranscribeButton`, `finishTranscribeButton`) replace the standard send button.
 - **Controlled and Uncontrolled**: The component supports both controlled mode (via `value` and `onChange`) and uncontrolled mode (internal state management).
 - **Tools Menu**: The `toolsMenu` prop enables a declarative menu with support for flat items, separators (`"-"`), and nested submenus. The items appear in the add-menu (+) button, which always renders and is disabled when it has no items.
-- **Slot System**: Each slot prop accepts three forms -- a replacement component, a className string merged into the default, or a partial props object that extends the default component's props.
+- **Slot System**: Each slot prop accepts three forms: a replacement component, a className string merged into the default, or a partial props object that extends the default component's props.

@@ -16,8 +16,8 @@ on each turn.
 
 1. The agent calls the A2UI tool to draw a surface, made available
    when `injectA2UITool: true`.
-2. The runtime serializes your client-side catalog (component names +
-   Zod prop schemas) into the agent's `copilotkit.context` so the LLM
+2. The provider sends your client-side catalog (component names +
+   Zod prop schemas) to the agent as run context, so the LLM
    knows which components it may emit.
 3. The tool call streams from the agent as `TOOL_CALL_ARGS` events.
 4. The A2UI middleware intercepts the stream and renders cards
@@ -83,8 +83,10 @@ In your app, use your own runtime URL and your own chat in place of the
 demo's `Chat` component.
 
 That is all the default path needs. The catalog auto-enables A2UI and
-injects the `generate_a2ui` tool, so the runtime needs no `a2ui` block,
-unless your agent brings its own A2UI tool (see [Agent setup](#agent-setup)).
+injects the A2UI tool, so the runtime needs no `a2ui` block, unless your
+agent brings its own A2UI tool (see [Agent setup](#agent-setup)). A
+LangGraph agent with the CopilotKit middleware gets `generate_a2ui`.
+Other agents get `render_a2ui`.
 (No catalog? Turn it on from the runtime instead with
 `a2ui: { injectA2UITool: true }`.)
 </Step>
@@ -100,15 +102,16 @@ components from your catalog.
 
 ## Agent setup
 
-Tell the model in its instructions when to call `generate_a2ui`, for example
-for any answer that needs a dashboard, a card layout, or a chart. A model with
+Tell the model in its instructions when to call the A2UI tool (`generate_a2ui` or
+`render_a2ui`, as described above), for example for any answer that needs a
+dashboard, a card layout, or a chart. A model with
 no instruction about the tool answers in prose and never calls it.
 
 <FrameworkSetup concept="a2ui-dynamic-schema-setup" />
 
 ## I opted out of auto-inject, now what?
 
-When the runtime does not inject the `generate_a2ui` tool, what you add
+When the runtime does not inject the A2UI tool, what you add
 depends on your setup:
 
 - **The runtime has an `a2ui` block, or the provider passes a catalog.**
@@ -167,7 +170,7 @@ as `TOOL_CALL_ARGS` events. The A2UI middleware:
 
 1. Waits for the full `components` array before emitting anything;
    the schema must be complete before rendering starts.
-2. Extracts `surfaceId` + `root` from the partial JSON.
+2. Extracts `surfaceId` from the partial JSON.
 3. Emits `createSurface` + `updateComponents` once the schema is
    complete.
 4. Extracts complete `items` objects progressively and emits an
@@ -185,8 +188,8 @@ generating and hides automatically once data items start arriving.
 - You're building a conversational dashboard where the layout varies
   per turn.
 
-If the surface is well-known (e.g. a product card, a flight result),
-prefer a **[fixed schema](./fixed-schema)**; it's faster, cheaper,
+If the surface is well-known (for example, a product card or a flight result),
+prefer a **[fixed schema](./fixed-schema)**. It's faster, cheaper,
 and the UI is deterministic.
 
 <IntegrationGrid path="generative-ui/a2ui" />

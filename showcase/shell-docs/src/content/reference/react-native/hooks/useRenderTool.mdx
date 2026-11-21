@@ -11,8 +11,8 @@ that has no renderer of its own. It does not register a tool: nothing is
 advertised to the model and nothing becomes callable.
 
 That contract is react-core's, so this page and the [React (V2)
-`useRenderTool`](/reference/v2/hooks/useRenderTool) describe the same behaviour;
-only the import path differs.
+`useRenderTool`](/reference/v2/hooks/useRenderTool) describe the same behavior.
+Only the import path differs.
 
 <Callout type="warn" title="Registering a tool is a different hook">
   If you want the agent to be able to *call* your function and draw its UI, that
@@ -88,7 +88,7 @@ useRenderTool<S extends StandardSchemaV1>(
   <PropertyReference name="parameters" type="S extends StandardSchemaV1" required>
     Schema describing the tool's parameters, which types `props.parameters` in
     `render`. Accepts any schema compatible with [Standard
-    Schema](https://standardschema.dev/) (Zod, Valibot, ArkType, etc.).
+    Schema](https://standardschema.dev/) (such as Zod, Valibot, or ArkType).
 
     Required on the named overload; the wildcard overload takes no schema at all
     and types its render props as `any`.

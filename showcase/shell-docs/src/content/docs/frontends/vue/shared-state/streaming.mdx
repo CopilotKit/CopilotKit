@@ -29,7 +29,7 @@ Without streaming, the user stares at a spinner. With streaming, they see the an
 
 The backend pattern is always the same: map one streaming tool argument to one shared-state key. Middleware-backed frameworks usually expose this as a declarative mapping. Direct SDK adapters do the same work in their streaming loop by parsing partial tool arguments and emitting `STATE_SNAPSHOT` whenever the mapped value changes. When the LLM streams that argument, CopilotKit writes every partial value into shared state before the tool finishes executing. The sample below is the LangGraph (Python) version.
 
-<Snippet region="state-streaming-middleware" title="backend — streaming state mapping" />
+<Snippet region="state-streaming-middleware" title="backend: streaming state mapping" />
 
 A few things to note:
 

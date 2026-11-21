@@ -1,10 +1,10 @@
 ---
 title: AWS Lambda
 icon: "lucide/Cloud"
-description: Run the CopilotKit runtime on AWS Lambda, including the response-streaming setup a chat UI requires.
+description: Run Copilot Runtime on AWS Lambda, including the response-streaming setup a chat UI requires.
 ---
 
-The CopilotKit runtime is a [Fetch handler](/runtime-server-adapter), so it runs on Lambda without a server. The one thing that needs care is **streaming**. Chat responses stream as Server-Sent Events. If something in front of Lambda buffers them, the chat shows a long pause and then the whole reply at once.
+Copilot Runtime is a [Fetch handler](/runtime-server-adapter), so it runs on Lambda without a server. The one thing that needs care is **streaming**. Chat responses stream as Server-Sent Events. If something in front of Lambda buffers them, the chat shows a long pause and then the whole reply at once.
 
 ## Start here: pick the right front door
 
@@ -24,7 +24,7 @@ The CopilotKit runtime is a [Fetch handler](/runtime-server-adapter), so it runs
 
 Each front door has its own section below. Read only the section for your front door. To run agents on AWS without operating Lambda yourself, see [AWS AgentCore](/deploy/agentcore).
 
-The handler code below is the same for both streaming paths; only the event shape and the infrastructure config differ.
+The handler code below is the same for both streaming paths. Only the event shape and the infrastructure config differ.
 
 ## Function URL with response streaming
 
@@ -101,7 +101,7 @@ export const handler = awslambda.streamifyResponse(
 );
 ```
 
-`awslambda` is a global injected by the managed Node.js runtime, so TypeScript needs to be told it exists:
+`awslambda` is a global that the managed Node.js runtime injects. Declare it for TypeScript:
 
 ```ts title="src/awslambda.d.ts"
 import type { Writable } from "node:stream";
@@ -197,7 +197,7 @@ Resources:
 
 ### 3. Point the frontend at it
 
-The Function URL is the origin; `basePath` is appended to it.
+The Function URL is the origin. Append `basePath` to it.
 
 <FrontendOnly frontend="react">
 ```tsx
@@ -218,7 +218,7 @@ provideCopilotKit({
 </FrontendOnly>
 
 <Callout type="info" title="Verify streaming actually works">
-  `curl -N` on the run endpoint should print SSE events progressively. If the whole body
+  When streaming works, `curl -N` on the run endpoint prints SSE events as they arrive. If the whole body
   arrives at once, streaming is not active. Check that the Function URL's invoke mode is
   `RESPONSE_STREAM`, and that nothing buffering (an HTTP API, an ALB, a CloudFront
   distribution without streaming configured) sits in front of it.
@@ -321,7 +321,7 @@ api.root.addResource("api").addResource("copilotkit").addResource("{proxy+}").ad
 );
 ```
 
-`responseTransferMode` needs a recent `aws-cdk-lib`; the construct sets the streaming invocation URI for you.
+`responseTransferMode` needs a recent `aws-cdk-lib`. The construct sets the streaming invocation URI for you.
 </Tab>
 <Tab value="AWS SAM">
 ```yaml title="template.yaml"
@@ -346,7 +346,7 @@ CopilotKitMethod:
 
 AWS sets these limits and can change them. Check the current values in the API Gateway guide to [response streaming with Lambda](https://docs.aws.amazon.com/apigateway/latest/developerguide/response-transfer-mode-lambda.html).
 
-- **Pick a Regional endpoint.** Streams are subject to an idle timeout: 5 minutes for Regional and private endpoints, but **30 seconds for edge-optimized ones**. An agent that thinks for longer than 30 seconds between SSE events will have its stream cut on an edge-optimized API. Fronting a Regional API with your own CloudFront distribution and raising its response timeout is the way to keep an edge cache.
+- **Pick a Regional endpoint.** Streams are subject to an idle timeout: 5 minutes for Regional and private endpoints, but **30 seconds for edge-optimized ones**. On an edge-optimized API, an agent that thinks for longer than 30 seconds between SSE events loses its stream. Fronting a Regional API with your own CloudFront distribution and raising its response timeout is the way to keep an edge cache.
 - **Raise the integration timeout.** It still defaults to 29 seconds. With `STREAM` you can take it up to 15 minutes on Regional and private APIs. Match it to the Lambda timeout.
 - **`STREAM` disables buffered-only features** on that integration: endpoint caching, content encoding, and VTL response transformation. Compress inside the integration if you need it.
 - **Bandwidth.** The first 10 MB of each streamed response is uncapped; beyond that API Gateway throttles to 2 MB/s.
@@ -360,7 +360,7 @@ AWS sets these limits and can change them. Check the current values in the API G
 
 ## Buffered fallback: HTTP APIs and ALB
 
-Behind an HTTP API or an Application Load Balancer there is no streaming path, so `serverless-http` adapting the Express handler is as good as it gets. Chat still functions end to end, but every response arrives in one piece at the end of the run.
+Behind an HTTP API or an Application Load Balancer there is no streaming path, so the best option is `serverless-http` around the Express handler. Chat still works end to end, but every response arrives in one piece at the end of the run.
 
 ```
 npm install express serverless-http @copilotkit/runtime
@@ -394,7 +394,7 @@ export const handler = serverlessHttp(app);
 Two constraints to plan around:
 
 - **6 MB response cap.** Lambda caps a buffered response at 6 MB. A long agent run with large tool results can exceed it, and the request fails rather than truncating.
-- **29-second integration timeout.** Agent runs longer than that return a 504 even though the Lambda keeps executing. On an HTTP API this ceiling is fixed; both limits are what `responseTransferMode: STREAM` lifts on a REST API.
+- **29-second integration timeout.** Agent runs longer than that return a 504 even though the Lambda keeps executing. On an HTTP API this ceiling is fixed. On a REST API, `responseTransferMode: STREAM` lifts both limits.
 
 Single-route mode pairs well here, since it collapses the runtime to one `POST` and avoids configuring a catch-all proxy resource:
 
@@ -436,6 +436,6 @@ See [Authentication](/auth) for forwarding user identity through to your agent.
 
 - **Bundle your dependencies.** `@copilotkit/runtime` is not in any AWS-managed layer. Use `NodejsFunction` (CDK), `BuildMethod: esbuild` (SAM), or your own bundler.
 - **Construct the runtime outside the handler.** Putting `new CopilotRuntime(...)` at module scope means warm invocations reuse it rather than rebuilding it per request.
-- **Set the timeout to cover a full agent run.** Lambda's maximum is 15 minutes; the default of 3 seconds will cut off almost anything.
+- **Set the timeout to cover a full agent run.** Lambda's maximum is 15 minutes. The default of 3 seconds cuts off almost any run.
 - **Cold starts are visible in chat.** Provisioned concurrency is the usual fix if first-token latency matters.
 - **Streaming has its own limits.** A streamed response can reach 200 MB against the 6 MB buffered ceiling, but Lambda throttles to 2 MB/s past the first 6 MB (API Gateway, past the first 10 MB). Streaming also incurs cost, and a streamed run is billed for the full function duration even if the client disconnects. See [Lambda response streaming](https://docs.aws.amazon.com/lambda/latest/dg/configuration-response-streaming.html) for the current limits.

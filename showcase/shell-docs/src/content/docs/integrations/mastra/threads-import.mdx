@@ -17,7 +17,7 @@ Keep your Mastra agent and its durable storage connected so you can continue the
 
 ## Include earlier conversations (optional)
 
-To let users reopen conversations recorded before Intelligence was connected, use the importer below to copy supported historical content. Importing does not enable live delivery or establish ongoing database replication, and it cannot recover history the source no longer exposes.
+To let users reopen conversations recorded before Intelligence was connected, use the importer below to copy supported historical content. Importing does not enable live delivery or establish ongoing database replication, and it cannot recover history that is missing from the source.
 
 The Mastra importer reads saved conversations from a local LibSQL database or a Mastra server. It brings over saved messages, rich tool results, attachments, and agent state where available. Some interactive content, such as MCP app views, may not have been saved in the original history.
 
@@ -94,7 +94,7 @@ The dry run counts conversations, reports conversations that cannot be imported,
 
 ## Map Mastra agents to CopilotKit agent IDs
 
-Map the Mastra agent ID you set in `MASTRA_IMPORT_AGENT_ID` to the `agentId` your live CopilotKit runtime uses.
+Map the Mastra agent ID you set in `MASTRA_IMPORT_AGENT_ID` to the `agentId` your live Copilot Runtime uses.
 
 ```json title="agent-map.json"
 {

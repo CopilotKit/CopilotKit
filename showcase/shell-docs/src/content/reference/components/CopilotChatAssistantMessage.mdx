@@ -242,7 +242,7 @@ import { CopilotChatToolCallsView } from "@copilotkit/react-core/v2";
 
 <PropertyReference name="messages" type="Message[]">
   The full conversation message array. Provides context for tool call renderers
-  that need to reference other messages (e.g., to find the corresponding tool
+  that need to reference other messages (for example, to find the corresponding tool
   result message).
 </PropertyReference>
 
@@ -385,7 +385,7 @@ function ToolCallsList({ message, allMessages }) {
 - **Toolbar Visibility**: The toolbar shows below every assistant message that has text, except the latest message while `isRunning` is `true`. Each of these buttons renders when its callback prop (`onThumbsUp`, `onThumbsDown`, `onReadAloud`, `onRegenerate`) or its slot is set. The thumbs also render inside `CopilotChatMessageView` while Automatic Learning records ratings. The copy button is always visible when the toolbar is shown.
 - **Localized Labels**: All toolbar button tooltips are sourced from the nearest `CopilotChatConfigurationProvider`. See [`useCopilotChatConfiguration`](/reference/hooks/useCopilotChatConfiguration) for the full list of label keys.
 - **Tool Call Rendering**: Tool calls embedded in the assistant message are rendered by the `toolCallsView` slot. Each tool call is resolved using the [`useRenderToolCall`](/reference/hooks/useRenderToolCall) hook, which looks up registered renderers by tool name.
-- **Slot System**: Each slot prop accepts three forms -- a replacement component, a className string merged into the default, or a partial props object that extends the default component's props.
+- **Slot System**: Each slot prop accepts three forms: a replacement component, a className string merged into the default, or a partial props object that extends the default component's props.
 
 ## Reply ratings
 

@@ -105,7 +105,7 @@ Before you begin, you'll need the following:
                     </Tab>
                 </Tabs>
 
-                This will start both the UI and agent servers concurrently.
+                This starts the UI and the agent server together.
             </Step>
         </TailoredContentOption>
         <TailoredContentOption
@@ -180,7 +180,7 @@ Before you begin, you'll need the following:
             <Step>
                 ### Create your frontend
 
-                CopilotKit works with any React-based frontend. We'll use Next.js for this example.
+                CopilotKit works with any React-based frontend. This example uses Next.js.
 
                 ```bash
                 cd ..
@@ -247,7 +247,7 @@ Before you begin, you'll need the following:
                 CPK_INTELLIGENCE_API_KEY=cpk-...
                 ```
 
-                <Callout type="info" title="Running without the Intelligence Platform?">
+                <Callout type="info" title="Running without CopilotKit Intelligence?">
                   Drop the `intelligence` and `identifyUser` options and the runtime falls back
                   to SSE mode with an in-memory runner. Chat still works, but Threads and the
                   Inspector stay locked and the key is never read. See
@@ -409,7 +409,7 @@ Now that you have your basic agent setup, explore these advanced features:
     icon={<UserIcon />}
   />
   <Card
-    title="Utilize the Shared State"
+    title="Use the Shared State"
     description="Learn how to synchronize your agent's state with your UI's state, and vice versa."
     href="/pydantic-ai/shared-state"
     icon={<RepeatIcon />}

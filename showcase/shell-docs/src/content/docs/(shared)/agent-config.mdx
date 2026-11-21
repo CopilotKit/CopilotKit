@@ -11,7 +11,7 @@ You have a working agent and want the user to be able to tune how it behaves: to
 
 ## When to use this
 
-Reach for agent config whenever the agent's behaviour depends on user-controllable settings that don't fit naturally as chat input:
+Reach for agent config whenever the agent's behavior depends on user-controllable settings that don't fit naturally as chat input:
 
 - **Tone, voice, persona**: "playful", "formal", "casual"
 - **Expertise level**: "beginner", "intermediate", "expert"
@@ -36,7 +36,7 @@ system prompt.
 Hold the typed config in React state, then mirror every change into the agent
 through `useAgentContext`:
 
-```tsx title="frontend/src/app/page.tsx — UI publishes the typed config"
+```tsx title="frontend/src/app/page.tsx: UI publishes the typed config"
 import { useAgentContext } from "@copilotkit/react-core/v2";
 
 type AgentConfig = { tone: string; expertise: string; responseLength: string };
@@ -87,7 +87,7 @@ At the start of every turn, the agent reads the latest config. Then it rebuilds 
 <FrontendOnly frontend="react">
 Pass the typed object as `properties` on `<CopilotKit>`:
 
-```tsx title="frontend/src/app/page.tsx — config flows through the provider"
+```tsx title="frontend/src/app/page.tsx: config flows through the provider"
 <CopilotKit
   runtimeUrl="/api/copilotkit"
   properties={{ tone, expertise, responseLength }}
@@ -129,7 +129,7 @@ export class AgentConfigComponent {
 
 The runtime hands the same object to the agent factory on every call as `input.forwardedProps`. The factory uses those fields to build a system prompt, then returns the model stream for that turn:
 
-```ts title="backend/agent factory — synthesise the system prompt per turn"
+```ts title="backend/agent factory: builds the system prompt per turn"
 import { BuiltInAgent, convertInputToTanStackAI } from "@copilotkit/runtime/v2";
 import { chat } from "@tanstack/ai";
 import { openaiText } from "@tanstack/ai-openai";

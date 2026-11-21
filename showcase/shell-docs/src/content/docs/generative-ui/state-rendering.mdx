@@ -15,7 +15,7 @@ State rendering lets you build UI that reflects your agent's state in real-time.
 
 Use state rendering when you want to:
 
-- Show real-time progress (e.g. "Researching... 2/5 complete")
+- Show real-time progress (for example, "Researching... 2/5 complete")
 - Display drafts that update as the agent works
 - Build dashboards that reflect agent state
 - Render structured output outside of the chat
@@ -36,7 +36,7 @@ Use state rendering when you want to:
 3. Subscribe to the agent state. Each time the state changes, your component
    renders again with the latest value:
 
-   <Snippet region="frontend-use-coagent-state" title="frontend/src/app/page.tsx — agent state subscription" />
+   <Snippet region="frontend-use-coagent-state" title="frontend/src/app/page.tsx: agent state subscription" />
 
 4. Read the key from `agent.state` and render it:
 

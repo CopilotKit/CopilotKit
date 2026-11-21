@@ -10,7 +10,7 @@ search: false
 
 ## Overview
 
-This guide uses the CopilotKit CLI to run CopilotKit Intelligence on your machine and connect an existing React app. You will record browser activity and find the saved Trajectory in Intelligence.
+Use the CopilotKit CLI to run CopilotKit Intelligence on your machine and connect an existing React app. Then record browser activity and find the saved Trajectory in Intelligence.
 
 <Callout type="info" title="Early access with our engineering team">
   Trajectories are in early access. This guide is for a proof of concept with our engineering team. It assumes that your license and Trajectories access are ready.
@@ -23,7 +23,7 @@ The CLI installs and manages the local stack. You do not need to install its int
 ## Before you start
 
 - macOS with Docker Desktop running. Allow at least 4 CPUs, 12 GiB of Docker memory, and 40 GiB of free storage.
-- An existing React app with a TypeScript CopilotKit Runtime, plus Node.js 22 or later.
+- An existing React app with a TypeScript Copilot Runtime, plus Node.js 22 or later.
 - Your existing CopilotKit sign-in for the CLI.
 
 You do not need a model for browser capture. The steps below skip model configuration and sample conversations.
@@ -76,7 +76,7 @@ npm install @copilotkit/react-core@1.79.1 @copilotkit/runtime@1.79.1
 
 Use the values from `.env` to configure the Intelligence client in your existing Runtime:
 
-```ts title="Your CopilotKit Runtime"
+```ts title="Your Copilot Runtime"
 import {
   CopilotKitIntelligence,
   CopilotRuntime,

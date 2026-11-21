@@ -126,7 +126,7 @@ Before you begin, you'll need the following:
                     </Tab>
                 </Tabs>
 
-                This will start both the UI and agent servers concurrently.
+                This starts the UI and the agent server together.
             </Step>
         </TailoredContentOption>
         <TailoredContentOption
@@ -191,8 +191,8 @@ Before you begin, you'll need the following:
           <Step>
             ### Expose your agent via AG-UI
 
-            If you already have a LangGraph agent written, just reference the following code. In this step
-            we create a simple LangGraph agent for the sake of demonstration.
+            If you already have a LangGraph agent, use the code below as a reference. This step
+            creates a small demo agent.
 
             <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
               <Tab value="TypeScript">
@@ -253,7 +253,7 @@ Before you begin, you'll need the following:
               <Tab value="Python">
               <Tabs groupId="deployment_method" items={['LangSmith', 'FastAPI']}>
                 <Tab value="LangSmith">
-                  First, we'll create a simple LangGraph agent:
+                  First, create a simple LangGraph agent:
 
                   ```python title="main.py"
                   from dotenv import load_dotenv
@@ -291,7 +291,7 @@ Before you begin, you'll need the following:
                     note there.
                   </Callout>
 
-                  Then to test and deploy with LangSmith, we'll also need a `langgraph.json`
+                  To test and deploy with LangSmith, also add a `langgraph.json` file:
 
                   ```sh
                   touch langgraph.json
@@ -386,7 +386,7 @@ Before you begin, you'll need the following:
                     `graph.aget_state(...)`, which raises
                     `ValueError: No checkpointer set` on a graph compiled without
                     one, hence `MemorySaver()`. It keeps state in process memory
-                    only; swap in a durable saver (e.g. Postgres) for production.
+                    only. Swap in a durable saver (for example, Postgres) for production.
                     Do **not** copy this into the LangSmith tab's graph.
                   </Callout>
 
@@ -420,7 +420,7 @@ Before you begin, you'll need the following:
           <Step>
               ### Create your frontend
 
-              CopilotKit works with any React-based frontend. We'll use Next.js for this example.
+              CopilotKit works with any React-based frontend. This example uses Next.js.
 
               ```bash
               npx create-next-app@latest frontend
@@ -551,7 +551,7 @@ Before you begin, you'll need the following:
               CPK_INTELLIGENCE_API_KEY=cpk-...
               ```
 
-              <Callout type="info" title="Running without the Intelligence Platform?">
+              <Callout type="info" title="Running without CopilotKit Intelligence?">
                 Drop the `intelligence` and `identifyUser` options and the runtime falls back
                 to SSE mode with an in-memory runner. Chat still works, but Threads and the
                 Inspector stay locked and the key is never read. See
@@ -788,7 +788,7 @@ Now that you have your basic agent setup, explore these advanced features:
     icon={<UserIcon />}
   />
   <Card
-    title="Utilize Shared State"
+    title="Use Shared State"
     description="Learn how to synchronize your agent's state with your UI's state, and vice versa."
     href="/shared-state"
     icon={<RepeatIcon />}

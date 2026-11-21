@@ -32,7 +32,7 @@ function useHumanInTheLoop<T extends Record<string, unknown>>(
 
 <PropertyReference name="description" type="string">
   A natural-language description that tells the agent what the tool does and
-  when to call it (e.g., "Ask the user to confirm before deleting records").
+  when to call it (for example, "Ask the user to confirm before deleting records").
 </PropertyReference>
 
 <PropertyReference name="parameters" type="StandardSchemaV1">
@@ -46,19 +46,19 @@ function useHumanInTheLoop<T extends Record<string, unknown>>(
     A React component that drives the human interaction. In every status it receives `name`, `description`, `toolCallId`, and `agentId` (the tool's own `agentId`, or `undefined`). The other props depend on the current status:
 
     **When `status` is `ToolCallStatus.InProgress`:**
-    - `args: Partial<T>` -- partially streamed arguments
-    - `respond: undefined` -- not yet available
+    - `args: Partial<T>`: partially streamed arguments
+    - `respond: undefined`: not yet available
     - `result: undefined`
 
     **When `status` is `ToolCallStatus.Executing`:**
-    - `args: T` -- fully resolved arguments
-    - `respond: (result: unknown) => Promise<void>` -- call this to send the user's response back to the agent and resume execution
+    - `args: T`: fully resolved arguments
+    - `respond: (result: unknown) => Promise<void>`: call this to send the user's response back to the agent and resume execution
     - `result: undefined`
 
     **When `status` is `ToolCallStatus.Complete`:**
-    - `args: T` -- the original arguments
-    - `respond: undefined` -- no longer available
-    - `result: string` -- the serialized result
+    - `args: T`: the original arguments
+    - `respond: undefined`: not available, because the tool call already has a result
+    - `result: string`: the serialized result
 
   </PropertyReference>
 
@@ -318,7 +318,7 @@ function ExpenseApproval() {
 ## Behavior
 
 - **Blocks agent execution**: The agent pauses when this tool is called and waits until your UI calls `respond`.
-- **Internal status machine**: The hook manages three states -- `InProgress` (arguments streaming in), `Executing` (waiting for user response), and `Complete` (user has responded). Your render component receives the appropriate props for each state.
+- **Internal status machine**: The hook manages three states: `InProgress` (arguments streaming in), `Executing` (waiting for user response), and `Complete` (user has responded). Your render component receives the appropriate props for each state.
 - **Single response**: Call the `respond` callback only once per tool call. Calling it resolves the tool call promise with the provided value.
 - **Stopped runs**: If the run stops before the user answers, the tool call fails with `Human-in-the-loop interaction aborted`, and `respond` has no effect.
 - **Built on `useFrontendTool`**: Internally, this hook wraps `useFrontendTool` with an internally generated handler, so all the same lifecycle behavior (mount/unmount registration, duplicate warnings) applies.

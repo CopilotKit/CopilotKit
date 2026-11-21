@@ -1,10 +1,10 @@
 ---
 title: "Deploy to any runtime"
 icon: "lucide/Server"
-description: "Deploy the CopilotKit runtime on any backend framework: Node.js, Express, Hono, Bun, Deno, Cloudflare Workers, and more."
+description: "Deploy Copilot Runtime on any backend framework: Node.js, Express, Hono, Bun, Deno, Cloudflare Workers, and more."
 ---
 
-Your agent needs a backend endpoint, and you already run a server. Pick your server below and copy its handler. The TypeScript CopilotKit runtime is a Fetch handler: a function that takes a `Request` and returns a `Response`. It runs on any platform that supports the [Fetch API](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API). For Node.js HTTP servers, Express, and Hono, CopilotKit ships thin adapters.
+Your agent needs a backend endpoint, and you already run a server. Pick your server below and copy its handler. The TypeScript Copilot Runtime is a Fetch handler: a function that takes a `Request` and returns a `Response`. It runs on any platform that supports the [Fetch API](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API). For Node.js HTTP servers, Express, and Hono, CopilotKit ships thin adapters.
 
 <Callout type="info" title="TypeScript server adapters">
 This guide covers the TypeScript runtime, which works with or without Intelligence. For Python, Go, Ruby, or C#/.NET servers, follow the [Intelligence quickstart](/intelligence/quickstart#connect-your-runtime). Those runtimes require Intelligence and expose multi-route endpoints.
@@ -51,7 +51,7 @@ Single-route mode is useful when your platform only allows one route handler, or
 
 ## Fetch-Native Runtimes
 
-If your platform supports the Fetch API natively (Bun, Deno, Cloudflare Workers, etc.), you can use `createCopilotRuntimeHandler` directly. No adapter is needed.
+If your platform supports the Fetch API natively (Bun, Deno, Cloudflare Workers, and more), use `createCopilotRuntimeHandler` directly. No adapter is needed.
 
 ```ts
 import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime/v2";
@@ -469,7 +469,7 @@ export function action({ request }: Route.ActionArgs) {
 ```
 
 <Callout type="info">
-In single-route mode, no `$` splat is needed. The filename is just `api.copilotkit.ts` and all dispatch happens via the JSON envelope.
+In single-route mode, no `$` splat is needed. The filename is `api.copilotkit.ts`, and all dispatch happens through the JSON envelope.
 </Callout>
 </Tab>
 </Tabs>
@@ -762,13 +762,13 @@ app.listen(4000, () => {
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `runtime` | `CopilotRuntime` | *required* | The runtime instance |
-| `basePath` | `string` | *required* | URL path prefix (e.g. `"/api/copilotkit"`) |
+| `basePath` | `string` | *required* | URL path prefix (for example, `"/api/copilotkit"`) |
 | `mode` | `"multi-route"` \| `"single-route"` | `"multi-route"` | Multi-route exposes individual endpoints; single-route uses a JSON envelope |
 | `cors` | `boolean` \| `CorsOptions` | `true` | CORS configuration. Defaults to permissive (`origin: "*"`). Pass `false` to handle CORS yourself, or pass a `cors` options object |
 | `hooks` | `CopilotRuntimeHooks` | none | [Lifecycle hooks](#lifecycle-hooks) |
 
 <Callout type="info">
-The Express adapter is compatible with `express.json()` body parsing. If you have `app.use(express.json())` before the CopilotKit router, the adapter will detect the pre-parsed body and handle it correctly.
+The Express adapter is compatible with `express.json()` body parsing. If you have `app.use(express.json())` before the CopilotKit router, the adapter detects the pre-parsed body and handles it correctly.
 </Callout>
 
 ## Hono

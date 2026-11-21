@@ -150,7 +150,7 @@ Before you begin, you'll need the following:
                     </Tab>
                 </Tabs>
 
-                This will start both the Next.js UI (port 3000) and agent server (port 8000) concurrently.
+                This starts the Next.js UI (port 3000) and the agent server (port 8000) together.
             </Step>
         </TailoredContentOption>
         <TailoredContentOption
@@ -298,7 +298,7 @@ using Microsoft.Extensions.AI;
             </Step>
             <Step>
                 ### Frontend Setup
-                CopilotKit works with any React-based frontend. We'll use Next.js for this example.
+                CopilotKit works with any React-based frontend. This example uses Next.js.
 
                 In a new terminal window, run the following commands:
 
@@ -317,8 +317,8 @@ using Microsoft.Extensions.AI;
             <Step>
                 ### Add the Copilot Runtime route
 
-                CopilotKit requires a Copilot Runtime endpoint to safely communicate with your agent. This can be served
-                anywhere that Node.js can run, but for this example we'll use Next.js.
+                CopilotKit needs a Copilot Runtime endpoint to talk to your agent safely. The endpoint can run
+                anywhere that Node.js runs. This example serves it from Next.js.
 
                 Create a new API route at `app/api/copilotkit/[[...slug]]/route.ts`:
 
@@ -370,10 +370,10 @@ using Microsoft.Extensions.AI;
                 CPK_INTELLIGENCE_API_KEY=cpk-...
                 ```
 
-                <Callout type="info" title="Running without the Intelligence Platform?">
+                <Callout type="info" title="Running without CopilotKit Intelligence?">
                   Drop the `intelligence` and `identifyUser` options and the runtime falls back
                   to SSE mode with an in-memory runner. Chat and the Inspector still work, but
-                  Rich Threads stay locked and the key is never read. See
+                  Intelligence’s AG-UI streams stay locked and the key is never read. See
                   [Connect your runtime to Intelligence](/intelligence/quickstart) for the
                   full constructor and how to confirm the key is in use.
                 </Callout>
@@ -456,7 +456,7 @@ using Microsoft.Extensions.AI;
             </Step>
             <Step>
               ### Run and start your Next.js app
-              To run the Next.js app we just created, use the following command:
+              Start the Next.js app:
 
               <Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn', 'bun']}>
                   <Tab value="npm">
@@ -548,7 +548,7 @@ Now that you have your basic agent setup, explore these advanced features:
     icon={<UserIcon />}
   />
   <Card
-    title="Utilize Shared State"
+    title="Use Shared State"
     description="Learn how to synchronize your agent's state with your UI's state, and vice versa."
     href="/microsoft-agent-framework/shared-state"
     icon={<RepeatIcon />}
