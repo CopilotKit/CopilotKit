@@ -3,6 +3,7 @@ import {
   lambdaClient,
   parseAndWarnTelemetryId,
   computeSamplingMeta,
+  sourceSampleRate,
   TELEMETRY_EMITTER_V2,
   TELEMETRY_SURFACE_V2,
 } from "@copilotkit/shared";
@@ -46,10 +47,11 @@ export function isTelemetryDisabled(): boolean {
 
 export class TelemetryClient {
   private telemetryDisabled: boolean = false;
-  // Opt-down for anonymous events, defaulting to 1: the sink is ours, so a
-  // real count beats one extrapolated from a fraction of the population.
-  // It stays configurable because it is the cross-SDK lever for reducing or
-  // stopping anonymous volume — the Go, Python, Ruby, and .NET runtimes all
+  // Opt-down for anonymous events, defaulting to 1, so that apart from the
+  // connect gate in sampling.ts the sink gets a real count rather than one
+  // extrapolated from a fraction of the population. It stays configurable
+  // because it is the cross-SDK lever for reducing or stopping anonymous
+  // volume — the Go, Python, Ruby, and .NET runtimes all
   // expose it, and the cross-language conformance suite drives it to 0 to
   // assert silence. Identified callers bypass it.
   private sampleRate: number = 1;
@@ -60,9 +62,9 @@ export class TelemetryClient {
   // Standalone identity sent as a transport claim. It does not make an
   // event identified.
   private telemetryId: string | null = null;
-  // License-derived identity. This client sends every event either way;
-  // the id is what sets telemetry_identified on the sampling block, which
-  // is how the two populations stay separable downstream.
+  // License-derived identity. It exempts the caller from every sampling
+  // gate, and it is what sets telemetry_identified on the sampling block,
+  // which is how the two populations stay separable downstream.
   private licenseTelemetryId: string | null = null;
   // Properties merged into every event this client sends.
   //
@@ -91,9 +93,9 @@ export class TelemetryClient {
     this.setSampleRate(sampleRate);
   }
 
-  private shouldSendEvent() {
-    if (this.sampleRate >= 1) return true;
-    return Math.random() < this.sampleRate;
+  private shouldSendEvent(sampleRate: number) {
+    if (sampleRate >= 1) return true;
+    return Math.random() < sampleRate;
   }
 
   /**
@@ -150,9 +152,15 @@ export class TelemetryClient {
     // Re-read the environment: an opt-out set after import (for example a
     // dotenv call below the imports) must still stop events.
     if (this.telemetryDisabled || isTelemetryDisabled()) return;
-    // Nothing is gated at the default rate of 1. A caller who dialled it
-    // down means it, and identified callers are exempt either way.
-    if (!identity.licenseTelemetryId && !this.shouldSendEvent()) return;
+    // Two gates, multiplied into one draw: the opt-down rate, which is 1
+    // unless a caller dialled it down, and the per-event source rate, which
+    // thins anonymous connect requests and leaves everything else alone
+    // (see sampling.ts in @copilotkit/shared). Identified callers are
+    // exempt from both.
+    const sampleRate = this.sampleRate * sourceSampleRate(event, properties);
+    if (!identity.licenseTelemetryId && !this.shouldSendEvent(sampleRate)) {
+      return;
+    }
 
     await lambdaClient.send({
       event,
@@ -164,15 +172,16 @@ export class TelemetryClient {
       // same way. Folding it in would work and would put a process-level fact
       // in the per-event slot, where nothing downstream expects to find one.
       // Sampling metadata rides in the same slot, as it does in v1. It
-      // reads 1/1 unless a caller dialled the rate down, and is stamped
-      // either way: a consumer summing sampleWeight across emitters must
-      // not find the field missing on a quarter of the rows, which is the
-      // state that made ~24% of runtime volume unweightable (OSS-1017).
+      // carries the rate this event was actually kept at, 1/1 for an event
+      // no gate touched, and is stamped either way: a consumer summing
+      // sampleWeight across emitters must not find the field missing on a
+      // quarter of the rows, which is the state that made ~24% of runtime
+      // volume unweightable (OSS-1017).
       globalProperties: {
         ...this.globalProperties,
         ...computeSamplingMeta({
           telemetryId: identity.licenseTelemetryId,
-          sampleRate: this.sampleRate,
+          sampleRate,
         }),
         telemetry_emitter: TELEMETRY_EMITTER_V2,
         // Constant here: a v1 request never reaches this client. The v1

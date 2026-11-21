@@ -1,10 +1,11 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import type { MockInstance } from "vitest";
-import { lambdaClient } from "@copilotkit/shared";
+import { CONNECT_SAMPLE_RATE, lambdaClient } from "@copilotkit/shared";
 import { TelemetryClient } from "../telemetry-client";
 
 // Guards the half of the sampling contract that lives in the v2 client.
-// This client sends every event now, so the block it stamps is constant —
+// Apart from anonymous connect requests (covered below), this client sends
+// every event, so the block it stamps is usually constant —
 // but it still has to be stamped, and it still has to say whether the
 // caller was identified. When it stamped nothing, ~24% of runtime volume
 // became unweightable from the data alone (OSS-1017 / OSS-1018).
@@ -155,5 +156,141 @@ describe("v2 TelemetryClient sampling metadata", () => {
     vi.spyOn(Math, "random").mockReturnValue(0);
     await gated.capture("oss.runtime.instance_created", baseInstanceEvent);
     expect(globalsOf()).toMatchObject({ sampleRate: 0.05, sampleWeight: 20 });
+  });
+});
+
+// One connect is sent per chat mount, so a single app can send hundreds per
+// run while working perfectly. The source gate thins anonymous connects to
+// CONNECT_SAMPLE_RATE and stamps the weight that keeps the true count and
+// the connect:run ratio recoverable from sum(sampleWeight).
+describe("v2 TelemetryClient connect sampling", () => {
+  let lambdaSpy: MockInstance<typeof lambdaClient.send>;
+
+  beforeEach(() => {
+    lambdaSpy = vi.spyOn(lambdaClient, "send").mockResolvedValue(undefined);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const request = (requestType: "connect" | "run") =>
+    ({
+      "cloud.guardrails.enabled": false,
+      requestType,
+      "cloud.api_key_provided": false,
+    }) as const;
+
+  function globalsOf(callIndex = 0): Record<string, unknown> {
+    return lambdaSpy.mock.calls[callIndex][0].globalProperties as Record<
+      string,
+      unknown
+    >;
+  }
+
+  test("an anonymous connect is dropped above the source rate and weighted when kept", async () => {
+    const client = new TelemetryClient({ telemetryDisabled: false });
+
+    vi.spyOn(Math, "random").mockReturnValue(CONNECT_SAMPLE_RATE);
+    await client.capture(
+      "oss.runtime.copilot_request_created",
+      request("connect"),
+    );
+    expect(lambdaSpy).not.toHaveBeenCalled();
+
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    await client.capture(
+      "oss.runtime.copilot_request_created",
+      request("connect"),
+    );
+    expect(lambdaSpy).toHaveBeenCalledTimes(1);
+    expect(globalsOf()).toMatchObject({
+      sampleRate: CONNECT_SAMPLE_RATE,
+      sampleWeight: 1 / CONNECT_SAMPLE_RATE,
+      telemetry_identified: false,
+    });
+  });
+
+  test("a run is never sampled at the source", async () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.99);
+    const client = new TelemetryClient({ telemetryDisabled: false });
+
+    await client.capture("oss.runtime.copilot_request_created", request("run"));
+
+    expect(lambdaSpy).toHaveBeenCalledTimes(1);
+    expect(globalsOf()).toMatchObject({ sampleRate: 1, sampleWeight: 1 });
+  });
+
+  test("an identified caller's connects are never sampled", async () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.99);
+    const client = new TelemetryClient({ telemetryDisabled: false });
+    const payload = Buffer.from(
+      JSON.stringify({ telemetry_id: "abc-123" }),
+    ).toString("base64url");
+    client.setLicenseToken(`header.${payload}.sig`);
+
+    await client.capture(
+      "oss.runtime.copilot_request_created",
+      request("connect"),
+    );
+
+    expect(lambdaSpy).toHaveBeenCalledTimes(1);
+    expect(globalsOf()).toMatchObject({
+      sampleRate: 1,
+      sampleWeight: 1,
+      telemetry_identified: true,
+    });
+  });
+
+  test("the source rate multiplies into a configured rate rather than replacing it", async () => {
+    // 0.5 x CONNECT_SAMPLE_RATE. A draw between the product and the smaller
+    // factor must drop the event, and a kept one stands for 1/product.
+    const product = 0.5 * CONNECT_SAMPLE_RATE;
+    const client = new TelemetryClient({
+      telemetryDisabled: false,
+      sampleRate: 0.5,
+    });
+
+    vi.spyOn(Math, "random").mockReturnValue(
+      (product + CONNECT_SAMPLE_RATE) / 2,
+    );
+    await client.capture(
+      "oss.runtime.copilot_request_created",
+      request("connect"),
+    );
+    expect(lambdaSpy).not.toHaveBeenCalled();
+
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    await client.capture(
+      "oss.runtime.copilot_request_created",
+      request("connect"),
+    );
+    expect(globalsOf().sampleRate).toBeCloseTo(product);
+    expect(globalsOf().sampleWeight).toBeCloseTo(1 / product);
+  });
+
+  test("sum(sampleWeight) over kept connects recovers the true count", async () => {
+    // Real Math.random. Binomial: the sum's standard deviation is
+    // sqrt(N(1-p)/p); 6 sigma keeps this from flaking while still failing
+    // on any weight that is off by more than a few percent.
+    const n = 20_000;
+    const client = new TelemetryClient({ telemetryDisabled: false });
+
+    for (let i = 0; i < n; i++) {
+      await client.capture(
+        "oss.runtime.copilot_request_created",
+        request("connect"),
+      );
+    }
+
+    const total = lambdaSpy.mock.calls.reduce(
+      (sum, [opts]) => sum + Number(opts.globalProperties?.sampleWeight),
+      0,
+    );
+    const sigma = Math.sqrt(
+      (n * (1 - CONNECT_SAMPLE_RATE)) / CONNECT_SAMPLE_RATE,
+    );
+    expect(lambdaSpy.mock.calls.length).toBeLessThan(n * 0.1);
+    expect(Math.abs(total - n)).toBeLessThan(6 * sigma);
   });
 });
