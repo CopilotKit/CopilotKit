@@ -70,6 +70,7 @@ from agno.agent import Agent, RemoteAgent
 from agno.models.message import Message
 from agno.os import AgentOS
 from agno.os.interfaces.agui import AGUI
+from agno.os.interfaces.agui.router import run_agent as run_agui_agent
 
 # TODO: migrate to agno 2.6.20+ API once agui.utils replacement is identified
 from agno.os.interfaces.agui.utils import (
@@ -77,13 +78,14 @@ from agno.os.interfaces.agui.utils import (
     extract_agui_user_input,
     validate_agui_state,
 )
-from agno.utils.log import log_debug, log_warning
+from agno.utils.log import log_debug
 from fastapi import FastAPI
 from fastapi.responses import StreamingResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 
 from agents.a2ui_dynamic_agent import agent as a2ui_dynamic_agent
+from agents.a2ui_dynamic_agent import app_context as a2ui_app_context
 from agents.a2ui_fixed_agent import agent as a2ui_fixed_agent
 from agents.agent_config_agent import (
     agent as agent_config_agent,
@@ -814,11 +816,6 @@ agent_os = AgentOS(
         # BYOC: json-render — agent emits a json-render spec the frontend
         # renderer mounts against a Zod-validated catalog.
         AGUI(agent=byoc_json_render_agent, prefix="/byoc-json-render"),
-        # A2UI dynamic schema — agent owns `generate_a2ui` which calls a
-        # secondary OpenAI client bound to `render_a2ui` and emits an
-        # `a2ui_operations` container the runtime A2UI middleware forwards
-        # to the frontend renderer.
-        AGUI(agent=a2ui_dynamic_agent, prefix="/declarative-gen-ui"),
         # A2UI fixed schema — agent's `display_flight` tool emits an
         # `a2ui_operations` container directly (no secondary LLM) bound to
         # the pre-authored `flight_schema.json`.
@@ -826,6 +823,38 @@ agent_os = AgentOS(
     ],
 )
 app = agent_os.get_app()
+
+
+@app.post("/declarative-gen-ui/agui")
+async def run_declarative_gen_ui(run_input: RunAgentInput) -> StreamingResponse:
+    # The pinned Agno adapter forwards state but does not expose App Context.
+    encoder = EventEncoder()
+
+    async def stream():
+        token = a2ui_app_context.set(tuple(run_input.context))
+        try:
+            async for event in run_agui_agent(a2ui_dynamic_agent, run_input):
+                yield encoder.encode(event)
+        finally:
+            a2ui_app_context.reset(token)
+
+    return StreamingResponse(
+        stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+        },
+    )
+
+
+@app.get("/declarative-gen-ui/status")
+async def declarative_gen_ui_status():
+    return {"status": "available"}
+
 
 # HITL-aware route for the main agent.  Replaces the stock AGUI interface
 # (``AGUI(agent=main_agent)``) so tool results from the CopilotKit runtime
