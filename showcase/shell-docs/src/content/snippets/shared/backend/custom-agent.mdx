@@ -75,6 +75,9 @@ const agent = new BuiltInAgent({
       adapter: openaiText("gpt-6-luna"),
       messages,
       systemPrompts,
+      threadId: input.threadId,
+      runId: input.runId,
+      stream: true,
       abortController,
     });
   },
@@ -231,6 +234,9 @@ const agent = new BuiltInAgent({
       messages,
       systemPrompts,
       tools: [...tools, getWeather],
+      threadId: input.threadId,
+      runId: input.runId,
+      stream: true,
       abortController,
     });
   },
@@ -340,9 +346,10 @@ const agent = new BuiltInAgent({
       adapter: anthropicText("claude-sonnet-4-6"),
       messages,
       systemPrompts,
-      modelOptions: {
-        thinking: { type: "adaptive", display: "summarized" },
-      },
+      reasoning: { level: "high", summary: true },
+      threadId: input.threadId,
+      runId: input.runId,
+      stream: true,
       abortController,
     });
   },
@@ -416,6 +423,9 @@ const agent = new BuiltInAgent({
       adapter: openaiText("gpt-6-luna"),
       messages,
       systemPrompts,
+      threadId: input.threadId,
+      runId: input.runId,
+      stream: true,
       abortController,
     });
   },
@@ -491,6 +501,9 @@ const agent = new BuiltInAgent({
       messages,
       systemPrompts,
       modelOptions,
+      threadId: input.threadId,
+      runId: input.runId,
+      stream: true,
       abortController,
     });
   },
@@ -594,6 +607,9 @@ const agent = new BuiltInAgent({
       messages,
       systemPrompts,
       tools: [sendStateSnapshot, sendStateDelta],
+      threadId: input.threadId,
+      runId: input.runId,
+      stream: true,
       abortController,
     });
   },

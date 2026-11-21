@@ -148,6 +148,12 @@ const builtInAgent = new BuiltInAgent({
 
 The `mcpServers` approach creates a fresh MCP connection on every agent run. For latency-sensitive setups (or when you need persistent connections, dynamic auth, or tool caching), use `mcpClients` instead. You create and manage the MCP client yourself; the agent just calls `.tools()` to get tool definitions.
 
+The Built-in Agent runs on AI SDK 6, so install `@ai-sdk/mcp` from its `ai-v6` release line:
+
+```npm
+npm install @ai-sdk/mcp@ai-v6 @modelcontextprotocol/sdk
+```
+
 ```typescript
 import { BuiltInAgent } from "@copilotkit/runtime/v2";
 import { createMCPClient } from "@ai-sdk/mcp";

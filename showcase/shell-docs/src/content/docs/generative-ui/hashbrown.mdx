@@ -24,7 +24,11 @@ For a validated `{ root, elements }` spec that renders as one tree, see [JSON Re
 
 ## Frontend
 
-The bundled demos pin `@hashbrownai/core` and `@hashbrownai/react` to `0.5.0-beta.4`. The chart components also need `recharts` and `zod`.
+The bundled demos pin `@hashbrownai/core` and `@hashbrownai/react` to `0.5.0-beta.4`. The chart components also need `recharts` and `zod`. Install the same versions. The demo code does not compile with later Hashbrown releases:
+
+```bash
+npm install @hashbrownai/core@0.5.0-beta.4 @hashbrownai/react@0.5.0-beta.4 recharts zod
+```
 
 1. Wrap the chat in `HashBrownDashboard`. That provider creates the UI kit once and shares it with the assistant-message renderer.
 2. Register `HashBrownRenderMessage` in the `assistantMessage` slot of `CopilotChat`:

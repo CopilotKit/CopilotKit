@@ -14,18 +14,23 @@ A display component is a React component that your agent can call as a tool. Whe
 
 <Tabs items={['page.tsx', 'chart.tsx']}>
   <Tab value="page.tsx">
-  ```tsx
-import { useComponent } from "@copilotkit/react-core/v2";
+```tsx
+"use client";
+
+import { CopilotChat, useComponent } from "@copilotkit/react-core/v2";
 import { Chart, ChartProps } from "./chart";
 
-useComponent({
-name: "showChart",
-description: "Populate data and show the user a chart",
-parameters: ChartProps,
-render: Chart
-});
+export default function Page() {
+  useComponent({
+    name: "showChart",
+    description: "Populate data and show the user a chart",
+    parameters: ChartProps,
+    render: Chart,
+  });
 
-````
+  return <CopilotChat />;
+}
+```
 </Tab>
 <Tab value="chart.tsx">
 ```tsx
@@ -50,7 +55,7 @@ export function Chart({ title, data }: z.infer<typeof ChartProps>) {
     </div>
   );
 }
-````
+```
 
   </Tab>
 </Tabs>
