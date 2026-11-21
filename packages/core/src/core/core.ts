@@ -684,8 +684,11 @@ export class CopilotKitCore {
       code !== CopilotKitCoreErrorCode.HEADER_RESOLUTION_FAILED &&
       isHeaderResolutionError(error)
     ) {
-      // Already reported once as HEADER_RESOLUTION_FAILED.
-      return;
+      if (!context.agentId || !context.threadId) {
+        return;
+      }
+      code = CopilotKitCoreErrorCode.HEADER_RESOLUTION_FAILED;
+      context = { ...context, source: "headers" };
     }
     await this.notifySubscribers(
       (subscriber) =>

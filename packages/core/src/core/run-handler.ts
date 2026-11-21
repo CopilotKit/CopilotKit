@@ -787,9 +787,16 @@ export class RunHandler {
     try {
       const headersApplied = this._internal.prepareAgentHeadersForRun(agent);
       if (headersApplied) await headersApplied;
-    } catch {
-      // Already reported as HEADER_RESOLUTION_FAILED by the resolver.
+    } catch (error) {
       continuationHandoff?.cancel();
+      await this._internal.emitError({
+        error: error instanceof Error ? error : new Error(String(error)),
+        code: CopilotKitCoreErrorCode.AGENT_RUN_FAILED,
+        context: {
+          agentId: agent.agentId,
+          threadId: agent.threadId,
+        },
+      });
       return { result: undefined, newMessages: [] };
     }
 
