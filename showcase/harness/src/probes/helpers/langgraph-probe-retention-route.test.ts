@@ -1,24 +1,64 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanupProbeThreadRequest } from "../../../../integrations/_shared/ts/langgraph-probe-retention.js";
 
-afterEach(() => vi.restoreAllMocks());
+const probeToken = "probe-token";
+
+beforeEach(() => vi.stubEnv("SHOWCASE_PROBE_TOKEN", probeToken));
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllEnvs();
+});
 
 const threadId = "a4b18d3d-766f-4bb2-8cce-f9085232fc37";
 const testId = "d6-langgraph-python-run-1";
 
-function request(): Request {
+function request(options?: { headers?: Record<string, string> }): Request {
   return new Request("http://localhost/api/probe-threads", {
     method: "POST",
+    headers: { "x-probe-token": probeToken, ...options?.headers },
     body: JSON.stringify({ testId, threadIds: [threadId] }),
   });
 }
 
 describe("LangGraph probe retention endpoint", () => {
+  it("rejects an unauthenticated cleanup request without contacting the agent", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    const response = await cleanupProbeThreadRequest(
+      new Request("http://localhost/api/probe-threads", {
+        method: "POST",
+        body: JSON.stringify({ testId, threadIds: [threadId] }),
+      }),
+    );
+
+    expect(response.status).toBe(403);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a mismatched probe cleanup token", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    const response = await cleanupProbeThreadRequest(
+      request({ headers: { "x-probe-token": "wrong-token" } }),
+    );
+
+    expect(response.status).toBe(403);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when the deployment has no probe cleanup token", async () => {
+    vi.stubEnv("SHOWCASE_PROBE_TOKEN", "");
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    const response = await cleanupProbeThreadRequest(request());
+
+    expect(response.status).toBe(403);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("rejects a null cleanup body without contacting the agent", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch");
     const response = await cleanupProbeThreadRequest(
       new Request("http://localhost/api/probe-threads", {
         method: "POST",
+        headers: { "x-probe-token": probeToken },
         body: "null",
       }),
     );
@@ -79,6 +119,7 @@ describe("LangGraph probe retention endpoint", () => {
     const response = await handle(
       new Request("http://localhost/api/probe-threads", {
         method: "POST",
+        headers: { "x-probe-token": probeToken },
         body: JSON.stringify({ testId, threadIds: [threadId, secondThreadId] }),
       }),
     );
@@ -161,6 +202,7 @@ describe("LangGraph probe retention endpoint", () => {
     const response = await handle(
       new Request("http://localhost/api/probe-threads", {
         method: "POST",
+        headers: { "x-probe-token": probeToken },
         body: JSON.stringify({ testId, threadIds: [] }),
       }),
     );
