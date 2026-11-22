@@ -55,8 +55,29 @@ function otherVersionRewrite(request: NextRequest): NextResponse | null {
   return null;
 }
 
+/** The PostHog reverse proxy's paths (the /ingest rewrites in next.config.mjs). */
+const POSTHOG_PROXY = /^\/ingest(?:\/|$)/;
+
+/**
+ * Let the request through without the headers Cloudflare adds in front of
+ * this site (`cf-connecting-ip`, `cf-ray`, `cdn-loop` and so on). The /ingest
+ * rewrites forward every request header to PostHog, whose hosts are on
+ * Cloudflare too, and its asset host answers a request carrying
+ * `cf-connecting-ip` with 403 (error 1000). The visitor's IP still reaches
+ * PostHog in `x-forwarded-for`.
+ */
+function withoutCloudflareHeaders(request: NextRequest): NextResponse {
+  const headers = new Headers(request.headers);
+  for (const name of request.headers.keys()) {
+    if (name.startsWith("cf-") || name === "cdn-loop") headers.delete(name);
+  }
+  return NextResponse.next({ request: { headers } });
+}
+
 export default function proxy(request: NextRequest, event: NextFetchEvent) {
   const { pathname } = request.nextUrl;
+
+  if (POSTHOG_PROXY.test(pathname)) return withoutCloudflareHeaders(request);
 
   const otherVersion = otherVersionRewrite(request);
   if (otherVersion) return otherVersion;
