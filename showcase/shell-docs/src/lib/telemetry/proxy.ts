@@ -43,8 +43,9 @@ const MAX_USER_AGENT_LENGTH = 512;
 // matcher, so it sees all of these.)
 const UNTRACKED_PATH =
   /^\/(?:api\/|ingest\/|_next\/|__nextjs|favicon\.ico|previews\/|robots\.txt|sitemap\.xml|manifest\.webmanifest|\.well-known\/)/;
+// `.json` too: the version picker fetches `/versions.json` on every page load.
 const ASSET_PATH =
-  /\.(?:png|jpg|jpeg|svg|gif|webp|ico|avif|woff2?|ttf|otf|eot|map)$/;
+  /\.(?:png|jpg|jpeg|svg|gif|webp|ico|avif|woff2?|ttf|otf|eot|map|json)$/;
 
 let warnedMissingKey = false;
 let warnedNonProduction = false;
