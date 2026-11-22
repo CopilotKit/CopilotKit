@@ -236,7 +236,13 @@ async function captureLlmTextFetch(
 }
 
 function clientIp(request: NextRequest): string | null {
-  // The left-most `x-forwarded-for` entry is the original client.
+  // Behind the Cloudflare proxy, `cf-connecting-ip` is the visitor, and the
+  // left-most `x-forwarded-for` entry is a Cloudflare edge address.
+  // (`src/proxy.ts` strips `cf-*` headers only on /ingest, which is never
+  // tracked.)
+  const cloudflare = request.headers.get("cf-connecting-ip")?.trim();
+  if (cloudflare) return cloudflare;
+  // Without Cloudflare, the left-most `x-forwarded-for` entry is the client.
   const forwarded = request.headers.get("x-forwarded-for");
   if (forwarded) return forwarded.split(",")[0]?.trim() || null;
   return request.headers.get("x-real-ip");
