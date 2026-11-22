@@ -47,7 +47,21 @@ const ASSET_PATH =
   /\.(?:png|jpg|jpeg|svg|gif|webp|ico|avif|woff2?|ttf|otf|eot|map)$/;
 
 let warnedMissingKey = false;
+let warnedNonProduction = false;
 function posthogKey(): string | undefined {
+  // Every Railway environment of the docs has the production PostHog
+  // project's key, so a non-production one (staging, PR environments) sends
+  // nothing. Off Railway (local dev), the key alone decides.
+  const railwayEnvironment = process.env.RAILWAY_ENVIRONMENT_NAME;
+  if (railwayEnvironment && railwayEnvironment !== "production") {
+    if (!warnedNonProduction) {
+      warnedNonProduction = true;
+      console.warn(
+        `[proxy] Railway environment "${railwayEnvironment}" is not production — analytics disabled`,
+      );
+    }
+    return undefined;
+  }
   const key = process.env.POSTHOG_KEY;
   if (!key && !warnedMissingKey) {
     warnedMissingKey = true;
