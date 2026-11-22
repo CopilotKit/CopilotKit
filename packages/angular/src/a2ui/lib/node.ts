@@ -11,6 +11,7 @@ import {
   effect,
   inject,
   input,
+  isDevMode,
   signal,
   untracked,
 } from "@angular/core";
@@ -88,7 +89,7 @@ function withCurrentProps(
           [context]="props()"
           [injector]="injector()"
         />
-      } @else if (!implementation()) {
+      } @else if (!implementation() && showUnknownComponent) {
         <div
           class="copilot-a2ui-node-unknown"
           role="alert"
@@ -133,6 +134,9 @@ function withCurrentProps(
   `,
 })
 export class CopilotA2UINode {
+  /** Debug text for an unregistered type is for developers, never end users. */
+  protected readonly showUnknownComponent = isDevMode();
+
   readonly surface = input.required<SurfaceModel<CopilotA2UICatalogEntry>>();
   readonly componentId = input.required<string>();
   readonly basePath = input("/");
