@@ -19,6 +19,7 @@ Import these symbols from `@copilotkit/angular`.
 
 <!-- public-api:root:start -->
 
+- `A2UIActionInterceptor`
 - `A2UICatalog`
 - `A2UIClientEventMessage`
 - `A2UIConfig`
@@ -27,6 +28,7 @@ Import these symbols from `@copilotkit/angular`.
 - `A2UILifecycleStatus`
 - `A2UIRecoveryOptions`
 - `A2UISurfaceError`
+- `A2UIUserAction`
 - `AGUI_SEND_STATE_SNAPSHOT_TOOL_NAME`
 - `ActivityRenderer`
 - `AgentStore`
