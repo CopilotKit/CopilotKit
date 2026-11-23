@@ -6,6 +6,7 @@ import {
 import type { DocsScope } from "@/components/docs-mdx/scope";
 import {
   frameworkHas,
+  frameworkIs,
   hasAngularBackend,
 } from "@/components/docs-mdx/showcase/framework-gates";
 import {
@@ -19,7 +20,7 @@ import { ROOT_FRAMEWORK } from "@/lib/live-scope";
 
 // The showcase components of a page as Markdown: what `<FrameworkSetup>`,
 // `<Snippet>`, `<AngularSnippet>`, `<InlineDemo>`, and the `<FrontendOnly>`,
-// `<WhenAngularBackend>` and `<WhenFrameworkHas>` gates render on the page,
+// `<WhenAngularBackend>`, `<WhenFramework>` and `<WhenFrameworkHas>` gates render on the page,
 // resolved through the same lookups (`src/components/docs-mdx/showcase`) for
 // the page's scope. Code comes out as fenced blocks titled with the file, a
 // branch the page doesn't show is dropped, and one it shows loses its tags.
@@ -63,6 +64,15 @@ export function expandShowcase(body: string, page: ShowcasePage): string {
     (attrs) =>
       hasAngularBackend(scope.framework ?? text(attrs.currentFramework)) ===
       (attrs.selected !== false),
+  );
+  out = filterBlocks(
+    out,
+    "WhenFramework",
+    (attrs) =>
+      frameworkIs(
+        scope.framework ?? text(attrs.currentFramework),
+        text(attrs.is) ?? "",
+      ) !== (attrs.not === true),
   );
   out = filterBlocks(out, "WhenFrameworkHas", (attrs) =>
     frameworkHas(

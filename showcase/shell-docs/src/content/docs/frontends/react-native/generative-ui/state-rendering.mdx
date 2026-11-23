@@ -21,6 +21,65 @@ Use state rendering when you want to:
 
 <FrameworkSetup concept="shared-state-setup" />
 
+<WhenFramework is="mastra">
+
+Register the example agent as `sharedStateReadWriteAgent` in your Mastra `agents` map (`agents: { sharedStateReadWriteAgent }`) before calling `MastraAgent.getLocalAgents` in your runtime. This key is distinct from the agent's internal `id`. The native panel and chat must both use the registered key.
+
+```tsx title="src/AgentNotes.tsx"
+import { Text, View } from "react-native";
+import { useAgent, UseAgentUpdate } from "@copilotkit/react-native/headless";
+
+type NotesState = {
+  preferences?: { name?: string };
+  notes?: string[];
+};
+
+export function AgentNotes() {
+  const { agent } = useAgent({
+    agentId: "sharedStateReadWriteAgent",
+    updates: [UseAgentUpdate.OnStateChanged],
+  });
+  const state = (agent.state ?? {}) as NotesState;
+
+  return (
+    <View style={{ padding: 16, gap: 8 }} accessibilityLiveRegion="polite">
+      <Text style={{ fontWeight: "600" }}>
+        {state.preferences?.name ? `Notes for ${state.preferences.name}` : "Agent notes"}
+      </Text>
+      <Text>{state.notes?.length ? state.notes.join("\n") : "No notes yet."}</Text>
+    </View>
+  );
+}
+```
+
+Mount the panel next to your chat, under the same provider:
+
+```tsx title="App.tsx"
+import { View } from "react-native";
+import { CopilotKitProvider } from "@copilotkit/react-native/headless";
+import { CopilotChat } from "@copilotkit/react-native/components";
+import { AgentNotes } from "./src/AgentNotes";
+
+const runtimeUrl = "http://localhost:8200/api/copilotkit";
+
+export default function App() {
+  return (
+    <CopilotKitProvider runtimeUrl={runtimeUrl}>
+      <View style={{ flex: 1 }}>
+        <AgentNotes />
+        <CopilotChat agentName="sharedStateReadWriteAgent" />
+      </View>
+    </CopilotKitProvider>
+  );
+}
+```
+
+Set `runtimeUrl` to the endpoint where you embedded Mastra; on a device, use an address it can reach. In the chat, ask the agent to remember a note. When `set_notes` writes working memory and the adapter sends the updated state, the panel shows the note.
+
+</WhenFramework>
+
+<WhenFramework is="mastra" not>
+
 1. On the backend, write the value to a key in the [agent state](/shared-state). To stream a tool argument into a state key token by token, see [State Streaming](/shared-state/streaming).
 2. On the frontend, subscribe to the agent's state with `useAgent`. Each time the state changes, your component renders again with the latest value.
 3. Read the keys from `agent.state` and render them.
@@ -82,6 +141,8 @@ export default function App() {
 ```
 
 To check it, ask the researcher agent to write a report. The status line and the counter change while the agent runs, and the draft grows as the agent updates `draft` in its state.
+
+</WhenFramework>
 
 ## Inside the chat
 

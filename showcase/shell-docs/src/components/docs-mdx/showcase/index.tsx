@@ -24,6 +24,7 @@ import { DemoSource } from "./demo-source";
 import { FeatureIntegrations, FeatureMatrix } from "./feature-support";
 import {
   WhenAngularBackend,
+  WhenFramework,
   WhenFrameworkHas,
   WhenFrameworkSupports,
 } from "./framework-gates";
@@ -63,6 +64,9 @@ export function showcaseComponents(
       props: Authored<typeof FeatureIntegrations, "scope">,
     ) => <FeatureIntegrations {...props} scope={scope} />,
     FeatureMatrix: () => <FeatureMatrix scope={scope} />,
+    WhenFramework: (props: Authored<typeof WhenFramework, "scope">) => (
+      <WhenFramework {...props} scope={scope} />
+    ),
     WhenFrameworkHas: (props: Authored<typeof WhenFrameworkHas, "scope">) => (
       <WhenFrameworkHas {...props} scope={scope} />
     ),
