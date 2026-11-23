@@ -1,16 +1,18 @@
 import {
   CopilotKitIntelligence,
-  CopilotRuntime,
+  CopilotKitRuntime,
   InMemoryAgentRunner,
-  createCopilotEndpoint,
-} from "@copilotkit/runtime/v2";
-import { handle } from "hono/vercel";
+  createCopilotKitRuntimeHandler,
+} from "@copilotkit/runtime";
 import { createDefaultAgent } from "../../../agent";
 
-const runtime = new CopilotRuntime({
-  agents: {
-    default: createDefaultAgent(),
-  },
+// The agent's model adapter reads its API key when the agent is created, so
+// the agent is created on the first request rather than when `next build`
+// loads this route.
+let defaultAgent: ReturnType<typeof createDefaultAgent> | undefined;
+
+const runtime = new CopilotKitRuntime({
+  agents: () => ({ default: (defaultAgent ??= createDefaultAgent()) }),
   // --- copilotkit:intelligence (remove this block to opt out) ---
   ...(process.env.CPK_INTELLIGENCE_API_KEY
     ? {
@@ -33,12 +35,13 @@ const runtime = new CopilotRuntime({
   // --- /copilotkit:intelligence ---
 });
 
-const app = createCopilotEndpoint({
+const app = createCopilotKitRuntimeHandler({
+  cors: true,
   runtime,
   basePath: "/api/copilotkit",
 });
 
-export const GET = handle(app);
-export const POST = handle(app);
-export const PATCH = handle(app);
-export const DELETE = handle(app);
+export const GET = app;
+export const POST = app;
+export const PATCH = app;
+export const DELETE = app;
