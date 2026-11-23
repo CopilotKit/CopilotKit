@@ -127,8 +127,14 @@ interface Thread {
     options?: {
       memory?: MemoryGrant;
       subject?: "initiator" | "actor";
+      answerableBy?: "initiator" | "conversation";
     },
   ): Promise<MessageRef | undefined>;
+  assertCanResume(options?: {
+    memory?: MemoryGrant;
+    subject?: "initiator" | "actor";
+    answerableBy?: "initiator" | "conversation";
+  }): Promise<void>;
   awaitChoice<T = unknown>(
     ui: Renderable,
     options?: {
@@ -153,7 +159,15 @@ interface Thread {
   `RunRenderer`, and drives the run/tool/interrupt loop. Per-run `tools` /
   `context` are merged on top of the channel-level defaults for that run only.
 - `resume(value)` re-enters a paused interrupt run with
-  `forwardedProps.command`.
+  `forwardedProps.command`. By default only the provider account that started
+  the run chain may resume: a click from anyone else is refused with
+  `ActionInitiatorMismatchError` and leaves the action usable. The match is by
+  id whatever the actor's kind, so a bot-started chain needs
+  `answerableBy: "conversation"` for people to resume it. Only one control
+  rendered during a run can resume it; the others, and a repeat click, get
+  `ActionAlreadyClaimedError`.
+- `assertCanResume(options?)` refuses as `resume` would and consumes nothing.
+  Call it before updating a card.
 - `awaitChoice<T>(ui, options?)` posts a picker and blocks until a click on one
   of the picker's own controls resolves it (HITL); pass `T` to type the
   returned value. See [Waiting for a choice](#waiting-for-a-choice).
@@ -181,6 +195,12 @@ picker does not offer is refused.
   timer holds); a larger one rejects at once with a `RangeError`.
 - `signal` aborts the wait: the choice rejects with `ChannelChoiceAbortedError`
   (`channel_choice_aborted`).
+
+Pending choices live in the process that posted the picker. With several
+replicas, a click the owner makes on another replica runs the control's handler
+but cannot settle the choice, because the state store has no way to notify the
+first process. The choice stays pending until `timeoutMs`, so keep clicks on the
+posting process (sticky routing) or set a timeout you can act on.
 
 A conversation has one pending choice at a time: a newer `awaitChoice` there
 rejects the older one with `ChannelChoiceSupersededError`

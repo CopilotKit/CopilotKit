@@ -1,0 +1,748 @@
+@import "tailwindcss";
+
+:root {
+  --page: #f5f6f8;
+  --panel: #ffffff;
+  --line: #e4e6ea;
+  --ink: #1f2328;
+  --ink-soft: #5f6670;
+  --brand: #1a73e8;
+  --dots: #d9dce1;
+  --sheet: #ffffff;
+  --sheet-ink: #1f2328;
+  --pill: #ffffff;
+  --pill-line: #dfe2e6;
+  --pill-hover: #f1f3f5;
+  --danger: #b3261e;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--page);
+  color: var(--ink);
+  font-family: var(--font-app);
+  -webkit-font-smoothing: antialiased;
+}
+
+:root {
+  --font-app:
+    var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    sans-serif;
+}
+
+/* The chat sets its own system stack; use the page's face instead. */
+[data-copilotkit] {
+  font-family: var(--font-app);
+}
+
+/* With the disclaimer off, nothing sits under the docked input, so its pill
+   would touch the bottom edge. CopilotKit measures this overlay to pad the
+   transcript, so the messages still clear the input. */
+[data-testid="copilot-input-overlay"] > [data-copilotkit] > div:first-child {
+  padding-bottom: 16px;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--brand) 22%, transparent);
+}
+
+/* Scrolling stays (wheel, trackpad, keys); the bars do not. */
+.chat-pane *,
+.canvas-scroll {
+  scrollbar-width: none;
+}
+
+.chat-pane *::-webkit-scrollbar,
+.canvas-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+/* The canvas controls are plain buttons; give them a visible focus. */
+.canvas-versions button:focus-visible,
+.canvas-action:focus-visible,
+.canvas-banner button:focus-visible,
+.model-chip:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+/* Model chip, next to the send button in the chat input */
+
+/* The input pill is a container, so the chip can shrink when the chat column
+   is narrow. In its one-row layout the text area's right padding is mostly
+   wasted next to the chip. */
+[data-testid="copilot-chat-input"] {
+  container: composer / inline-size;
+}
+
+[data-layout="compact"] [data-testid="copilot-chat-textarea"] {
+  padding-right: 6px;
+}
+
+.model-chip-tiny {
+  display: none;
+}
+
+.send-with-model {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.model-picker {
+  position: relative;
+}
+
+.model-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: 32px;
+  padding: 0 8px 0 11px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-soft);
+  font: 500 13px/1 var(--font-app);
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
+}
+
+.model-chip:hover:not(:disabled),
+.model-chip[aria-expanded="true"] {
+  background: var(--pill-hover);
+  color: var(--ink);
+}
+
+.model-chip:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.model-chip svg {
+  transition: transform 160ms ease;
+}
+
+.model-chip[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+
+/* After the base chip rules, which have the same specificity: the chip
+   narrows with the composer. */
+@container composer (max-width: 400px) {
+  .model-chip {
+    padding: 0 6px 0 9px;
+  }
+
+  .model-chip-label {
+    display: none;
+  }
+
+  .model-chip-tiny {
+    display: inline;
+  }
+}
+
+@container composer (max-width: 300px) {
+  .model-chip {
+    padding: 0 9px;
+  }
+
+  .model-chip svg {
+    display: none;
+  }
+}
+
+.model-menu {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 10px);
+  z-index: 50;
+  min-width: 256px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel);
+  box-shadow:
+    0 12px 32px rgb(15 17 21 / 0.14),
+    0 2px 6px rgb(15 17 21 / 0.06);
+  animation: model-menu-in 140ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes model-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+.model-item {
+  display: grid;
+  grid-template-columns: 18px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 10px 9px 8px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--ink);
+  font: 500 13.5px/1.2 var(--font-app);
+  text-align: left;
+  cursor: pointer;
+}
+
+.model-item:hover,
+.model-item:focus-visible {
+  background: var(--pill-hover);
+  outline: none;
+}
+
+.model-item-check {
+  display: grid;
+  place-items: center;
+  color: var(--brand);
+}
+
+.model-item-note {
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.model-menu-note {
+  margin: 4px 0 0;
+  padding: 9px 10px 4px;
+  border-top: 1px solid var(--line);
+  color: var(--ink-soft);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.model-menu-error {
+  color: var(--danger);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .model-menu {
+    animation: none;
+  }
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+}
+
+/* Top bar */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  height: 52px;
+  padding: 0 20px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+  flex: none;
+}
+
+.topbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.topbar-mark {
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: var(--ink);
+  color: #fff;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+}
+
+.topbar-by {
+  color: var(--ink-soft);
+  font-size: 13px;
+}
+
+/* Chat (1/3) and canvas (2/3) */
+.workspace {
+  display: grid;
+  grid-template-columns: minmax(340px, 1fr) 2fr;
+  flex: 1;
+  min-height: 0;
+}
+
+.chat-pane {
+  min-height: 0;
+  background: var(--panel);
+  border-right: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+}
+
+.chat-pane > * {
+  flex: 1;
+  min-height: 0;
+}
+
+/* Canvas */
+.canvas {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background-color: var(--page);
+  background-image: radial-gradient(var(--dots) 1px, transparent 1px);
+  background-size: 18px 18px;
+  color: var(--sheet-ink);
+}
+
+.canvas.dark {
+  --page: #0f1115;
+  --dots: #23272e;
+  --line: #262a31;
+  --ink: #e8eaed;
+  --ink-soft: #9aa0a8;
+  --sheet: #171a1f;
+  --sheet-ink: #e8eaed;
+  --pill: #1c2026;
+  --pill-line: #2c3139;
+  --pill-hover: #252a31;
+}
+
+.canvas-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 20px;
+  flex: none;
+}
+
+.canvas-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-soft);
+}
+
+.canvas-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--ink-soft);
+  opacity: 0.5;
+}
+
+.canvas-status[data-state="busy"] .canvas-status-dot {
+  background: var(--brand);
+  opacity: 1;
+  animation: canvas-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes canvas-pulse {
+  50% {
+    opacity: 0.3;
+  }
+}
+
+.canvas-versions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--pill-line);
+  border-radius: 999px;
+  background: var(--pill);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+.canvas-versions span {
+  padding: 0 6px;
+}
+
+.canvas-versions button {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.canvas-versions button:hover:not(:disabled) {
+  background: var(--pill-hover);
+}
+
+.canvas-versions button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.canvas-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px 28px 96px;
+  /* Content fades out under the bar and the quick actions instead of being
+     cut off. At rest the sheet starts where the top fade ends, so nothing on
+     it is faded until it scrolls. */
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 16px,
+    #000 calc(100% - 64px),
+    transparent 100%
+  );
+}
+
+.canvas-sheet {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 28px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--sheet);
+  color: var(--sheet-ink);
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 0.04),
+    0 8px 24px rgb(0 0 0 / 0.04);
+}
+
+.canvas-sheet[hidden] {
+  display: none;
+}
+
+.canvas-sheet-old {
+  opacity: 0.96;
+}
+
+/* A stored version is drawn by the chat's surface renderer, which frames it
+   as a chat card. The sheet is the frame here. */
+.canvas-sheet-old [data-generative-ui-chat-surface] {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+/* Empty state */
+.canvas-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 60%;
+  padding: 48px 24px;
+  text-align: center;
+}
+
+.canvas-empty-icon {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  margin-bottom: 6px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--sheet);
+  color: var(--ink-soft);
+}
+
+.canvas-empty-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.canvas-empty-text {
+  max-width: 360px;
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
+/* "You are looking at v1" */
+.canvas-banner {
+  position: absolute;
+  left: 50%;
+  bottom: 76px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 8px 8px 14px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--page);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.canvas-banner button {
+  padding: 4px 10px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--page);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+/* Quick actions */
+.canvas-actions {
+  position: absolute;
+  right: 20px;
+  bottom: 20px;
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--pill-line);
+  border-radius: 999px;
+  background: var(--pill);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.08);
+}
+
+.canvas-action {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.canvas-action:hover:not(:disabled) {
+  background: var(--pill-hover);
+}
+
+.canvas-action[aria-pressed="true"] {
+  background: var(--pill-hover);
+}
+
+.canvas-action:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* Keep the action bar inside the canvas at narrow two-column widths. */
+@media (740px < width <= 860px) {
+  .canvas-action {
+    padding-inline: 8px;
+  }
+}
+
+/* Phones: chat on top, canvas below */
+@media (max-width: 740px) {
+  .workspace {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(320px, 45dvh) 1fr;
+  }
+
+  .chat-pane {
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .canvas-scroll {
+    padding: 16px 16px 96px;
+  }
+
+  .canvas-sheet {
+    padding: 18px;
+  }
+
+  .canvas-actions {
+    left: 16px;
+    right: 16px;
+    justify-content: space-between;
+  }
+
+  .topbar-by {
+    display: none;
+  }
+}
+
+/* Small phones: four labeled actions fit on one line without their icons. */
+@media (max-width: 480px) {
+  .canvas-action {
+    height: 36px;
+    padding: 0 10px;
+  }
+
+  .canvas-action svg {
+    display: none;
+  }
+}
+
+/* Which path draws the canvas: Express or the Antigravity agent */
+.canvas-path {
+  margin-left: 2px;
+  padding: 2px 7px;
+  border: 1px solid var(--pill-line);
+  border-radius: 999px;
+  background: var(--pill);
+  color: var(--ink-soft);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+.model-menu-group {
+  margin: 6px 0 2px;
+  padding: 4px 10px 2px;
+  color: var(--ink-soft);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.model-menu-group:first-child {
+  margin-top: 0;
+}
+
+/* While the agent works, a sheen runs along the top edge of the sheet. */
+.canvas-sheet {
+  position: relative;
+}
+
+.canvas-sheet[data-busy]::before {
+  content: "";
+  position: absolute;
+  top: -1px;
+  left: 18px;
+  right: 18px;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent, var(--brand), transparent)
+    no-repeat;
+  background-size: 35% 100%;
+  animation: canvas-sheen 1.3s ease-in-out infinite;
+}
+
+@keyframes canvas-sheen {
+  from {
+    background-position: -40% 0;
+  }
+  to {
+    background-position: 140% 0;
+  }
+}
+
+/* The first draw: a dashboard's shape until its first piece arrives */
+.canvas-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.sk {
+  border-radius: 10px;
+  background: linear-gradient(
+      90deg,
+      transparent 0,
+      color-mix(in srgb, var(--sheet) 70%, transparent) 50%,
+      transparent 100%
+    )
+    no-repeat var(--pill-hover);
+  background-size: 40% 100%;
+  animation: canvas-shimmer 1.4s ease-in-out infinite;
+}
+
+.sk-title {
+  width: 42%;
+  height: 26px;
+}
+
+.sk-caption {
+  width: 64%;
+  height: 12px;
+}
+
+.sk-row {
+  display: flex;
+  gap: 12px;
+}
+
+.sk-tile {
+  flex: 1;
+  height: 76px;
+}
+
+.sk-chart {
+  height: 160px;
+}
+
+.sk-card {
+  flex: 1;
+  height: 96px;
+}
+
+@keyframes canvas-shimmer {
+  from {
+    background-position: -50% 0;
+  }
+  to {
+    background-position: 150% 0;
+  }
+}
+
+/* What an edit changed: a ring that fades out */
+.canvas-changed {
+  animation: canvas-changed 1.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes canvas-changed {
+  from {
+    box-shadow:
+      0 0 0 2px color-mix(in srgb, var(--brand) 60%, transparent),
+      0 0 0 7px color-mix(in srgb, var(--brand) 14%, transparent);
+  }
+  to {
+    box-shadow:
+      0 0 0 2px transparent,
+      0 0 0 7px transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .canvas-sheet[data-busy]::before,
+  .sk {
+    animation: none;
+  }
+}
