@@ -47,10 +47,17 @@ const UNTRACKED_PATH =
 const ASSET_PATH =
   /\.(?:png|jpg|jpeg|svg|gif|webp|ico|avif|woff2?|ttf|otf|eot|map|json)$/;
 
+/** A browser's own speculative prefetch: never a read, of any kind. */
+function isSpeculativePrefetch(request: NextRequest): boolean {
+  return (
+    request.headers.get("purpose") === "prefetch" ||
+    request.headers.get("sec-purpose")?.includes("prefetch") === true
+  );
+}
+
 /**
- * Whether a request is a real read of a page (a document load, or a direct
- * fetch from curl or an agent), not one of the Next router's background
- * requests.
+ * Whether a page request is a page load (a document load, or a direct fetch
+ * from curl or an agent), not one of the Next router's background requests.
  *
  * The router fetches every link it prefetches, and every client-side
  * navigation, as an RSC request. Next strips the flight headers (`rsc`,
@@ -61,19 +68,11 @@ const ASSET_PATH =
  * navigation look the same here, so neither counts: the browser's own
  * `$pageview` (posthog-js) counts client-side navigations. Callers without
  * fetch metadata (agents, crawlers, curl) are counted unless they carry a
- * router or prefetch marker that survives (the flight headers are checked
- * too, in case Next stops stripping them).
+ * router marker that survives (the flight headers are checked too, in case
+ * Next stops stripping them).
  */
-function isDocumentRequest(request: NextRequest): boolean {
+function isPageLoad(request: NextRequest): boolean {
   const { headers } = request;
-  // A browser's own speculative prefetch is a `document` fetch, so check
-  // these first.
-  if (
-    headers.get("purpose") === "prefetch" ||
-    headers.get("sec-purpose")?.includes("prefetch")
-  ) {
-    return false;
-  }
   const destination = headers.get("sec-fetch-dest");
   if (destination) return destination === "document";
   return !(
@@ -132,7 +131,7 @@ export function trackRequest(
   }
   // HEAD is excluded on purpose: agents often probe with HEAD before a GET.
   if (request.method !== "GET") return response;
-  if (!isDocumentRequest(request)) return response;
+  if (isSpeculativePrefetch(request)) return response;
 
   if (!posthogKey()) return response;
 
@@ -141,6 +140,9 @@ export function trackRequest(
     event.waitUntil(captureLlmTextFetch(request, pathname, surface));
     return response;
   }
+
+  // Raw text counts however it was fetched; a page view, only a page load.
+  if (!isPageLoad(request)) return response;
 
   const existingDistinctId = request.cookies.get(DISTINCT_ID_COOKIE)?.value;
   const distinctId = existingDistinctId ?? crypto.randomUUID();
