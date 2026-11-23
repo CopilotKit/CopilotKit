@@ -497,7 +497,7 @@ If several users share one deployment, each user must reach only their own threa
 | Runtime | Who scopes threads to a user |
 | --- | --- |
 | `CopilotRuntime` with `intelligence` | The runtime, via [`identifyUser`](#copilotkit-intelligence-scopes-thread-routes). |
-| `CopilotRuntime` without `intelligence`, with `identifyUser` | The runtime, when the runner is `InMemoryAgentRunner` or `SqliteAgentRunner`. |
+| `CopilotRuntime` from `@copilotkit/runtime/v2` without `intelligence`, with `identifyUser` | The runtime, with `InMemoryAgentRunner` or new `SqliteAgentRunner` threads. Legacy SQLite histories remain reachable by id; see below. |
 | Anything else: no `identifyUser`, a custom runner, or a custom store | You do. See [Scope threads yourself](#scope-threads-yourself). |
 
 ### CopilotKit Intelligence scopes thread routes
@@ -553,16 +553,33 @@ See [Scope threads to the signed-in user](/threads-lifecycle#scope-threads-to-th
 
 ### Scope threads yourself
 
-Without `identifyUser`, the runtime has no user to bind a thread to. A `threadId` then works as a key: whoever holds it can read and continue that thread. The rest of this section is the pattern for a custom store, a plain SSE runtime, or the local in-memory runner.
+Without `identifyUser`, the runtime has no user to bind a thread to. A thread
+created without identity then works as a capability: whoever holds its id can
+read and continue that thread.
 
-The default `InMemoryAgentRunner` records an owner for each thread. Without
-`identifyUser`, `GET /threads` and `POST /threads/clear` return `403`, and any
-caller who holds a `threadId` can use the other
+The default `InMemoryAgentRunner` and `SqliteAgentRunner` enforce ownership when
+you set `identifyUser` on the `CopilotRuntime` from `@copilotkit/runtime/v2`:
+new threads belong to the identity of their first run, and another user's
+thread reads like an unknown one. An auth hook alone does not do this, because
+it tells the runtime nothing about who the caller is. The compatibility
+`CopilotRuntime` from `@copilotkit/runtime` forwards `identifyUser` only with
+Intelligence, so its local threads stay reachable by id.
+
+SQLite histories stored before owners were recorded (schema 1) stay unowned and reachable by id, even after an identified run.
+Apply your own authorization gate or migration policy to those histories.
+
+Without `identifyUser`, `InMemoryAgentRunner` returns `403` for `GET /threads`
+and `POST /threads/clear` unless you set `threads: { access: "open" }`. Any
+caller holding an anonymous thread's id can use the other
 [thread routes](/backend/runtime-endpoints#thread-routes) to read and continue
-that thread.
-Anything extending it, such as `AgentCoreRunner`, inherits the same store.
-`SqliteAgentRunner` does not serve them at all: its read routes answer `422`.
-A runner swap is therefore a fix for durability, not for thread authorization.
+that thread. The `"open"` option also allows listing and clearing anonymous
+threads; it never makes an identified user's threads reachable by other
+users or anonymous callers. Anything extending `InMemoryAgentRunner`, such
+as `AgentCoreRunner`, inherits the same store. `SqliteAgentRunner` does not
+serve local read routes: those return `422`.
+
+The rest of this section is the pattern for a custom store or a runner that
+does not enforce owners.
 
 #### Own the mapping
 
@@ -634,10 +651,9 @@ Filter server-side. Hiding rows in the UI leaves the underlying route open.
 
 `threads/clear` is the other route with no `threadId` on `route`, so the only
 decision `onBeforeHandler` can make is whether to allow the call. With the
-in-memory runner, the route returns `403` without `identifyUser`. With
-`identifyUser`, it clears only the caller's threads. With
-more than one user on the deployment, reject it unless the caller is an
-operator.
+in-memory runner, the route returns `403` without `identifyUser` unless
+`threads: { access: "open" }` is set. That option clears anonymous threads.
+With `identifyUser` on the `/v2` runtime, it clears only the caller's threads.
 
 <Callout type="info">
   With no platform thread store, the ownership table above *is* your thread list.
@@ -648,7 +664,7 @@ operator.
 - **Always validate** the token on the backend. Never trust the frontend's claim.
 - **Scope every read and write** to the resolved user. Auth context only matters if you actually use it to filter data.
 - **Authenticate in `onRequest`.** It is the only hook that runs on every route. `identifyUser` names a caller; it does not gate one, and some routes never invoke it.
-- **Bind threads to a user.** On CopilotKit Intelligence that means a correct `identifyUser`. Off it, add an ownership check on every thread route rather than only at login. See [Thread authorization](#thread-authorization).
+- **Bind threads to a user.** On CopilotKit Intelligence that means a correct `identifyUser`. Off it, set `identifyUser` on a `/v2` runtime with a runner that enforces owners, or add an ownership check on every thread route rather than only at login. See [Thread authorization](#thread-authorization).
 - **Use HTTPS in production.** The Bearer token is sensitive.
 
 ### Later

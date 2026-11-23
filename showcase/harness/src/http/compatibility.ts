@@ -3,7 +3,7 @@ import { bodyLimit } from "hono/body-limit";
 import { z } from "zod";
 import type { PbClient } from "../storage/pb-client.js";
 import type { Logger } from "../types/index.js";
-import { COMPATIBILITY_MAPPING } from "../shared/compatibility-mapping.js";
+import { assessedLibraryRoster } from "../shared/compatibility-mapping.js";
 import { verifyHmac } from "./hmac.js";
 
 const PATH = "/api/compatibility";
@@ -81,6 +81,8 @@ export interface CompatibilityRouteDeps {
   environmentId?: string;
   nowSec?: () => number;
   expectedLibraries?: Record<string, string[]>;
+  /** Slugs whose manifest says `deployed: false`; they are not assessed. */
+  undeployedSlugs?: () => ReadonlySet<string>;
 }
 
 /** One environment-local saved assessment; only signed automation can write. */
@@ -88,18 +90,9 @@ export function registerCompatibilityRoutes(
   app: Hono,
   deps: CompatibilityRouteDeps,
 ): void {
-  const expectedLibraries =
+  const roster = () =>
     deps.expectedLibraries ??
-    Object.fromEntries(
-      COMPATIBILITY_MAPPING.filter(
-        (variant) => variant.excludedReason === undefined,
-      ).map((variant) => [
-        variant.slug,
-        variant.libraries
-          .filter((library) => library.required)
-          .map((library) => library.name),
-      ]),
-    );
+    assessedLibraryRoster(deps.undeployedSlugs?.() ?? new Set());
   let pendingWrite = Promise.resolve();
   app.get(PATH, async (c) => {
     c.header("Cache-Control", "no-store");
@@ -158,6 +151,7 @@ export function registerCompatibilityRoutes(
         400,
       );
     if (input.status === "success") {
+      const expectedLibraries = roster();
       const expectedSlugs = Object.keys(expectedLibraries).sort();
       const actualSlugs = input.snapshot.rows.map((row) => row.slug).sort();
       const sourceSlugs = Object.keys(input.sourceCommits).sort();

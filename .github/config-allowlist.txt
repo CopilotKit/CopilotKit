@@ -38,6 +38,7 @@ examples/showcases/a2ui/vite.config.ts
 examples/showcases/a2ui-pdf-analyst/next.config.ts
 examples/showcases/a2ui-playground/next.config.ts
 examples/showcases/adk-dashboard/next.config.ts
+examples/showcases/antigravity-a2ui-canvas/next.config.ts
 examples/showcases/antigravity-repo-doctor/next.config.ts
 examples/showcases/arcade-tools/next.config.ts
 examples/showcases/chatkit-studio/apps/playground/next.config.ts
