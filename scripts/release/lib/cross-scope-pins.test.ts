@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  checkSupersededPublishedPins,
   crossScopeEdges,
   findExactCrossScopePins,
   findSupersededPublishedPins,
@@ -534,5 +535,84 @@ describe("published edges the workspace no longer declares", () => {
         ],
       }),
     ).toEqual([]);
+  });
+});
+
+/**
+ * A dependency scope published ahead of its dependents.
+ *
+ * `@copilotkit/runtime@1.90.1` shipped declaring `@copilotkit/channels-core`
+ * as `^0.12.0`. The tree then moved channels to `0.13.0` and runtime to
+ * `workspace:^`. Releasing monorepo first would publish a runtime requiring
+ * `^0.13.0` before `0.13.0` exists, which fails every install. Releasing
+ * channels first is safe: runtime 1.90.1 keeps resolving `0.12.x`. The gate
+ * must allow that order and name monorepo as the follow-up release.
+ */
+describe("a dependency scope released ahead of its dependents", () => {
+  const CHANNELS_FIRST = {
+    config: CONFIG,
+    publishedDependencies: {
+      "@copilotkit/runtime": published({
+        dependencies: { "@copilotkit/channels-core": "^0.12.0" },
+      }),
+    },
+    scope: "channels" as const,
+    version: "0.13.0",
+    workspace: [
+      manifest("@copilotkit/runtime", {
+        "@copilotkit/channels-core": "workspace:^",
+      }),
+      manifest("@copilotkit/channels-core", {}, { version: "0.13.0" }),
+    ],
+    publishedVersions: {
+      "@copilotkit/channels-core": ["0.11.0", "0.12.0", "0.12.1"],
+    },
+  };
+
+  it("allows channels 0.13.0 while published runtime still declares ^0.12.0", () => {
+    expect(findSupersededPublishedPins(CHANNELS_FIRST)).toEqual([]);
+  });
+
+  it("names the dependent scope that has to be released next", () => {
+    const { followUps, problems } =
+      checkSupersededPublishedPins(CHANNELS_FIRST);
+    expect(problems).toEqual([]);
+    expect(followUps).toHaveLength(1);
+    expect(followUps[0]).toContain("@copilotkit/runtime");
+    expect(followUps[0]).toContain("^0.12.0");
+    expect(followUps[0]).toContain("Release scope monorepo next");
+  });
+
+  it("still refuses when the published range resolves to no published version", () => {
+    // Runtime on npm asks for `^0.12.0`, but no 0.12.x exists on the
+    // registry. Its installs are already broken, and this release does not
+    // repair them, so the gate must not wave it through as a safe lag.
+    const problems = findSupersededPublishedPins({
+      ...CHANNELS_FIRST,
+      publishedVersions: { "@copilotkit/channels-core": ["0.11.0"] },
+    });
+    expect(problems).toHaveLength(1);
+    expect(problems[0]).toContain("resolves to no published version");
+  });
+
+  it("still refuses when the dependent could be released first", () => {
+    // The tree packs runtime against `>=0.12.0`, which 0.12.1 on npm already
+    // satisfies. Releasing monorepo first is safe, so that is the order.
+    const problems = findSupersededPublishedPins({
+      ...CHANNELS_FIRST,
+      workspace: [
+        manifest("@copilotkit/runtime", {
+          "@copilotkit/channels-core": "workspace:>=0.12.0",
+        }),
+        manifest("@copilotkit/channels-core", {}, { version: "0.13.0" }),
+      ],
+    });
+    expect(problems).toHaveLength(1);
+    expect(problems[0]).toContain("Release scope monorepo first");
+  });
+
+  it("still refuses when the registry versions are unknown", () => {
+    const { publishedVersions: _omitted, ...withoutVersions } = CHANNELS_FIRST;
+    expect(findSupersededPublishedPins(withoutVersions)).toHaveLength(1);
   });
 });
