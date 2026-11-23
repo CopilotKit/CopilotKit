@@ -425,7 +425,9 @@ take precedence over optional built-ins.
   from `@copilotkit/angular/mcp-apps`. MCP resource and tool requests travel
   through the selected AG-UI agent; the browser provider does not accept a
   server URL. The renderer uses the same inline `srcdoc` sandbox, sandbox
-  permissions, and resource-domain CSP as the React SDK.
+  permissions, and resource-domain CSP as the React SDK. A widget may request
+  `fullscreen` through `ui/request-display-mode`; to keep widgets inline, pass
+  `hostContext: { availableDisplayModes: ["inline"] }` to `provideMCPApps()`.
 
 ### A2UI with Angular components
 
