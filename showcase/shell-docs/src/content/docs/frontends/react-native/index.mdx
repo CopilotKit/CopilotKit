@@ -43,25 +43,25 @@ Use this prompt to set up CopilotKit in your React Native app, configure Metro a
         <Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn']}>
             <Tab value="npm">
                 ```bash
-                npm install @copilotkit/react-native @copilotkit/runtime @tanstack/ai-openai
+                npm install @copilotkit/react-native@next @copilotkit/runtime@next @tanstack/ai-openai
                 npm install -D tsx typescript @types/node
                 ```
             </Tab>
             <Tab value="pnpm">
                 ```bash
-                pnpm add @copilotkit/react-native @copilotkit/runtime @tanstack/ai-openai
+                pnpm add @copilotkit/react-native@next @copilotkit/runtime@next @tanstack/ai-openai
                 pnpm add -D tsx typescript @types/node
                 ```
             </Tab>
             <Tab value="yarn">
                 ```bash
-                yarn add @copilotkit/react-native @copilotkit/runtime @tanstack/ai-openai
+                yarn add @copilotkit/react-native@next @copilotkit/runtime@next @tanstack/ai-openai
                 yarn add -D tsx typescript @types/node
                 ```
             </Tab>
         </Tabs>
 
-        This quickstart does not need `zod`. When you write tool `parameters` or a [generative UI](#generative-ui-with-your-own-components) catalog, install `zod` 4.2 or later (`npm install zod`). Every import comes from `@copilotkit/react-native` or one of its subpaths. CopilotKit 2.0 has no `/v2` subpath.
+        This quickstart does not need `zod`. When you write tool `parameters` or a [generative UI](#generative-ui-with-your-own-components) catalog, install `zod` 4.2 or later (`npm install zod`). Every import comes from `@copilotkit/react-native@next` or one of its subpaths. CopilotKit 2.0 has no `/v2` subpath.
 
         <Callout type="info" title="TypeScript: use bundler module resolution">
             The `/headless`, `/components`, `/generative-ui` and `/polyfills` subpaths are published through the package `exports` map, which TypeScript's legacy `"moduleResolution": "node"` (`node10`) ignores. Under that setting, type checking fails with `Cannot find module '@copilotkit/react-native/headless'` even though Metro bundles the app. Set `"moduleResolution": "bundler"` in `tsconfig.json`; if `module` is `commonjs` or unset, also set `"module": "esnext"`. `@react-native/typescript-config` and Expo's base config already use `bundler`.
