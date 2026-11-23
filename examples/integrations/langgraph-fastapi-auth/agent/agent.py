@@ -4,6 +4,7 @@ It defines the workflow graph, state, tools, nodes and edges.
 """
 
 import os
+import uuid
 from typing import Any, List, Dict, Optional
 from typing_extensions import Literal
 from langchain_openai import ChatOpenAI
@@ -16,6 +17,13 @@ from langgraph.graph import MessagesState
 from langgraph.prebuilt import ToolNode
 from langgraph.checkpoint.memory import MemorySaver
 
+from ag_ui.core import (
+    RunFinishedEvent,
+    RunStartedEvent,
+    TextMessageContentEvent,
+    TextMessageEndEvent,
+    TextMessageStartEvent,
+)
 from copilotkit import LangGraphAGUIAgent
 
 from auth import get_user_info_from_authorization
@@ -23,7 +31,28 @@ from file_routes import get_file, list_files
 
 # This custom agent is used to forward the authorization token from the client to the agent's config.
 # It is a necessary component for the authentication to work in a self-hosted environment.
+CONVERSATION_OWNED_MESSAGE = "This conversation belongs to another user. Start a new conversation to continue."
+
+
 class CustomLangGraphAGUIAgent(LangGraphAGUIAgent):
+    async def run(self, input):
+        # Check thread ownership before the graph loads the thread's checkpoint:
+        # once it does, the adapter streams the checkpoint's messages and state
+        # back to the caller. A non-owner gets a short refusal and nothing else.
+        user = get_user_info_from_authorization((input.forwarded_props or {}).get("authorization"))
+        user_id = (user or {}).get("user_id", "anonymous")
+        if not is_conversation_owner(input.thread_id, user_id):
+            message_id = str(uuid.uuid4())
+            yield RunStartedEvent(thread_id=input.thread_id, run_id=input.run_id)
+            yield TextMessageStartEvent(message_id=message_id, role="assistant")
+            yield TextMessageContentEvent(message_id=message_id, delta=CONVERSATION_OWNED_MESSAGE)
+            yield TextMessageEndEvent(message_id=message_id)
+            yield RunFinishedEvent(thread_id=input.thread_id, run_id=input.run_id)
+            return
+
+        async for event in super().run(input):
+            yield event
+
     async def prepare_stream(
         self, input, agent_state, config: RunnableConfig
     ):
@@ -223,13 +252,14 @@ async def chat_node(state: AgentState, config: RunnableConfig) -> Command[Litera
     user_data = state.get("authorization")
     is_authenticated = user_data and user_data.get("user_id") != "anonymous"
 
-    # Never continue another user's conversation: its history may hold their files.
+    # Second guard (the agent wrapper checks first): never continue another
+    # user's conversation, its history may hold their files.
     thread_id = config.get("configurable", {}).get("thread_id")
     if not is_conversation_owner(thread_id, (user_data or {}).get("user_id", "anonymous")):
         return Command(
             goto=END,
             update={
-                "messages": [AIMessage(content="This conversation belongs to another user. Start a new conversation to continue.")],
+                "messages": [AIMessage(content=CONVERSATION_OWNED_MESSAGE)],
             }
         )
 

@@ -80,7 +80,7 @@ The following scripts can also be run using your preferred package manager:
 - `lint` - Runs ESLint
 - `install:agent` - Installs Python dependencies for the agent
 
-To run in production, build the UI with `build`, then run `start` and `start:agent` side by side.
+To run in production, build the UI with `build`, then run `start` and `start:agent` side by side. Before deploying, replace the demo authentication described under "How it works": the demo token is unsigned, so anyone can create a token for any user, and the per-user thread and file checks do not protect real user data until it is replaced.
 
 ## Project Structure
 

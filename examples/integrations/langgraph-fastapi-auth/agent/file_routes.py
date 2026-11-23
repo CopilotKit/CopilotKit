@@ -5,6 +5,7 @@ import uuid
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel
 
 from auth import get_user_info_from_authorization
@@ -26,6 +27,9 @@ MAX_TABLE_CHARS = 50_000
 
 def table_as_text(df, max_chars: int) -> str:
     """Returns all rows of a table as CSV text, truncated to max_chars on a row boundary."""
+    # A spent budget (e.g. after earlier sheets) must yield only the notice: a
+    # negative bound would make rfind below count from the end of the string.
+    max_chars = max(max_chars, 0)
     csv_text = df.to_csv(index=False)
     if len(csv_text) <= max_chars:
         return csv_text
@@ -78,7 +82,7 @@ def get_file(thread_id: str, owner_id: str, file_id: str) -> Optional[Dict[str, 
         return None
     return data
 
-async def process_pdf(request: FileUploadRequest, owner_id: str):
+def process_pdf(request: FileUploadRequest, owner_id: str):
     """Process a PDF file and store the extracted text."""
     try:
         from pypdf import PdfReader
@@ -134,7 +138,7 @@ async def process_pdf(request: FileUploadRequest, owner_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"An unexpected error occurred while processing '{request.filename}': {str(e)}")
 
-async def process_excel(request: FileUploadRequest, owner_id: str):
+def process_excel(request: FileUploadRequest, owner_id: str):
     """Process an Excel file and store the extracted content."""
     try:
         import pandas as pd
@@ -193,7 +197,7 @@ async def process_excel(request: FileUploadRequest, owner_id: str):
         raise HTTPException(status_code=500, detail=f"Error processing Excel: {str(e)}")
 
 
-async def process_csv(request: FileUploadRequest, owner_id: str):
+def process_csv(request: FileUploadRequest, owner_id: str):
     """Process a CSV file and store the extracted content."""
     try:
         import pandas as pd
@@ -244,14 +248,13 @@ async def process_csv(request: FileUploadRequest, owner_id: str):
 async def process_file_endpoint(request: FileUploadRequest, user_id: str = Depends(require_user_id)):
     """Process a file (PDF, Excel or CSV) and store the extracted content."""
     file_extension = os.path.splitext(request.filename)[1].lower()
-    if file_extension == '.pdf':
-        return await process_pdf(request, user_id)
-    elif file_extension == '.xlsx':
-        return await process_excel(request, user_id)
-    elif file_extension == '.csv':
-        return await process_csv(request, user_id)
-    else:
+    processors = {'.pdf': process_pdf, '.xlsx': process_excel, '.csv': process_csv}
+    processor = processors.get(file_extension)
+    if not processor:
         raise HTTPException(status_code=400, detail="Unsupported file type")
+    # Parsing is synchronous and can take a while for large files; run it in a
+    # worker thread so it doesn't block other chats and requests on this server.
+    return await run_in_threadpool(processor, request, user_id)
 
 
 @router.get("/files/{thread_id}")
