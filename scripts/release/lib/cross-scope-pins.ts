@@ -273,9 +273,14 @@ export function findSupersededPublishedPins(
  * Published packages whose declared range would stop admitting this release,
  * split into the ones that block it and the ones that only need a follow-up.
  *
- * A lagging dependent is a follow-up, not a problem, only when it is a normal
- * or optional dependency (a lagging peer range makes npm refuse to install it
- * next to this release) and both of these hold:
+ * A dependency this run does not publish, because the registry already holds
+ * it at this version (a retry after a partial publish), is a follow-up.
+ *
+ * A lagging dependent is a follow-up, not a problem, only when its published
+ * range is not an exact pin (an exact pin keeps its own copy, the split tree
+ * of OSS-1107), it is a normal or optional dependency (a lagging peer range
+ * makes npm refuse to install it next to this release), and both of these
+ * hold:
  *
  * - Its published range still resolves to a version already on the registry,
  *   so every current install keeps working after this release.
@@ -327,6 +332,21 @@ export function checkSupersededPublishedPins(
         );
 
         const onRegistry = inputs.publishedVersions?.[dependency];
+
+        // The publisher skips a package already at the target version, so a
+        // retry after a partial publish does not ship it again. Refusing on
+        // its account would block the packages still to publish, which the
+        // stranded scope's next release needs: a deadlock.
+        if (onRegistry?.includes(inputs.version)) {
+          followUps.push(
+            `Published ${packageName} declares ${dependency} as "${range}" in ${field}, ` +
+              `which ${inputs.version} does not satisfy. ${dependency}@${inputs.version} ` +
+              `is already on npm, so this run does not publish it. ` +
+              `Release scope ${packageScope} next.`,
+          );
+          continue;
+        }
+
         const packed =
           workspaceRange === undefined
             ? undefined
@@ -336,8 +356,11 @@ export function checkSupersededPublishedPins(
               );
         // A lagging peer range never downgrades: it still resolves on its
         // own, but npm refuses (ERESOLVE) to install it next to this release.
+        // Neither does an exact pin: it keeps its own copy under the
+        // dependent next to this release, the split tree of OSS-1107.
         const dependentMustWait =
           field !== "peerDependencies" &&
+          admitsALaterRelease(range) &&
           onRegistry !== undefined &&
           packed !== undefined &&
           satisfies(inputs.version, packed) &&

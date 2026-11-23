@@ -205,6 +205,30 @@ describe("findSupersededPublishedPins", () => {
     // The tree still packs an exact version, so releasing Angular from it
     // alone would pin core again. The remedy must name the range change.
     expect(problems[0]).toContain('to "workspace:^"');
+
+    // The same published exact pin, now with registry versions and a tree
+    // that packs Angular's core as `^1.70.0`, which only this release
+    // satisfies. That shape would otherwise lag as a follow-up, but an exact
+    // pin never admits 1.70.0, so a user adding core 1.70.0 still gets 1.69.3
+    // under Angular: the split tree OSS-1107 shipped. It must keep blocking.
+    const withRegistry = checkSupersededPublishedPins({
+      config: CONFIG,
+      publishedDependencies: {
+        "@copilotkit/angular": {
+          dependencies: { "@copilotkit/core": "1.69.3" },
+        },
+      },
+      publishedVersions: { "@copilotkit/core": ["1.69.2", "1.69.3"] },
+      scope: "monorepo",
+      version: "1.70.0",
+      workspace: [
+        manifest("@copilotkit/angular", { "@copilotkit/core": "workspace:^" }),
+        manifest("@copilotkit/core", {}, { version: "1.70.0" }),
+      ],
+    });
+    expect(withRegistry.followUps).toEqual([]);
+    expect(withRegistry.problems).toHaveLength(1);
+    expect(withRegistry.problems[0]).toContain("1.69.3");
   });
 
   it("allows a minor release the published range still admits", () => {
@@ -684,6 +708,64 @@ describe("a dependency scope released ahead of its dependents", () => {
     });
     expect(problems).toHaveLength(1);
     expect(problems[0]).toContain("resolves to no published version");
+  });
+
+  it("lets a partial channels publish resume when core is already at 0.13.0", () => {
+    // The publisher ships channels-core before channels-intelligence and
+    // skips packages already at the target version on retry. A run that died
+    // between the two leaves core at 0.13.0 and intelligence at 0.12.x. The
+    // retry only publishes intelligence, so core must not block it.
+    const config: ReleaseConfig = {
+      ...CONFIG,
+      scopes: {
+        ...CONFIG.scopes,
+        channels: {
+          packages: [
+            "@copilotkit/channels-core",
+            "@copilotkit/channels-intelligence",
+            "@copilotkit/channels",
+          ],
+          sharedVersion: true,
+          versionSource: "@copilotkit/channels",
+        },
+      },
+    };
+    const { followUps, problems } = checkSupersededPublishedPins({
+      config,
+      publishedDependencies: {
+        "@copilotkit/runtime": published({
+          dependencies: {
+            "@copilotkit/channels-core": "^0.12.0",
+            "@copilotkit/channels-intelligence": "^0.12.0",
+          },
+        }),
+      },
+      publishedVersions: {
+        "@copilotkit/channels-core": ["0.12.0", "0.13.0"],
+        "@copilotkit/channels-intelligence": ["0.12.0"],
+      },
+      scope: "channels",
+      version: "0.13.0",
+      workspace: [
+        manifest("@copilotkit/runtime", {
+          "@copilotkit/channels-core": "workspace:^",
+          "@copilotkit/channels-intelligence": "workspace:^",
+        }),
+        manifest("@copilotkit/channels-core", {}, { version: "0.13.0" }),
+        manifest(
+          "@copilotkit/channels-intelligence",
+          {},
+          { version: "0.13.0" },
+        ),
+      ],
+    });
+    expect(problems).toEqual([]);
+    expect(followUps).toHaveLength(2);
+    expect(followUps.join("\n")).toContain("@copilotkit/channels-core");
+    expect(followUps.join("\n")).toContain("@copilotkit/channels-intelligence");
+    for (const followUp of followUps) {
+      expect(followUp).toContain("Release scope monorepo next");
+    }
   });
 
   it("still refuses when the registry versions are unknown", () => {
