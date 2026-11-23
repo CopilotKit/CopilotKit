@@ -1,8 +1,8 @@
 import {
-  CopilotRuntime,
+  CopilotKitRuntime,
   CopilotKitIntelligence,
   InMemoryAgentRunner,
-  createCopilotRuntimeHandler,
+  createCopilotKitRuntimeHandler,
 } from "@copilotkit/runtime";
 import { createDefaultAgent } from "@/agent";
 
@@ -13,7 +13,7 @@ import { createDefaultAgent } from "@/agent";
 // wiring, MCP apps, openGenerativeUI — mirrors the canonical demo.
 const defaultAgent = createDefaultAgent();
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: { default: defaultAgent },
   // --- copilotkit:intelligence (remove this block to opt out) ---
   ...(process.env.CPK_INTELLIGENCE_API_KEY
@@ -47,7 +47,7 @@ const runtime = new CopilotRuntime({
   },
 });
 
-const app = createCopilotRuntimeHandler({
+const app = createCopilotKitRuntimeHandler({
   cors: true,
   runtime,
   basePath: "/api/copilotkit",

@@ -5,9 +5,9 @@
  * The original route.ts (using LangGraphAgent) is preserved unchanged.
  */
 import {
-  CopilotRuntime,
+  CopilotKitRuntime,
   InMemoryAgentRunner,
-  createCopilotRuntimeHandler,
+  createCopilotKitRuntimeHandler,
 } from "@copilotkit/runtime";
 import { HttpAgent } from "@ag-ui/client";
 
@@ -17,12 +17,12 @@ const defaultAgent = new HttpAgent({
   url: `${agentUrl}/`,
 });
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: { default: defaultAgent },
   runner: new InMemoryAgentRunner(),
 });
 
-const app = createCopilotRuntimeHandler({
+const app = createCopilotKitRuntimeHandler({
   cors: true,
   runtime,
   basePath: "/api/copilotkit",

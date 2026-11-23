@@ -1,8 +1,8 @@
 import {
-  CopilotRuntime,
+  CopilotKitRuntime,
   CopilotKitIntelligence,
   InMemoryAgentRunner,
-  createCopilotRuntimeHandler,
+  createCopilotKitRuntimeHandler,
 } from "@copilotkit/runtime";
 import { LangGraphHttpAgent } from "@ag-ui/langgraph";
 
@@ -25,7 +25,7 @@ const defaultAgent = new LangGraphHttpAgent({
   }/`,
 });
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: { default: defaultAgent },
   // --- copilotkit:intelligence (remove this block to opt out) ---
   ...(process.env.CPK_INTELLIGENCE_API_KEY
@@ -59,7 +59,7 @@ const runtime = new CopilotRuntime({
   },
 });
 
-const app = createCopilotRuntimeHandler({
+const app = createCopilotKitRuntimeHandler({
   cors: true,
   runtime,
   basePath: "/api/copilotkit",
