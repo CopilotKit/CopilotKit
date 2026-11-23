@@ -1,7 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ɵRuntimeInfoStore } from "../runtime-info";
 import type { ɵRuntimeInfo } from "../runtime-info";
-import { CopilotKitCore, CopilotKitCoreRuntimeConnectionStatus } from "../core";
+import {
+  CopilotKitCore,
+  CopilotKitCoreErrorCode,
+  CopilotKitCoreRuntimeConnectionStatus,
+} from "../core";
 
 function createInfo(overrides: Partial<ɵRuntimeInfo> = {}): ɵRuntimeInfo {
   return {
@@ -187,6 +191,74 @@ describe("CopilotKitCore.ɵruntimeInfo", () => {
       generativeUIEnabled: true,
       generativeUIAgents: ["legacy", "current"],
     });
+    core.dispose();
+  });
+
+  function mockInfo(body: Record<string, unknown>) {
+    vi.mocked(global.fetch).mockResolvedValue(
+      new Response(JSON.stringify(body), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+  }
+
+  async function connectWithErrors() {
+    const onError = vi.fn();
+    const core = new CopilotKitCore({
+      runtimeUrl: "https://runtime.example",
+      runtimeTransport: "rest",
+      deferInitialConnection: true,
+      onError,
+    });
+    core.connect();
+    await vi.waitFor(() =>
+      expect(core.ɵruntimeInfo.status).toBe(
+        CopilotKitCoreRuntimeConnectionStatus.Connected,
+      ),
+    );
+    return { core, onError };
+  }
+
+  it.each([
+    ["generative UI off", { a2uiEnabled: false }],
+    ["generative UI on", { a2uiEnabled: true, a2ui: { enabled: true } }],
+  ])(
+    "reports a 1.x runtime (%s) as a version mismatch",
+    async (_label, fields) => {
+      mockInfo({ version: "1.90.1", agents: {}, ...fields });
+      const { core, onError } = await connectWithErrors();
+
+      await vi.waitFor(() =>
+        expect(onError).toHaveBeenCalledWith(
+          expect.objectContaining({
+            code: CopilotKitCoreErrorCode.RUNTIME_VERSION_MISMATCH,
+            context: expect.objectContaining({
+              runtimeUrl: "https://runtime.example",
+            }),
+          }),
+        ),
+      );
+      const { error } = onError.mock.calls[0]![0];
+      expect(error.message).toContain("@copilotkit/runtime@next");
+      expect(core.ɵruntimeInfo.generativeUIEnabled).toBe(false);
+      core.dispose();
+    },
+  );
+
+  it("reports no mismatch for a 2.0 runtime", async () => {
+    mockInfo({
+      version: "2.0.0",
+      agents: {},
+      generativeUI: { enabled: false },
+    });
+    const { core, onError } = await connectWithErrors();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(onError).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        code: CopilotKitCoreErrorCode.RUNTIME_VERSION_MISMATCH,
+      }),
+    );
     core.dispose();
   });
 });
