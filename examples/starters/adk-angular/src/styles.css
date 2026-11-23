@@ -1,5 +1,3 @@
-@import "@copilotkit/angular/styles.css";
-
 /*
   Global border-box reset. Without it, elements default to content-box, so a
   width:100% element with padding (e.g. the proverbs card) overflows its parent
