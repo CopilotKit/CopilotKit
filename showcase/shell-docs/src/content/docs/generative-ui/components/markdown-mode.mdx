@@ -1,5 +1,6 @@
 ---
-title: "Markdown mode"
+title: "Generative UI markdown mode"
+nav_title: "Markdown mode"
 icon: "lucide/Code"
 description: "Let the agent write UI inside its markdown reply, in a2ui code blocks, with no tool call."
 ---
@@ -33,13 +34,29 @@ Set the markdown transport on the provider:
 
 <Tabs groupId="frontend_framework" items={["React", "Angular", "Vue"]} persist>
   <Tab value="React">
-    ```tsx title="app/providers.tsx"
-    import { CopilotKitProvider } from "@copilotkit/react-core/v2";
-    import { standardUI } from "@copilotkit/react-core/v2/generative-ui";
+    `standardUI` needs `maplibre-gl`, even if the agent never draws a map. Without it, Next.js and other bundlers fail to compile the page:
 
-    <CopilotKitProvider runtimeUrl="/api/copilotkit" generativeUI={{ ui: standardUI, transport: "markdown" }}>
-      {children}
-    </CopilotKitProvider>;
+    ```bash
+    npm install maplibre-gl
+    ```
+
+    Then add the catalog and the transport to the provider of your app:
+
+    ```tsx title="app/providers.tsx"
+    "use client";
+    import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+    import { standardUI } from "@copilotkit/react-core/v2/generative-ui"; // [!code highlight]
+
+    export function Providers({ children }: { children: React.ReactNode }) {
+      return (
+        <CopilotKitProvider
+          runtimeUrl="/api/copilotkit"
+          generativeUI={{ ui: standardUI, transport: "markdown" }} // [!code highlight]
+        >
+          {children}
+        </CopilotKitProvider>
+      );
+    }
     ```
   </Tab>
   <Tab value="Angular">
@@ -78,7 +95,7 @@ On every run, the provider then sends the agent two context entries:
 - A compact schema of the components: their names, props, events, and slots.
 - A guide on how to write the code blocks. It has only the rules that your catalog needs, and it leaves out the advice that names a standard component your catalog does not have.
 
-The runtime adds no `render_ui` tool to these runs. The built-in agent puts the context entries into its system prompt. For a LangGraph Python agent, add `CopilotKitMiddleware`. Any other agent needs one thing: put the run's context entries into its system prompt.
+The runtime adds no `render_ui` tool to these runs. The Built-in Agent puts the context entries into its system prompt. For a LangGraph Python agent, add `CopilotKitMiddleware`. Any other agent needs one thing: put the run's context entries into its system prompt.
 
 ## How it streams
 
@@ -93,13 +110,15 @@ The UI paints while the reply is still streaming:
 
 - **In the reply.** A code block renders where it is in the text.
 - **In the same surface again.** A later block in the same reply with the same `surfaceId` updates that surface instead of adding a second one.
-- **On the page.** A block with a target, ```` ```a2ui target=featured ````, renders in `<GenerativeUISurface id="featured">`, or `<copilot-generative-ui-surface id="featured">` in Angular. A later reply can update it. See [Surfaces](/generative-ui/components/surfaces).
+- **On the page.** A block with a target, ```` ```a2ui target=featured ````, renders in `<GenerativeUISurface id="featured">`, or `<copilot-generative-ui-surface id="featured">` in Angular. That target must be mounted on the page. A later reply can update it. See [Surfaces](/generative-ui/components/surfaces).
 
 If the agent leaves out `createSurface`, CopilotKit adds one.
 
 ## Text inside a block
 
 The agent sometimes puts a title or a paragraph inside a block. That text is lifted out and renders as chat markdown, so only real UI ends up in a surface. The surface splits around the text into parts. The parts share their values, so a slider in one part still updates a value in another.
+
+A block that holds only literal text and no controls, such as a `Card` with one `Text`, renders as plain markdown. No surface is created for it.
 
 ## Build your own prompt
 
@@ -157,7 +176,10 @@ Every run carries it at `forwardedProps.copilotkit.ui`, in the A2UI v1.0 rendere
 }
 ```
 
+For example, in a Python agent that builds its own system prompt:
+
 ```python
+# `input` is the run's RunAgentInput. MY_PROMPT is your own system prompt.
 ui = input.forwarded_props["copilotkit"]["ui"]
 catalog = ui["1.0"]["inlineCatalogs"][0]
 system = f"{MY_PROMPT}\n\n{catalog['instructions']}\n\nComponents:\n{json.dumps(catalog['components'])}"
@@ -186,4 +208,4 @@ The v1 chat components in `@copilotkit/react-ui` (`CopilotChat`, `CopilotSidebar
 - Values are literals, bindings (`{"@path": "/seats"}`) or function values (`{"@call": "calc", "args": { "expression": "seats * 29", "seats": {"@path": "/seats"} }}`); see [function values](/generative-ui/components/state-and-actions#compute-values-in-the-browser). There are no operators outside `calc`, and no function that maps over a list.
 - A `surfaceId` is never used twice, also after `deleteSurface`.
 
-To run it, start [`examples/v2/a2ui-markdown`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/v2/a2ui-markdown) with the built-in agent or the LangGraph Python agent, and open `/?transport=markdown`.
+To run it, start [`examples/v2/a2ui-markdown`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/v2/a2ui-markdown) with the Built-in Agent or the LangGraph Python agent, and open `/?transport=markdown`.

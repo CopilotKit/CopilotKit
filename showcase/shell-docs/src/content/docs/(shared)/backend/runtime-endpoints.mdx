@@ -1,18 +1,19 @@
 ---
 title: "Runtime HTTP endpoints"
 icon: "lucide/Network"
-description: "The HTTP routes exposed by the CopilotKit runtime for self-hosting, proxying, and debugging."
+description: "The HTTP routes exposed by Copilot Runtime for self-hosting, proxying, and debugging."
 ---
 
-When you mount the [CopilotKit runtime](/backend/copilot-runtime) with
+You self-host the runtime behind a reverse proxy, lock down auth, or debug a
+connection failure with `curl`. These are the routes the runtime exposes.
+
+When you mount [Copilot Runtime](/backend/copilot-runtime) with
 `createCopilotRuntimeHandler`, `createCopilotExpressHandler`,
 `createCopilotHonoHandler`, or any of the other framework adapters, it serves a
 small set of HTTP routes under the `basePath` you choose, such as
 `/api/copilotkit`. Most applications never call these routes directly. The
 frontend proxy (`ProxiedCopilotRuntimeAgent`) calls them for you. See
-[Connect AG-UI agents](/backend/ag-ui) for how the proxy maps onto these routes. When you self-host behind a reverse proxy, lock down auth, or debug
-a connection failure with `curl`, use this page to confirm what the runtime
-exposes.
+[Connect AG-UI agents](/backend/ag-ui) for how the proxy maps onto these routes.
 
 <Callout type="info" title="Other runtime languages">
 Python, Go, Ruby, and C#/.NET runtimes require Intelligence and serve multi-route endpoints. Use `useSingleEndpoint={false}` with the React provider; do not send a single-route envelope to those servers. The JavaScript handler factories, deprecated v1 endpoints, and optional TypeScript features below are specific to the TypeScript runtime. See the [Intelligence quickstart](/intelligence/quickstart#connect-your-runtime) for native server setup.
@@ -132,7 +133,7 @@ operation. Given a `basePath` of `/api/copilotkit`, the routes are:
 | `GET /api/copilotkit/info`                           | Runtime info. The frontend calls this on startup to discover registered agents and their metadata.                                                                                                           |
 | `GET /api/copilotkit/inspector-metadata`             | Optional trusted project, plan, license, action, usage, and expiry context for the Inspector. Intelligence-backed runtimes advertise this route with `inspectorMetadata: true` in the runtime-info response. |
 | `POST /api/copilotkit/agent/:agentId/run`            | Start an agent run. The request body is an AG-UI `RunAgentInput`; the response is an SSE stream of AG-UI events. With Intelligence, the response is JSON. See [Run and connect with Intelligence](#run-and-connect-with-intelligence).                                                                                             |
-| `POST /api/copilotkit/agent/:agentId/connect`        | Connect to an agent's thread. Used to resume streaming after a reconnect or page refresh. Also an SSE stream, or JSON with Intelligence.                                                                                                |
+| `POST /api/copilotkit/agent/:agentId/connect`        | Connect to an agent's thread. Resumes streaming after a reconnect or page refresh. Also an SSE stream, or JSON with Intelligence.                                                                                                |
 | `POST /api/copilotkit/agent/:agentId/stop/:threadId` | Stop the in-progress run on a given thread. An optional JSON body `{ "runId": "..." }` stops only that run. A body that is not valid JSON, or carries any other key, is rejected with 400 and stops nothing.                                                                                                |
 | `POST /api/copilotkit/transcribe`                    | Transcribe audio (used by the voice / transcription input).                                                                                                                                                  |
 
@@ -330,7 +331,7 @@ from the start, follow the
 
 ### Start with your coding agent
 
-Use this prompt to configure Intelligence and verify that your Runtime exposes Intelligence's AG-UI streams.
+Use this prompt to configure Intelligence and verify that your Runtime exposes Intelligence’s AG-UI streams.
 
 <RichThreadsSetupPrompt />
 
@@ -338,7 +339,7 @@ Use this prompt to configure Intelligence and verify that your Runtime exposes I
 <Step>
 ### Choose a Runtime route mode
 
-Single-route and multi-route handlers both expose Intelligence's AG-UI streams. Use single-route
+Single-route and multi-route handlers both expose Intelligence’s AG-UI streams. Use single-route
 when your server should expose only one `POST` endpoint:
 
 ```ts
@@ -439,7 +440,7 @@ const runtime = new CopilotRuntime({
 });
 ```
 
-See [Scope AG-UI Streams to the signed-in user](/threads-lifecycle#scope-rich-threads-to-the-signed-in-user)
+See [Scope threads to the signed-in user](/threads-lifecycle#scope-threads-to-the-signed-in-user)
 for the full identity and authorization pattern.
 
 </Step>
@@ -475,7 +476,7 @@ Restart the Runtime. For multi-route, request its info endpoint:
 curl -s http://localhost:4000/api/copilotkit/info
 ```
 
-An Intelligence-backed web Runtime that is ready for Intelligence's AG-UI streams includes:
+An Intelligence-backed web Runtime that is ready for Intelligence’s AG-UI streams includes:
 
 ```json
 {
@@ -638,8 +639,8 @@ and registered agents.
 ## CORS
 
 The Express and Hono adapters apply permissive CORS by default
-(`origin: "*"`, all standard methods, all headers) so local development works out
-of the box. With Express, pass `cors: false` to disable the built-in middleware
+(`origin: "*"`, all standard methods, all headers), so local development works
+with no CORS setup. With Express, pass `cors: false` to disable the built-in middleware
 and handle CORS yourself, or pass a `cors` options object to scope it for
 production. With Hono, pass `cors: { origin, credentials }` to scope it:
 

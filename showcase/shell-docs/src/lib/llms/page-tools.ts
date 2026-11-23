@@ -1,5 +1,5 @@
 import { resolveLivePage } from "@/lib/live-docs";
-import { searchEntries } from "./live-inventory";
+import { entryTitle, searchEntries } from "./live-inventory";
 import { renderLivePageMarkdown } from "./page-markdown";
 
 // Page lookups for agents reading the site through tools (`/api/mcp`): every
@@ -8,7 +8,8 @@ import { renderLivePageMarkdown } from "./page-markdown";
 /** Every page, one per line: `- [Title](/url): description`. */
 export async function listPages(): Promise<string> {
   const live = searchEntries().map(({ url, live }) => {
-    const { title, description } = live.page.data;
+    const title = entryTitle(live);
+    const description = live.page.data.description;
     return `- [${title}](${url})${description ? `: ${description}` : ""}`;
   });
   return live.join("\n");

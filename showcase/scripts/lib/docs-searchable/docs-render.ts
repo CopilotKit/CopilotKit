@@ -419,11 +419,10 @@ function parseMetaPages(
 
     // Special case: a literal `"index"` entry in a folder's meta.json
     // represents the folder's root page (URL = `/<folder>` with no
-    // trailing slug). Always emit a page node — even when `index.mdx`
-    // doesn't yet exist on disk — since a framework's landing is the
-    // bare `/<framework>` URL where the data-driven `FrameworkOverview`
-    // renders. Title falls back to "Introduction" when no MDX is present
-    // to read from.
+    // trailing slug). Always emit a page node, even when `index.mdx`
+    // doesn't exist on disk. Title falls back to "Introduction" when no
+    // MDX is present to read from. (A framework has no landing page:
+    // `/<framework>` redirects to its quickstart.)
     if (entry === "index") {
       const title = fs.existsSync(mdxFile)
         ? readTitle(mdxFile) || "Introduction"
@@ -630,9 +629,9 @@ export function buildFrameworkNav(
 /**
  * The framework's own pages (`integrations/<folder>/meta.json`) as one group
  * named for it, at their framework URLs: `integrations/mastra/background-tasks`
- * is `background-tasks`, and a folder's `index` is the folder. Its landing
- * and quickstart are left out, since the outline's top rows open them; so
- * are its section headers. Null when nothing else is left.
+ * is `background-tasks`, and a folder's `index` is the folder. Its
+ * quickstart is left out, since the outline's top rows open it; so are its
+ * section headers. Null when nothing else is left.
  */
 function frameworkGroup(
   folder: string,

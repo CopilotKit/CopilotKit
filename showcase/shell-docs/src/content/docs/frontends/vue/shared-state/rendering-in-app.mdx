@@ -72,7 +72,7 @@ Every time the agent mutates its state, whether from a tool call, node transitio
 
 ## Put it anywhere in your layout
 
-The agent lives on `CopilotKitProvider`, so the chat surface and your main-view components are two consumers of the same agent. A typical layout renders the canvas as the main view and the chat beside it:
+The agent lives on `CopilotKitProvider`, so the chat surface and your main-view components are two consumers of the same agent. A typical layout renders the canvas as the main view and the chat beside it. Use the same `runtime-url` as in the [quickstart](/vue):
 
 ```vue title="src/App.vue"
 <script setup lang="ts">
@@ -81,22 +81,30 @@ import Canvas from "./components/Canvas.vue";
 </script>
 
 <template>
-  <CopilotKitProvider runtime-url="/api/copilotkit">
+  <CopilotKitProvider runtime-url="http://localhost:8200/api/copilotkit">
     <div class="app-shell">
       <Canvas />
       <CopilotChat />
     </div>
   </CopilotKitProvider>
 </template>
+
+<style>
+.app-shell {
+  display: grid;
+  grid-template-columns: 1fr 400px;
+  height: 100vh;
+}
+</style>
 ```
 
 <Callout type="info">
-  `<Canvas>` and `<CopilotChat>` resolve the same default agent, so they share one agent instance and one state object. There is nothing chat-specific about reading `agent.state`; the chat is just another consumer.
+  `<Canvas>` and `<CopilotChat>` resolve the same default agent, so they share one agent instance and one state object. There is nothing chat-specific about reading `agent.state`. The chat is one more consumer.
 </Callout>
 
 ## Writing back from the main view
 
-The same agent exposes `setState`, so your canvas can be interactive rather than a read-only mirror. A click handler can push a new value that the agent reads on its next turn:
+The same agent exposes `setState`, so your canvas can be interactive rather than a read-only mirror. A click handler can push a new value that the agent reads on its next turn. Add this function to the `<script setup>` of `Canvas.vue`:
 
 ```ts
 function toggleItem(id: string) {
@@ -112,6 +120,14 @@ function toggleItem(id: string) {
   });
 }
 ```
+
+Then add a button inside the `<li>` in the template:
+
+```vue
+<button type="button" @click="toggleItem(item.id)">Toggle</button>
+```
+
+Click **Toggle**, then ask the agent which items are done. Its answer includes your change.
 
 This is the same two-way channel described in [Shared State](/vue/shared-state). The only difference is that the reads and writes happen in your main view rather than in the chat. To push UI values to the agent without letting it write back, see [Agent read-only context](/vue/shared-state/agent-readonly).
 

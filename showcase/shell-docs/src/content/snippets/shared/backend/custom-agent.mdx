@@ -18,7 +18,7 @@ If simple mode does what you need, use simple mode. Use factory mode when you ne
 
 ## Quick Start
 
-You have an existing LLM backend and you want a CopilotKit copilot using it. Pick your backend:
+Pick your backend:
 
 <Tabs items={["AI SDK", "TanStack AI", "Custom"]}>
 <Tab value="AI SDK">
@@ -75,6 +75,9 @@ const agent = new BuiltInAgent({
       adapter: openaiText("gpt-6-luna"),
       messages,
       systemPrompts,
+      threadId: input.threadId,
+      runId: input.runId,
+      stream: true,
       abortController,
     });
   },
@@ -154,7 +157,7 @@ Factory mode accepts a config with two fields:
 - **`type`**: which backend you're using (`"aisdk"`, `"tanstack"`, or `"custom"`)
 - **`factory`**: a function that receives the raw request and returns a backend-native stream
 
-The factory receives an `BuiltInAgentFactoryContext` (from `@copilotkit/runtime/v2`):
+The factory receives a `BuiltInAgentFactoryContext` (from `@copilotkit/runtime/v2`):
 
 ```typescript
 interface BuiltInAgentFactoryContext {
@@ -231,6 +234,9 @@ const agent = new BuiltInAgent({
       messages,
       systemPrompts,
       tools: [...tools, getWeather],
+      threadId: input.threadId,
+      runId: input.runId,
+      stream: true,
       abortController,
     });
   },
@@ -324,7 +330,7 @@ Reasoning events (`REASONING_START`, `REASONING_MESSAGE_CONTENT`, `REASONING_END
 Pick the model with reasoning **visibility** in mind. From Claude Opus 4.7 onward (including Sonnet 5 and Opus 5), the thinking `display` default is `"omitted"`. The model still reasons, but no reasoning text comes back. Then the reasoning events above arrive empty. `@ai-sdk/anthropic` does not expose `display`. To show the reasoning, use a model that returns summarized thinking by default, such as `claude-sonnet-4-6`.
 </Callout>
 
-Using `BuiltInAgent` without a custom factory? The same options go through its `providerOptions`. See [Advanced Configuration](/advanced-configuration#provider-specific-options).
+Using `BuiltInAgent` without a custom factory? The same options go through its `providerOptions`. See [Advanced Configuration](/built-in-agent/advanced-configuration#provider-specific-options).
 </Tab>
 <Tab value="TanStack AI">
 ```typescript title="src/copilotkit.ts"
@@ -340,9 +346,10 @@ const agent = new BuiltInAgent({
       adapter: anthropicText("claude-sonnet-4-6"),
       messages,
       systemPrompts,
-      modelOptions: {
-        thinking: { type: "adaptive", display: "summarized" },
-      },
+      reasoning: { level: "high", summary: true },
+      threadId: input.threadId,
+      runId: input.runId,
+      stream: true,
       abortController,
     });
   },
@@ -416,6 +423,9 @@ const agent = new BuiltInAgent({
       adapter: openaiText("gpt-6-luna"),
       messages,
       systemPrompts,
+      threadId: input.threadId,
+      runId: input.runId,
+      stream: true,
       abortController,
     });
   },
@@ -491,6 +501,9 @@ const agent = new BuiltInAgent({
       messages,
       systemPrompts,
       modelOptions,
+      threadId: input.threadId,
+      runId: input.runId,
+      stream: true,
       abortController,
     });
   },
@@ -594,6 +607,9 @@ const agent = new BuiltInAgent({
       messages,
       systemPrompts,
       tools: [sendStateSnapshot, sendStateDelta],
+      threadId: input.threadId,
+      runId: input.runId,
+      stream: true,
       abortController,
     });
   },

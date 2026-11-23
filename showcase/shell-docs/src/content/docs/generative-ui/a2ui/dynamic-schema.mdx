@@ -1,7 +1,7 @@
 ---
 title: "Dynamic Schema A2UI"
 icon: "lucide/Sparkles"
-description: "LLM-generated A2UI. A secondary LLM creates both the schema and data from any prompt."
+description: "LLM-generated A2UI. The agent composes the schema and data from your catalog on each turn."
 snippet_cell: declarative-gen-ui
 ---
 
@@ -16,8 +16,8 @@ on each turn.
 
 1. The agent calls the A2UI tool to draw a surface, made available
    when `injectA2UITool: true`.
-2. The runtime serializes your client-side catalog (component names +
-   Zod prop schemas) into the agent's `copilotkit.context` so the LLM
+2. The provider sends your client-side catalog (component names +
+   prop schemas) to the agent as run context, so the LLM
    knows which components it may emit.
 3. The tool call streams from the agent as `TOOL_CALL_ARGS` events.
 4. The A2UI middleware intercepts the stream and renders cards
@@ -26,25 +26,60 @@ on each turn.
 ## The 3-file split
 
 The canonical Bring-Your-Own-Catalog (BYOC) layout keeps three files
-side-by-side under `frontend/src/app/a2ui/`:
+side by side in one folder, for example `app/a2ui/`:
 
 | File | What lives there |
 |---|---|
-| `definitions.ts` | Zod props schema + human-readable descriptions for each custom component. Platform-agnostic, so the runtime can serialise it to the LLM. |
+| `definitions.ts` | Zod props schema + a description for each custom component. Platform-agnostic, so the runtime can serialise it to the LLM. |
 | `renderers.tsx` | React implementations keyed by the same names. TypeScript enforces that every definition has a renderer. |
 | `catalog.ts` | `createCatalog(definitions, renderers, { includeBasicCatalog: true })`: merges your custom components with CopilotKit's built-in primitives. |
 
 <Steps>
 <Step>
+### Install the packages
+
+The definitions use Zod 3, and the example renderers use `recharts` and
+`lucide-react`:
+
+```npm
+npm install @copilotkit/a2ui-renderer "zod@^3.25" recharts lucide-react
+```
+
+<Callout type="warn" title="A2UI catalogs need Zod 3">
+  `@copilotkit/a2ui-renderer` converts Zod 3 schemas only. With Zod 4,
+  TypeScript rejects the definitions, and every custom component reaches
+  the model with empty props.
+</Callout>
+</Step>
+
+<Step>
 ### Declare your custom component definitions
 
-Each entry pairs a Zod prop schema with a description. The description
-matters, because the LLM reads it to decide which component to emit. The
+Each entry pairs a Zod prop schema with a description. The provider sends
+each component's name and prop schema to the model. The `description`
+field is not sent, so put usage guidance in the agent's instructions
+(see [Tell the agent when to draw](#tell-the-agent-when-to-draw)). The
 example below is a dashboard catalog with cards (`Card`, `StatusBadge`,
 `Metric`, `InfoRow`, `DataTable`, `PrimaryButton`) and charts
-(`PieChart`, `BarChart`):
+(`PieChart`, `BarChart`). Save it as `app/a2ui/definitions.ts`:
 
 <Snippet region="definitions-zod" />
+
+At the end of the file, export the type that the renderers use:
+
+```ts
+export type MyDefinitions = typeof myDefinitions;
+```
+
+<Callout type="warn" title="Overriding Text, Row, or Column turns off data binding">
+  This example overrides the basic `Text`, `Row`, and `Column` with
+  plain-string props. Those versions do not accept `{ "path": ... }`
+  bindings or repeating `children` templates, so the model's surface
+  fails validation if it uses them. Leave these components out of your
+  definitions if your agent binds data. To keep a binding, declare the
+  prop as a union, for example
+  `text: z.union([z.string(), z.object({ path: z.string() })])`.
+</Callout>
 </Step>
 
 <Step>
@@ -53,8 +88,65 @@ example below is a dashboard catalog with cards (`Card`, `StatusBadge`,
 Every key in `myDefinitions` must have a matching renderer. Props are
 statically typed against the Zod schema, so refactors stay safe.
 The demo renderers use the demo's own `Badge` and `Button` components,
-its theme tokens, and `recharts` for the charts. Use your own
-components in their place:
+its theme tokens, and `recharts` for the charts.
+
+Start `app/a2ui/renderers.tsx` with the imports and helpers the renderers
+use. Import your own `Badge` and `Button`, or use these plain stand-ins:
+
+```tsx title="app/a2ui/renderers.tsx (top of file)"
+"use client";
+
+import React from "react";
+import {
+  PieChart as RechartsPieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer,
+  BarChart as RechartsBarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+} from "recharts";
+import type { CatalogRenderers } from "@copilotkit/a2ui-renderer";
+import { TriangleAlert, CircleAlert, CircleCheck, Info } from "lucide-react";
+import type { MyDefinitions } from "./definitions";
+
+const c = { cardFg: "#111", muted: "#666", divider: "#eee" };
+const tooltipStyle = { backgroundColor: "#fff", border: "1px solid #ccc" };
+const barCursor = { fill: "#ccc" };
+const CHART_COLORS = ["#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981"];
+
+function CardShell(props: {
+  title: string;
+  subtitle?: string;
+  testid?: string;
+  cardId?: string;
+  children?: React.ReactNode;
+}) {
+  return (
+    <div
+      data-testid={props.testid}
+      style={{ border: "1px solid #ddd", borderRadius: 12, padding: 16, width: "100%" }}
+    >
+      <div style={{ fontWeight: 600 }}>{props.title}</div>
+      {props.subtitle && <div style={{ fontSize: 12, color: c.muted }}>{props.subtitle}</div>}
+      {props.children}
+    </div>
+  );
+}
+
+function Badge({ variant, ...rest }: React.HTMLAttributes<HTMLSpanElement> & { variant: string }) {
+  return <span data-variant={variant} {...rest} />;
+}
+
+function Button(props: React.ButtonHTMLAttributes<HTMLButtonElement>) {
+  return <button type="button" {...props} />;
+}
+```
+
+Then add the renderer map:
 
 <Snippet region="renderers-react" />
 </Step>
@@ -65,7 +157,8 @@ components in their place:
 `createCatalog` is what you hand to the provider. Flip
 `includeBasicCatalog: true` to merge CopilotKit's built-ins
 (Column, Row, Text, Image, Card, Button, List, Tabs, …), so the LLM
-can compose custom + basic components interchangeably:
+can compose custom + basic components interchangeably. Save it as
+`app/a2ui/catalog.ts`:
 
 <Snippet region="create-catalog" />
 </Step>
@@ -75,40 +168,75 @@ can compose custom + basic components interchangeably:
 
 A single prop (`a2ui={{ catalog }}`) is all the frontend needs; the
 provider registers the catalog and wires up the built-in A2UI
-activity-message renderer:
+activity-message renderer. Add it to the provider from the
+[quickstart](/quickstart):
 
-<Snippet region="provider-a2ui-prop" />
+```tsx title="app/providers.tsx"
+"use client";
 
-In your app, use your own runtime URL and your own chat in place of the
-demo's `Chat` component.
+import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+import { myCatalog } from "./a2ui/catalog";
+
+export function Providers({ children }: { children: React.ReactNode }) {
+  return (
+    <CopilotKitProvider
+      runtimeUrl="/api/copilotkit"
+      a2ui={{ catalog: myCatalog }} // [!code highlight]
+    >
+      {children}
+    </CopilotKitProvider>
+  );
+}
+```
 
 That is all the default path needs. The catalog auto-enables A2UI and
-injects the `generate_a2ui` tool, so the runtime needs no `a2ui` block,
-unless your agent brings its own A2UI tool (see [Agent setup](#agent-setup)).
+injects the A2UI tool, so the runtime needs no `a2ui` block, unless your
+agent brings its own A2UI tool (see [Agent setup](#agent-setup)). A
+LangGraph agent with the CopilotKit middleware gets `generate_a2ui`.
+Other agents get `render_a2ui`.
 (No catalog? Turn it on from the runtime instead with
 `a2ui: { injectA2UITool: true }`.)
+</Step>
+
+<Step>
+### Tell the agent when to draw
+
+A model with no instruction about the A2UI tool answers in prose and
+never calls it. With the Built-in Agent, add a `prompt` in your runtime
+route:
+
+```ts title="app/api/copilotkit/[[...slug]]/route.ts"
+const builtInAgent = new BuiltInAgent({
+  model: "openai:gpt-6-luna",
+  prompt:
+    "When an answer needs a dashboard, a card layout, or a chart, call render_a2ui with components from the catalog.",
+});
+```
+
+For other frameworks, see [Agent setup](#agent-setup).
 </Step>
 
 <Step>
 ### Ask for a dashboard
 
 Ask the agent for a dashboard. For example, send `Show me my sales
-dashboard for this quarter`. The dashboard renders in the chat with the
-components from your catalog.
+dashboard for this quarter`. The dashboard renders in the chat with
+cards, metrics, and charts from your catalog.
 </Step>
 </Steps>
 
 ## Agent setup
 
-Tell the model in its instructions when to call `generate_a2ui`, for example
-for any answer that needs a dashboard, a card layout, or a chart. A model with
+Tell the model in its instructions when to call the A2UI tool (`generate_a2ui` or
+`render_a2ui`, as described above), for example for any answer that needs a
+dashboard, a card layout, or a chart. A model with
 no instruction about the tool answers in prose and never calls it.
 
 <FrameworkSetup concept="a2ui-dynamic-schema-setup" />
 
 ## I opted out of auto-inject, now what?
 
-When the runtime does not inject the `generate_a2ui` tool, what you add
+When the runtime does not inject the A2UI tool, what you add
 depends on your setup:
 
 - **The runtime has an `a2ui` block, or the provider passes a catalog.**
@@ -162,12 +290,12 @@ shows this in TypeScript.
 
 ## Progressive streaming
 
-The secondary LLM's `render_a2ui` tool call streams from the agent
-as `TOOL_CALL_ARGS` events. The A2UI middleware:
+The A2UI tool call (`render_a2ui`, or the subagent inside
+`generate_a2ui`) streams from the agent as `TOOL_CALL_ARGS` events. The A2UI middleware:
 
 1. Waits for the full `components` array before emitting anything;
    the schema must be complete before rendering starts.
-2. Extracts `surfaceId` + `root` from the partial JSON.
+2. Extracts `surfaceId` from the partial JSON.
 3. Emits `createSurface` + `updateComponents` once the schema is
    complete.
 4. Extracts complete `items` objects progressively and emits an
@@ -185,8 +313,8 @@ generating and hides automatically once data items start arriving.
 - You're building a conversational dashboard where the layout varies
   per turn.
 
-If the surface is well-known (e.g. a product card, a flight result),
-prefer a **[fixed schema](./fixed-schema)**; it's faster, cheaper,
+If the surface is well-known (for example, a product card or a flight result),
+prefer a **[fixed schema](./fixed-schema)**. It's faster, cheaper,
 and the UI is deterministic.
 
 <IntegrationGrid path="generative-ui/a2ui" />

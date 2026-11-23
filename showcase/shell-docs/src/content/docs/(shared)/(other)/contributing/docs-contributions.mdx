@@ -10,7 +10,8 @@ The documentation site lives in `showcase/shell-docs` inside the [CopilotKit](ht
 
 - [Node.js](https://nodejs.org/en/) 20.x or later
 - [pnpm](https://pnpm.io/) v10.x installed globally (`npm i -g pnpm@^10`)
-- [Nx](https://nx.dev/): drives all tasks in the monorepo. You don't need to install it globally; the repo's `pnpm install` provides everything.
+- [Git LFS](https://git-lfs.com/). Run `git lfs install` once before you clone. The repository stores images in Git LFS. Without it, the docs site returns errors on every page.
+- [Nx](https://nx.dev/): drives all tasks in the monorepo. You don't need to install it globally. The repo's `pnpm install` provides everything.
 
 ## How To Contribute
 
@@ -28,6 +29,12 @@ pnpm install
 
 `pnpm install` at the repo root installs every package in the workspace and wires up the lefthook pre-commit hook (lint, format, test). You must run it once before your first commit.
 
+If you cloned before you installed Git LFS, download the images now:
+
+```shell
+git lfs pull
+```
+
   </Step>
   <Step>
   ### Run the documentation site locally
@@ -40,7 +47,7 @@ cd ../shell-docs && npm install
 npm run dev
 ```
 
-The site is served at [http://localhost:3003](http://localhost:3003).
+The site is served at [http://localhost:3003](http://localhost:3003). To use another port, run `npm run dev -- --port 3010`.
 
   </Step>
   <Step>
@@ -54,9 +61,21 @@ showcase/shell-docs/src/content/docs/
 
 A few conventions to keep in mind:
 
-- The site is built with **Fumadocs**. Content is authored in MDX. Frontmatter (`title`, `description`, `icon`, etc.) drives the sidebar and metadata.
+- The site is built with **Fumadocs**. Content is authored in MDX. Frontmatter (`title`, `description`, `icon`, and other fields) drives the sidebar and metadata.
 - For code samples, use **`<Snippet>`** to show code from a showcase demo under `showcase/integrations/<framework>/...`. Do not paste the code inline.
-- Mark the code in the demo with `// @region[name]` and `// @endregion[name]`. To see the pattern, look at how an adjacent page references the same integration.
+- Mark the code in the demo with `// @region[name]` and `// @endregion[name]`, then reference the region by name from the page:
+
+  ```tsx
+  // In the demo file
+  // @region[frontend-tool-registration]
+  useFrontendTool({ name: "change_background" /* ... */ });
+  // @endregion[frontend-tool-registration]
+  ```
+
+  ```mdx
+  <Snippet region="frontend-tool-registration" />
+  ```
+
 - Reference pages for hooks, components, and runtime APIs use a `<PropertyReference>` component to render the prop / parameter table. Match the style of an existing reference page in the same directory.
 
 <Callout type="info">
@@ -68,7 +87,9 @@ Please review your changes for grammar, spelling, and formatting, and confirm th
 
   ### Review changes and submit a pull request
 
-When you commit, the lefthook pre-commit hook lints and formats staged code files and tests changed packages. It does not check `.mdx` pages. If the hook fails, fix the issue and commit again. Do not bypass the hook.
+When you commit, the lefthook pre-commit hook lints and formats staged code files and tests changed packages. It does not lint or format `.mdx` pages, but it checks every commit for retired Intelligence env var names and hosts. If the hook fails, fix the issue and commit again. Do not bypass the hook.
+
+Write the commit message as a [Conventional Commit](https://www.conventionalcommits.org/), for example `docs: fix typo in the quickstart`. The commit-msg hook rejects other formats.
 
 When you're happy with the result, push and open a PR against the [CopilotKit/CopilotKit](https://github.com/CopilotKit/CopilotKit/pulls) repo. Thank you for your contribution.
 
@@ -77,4 +98,4 @@ When you're happy with the result, push and open a PR against the [CopilotKit/Co
 
 ## Need help?
 
-If you need help with anything, please don't hesitate to reach out on [Discord](https://discord.gg/6dffbvGU3D). There's a dedicated [#contributing](https://discord.com/channels/1122926057641742418/1183863183149117561) channel.
+If you need help, ask on [Discord](https://discord.gg/6dffbvGU3D). There's a dedicated [#contributing](https://discord.com/channels/1122926057641742418/1183863183149117561) channel.

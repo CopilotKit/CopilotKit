@@ -7,7 +7,7 @@ description: "High-level chat component that connects an agent to a chat view"
 
 `CopilotChat` is a high-level chat container that wires an agent into [`CopilotChatView`](/reference/components/CopilotChatView) while providing configuration context. It obtains the agent via [`useAgent`](/reference/hooks/useAgent), connects to the thread on mount when you pass a `threadId`, manages pending state, and auto-clears the input after submission. Override any of the internal slots by passing `CopilotChatView` props directly.
 
-`CopilotChat` manages messages, running state, and suggestions automatically -- you only need to specify which agent to connect and, optionally, customise labels or slot overrides.
+`CopilotChat` manages messages, running state, and suggestions for you. Pick the agent with `agentId` (it defaults to the provider's default agent). Optionally, customize labels or override slots.
 
 For a walkthrough, see [Prebuilt components](/prebuilt-components/chat). To restyle parts of the chat, see [Slots](/custom-look-and-feel/slots).
 
@@ -35,7 +35,7 @@ import "@copilotkit/react-core/v2/styles.css";
 
 <PropertyReference name="labels" type="Partial<CopilotChatLabels>">
   Partial label overrides for all text strings rendered inside the chat (input
-  placeholder, toolbar buttons, disclaimer text, etc.). Any label you omit falls
+  placeholder, toolbar buttons, disclaimer text, and more). Any label you omit falls
   back to the built-in default.
 </PropertyReference>
 

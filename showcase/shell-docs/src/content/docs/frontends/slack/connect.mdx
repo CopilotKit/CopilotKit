@@ -25,10 +25,10 @@ Use this prompt to connect your agent to Slack, start the runner, and verify a r
 
 ## Before you start
 
-- Node.js 22 or later; the managed launcher requires the global `WebSocket`
-  available in Node.js 22+
-- A long-running Node host or container; serverless request handlers cannot own
-  the persistent gateway connection
+- Node.js 22 or later. The managed launcher requires the global `WebSocket`
+  that Node.js 22+ provides.
+- A long-running Node host or container. Serverless request handlers cannot own
+  the persistent gateway connection.
 
 ## Build and run your Channel
 
@@ -71,12 +71,15 @@ Use this prompt to connect your agent to Slack, start the runner, and verify a r
   <Step>
     ### Connect your agent backend
 
-    The runner can use any supported backend. The selector's
-    **Agent backend** controls the setup below. It must export a fresh
-    `makeAgent(threadId)` result for each Slack conversation; do not share one
-    stateful agent instance across threads.
+    Create `agent.ts`. It must export a `makeAgent(threadId)` function that
+    returns a new agent for each Slack conversation. Do not share one stateful
+    agent instance across threads.
 
-    <FrameworkSetup concept="channels-agent-setup" />
+    The setup below is for the backend chosen in the **Agent framework**
+    selector at the top of the sidebar. The default is the Built-in Agent. To
+    use another backend, change the selector first.
+
+    <FrameworkSetup concept="channels-agent-setup" currentFramework="built-in-agent" />
 
   </Step>
 
@@ -183,7 +186,9 @@ Use this prompt to connect your agent to Slack, start the runner, and verify a r
     ```dotenv title=".env"
     CPK_INTELLIGENCE_API_KEY=<project-api-key>
     CHANNEL_CODE=support-slack
-    # Add the agent variables shown for your selected backend.
+    # Built-in Agent: your model provider key.
+    # Another backend: use the variables from step 2 instead.
+    OPENAI_API_KEY=<your-openai-key>
     PORT=3001
 
     # Optional paired overrides for self-hosted or non-production Intelligence:
@@ -234,10 +239,10 @@ Use this prompt to connect your agent to Slack, start the runner, and verify a r
     | **Setup incomplete** | Finish the selected provider's required setup fields before starting the runtime. |
     | **Setup failed** | Reopen platform setup and correct the rejected credentials or configuration. |
     | **Waiting for runtime** | Start the process, and match its Code and provider to this Channel. |
-    | **Conflict** | Compare every replica's complete Channel declaration set. Identical replicas should elect one active owner and connected standbys; different but overlapping sets are unsafe. |
+    | **Conflict** | Compare every replica's complete Channel declaration set. Identical replicas should elect one active owner and connected standbys. Different but overlapping sets are unsafe. |
     | **Offline** | Check the runner process, network, and Intelligence gateway connection. |
     | **Delivery failing** | Check platform credentials, app permissions, and the provider response. |
-    | **Online** | The runtime is connected; send a real provider message to verify the full path. |
+    | **Online** | The runtime is connected. Send a real provider message to verify the full path. |
 
   </Step>
 
@@ -257,23 +262,6 @@ Use this prompt to connect your agent to Slack, start the runner, and verify a r
 
   </Step>
 </Steps>
-
-## Tool-call progress
-
-Managed Slack keeps tool-call progress out of the streamed reply by default, so
-the conversation ends with a clean result. Tool lifecycle events still remain
-in Intelligence history and are available during replay.
-
-Opt in per Channel when the live tool timeline is useful:
-
-```ts title="channel.ts"
-const channel = createChannel({
-  name: required("CHANNEL_CODE"),
-  identifyUser: "platform",
-  agent: makeAgent,
-  showToolStatus: true,
-});
-```
 
 ## Troubleshooting
 
@@ -300,6 +288,23 @@ const channel = createChannel({
     id where the selected framework requires it.
   </Accordion>
 </Accordions>
+
+## Show tool-call progress
+
+Managed Slack keeps tool-call progress out of the streamed reply by default, so
+the conversation ends with a clean result. Tool lifecycle events still remain
+in Intelligence history and are available during replay.
+
+Opt in per Channel when the live tool timeline is useful:
+
+```ts title="channel.ts"
+const channel = createChannel({
+  name: required("CHANNEL_CODE"),
+  identifyUser: "platform",
+  agent: makeAgent,
+  showToolStatus: true,
+});
+```
 
 Next, [map application users and choose Memory grants](/channels/identity-and-memory),
 add [tools and context](/channels/tools), or build

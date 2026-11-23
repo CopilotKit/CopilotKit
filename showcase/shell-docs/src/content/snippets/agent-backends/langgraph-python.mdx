@@ -1,0 +1,116 @@
+{/*
+  The LangGraph (Python) backend for the Vue, Angular and React Native
+  quickstarts (`/vue/langgraph-python` and so on), picked by `index.mdx`.
+  The page around it already created the app and installed
+  `@copilotkit/runtime` and `tsx`. Its next steps start `npx tsx server.ts`
+  from the app folder, so the agent here must be running by then.
+*/}
+
+<Step>
+  ### Create your LangGraph agent
+
+  You need Python 3.12+ and [`uv`](https://docs.astral.sh/uv/). The agent gets its own folder next to your app. From your app folder:
+
+  ```bash
+  cd ..
+  uv init my-agent
+  cd my-agent
+  uv add langgraph langchain-openai langchain-core python-dotenv
+  uv add --dev "langgraph-cli[inmem]"
+  ```
+
+  Replace the contents of `main.py` with a small graph. If you already have a LangGraph agent, keep it and use this as a reference:
+
+  ```python title="main.py"
+  from dotenv import load_dotenv
+  from langchain_core.messages import SystemMessage
+  from langchain_openai import ChatOpenAI
+  from langgraph.graph import END, START, MessagesState, StateGraph
+
+  load_dotenv()
+
+
+  async def chat(state: MessagesState):
+      model = ChatOpenAI(model="gpt-6-luna", reasoning_effort="none")
+      response = await model.ainvoke(
+          [SystemMessage(content="You are a helpful assistant."), *state["messages"]]
+      )
+      return {"messages": response}
+
+
+  graph = StateGraph(MessagesState)
+  graph.add_node(chat)
+  graph.add_edge(START, "chat")
+  graph.add_edge("chat", END)
+  graph = graph.compile()
+  ```
+
+  Do not pass a `checkpointer` to `compile()`. The LangGraph server supplies persistence and refuses a graph that brings its own.
+
+  Add `langgraph.json` next to `main.py`. The key under `graphs` is the graph ID the runtime connects to:
+
+  ```json title="langgraph.json"
+  {
+    "dependencies": ["."],
+    "graphs": {
+      "sample_agent": "./main.py:graph"
+    },
+    "env": ".env"
+  }
+  ```
+
+  Put your OpenAI key in `.env`:
+
+  ```plaintext title=".env"
+  OPENAI_API_KEY=your_openai_api_key
+  ```
+</Step>
+
+<Step>
+  ### Start the agent
+
+  ```bash
+  uv run langgraph dev --port 8123 --no-browser
+  ```
+
+  Keep this terminal open. The agent server listens on `http://localhost:8123`. Without `--port`, the LangGraph CLI uses `2024`, and the runtime below would not find it.
+</Step>
+
+<Step>
+  ### Create the Copilot Runtime
+
+  Open a new terminal in your app folder. Add `server.ts`, a small Node server that hosts Copilot Runtime at `/api/copilotkit` and registers your graph as the `default` agent:
+
+  ```ts title="server.ts"
+  import { createServer } from "node:http";
+  import { CopilotRuntime } from "@copilotkit/runtime/v2";
+  import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
+  import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
+
+  const runtime = new CopilotRuntime({
+    agents: {
+      // [!code highlight:4]
+      default: new LangGraphAgent({
+        deploymentUrl: process.env.LANGGRAPH_URL ?? "http://localhost:8123",
+        graphId: "sample_agent",
+      }),
+    },
+  });
+
+  const port = Number(process.env.PORT ?? 8200);
+
+  createServer(
+    createCopilotNodeListener({
+      runtime,
+      basePath: "/api/copilotkit",
+      cors: true,
+    }),
+  ).listen(port, () => {
+    console.log(
+      `Copilot Runtime listening at http://localhost:${port}/api/copilotkit`,
+    );
+  });
+  ```
+
+  `cors: true` lets the app's dev server, on another port, call the runtime. The model key stays with the agent, so the runtime needs none.
+</Step>

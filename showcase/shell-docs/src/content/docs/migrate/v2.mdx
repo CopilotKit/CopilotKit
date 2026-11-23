@@ -31,7 +31,7 @@ call site.
 The exhaustive IDE warnings are available starting in CopilotKit `1.68.2`.
 V1 and v2 continue to coexist in the same packages for backward compatibility
 for at least two minor releases. Removing v1 would be a separate major-version
-change with its own notice; this migration does not remove or silently change
+change with its own notice. This migration does not remove or silently change
 v1 runtime behavior.
 
 ## Migration Steps
@@ -127,7 +127,7 @@ const runtime = new CopilotRuntime({ agents: {} });
 ### If you use Vue, update Vue imports
 
 Vue v2 lives at the same package's `/v2` subpath. The v1 `CopilotKit`
-component becomes `CopilotKitProvider`; most exports otherwise retain their
+component becomes `CopilotKitProvider`. Most other exports keep their
 public names.
 
 #### Before
@@ -162,13 +162,13 @@ import "@copilotkit/react-core/v2/styles.css";
 <Step>
 ### Upgrade AG-UI client if using it directly
 
-If you import from `@ag-ui/client` directly, install the version that `@copilotkit/runtime` depends on:
+If you import from `@ag-ui/client` directly, install it next to `@copilotkit/runtime`:
 
 ```bash
-npm install @ag-ui/client@1.0.2
+npm install @ag-ui/client
 ```
 
-A different version installs a second copy of the package, with its own `HttpAgent` class. Run `npm ls @ag-ui/client` to make sure that only one version is installed.
+It must be the version that `@copilotkit/runtime` depends on. A different version installs a second copy of the package, with its own `HttpAgent` class. Run `npm ls @ag-ui/client`: the top-level copy must be the version that `@copilotkit/runtime` lists as `deduped`.
 
 Note: If you only use CopilotKit's React packages, `@ag-ui/client` types are already re-exported from `@copilotkit/react-core/v2` and you don't need a separate install.
 
@@ -187,8 +187,8 @@ Note: If you only use CopilotKit's React packages, `@ag-ui/client` types are alr
 - **No-replacement markers are intentional.** If an IDE warning or the export
   map says there is no 1:1 replacement, migrate the surrounding pattern using
   the linked v2 reference instead of selecting a similarly named symbol.
-- **Type exports matter too.** Type-only imports carry the same IDE warning and
-  should be migrated with their consuming value API.
+- **Type exports matter too.** Type-only imports carry the same IDE warning.
+  Migrate them together with the value API that uses them.
 
 ## Full Example
 

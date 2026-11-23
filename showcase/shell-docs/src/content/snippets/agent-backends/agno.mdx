@@ -1,0 +1,100 @@
+{/*
+  The Agno backend for the Vue, Angular and React Native
+  quickstarts (`/vue/agno` and so on), picked by `index.mdx`.
+  The page around it already created the app and installed
+  `@copilotkit/runtime` and `tsx`. Its next steps start `npx tsx server.ts`
+  from the app folder, so the agent here must be running by then.
+*/}
+
+<Step>
+  ### Create your Agno agent
+
+  You need Python 3.12+, [`uv`](https://docs.astral.sh/uv/) and an OpenAI API key. The agent gets its own folder next to your app. From your app folder:
+
+  ```bash
+  cd ..
+  uv init my-agent
+  cd my-agent
+  uv add agno fastapi uvicorn openai ag-ui-protocol python-multipart
+  ```
+
+  AgentOS, the Agno server, needs `python-multipart` to start.
+
+  Replace the contents of `main.py` with a small agent. Its `AGUI` interface serves the agent over AG-UI, the protocol that Copilot Runtime speaks. If you already have an Agno agent, pass it to `AGUI` and use this as a reference:
+
+  ```python title="main.py"
+  from agno.agent import Agent
+  from agno.models.openai import OpenAIChat
+  from agno.os import AgentOS
+  from agno.os.interfaces.agui import AGUI
+
+  agent = Agent(
+      model=OpenAIChat(reasoning_effort="none", id="gpt-6-luna"),
+      description="A helpful assistant that can answer questions and provide information.",
+      instructions="Be helpful and friendly. Format your responses using markdown where appropriate.",
+  )
+
+  agent_os = AgentOS(agents=[agent], interfaces=[AGUI(agent=agent)])
+  app = agent_os.get_app()
+  ```
+
+  Put your OpenAI key in `.env`:
+
+  ```plaintext title=".env"
+  OPENAI_API_KEY=your_openai_api_key
+  ```
+</Step>
+
+<Step>
+  ### Start the agent
+
+  ```bash
+  uv run --env-file .env uvicorn main:app --port 8000
+  ```
+
+  Keep this terminal open. The agent's AG-UI endpoint is `http://localhost:8000/agui`. `--env-file .env` loads `OPENAI_API_KEY` into the agent. Without it, the first chat message fails with `OPENAI_API_KEY not set`.
+</Step>
+
+<Step>
+  ### Create the Copilot Runtime
+
+  Open a new terminal in your app folder. The runtime reaches the agent with `AgnoAgent` from `@ag-ui/agno`:
+
+  ```bash
+  npm install @ag-ui/agno
+  ```
+
+  Add `server.ts`, a small Node server that hosts Copilot Runtime at `/api/copilotkit` and registers your agent as the `default` agent:
+
+  ```ts title="server.ts"
+  import { createServer } from "node:http";
+  import { AgnoAgent } from "@ag-ui/agno";
+  import { CopilotRuntime } from "@copilotkit/runtime/v2";
+  import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
+
+  const runtime = new CopilotRuntime({
+    agents: {
+      // [!code highlight:3]
+      default: new AgnoAgent({
+        url: process.env.AGENT_URL ?? "http://localhost:8000/agui",
+      }),
+    },
+  });
+
+  const port = Number(process.env.PORT ?? 8200);
+
+  createServer(
+    createCopilotNodeListener({
+      runtime,
+      basePath: "/api/copilotkit",
+      cors: true,
+    }),
+  ).listen(port, () => {
+    console.log(
+      `Copilot Runtime listening at http://localhost:${port}/api/copilotkit`,
+    );
+  });
+  ```
+
+  `cors: true` lets the app's dev server, on another port, call the runtime. The model key stays with the agent, so the runtime needs none.
+</Step>

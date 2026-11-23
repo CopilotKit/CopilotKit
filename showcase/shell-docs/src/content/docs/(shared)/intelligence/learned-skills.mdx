@@ -55,7 +55,7 @@ Skill delivery does not send native agent runs to Automatic Learning. To collect
 
 | Framework                 | Package                                  | Native extension                                                     |
 | ------------------------- | ---------------------------------------- | -------------------------------------------------------------------- |
-| [BuiltInAgent](#builtinagent) | `@copilotkit/runtime/v2`                 | `learnedSkills` configuration                                        |
+| [Built-in Agent](#builtinagent) | `@copilotkit/runtime/v2`               | `learnedSkills` configuration                                        |
 | [LangGraph Python](#langgraph-python) | `copilotkit-intelligence-langgraph`      | `create_skill_registry_middleware`                                   |
 | [LangGraph TypeScript](#langgraph-typescript) | `@copilotkit/intelligence-langgraph`     | `createSkillRegistryMiddleware`                                      |
 | [Mastra](#mastra) | `@copilotkit/intelligence-mastra`        | `createSkillRegistryProcessor`                                       |
@@ -72,7 +72,9 @@ Follow only the section for your framework. The [Choose an adapter](#choose-an-a
 
 Each example shows an optional revision pin. Replace `"exact-revision-id"` with a published revision ID, or remove that parameter to use the environment fallback. If neither code nor environment specifies a revision, the adapter follows the latest published Skills. The SDK does not support `"auto"` as a special value.
 
-### BuiltInAgent
+<span id="builtinagent" />
+
+### Built-in Agent
 
 Configure `learnedSkills` directly on `BuiltInAgent`. No wrapper or separate adapter package is required.
 
@@ -95,7 +97,11 @@ Classic mode adds the catalog and both executable skill tools before the model c
 
 #### Factory mode
 
-BuiltInAgent fetches the snapshot before it calls your factory. Connect the catalog and tools to your model call:
+`BuiltInAgent` fetches the snapshot before it calls your factory. Connect the catalog and tools to your model call. `@copilotkit/runtime` runs on AI SDK 6, so install `ai` and the provider from the `ai-v6` release line:
+
+```bash title="Terminal"
+npm install @copilotkit/runtime ai@ai-v6 @ai-sdk/openai@ai-v6
+```
 
 ```typescript
 import {
@@ -179,7 +185,7 @@ Use `ainvoke` or `astream`; synchronous execution is unsupported. The adapter su
 Use Node.js 20.19 or later with native LangChain agents.
 
 ```bash title="Terminal"
-npm install @copilotkit/intelligence-langgraph langchain @langchain/core @langchain/langgraph zod
+npm install @copilotkit/intelligence-langgraph langchain @langchain/core @langchain/langgraph "zod@^3.25"
 npm install --save-dev tsx
 ```
 
@@ -222,7 +228,7 @@ The supported dependency ranges are LangChain `>=1.5.11,<2`, LangGraph `>=1.4.14
 Use Node.js 22.13 or later with `@mastra/core>=1.0.0,<2`.
 
 ```bash title="Terminal"
-npm install @copilotkit/intelligence-mastra @mastra/core zod
+npm install @copilotkit/intelligence-mastra @mastra/core "zod@^3.25"
 npm install --save-dev tsx
 ```
 
@@ -345,7 +351,7 @@ Use `containers` to combine Skills from several Learning Spaces in the same proj
 Each entry has an `id` and an optional `revision` pin.
 An entry without a revision follows that container's latest published Skills.
 
-BuiltInAgent accepts the list inside `learnedSkills`:
+`BuiltInAgent` accepts the list inside `learnedSkills`:
 
 ```typescript
 const agent = new BuiltInAgent({
@@ -445,7 +451,7 @@ Its mode is `pinned` only when every container has a revision pin.
 
 ## Configure one container
 
-Single-container configuration selects one Learning Space. Set `containerId` in TypeScript, `container_id` in Python, or `ContainerId` in .NET, as shown above. BuiltInAgent uses `learnedSkills.containerId`.
+Single-container configuration selects one Learning Space. Set `containerId` in TypeScript, `container_id` in Python, or `ContainerId` in .NET, as shown above. `BuiltInAgent` uses `learnedSkills.containerId`.
 
 The singular fields accept one stable container ID. To combine containers, use the separate `containers` interface above. Several agents can share a registry.
 
@@ -498,7 +504,7 @@ For framework adapters, this check requires automatic updates. Remove `revision`
 4. Publish a new revision, wait past the freshness window, and start another invocation.
 5. Make sure that the loaded revision in the adapter's status changed to the newly published revision.
 
-For single-container configuration, read `registry.status.revision` in TypeScript, `skills.status.revision` for LangGraph Python, `registry.status.revision` for ADK, or `skills.Status.Revision` in .NET. BuiltInAgent does not expose a public registry status; inspect the loaded Skill's content in the tool result for your published change. A valid empty container can initialize successfully, so initialization alone does not prove that a Skill exists.
+For single-container configuration, read `registry.status.revision` in TypeScript, `skills.status.revision` for LangGraph Python, `registry.status.revision` for ADK, or `skills.Status.Revision` in .NET. `BuiltInAgent` does not expose a public registry status. Inspect the loaded Skill's content in the tool result for your published change. A valid empty container can initialize successfully, so initialization alone does not prove that a Skill exists.
 
 The model chooses whether to call the skill tools. A run without a skill tool call does not prove that delivery failed. Inspect the catalog and registry status too.
 
@@ -517,7 +523,7 @@ Published revisions have no automatic expiry. A revoked revision cannot be used 
 
 ## Read tools
 
-The framework adapters keep both tools registered even when the snapshot is empty. BuiltInAgent omits both tools for an empty snapshot; its factory receives `tools: {}`. With available skills, the tools are:
+The framework adapters keep both tools registered even when the snapshot is empty. `BuiltInAgent` omits both tools for an empty snapshot. Its factory receives `tools: {}`. With available skills, the tools are:
 
 - `copilotkit_load_skill(skill_name)` returns `SKILL.md` and the supporting file list.
 - `copilotkit_read_skill_file(skill_name, path)` returns one supporting UTF-8 text file.

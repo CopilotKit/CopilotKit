@@ -5,7 +5,7 @@ description: "Prebuilt threads drawer that lists, switches, and manages threads 
 
 ## Overview
 
-`CopilotThreadsDrawer` is a prebuilt thread switcher. Put it and [`CopilotChat`](/reference/components/CopilotChat) inside one `CopilotChatConfigurationProvider`. It lists the threads of the user and lets them switch, start, archive, and delete threads with **no active-thread state to wire up**. (Thread rename is available headlessly via [`useThreads`](/reference/hooks/useThreads), not through the drawer's row menu.) It is a thin React wrapper around the framework-agnostic `<copilotkit-threads-drawer>` shadow-DOM web component, fed by the [`useThreads`](/reference/hooks/useThreads) hook and the surrounding chat configuration.
+`CopilotThreadsDrawer` is a prebuilt thread switcher. Put it and [`CopilotChat`](/reference/components/CopilotChat) inside one `CopilotChatConfigurationProvider`. It lists the threads of the user and lets them switch, start, archive, and delete threads. You have **no active-thread state to wire up**. (Thread rename is available headlessly via [`useThreads`](/reference/hooks/useThreads), not through the drawer's row menu.) It is a thin React wrapper around the framework-agnostic `<copilotkit-threads-drawer>` shadow-DOM web component, fed by the [`useThreads`](/reference/hooks/useThreads) hook and the surrounding chat configuration.
 
 When `onThreadSelect` / `onNewThread` are omitted, the drawer drives the surrounding chat configuration directly: selecting a row connects the chat to that thread (and replays its history); the "New Conversation" row resets the chat to a fresh welcome screen. Pass the callbacks only to take control of the active thread yourself.
 
@@ -18,6 +18,48 @@ See the [CopilotThreadsDrawer guide](/prebuilt-components/copilot-threads-drawer
 ```tsx
 import { CopilotThreadsDrawer } from "@copilotkit/react-core/v2";
 import "@copilotkit/react-core/v2/styles.css";
+```
+
+## Usage
+
+### Basic usage
+
+Wrap the drawer and `CopilotChat` in a shared `CopilotChatConfigurationProvider`
+so they operate on the **same** chat configuration. That shared config is how
+selecting a thread (or "New Conversation") drives the chat. Without a shared
+provider the drawer sits beside the chat's own scoped configuration and can't
+switch its thread.
+
+```tsx
+import {
+  CopilotThreadsDrawer,
+  CopilotChat,
+  CopilotChatConfigurationProvider,
+} from "@copilotkit/react-core/v2";
+
+function App() {
+  return (
+    <CopilotChatConfigurationProvider>
+      <div style={{ display: "flex", height: "100%" }}>
+        <CopilotThreadsDrawer />
+        <CopilotChat />
+      </div>
+    </CopilotChatConfigurationProvider>
+  );
+}
+```
+
+### Custom row content + label
+
+```tsx
+function App() {
+  return (
+    <CopilotThreadsDrawer
+      label="History"
+      renderRow={(thread) => <em>{thread.name ?? "New conversation"}</em>}
+    />
+  );
+}
 ```
 
 ## Props
@@ -48,6 +90,17 @@ import "@copilotkit/react-core/v2/styles.css";
   chat configuration so the welcome screen shows with no host wiring.
 </PropertyReference>
 
+<PropertyReference name="onLicensed" type="() => void">
+  Called when the user clicks the Upgrade button that the drawer shows when
+  CopilotKit Intelligence is not licensed.
+</PropertyReference>
+
+<PropertyReference name="licenseUrl" type="string">
+  Page that the Upgrade button opens in a new tab. When omitted, it opens the
+  CopilotKit Intelligence docs. Pass `""` to open nothing and handle the click
+  in `onLicensed`.
+</PropertyReference>
+
 <PropertyReference name="renderRow" type="(thread: Thread) => React.ReactNode">
   Optional per-row content. Rendered as light-DOM children projected into the
   element's `slot="row:{id}"`, so the element keeps the row chrome (selection,
@@ -57,8 +110,7 @@ import "@copilotkit/react-core/v2/styles.css";
 
 <PropertyReference name="label" type="string" default="Threads">
   Accessible name for the drawer. Sets the `aria-label` on both the drawer region
-  and the thread listbox. The header has no visible title. To add one, project
-  content into the `header` slot.
+  and the thread listbox. The header has no visible title.
 </PropertyReference>
 
 <PropertyReference name="recentLabel" type="string" default="Recent Conversations">
@@ -101,7 +153,7 @@ with zero config. Three bounded escape hatches pierce the boundary.
 
 ### Slots
 
-Project light-DOM children with a `slot` attribute to replace a region:
+The `<copilotkit-threads-drawer>` element replaces a region with light-DOM children that carry a `slot` attribute:
 
 | Slot | Replaces |
 | --- | --- |
@@ -109,14 +161,11 @@ Project light-DOM children with a `slot` attribute to replace a region:
 | `empty` | The empty-state body shown when there are no threads. |
 | `footer` | A footer region (hidden until you project content). |
 | `memories` | An extra region above the footer, hidden until you project content. |
+| `licensed` | The locked view shown when Threads are not licensed. |
 | `launcher-icon` | The icon inside the floating mobile launcher. |
 | `row:{id}` | Per-row content. Prefer the `renderRow` prop, which manages this. |
 
-```tsx
-<CopilotThreadsDrawer>
-  <span slot="header">My conversations</span>
-</CopilotThreadsDrawer>
-```
+The React `CopilotThreadsDrawer` does not accept `children`. From React, you can fill only the `row:{id}` slots, through `renderRow`. The other slots work where the element gets light-DOM children, for example the [Vue `CopilotThreadsDrawer`](/reference/vue/components/CopilotThreadsDrawer#slots).
 
 ### CSS parts
 
@@ -168,52 +217,10 @@ automatically.
 | Launcher position | `--cpk-drawer-launcher-top` | `24px`               | Distance of the launcher cluster from the top.           |
 | Launcher position | `--cpk-drawer-launcher-left`| `24px`               | Distance of the launcher cluster from the left.          |
 
-## Usage
-
-### Basic usage
-
-Wrap the drawer and `CopilotChat` in a shared `CopilotChatConfigurationProvider`
-so they operate on the **same** chat configuration. That shared config is how
-selecting a thread (or "New Conversation") drives the chat. Without a shared
-provider the drawer sits beside the chat's own scoped configuration and can't
-switch its thread.
-
-```tsx
-import {
-  CopilotThreadsDrawer,
-  CopilotChat,
-  CopilotChatConfigurationProvider,
-} from "@copilotkit/react-core/v2";
-
-function App() {
-  return (
-    <CopilotChatConfigurationProvider>
-      <div style={{ display: "flex", height: "100%" }}>
-        <CopilotThreadsDrawer />
-        <CopilotChat />
-      </div>
-    </CopilotChatConfigurationProvider>
-  );
-}
-```
-
-### Custom row content + label
-
-```tsx
-function App() {
-  return (
-    <CopilotThreadsDrawer
-      label="History"
-      renderRow={(thread) => <em>{thread.name ?? "New conversation"}</em>}
-    />
-  );
-}
-```
-
 ## Behavior
 
 - **Self-connecting**: without `onThreadSelect`/`onNewThread`, the drawer drives the chat configuration. Select connects + replays; the "New Conversation" row shows the welcome screen.
-- **Collapsible sidebar**: on larger screens the drawer is an expanded sidebar by default with a collapse toggle (sidebar glyph) in the header. Collapsing replaces the panel with a small floating cluster: a sidebar toggle to expand plus a "New Conversation" button. Collapsing also lets a host grid reclaim the column (via `--cpk-drawer-reserved-width`). Set `collapsible={false}` to omit the toggle. "New Conversation" is its own row below the header; project `slot="header"` content to add your own chrome beside the toggle.
+- **Collapsible sidebar**: on larger screens the drawer is an expanded sidebar by default with a collapse toggle (sidebar glyph) in the header. Collapsing replaces the panel with a small floating cluster: a sidebar toggle to expand plus a "New Conversation" button. Collapsing also lets a host grid reclaim the column (via `--cpk-drawer-reserved-width`). Set `collapsible={false}` to omit the toggle. "New Conversation" is its own row below the header.
 - **Row actions**: per-row **Archive/Delete** live behind a per-row kebab (⋮) menu (`row-menu`); delete asks for confirmation.
 - **Optimistic mutations**: archive/unarchive/rename/delete are optimistic in the core thread store; delete rolls back if the server rejects.
 - **Deleting the active thread** resets to a fresh thread; **archiving** the active thread keeps you viewing it. Archived threads render italic/muted inline in the "All" view.

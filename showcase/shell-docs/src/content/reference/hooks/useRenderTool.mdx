@@ -56,13 +56,13 @@ useRenderTool(
 - `{ status: "executing", parameters: T, result: undefined }`
 - `{ status: "complete", parameters: T, result: string }`
 
-`name` is always present in all states.
+`name` and `toolCallId` are present in all states.
 
 ## Behavior
 
 - `render` can return `null` to draw nothing for a tool call.
 - Builds a renderer entry with `defineToolCallRenderer`.
-- `group: true` lets the chat collapse calls this renderer draws into its tool-call groups (see [`toolCallDisplay`](/reference/components/CopilotChatMessageView#toolcalldisplay)). Leave it unset for renderers that are part of your UI, or that may draw nothing; their calls always show on their own.
+- `group: true` lets the chat collapse calls this renderer draws into its tool-call groups (see [`toolCallDisplay`](/reference/components/CopilotChatMessageView#choosing-how-tool-calls-show)). Leave it unset for renderers that are part of your UI, or that may draw nothing; their calls always show on their own.
 - Deduplicates by `agentId:name` key (latest registration wins).
 - Intentionally does not remove the renderer on cleanup so previous chat history can still render.
 - Tracks updates by `config.name` plus values in `deps` (include changing captures in `deps`).

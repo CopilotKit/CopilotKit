@@ -20,7 +20,12 @@ import {
 } from "@/lib/live-source";
 import { getIntegration, ROOT_FRAMEWORK } from "@/components/docs-mdx/data";
 import type { StructuredData } from "fumadocs-core/mdx-plugins";
-import { frameworkSetupEntries, searchEntries } from "./live-inventory";
+import {
+  entryTitle,
+  frameworkSetupEntries,
+  searchEntries,
+} from "./live-inventory";
+import { queryTerms, rankResults } from "./search-rank";
 import { mapLimit } from "./map-limit";
 
 // Orama search over the live docs (each page once, at an unscoped live URL;
@@ -50,7 +55,7 @@ async function buildIndexes(): Promise<AdvancedIndex[]> {
           // The route asks for the reader's frontend and framework
           // (`/api/search`); a page is there for every framework.
           tag: [...frontends, ...ALL_FRAMEWORK_TAGS],
-          title: live.page.data.title,
+          title: entryTitle(live),
           description: live.page.data.description,
           breadcrumbs:
             frameworkCrumb(live.scope.framework) ?? crumbs.get(live.page.url),
@@ -184,10 +189,44 @@ async function current<T>(use: (api: SearchAPI) => Promise<T>): Promise<T> {
   }
 }
 
+/**
+ * How many of Orama's results `rankResults` re-ranks: enough that the page a
+ * reader means is in the pool when a common word floods the matches.
+ */
+const CANDIDATES = 400;
+const DEFAULT_LIMIT = 60;
+
+async function rankedSearch(
+  query: string,
+  options?: Parameters<SearchAPI["search"]>[1],
+) {
+  const limit = options?.limit ?? DEFAULT_LIMIT;
+  // Orama matches any word of the query, so "in" and "the" would match
+  // nearly every paragraph and crowd out the page meant.
+  const terms = queryTerms(query).join(" ") || query;
+  const results = await current((s) =>
+    s.search(terms, { ...options, limit: Math.max(limit, CANDIDATES) }),
+  );
+  return rankResults(results, query, limit);
+}
+
 export const liveSearch: SearchAPI = {
-  search: (query, options) => current((s) => s.search(query, options)),
+  search: rankedSearch,
   export: () => current((s) => s.export()),
-  GET: (request) => current((s) => s.GET(request)),
+  // Fumadocs' endpoint reads `query`, `tag`, and `limit` the same way.
+  async GET(request) {
+    const params = new URL(request.url).searchParams;
+    const query = params.get("query");
+    if (!query) return Response.json([]);
+    const tag = params.get("tag")?.split(",").filter(Boolean);
+    const limit = Number(params.get("limit"));
+    return Response.json(
+      await rankedSearch(query, {
+        tag,
+        limit: Number.isInteger(limit) && limit > 0 ? limit : undefined,
+      }),
+    );
+  },
   staticGET: () => current((s) => s.staticGET()),
 };
 
@@ -238,8 +277,8 @@ function scopedUrl(url: string, scope: DocsScope): string {
   const page = own.slug ? `/${own.slug}` : "";
   // A frontend's own page stays on that frontend.
   if (ownFrontend) return firstServed([`${fe}${fw}${page}`]) ?? url;
-  // A framework's landing stays one: `/vue/mastra` is Vue's own page.
-  if (!page) return (fw && firstServed([fw])) || url;
+  // A framework's root (`/mastra`) is its quickstart.
+  if (!page) return (fw && firstServed([`${fw}/quickstart`])) || url;
   return firstServed([`${fe}${fw}${page}`, `${fw}${page}`]) ?? url;
 }
 

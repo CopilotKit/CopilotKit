@@ -135,6 +135,13 @@ Before you begin, you'll need the following:
         <Step>
           ### Install the required Python packages
 
+          No agent project yet? Create one first:
+
+          ```bash
+          uv init my-agent
+          cd my-agent
+          ```
+
           From your agent project, install the OpenAI Agents SDK, its AG-UI adapter and FastAPI:
 
           ```bash
@@ -158,6 +165,8 @@ Before you begin, you'll need the following:
           ### Expose the agent over AG-UI
 
           CopilotKit talks to agents over AG-UI. Wrap your SDK `Agent` in the adapter's `OpenAIAgentsAgent` and mount it with `add_openai_agents_fastapi_endpoint`. The adapter translates each AG-UI request into a streamed SDK run and streams the run back as AG-UI events, so you don't write the event loop yourself.
+
+          Replace the contents of `main.py` (`uv init` created one) with this file:
 
           ```python title="main.py"
           from agents import Agent
@@ -196,13 +205,16 @@ Before you begin, you'll need the following:
         <Step>
           ### Create your frontend
 
-          CopilotKit works with any React app. This example uses Next.js App Router:
+          CopilotKit works with any React app. This example uses Next.js App Router. Create the frontend next to your agent project, not inside it, so `uvicorn --reload` does not watch it. `--yes` accepts the recommended defaults (TypeScript, Tailwind, App Router):
 
           ```bash
-          npx create-next-app@latest frontend
+          cd ..
+          npx create-next-app@latest frontend --yes
           cd frontend
-          npm install @copilotkit/runtime @copilotkit/react-core @ag-ui/client@1.0.2
+          npm install @copilotkit/runtime @copilotkit/react-core @ag-ui/client
           ```
+
+          `@ag-ui/client` must be the same version that `@copilotkit/runtime` uses. Two versions make TypeScript report that `HttpAgent` is not assignable to `AbstractAgent`. Run `npm ls @ag-ui/client`: the top-level copy must be the version that `@copilotkit/runtime` lists as `deduped`.
         </Step>
 
         <Step>
@@ -247,6 +259,7 @@ Before you begin, you'll need the following:
           Wrap your app with `CopilotKit` and target the agent name you registered in the runtime route.
 
           ```tsx title="app/layout.tsx"
+          import { Suspense } from "react";
           import { CopilotKit } from "@copilotkit/react-core/v2";
           import "@copilotkit/react-core/v2/styles.css";
           import "./globals.css";
@@ -255,14 +268,18 @@ Before you begin, you'll need the following:
             return (
               <html lang="en">
                 <body>
-                  <CopilotKit runtimeUrl="/api/copilotkit" agent="openai_agent">
-                    {children}
-                  </CopilotKit>
+                  <Suspense>
+                    <CopilotKit runtimeUrl="/api/copilotkit" agent="openai_agent">
+                      {children}
+                    </CopilotKit>
+                  </Suspense>
                 </body>
               </html>
             );
           }
           ```
+
+          `<Suspense>` keeps `npm run build` working when `next.config.ts` sets `cacheComponents: true`, the `create-next-app` default in Next.js 16. Without it, the build fails with `encountered the unstable value require('node:crypto').randomUUID()`.
 
           <Callout type="info" title="This relative runtimeUrl assumes Next.js serves the runtime">
             `/api/copilotkit` resolves only because Next.js serves your app and the runtime from the
@@ -292,7 +309,7 @@ Before you begin, you'll need the following:
         <Step>
           ### Start the UI
 
-          Keep the FastAPI agent server running, then start the frontend in a second terminal:
+          Keep the FastAPI agent server running, then start the frontend in a second terminal, from the `frontend` folder:
 
           ```bash
           npm run dev
@@ -328,3 +345,19 @@ Before you begin, you'll need the following:
   </Step>
 
 </Steps>
+
+## Next steps
+
+The OpenAI Agents SDK runs your agent's loop: the model, its tools and its handoffs. CopilotKit puts that loop in your app, where your users can see the run, interrupt it and steer it.
+
+Add a capability:
+
+- [Generative UI](/openai-agents-python/generative-ui/tool-rendering): show your function tool calls as components while the model writes them.
+- [Human-in-the-loop](/openai-agents-python/human-in-the-loop): mark a tool `needs_approval=True`. The SDK pauses before the tool runs, and the user's answer in your app resumes the run.
+- [Shared state](/openai-agents-python/shared-state): your app's state reaches every run, and a tool that changes it streams the new value back.
+- [And more](/openai-agents-python/build-with-agents): frontend tools, app context, reasoning, attachments, A2UI and sub-agents work with the OpenAI Agents SDK too. Give your AI coding agent current CopilotKit knowledge, so it can help you build them.
+
+Go further:
+
+- [Live demos](/examples?framework=openai-agents-python): try each capability with an OpenAI Agents SDK agent.
+- Using Vue, Angular, or React Native? Pick it in the sidebar's **Frontend** menu. Its quickstart connects this agent.

@@ -8,12 +8,11 @@ silently never reaches the live site. Read this before editing any docs.
 All CopilotKit documentation is authored in **`showcase/shell-docs/src/content/`**, which
 builds and serves **docs.copilotkit.ai**:
 
-| Content type                   | Location                                               |
-| ------------------------------ | ------------------------------------------------------ |
-| Guide / how-to / concept pages | `showcase/shell-docs/src/content/docs/`                |
-| API reference                  | `showcase/shell-docs/src/content/reference/`           |
-| Reusable snippets (shared MDX) | `showcase/shell-docs/src/content/snippets/`            |
-| Framework overview pages       | `showcase/shell-docs/src/content/framework-overviews/` |
+| Content type                   | Location                                     |
+| ------------------------------ | -------------------------------------------- |
+| Guide / how-to / concept pages | `showcase/shell-docs/src/content/docs/`      |
+| API reference                  | `showcase/shell-docs/src/content/reference/` |
+| Reusable snippets (shared MDX) | `showcase/shell-docs/src/content/snippets/`  |
 
 When you add a **guide page** under `showcase/shell-docs/src/content/docs/`, also update
 that section's `meta.json` so it appears in navigation.
@@ -57,10 +56,10 @@ Before editing framework docs, check the framework's `docs_mode`.
 
 - For **showcase-driven frameworks (`docs_mode: generated`)**, update the showcase inputs:
   integration manifests, demos, feature coverage, source regions, generated registry inputs,
-  shared/root MDX, and sparse framework overrides. The framework's landing page is the
+  shared/root MDX, and sparse framework overrides. The framework's quickstart is the
   exception: it is authored in
-  `showcase/shell-docs/src/content/docs/integrations/<docsFolder>/index.mdx`
-  (`<FrameworkOverview>`), so edit it by hand.
+  `showcase/shell-docs/src/content/docs/integrations/<docsFolder>/quickstart.mdx`, so edit
+  it by hand. A framework has no landing page: `/<framework>` redirects to its quickstart.
 - For **authored frameworks (`docs_mode: authored`)**, update the framework MDX tree under
   `showcase/shell-docs/src/content/docs/integrations/<docsFolder>/` and its `meta.json`.
 - For **reference docs**, edit `showcase/shell-docs/src/content/reference/`. The v2

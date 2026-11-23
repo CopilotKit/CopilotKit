@@ -30,7 +30,7 @@ Use this prompt to set up Intelligence in a new or existing app. Tell your codin
 
 ## Set it up manually
 
-Before you start, have a working CopilotKit frontend and agent. The TypeScript tab connects your existing runtime; the other tabs mount a native runtime in front of an agent that already serves AG-UI over HTTP. Use your agent's AG-UI URL, not the CopilotKit runtime URL.
+Before you start, have a working CopilotKit frontend and agent. The TypeScript tab connects your existing runtime. The other tabs mount a native runtime in front of an agent that already serves AG-UI over HTTP. Use your agent's AG-UI URL, not your runtime's URL.
 
 <Steps>
   <Step>
@@ -43,7 +43,7 @@ Before you start, have a working CopilotKit frontend and agent. The TypeScript t
     npx copilotkit@latest project select
     ```
 
-    `project select` creates a project API key and writes it to `.env` as `CPK_INTELLIGENCE_API_KEY`. Put that key in the environment of the process that runs your CopilotKit runtime. The command output does not print the key. Read it from `.env`.
+    `project select` creates a project API key and writes it to `.env` as `CPK_INTELLIGENCE_API_KEY`. Put that key in the environment of the process that runs your runtime. The command output does not print the key. Read it from `.env`.
 
     ```bash title=".env"
     CPK_INTELLIGENCE_API_KEY=cpk-...
@@ -70,7 +70,7 @@ Before you start, have a working CopilotKit frontend and agent. The TypeScript t
 
     Add an Intelligence client. The client is the same for every agent framework.
 
-    ```ts title="Your CopilotKit runtime"
+    ```ts title="Your Copilot Runtime"
     import {
       CopilotKitIntelligence,
       CopilotRuntime,
@@ -315,7 +315,7 @@ Before you start, have a working CopilotKit frontend and agent. The TypeScript t
     </FrontendOnly>
 
     <FrontendOnly frontend="react-native">
-      React Native does not include the browser Inspector. Start your app and send one message to create a thread. Then open the selected project in [CopilotKit Intelligence](https://dashboard.operations.copilotkit.ai/), open the new thread, and confirm that its message history contains your message.
+      React Native does not include the browser Inspector. Start your app and send one message to create a thread. Then open the new thread in the [cloud-hosted project](/intelligence/managed-intelligence-platform#get-started) and confirm that its message history contains your message.
     </FrontendOnly>
   </Step>
 </Steps>

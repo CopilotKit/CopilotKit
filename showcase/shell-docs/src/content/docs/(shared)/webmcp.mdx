@@ -22,13 +22,13 @@ CopilotKit can publish an existing [frontend tool](/frontend-tools) to [`documen
 
 ## Start with your coding agent
 
-Use this pre-built prompt to add WebMCP to your project. Your coding agent will adapt the implementation to your app and verify that a compatible browser can discover and call the tool.
+Use this pre-built prompt to add WebMCP to your project. Your coding agent adapts the implementation to your app and verifies that a compatible browser can discover and call the tool.
 
 <WebMCPSetupPrompt />
 
 ## Do I need an agent?
 
-You do not need a CopilotKit backend agent to handle a WebMCP call. A compatible browser agent calls the frontend tool handler directly on the page; in that path, the handler context has no `agent`.
+You do not need a CopilotKit backend agent to handle a WebMCP call. A compatible browser agent calls the frontend tool handler directly on the page. In that path, the handler context has no `agent`.
 
 Choose the smallest path that fits your app:
 
@@ -52,6 +52,14 @@ The WebMCP call stays in the browser unless your handler deliberately calls an A
 
 ## Add WebMCP manually
 
+The examples use `zod` for the tool's parameters. If your app does not use zod yet, install it:
+
+```npm
+npm install zod
+```
+
+`searchOrders` in each example stands for your own data call. Replace it with the function your app already has.
+
 <FrontendOnly frontend="react">
 
 ### React frontend tool
@@ -63,6 +71,12 @@ Add `webmcp` to the tool you already register. This code must run inside your ex
 
 import { useFrontendTool } from "@copilotkit/react-core/v2";
 import { z } from "zod";
+
+// Replace with your own data call.
+async function searchOrders(status: "open" | "shipped" | "delivered") {
+  const res = await fetch(`/api/orders?status=${status}`);
+  return res.json();
+}
 
 export function OrderSearch() {
   useFrontendTool({
@@ -101,6 +115,12 @@ Add `webmcp` to the tool you already register. This code must run inside your ex
 import { z } from "zod";
 import { useFrontendTool } from "@copilotkit/vue/v2";
 
+// Replace with your own data call.
+async function searchOrders(status: "open" | "shipped" | "delivered") {
+  const res = await fetch(`/api/orders?status=${status}`);
+  return res.json();
+}
+
 useFrontendTool({
   name: "searchOrders",
   description: "Search the signed-in user's orders by status",
@@ -134,6 +154,12 @@ Add `webmcp` to the tool you register in an Angular injection context.
 import { Component } from "@angular/core";
 import { registerFrontendTool } from "@copilotkit/angular";
 import { z } from "zod";
+
+// Replace with your own data call.
+async function searchOrders(status: "open" | "shipped" | "delivered") {
+  const res = await fetch(`/api/orders?status=${status}`);
+  return res.json();
+}
 
 @Component({
   selector: "app-order-search",
@@ -174,6 +200,12 @@ For browser code that does not use a framework provider, register the frontend t
 import { CopilotKitCore } from "@copilotkit/core";
 import { z } from "zod";
 
+// Replace with your own data call.
+async function searchOrders(status: "open" | "shipped" | "delivered") {
+  const res = await fetch(`/api/orders?status=${status}`);
+  return res.json();
+}
+
 export const copilotkit = new CopilotKitCore({
   tools: [
     {
@@ -204,7 +236,7 @@ Required:
 
 - Give every WebMCP tool a non-empty, specific `description`. CopilotKit skips WebMCP registration when it is missing.
 - Use `readOnlyHint: true` only when the handler cannot change state.
-- Set the frontend tool to unavailable when the action cannot currently run; CopilotKit removes it from WebMCP until it is available again.
+- Set the frontend tool to unavailable when the action cannot currently run. CopilotKit removes it from WebMCP until it is available again.
 
 For better results:
 
@@ -228,7 +260,7 @@ Annotations are hints for browser agents, not security controls. Enforce authent
 Set up the browser:
 
 1. Open Chrome 149 or newer and enable the WebMCP origin trial or local testing flag.
-2. Load the app in an [origin-isolated document](https://developer.chrome.com/docs/ai/webmcp#origin-isolation). The `tools` permissions policy defaults to `self`; cross-origin iframes also need `allow="tools"`.
+2. Load the app in an [origin-isolated document](https://developer.chrome.com/docs/ai/webmcp#origin-isolation). The `tools` permissions policy defaults to `self`. Cross-origin iframes also need `allow="tools"`.
 3. Make sure that `document.modelContext` exists.
 
 Test the tool:

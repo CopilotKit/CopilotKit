@@ -21,7 +21,7 @@ reduced to one interaction that fits a Cookbook pane.
 
 - A one-time setup script creates a restricted hosted environment and a versioned managed agent.
 - `ManagedAgentsAgent` maps each CopilotKit thread to one Claude Managed Agents session.
-- The CopilotKit runtime exposes that agent through an AG-UI-compatible SSE endpoint.
+- Copilot Runtime exposes that agent through an AG-UI-compatible SSE endpoint.
 - The managed agent calls `show_growth_projection` with structured numbers.
 - `useRenderTool` matches that streamed tool call by name and mounts the React chart in the transcript.
 
@@ -33,7 +33,7 @@ Use the suggested prompt, then adjust the contribution and return sliders in the
 
 <iframe
   src="https://showcase-claude-managed-agents-production.up.railway.app"
-  title="Claude Managed Agents × CopilotKit live demo"
+  title="Claude Managed Agents and CopilotKit live demo"
   className="w-full h-[480px] sm:h-[600px] block rounded-xl border border-[var(--border)]"
 />
 
@@ -125,7 +125,7 @@ wherever the demo is deployed.
 
 At runtime, the AG-UI adapter owns managed-session creation and maps it to the CopilotKit thread. The visual tool
 is supplied as a session override, so changing its schema does not require a new managed-agent version.
-`CopilotSseRuntime` is the CopilotKit runtime that streams agent events over SSE.
+`CopilotSseRuntime` is the Copilot Runtime class that streams agent events over SSE.
 The adapter requires only the managed agent and environment IDs, while this recipe adds `backendTools` for the
 interactive projection:
 

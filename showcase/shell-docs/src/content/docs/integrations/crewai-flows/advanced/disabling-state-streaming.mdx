@@ -1,48 +1,34 @@
 ---
 title: "Disabling message streaming"
 icon: "lucide/Cog"
-description: "Granularly control what is streamed to the frontend."
+description: "Keep some LLM calls in a Flow out of the chat, and stream the rest."
 ---
 
 ## What is this?
 
-Some LLM calls in a flow must stay private, such as a call that reads other employees' records. Call `acompletion` directly for those, and wrap only the calls you want streamed in `copilotkit_stream`. `copilotkit_stream` streams both messages and tool calls to the frontend.
+Some LLM calls in a flow must stay private, such as a call that reads other employees' records in an HR system. Call `acompletion` directly for those, and wrap only the calls you want streamed in `copilotkit_stream`. `copilotkit_stream` streams both messages and tool calls to the frontend.
 
-## When should I use this?
-
-Occasionally, you'll want to disable streaming temporarily. For example, the LLM may be doing something the current user should not see, like emitting tool calls or questions pertaining to other employees in an HR system.
+This controls messages and tool calls only. State updates still reach the frontend: a state snapshot goes out at the end of each method.
 
 ## Implementation
 
-### Disable all streaming
+### Keep one LLM call private
 
-You can control whether to stream messages or tool calls by selectively wrapping calls to `acompletion` with `copilotkit_stream`.
+In this Flow, the first call is not wrapped, so nothing from it reaches the chat. The second call is wrapped in `copilotkit_stream` and streams its reply. Append the streamed reply to `self.state.messages`. Otherwise it disappears from the chat when the run ends.
 
 <Tabs groupId="language_crewai-flows_agent" items={['Python']} default="Python" persist>
     <Tab value="Python">
-        ```python
-        from ag_ui_crewai import copilotkit_stream
+        ```python title="flow.py"
+        from crewai.flow.flow import Flow, start
         from litellm import acompletion
+        from ag_ui_crewai import CopilotKitState, copilotkit_stream
 
-        @start()
-        async def start(self):
 
-            # 1) Do not emit messages or tool calls, keeping the LLM call private.
-            response = await acompletion(
-                reasoning_effort="none",
-                allowed_openai_params=["reasoning_effort"],
-                model="openai/gpt-6-luna",
-                messages=[
-                    {"role": "system", "content": "You are a helpful assistant"},
-                    *self.state.messages
-                ],
-            )
-            message = response.choices[0].message
-
-            # 2) Or wrap the LLM call with `copilotkit_stream` to stream message tokens.
-            #    Note that we pass `stream=True` to the inner `acompletion` call.
-            response = await copilotkit_stream(
-                await acompletion(
+        class HRFlow(Flow[CopilotKitState]):
+            @start()
+            async def answer(self) -> None:
+                # 1) Not wrapped: no messages or tool calls reach the frontend.
+                private_response = await acompletion(
                     reasoning_effort="none",
                     allowed_openai_params=["reasoning_effort"],
                     model="openai/gpt-6-luna",
@@ -50,11 +36,29 @@ You can control whether to stream messages or tool calls by selectively wrapping
                         {"role": "system", "content": "You are a helpful assistant"},
                         *self.state.messages
                     ],
-                    stream=True
                 )
-            )
-            message = response.choices[0].message
+                private_message = private_response.choices[0].message
+                # Use private_message in your Flow. It never shows in the chat.
+
+                # 2) Wrapped in copilotkit_stream: the reply streams to the chat.
+                #    Pass stream=True to the inner acompletion call.
+                response = await copilotkit_stream(
+                    await acompletion(
+                        reasoning_effort="none",
+                        allowed_openai_params=["reasoning_effort"],
+                        model="openai/gpt-6-luna",
+                        messages=[
+                            {"role": "system", "content": "You are a helpful assistant"},
+                            *self.state.messages
+                        ],
+                        stream=True
+                    )
+                )
+                # 3) Keep the streamed reply in the chat after the run ends.
+                self.state.messages.append(response.choices[0].message)
         ```
     </Tab>
 
 </Tabs>
+
+Serve the Flow the same way as in the [quickstart](/crewai-flows/quickstart): `add_crewai_flow_fastapi_endpoint(app, HRFlow(), "/")`. Send a message. The chat shows only the reply from the second call.

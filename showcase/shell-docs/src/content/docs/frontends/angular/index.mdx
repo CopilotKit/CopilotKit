@@ -6,9 +6,16 @@ hideTOC: true
 ---
 
 import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.mdx";
+import AgentBackends from "@/snippets/agent-backends/index.mdx";
 
 
-This guide takes an Angular app to a working chat UI backed by [Copilot Runtime](/backend/copilot-runtime). When you select an agent backend in the sidebar, the backend step below changes with it. Without a selection, the guide uses CopilotKit's `BuiltInAgent`.
+<WhenAgentBackend selected={false}>
+This guide takes an Angular app to a working chat UI backed by [Copilot Runtime](/backend/copilot-runtime). When you pick an agent framework in the sidebar's **Agent framework** menu, the backend steps below change to match. Without one, the guide uses CopilotKit's own `BuiltInAgent`.
+</WhenAgentBackend>
+
+<WhenAgentBackend selected>
+This guide takes an Angular app to a working chat UI backed by [Copilot Runtime](/backend/copilot-runtime) and an agent built with the framework you picked in the sidebar.
+</WhenAgentBackend>
 
 The runtime runs on your server, keeps model credentials out of the browser, and exposes the `default` agent that `CopilotChat` uses automatically.
 
@@ -27,9 +34,17 @@ Use this prompt to connect your Angular app to Copilot Runtime with the selected
 
 ## Prerequisites
 
+<WhenAgentBackend selected={false}>
 - An OpenAI API key (or another model provider supported by [Model Selection](/model-selection))
 - Angular 22
 - Node.js 22
+</WhenAgentBackend>
+
+<WhenAgentBackend selected>
+- Angular 22
+- Node.js 22
+- The tools and the model API key that your agent needs. The agent step below lists them.
+</WhenAgentBackend>
 
 ## Getting started
 
@@ -37,7 +52,7 @@ Use this prompt to connect your Angular app to Copilot Runtime with the selected
     <Step>
         ### Create your Angular app
 
-        If you don't have one already, pin the CLI to the supported major:
+        If you don't have one already, pin the CLI to the supported major. Accept the default answers to its questions:
 
         ```bash
         npx @angular/cli@22 new my-copilot-app
@@ -74,11 +89,11 @@ Use this prompt to connect your Angular app to Copilot Runtime with the selected
           `@angular/cdk` must share your Angular major version. Most package managers resolve this for you, but if you hit a peer-dependency error, pin it explicitly (for example `@angular/cdk@^22`).
         </Callout>
     </Step>
-    <WhenAngularBackend selected={false}>
+    <WhenAgentBackend selected={false}>
       <Step>
         ### Create the Copilot Runtime
 
-        Add a small Node server that hosts Copilot Runtime at `/api/copilotkit` and registers a `default` built-in agent:
+        Add a small Node server that hosts Copilot Runtime at `/api/copilotkit` and registers a `default` Built-in Agent:
 
         ```ts title="server.ts"
         import { createServer } from "node:http";
@@ -113,22 +128,10 @@ Use this prompt to connect your Angular app to Copilot Runtime with the selected
           Copilot Runtime runs as its own process, so `runtimeUrl` is an absolute URL. To use another port, run `PORT=8250 npx tsx server.ts` and set `runtimeUrl` to match.
         </Callout>
       </Step>
-    </WhenAngularBackend>
-    <WhenAngularBackend selected>
-      <Step>
-        ### Connect the selected agent backend
-
-        <FrameworkSetup concept="agent-setup" />
-
-        <Callout type="info" title="Expose the selected backend through Copilot Runtime">
-          Configure Copilot Runtime to register this backend as the `default`
-          agent at `/api/copilotkit`. Continue with the selected backend's
-          [Copilot Runtime guide](/backend/copilot-runtime) for its runtime
-          adapter, credentials, and server command. Do not replace it with the
-          `BuiltInAgent` server from the standalone Angular path.
-        </Callout>
-      </Step>
-    </WhenAngularBackend>
+    </WhenAgentBackend>
+    <WhenAgentBackend selected>
+      <AgentBackends />
+    </WhenAgentBackend>
     <Step>
         ### Import the styles
 
@@ -141,14 +144,18 @@ Use this prompt to connect your Angular app to Copilot Runtime with the selected
     <Step>
         ### Connect to Copilot Runtime
 
-        Point `provideCopilotKit` at the runtime endpoint. The chat uses the agent that your runtime registers as `default`.
+        Add `provideCopilotKit` to the providers in `src/app/app.config.ts` and point it at the runtime endpoint. Keep the providers the Angular CLI generated. The chat uses the agent that your runtime registers as `default`.
 
         ```ts title="src/app/app.config.ts"
-        import { ApplicationConfig } from "@angular/core";
+        import { ApplicationConfig, provideBrowserGlobalErrorListeners } from "@angular/core";
+        import { provideRouter } from "@angular/router";
         import { provideCopilotKit } from "@copilotkit/angular"; // [!code highlight]
+        import { routes } from "./app.routes";
 
         export const appConfig: ApplicationConfig = {
           providers: [
+            provideBrowserGlobalErrorListeners(),
+            provideRouter(routes),
             // [!code highlight:3]
             provideCopilotKit({
               runtimeUrl: "http://localhost:8200/api/copilotkit",
@@ -156,11 +163,13 @@ Use this prompt to connect your Angular app to Copilot Runtime with the selected
           ],
         };
         ```
+
+        If you start the runtime on another port with `PORT`, change `runtimeUrl` to match.
     </Step>
     <Step>
         ### Add the chat UI
 
-        Import the `CopilotChat` component into your root component and drop it into the template.
+        Replace `src/app/app.ts` with a root component that renders `CopilotChat`:
 
         ```ts title="src/app/app.ts"
         import { Component } from "@angular/core";
@@ -179,8 +188,31 @@ Use this prompt to connect your Angular app to Copilot Runtime with the selected
         export class App {}
         ```
 
+        The component now has an inline template, so the generated `app.html` and `app.css` are no longer used. You can delete them. The generated `app.spec.ts` now fails: it checks the old template, and its test setup does not load `appConfig`, so CopilotKit has no configuration. Before you run `ng test`, keep its "should create the app" test and give the test setup the provider:
+
+        ```ts title="src/app/app.spec.ts"
+        import { TestBed } from "@angular/core/testing";
+        import { provideCopilotKit } from "@copilotkit/angular";
+        import { App } from "./app";
+
+        describe("App", () => {
+          beforeEach(async () => {
+            await TestBed.configureTestingModule({
+              imports: [App],
+              providers: [
+                provideCopilotKit({ runtimeUrl: "http://localhost:8200/api/copilotkit" }),
+              ],
+            }).compileComponents();
+          });
+
+          it("should create the app", () => {
+            const fixture = TestBed.createComponent(App);
+            expect(fixture.componentInstance).toBeTruthy();
+          });
+        });
+        ```
     </Step>
-    <WhenAngularBackend selected={false}>
+    <WhenAgentBackend selected={false}>
       <Step>
         ### Run the runtime and app
 
@@ -201,34 +233,50 @@ Use this prompt to connect your Angular app to Copilot Runtime with the selected
 
         <Accordions className="mb-4">
             <Accordion title="Troubleshooting">
+                - **The runtime logs that listing and clearing threads need a caller identity**: This is expected in this quickstart. It only affects the thread list endpoints, not chat. Add `identifyUser` when you add [threads](/headless-threads).
                 - **Chat renders unstyled**: Make sure you imported `@copilotkit/angular/styles.css` in `src/styles.css`.
                 - **No response from the agent**: Confirm the runtime server is running and `http://localhost:8200/api/copilotkit/info` returns agent information.
                 - **CORS errors**: Keep `cors: true` in `createCopilotNodeListener` for local development, or configure CORS to allow your Angular app's origin in production.
                 - **Model auth errors**: Confirm `OPENAI_API_KEY` is set in the terminal running `npx tsx server.ts`.
                 - **Peer-dependency error on install**: `@angular/cdk` must match your Angular major version. Install the matching major, for example `@angular/cdk@^22` on Angular 22.
-                - **Production build exceeds the bundle budget**: CopilotKit pulls in markdown and syntax-highlighting dependencies, so a fresh app can exceed Angular's default 1 MB budget. Raise `budgets` in `angular.json` if your production build fails on size.
+                - **`ng build` fails with `bundle initial exceeded maximum budget`**: CopilotKit pulls in markdown and syntax-highlighting dependencies, so the initial bundle of a fresh app is about 5 MB, over the 1 MB budget that `ng new` sets. In `angular.json`, raise the `initial` budget, for example to `"maximumWarning": "6MB"` and `"maximumError": "8MB"`.
             </Accordion>
         </Accordions>
       </Step>
-    </WhenAngularBackend>
-    <WhenAngularBackend selected>
+    </WhenAgentBackend>
+    <WhenAgentBackend selected>
       <Step>
-        ### Run the backend, runtime, and Angular app
+        ### Run the runtime and app
 
-        Start the selected agent backend and Copilot Runtime with the commands
-        from its runtime guide. Confirm
-        `http://localhost:8200/api/copilotkit/info` reports the `default`
-        agent, then start Angular:
+        Keep the agent running. In your app folder, start Copilot Runtime:
+
+        ```bash
+        npx tsx server.ts
+        ```
+
+        Check that it found your agent: `http://localhost:8200/api/copilotkit/info` lists an agent named `default`.
+
+        Start the Angular app in a third terminal:
 
         ```bash
         npm start
         ```
 
-        Open the Angular CLI URL (usually `http://localhost:4200`) and send a
-        message. The request now follows the selected path end to end:
-        Angular → Copilot Runtime → your selected agent backend.
+        Open the Angular CLI URL (usually `http://localhost:4200`) and send a message. It goes from Angular to Copilot Runtime to your agent, and the reply streams back.
+
+        <Accordions className="mb-4">
+            <Accordion title="Troubleshooting">
+                - **The runtime logs that listing and clearing threads need a caller identity**: This is expected in this quickstart. It only affects the thread list endpoints, not chat. Add `identifyUser` when you add [threads](/headless-threads).
+                - **Chat renders unstyled**: Make sure you imported `@copilotkit/angular/styles.css` in `src/styles.css`.
+                - **`/info` lists no `default` agent, or the chat shows a connection error**: Check that the agent is still running, on the port `server.ts` points at.
+                - **CORS errors**: Keep `cors: true` in `createCopilotNodeListener` for local development. Configure an explicit allowed origin before deploying.
+                - **Model auth errors**: The agent calls the model, so its key goes in the agent's environment, not the runtime's.
+                - **Peer-dependency error on install**: `@angular/cdk` must match your Angular major version. Install the matching major, for example `@angular/cdk@^22` on Angular 22.
+                - **`ng build` fails with `bundle initial exceeded maximum budget`**: CopilotKit pulls in markdown and syntax-highlighting dependencies, so the initial bundle of a fresh app is about 5 MB, over the 1 MB budget that `ng new` sets. In `angular.json`, raise the `initial` budget, for example to `"maximumWarning": "6MB"` and `"maximumError": "8MB"`.
+            </Accordion>
+        </Accordions>
       </Step>
-    </WhenAngularBackend>
+    </WhenAgentBackend>
     <Step>
         <OpenInspectorStep components={props.components} />
     </Step>
