@@ -6,6 +6,7 @@
 // `NEXT_PUBLIC_POSTHOG_HOST`) as shell-docs.
 
 import type { NextFetchEvent, NextRequest, NextResponse } from "next/server";
+import { basePath, withBasePath } from "@/lib/base-path";
 import { getPosthogHost } from "./config";
 import { classifyLlmTextCaller } from "./llm-text-callers";
 
@@ -196,8 +197,9 @@ export function trackRedirect(
       "seo_redirect",
       {
         redirect_id: id,
-        from_path: fromPath,
-        to_path: toPath,
+        from_path: publicPath(fromPath),
+        to_path: withBasePath(toPath),
+        ...docsSiteProperties(),
         ...serverCaptureCallerProperties(request),
       },
       // Renamed from `seo-redirect-tracker`, which already has a person
@@ -243,8 +245,9 @@ async function capturePageView(
     await posthog.capture(
       "docs_pageview",
       {
-        path: pathname,
+        path: publicPath(pathname),
         environment: deploymentEnvironment(),
+        ...docsSiteProperties(),
         referrer: request.headers.get("referer"),
         ...serverCaptureCallerProperties(request),
       },
@@ -268,13 +271,14 @@ async function captureLlmTextFetch(
     await posthog.capture(
       "docs.llm_text_fetched",
       {
-        path: pathname,
+        path: publicPath(pathname),
         surface,
         caller_class: caller.class,
         caller_agent: caller.agent,
         // The raw UA travels so a wrong bucket can be re-cut over history.
         $raw_user_agent: userAgent?.slice(0, MAX_USER_AGENT_LENGTH) ?? null,
         environment: deploymentEnvironment(),
+        ...docsSiteProperties(),
         referrer: request.headers.get("referer"),
         // No person per crawler, and no geo from the server's own IP.
         $geoip_disable: true,
@@ -313,6 +317,30 @@ async function callerKey(
     .map((byte) => byte.toString(16).padStart(2, "0"))
     .join("");
   return `llm-text:${hex.slice(0, 16)}`;
+}
+
+/**
+ * The path as the visitor asked for it. Next strips this build's base path
+ * (`/v2`) before the proxy runs, so without it the 2.x docs' events would
+ * record the same paths as the stable docs' at the root. The stable docs
+ * have no base path, so their paths pass through unchanged.
+ */
+function publicPath(pathname: string): string {
+  if (!basePath) return pathname;
+  return pathname === "/" ? basePath : `${basePath}${pathname}`;
+}
+
+/**
+ * Which docs build sent the event: `docs_base_path` ("/v2") and
+ * `docs_channel` ("vnext"). Each is sent only when set, so the stable docs'
+ * events keep their shape.
+ */
+function docsSiteProperties(): Record<string, string> {
+  const channel = process.env.DOCS_CHANNEL;
+  return {
+    ...(basePath ? { docs_base_path: basePath } : {}),
+    ...(channel ? { docs_channel: channel } : {}),
+  };
 }
 
 /** Which deployment served the fetch, so previews and dev stay separable. */
