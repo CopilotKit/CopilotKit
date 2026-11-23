@@ -10,7 +10,7 @@ import {
   CopilotChatConfigurationProvider,
   CopilotSidebar,
   CopilotThreadsDrawer,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 
 import styles from "./page.module.css";
 

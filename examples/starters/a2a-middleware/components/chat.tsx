@@ -6,11 +6,7 @@
  */
 
 import React, { useEffect } from "react";
-import {
-  useAgent,
-  useFrontendTool,
-  CopilotChat,
-} from "@copilotkit/react-core/v2";
+import { useAgent, useFrontendTool, CopilotChat } from "@copilotkit/react-core";
 import { z } from "zod";
 import { MessageToA2A } from "./a2a/MessageToA2A";
 import { MessageFromA2A } from "./a2a/MessageFromA2A";

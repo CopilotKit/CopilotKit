@@ -12,19 +12,19 @@
     "postinstall": "npm run install:agent"
   },
   "dependencies": {
-    "@ag-ui/client": "1.0.2",
+    "@ag-ui/client": "1.0.5",
     "@ag-ui/crewai": "0.0.3",
-    "@copilotkit/react-core": "1.79.0",
-    "@copilotkit/runtime": "1.79.0",
+    "@copilotkit/react-core": "2.0.0-rc.68",
+    "@copilotkit/runtime": "2.0.0-rc.68",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "hono": "^4",
     "lucide-react": "^0.525.0",
     "next": "16.3.8",
     "react": "19.2.8",
     "react-dom": "19.2.8",
+    "react-is": "^19.2.4",
     "tailwind-merge": "^3.5.0",
-    "zod": "^3.24.4"
+    "zod": "^4.2.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -36,17 +36,17 @@
     "typescript": "^5"
   },
   "overrides": {
-    "@ag-ui/client": "1.0.2",
-    "@ag-ui/core": "1.0.2",
-    "@ag-ui/encoder": "1.0.2",
-    "@ag-ui/proto": "1.0.2"
+    "@ag-ui/client": "1.0.5",
+    "@ag-ui/core": "1.0.5",
+    "@ag-ui/encoder": "1.0.5",
+    "@ag-ui/proto": "1.0.5"
   },
   "pnpm": {
     "overrides": {
-      "@ag-ui/client": "1.0.2",
-      "@ag-ui/core": "1.0.2",
-      "@ag-ui/encoder": "1.0.2",
-      "@ag-ui/proto": "1.0.2"
+      "@ag-ui/client": "1.0.5",
+      "@ag-ui/core": "1.0.5",
+      "@ag-ui/encoder": "1.0.5",
+      "@ag-ui/proto": "1.0.5"
     }
   }
 }

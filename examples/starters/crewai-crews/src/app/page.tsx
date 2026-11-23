@@ -7,7 +7,7 @@ import {
   CopilotSidebar,
   CopilotChatConfigurationProvider,
   CopilotThreadsDrawer,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 import type { CSSProperties } from "react";
 import { useEffect, useState } from "react";
 import { z } from "zod";

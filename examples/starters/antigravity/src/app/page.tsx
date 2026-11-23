@@ -9,7 +9,7 @@ import {
   useFrontendTool,
   useHumanInTheLoop,
   useRenderTool,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 import React, { useState } from "react";
 import { z } from "zod";
 

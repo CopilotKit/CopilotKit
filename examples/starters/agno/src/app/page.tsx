@@ -9,7 +9,7 @@ import {
   CopilotSidebar,
   CopilotChatConfigurationProvider,
   CopilotThreadsDrawer,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 import React, { useEffect, useState } from "react";
 import { z } from "zod";
 import { DefaultToolComponent } from "@/components/default-tool-ui";

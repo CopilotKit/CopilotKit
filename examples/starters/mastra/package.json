@@ -13,14 +13,14 @@
     "typecheck:channel": "tsc -p tsconfig.channel.json --noEmit"
   },
   "dependencies": {
-    "@ag-ui/client": "1.0.2",
+    "@ag-ui/client": "1.0.5",
     "@ag-ui/mastra": "1.1.2",
     "@ai-sdk/anthropic": "^2.0.109",
     "@ai-sdk/google": "^2.0.102",
     "@ai-sdk/openai": "^2.0.42",
-    "@copilotkit/channels": "0.11.1",
-    "@copilotkit/react-core": "1.79.0",
-    "@copilotkit/runtime": "1.79.0",
+    "@copilotkit/channels": "0.13.0-rc.15",
+    "@copilotkit/react-core": "2.0.0-rc.68",
+    "@copilotkit/runtime": "2.0.0-rc.68",
     "@libsql/client": "^0.15.15",
     "@mastra/client-js": "1.23.2",
     "@mastra/core": "1.41.0",
@@ -29,15 +29,15 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "dotenv": "^16.4.7",
-    "hono": "^4",
     "libsql": "^0.5.22",
     "lucide-react": "^0.525.0",
     "mastra": "1.1.0-alpha.3",
     "next": "16.3.8",
     "react": "19.2.8",
     "react-dom": "19.2.8",
+    "react-is": "^19.2.4",
     "tailwind-merge": "^3.5.0",
-    "zod": "^3.25.0"
+    "zod": "^4.2.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -50,19 +50,22 @@
     "typescript": "^5"
   },
   "overrides": {
-    "@ag-ui/client": "1.0.2",
-    "@ag-ui/core": "1.0.2",
-    "@ag-ui/encoder": "1.0.2",
-    "@ag-ui/proto": "1.0.2",
+    "@ag-ui/client": "1.0.5",
+    "@ag-ui/core": "1.0.5",
+    "@ag-ui/encoder": "1.0.5",
+    "@ag-ui/proto": "1.0.5",
     "@mastra/loggers": "1.2.0",
-    "@mastra/deployer": "1.41.0"
+    "@mastra/deployer": "1.41.0",
+    "@ag-ui/mastra": {
+      "@copilotkit/runtime": "$@copilotkit/runtime"
+    }
   },
   "pnpm": {
     "overrides": {
-      "@ag-ui/client": "1.0.2",
-      "@ag-ui/core": "1.0.2",
-      "@ag-ui/encoder": "1.0.2",
-      "@ag-ui/proto": "1.0.2"
+      "@ag-ui/client": "1.0.5",
+      "@ag-ui/core": "1.0.5",
+      "@ag-ui/encoder": "1.0.5",
+      "@ag-ui/proto": "1.0.5"
     }
   }
 }

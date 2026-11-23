@@ -1,13 +1,12 @@
 import {
-  CopilotRuntime,
+  CopilotKitRuntime,
   CopilotKitIntelligence,
-  createCopilotEndpoint,
   InMemoryAgentRunner,
-} from "@copilotkit/runtime/v2";
-import { handle } from "hono/vercel";
+  createCopilotKitRuntimeHandler,
+} from "@copilotkit/runtime";
 import { createDefaultAgent } from "../../../agent";
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: {
     a2a_chat: createDefaultAgent(),
   },
@@ -33,12 +32,13 @@ const runtime = new CopilotRuntime({
   // --- /copilotkit:intelligence ---
 });
 
-const app = createCopilotEndpoint({
+const app = createCopilotKitRuntimeHandler({
+  cors: true,
   runtime,
   basePath: "/api/copilotkit",
 });
 
-export const GET = handle(app);
-export const POST = handle(app);
-export const PATCH = handle(app);
-export const DELETE = handle(app);
+export const GET = app;
+export const POST = app;
+export const PATCH = app;
+export const DELETE = app;

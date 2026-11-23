@@ -7,7 +7,7 @@ import {
   CopilotSidebar,
   CopilotChatConfigurationProvider,
   CopilotThreadsDrawer,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 import type { CSSProperties } from "react";
 import { useEffect, useState } from "react";
 import { z } from "zod";
@@ -73,6 +73,11 @@ export default function CopilotKitPage() {
     </CopilotChatConfigurationProvider>
   );
 }
+
+// State of the agent, make sure this aligns with your agent's state.
+type AgentState = {
+  proverbs: string[];
+};
 
 function YourMainContent({ themeColor }: { themeColor: string }) {
   // 🪁 Shared State: https://docs.copilotkit.ai/coagents/shared-state
