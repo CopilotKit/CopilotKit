@@ -179,13 +179,14 @@ describe.each(["single-route", "multi-route"] as const)(
     it.each([
       [400, "VALIDATION_ERROR"],
       [409, "TRAJECTORY_APP_USER_CONFLICT"],
+      [409, "TRAJECTORY_CLOSED"],
       [404, "LEARNING_CONTAINER_NOT_FOUND"],
       [429, "RATE_LIMIT_EXCEEDED"],
       [500, "INTERNAL_SERVER_ERROR"],
       [503, "MARKETPLACE_LICENSE_REQUIRED"],
       [403, "TRAJECTORIES_NOT_ENABLED"],
     ])(
-      "preserves a validated %s backend contract error",
+      "preserves a validated %s %s backend contract error",
       async (status, code) => {
         const { app, upstream } = setup(mode);
         upstream.mockResolvedValue(

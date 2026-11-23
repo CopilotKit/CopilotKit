@@ -66,8 +66,9 @@ export class TelemetryClient {
   packageVersion: string;
   private telemetryDisabled: boolean = false;
   // Client-side sampling rate for anonymous events on the Segment wire
-  // only. The lambda sink is ours and takes every event; Segment is
-  // billed per event, so the anonymous population stays capped there.
+  // only. The lambda wire takes every event and leaves any sampling to
+  // the telemetry sink (see ./sampling); Segment is billed per event, so the
+  // anonymous population stays capped there.
   // Identified events (those whose license token yielded a telemetry_id)
   // bypass the gate on both wires.
   private segmentSampleRate: number = 0.05;
@@ -140,10 +141,12 @@ export class TelemetryClient {
       return;
     }
 
-    // The two wires are gated separately. The lambda sink takes every
-    // event: it is CopilotKit-owned, so anonymous volume costs nothing
-    // per event there and a real count beats one extrapolated from 5% of
-    // the population. Segment is billed per event, so it keeps the gate —
+    // The two wires are gated separately. The lambda wire takes every
+    // event: it is left unsampled at the source on purpose. Anonymous
+    // connect events may be sampled at the telemetry sink instead, per its
+    // configuration, and the sink multiplies its rate into the one
+    // stamped here (see ./sampling).
+    // Segment is billed per event, so it keeps the gate —
     // callers without license-derived sampling authority are dropped from
     // that copy at segmentSampleRate. Legacy license tokens with a
     // telemetry_id send on both wires: the volume is bounded by

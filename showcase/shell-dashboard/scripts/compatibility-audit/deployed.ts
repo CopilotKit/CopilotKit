@@ -4,7 +4,8 @@ import { extractRevisionLabel } from "../../../scripts/advance-latest-tag";
 import { PROJECT_ID, resolveEnv } from "../../../scripts/railway-envs";
 import { RAILWAY_GRAPHQL_ENDPOINT } from "../../../scripts/lib/railway-graphql";
 import { resolveRailwayToken } from "../../../scripts/lib/railway-token";
-import { COMPATIBILITY_MAPPING } from "./mapping";
+import { fileURLToPath } from "node:url";
+import { assessedLibraryRoster, readUndeployedSlugs } from "./mapping";
 
 const exec = promisify(execFile);
 interface Metadata {
@@ -172,9 +173,9 @@ export async function collectDeployedCommits(
       );
     return response.json();
   };
-  const slugs = COMPATIBILITY_MAPPING.filter(
-    (variant) => variant.excludedReason === undefined,
-  ).map((variant) => variant.slug);
+  // Undeployed variants have no Railway service to read an image from.
+  const repo = fileURLToPath(new URL("../../../../", import.meta.url));
+  const slugs = Object.keys(assessedLibraryRoster(readUndeployedSlugs(repo)));
   const refs = await waitForDeployedImages(readMetadata, envId, slugs);
   const commits: Record<string, string> = {};
   const inspected = new Map<string, string>();

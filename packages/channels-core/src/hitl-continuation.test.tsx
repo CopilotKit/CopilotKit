@@ -40,8 +40,9 @@ function interrupt(subscriber: AgentSubscriber): void {
 async function setup(
   subject: "initiator" | "actor" | undefined,
   memory: MemoryGrant,
+  answerableBy: "initiator" | "conversation" = "conversation",
 ) {
-  const adapter = new FakeAdapter();
+  const adapter = new FakeAdapter({ nativeEphemeral: true });
   adapter.supportsIntelligenceMemory = true;
   const lifecycleCalls: ChannelAgentLifecycleArgs[] = [];
   adapter.runAgentLifecycle = vi.fn(async (args: ChannelAgentLifecycleArgs) => {
@@ -56,7 +57,10 @@ async function setup(
       <Button
         value={{ approved: true }}
         onClick={async ({ thread }) => {
-          await thread.resume({ approved: true }, { memory, subject });
+          await thread.resume(
+            { approved: true },
+            { memory, subject, answerableBy },
+          );
         }}
       >
         Approve
@@ -95,6 +99,60 @@ async function setup(
   return { adapter, lifecycleCalls, state, actionId: firstActionId(adapter) };
 }
 
+test("a non-initiator click is refused without consuming the action", async () => {
+  const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+  const { adapter, lifecycleCalls, state, actionId } = await setup(
+    undefined,
+    { project: "read" },
+    "initiator",
+  );
+  const consume = vi.spyOn(state.kv, "consume");
+  const click = (eventId: string, id: string, name: string) =>
+    adapter.getSink().onInteraction({
+      platform: "slack",
+      id: actionId,
+      conversationKey: "thread-1",
+      replyTarget: {},
+      eventId,
+      actor: { id, kind: "human", name },
+    });
+
+  await click("bob-click", "bob", "Bob");
+
+  expect(lifecycleCalls).toHaveLength(1);
+  expect(consume).not.toHaveBeenCalled();
+  expect(adapter.ephemeralPosts).toMatchObject([{ user: { id: "bob" } }]);
+  expect(
+    warn.mock.calls.some((call) => String(call[0]).includes("only the person")),
+  ).toBe(true);
+
+  await click("alice-click", "alice", "Alice");
+
+  expect(lifecycleCalls).toHaveLength(2);
+  expect(lifecycleCalls[1]!.isResume).toBe(true);
+  warn.mockRestore();
+});
+
+test("resume rejects an answerableBy value it does not know", async () => {
+  const { adapter, lifecycleCalls, actionId } = await setup(
+    undefined,
+    { project: "read" },
+    "anyone" as "conversation",
+  );
+
+  await expect(
+    adapter.getSink().onInteraction({
+      platform: "slack",
+      id: actionId,
+      conversationKey: "thread-1",
+      replyTarget: {},
+      eventId: "bob-click",
+      actor: { id: "bob", kind: "human", name: "Bob" },
+    }),
+  ).rejects.toBeInstanceOf(RangeError);
+  expect(lifecycleCalls).toHaveLength(1);
+});
+
 test("resume with initiator Memory keeps the original user when Bob clicks", async () => {
   const { adapter, lifecycleCalls, actionId } = await setup("initiator", {
     user: "read",
@@ -127,7 +185,11 @@ test("a managed continuation keeps its initiator across a Runtime restart", asyn
         onClick={async ({ thread }) => {
           await thread.resume(
             { approved: true },
-            { memory: { user: "read" }, subject: "initiator" },
+            {
+              memory: { user: "read" },
+              subject: "initiator",
+              answerableBy: "conversation",
+            },
           );
         }}
       >
@@ -321,6 +383,76 @@ test("concurrent independent runs cannot share a continuation chain", async () =
   ).toBe(2);
 });
 
+test("a run with no known initiator needs the conversation opt-out", async () => {
+  const start = async (answerableBy: "initiator" | "conversation") => {
+    const adapter = new FakeAdapter({ nativeEphemeral: true });
+    const lifecycleCalls: ChannelAgentLifecycleArgs[] = [];
+    adapter.runAgentLifecycle = vi.fn(
+      async (args: ChannelAgentLifecycleArgs) => {
+        lifecycleCalls.push(args);
+        return args.execute(args.renderer.subscriber, undefined);
+      },
+    );
+
+    function Approval() {
+      return (
+        <Button
+          value={{ approved: true }}
+          onClick={async ({ thread }) => {
+            await thread.resume({ approved: true }, { answerableBy });
+          }}
+        >
+          Approve
+        </Button>
+      );
+    }
+
+    const channel = createChannel({
+      name: "approvals",
+      identifyUser: "platform",
+      adapters: [adapter],
+      agent: new FakeAgent([interrupt]),
+      components: [Approval],
+      store: { adapter: new MemoryStore(), actionRetentionMs: 60_000 },
+    });
+    channel.onMessage(async ({ thread }) => {
+      await thread.runAgent();
+    });
+    channel.onInterrupt("approval", async ({ thread }) => {
+      await thread.post(<Approval />);
+    });
+    await channel.ɵruntime.start();
+    activeChannels.push({ stop: () => channel.ɵruntime.stop() });
+    await adapter.getSink().onTurn({
+      conversationKey: "thread-1",
+      replyTarget: {},
+      userText: "start",
+      platform: "slack",
+      actor: { id: "unknown", kind: "unknown" },
+    });
+    const click = adapter.getSink().onInteraction({
+      platform: "slack",
+      id: firstActionId(adapter),
+      conversationKey: "thread-1",
+      replyTarget: {},
+      eventId: "click",
+      actor: { id: "bob", kind: "human", name: "Bob" },
+    });
+    return { adapter, click, lifecycleCalls };
+  };
+
+  const locked = await start("initiator");
+  await locked.click;
+  expect(locked.lifecycleCalls).toHaveLength(1);
+  expect(locked.adapter.ephemeralPosts).toMatchObject([
+    { user: { id: "bob" } },
+  ]);
+
+  const open = await start("conversation");
+  await open.click;
+  expect(open.lifecycleCalls).toHaveLength(2);
+});
+
 test("resume with actor Memory selects the current interaction user", async () => {
   const { adapter, lifecycleCalls, actionId } = await setup("actor", {
     user: "read-write",
@@ -468,7 +600,7 @@ test("normal runs write no continuation state and one resume consumes once", asy
         onClick={async ({ thread }) => {
           await thread.resume(
             { approved: true },
-            { memory: { project: "read" } },
+            { memory: { project: "read" }, answerableBy: "conversation" },
           );
         }}
       >
@@ -522,9 +654,9 @@ test("normal runs write no continuation state and one resume consumes once", asy
   // `command.interruptEvent` (see interrupt-event-echo.test.tsx). A bare count
   // conflates the two and breaks on bookkeeping that is not continuation state.
   const writes = set.mock.calls.map((call) => String(call[0]));
-  expect(writes.filter((key) => key.startsWith("action:"))).toEqual([
-    `action:${actionId}`,
-  ]);
+  const isAction = (key: string) =>
+    key.startsWith("action:") && !key.startsWith("action:resume:");
+  expect(writes.filter(isAction)).toEqual([`action:${actionId}`]);
   expect(writes).toContain("interruptevent:thread-1");
   expect(consume).not.toHaveBeenCalled();
 
@@ -543,7 +675,5 @@ test("normal runs write no continuation state and one resume consumes once", asy
   // and its redelivery. Filtered by key for the same reason as above — the resume
   // also consumes the retained interrupt value, which is a separate one-use item.
   const consumed = consume.mock.calls.map((call) => String(call[0]));
-  expect(consumed.filter((key) => key.startsWith("action:"))).toEqual([
-    `action:${actionId}`,
-  ]);
+  expect(consumed.filter(isAction)).toEqual([`action:${actionId}`]);
 });

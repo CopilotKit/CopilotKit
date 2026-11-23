@@ -40,6 +40,7 @@ This page lists the `learning` prop, the Core methods, and the `CopilotKitIntell
     The UUID for the Trajectory that the provider starts.
 
     - Without it, the provider generates a UUID that stays the same across rerenders, reconnects, and option changes.
+    - If the browser stays disconnected longer than the reconnect window (120 seconds by default), Intelligence seals the Trajectory. A generated ID is then replaced by a new one, and `onTrajectoryChanged` reports it.
     - A new value starts a new Trajectory with the new ID.
     - Turning capture off, or setting `autoStart: false`, ends a generated Trajectory. The next one gets a new ID.
     - With `autoStart: false`, the provider ignores this option and logs a warning. Pass the ID to `startTrajectory()` instead.
@@ -161,6 +162,7 @@ if (result.status === "error") console.warn(result.code);
 | `MARKETPLACE_LICENSE_REQUIRED` | The project has no CopilotKit license for capture. | Ask our engineering team to check the license. |
 | `RATE_LIMIT_EXCEEDED` | Intelligence rate-limited the connection request. | Try again later. |
 | `TRAJECTORY_APP_USER_CONFLICT` | Intelligence refused this Trajectory ID for this user. | Start with a new UUID. |
+| `TRAJECTORY_CLOSED` | Intelligence sealed this Trajectory, usually after a disconnect longer than the reconnect window. Only an ID that you chose ends this way; a generated ID continues on a new Trajectory. | Start with a new UUID. |
 | `CONNECTION_LOST` | The connection closed, or the browser went offline. | None after start: Core reconnects. Before start, start again. |
 | `CAPTURE_FAILED` | Browser listeners could not start. Capture ends. | Start again. |
 | `UNAUTHORIZED`, `TRAJECTORY_MISMATCH` | Intelligence refused a batch for this connection. Capture ends. | Start a new Trajectory. |

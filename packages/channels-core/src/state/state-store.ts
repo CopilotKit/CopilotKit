@@ -52,6 +52,11 @@ export interface StateStore {
   dedup: {
     /** Atomically record `key`; returns true if it was ALREADY seen within ttl. */
     seen(key: string, ttlMs: number): Promise<boolean>;
+    /**
+     * Drop a recorded `key`, so its next `seen` returns false. Optional: a
+     * store without it keeps the key for the rest of the TTL.
+     */
+    forget?(key: string): Promise<void>;
   };
   queue: {
     enqueue<T>(

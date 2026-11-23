@@ -1,5 +1,8 @@
-import { BaseEvent } from "@ag-ui/client";
-import { DebugEventEnvelope, ResolvedDebugConfig } from "@copilotkit/shared";
+import type { BaseEvent } from "@ag-ui/client";
+import type {
+  DebugEventEnvelope,
+  ResolvedDebugConfig,
+} from "@copilotkit/shared";
 
 export type DebugEventListener = (envelope: DebugEventEnvelope) => void;
 
@@ -49,12 +52,16 @@ export class DebugEventBus {
  *
  * The feed carries every event of every thread, including full message
  * content, to any subscriber — so serving it is an authorization decision, not
- * an environment detail. Two things open it:
+ * an environment detail. Three things open it:
  *
- * - `debug` is enabled on the runtime. An explicit opt-in, so it works
- *   wherever the operator asks for it.
+ * - `exposeDebugEvents: true`, the explicit opt-in, under any `NODE_ENV`.
  * - `NODE_ENV` is exactly `"development"`. Keeps the zero-configuration VS Code
  *   Inspector flow working under `next dev` and friends.
+ * - `debug` is enabled and `NODE_ENV` is exactly `"test"`.
+ *
+ * `debug` opens nothing under any other value, unset, `"prod"`, `"staging"` and
+ * empty included: it also turns on logging, which a deployed runtime can want
+ * without publishing every thread.
  *
  * The previous gate asked whether `NODE_ENV !== "production"`, which treats an
  * *unset* `NODE_ENV` as development. A plain `node server.js` sets nothing, so
@@ -63,7 +70,32 @@ export class DebugEventBus {
  */
 export function isDebugEventFeedEnabled(
   debug: ResolvedDebugConfig | undefined,
+  exposeDebugEvents?: boolean,
 ): boolean {
-  if (debug?.enabled) return true;
-  return process.env.NODE_ENV === "development";
+  if (exposeDebugEvents === true) return true;
+  const nodeEnv = process.env.NODE_ENV;
+  if (nodeEnv === "development") return true;
+  return nodeEnv === "test" && debug?.enabled === true;
+}
+
+let exposedFeedWarned = false;
+
+/** Re-arm the once-per-process warning. Internal: for tests. */
+export function ɵresetDebugEventFeedWarning(): void {
+  exposedFeedWarned = false;
+}
+
+/** Log once per process when the feed is served outside development and test. */
+export function warnIfDebugEventFeedExposed(): void {
+  const nodeEnv = process.env.NODE_ENV;
+  if (exposedFeedWarned || nodeEnv === "development" || nodeEnv === "test") {
+    return;
+  }
+  exposedFeedWarned = true;
+  console.warn(
+    "[CopilotKit] exposeDebugEvents is on outside development and test: " +
+      "/cpk-debug-events streams every thread's events, including full message " +
+      "content, to any caller that reaches the route. Restrict the route, or " +
+      "remove the option when you finish debugging.",
+  );
 }
