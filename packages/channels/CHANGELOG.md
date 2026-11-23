@@ -21,6 +21,7 @@ This release improves the reliability of approval resumes and interactive picker
 Approval resume is now scoped to the person who started the workflow by default. Applications that rely on conversation-wide approvals must opt into that scope explicitly.
 
 **Migration:**
+
 - For team approvals that anyone in the conversation should be able to resume, set `answerableBy: "conversation"` explicitly.
 - Handlers can call `thread.assertCanResume()` to check access before updating a card; resume still re-checks access and claims its gate.
 - See the channels migration guide for the matching preflight and resume options.
