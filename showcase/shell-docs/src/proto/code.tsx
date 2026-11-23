@@ -39,16 +39,16 @@ export function Code({
 
 export function installCommand(frontend: FrontendId): string {
   const pkg = {
-    react: "@copilotkit/react-core",
-    vue: "@copilotkit/vue",
-    angular: "@copilotkit/angular",
-    "react-native": "@copilotkit/react-native",
+    react: "@copilotkit/react-core@next",
+    vue: "@copilotkit/vue@next",
+    angular: "@copilotkit/angular@next",
+    "react-native": "@copilotkit/react-native@next",
     slack:
-      "@copilotkit/channels @copilotkit/channels-ui @copilotkit/channels-slack",
+      "@copilotkit/channels@next @copilotkit/channels-ui@next @copilotkit/channels-slack@next",
     teams:
-      "@copilotkit/channels @copilotkit/channels-ui @copilotkit/channels-teams @microsoft/agents-hosting @microsoft/agents-activity",
+      "@copilotkit/channels@next @copilotkit/channels-ui@next @copilotkit/channels-teams@next @microsoft/agents-hosting @microsoft/agents-activity",
   }[frontend];
-  return `npm install ${pkg} @copilotkit/runtime`;
+  return `npm install ${pkg} @copilotkit/runtime@next`;
 }
 
 /** Channels run inside the runtime, so their setup is the bot itself. */

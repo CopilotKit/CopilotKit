@@ -45,8 +45,8 @@ These changes also need code changes in some apps:
 
 ## Install the release candidate
 
-The 2.0 packages are on the npm `next` tag. The current release candidate is
-`2.0.0-rc.60`. Before you install, read
+The 2.0 packages are on the npm `next` tag, which always points to the newest
+release candidate. Before you install, read
 [Minimum versions](/migrate/v2#minimum-versions). For example, the runtime
 needs Node.js `^20.19.3` or `>=22.13.0`.
 
@@ -61,8 +61,8 @@ needs Node.js `^20.19.3` or `>=22.13.0`.
    `@copilotkit/react-core@next`.
 
 2. Follow the [quickstart](/quickstart) for your framework. Its install
-   commands do not name a tag, so npm installs 1.x from the `latest` tag. Add
-   `@next` to each `@copilotkit/` package in those commands.
+   commands already use `@next`. If you install a `@copilotkit/` package
+   without a tag, npm installs 1.x from the `latest` tag.
 3. Run `npm ls @copilotkit/react-core`, or the same command for your frontend
    package. The version must start with `2.0.0-rc`.
 
@@ -129,7 +129,7 @@ If something breaks on 2.0, open an issue on GitHub:
 1. Open the
    [bug report form](https://github.com/CopilotKit/CopilotKit/issues/new?template=1-bug-report.yml).
 2. In the version field, paste the output of `npm ls | grep "@copilotkit"`. It
-   shows the release candidate that you use, for example `2.0.0-rc.60`.
+   shows the release candidate that you use, for example `2.0.0-rc.68`.
 3. If the codemod changed your code, add the code from before and after the
    codemod.
 
