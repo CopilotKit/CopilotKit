@@ -16,6 +16,47 @@ releases have no changelog: the per-package files from the changesets era stoppe
 at `1.55.2` while the lane shipped `1.69.3`, and they are recoverable from git
 history (for example `git show v1.69.3:packages/core/CHANGELOG.md`).
 
+## 1.90.1 - 2026-11-23
+
+This release adds fullscreen support for MCP Apps widgets and improves telemetry accuracy, alongside an important breaking change to runtime thread history and debug event handling.
+
+## Breaking Changes
+
+### Runtime: stored thread history retained, debug feed now opt-in (#8117)
+
+Stored in-memory thread messages are now preserved when clients omit history, while agent updates and the configured run-history limit are still respected. Reconnect replay includes the stored message snapshot, so retained text messages survive run eviction and rejected same-ID client edits no longer replace the stored copy on reconnect.
+
+The `debug` flag now enables the `/cpk-debug-events` feed only in development or test. In all other environments — including an unset `NODE_ENV` — the feed requires `exposeDebugEvents: true`. This opt-in does not bypass the Intelligence runtime's web-identity route gate, and an available feed contains events from all threads.
+
+**Migration:** Production deployments that relied on `debug` to serve `/cpk-debug-events` must now explicitly set `exposeDebugEvents: true` and restrict access to the route.
+
+## Features
+
+### MCP Apps: fullscreen display mode (#7760)
+
+MCP Apps widgets can now switch between `inline` and `fullscreen` display modes in React and Vue via `ui/request-display-mode`. Key details:
+
+- Fullscreen uses a native modal `<dialog>` in the browser top layer, so the surface reliably fills the viewport regardless of the chat container's layout.
+- Widget content stays mounted across mode changes — toggling never reloads the widget — and the previous inline height is restored on return.
+- Requests are honored only when both the host and the widget support the mode; unsupported requests (including `pip`) leave the current mode unchanged.
+- Fullscreen is granted only on a genuine user gesture within the widget, and never immediately after a user exits fullscreen, preventing widgets from forcing the page inert.
+- Fullscreen provides an exit button, supports returning to inline with Escape (focus lands on the exit button so Escape works immediately), and locks page scrolling (ref-counted across widgets) until fullscreen ends.
+- Integrators can keep widgets inline via `<CopilotKit mcpApps={{ hostContext: { availableDisplayModes: ["inline"] } }}>` in React or `<CopilotKitProvider :mcp-apps="...">` in Vue.
+
+New session API: `onDisplayModeChange`, `session.setDisplayMode(mode, containerDimensions?)`, and `session.getDisplayMode()`, plus shared dialog-surface and scroll-lock helpers in the bridge-free `/activity` entry.
+
+### Core: continue capture after Intelligence seals a Trajectory (#8521)
+
+Capture now continues on a new Trajectory after Intelligence seals the current one.
+
+## Fixes
+
+- **Runtime:** Connect telemetry is now captured after agent validation. Previously the `oss.runtime.copilot_request_created` event was emitted before the agent ID was validated, so a client retry-looping against a nonexistent agent billed one event per attempt indefinitely. The capture now runs after the 404 guard, so an unknown agent ID emits nothing; the event is otherwise unchanged on the success path.
+
+## Documentation
+
+- Telemetry comments now accurately describe how anonymous connect events are sampled at the telemetry sink per its configuration, composing the sink's rate into any client-stamped rate, and clarify that the lambda wire is left unsampled at the source by design.
+
 ## 1.90.0 - 2026-11-20
 
 This release adds framework-level telemetry to the runtime and sends the CopilotKit version to the Intelligence gateway, giving the gateway the context it needs to tailor behavior to a client's version.
