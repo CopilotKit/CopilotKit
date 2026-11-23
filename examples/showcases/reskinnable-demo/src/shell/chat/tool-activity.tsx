@@ -1,6 +1,8 @@
 "use client";
 
 import {
+  createContext,
+  useContext,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -76,6 +78,12 @@ function resolveToolLabel(
  * rather than "everything that has ever happened".
  */
 const VISIBLE_TOOL_ACTIVITY = 2;
+
+// Let an inspected row keep its containing message visible too. A row can
+// outlive the passive window while its tool-only message otherwise looks empty.
+export const ToolActivityInspectionContext = createContext<
+  (() => () => void) | null
+>(null);
 
 /**
  * Ordered ids of the tool activity currently mounted, oldest first.
@@ -244,6 +252,12 @@ function ToolCallChip({
   const done = status === ToolCallStatus.Complete;
   const hidden = isInternalTool(name);
   const recent = useIsRecentToolActivity(toolCallId, !hidden);
+  const registerInspection = useContext(ToolActivityInspectionContext);
+
+  useIsomorphicLayoutEffect(() => {
+    if (!open || hidden) return;
+    return registerInspection?.();
+  }, [open, hidden, registerInspection]);
 
   const detail = useMemo(() => {
     const lines: string[] = [`tool: ${name}`];
@@ -257,11 +271,12 @@ function ToolCallChip({
   }, [name, args, result]);
 
   if (hidden) return <></>;
-  // Aged out of the window. Returning nothing REMOVES the line rather than
+  // Passive rows age out of the window; an expanded row stays until collapsed.
+  // Returning nothing REMOVES the line rather than
   // hiding it, which is the point: the transcript should not keep growing a
   // stack of finished steps behind the thing they produced. The full sequence
   // is still in the run's own events (and the harness console renders them).
-  if (!recent) return <></>;
+  if (!recent && !open) return <></>;
 
   return (
     <div data-testid="tool-activity" className="my-1.5">
