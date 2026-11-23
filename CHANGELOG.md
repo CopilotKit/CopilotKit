@@ -16,6 +16,35 @@ releases have no changelog: the per-package files from the changesets era stoppe
 at `1.55.2` while the lane shipped `1.69.3`, and they are recoverable from git
 history (for example `git show v1.69.3:packages/core/CHANGELOG.md`).
 
+## 1.90.2 - 2026-11-23
+
+This is a maintenance release that keeps all `monorepo` lane packages in sync at version `1.90.2`. There are no functional changes since the previous release.
+
+## What's Changed
+
+No user-facing changes. All packages listed below were republished at `1.90.2` to maintain version alignment across the monorepo:
+
+- `@copilotkit/a2ui-renderer`
+- `@copilotkit/agentcore-runner`
+- `@copilotkit/core`
+- `@copilotkit/learning`
+- `@copilotkit/mcp-apps-renderer`
+- `@copilotkit/react-core`
+- `@copilotkit/react-native`
+- `@copilotkit/react-textarea`
+- `@copilotkit/react-ui`
+- `@copilotkit/runtime`
+- `@copilotkit/runtime-client-gql`
+- `@copilotkit/sdk-js`
+- `@copilotkit/shared`
+- `@copilotkit/sqlite-runner`
+- `@copilotkit/voice`
+- `@copilotkit/vue`
+- `@copilotkit/web-components`
+- `@copilotkit/web-inspector`
+
+No migration steps are required. You can safely upgrade to `1.90.2`.
+
 ## 1.90.1 - 2026-11-23
 
 This release adds fullscreen support for MCP Apps widgets and improves telemetry accuracy, alongside an important breaking change to runtime thread history and debug event handling.
