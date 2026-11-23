@@ -1,9 +1,9 @@
 import {
   CopilotKitIntelligence,
-  CopilotRuntime,
+  CopilotKitRuntime,
   InMemoryAgentRunner,
-  createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
+  createCopilotKitRuntimeHandler,
+} from "@copilotkit/runtime";
 import { createDefaultAgent } from "@/app/agent";
 import { intelligenceConfig } from "@/lib/intelligence-config";
 
@@ -14,16 +14,16 @@ export const dynamic = "force-dynamic";
 function createHandler() {
   // The mock endpoint bypasses Intelligence as well as Omnara.
   if (process.env.AGENT_URL)
-    return createCopilotRuntimeHandler({
-      runtime: new CopilotRuntime({
+    return createCopilotKitRuntimeHandler({
+      runtime: new CopilotKitRuntime({
         agents: { default: createDefaultAgent() },
         runner: new InMemoryAgentRunner(),
       }),
       basePath: "/api/copilotkit",
     });
   const config = intelligenceConfig(process.env);
-  return createCopilotRuntimeHandler({
-    runtime: new CopilotRuntime({
+  return createCopilotKitRuntimeHandler({
+    runtime: new CopilotKitRuntime({
       agents: { default: createDefaultAgent() },
       intelligence: new CopilotKitIntelligence(config.intelligence),
       // This localhost starter has one developer identity. Replace with verified

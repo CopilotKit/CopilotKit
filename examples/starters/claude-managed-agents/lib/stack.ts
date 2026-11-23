@@ -5,7 +5,7 @@ import { InMemorySessionStore } from "@ag-ui/claude-managed-agents";
 import { z } from "zod";
 
 const resource = z.object({ id: z.string() });
-const lockSchema = z.object({ resources: z.record(resource) });
+const lockSchema = z.object({ resources: z.record(z.string(), resource) });
 
 /** Resolve exact Ant resource paths, with server-side overrides for deployment. */
 export function requireStack(): { agentId: string; environmentId: string } {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { InterruptRenderProps } from "@copilotkit/react-core/v2";
+import type { InterruptRenderProps } from "@copilotkit/react-core";
 import type { InteractionForm } from "@omnara/sdk";
 
 type Interrupt = InterruptRenderProps["interrupts"][number];

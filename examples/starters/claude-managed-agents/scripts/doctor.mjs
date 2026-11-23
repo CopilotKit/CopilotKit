@@ -5,7 +5,7 @@
 import fs from "node:fs";
 import { spawnSync } from "node:child_process";
 import Anthropic from "@anthropic-ai/sdk";
-import { CopilotKitIntelligence } from "@copilotkit/runtime/v2";
+import { CopilotKitIntelligence } from "@copilotkit/runtime";
 import nextEnv from "@next/env";
 
 const rows = [];

@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import type { CopilotKitIntelligence } from "@copilotkit/runtime/v2";
+import type { CopilotKitIntelligence } from "@copilotkit/runtime";
 import {
   readArchive,
   validateSnapshot,

@@ -10,7 +10,7 @@ import {
   useConfigureSuggestions,
   useDefaultRenderTool,
   useInterrupt,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 import { Interactions } from "./interactions";
 
 /** Files Omnara accepts, up to its 10 MiB per-file limit. */
