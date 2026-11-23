@@ -16,6 +16,75 @@ releases have no changelog: the per-package files from the changesets era stoppe
 at `1.55.2` while the lane shipped `1.69.3`, and they are recoverable from git
 history (for example `git show v1.69.3:packages/core/CHANGELOG.md`).
 
+## 1.90.0 - 2026-11-20
+
+This release adds framework-level telemetry to the runtime and sends the CopilotKit version to the Intelligence gateway, giving the gateway the context it needs to tailor behavior to a client's version.
+
+## Features
+
+### Runtime now reports the agent framework each adapter declares (#8500)
+
+The runtime now emits a new telemetry event, `oss.runtime.agent_identified`, which reports the framework each agent runs on. This helps CopilotKit understand which framework integrations are in active use.
+
+- **Sent once per agent class and name per server process**, on the first run of each agent. Apps that build a new `CopilotRuntime` on every request still send it only once.
+- The event is derived from the adapter's AG-UI `identity.type`, matched against a fixed list (`langgraph`, `mastra`, `built-in`, `crewai`, `adk`, and others). Unrecognized values report as `other`; agents with no declaration report as `undeclared`.
+- `BuiltInAgent` now declares `identity: { type: "built-in" }`. An identity override that sets only a name preserves the type.
+- `LangGraphAgent` and `MastraAgent` already declare their frameworks (`langgraph` and `mastra`).
+
+**Privacy and safety:**
+
+- The event never sends agent names, descriptions, URLs, or a developer's free-text `identity.type`.
+- It respects the existing telemetry opt-out.
+- The capabilities lookup runs in the background with a 2-second timeout, and never delays, blocks, or fails a request.
+- The event is sent only to the CopilotKit telemetry sink, never to Segment.
+- Identification runs during the request handler after forwarded headers are applied, so adapters that fetch capabilities remotely (such as ADK) use the caller's auth.
+
+The pinned runtime events are unchanged, so other runtime SDKs require no changes.
+
+### Core sends the CopilotKit version to the Intelligence gateway (#8476)
+
+The `@copilotkit/core` client now includes its CopilotKit version as a socket parameter when connecting the thread socket. This lets the Intelligence gateway tailor behavior to a client's version — for example, to safely send a thread's stored history early only to clients (1.89.0 and later) that hold it until replay completes.
+
+This is an internal connection-level change with no visible behavior difference. Older gateways ignore the parameter. The memory and thread-list sockets are unchanged.
+
+## 1.89.0 - 2026-11-17
+
+This release improves performance and reliability for long Intelligence threads, adds support for distinct agent display names, and expands MCP Apps with model-context sharing.
+
+## Features
+
+- **Separate agent IDs and display names** (#7868): Built-in and proxied agents can now have an optional `name` display label that differs from their registry ID. The registry ID is still used for routing, and a blank or whitespace-only name falls back to the agent ID. Display names are reflected in runtime information, and existing agent instances are preserved when names are refreshed.
+
+- **MCP Apps model-context sharing** (#7811): MCP App widgets can now report their state (a selection, active filters, a cart) to the model via `ui/update-model-context` in React, Vue, and Angular. The shared state is scoped to the agent and conversation, included in the next run's context, and retained in memory while the page is open. This is **off by default** and opt-in:
+  - React/Vue: `mcpApps={{ modelContext: true }}` on `CopilotKitProvider`
+  - Angular: `provideMCPApps({ modelContext: true })`
+
+  While disabled, the host does not announce the capability and answers `-32601 Method not found`. Because any MCP server the agent uses can write to this context, enable it only for trusted servers.
+
+  This also introduces several additions to the `@copilotkit/core` public API: `upsertContext(id, context)` for atomic create-or-replace, an optional `ScopedContext.threadId` to scope an entry to one conversation, a `threadId` argument on `getContextForAgent`, and `subscribeToThreadDeletions` on thread stores. Generated suggestions now stay tied to the conversation they were made for.
+
+## Fixes
+
+- **Faster loading of long Intelligence threads** (#8247): Replayed history is now held until replay completes and applied in a single burst rather than one websocket frame at a time. Opening a 32,819-event thread previously froze the tab for minutes; it now appears in one update a few seconds after the click. This also brings a number of chat rendering fixes, mostly in Safari:
+  - The loading spinner's arc now spins inside the icon, fixing an off-center wobble in Safari.
+  - Chat rows that render nothing now take 0px instead of a 100px placeholder, shrinking tool-heavy histories dramatically.
+  - Finished messages render in static mode with no empty first frame; only the message being written uses streaming Markdown.
+  - Overscan now reaches at least a viewport's height, fixing scroll jumps when scrolling up through long threads.
+  - Scroll corrections are held while the reader is scrolling and settle smoothly once scrolling stops, eliminating scroll-position jumps.
+
+- **Intelligence runner durability and replay handling** (#7826):
+  - Healthy but slow gateways no longer time out runs. The 60s durability deadline now counts from the last acknowledged batch rather than when the oldest event was queued.
+  - Per-event queue scans have been removed to avoid quadratic work on long runs, and runs are no longer kept fully in memory.
+  - The pending-event queue is now bounded by a configurable `maxPendingEvents` (default 50,000); exceeding it fails the run with `RunnerEventQueueFullError`.
+  - A new `onEventDeliveryStats` runtime option reports acknowledgement latency, pending event count, and the age of the oldest pending event per batch.
+  - Live runs now settle when their replay fails, producing a typed `IntelligenceReplayFailedError` (`code: "INTELLIGENCE_REPLAY_FAILED"`) instead of hanging, and restore the reconnect cursor so the next connect doesn't skip undelivered history.
+  - `onError` now distinguishes replayed run errors from live ones via `context.phase` (`"replay"`, `"live"`, or `"unknown"`), so apps no longer show stale errors from an old run's history. `IntelligenceReplayFailedError` and `RunErrorPhase` are re-exported from `@copilotkit/react-core`.
+  - A2UI renderers (React, Vue, Angular) now pass a copy of operation payloads to the processor, so form input is no longer written back into conversation history.
+
+- **Keep all tool calls when merging duplicate messages** (#8408): When two copies of an assistant message share an id and both carry tool calls, the chat view now keeps the calls from both copies instead of dropping those held only by the earlier copy. A blank copy still never replaces a populated one.
+
+- **Credentialed CORS preflights** (#8011): When credentials are enabled and an origin is explicitly allowed, the runtime now echoes the browser's `Access-Control-Request-Headers` on preflight responses instead of answering with `*`, which the Fetch spec disallows for credentialed requests. This unblocks the cookie-auth setup (`credentials: true` with an explicit origin) for the Hono endpoint. A configured `allowHeaders` still takes precedence, and non-credentialed and wildcard-reflection cases keep `*`.
+
 ## 1.88.0 - 2026-11-13
 
 This release adds server-side agent runs through Intelligence, richer Learning capture, and several fixes to chat rendering and tool-call handling. It also includes one breaking change to thread naming.

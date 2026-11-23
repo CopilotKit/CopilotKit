@@ -1,6 +1,6 @@
 # CopilotKit Examples
 
-This directory contains 68 consolidated demo repositories showcasing CopilotKit integrations, canvas apps, and showcases.
+This directory contains 70 consolidated demo repositories showcasing CopilotKit integrations, canvas apps, and showcases.
 
 Each example is a self-contained project. To get started:
 
@@ -65,14 +65,15 @@ AI-powered canvas applications with visual card interfaces, real-time state sync
 | [gemini](./canvas/gemini/)                           | Open Gemini Canvas — post generator and stack analyzer agents (Gemini + LangGraph)      |
 | [mastra-pm](./canvas/mastra-pm/)                     | CopilotKit v2 + Mastra project manager — shared project state and tool UI               |
 
-## Showcases (35)
+## Showcases (37)
 
 Full-featured demo applications highlighting CopilotKit capabilities in real-world scenarios.
 
-### Current showcases (27)
+### Current showcases (28)
 
 | Example                                                                 | Description                                                                                                         |
 | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| [a2ui](./showcases/a2ui/)                                               | A2UI Playground: a research desk on Google ADK and Gemini that answers with A2UI views, plus a component catalog    |
 | [a2ui-pdf-analyst](./showcases/a2ui-pdf-analyst/)                       | PDF analyst that builds fixed or dynamic A2UI surfaces from document data                                           |
 | [a2ui-playground](./showcases/a2ui-playground/)                         | Chat-first A2UI 1.0 playground: watch Gemini write Express line by line, with macros, skills and evals              |
 | [arcade-tools](./showcases/arcade-tools/)                               | Built-in Agent with authenticated Arcade Gmail and news tools plus inline OAuth UI                                  |
@@ -99,6 +100,7 @@ Full-featured demo applications highlighting CopilotKit capabilities in real-wor
 | [todo](./showcases/todo/)                                               | Simple todo app built with CopilotKit                                                                               |
 | [strands-crm](./showcases/strands-crm/)                                 | Enterprise sales CRM — dashboard, pipeline, products, quotes, reports & agentic canvas (TypeScript Strands + AG-UI) |
 | [manufact-mcp-apps](./showcases/manufact-mcp-apps/)                     | Built-in Agent rendering an MCP App built with Manufact's mcp-use SDK (inline Leaflet map)                          |
+| [antigravity-a2ui-canvas](./showcases/antigravity-a2ui-canvas/)         | A Google Antigravity agent builds a live A2UI dashboard next to the chat, then edits, translates and versions it    |
 | [antigravity-repo-doctor](./showcases/antigravity-repo-doctor/)         | Google Antigravity agent that fixes failing CI and proves the fix, with approval cards, a diff card and A2UI tests  |
 
 ### Retired hosted demos (8)

@@ -1061,6 +1061,9 @@ export type BuiltInAgentFactoryContext = AgentFactoryContext;
  * here: setting it in factory mode throws when the agent is constructed.
  */
 export interface BuiltInAgentAISDKFactoryConfig {
+  /** Human-readable display name, independent of the agent's ID. */
+  name?: string;
+
   /** Opt in to automatic snapshot acquisition before each run, including resumes. */
   learnedSkills?: BuiltInAgentLearnedSkillsOptions;
   type: "aisdk";
@@ -1076,6 +1079,8 @@ export interface BuiltInAgentAISDKFactoryConfig {
  * The factory must return an async iterable of TanStack AI stream chunks.
  */
 export interface BuiltInAgentTanStackFactoryConfig {
+  /** Human-readable display name, independent of the agent's ID. */
+  name?: string;
   /** Opt in to automatic snapshot acquisition before each run, including resumes. */
   learnedSkills?: BuiltInAgentLearnedSkillsOptions;
   type: "tanstack";
@@ -1088,6 +1093,8 @@ export interface BuiltInAgentTanStackFactoryConfig {
  * Factory config for a custom backend that directly yields AG-UI events.
  */
 export interface BuiltInAgentCustomFactoryConfig {
+  /** Human-readable display name, independent of the agent's ID. */
+  name?: string;
   /** Opt in to automatic snapshot acquisition before each run, including resumes. */
   learnedSkills?: BuiltInAgentLearnedSkillsOptions;
   type: "custom";
@@ -1108,6 +1115,8 @@ export type BuiltInAgentFactoryConfig =
  * Classic config — BuiltInAgent handles streamText, tools, MCP, state tools, prompt building.
  */
 export interface BuiltInAgentClassicConfig {
+  /** Human-readable display name, independent of the agent's ID. */
+  name?: string;
   /** Opt in to automatic snapshot acquisition before each run, including resumes. */
   learnedSkills?: BuiltInAgentLearnedSkillsOptions;
   /**
@@ -1272,6 +1281,7 @@ function isFactoryConfig(
 }
 
 export class BuiltInAgent extends AbstractAgent {
+  name?: string;
   private abortController?: AbortController;
   private skillRegistry?: SkillRegistry;
 
@@ -1300,6 +1310,7 @@ export class BuiltInAgent extends AbstractAgent {
 
   constructor(private config: BuiltInAgentConfiguration) {
     super();
+    this.name = config.name;
     if (!isFactoryConfig(config)) {
       this.urlDownload = resolveUrlDownloadSetting(config.urlDownload);
     } else if ("urlDownload" in config) {
@@ -1340,6 +1351,11 @@ export class BuiltInAgent extends AbstractAgent {
       humanInTheLoop: {
         interrupts: true,
       },
+      // The framework this agent runs on. The runtime reports it in
+      // `oss.runtime.agent_identified`; the version is the runtime's own.
+      identity: {
+        type: "built-in",
+      },
     };
 
     // Factory-mode configs have no `capabilities` property.
@@ -1353,9 +1369,12 @@ export class BuiltInAgent extends AbstractAgent {
 
     // Shallow merge at the category level — explicit overrides replace
     // entire categories when provided, inferred defaults fill the rest.
+    // Identity merges one level deeper, so setting only a display name keeps
+    // the framework type.
     return {
       ...inferred,
       ...capabilities,
+      identity: { ...inferred.identity, ...capabilities.identity },
     };
   }
 
