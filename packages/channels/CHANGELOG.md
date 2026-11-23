@@ -10,6 +10,57 @@ To change what ships, edit the section on the release PR branch before merging.
 Entries begin with the first release cut after this file was added. The lane had
 no changelog before that.
 
+## 0.13.0 - 2026-11-23
+
+This release hardens durability across the channels packages, making approval resumes and interactive pickers safe to run across multiple processes and replicas. It also improves resilience when Intelligence thread history fails to replay.
+
+## Breaking Changes
+
+### Approval resume now defaults to the run initiator (#8118)
+
+Approval resume is now scoped to the person who started the workflow by default. Applications that rely on conversation-wide approvals must opt into that scope explicitly.
+
+**Migration:**
+- For team approvals that anyone in the conversation should be able to resume, set `answerableBy: "conversation"` explicitly.
+- Handlers can call `thread.assertCanResume()` to check access before updating a card; resume still re-checks access and claims its gate.
+- See the channels migration guide for the matching preflight and resume options.
+
+## Fixes
+
+### Durable, cross-process approvals and pickers (#8118)
+
+- Resume gates are now resolved once per bind and stamped on every action the bind writes, so a stale bind can no longer reopen a gate that a newer bind has already claimed and allow a leg to resume twice.
+- A superseded bind now waits for the current gate rather than creating a fresh one, and fails closed if the newer write has failed.
+- Isolated MemoryStore deduplication state from application KV, so dedup bookkeeping no longer collides with application data.
+
+### Durable picker retirement across replicas
+
+- Pickers now open a single shared gate in the state store before they are posted, recorded in every control's snapshot with a deadline. A click only runs a picker control if it takes the gate first, so exactly one click in any process answers the picker — even after a restart or across replicas. Snapshots stored without a gate behave as before.
+- Retiring a picker (answer, timeout, abort, supersede, or failed post) now takes the gate too, retrying with backoff; if it still can't, the deadline ends the picker everywhere.
+- A failed picker post is now reported only once its controls are retired everywhere. When retirement can't be confirmed, the failure rejects with an `AggregateError` of the store and posting errors.
+- The answer window now counts from the gate's deadline, so posting latency no longer shortens the time available to respond.
+
+### Intelligence runner durability and replay (#7826)
+
+- **Slow but healthy gateways no longer time out runs.** The 60s durability deadline now counts from the last durable progress (queue becoming non-empty or the last acknowledged batch) rather than from when the oldest pending event was queued. A gateway that stops acknowledging still fails the run after 60s.
+- **Bounded pending-event queue.** A run may now hold at most `maxPendingEvents` (default 50,000) unacknowledged events; the next event fails the run with `RunnerEventQueueFullError` and aborts the agent.
+- **Lower memory on long runs.** The runner no longer retains every event of a run in memory, using an incremental finalizer and a `RUN_ERROR` flag instead.
+- **Replay failures now settle live runs.** On `replay_failed`, a live run fails with a typed `IntelligenceReplayFailedError` (`code: "INTELLIGENCE_REPLAY_FAILED"`) carrying the thread and run ids, instead of leaving `runAgent` hanging and the chat busy.
+- **Replayed errors are distinguishable from live ones.** `AGENT_RUN_ERROR_EVENT` context now carries a `phase` of `"replay"`, `"live"`, or `"unknown"`, so apps no longer show a stale error from replayed history after a newer run has succeeded.
+- **Reconnect cursor is restored on a failed replay**, so the next connect asks for the history the failed replay never delivered, and the error names the canonical run even when refreshed credentials omit the run ID.
+- New `onEventDeliveryStats` option reports acknowledgement latency, pending event count, and oldest-event age per batch, so deployments can watch the queue back up before a run times out.
+- Fell back to sorting runner events if they are ever queued out of sequence order, logging once instead of sending them out of order.
+
+### Intelligence channel-specific fixes (#8118)
+
+- **WhatsApp:** deduplicated command and button deliveries, and ephemeral success is now reported only after a message is actually posted.
+- **Teams:** personal refusal replies are now allowed when a reference omits the participant ID, while still rejecting known mismatches.
+- **Slack:** download credentials are now scoped to file hosts, and email was removed from `lookup_slack_user`.
+
+## Other Changes
+
+- Long Intelligence threads now load in a single burst (#8247). Replayed history is held until `replay_complete` and handed to AG-UI in one coalesced update, with the reconnect cursor following the events handed on and held events dropped on detach or teardown. On `replay_failed`, held events and the rest of that replay are dropped and requested again from the join's cursor. This works on current AG-UI releases, applying as separate updates where the `coalesce` option is unavailable.
+
 ## 0.12.0 - 2026-10-28
 
 ### Security
