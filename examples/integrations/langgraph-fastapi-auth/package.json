@@ -18,7 +18,7 @@
     "@copilotkit/react-core": "1.79.1",
     "@copilotkit/runtime": "1.79.1",
     "lucide-react": "^1.59.0",
-    "next": "16.4.2",
+    "next": "16.4.6",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "zod": "^3.25.76"
@@ -30,7 +30,7 @@
     "@types/react-dom": "^19",
     "concurrently": "^10.0.6",
     "eslint": "^9",
-    "eslint-config-next": "16.4.2",
+    "eslint-config-next": "16.4.6",
     "tailwindcss": "^4",
     "typescript": "~6.0.3"
   },
