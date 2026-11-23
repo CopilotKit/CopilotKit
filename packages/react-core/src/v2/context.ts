@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useReducer } from "react";
+import type { MCPAppsOptions } from "./components/MCPAppsActivityRenderer";
 import { CopilotKitCoreReact } from "./lib/react-core";
 import type { CopilotKitCoreReactConfig } from "./lib/react-core";
 import type { LicenseContextValue } from "@copilotkit/shared";
@@ -22,6 +23,8 @@ export interface CopilotKitContextValue {
    * are captured even before child components mount.
    */
   executingToolCallIds: ReadonlySet<string>;
+  /** Host-side MCP Apps options from `<CopilotKit mcpApps={...}>`. */
+  mcpApps?: MCPAppsOptions;
 }
 
 export const EMPTY_SET: ReadonlySet<string> = new Set();

@@ -90,7 +90,7 @@ function matchSegments(path: string): RouteInfo | null {
   // `agent/:agentId/...` patterns as agent lookups, so a bare
   // `cpk-debug-events` segment would never fall through to one —
   // the prefix is the real guard, not this branch's position).
-  // Handler returns 404 in production.
+  // Handler returns 404 unless `isDebugEventFeedEnabled` opens the feed.
   if (len >= 1 && segments[len - 1] === "cpk-debug-events") {
     return { method: "cpk-debug-events" };
   }
