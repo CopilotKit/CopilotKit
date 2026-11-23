@@ -72,6 +72,7 @@ export {
   ɵcreateThreadSelectors,
   ɵcreateThreadStore,
   ɵgetAgentInterruptState,
+  ɵgetAgentLegacyInterrupt,
   ɵisCopilotKitFeature,
   ɵisHttpAgent,
   ɵisRetryableMemoryStatus,
@@ -100,6 +101,7 @@ export {
   ɵselectThreads,
   ɵselectThreadsError,
   ɵselectThreadsIsLoading,
+  ɵsetAgentLegacyInterrupt,
   ɵthreadAdapterEvents,
   ɵwithHeaderDefaults,
 } from "@copilotkit/core";

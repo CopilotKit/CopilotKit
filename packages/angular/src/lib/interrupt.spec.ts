@@ -150,6 +150,79 @@ describe("InterruptController", () => {
     expect(controller.interrupt()?.id).toBe("restored");
   });
 
+  describe("legacy interrupt recovery", () => {
+    function reconnect(agent: FakeAgent, run = vi.fn()) {
+      const controller = new InterruptController(run);
+      controller.connect(agent as unknown as AbstractAgent);
+      return controller;
+    }
+
+    it("restores a legacy interrupt when a new controller connects", async () => {
+      const { agent, controller } = setup();
+      finalizeLegacy(agent, { proposal: "ship" });
+      controller.destroy();
+
+      const run = vi.fn().mockResolvedValue({ result: null, newMessages: [] });
+      const restored = reconnect(agent, run);
+      expect(restored.event()?.value).toEqual({ proposal: "ship" });
+      await restored.resolve({ approved: true });
+      expect(run).toHaveBeenCalledExactlyOnceWith(agent, {
+        forwardedProps: {
+          command: {
+            resume: { approved: true },
+            interruptEvent: { proposal: "ship" },
+          },
+        },
+      });
+    });
+
+    it("hides another thread's legacy interrupt and restores it when that thread returns", () => {
+      const { agent, controller } = setup();
+      finalizeLegacy(agent, "from-a");
+      controller.destroy();
+
+      agent.threadId = "thread-b";
+      reconnect(agent).destroy();
+      expect(reconnect(agent).hasInterrupt()).toBe(false);
+
+      agent.threadId = "thread-a";
+      expect(reconnect(agent).event()?.value).toBe("from-a");
+    });
+
+    it("does not restore a legacy interrupt that the user dismissed", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const { agent, controller } = setup();
+      finalizeLegacy(agent, "dismiss-me");
+      await controller.cancel();
+      controller.destroy();
+
+      expect(reconnect(agent).hasInterrupt()).toBe(false);
+      warn.mockRestore();
+    });
+
+    it("does not restore a legacy interrupt whose resume failed", async () => {
+      const error = vi.spyOn(console, "error").mockImplementation(() => {});
+      const agent = new FakeAgent();
+      const failure = new Error("resume failed");
+      const controller = reconnect(agent, vi.fn().mockRejectedValue(failure));
+      finalizeLegacy(agent, "lost");
+      await expect(controller.resolve("yes")).rejects.toBe(failure);
+      controller.destroy();
+
+      expect(reconnect(agent).hasInterrupt()).toBe(false);
+      error.mockRestore();
+    });
+
+    it("forgets a legacy interrupt once a new run starts", () => {
+      const { agent, controller } = setup();
+      finalizeLegacy(agent, "answered-elsewhere");
+      agent.subscriber?.onRunStartedEvent?.({} as never);
+      controller.destroy();
+
+      expect(reconnect(agent).hasInterrupt()).toBe(false);
+    });
+  });
+
   it("accumulates multiple decisions, persists tool results, and resumes once", async () => {
     const { agent, controller, run, startResume } = setup();
     finalizeStandard(agent, [

@@ -130,6 +130,111 @@ describe("useInterrupt", () => {
     handlers.onRunFinalized?.();
   }
 
+  describe("interrupt recovery on mount", () => {
+    /** Mount the hook and keep a handle on its returned API. */
+    function mountApi() {
+      let api!: ReturnType<typeof useInterrupt>;
+      const Harness = defineComponent({
+        setup() {
+          api = useInterrupt({ renderInChat: false });
+          return () => h("div");
+        },
+      });
+      const wrapper = mount(Harness);
+      return { wrapper, api: () => api };
+    }
+
+    it("shows a legacy interrupt again after the hook remounts", async () => {
+      const first = mountHarness({ renderInChat: false });
+      emitInterrupt("pending");
+      first.unmount();
+
+      const wrapper = mountHarness({ renderInChat: false });
+      await nextTick();
+      expect(wrapper.get('[data-testid="interrupt-state"]').text()).toBe(
+        "no-result:pending",
+      );
+      await wrapper.get('[data-testid="interrupt-state"]').trigger("click");
+      expect(runAgentMock).toHaveBeenCalledExactlyOnceWith({
+        agent: mockAgent,
+        forwardedProps: {
+          command: {
+            resume: { approved: true, value: "pending" },
+            interruptEvent: "pending",
+          },
+        },
+      });
+    });
+
+    it("shows a standard interrupt the agent still waits on when the hook mounts", async () => {
+      const interrupt: Interrupt = { id: "int-1", reason: "approval" };
+      mockAgent.pendingInterrupts = [interrupt];
+      const { api } = mountApi();
+      await nextTick();
+      expect(api().slotProps.value?.interrupt).toEqual(interrupt);
+    });
+
+    it("hides another thread's legacy interrupt and recovers it when that thread returns", async () => {
+      mockAgent.threadId = "thread-a";
+      mountHarness({ renderInChat: false }).unmount();
+      emitInterrupt("from-a");
+
+      mockAgent.threadId = "thread-b";
+      const second = mountHarness({ renderInChat: false });
+      await nextTick();
+      expect(second.get('[data-testid="interrupt-state"]').text()).toBe("idle");
+      second.unmount();
+
+      mockAgent.threadId = "thread-a";
+      const third = mountHarness({ renderInChat: false });
+      await nextTick();
+      expect(third.get('[data-testid="interrupt-state"]').text()).toBe(
+        "no-result:from-a",
+      );
+    });
+
+    it("does not bring back a legacy interrupt that the user dismissed", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const first = mountApi();
+      emitInterrupt("dismiss-me");
+      await nextTick();
+      expect(first.api().hasInterrupt.value).toBe(true);
+      await first.api().cancel();
+      first.wrapper.unmount();
+
+      const { api } = mountApi();
+      await nextTick();
+      expect(api().hasInterrupt.value).toBe(false);
+      warn.mockRestore();
+    });
+
+    it("does not bring back a legacy interrupt whose resume failed", async () => {
+      const error = vi.spyOn(console, "error").mockImplementation(() => {});
+      runAgentMock.mockRejectedValue(new Error("resume failed"));
+      const first = mountApi();
+      emitInterrupt("lost");
+      await nextTick();
+      await expect(first.api().resolve("yes")).rejects.toThrow("resume failed");
+      first.wrapper.unmount();
+
+      const { api } = mountApi();
+      await nextTick();
+      expect(api().hasInterrupt.value).toBe(false);
+      error.mockRestore();
+    });
+
+    it("forgets a legacy interrupt once a new run starts", async () => {
+      const first = mountApi();
+      emitInterrupt("answered-elsewhere");
+      handlers.onRunStartedEvent?.();
+      first.wrapper.unmount();
+
+      const { api } = mountApi();
+      await nextTick();
+      expect(api().hasInterrupt.value).toBe(false);
+    });
+  });
+
   it("subscribes on mount and unsubscribes on unmount", () => {
     const wrapper = mountHarness({ renderInChat: false });
 

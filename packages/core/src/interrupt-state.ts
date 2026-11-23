@@ -391,6 +391,43 @@ export function ɵgetAgentInterruptState(
   return state;
 }
 
+/**
+ * @internal Record a legacy `on_interrupt` interrupt as the agent's pending
+ * gate. A legacy interrupt is not in `agent.pendingInterrupts`, so without this
+ * record a hook mounted after the interrupt has nothing to recover it from.
+ */
+export function ɵsetAgentLegacyInterrupt(
+  agent: AbstractAgent,
+  event: ɵInterruptEvent,
+): ɵInterruptState {
+  const state = new ɵInterruptState();
+  state.setLegacy(event);
+  agentInterruptStates.set(agent, {
+    threadId: agent.threadId,
+    interrupts: [],
+    state,
+  });
+  return state;
+}
+
+/**
+ * @internal The legacy interrupt the agent waits on in its current thread, or
+ * null. A record from another thread stays saved, so that thread recovers it
+ * when the agent switches back.
+ */
+export function ɵgetAgentLegacyInterrupt(
+  agent: AbstractAgent,
+): ɵInterruptState | null {
+  const current = agentInterruptStates.get(agent);
+  if (
+    !current ||
+    current.threadId !== agent.threadId ||
+    current.state.pending?.kind !== "legacy"
+  )
+    return null;
+  return current.state;
+}
+
 /** @internal A new run owns a new batch, even if the server reuses interrupt IDs. */
 export function ɵclearAgentInterruptState(agent: AbstractAgent): void {
   agentInterruptStates.delete(agent);

@@ -11,6 +11,8 @@ import type {
 import {
   ɵInterruptState,
   ɵgetAgentInterruptState,
+  ɵgetAgentLegacyInterrupt,
+  ɵsetAgentLegacyInterrupt,
   ɵclearAgentInterruptState,
 } from "@copilotkit/core";
 import type { ɵInterruptDecision, ɵPendingInterrupt } from "@copilotkit/core";
@@ -202,6 +204,8 @@ export class InterruptController<TValue = unknown, TResult = never> {
         if (standard && standard.length > 0) {
           this.#setPending({ kind: "standard", interrupts: standard });
         } else if (legacy) {
+          // Saved on the agent, so a controller connected later recovers it.
+          ɵsetAgentLegacyInterrupt(agent, legacy);
           this.#setPending({ kind: "legacy", event: legacy });
         }
         legacy = null;
@@ -224,6 +228,11 @@ export class InterruptController<TValue = unknown, TResult = never> {
         kind: "standard",
         interrupts: [...agent.pendingInterrupts],
       });
+    } else {
+      const legacyPending = ɵgetAgentLegacyInterrupt(agent)?.pending;
+      if (legacyPending) {
+        this.#setPending(legacyPending as PendingInterrupt<TValue>);
+      }
     }
   }
 
@@ -253,6 +262,7 @@ export class InterruptController<TValue = unknown, TResult = never> {
     if (current.kind === "legacy") {
       const decision = this.#interruptState.resolve(payload, interruptId);
       if (decision.kind !== "legacy-resume") return;
+      const resumed = this.#interruptState;
       return this.#startResume(agent, {
         forwardedProps: {
           command: {
@@ -260,6 +270,12 @@ export class InterruptController<TValue = unknown, TResult = never> {
             interruptEvent: decision.interruptValue,
           },
         },
+      }).catch((error: unknown) => {
+        // The sealed record could never be answered again; do not recover it.
+        if (ɵgetAgentLegacyInterrupt(agent) === resumed) {
+          ɵclearAgentInterruptState(agent);
+        }
+        throw error;
       });
     }
 
@@ -294,6 +310,7 @@ export class InterruptController<TValue = unknown, TResult = never> {
       console.warn(
         "[CopilotKit] injectInterrupt: legacy on_interrupt events cannot be cancelled; dismissing.",
       );
+      ɵclearAgentInterruptState(agent);
       this.#clear();
       return;
     }
@@ -339,8 +356,11 @@ export class InterruptController<TValue = unknown, TResult = never> {
         pending.interrupts,
       ) as ɵInterruptState<TValue>;
     } else {
-      this.#interruptState = new ɵInterruptState<TValue>();
-      this.#interruptState.setLegacy(pending.event);
+      this.#interruptState = (ɵgetAgentLegacyInterrupt(this.#agent!) ??
+        ɵsetAgentLegacyInterrupt(
+          this.#agent!,
+          pending.event,
+        )) as ɵInterruptState<TValue>;
     }
 
     const event = toLegacyEvent(pending);

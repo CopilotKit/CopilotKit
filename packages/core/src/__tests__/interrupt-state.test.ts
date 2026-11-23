@@ -1,7 +1,14 @@
 import type { Interrupt, Message } from "@ag-ui/client";
 import { describe, expect, it } from "vitest";
 
-import { ɵInterruptState } from "../interrupt-state";
+import type { AbstractAgent } from "@ag-ui/client";
+import {
+  ɵInterruptState,
+  ɵclearAgentInterruptState,
+  ɵgetAgentInterruptState,
+  ɵgetAgentLegacyInterrupt,
+  ɵsetAgentLegacyInterrupt,
+} from "../interrupt-state";
 
 /** Build a protocol interrupt with optional frontend call ownership. */
 function interrupt(
@@ -385,5 +392,41 @@ describe("remaining review regressions", () => {
       kind: "resume",
       toolResults: [{ toolCallId: "same" }],
     });
+  });
+});
+
+describe("legacy interrupt record", () => {
+  const event = { name: "on_interrupt", value: "approve?" };
+  const agentOn = (threadId: string) =>
+    ({ threadId, pendingInterrupts: [] }) as unknown as AbstractAgent;
+
+  it("returns the shared state for the thread that raised it", () => {
+    const agent = agentOn("thread-a");
+    const state = ɵsetAgentLegacyInterrupt(agent, event);
+    expect(ɵgetAgentLegacyInterrupt(agent)).toBe(state);
+    expect(state.pending).toEqual({ kind: "legacy", event });
+  });
+
+  it("hides the record on another thread and keeps it for the original thread", () => {
+    const agent = agentOn("thread-a");
+    ɵsetAgentLegacyInterrupt(agent, event);
+    (agent as { threadId: string }).threadId = "thread-b";
+    expect(ɵgetAgentLegacyInterrupt(agent)).toBeNull();
+    (agent as { threadId: string }).threadId = "thread-a";
+    expect(ɵgetAgentLegacyInterrupt(agent)?.pending).toEqual({
+      kind: "legacy",
+      event,
+    });
+  });
+
+  it("is replaced by a standard batch and removed by a clear", () => {
+    const agent = agentOn("thread-a");
+    ɵsetAgentLegacyInterrupt(agent, event);
+    ɵgetAgentInterruptState(agent, [{ id: "i1", reason: "approval" }]);
+    expect(ɵgetAgentLegacyInterrupt(agent)).toBeNull();
+
+    ɵsetAgentLegacyInterrupt(agent, event);
+    ɵclearAgentInterruptState(agent);
+    expect(ɵgetAgentLegacyInterrupt(agent)).toBeNull();
   });
 });
