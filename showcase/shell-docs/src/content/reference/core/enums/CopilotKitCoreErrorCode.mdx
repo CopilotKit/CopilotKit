@@ -39,6 +39,7 @@ const members = {
   TRANSCRIPTION_NETWORK_ERROR: "transcription_network_error",
   SUBSCRIBER_CALLBACK_FAILED: "subscriber_callback_failed",
   HEADER_RESOLUTION_FAILED: "header_resolution_failed",
+  RUNTIME_VERSION_MISMATCH: "runtime_version_mismatch",
 } satisfies {
   [Member in keyof typeof CopilotKitCoreErrorCode]: `${(typeof CopilotKitCoreErrorCode)[Member]}`;
 };
@@ -119,6 +120,12 @@ CopilotKitCore does not emit the six `TRANSCRIPTION_*` codes below. Transcriptio
 <PropertyReference name="HEADER_RESOLUTION_FAILED" type="header_resolution_failed">
   The `headers` builder threw, rejected, or returned something other than an
   object. The request was not sent. `error.cause` is the builder's error.
+</PropertyReference>
+
+<PropertyReference name="RUNTIME_VERSION_MISMATCH" type="runtime_version_mismatch">
+  The runtime is CopilotKit 1.x and the client is 2.0. Generative UI is off,
+  because a 1.x runtime sends A2UI v0.9 surfaces. Upgrade the runtime to 2.0.
+  `context.runtimeUrl` names the runtime.
 </PropertyReference>
 
 ## Usage

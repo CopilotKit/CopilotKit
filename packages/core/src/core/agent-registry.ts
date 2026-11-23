@@ -1667,6 +1667,9 @@ export class AgentRegistry {
         return;
       }
       await this.notifyAgentsChanged();
+      if (isCopilotKit1RuntimeInfo(runtimeInfoResponse)) {
+        await this.reportCopilotKit1Runtime(runtimeUrl);
+      }
       if (
         inspectorMetadataConnectionGeneration !==
           this.inspectorMetadataConnectionGeneration ||
@@ -1747,7 +1750,7 @@ export class AgentRegistry {
       );
       const runtimeError =
         error instanceof Error ? error : new Error(String(error));
-      await (this.core as unknown as CopilotKitCoreFriendsAccess).emitError({
+      await this.coreFriends.emitError({
         error: runtimeError,
         code: CopilotKitCoreErrorCode.RUNTIME_INFO_FETCH_FAILED,
         context: {
@@ -1755,6 +1758,29 @@ export class AgentRegistry {
         },
       });
     }
+  }
+
+  /** The core's internal API, for the `/info` error reports. */
+  private get coreFriends(): CopilotKitCoreFriendsAccess {
+    return this.core as unknown as CopilotKitCoreFriendsAccess;
+  }
+
+  /**
+   * A 1.x runtime sends A2UI v0.9 surfaces, which this client cannot render,
+   * so generative UI stays off. Say so, instead of leaving it off silently.
+   */
+  private async reportCopilotKit1Runtime(runtimeUrl: string): Promise<void> {
+    const message =
+      `The runtime at ${runtimeUrl} is CopilotKit 1.x, and this client is ` +
+      "CopilotKit 2.0, so generative UI is off. Upgrade the runtime to 2.0 " +
+      "(npm install @copilotkit/runtime@next). See " +
+      "https://docs.copilotkit.ai/v2/migrate/v2";
+    logger.warn(message);
+    await this.coreFriends.emitError({
+      error: new Error(message),
+      code: CopilotKitCoreErrorCode.RUNTIME_VERSION_MISMATCH,
+      context: { runtimeUrl, runtimeMajorVersion: 1 },
+    });
   }
 
   private async fetchRuntimeInfo(
@@ -1965,4 +1991,13 @@ export class AgentRegistry {
       "Subscriber onInspectorMetadataChanged error:",
     );
   }
+}
+
+/**
+ * A 1.x runtime always sends `a2uiEnabled` (and `a2ui` when it is on) in
+ * `/info`, and never `generativeUI`. A 2.0 runtime always sends
+ * `generativeUI`.
+ */
+function isCopilotKit1RuntimeInfo(info: object): boolean {
+  return !("generativeUI" in info) && ("a2uiEnabled" in info || "a2ui" in info);
 }

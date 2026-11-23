@@ -228,6 +228,12 @@ export enum CopilotKitCoreErrorCode {
    * an object. The request was not sent. `error.cause` is the builder's error.
    */
   HEADER_RESOLUTION_FAILED = "header_resolution_failed",
+  /**
+   * The runtime is CopilotKit 1.x and this client is 2.0. Generative UI is off,
+   * because a 1.x runtime sends A2UI v0.9 surfaces. Upgrade the runtime to 2.0.
+   * `context.runtimeUrl` names the runtime.
+   */
+  RUNTIME_VERSION_MISMATCH = "runtime_version_mismatch",
 }
 
 /** An error the core reports, as passed to {@link CopilotKitCoreErrorHandler}. */
