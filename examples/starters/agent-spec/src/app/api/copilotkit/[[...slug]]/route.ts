@@ -1,8 +1,8 @@
 import {
-  CopilotRuntime,
+  CopilotKitRuntime,
   CopilotKitIntelligence,
   InMemoryAgentRunner,
-  createCopilotRuntimeHandler,
+  createCopilotKitRuntimeHandler,
 } from "@copilotkit/runtime";
 import { HttpAgent } from "@ag-ui/client";
 
@@ -13,7 +13,7 @@ const agent = new HttpAgent({
     "http://localhost:8000/",
 });
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: { my_a2ui_agent: agent },
   // The runtime adds the A2UI v0.9 middleware and its render tool, and
   // converts v0.9 surfaces to generative UI (A2UI 1.0) for the client.
@@ -40,7 +40,7 @@ const runtime = new CopilotRuntime({
   // --- /copilotkit:intelligence ---
 });
 
-const app = createCopilotRuntimeHandler({
+const app = createCopilotKitRuntimeHandler({
   cors: true,
   runtime,
   basePath: "/api/copilotkit",

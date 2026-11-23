@@ -6,7 +6,7 @@ import {
   CopilotKitProvider,
   CopilotThreadsDrawer,
   useAgent,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 
 /** Keep the send control's accessible label in sync with the active run. */
 function Chat() {

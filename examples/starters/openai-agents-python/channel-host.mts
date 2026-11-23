@@ -20,10 +20,10 @@
  */
 import "dotenv/config";
 import {
-  CopilotRuntime,
+  CopilotKitRuntime,
   CopilotKitIntelligence,
-  createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
+  createCopilotKitRuntimeHandler,
+} from "@copilotkit/runtime";
 import { createDefaultChannel, resolveChannelName } from "./channels.mjs";
 
 /** Reads a required env var, or exits naming the one that is missing. */
@@ -39,7 +39,7 @@ function required(name: string): string {
 async function main(): Promise<void> {
   const channelName = resolveChannelName();
 
-  const runtime = new CopilotRuntime({
+  const runtime = new CopilotKitRuntime({
     // The Channel supplies its own agent, so no runtime-hosted agents are needed.
     agents: {},
     channels: [createDefaultChannel(channelName)],
@@ -57,7 +57,7 @@ async function main(): Promise<void> {
   // This handler is deliberately never served. It is the documented
   // long-running-host entry point: creating it opens nothing, and the `ready()`
   // below is what activates the Channel.
-  const handler = createCopilotRuntimeHandler({ runtime });
+  const handler = createCopilotKitRuntimeHandler({ runtime });
 
   // Teardown is wired before activation starts, so a Ctrl-C during the connect
   // window still tears the gateway session down instead of orphaning it.

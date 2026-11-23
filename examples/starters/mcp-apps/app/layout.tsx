@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 
-import { CopilotKit } from "@copilotkit/react-core";
+import { CopilotKitProvider } from "@copilotkit/react-core";
 import "./globals.css";
-import "@copilotkit/react-ui/v2/styles.css";
 
 export const metadata: Metadata = {
   title: "Create Next App",
@@ -17,14 +16,13 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={"antialiased"}>
-        <CopilotKit
+        <CopilotKitProvider
           runtimeUrl="/api/copilotkit"
-          showDevConsole={false}
           enableInspector={false}
           useSingleEndpoint={false}
         >
           {children}
-        </CopilotKit>
+        </CopilotKitProvider>
       </body>
     </html>
   );

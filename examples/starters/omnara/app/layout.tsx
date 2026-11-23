@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import "@copilotkit/react-core/v2/styles.css";
 import "@fontsource-variable/plus-jakarta-sans";
 import "@fontsource-variable/spline-sans-mono";
 import "./globals.css";

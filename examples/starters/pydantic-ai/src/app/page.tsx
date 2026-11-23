@@ -9,13 +9,11 @@ import {
   useFrontendTool,
   useHumanInTheLoop,
   useRenderTool,
-} from "@copilotkit/react-core/v2";
-import type { CopilotKitCSSProperties } from "@copilotkit/react-core/v2";
-import {
   CopilotChatConfigurationProvider,
   CopilotSidebar,
   CopilotThreadsDrawer,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
+import type { CSSProperties } from "react";
 import { useEffect, useState } from "react";
 import { z } from "zod";
 
@@ -59,7 +57,7 @@ export default function CopilotKitPage() {
             style={
               {
                 "--copilot-kit-primary-color": themeColor,
-              } as CopilotKitCSSProperties
+              } as CSSProperties
             }
           >
             <YourMainContent themeColor={themeColor} />

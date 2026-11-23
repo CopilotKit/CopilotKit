@@ -52,7 +52,7 @@ From your app directory:
 | Runtime and user authentication            | `app/api/copilotkit/[[...slug]]/route.ts` |
 | Omnara user and adapter options            | `app/agent.ts`                            |
 
-The frontend uses `CopilotChat` and `CopilotThreadsDrawer` from `@copilotkit/react-core/v2`.
+The frontend uses `CopilotChat` and `CopilotThreadsDrawer` from `@copilotkit/react-core`.
 Their shared `CopilotChatConfigurationProvider` connects the drawer to the chat.
 
 After you edit the agent configuration:

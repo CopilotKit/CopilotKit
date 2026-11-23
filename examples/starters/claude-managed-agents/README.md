@@ -30,7 +30,7 @@ It writes the app configuration to `.env.local` and the Anthropic resource IDs t
 | Sandbox network access                  | `anthropic/environments/sandbox.yaml`     |
 | Runtime and user authentication         | `app/api/copilotkit/[[...slug]]/route.ts` |
 
-The frontend uses `CopilotChat` and `CopilotThreadsDrawer` from `@copilotkit/react-core/v2`.
+The frontend uses `CopilotChat` and `CopilotThreadsDrawer` from `@copilotkit/react-core`.
 Their shared `CopilotChatConfigurationProvider` connects the drawer to the chat.
 
 After you edit the agent or sandbox configuration:

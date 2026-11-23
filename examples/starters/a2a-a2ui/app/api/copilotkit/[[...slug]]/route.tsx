@@ -1,8 +1,8 @@
 import {
-  CopilotRuntime,
+  CopilotKitRuntime,
   CopilotKitIntelligence,
   InMemoryAgentRunner,
-  createCopilotRuntimeHandler,
+  createCopilotKitRuntimeHandler,
 } from "@copilotkit/runtime";
 import type {
   AgentSubscriber,
@@ -79,7 +79,7 @@ class RuntimeA2AAgent extends A2AAgent {
 
 const agent = new RuntimeA2AAgent({ a2aClient });
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: {
     default: agent,
   },
@@ -110,7 +110,7 @@ const runtime = new CopilotRuntime({
   // --- /copilotkit:intelligence ---
 });
 
-const app = createCopilotRuntimeHandler({
+const app = createCopilotKitRuntimeHandler({
   cors: true,
   runtime,
   basePath: "/api/copilotkit",

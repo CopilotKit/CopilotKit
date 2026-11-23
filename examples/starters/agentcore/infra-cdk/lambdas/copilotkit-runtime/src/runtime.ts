@@ -7,10 +7,11 @@ import type { BaseEvent } from "@ag-ui/client";
 import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
 import {
   CopilotKitIntelligence,
-  CopilotRuntime,
-  createCopilotEndpoint,
+  CopilotKitRuntime,
+  createCopilotKitRuntimeHandler,
   InMemoryAgentRunner,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
+import { Hono } from "hono";
 import { concatMap, of } from "rxjs";
 import { randomUUID } from "node:crypto";
 import {
@@ -116,7 +117,7 @@ export function buildApp(
     throw new Error("At least one CopilotKit agent URL must be configured");
 
   const runtime = process.env.CPK_INTELLIGENCE_API_KEY
-    ? new CopilotRuntime({
+    ? new CopilotKitRuntime({
         agents: { ...agents, default: defaultAgent },
         intelligence: new CopilotKitIntelligence({
           apiKey: process.env.CPK_INTELLIGENCE_API_KEY,
@@ -132,10 +133,21 @@ export function buildApp(
             ? resolveLocalRuntimeUser(request)
             : resolveVerifiedRuntimeUser(request),
       })
-    : new CopilotRuntime({
+    : new CopilotKitRuntime({
         agents: { ...agents, default: defaultAgent },
         runner: new AgentCoreRunner(),
       });
 
-  return createCopilotEndpoint({ runtime, basePath: "/copilotkit" });
+  const handleRequest = createCopilotKitRuntimeHandler({
+    runtime,
+    basePath: "/copilotkit",
+    cors: true,
+  });
+
+  // The runtime handler is a plain Fetch handler (Request => Response). A Hono
+  // app wraps it so the Lambda (`streamHandle`) and the local server
+  // (`@hono/node-server`) can serve it unchanged.
+  const app = new Hono();
+  app.all("*", (c) => handleRequest(c.req.raw));
+  return app;
 }

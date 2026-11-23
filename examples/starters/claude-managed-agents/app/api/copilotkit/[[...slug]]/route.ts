@@ -1,10 +1,10 @@
 import Anthropic from "@anthropic-ai/sdk";
 import {
   CopilotKitIntelligence,
-  CopilotRuntime,
+  CopilotKitRuntime,
   InMemoryAgentRunner,
-  createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
+  createCopilotKitRuntimeHandler,
+} from "@copilotkit/runtime";
 import { HttpAgent } from "@ag-ui/client";
 import { ManagedAgentsAgent } from "@ag-ui/claude-managed-agents";
 import { fillEmptyToolResults } from "@/lib/tool-results";
@@ -18,8 +18,8 @@ export const dynamic = "force-dynamic";
 /** One runtime per process; development reloads retain thread/session mappings. */
 function createHandler() {
   if (process.env.AGENT_URL)
-    return createCopilotRuntimeHandler({
-      runtime: new CopilotRuntime({
+    return createCopilotKitRuntimeHandler({
+      runtime: new CopilotKitRuntime({
         agents: { default: new HttpAgent({ url: process.env.AGENT_URL }) },
         runner: new InMemoryAgentRunner(),
       }),
@@ -38,8 +38,8 @@ function createHandler() {
     }),
   });
   const { agentId, environmentId } = requireStack();
-  return createCopilotRuntimeHandler({
-    runtime: new CopilotRuntime({
+  return createCopilotKitRuntimeHandler({
+    runtime: new CopilotKitRuntime({
       agents: {
         default: new ManagedAgentsAgent({
           managedAgentId: agentId,

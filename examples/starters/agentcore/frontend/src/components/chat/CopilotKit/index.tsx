@@ -1,7 +1,6 @@
 // frontend/src/components/chat/CopilotChatInterface.tsx
 "use client";
 
-import "@copilotkit/react-core/v2/styles.css";
 import { useEffect, useMemo, useState } from "react";
 import {
   CopilotChat,
@@ -9,7 +8,7 @@ import {
   CopilotThreadsDrawer,
   CopilotKitProvider,
   useFrontendTool,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 import { useAuth as useOidcAuth } from "react-oidc-context";
 import { loadAwsConfig } from "@/lib/runtime-config";
 import type { AwsExportsConfig } from "@/lib/runtime-config";

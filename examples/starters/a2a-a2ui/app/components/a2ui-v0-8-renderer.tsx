@@ -180,6 +180,9 @@ function A2UIV08Surface({ content }: { content: unknown }) {
   );
 }
 
+// The runtime turns generative UI off (`generativeUI: false` in
+// app/api/copilotkit/[[...slug]]/route.tsx), so the agent's A2UI v0.8
+// `a2ui-surface` activities reach the client and this renderer draws them.
 export const a2uiV08Renderer: ReactActivityMessageRenderer<unknown> = {
   activityType: "a2ui-surface",
   content: z.unknown(),

@@ -1,7 +1,7 @@
 // `npm run doctor`: is everything this app needs actually in place?
 // Checks the same things the runtime relies on, in the same order it would fail.
 
-import { CopilotKitIntelligence } from "@copilotkit/runtime/v2";
+import { CopilotKitIntelligence } from "@copilotkit/runtime";
 import { createLicenseContextValue } from "@copilotkit/shared";
 import nextEnv from "@next/env";
 import { ApiError, bearerToken, createOmnaraClient, sdk } from "@omnara/sdk";

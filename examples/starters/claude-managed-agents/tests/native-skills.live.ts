@@ -5,7 +5,7 @@ import { createServer } from "node:http";
 import { readFileSync } from "node:fs";
 import Anthropic from "@anthropic-ai/sdk";
 import { ManagedAgentsAgent } from "@ag-ui/claude-managed-agents";
-import { CopilotKitIntelligence } from "@copilotkit/runtime/v2";
+import { CopilotKitIntelligence } from "@copilotkit/runtime";
 import { zipSync } from "fflate";
 import { z } from "zod";
 import nextEnv from "@next/env";

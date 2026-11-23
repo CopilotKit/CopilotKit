@@ -57,6 +57,7 @@ const MANAGED_ENTITLEMENT_CONTRACT_BY_SDK_VERSION = {
     "1.78.0": true,
     "1.79.0": true,
     "2.0.0-rc.41": true,
+    "2.0.0-rc.68": true,
   },
   "@copilotkit/react-core": {
     "1.62.2": false,
@@ -70,6 +71,7 @@ const MANAGED_ENTITLEMENT_CONTRACT_BY_SDK_VERSION = {
     "1.78.0": true,
     "1.79.0": true,
     "2.0.0-rc.41": true,
+    "2.0.0-rc.68": true,
   },
 } as const satisfies Readonly<
   Record<ManagedSdkPackageName, Readonly<Record<string, boolean>>>
@@ -1242,6 +1244,17 @@ function constructOptions(
   return matches;
 }
 
+/**
+ * Whether a constructor name matches the expected one. CopilotKit 2.0 renamed
+ * the runtime class to `CopilotKitRuntime`; `CopilotRuntime` is its 1.x name.
+ */
+function constructorNameMatches(actual: string, expected: string): boolean {
+  if (expected === "CopilotRuntime") {
+    return actual === "CopilotRuntime" || actual === "CopilotKitRuntime";
+  }
+  return actual === expected;
+}
+
 /** Returns every object-literal options argument for one constructor. */
 function newExpressionOptions(
   sourceFile: ts.SourceFile,
@@ -1254,7 +1267,7 @@ function newExpressionOptions(
     if (
       ts.isNewExpression(node) &&
       ts.isIdentifier(node.expression) &&
-      node.expression.text === constructorName
+      constructorNameMatches(node.expression.text, constructorName)
     ) {
       const options = node.arguments?.[0]
         ? unwrapExpression(node.arguments[0])
@@ -1279,7 +1292,7 @@ function constructorOptionsFromExpression(
   if (
     !ts.isNewExpression(unwrapped) ||
     !ts.isIdentifier(unwrapped.expression) ||
-    unwrapped.expression.text !== constructorName
+    !constructorNameMatches(unwrapped.expression.text, constructorName)
   ) {
     return null;
   }
@@ -2224,7 +2237,10 @@ function expectA2AVisualizationBehavior(contents: string): void {
 /** Asserts AgentCore selects managed Intelligence or its custom local runner. */
 function expectAgentCoreRuntimeBehavior(contents: string): void {
   const sourceFile = parseManagedSource(contents);
-  const endpointCalls = sourceCalls(sourceFile, ["createCopilotEndpoint"]);
+  const endpointCalls = [
+    ...sourceCalls(sourceFile, ["createCopilotEndpoint"]),
+    ...sourceCalls(sourceFile, ["createCopilotKitRuntimeHandler"]),
+  ];
   const requiredAgentUrl = sourceCalls(sourceFile, ["requireEnv"]).some(
     (call) =>
       call.arguments[0] &&

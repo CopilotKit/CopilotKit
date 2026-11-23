@@ -16,10 +16,10 @@
   "dependencies": {
     "@a2a-js/sdk": "0.2.5",
     "@ag-ui/a2a": "0.00.6",
-    "@ag-ui/client": "1.0.4",
-    "@ag-ui/core": "1.0.4",
-    "@copilotkit/react-core": "2.0.0-rc.44",
-    "@copilotkit/runtime": "2.0.0-rc.44",
+    "@ag-ui/client": "1.0.5",
+    "@ag-ui/core": "1.0.5",
+    "@copilotkit/react-core": "2.0.0-rc.68",
+    "@copilotkit/runtime": "2.0.0-rc.68",
     "lucide-react": "^0.577.0",
     "next": "16.3.8",
     "react": "^19.2.3",
@@ -38,17 +38,17 @@
     "typescript": "5.9.2"
   },
   "overrides": {
-    "@ag-ui/client": "1.0.4",
-    "@ag-ui/core": "1.0.4",
-    "@ag-ui/encoder": "1.0.4",
-    "@ag-ui/proto": "1.0.4"
+    "@ag-ui/client": "1.0.5",
+    "@ag-ui/core": "1.0.5",
+    "@ag-ui/encoder": "1.0.5",
+    "@ag-ui/proto": "1.0.5"
   },
   "pnpm": {
     "overrides": {
-      "@ag-ui/client": "1.0.4",
-      "@ag-ui/core": "1.0.4",
-      "@ag-ui/encoder": "1.0.4",
-      "@ag-ui/proto": "1.0.4"
+      "@ag-ui/client": "1.0.5",
+      "@ag-ui/core": "1.0.5",
+      "@ag-ui/encoder": "1.0.5",
+      "@ag-ui/proto": "1.0.5"
     }
   }
 }

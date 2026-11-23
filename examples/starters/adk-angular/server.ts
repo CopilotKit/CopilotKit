@@ -1,14 +1,14 @@
 import "dotenv/config";
 import { createServer } from "node:http";
 import {
-  CopilotRuntime,
+  CopilotKitRuntime,
   CopilotKitIntelligence,
   InMemoryAgentRunner,
-} from "@copilotkit/runtime/v2";
-import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
+} from "@copilotkit/runtime";
+import { createCopilotKitNodeListener } from "@copilotkit/runtime/node";
 import { HttpAgent } from "@ag-ui/client";
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: {
     default: new HttpAgent({
       url: process.env.AGENT_URL || "http://localhost:8000/",
@@ -51,7 +51,7 @@ const port = 8200;
 const host = process.env.RUNTIME_HOST ?? "127.0.0.1";
 
 createServer(
-  createCopilotNodeListener({
+  createCopilotKitNodeListener({
     runtime,
     basePath: "/api/copilotkit",
     cors: true,

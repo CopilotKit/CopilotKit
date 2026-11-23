@@ -1,13 +1,12 @@
 import {
-  CopilotRuntime,
+  CopilotKitRuntime,
   CopilotKitIntelligence,
-  createCopilotEndpoint,
   InMemoryAgentRunner,
-} from "@copilotkit/runtime/v2";
+  createCopilotKitRuntimeHandler,
+} from "@copilotkit/runtime";
 import { AGENT_ID, createDefaultAgent } from "@/agent";
-import { handle } from "hono/vercel";
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: {
     // The Python process on :8000 (agent/main.py) — an AG-UI endpoint in front
     // of Google Antigravity's Go harness. AGENT_URL points at it.
@@ -35,12 +34,13 @@ const runtime = new CopilotRuntime({
   // --- /copilotkit:intelligence ---
 });
 
-const app = createCopilotEndpoint({
+const app = createCopilotKitRuntimeHandler({
+  cors: true,
   runtime,
   basePath: "/api/copilotkit",
 });
 
-export const GET = handle(app);
-export const POST = handle(app);
-export const PATCH = handle(app);
-export const DELETE = handle(app);
+export const GET = app;
+export const POST = app;
+export const PATCH = app;
+export const DELETE = app;
