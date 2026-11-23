@@ -613,6 +613,31 @@ jobs:
               });
             }
 
+      - name: Record npm release tarballs
+        # The packages are already published. The smoke gate reports a missing
+        # manifest separately from the release result.
+        id: npm-release-manifest
+        if: ${{ success() && inputs.dry-run != true && steps.meta.outputs.mode == 'stable' }}
+        continue-on-error: true
+        env:
+          SCOPE: ${{ steps.meta.outputs.scope }}
+          VERSION: ${{ steps.publish.outputs.version }}
+        run: |
+          jq -e --arg scope "$SCOPE" --arg version "$VERSION" '
+            .scopes[$scope].packages
+            | select(type == "array" and length > 0)
+            | {version: $version, packages: .}
+          ' release.config.json > "$RUNNER_TEMP/npm-release.json"
+
+      - name: Upload npm release manifest
+        if: steps.npm-release-manifest.outcome == 'success'
+        continue-on-error: true
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: npm-release
+          path: ${{ runner.temp }}/npm-release.json
+          if-no-files-found: error
+
       - name: Release summary (stable)
         if: ${{ success() && inputs.dry-run != true && steps.meta.outputs.mode != 'prerelease' }}
         run: |
