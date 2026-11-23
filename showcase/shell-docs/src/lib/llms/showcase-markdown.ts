@@ -72,7 +72,8 @@ export function expandShowcase(body: string, page: ShowcasePage): string {
       frameworkIs(
         scope.framework ?? text(attrs.currentFramework),
         text(attrs.is) ?? "",
-      ) !== (attrs.not === true),
+      ) !==
+      (attrs.not === true),
   );
   out = filterBlocks(out, "WhenFrameworkHas", (attrs) =>
     frameworkHas(
