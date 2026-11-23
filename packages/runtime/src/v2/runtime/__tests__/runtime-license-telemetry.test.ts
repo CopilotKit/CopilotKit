@@ -34,7 +34,12 @@ afterAll(() => {
   }
 });
 
-const AGENTS = {};
+// A registered agent: `copilot_request_created` is captured only once the
+// agent id has been validated, so the request path below must resolve to one.
+const REQUEST_AGENT_ID = "test-agent";
+const AGENTS = {
+  [REQUEST_AGENT_ID]: { clone: () => ({}) },
+} as unknown as Record<string, never>;
 const IDENTIFY_USER = vi
   .fn()
   .mockResolvedValue({ id: "user-1", name: "User One" });
@@ -532,10 +537,10 @@ async function emitRuntimeRequest(
 ): Promise<Response> {
   return handleRunAgent({
     runtime,
-    request: new Request("https://example.com/agent/missing/run", {
+    request: new Request(`https://example.com/agent/${REQUEST_AGENT_ID}/run`, {
       method: "POST",
     }),
-    agentId: "missing",
+    agentId: REQUEST_AGENT_ID,
   });
 }
 

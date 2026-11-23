@@ -165,6 +165,7 @@ export interface WiredCell {
  */
 export interface RegistryIntegration {
   slug: string;
+  deployed?: boolean;
   features?: string[];
   not_supported_features?: string[];
   demos?: Array<{ id: string; route?: string }>;
