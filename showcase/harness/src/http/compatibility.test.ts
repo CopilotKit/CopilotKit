@@ -4,6 +4,8 @@ import { logger } from "../logger.js";
 import type { PbClient } from "../storage/pb-client.js";
 import { canonicalPayload, computeSignature } from "./hmac.js";
 import { registerCompatibilityRoutes } from "./compatibility.js";
+import type { CompatibilityRouteDeps } from "./compatibility.js";
+import { COMPATIBILITY_MAPPING } from "../shared/compatibility-mapping.js";
 
 const NOW = 1_700_000_000;
 const AT = new Date(NOW * 1000).toISOString();
@@ -37,6 +39,7 @@ const snapshot = {
 function fixture(
   initial: Record<string, unknown> | null = null,
   expectedLibraries: Record<string, string[]> = { example: ["example"] },
+  extra: Partial<CompatibilityRouteDeps> = {},
 ) {
   let record = initial;
   const write = vi.fn(async (_collection, _field, _key, patch) => {
@@ -55,6 +58,7 @@ function fixture(
     environmentId: "prod-id",
     nowSec: () => NOW,
     expectedLibraries,
+    ...extra,
   });
   async function publish(value: Record<string, unknown>, secret = SECRET) {
     const body = JSON.stringify(value);
@@ -159,6 +163,37 @@ describe("saved compatibility publication", () => {
         .status,
     ).toBe(400);
     expect(f.write).not.toHaveBeenCalled();
+  });
+  it("does not require rows for variants whose manifest is not deployed", async () => {
+    const ag2Only = {
+      ...success,
+      snapshot: {
+        ...snapshot,
+        rows: [
+          {
+            ...snapshot.rows[0],
+            slug: "ag2",
+            packages: [{ ...snapshot.rows[0].packages[0], name: "ag2" }],
+          },
+        ],
+      },
+      sourceCommits: { ag2: "a".repeat(40) },
+    };
+    const othersUndeployed = new Set(
+      COMPATIBILITY_MAPPING.map((variant) => variant.slug).filter(
+        (slug) => slug !== "ag2",
+      ),
+    );
+    const deployedOnly = fixture(null, undefined, {
+      expectedLibraries: undefined,
+      undeployedSlugs: () => othersUndeployed,
+    });
+    expect((await deployedOnly.publish(ag2Only)).status).toBe(200);
+    const allDeployed = fixture(null, undefined, {
+      expectedLibraries: undefined,
+      undeployedSlugs: () => new Set(),
+    });
+    expect((await allDeployed.publish(ag2Only)).status).toBe(400);
   });
   it("returns an explicit empty state before the first published audit", async () => {
     const f = fixture();

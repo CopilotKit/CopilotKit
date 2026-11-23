@@ -54,6 +54,7 @@ import {
   MCPAppsActivityRenderer,
   MCPAppsActivityType,
 } from "../components/MCPAppsActivityRenderer";
+import type { MCPAppsOptions } from "../components/MCPAppsActivityRenderer";
 import {
   OpenGenerativeUIActivityType,
   OpenGenerativeUIContentSchema,
@@ -322,36 +323,23 @@ export interface CopilotKitProviderProps {
    */
   generativeUI?: GenerativeUIConfig;
   /**
-   * Configuration for the built-in MCP Apps renderer.
+   * Host-side options for MCP Apps widgets: the host identity, capabilities
+   * and UI context announced to widgets, the two timeouts, the sandbox
+   * origin, and whether widgets may report state to the model
+   * (`modelContext`). Optional; use it to narrow what widgets may obtain, for
+   * example to keep them inline.
    *
    * @example
    * ```tsx
-   * <CopilotKit runtimeUrl="/api/copilotkit" mcpApps={{ allowSameOriginFallback: true }}>
+   * <CopilotKit
+   *   runtimeUrl="/api/copilotkit"
+   *   mcpApps={{ hostContext: { availableDisplayModes: ["inline"] } }}
+   * >
    *   {children}
    * </CopilotKit>
    * ```
    */
-  mcpApps?: {
-    /**
-     * Restore `allow-same-origin` on the MCP App sandbox. Default `false`.
-     *
-     * **Unsafe.** The widget then runs with your page's origin: it can read
-     * your cookies, storage and DOM, and call your APIs as the signed-in user.
-     * Only set it for widgets you wrote and trust that need `localStorage`,
-     * `IndexedDB` or cookies. By default widgets get an opaque origin.
-     */
-    allowSameOriginFallback?: boolean;
-    /**
-     * Let MCP Apps report their state to the model through
-     * `ui/update-model-context`. Default `false`.
-     *
-     * **Security.** The reported state goes with every later run of the
-     * conversation, and the built-in agent puts it in the system prompt. The
-     * user does not see it. With this on, the widget of any MCP server your
-     * agent uses can write there. Only enable it for MCP servers you trust.
-     */
-    modelContext?: boolean;
-  };
+  mcpApps?: MCPAppsOptions;
   /**
    * Default throttle interval (in milliseconds) for `useAgent` re-renders
    * triggered by `OnMessagesChanged` notifications. This value is used as
@@ -594,24 +582,6 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rawCatalog, catalogToggleVersion]);
 
-  const mcpAppsAllowSameOrigin = mcpApps?.allowSameOriginFallback === true;
-  const mcpAppsModelContext = mcpApps?.modelContext === true;
-  // Keyed on the two booleans, not on the `mcpApps` object, so an inline
-  // `mcpApps={{ ... }}` does not remount every widget on each render.
-  const mcpAppsRenderer = useMemo<typeof MCPAppsActivityRenderer>(
-    () =>
-      mcpAppsAllowSameOrigin || mcpAppsModelContext
-        ? (props) => (
-            <MCPAppsActivityRenderer
-              {...props}
-              allowSameOriginFallback={mcpAppsAllowSameOrigin}
-              modelContext={mcpAppsModelContext}
-            />
-          )
-        : MCPAppsActivityRenderer,
-    [mcpAppsAllowSameOrigin, mcpAppsModelContext],
-  );
-
   // Built-in activity renderers that are always included
   const builtInActivityRenderers = useMemo<
     ReactActivityMessageRenderer<any>[]
@@ -620,7 +590,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
       {
         activityType: MCPAppsActivityType,
         content: MCPAppsActivityContentSchema,
-        render: mcpAppsRenderer,
+        render: MCPAppsActivityRenderer,
       },
     ];
 
@@ -655,14 +625,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     }
 
     return renderers;
-  }, [
-    a2uiActive,
-    openGenUIActive,
-    generativeUIActive,
-    a2ui,
-    filteredCatalog,
-    mcpAppsRenderer,
-  ]);
+  }, [a2uiActive, openGenUIActive, generativeUIActive, a2ui, filteredCatalog]);
 
   // Combine user-provided activity renderers with built-in ones
   // User-provided renderers take precedence (come first) so they can override built-ins
@@ -1197,6 +1160,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
         .startTrajectory({
           trajectoryId,
           learningContainerIds: learningContainerIdsRef.current,
+          ...(generatesTrajectoryId ? { ɵreplaceWhenClosed: true } : {}),
         })
         .catch(() => {
           // Expected authentication/connection failures resolve with an error
@@ -1310,8 +1274,9 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
       copilotkit,
       executingToolCallIds,
       showIntelligenceIndicator,
+      mcpApps,
     }),
-    [copilotkit, executingToolCallIds, showIntelligenceIndicator],
+    [copilotkit, executingToolCallIds, showIntelligenceIndicator, mcpApps],
   );
 
   // License context — driven by server-reported authority via /info endpoint

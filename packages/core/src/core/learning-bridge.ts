@@ -31,6 +31,11 @@ export type TrajectoryStartOptions = {
    * `getTrajectoryLearningContainerIds` on `CopilotKitIntelligence`.
    */
   learningContainerIds?: string[];
+  /**
+   * @internal The provider generated `trajectoryId`, so capture may replace it
+   * with a new ID when Intelligence reports it sealed.
+   */
+  ɵreplaceWhenClosed?: boolean;
 };
 
 /** Returned by {@link CopilotKitCore.registerOpenThread}. */
@@ -173,7 +178,11 @@ export class LearningBridge {
         );
       }
       this.stopLegacy();
-      return this.connection.start(options.trajectoryId, config);
+      return this.connection.start(
+        options.trajectoryId,
+        config,
+        options.ɵreplaceWhenClosed === true,
+      );
     }
     this.connection.stop();
     const trajectoryId =

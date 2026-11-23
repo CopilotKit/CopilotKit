@@ -39,6 +39,8 @@ const SETUP_HINTS: Record<string, string> = {
     "Check that the CopilotRuntime is configured with `intelligence` and valid Intelligence credentials, and check the runtime logs.",
   IDENTITY_REQUIRED:
     "The runtime could not identify the user. Configure `identifyUser` on the CopilotRuntime and send the app's session with runtime requests.",
+  TRAJECTORY_CLOSED:
+    "This Trajectory was sealed after a long disconnect. Start capture with a new trajectoryId.",
   TRAJECTORIES_NOT_ENABLED:
     "Trajectories are not enabled for this Intelligence project.",
   TRAJECTORIES_UNAVAILABLE:
@@ -66,6 +68,10 @@ interface Connection {
 
 interface Session {
   trajectoryId: string;
+  /** Capture generated the ID, so a sealed Trajectory may be replaced by a new one. */
+  replaceable: boolean;
+  /** The current ID replaced a sealed one and has not joined yet. */
+  replaced: boolean;
   config: TrajectoryCaptureOptions;
   promise: Promise<StartResult>;
   resolve(result: StartResult): void;
@@ -178,6 +184,7 @@ export class TrajectoryConnection {
   start(
     trajectoryId: string | undefined,
     config: TrajectoryCaptureOptions,
+    replaceWhenClosed = false,
   ): Promise<StartResult> {
     if (
       this.session &&
@@ -193,6 +200,8 @@ export class TrajectoryConnection {
     });
     const session: Session = {
       trajectoryId: id,
+      replaceable: trajectoryId === undefined || replaceWhenClosed,
+      replaced: false,
       config,
       promise,
       resolve: resolveStart,
@@ -506,10 +515,17 @@ export class TrajectoryConnection {
       const payload: unknown = await response.json().catch(() => undefined);
       if (!this.current(session, connection)) return;
       if (!response.ok) {
+        const code = errorCode(payload, "CONNECTION_FAILED");
+        if (
+          response.status === 409 &&
+          code === "TRAJECTORY_CLOSED" &&
+          this.replace(session, connection)
+        )
+          return;
         this.fail(
           session,
           connection,
-          errorCode(payload, "CONNECTION_FAILED"),
+          code,
           response.status >= 500 ||
             response.status === 408 ||
             response.status === 429,
@@ -543,6 +559,7 @@ export class TrajectoryConnection {
             clearTimeout(connection.timer);
             session.ready = true;
             session.retries = 0;
+            session.replaced = false;
             session.collector = createTrajectoryCollector({
               ...session.config,
               // Exclude SDK transport traffic so capture cannot record its own
@@ -592,6 +609,22 @@ export class TrajectoryConnection {
     } catch {
       this.fail(session, connection, "CONNECTION_FAILED");
     }
+  }
+
+  /**
+   * Intelligence seals a Trajectory after its reconnect window. When capture
+   * generated the ID, it continues on a new Trajectory instead of ending. The
+   * sealed one keeps its losses. A second closure in a row ends capture.
+   */
+  private replace(session: Session, connection: Connection): boolean {
+    if (!session.replaceable || session.replaced) return false;
+    this.cleanup(session, connection);
+    session.trajectoryId = crypto.randomUUID();
+    session.replaced = true;
+    session.dropped = 0;
+    session.linkedThreads.clear();
+    void this.connect(session);
+    return true;
   }
 
   /** Resolves once auto-detection picks a transport, or with "auto" when the attempt is aborted. */
