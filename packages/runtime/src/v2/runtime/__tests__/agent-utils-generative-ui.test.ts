@@ -3,6 +3,7 @@ import { expect, test, vi } from "vitest";
 import { CopilotRuntime } from "../core/runtime";
 import { configureAgentForRequest } from "../handlers/shared/agent-utils";
 import { GenerativeUIMiddleware } from "../generative-ui";
+import { MAX_REJECTED_RENDER_RETRIES } from "../generative-ui/generative-ui-middleware";
 
 type RuntimeOption = boolean | { agents?: string[] } | undefined;
 type Transport = "tool" | "markdown" | undefined;
@@ -74,4 +75,39 @@ const cases: [string, RuntimeOption, Transport, number][] = [
 
 test.each(cases)("%s", (_case, generativeUI, transport, expected) => {
   expect(genUICount(generativeUI, transport)).toBe(expected);
+});
+
+test("a stop reaches the generative UI middleware and still aborts the agent", () => {
+  const { use, params } = setup(undefined);
+  const abortRun = vi.spyOn(params.agent, "abortRun");
+  configureAgentForRequest({
+    ...params,
+    providerGenerativeUITransport: "tool",
+  });
+  const middleware = use.mock.calls
+    .map(([m]) => m)
+    .find((m) => m instanceof GenerativeUIMiddleware);
+  const cancelRetries = vi.spyOn(
+    middleware as GenerativeUIMiddleware,
+    "cancelRetries",
+  );
+  params.agent.abortRun();
+  expect(cancelRetries).toHaveBeenCalledTimes(1);
+  expect(abortRun).toHaveBeenCalledTimes(1);
+});
+
+test("the runtime's generative UI middleware retries rejected render_ui calls", () => {
+  const { use, params } = setup(undefined);
+  configureAgentForRequest({
+    ...params,
+    providerGenerativeUITransport: "tool",
+  });
+  const middleware = use.mock.calls
+    .map(([m]) => m)
+    .find((m) => m instanceof GenerativeUIMiddleware);
+  // The class defaults to no retry; the runtime opts in beside its stop hook.
+  // Element access type-checks private members, so a rename fails tsc.
+  expect((middleware as GenerativeUIMiddleware)["maxRejectedRetries"]).toBe(
+    MAX_REJECTED_RENDER_RETRIES,
+  );
 });

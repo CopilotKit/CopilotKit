@@ -226,7 +226,7 @@ Your renderers stay as they are, apart from the props they read: a bound prop ar
 
 ## Bindings and actions
 
-The engine takes A2UI 1.0 operations only. A v0.9 shape is rejected with a reason that names the 1.0 form, and the agent sees the reason in the next run.
+The engine takes A2UI 1.0 operations only. A v0.9 shape is rejected with a reason that names the 1.0 form. When every operation of a turn's `render_ui` calls is rejected and nothing else in the turn is waiting for an answer, the runtime runs the agent again in the same run, at most twice, with the reasons in the tool results. Otherwise, or once those extra turns are used up, the agent sees the reasons in the next run.
 
 | v0.9                                              | 1.0                                                                                                                                                               |
 | ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
