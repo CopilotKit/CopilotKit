@@ -41,6 +41,8 @@ interface InteractionContext<TValue = unknown> {
   onClick={async ({ thread, message, action }) => {
     if (action.value === undefined) return;
 
+    await thread.assertCanResume();
+
     if (message.ref.id) {
       try {
         await thread.update(message.ref, "Approved");

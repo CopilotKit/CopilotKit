@@ -14,16 +14,24 @@ To debug on the client instead, use the in-app [Inspector](/inspector).
 
 ## Prerequisites
 
-- A CopilotKit runtime running locally with `NODE_ENV` set to `development`, or with `debug` enabled on the runtime
+- A CopilotKit runtime running locally with `NODE_ENV` set to `development`, or with `exposeDebugEvents: true` on the runtime
 - The [CopilotKit VS Code extension](/vs-code-extension) installed
 
 <Callout type="warning">
-  The `/cpk-debug-events` endpoint streams every event of every thread, including full message content, to any subscriber. It is served in exactly two cases: `NODE_ENV` is `development`, or the runtime sets `debug`. Everywhere else it returns 404.
+  The `/cpk-debug-events` endpoint streams every event of every thread, including full message content, to any subscriber, and `identifyUser` does not scope it. Whether it is served depends on `NODE_ENV` and on two runtime options:
 
-  An *unset* `NODE_ENV` counts as everywhere else. A plain `node server.js` sets no value, so a self-hosted runtime does not expose the feed by accident. If you need it on such a host, ask for it explicitly:
+  | `NODE_ENV` | `debug` off | `debug` on | `exposeDebugEvents: true` |
+  |---|---|---|---|
+  | `development` | Served | Served | Served |
+  | `test` | 404 | Served | Served |
+  | Anything else, including unset, `prod` and `staging` | 404 | 404 | Served, with a warning |
+
+  This table applies when the runtime serves web routes. A Channels-only CopilotKit Intelligence runtime without web `identifyUser` returns `404` for this endpoint, even with `exposeDebugEvents: true`. Adding `identifyUser` makes the route available under the table's conditions; it does not filter the feed by user.
+
+  A plain `node server.js` sets no `NODE_ENV`, so a self-hosted runtime does not expose the feed by accident, and `debug` alone keeps the route closed there. You can keep debug logging without publishing conversations. To open the route on such a host, set `NODE_ENV=development` for a local runtime, or opt in by name. The runtime logs a warning once per process when the option opens the route outside `development` and `test`:
 
   ```ts
-  const runtime = new CopilotRuntime({ agents, debug: true });
+  const runtime = new CopilotRuntime({ agents, exposeDebugEvents: true });
   ```
 
   Treat that as you would any other way of reading conversation content, and do not enable it on a runtime the public can reach.
@@ -33,7 +41,7 @@ To debug on the client instead, use the in-app [Inspector](/inspector).
   This stream carries the AG-UI events a **self-hosted** runtime sends over SSE.
   A runtime configured with `intelligence` does not send them: it answers runs
   over CopilotKit Intelligence's realtime connection instead. On that runtime
-  `/cpk-debug-events` still connects and reports `: connected`, then stays
+  With web `identifyUser` and the feed enabled, `/cpk-debug-events` connects and reports `: connected`, then stays
   empty. To trace an Intelligence-backed run, use the in-app
   [Inspector](/inspector), which reads the events on the client.
 </Callout>
@@ -44,7 +52,7 @@ To debug on the client instead, use the in-app [Inspector](/inspector).
 <Step>
 ### Run your runtime in development mode
 
-The debug event endpoint is available at `GET {runtimeUrl}/cpk-debug-events`. It activates automatically when `NODE_ENV` is `development`, which `next dev` and most dev servers set for you. No extra configuration is needed. On a host that sets no `NODE_ENV`, set `debug: true` on the runtime instead.
+The debug event endpoint is available at `GET {runtimeUrl}/cpk-debug-events` when the runtime serves web routes. It activates automatically when `NODE_ENV` is `development`, which `next dev` and most dev servers set for you. No extra configuration is needed. On a host that sets no `NODE_ENV`, set `exposeDebugEvents: true` on the runtime instead.
 
 The path is relative to the `basePath` the runtime is mounted at, not to the server's origin. A runtime mounted at `/api/copilotkit` on port 8200 serves the stream at `http://localhost:8200/api/copilotkit/cpk-debug-events`; requesting `http://localhost:8200/cpk-debug-events` returns `404 {"error":"Not found"}`. Confirm the URL before you connect:
 
