@@ -161,7 +161,7 @@ describe("Core learning wiring", () => {
       expect(JSON.stringify(warn.mock.calls)).not.toContain(
         "private-container",
       );
-      expect(start).toHaveBeenCalledWith(trajectoryId, config);
+      expect(start).toHaveBeenCalledWith(trajectoryId, config, false);
     },
   );
 

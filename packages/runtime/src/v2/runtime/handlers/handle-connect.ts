@@ -15,17 +15,6 @@ export async function handleConnectAgent({
   agentId,
 }: ConnectAgentParameters) {
   const publicApiKey = request.headers.get("x-copilotcloud-public-api-key");
-  (runtime.telemetry ?? telemetry).capture(
-    "oss.runtime.copilot_request_created",
-    {
-      // Connect carries no run input, so there are no forwarded guardrails
-      // to read — the v1 middleware this replaced reported false here too.
-      "cloud.guardrails.enabled": false,
-      requestType: "connect",
-      "cloud.api_key_provided": !!publicApiKey,
-      ...(publicApiKey ? { "cloud.public_api_key": publicApiKey } : {}),
-    },
-  );
 
   try {
     // Runs on BOTH branches deliberately: this is the only place the connect
@@ -38,6 +27,22 @@ export async function handleConnectAgent({
     if (agent instanceof Response) {
       return agent;
     }
+
+    // Captured only once the agent id is known to be real. Emitting before the
+    // check above billed one event per attempt for a client retry-looping
+    // against an agent that does not exist, which is unbounded and carries no
+    // signal. The event itself is unchanged — same name, same properties.
+    (runtime.telemetry ?? telemetry).capture(
+      "oss.runtime.copilot_request_created",
+      {
+        // Connect carries no run input, so there are no forwarded guardrails
+        // to read — the v1 middleware this replaced reported false here too.
+        "cloud.guardrails.enabled": false,
+        requestType: "connect",
+        "cloud.api_key_provided": !!publicApiKey,
+        ...(publicApiKey ? { "cloud.public_api_key": publicApiKey } : {}),
+      },
+    );
 
     // Parse a clone, so `identifyUser` can still read the original body.
     const connectRequest = await parseConnectRequest(request.clone());

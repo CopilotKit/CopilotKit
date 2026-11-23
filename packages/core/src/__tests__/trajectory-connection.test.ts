@@ -841,6 +841,87 @@ describe("Core trajectory connection", () => {
     persist(next);
   });
 
+  const closed = () =>
+    response(
+      {
+        code: "TRAJECTORY_CLOSED",
+        message: "This Trajectory is sealed. Start a new Trajectory.",
+      },
+      409,
+    );
+  const requestedId = (index: number) =>
+    JSON.parse(String(requests[index]!.init!.body)).params.trajectoryId;
+
+  async function sealedAfterLoss(
+    options: Parameters<CopilotKitCore["startTrajectory"]>[0],
+  ) {
+    const core = makeCore();
+    const changed = vi.fn();
+    core.subscribe({
+      onTrajectoryChanged: ({ trajectoryId }) => changed(trajectoryId),
+    });
+    const started = core.startTrajectory(options);
+    const channel = await authorize();
+    join();
+    const first = await started;
+    if (first.status !== "started") throw new Error("capture did not start");
+    channel.callbacks.get("phx_error")!();
+    await vi.advanceTimersByTimeAsync(1_000);
+    expect(requests).toHaveLength(2);
+    requests[1]!.response.resolve(closed());
+    await flush();
+    return { core, changed, first: first.trajectoryId };
+  }
+
+  it("starts a new Trajectory when the one it generated was sealed during a long disconnect", async () => {
+    const { core, changed, first } = await sealedAfterLoss(undefined);
+    expect(requests).toHaveLength(3);
+    const next = requestedId(2);
+    expect(next).not.toBe(first);
+    const channel = await authorize(2, "single-use-3");
+    join(1);
+    await flush();
+    expect(core.trajectoryId).toBe(next);
+    expect(changed).toHaveBeenLastCalledWith(next);
+    expect(onError.mock.calls.map(([error]) => error.code)).not.toContain(
+      "TRAJECTORY_CLOSED",
+    );
+    await vi.advanceTimersByTimeAsync(2_000);
+    // The sealed Trajectory's losses stay with it.
+    expect(channel.pushes[0]!.payload.dropped).toBe(0);
+  });
+
+  it("starts a new Trajectory for a provider-generated ID marked as replaceable", async () => {
+    const { core } = await sealedAfterLoss({
+      trajectoryId: "provider-generated",
+      ɵreplaceWhenClosed: true,
+    });
+    expect(requests).toHaveLength(3);
+    expect(requestedId(2)).not.toBe("provider-generated");
+    await authorize(2, "single-use-3");
+    join(1);
+    await flush();
+    expect(core.trajectoryId).toBe(requestedId(2));
+  });
+
+  it("ends capture with TRAJECTORY_CLOSED when the app chose the sealed ID", async () => {
+    const { core } = await sealedAfterLoss({ trajectoryId: "app-chosen" });
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(requests).toHaveLength(2);
+    expect(core.trajectoryId).toBeNull();
+    expect(onError.mock.calls.at(-1)![0].code).toBe("TRAJECTORY_CLOSED");
+  });
+
+  it("stops after one replacement when the new Trajectory is refused as closed too", async () => {
+    const { core } = await sealedAfterLoss(undefined);
+    requests[2]!.response.resolve(closed());
+    await flush();
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(requests).toHaveLength(3);
+    expect(core.trajectoryId).toBeNull();
+    expect(onError.mock.calls.at(-1)![0].code).toBe("TRAJECTORY_CLOSED");
+  });
+
   it("stops recovery on an HTML authorization failure instead of retrying terminal HTTP status", async () => {
     const { core, channel } = await start();
     channel.callbacks.get("phx_close")!();

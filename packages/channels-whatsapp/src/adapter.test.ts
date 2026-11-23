@@ -1,8 +1,74 @@
 import { describe, it, expect, vi } from "vitest";
+import type { ChannelNode } from "@copilotkit/channels-ui";
 import { whatsapp, splitForWhatsApp } from "./adapter.js";
 import { InMemoryHistoryStore } from "./history-store.js";
 
 describe("whatsapp() adapter", () => {
+  it.each([
+    ["number", "111"],
+    ["actor", { id: "111", kind: "human" as const }],
+  ])("replies privately to the matching %s", async (_label, user) => {
+    const history = new InMemoryHistoryStore();
+    const a = whatsapp({ ...opts, historyStore: history });
+    const ref = { id: "wamid.out", to: "111", phoneNumberId: "PNID" };
+    const send = vi.spyOn(a.client, "sendMessage").mockResolvedValue(ref);
+    const target = { to: "111", phoneNumberId: "PNID" };
+    await expect(
+      a.postEphemeral(target, user, [
+        { type: "section", props: { children: "Private reply" } },
+      ]),
+    ).resolves.toEqual({ ok: true, usedFallback: false, ref });
+    expect(send).toHaveBeenCalledExactlyOnceWith("111", {
+      type: "text",
+      text: { body: "Private reply", preview_url: false },
+    });
+    expect(await history.read("whatsapp:111")).toEqual([
+      expect.objectContaining({
+        id: "wamid.out",
+        role: "assistant",
+        content: "Private reply",
+      }),
+    ]);
+  });
+
+  it.each<{ label: string; ir: ChannelNode[] }>([
+    { label: "empty IR", ir: [] },
+    { label: "a contentless container", ir: [{ type: "section", props: {} }] },
+  ])("declines $label without sending or recording history", async ({ ir }) => {
+    const history = new InMemoryHistoryStore();
+    const a = whatsapp({ ...opts, historyStore: history });
+    const send = vi.spyOn(a.client, "sendMessage").mockResolvedValue({
+      id: "wamid.unexpected",
+      to: "111",
+      phoneNumberId: "PNID",
+    });
+    await expect(
+      a.postEphemeral({ to: "111", phoneNumberId: "PNID" }, "111", ir),
+    ).resolves.toBeNull();
+    expect(send).not.toHaveBeenCalled();
+    expect(await history.read("whatsapp:111")).toEqual([]);
+  });
+
+  it.each([
+    ["number", "222"],
+    ["actor", { id: "222", kind: "human" as const }],
+  ])("declines to reach another %s", async (_label, user) => {
+    const a = whatsapp(opts);
+    const post = vi.spyOn(a, "post");
+    const send = vi.spyOn(a.client, "sendMessage").mockResolvedValue({
+      id: "wamid.unexpected",
+      to: "111",
+      phoneNumberId: "PNID",
+    });
+    await expect(
+      a.postEphemeral({ to: "111", phoneNumberId: "PNID" }, user, [
+        { type: "section", props: { children: "Private reply" } },
+      ]),
+    ).resolves.toBeNull();
+    expect(post).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
+  });
+
   const opts = {
     accessToken: "TOK",
     phoneNumberId: "PNID",
