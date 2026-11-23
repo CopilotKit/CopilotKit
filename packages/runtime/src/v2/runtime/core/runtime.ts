@@ -31,6 +31,7 @@ import type {
   ResolvedForwardHeadersPolicy,
 } from "../handlers/header-utils";
 import type { AbstractAgent } from "@ag-ui/client";
+import type { ModelSpecifier } from "../../../agent";
 import type { MCPClientConfig } from "@ag-ui/mcp-apps-middleware";
 import type { A2UIMiddlewareConfig } from "@ag-ui/a2ui-middleware";
 import { RUNTIME_PACKAGE_VERSION } from "./package-info";
@@ -42,8 +43,13 @@ import { createLogger } from "../../../v1-deprecated/lib/logger";
 import type { CopilotRuntimeLogger } from "../../../v1-deprecated/lib/logger";
 import { logRuntimeTelemetryDisclosure } from "../../../v1-deprecated/lib/telemetry-disclosure";
 import type { TranscriptionService } from "../transcription-service/transcription-service";
-import { DebugEventBus, isDebugEventFeedEnabled } from "./debug-event-bus";
+import {
+  DebugEventBus,
+  isDebugEventFeedEnabled,
+  warnIfDebugEventFeedExposed,
+} from "./debug-event-bus";
 import type { AgentRunner } from "../runner/agent-runner";
+import type { IntelligenceAgentRunnerOptions } from "../runner/intelligence";
 import { InMemoryAgentRunner } from "../runner/in-memory";
 import { IntelligenceAgentRunner } from "../runner/intelligence";
 import type { CopilotKitIntelligence } from "../intelligence-platform";
@@ -235,6 +241,17 @@ interface BaseCopilotRuntimeOptions extends CopilotRuntimeMiddlewares {
   /** Enable debug logging for the event pipeline. */
   debug?: DebugConfig;
   /**
+   * Enable `/cpk-debug-events` regardless of `NODE_ENV` and `debug`. This is the
+   * only way to open the feed when `NODE_ENV` is neither `development` nor
+   * `test`, unset included. The feed streams every thread's events, including full message
+   * content, to any caller that reaches the route, so restrict the route first.
+   * Intelligence runtimes still require web `identifyUser` to serve this route;
+   * the callback does not filter the feed by user.
+   *
+   * @default false
+   */
+  exposeDebugEvents?: boolean;
+  /**
    * Policy controlling which inbound HTTP headers are forwarded onto the
    * outgoing agent call. By default a built-in denylist strips known
    * infrastructure/proxy/platform headers (`x-forwarded-*`, `x-real-ip`,
@@ -332,6 +349,21 @@ export interface CopilotSseRuntimeOptions extends BaseCopilotRuntimeOptions {
   channels?: undefined;
 }
 
+/** Model configuration for {@link CopilotIntelligenceRuntimeOptions.generateThreadNames}. */
+export interface ThreadNameGenerationConfig {
+  /**
+   * The model that writes thread titles: a `"provider/model"` string such as
+   * `"openai/gpt-5-mini"`, or an AI SDK `LanguageModel`. A small, fast model
+   * is enough.
+   */
+  model: ModelSpecifier;
+  /**
+   * API key for a `"provider/model"` string. If it is not set, the provider's
+   * environment variable is used (for example `OPENAI_API_KEY`).
+   */
+  apiKey?: string;
+}
+
 interface CopilotIntelligenceRuntimeBaseOptions extends BaseCopilotRuntimeOptions {
   /** Configures Intelligence mode for durable threads and realtime events. */
   intelligence: CopilotKitIntelligence;
@@ -340,8 +372,19 @@ interface CopilotIntelligenceRuntimeBaseOptions extends BaseCopilotRuntimeOption
    * @deprecated Configure `getLearningContainerId` on `CopilotKitIntelligence`.
    */
   ɵlearning?: CopilotRuntimeLearningConfig;
-  /** Auto-generate short names for newly created threads. */
-  generateThreadNames?: boolean;
+  /**
+   * Names each new thread when its first run creates it.
+   *
+   * - `true` (default): the name is the first user message, cut to 8 words.
+   *   No model runs, and the app's agent does not run.
+   * - `{ model }`: the runtime calls that model once, with no tools, for a
+   *   2 to 5 word title. If the call fails, the first user message is used.
+   * - `false`: threads are not named.
+   *
+   * The runtime never runs the app's agent to name a thread, because the
+   * agent's own server-side tools could run and change app data.
+   */
+  generateThreadNames?: boolean | ThreadNameGenerationConfig;
   /** Max delay (ms) for WebSocket reconnect backoff. @default 10_000 */
   maxReconnectMs?: number;
   /** Max delay (ms) for channel rejoin backoff. @default 30_000 */
@@ -352,6 +395,13 @@ interface CopilotIntelligenceRuntimeBaseOptions extends BaseCopilotRuntimeOption
    * @default 15_000
    */
   heartbeatIntervalMs?: number;
+  /** Called each time Intelligence acknowledges a batch of runner events. */
+  onEventDeliveryStats?: IntelligenceAgentRunnerOptions["onEventDeliveryStats"];
+  /**
+   * Most runner events one run may hold while they wait for Intelligence to
+   * acknowledge them; past it the run fails. @default 50_000
+   */
+  maxPendingEvents?: IntelligenceAgentRunnerOptions["maxPendingEvents"];
   /** Lock TTL in seconds. Clamped to a maximum of 3600 (1 hour). @default 20 */
   lockTtlSeconds?: number;
   /** Custom Redis key prefix for the thread lock. */
@@ -437,6 +487,8 @@ export interface CopilotRuntimeLike {
    * (`BaseCopilotRuntime`) always resolve and set it.
    */
   exposeMemoryRoutes?: boolean;
+  /** Environment opt-in for `/cpk-debug-events`; see {@link isDebugEventFeedEnabled}. */
+  exposeDebugEvents?: boolean;
   /**
    * Resolved local Thread access mode. Optional on the published interface so
    * an external implementor stays source-compatible; a missing value means
@@ -455,7 +507,7 @@ export interface CopilotSseRuntimeLike extends CopilotRuntimeLike {
 export interface CopilotIntelligenceRuntimeLike extends CopilotRuntimeLike {
   intelligence: CopilotKitIntelligence;
   identifyUser?: IdentifyUserCallback;
-  generateThreadNames: boolean;
+  generateThreadNames: boolean | ThreadNameGenerationConfig;
   lockTtlSeconds: number;
   lockKeyPrefix?: string;
   lockHeartbeatIntervalSeconds: number;
@@ -482,6 +534,7 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
   public readonly forwardHeadersPolicy: ResolvedForwardHeadersPolicy;
   public readonly sseKeepAliveIntervalSeconds: number;
   public readonly exposeMemoryRoutes: boolean;
+  public readonly exposeDebugEvents: boolean;
   public readonly threadAccess: ThreadAccessMode;
   public readonly memory?: CopilotRuntimeMemoryConfig;
 
@@ -562,8 +615,10 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
     // The debug feed carries every thread's events to any subscriber, so the
     // bus only exists where the feed is allowed to be served. Resolving
     // `debug` first keeps the bus and the route gate reading one value.
-    if (isDebugEventFeedEnabled(this.debug)) {
+    this.exposeDebugEvents = options.exposeDebugEvents === true;
+    if (isDebugEventFeedEnabled(this.debug, this.exposeDebugEvents)) {
       this.debugEventBus = new DebugEventBus();
+      warnIfDebugEventFeedExposed();
     }
     // Resolve the inbound-header forwarding policy once (mirroring the
     // `debug` → `ResolvedDebugConfig` resolve-once above) so both the /run and
@@ -630,7 +685,7 @@ export class CopilotIntelligenceRuntime
 {
   readonly intelligence: CopilotKitIntelligence;
   readonly identifyUser?: IdentifyUserCallback;
-  readonly generateThreadNames: boolean;
+  readonly generateThreadNames: boolean | ThreadNameGenerationConfig;
   readonly lockTtlSeconds: number;
   readonly lockKeyPrefix?: string;
   readonly lockHeartbeatIntervalSeconds: number;
@@ -748,6 +803,8 @@ export class CopilotIntelligenceRuntime
         maxReconnectMs: options.maxReconnectMs,
         maxRejoinMs: options.maxRejoinMs,
         heartbeatIntervalMs: options.heartbeatIntervalMs,
+        onEventDeliveryStats: options.onEventDeliveryStats,
+        maxPendingEvents: options.maxPendingEvents,
       }),
     );
     this.intelligence = options.intelligence;
@@ -842,8 +899,8 @@ export interface RuntimeWithDeclaredChannels {
 export interface CopilotRuntime extends CopilotRuntimeLike {
   /** Telemetry capture bound to this runtime's construction-time identity. */
   telemetry: TelemetryCapture;
-  /** Auto-generate short thread names; `undefined` in SSE mode. */
-  generateThreadNames?: boolean;
+  /** Thread naming configuration; `undefined` in SSE mode. */
+  generateThreadNames?: boolean | ThreadNameGenerationConfig;
   /** Thread lock TTL in seconds; `undefined` in SSE mode. */
   lockTtlSeconds?: number;
   /** Custom Redis key prefix for the thread lock; `undefined` in SSE mode. */
@@ -951,7 +1008,7 @@ class CopilotRuntimeShim implements CopilotRuntime {
     return this.delegate.intelligence;
   }
 
-  get generateThreadNames(): boolean | undefined {
+  get generateThreadNames(): boolean | ThreadNameGenerationConfig | undefined {
     return isIntelligenceRuntime(this.delegate)
       ? this.delegate.generateThreadNames
       : undefined;
@@ -1029,6 +1086,10 @@ class CopilotRuntimeShim implements CopilotRuntime {
 
   get exposeMemoryRoutes(): boolean | undefined {
     return this.delegate.exposeMemoryRoutes;
+  }
+
+  get exposeDebugEvents(): boolean | undefined {
+    return this.delegate.exposeDebugEvents;
   }
 
   get memory(): CopilotRuntimeMemoryConfig | undefined {

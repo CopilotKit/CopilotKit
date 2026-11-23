@@ -1,8 +1,8 @@
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
-  type CopilotRuntimeHooks,
 } from "@copilotkit/runtime/v2";
+import type { CopilotRuntimeHooks } from "@copilotkit/runtime/v2";
 import { createDocsAgent } from "@/lib/docs-agent";
 import { createRateLimit } from "@/lib/rate-limit";
 

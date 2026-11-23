@@ -9,20 +9,11 @@
       "title": "Chat",
       "pages": [
         "[Prebuilt Components](/prebuilt-components)",
-        {
-          "title": "Custom Look and Feel",
-          "pages": [
-            "custom-look-and-feel/css",
-            "custom-look-and-feel/slots",
-            "custom-look-and-feel/markdown",
-            "custom-look-and-feel/headless-ui",
-            "custom-look-and-feel/reasoning-messages"
-          ]
-        },
+        "prebuilt-components",
+        "custom-look-and-feel",
         "multimodal-attachments",
         "voice",
-        "generative-ui/reasoning",
-        "programmatic-control"
+        "generative-ui/reasoning"
       ]
     },
     {
@@ -46,11 +37,8 @@
     {
       "title": "Declarative",
       "pages": [
-        "[Components and surfaces](/generative-ui/components)",
-        "generative-ui/components/standard-catalog",
-        "[A2UI](/generative-ui/a2ui)",
-        "generative-ui/a2ui/dynamic-schema",
-        "generative-ui/a2ui/fixed-schema",
+        "generative-ui/components",
+        "generative-ui/a2ui",
         "generative-ui/json-render",
         "generative-ui/hashbrown"
       ]

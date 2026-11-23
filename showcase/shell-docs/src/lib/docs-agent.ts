@@ -1,9 +1,7 @@
-import { createMCPClient, type MCPClient } from "@ai-sdk/mcp";
-import {
-  BuiltInAgent,
-  defineTool,
-  type MCPClientProvider,
-} from "@copilotkit/runtime/v2";
+import { createMCPClient } from "@ai-sdk/mcp";
+import type { MCPClient } from "@ai-sdk/mcp";
+import { BuiltInAgent, defineTool } from "@copilotkit/runtime/v2";
+import type { MCPClientProvider } from "@copilotkit/runtime/v2";
 import { z } from "zod";
 import { liveSearch } from "./llms/live-search";
 import { getPageMarkdown, listPages } from "./llms/page-tools";

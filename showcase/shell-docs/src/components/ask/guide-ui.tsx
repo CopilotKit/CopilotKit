@@ -5,9 +5,9 @@ import { DynamicCodeBlock } from "fumadocs-ui/components/dynamic-codeblock";
 import {
   createGenerativeUI,
   standardUI,
-  type GenerativeUITheme,
 } from "@copilotkit/react-core/v2/generative-ui";
-import { STAGE_WINDOW, Stage } from "@/components/brand/stage";
+import type { GenerativeUITheme } from "@copilotkit/react-core/v2/generative-ui";
+import { STAGE_WINDOW, CodeFrame } from "@/components/brand/stage";
 import { brandDark, brandLight } from "@/proto/code-theme";
 import { withLineBreaks } from "./guide-markdown";
 
@@ -42,7 +42,7 @@ const OMIT = [
 function GuideCode({ text, language }: { text: string; language?: string }) {
   const lang = language?.trim() || "text";
   return (
-    <Stage compact className="my-1 shadow-none">
+    <CodeFrame className="my-1">
       <DynamicCodeBlock
         lang={lang}
         code={withLineBreaks(text).replace(/\n$/, "")}
@@ -52,7 +52,7 @@ function GuideCode({ text, language }: { text: string; language?: string }) {
         }}
         options={{ themes: { light: brandLight, dark: brandDark } }}
       />
-    </Stage>
+    </CodeFrame>
   );
 }
 

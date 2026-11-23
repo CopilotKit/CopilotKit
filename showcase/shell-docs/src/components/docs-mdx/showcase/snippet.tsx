@@ -23,8 +23,8 @@ import {
   parseLineRange,
   resolveSnippet,
   snippetFileName,
-  type SnippetSourceProps,
 } from "./sources";
+import type { SnippetSourceProps } from "./sources";
 
 export interface SnippetProps extends SnippetSourceProps {
   /** Accepted for source compatibility; the caption is always the file name. */

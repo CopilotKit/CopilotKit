@@ -1456,46 +1456,8 @@ describe("handleRunAgent", () => {
       });
     });
 
-    it("generates and persists a thread name in the background for new unnamed threads", async () => {
-      const namingAgent = {
-        clone: vi.fn(),
-        setMessages: vi.fn(),
-        setState: vi.fn(),
-        threadId: undefined,
-        headers: {},
-        runAgent: vi.fn().mockResolvedValue({
-          newMessages: [
-            {
-              id: "assistant-1",
-              role: "assistant",
-              content: '{"title":"**Order refund** status"}',
-            },
-            {
-              id: "tool-1",
-              role: "tool",
-              content: '{"timezone":"UTC","iso":"2026-06-01T00:00:00Z"}',
-            },
-          ],
-        }),
-      } as unknown as AbstractAgent;
-      const baseAgent = {
-        clone: vi
-          .fn()
-          .mockReturnValueOnce({
-            clone: vi.fn(),
-            setMessages: vi.fn(),
-            setState: vi.fn(),
-            threadId: undefined,
-            headers: {},
-            runAgent: vi.fn().mockResolvedValue(undefined),
-          })
-          .mockReturnValueOnce(namingAgent),
-        setMessages: vi.fn(),
-        setState: vi.fn(),
-        threadId: undefined,
-        headers: {},
-        runAgent: vi.fn().mockResolvedValue(undefined),
-      } as unknown as AbstractAgent;
+    it("names a new thread from the first user message without running the agent again", async () => {
+      const agent = createAgentForIntelligence();
       const platform = {
         getOrCreateThread: vi.fn().mockResolvedValue({
           thread: { id: "thread-1", name: null },
@@ -1503,7 +1465,7 @@ describe("handleRunAgent", () => {
         }),
         updateThread: vi.fn().mockResolvedValue({
           id: "thread-1",
-          name: "Order refund status",
+          name: "Can you help me with my refund",
         }),
         ɵgetThreadMessageIds: vi.fn().mockResolvedValue([]),
         ɵacquireThreadLock: vi.fn().mockResolvedValue({
@@ -1512,7 +1474,7 @@ describe("handleRunAgent", () => {
           joinToken: "jt-created",
         }),
       };
-      const runtime = createIntelligenceRuntime(baseAgent, platform, {
+      const runtime = createIntelligenceRuntime(agent, platform, {
         generateThreadNames: true,
       });
       const response = await handleRunAgent({
@@ -1547,9 +1509,11 @@ describe("handleRunAgent", () => {
           threadId: "thread-1",
           userId: "user-1",
           agentId: "my-agent",
-          updates: { name: "Order refund status" },
+          updates: { name: "Can you help me with my refund request" },
         }),
       );
+      // #8375: one clone for the user's run, none for naming.
+      expect(agent.clone).toHaveBeenCalledTimes(1);
       expect(runtime.runner.run).toHaveBeenCalledTimes(1);
     });
 
@@ -1632,45 +1596,9 @@ describe("handleRunAgent", () => {
         expectedTitle: "Untitled",
       },
     ])(
-      "falls back after three invalid generated titles: $scenario",
+      "names a new thread from user messages: $scenario",
       async ({ contents, expectedTitle }) => {
-        const namingAgent = {
-          clone: vi.fn(),
-          setMessages: vi.fn(),
-          setState: vi.fn(),
-          threadId: undefined,
-          headers: {},
-          runAgent: vi.fn().mockResolvedValue({
-            newMessages: [
-              {
-                id: "assistant-1",
-                role: "assistant",
-                content:
-                  "Incident triage result: sev3. File a ticket for the next working day.",
-              },
-            ],
-          }),
-        } as unknown as AbstractAgent;
-        const baseAgent = {
-          clone: vi
-            .fn()
-            .mockReturnValueOnce({
-              clone: vi.fn(),
-              setMessages: vi.fn(),
-              setState: vi.fn(),
-              threadId: undefined,
-              headers: {},
-              runAgent: vi.fn().mockResolvedValue(undefined),
-            })
-            .mockReturnValueOnce(namingAgent)
-            .mockReturnValueOnce(namingAgent)
-            .mockReturnValueOnce(namingAgent),
-          setMessages: vi.fn(),
-          setState: vi.fn(),
-          threadId: undefined,
-          headers: {},
-          runAgent: vi.fn().mockResolvedValue(undefined),
-        } as unknown as AbstractAgent;
+        const baseAgent = createAgentForIntelligence();
         const platform = {
           getOrCreateThread: vi.fn().mockResolvedValue({
             thread: { id: "thread-1", name: null },
@@ -1727,7 +1655,7 @@ describe("handleRunAgent", () => {
               },
             }),
           );
-          expect(namingAgent.runAgent).toHaveBeenCalledTimes(3);
+          expect(baseAgent.clone).toHaveBeenCalledTimes(1);
           expect(runtime.runner.run).toHaveBeenCalledTimes(1);
         } finally {
           errorSpy.mockRestore();
@@ -1816,11 +1744,15 @@ describe("handleRunAgent", () => {
         .mockResolvedValue(undefined);
 
       try {
-        const runtime = createMockRuntime({});
+        // A registered agent: the event is captured only once the agent id
+        // has been validated, so an unknown id emits nothing at all.
+        const runtime = createMockRuntime({
+          "test-agent": { clone: () => ({}) },
+        });
         await handleRunAgent({
           runtime,
           request: createMockRequest(),
-          agentId: "nonexistent-agent",
+          agentId: "test-agent",
         });
 
         expect(captureSpy).toHaveBeenCalledWith(
@@ -1835,7 +1767,9 @@ describe("handleRunAgent", () => {
       }
     });
 
-    it("includes cloud.public_api_key when x-copilotcloud-public-api-key header is set", async () => {
+    it("captures nothing when the agent does not exist", async () => {
+      // A client retry-looping against an unknown agent used to bill one
+      // event per attempt, indefinitely: the capture ran before the 404.
       const { telemetry } = await import("../telemetry");
       const captureSpy = vi
         .spyOn(telemetry, "capture")
@@ -1843,6 +1777,34 @@ describe("handleRunAgent", () => {
 
       try {
         const runtime = createMockRuntime({});
+        for (let attempt = 0; attempt < 3; attempt++) {
+          const response = await handleRunAgent({
+            runtime,
+            request: createMockRequest(),
+            agentId: "nonexistent-agent",
+          });
+          expect(response.status).toBe(404);
+        }
+
+        expect(captureSpy).not.toHaveBeenCalledWith(
+          "oss.runtime.copilot_request_created",
+          expect.anything(),
+        );
+      } finally {
+        captureSpy.mockRestore();
+      }
+    });
+
+    it("includes cloud.public_api_key when x-copilotcloud-public-api-key header is set", async () => {
+      const { telemetry } = await import("../telemetry");
+      const captureSpy = vi
+        .spyOn(telemetry, "capture")
+        .mockResolvedValue(undefined);
+
+      try {
+        const runtime = createMockRuntime({
+          "test-agent": { clone: () => ({}) },
+        });
         const request = new Request("https://example.com/agent/test/run", {
           method: "POST",
           headers: {
@@ -1853,7 +1815,7 @@ describe("handleRunAgent", () => {
         await handleRunAgent({
           runtime,
           request,
-          agentId: "nonexistent-agent",
+          agentId: "test-agent",
         });
 
         expect(captureSpy).toHaveBeenCalledWith(

@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import { Check, ChevronsUpDown, Search } from "lucide-react";
 import { FullSearchTrigger } from "fumadocs-ui/layouts/shared/slots/search-trigger";
 import {
@@ -18,8 +19,8 @@ import {
   backendById,
   coverageFor,
   frontendById,
-  type FrontendId,
 } from "@/lib/stack";
+import type { FrontendId } from "@/lib/stack";
 import { FrameworkLogo } from "@/components/icons/framework-icons";
 import { FrontendLogo } from "@/components/icons/frontend-logo";
 import { useStack } from "./stack-provider";

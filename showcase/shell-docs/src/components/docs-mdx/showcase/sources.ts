@@ -10,8 +10,8 @@ import {
   getIntegration,
   getIntegrations,
   getRegistry,
-  type DemoFile,
 } from "../data";
+import type { DemoFile } from "../data";
 import type { DocsScope } from "../scope";
 import { liveFramework } from "@/lib/live-scope";
 

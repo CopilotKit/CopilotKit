@@ -10,15 +10,13 @@ import {
   backendById,
   frontendById,
   isServable,
-  type FrontendId,
 } from "@/lib/stack";
+import type { FrontendId } from "@/lib/stack";
 import { useFrontend } from "@/proto/frontend";
-import {
-  FRAMEWORKS,
-  FRONTENDS as PROTO_FRONTENDS,
-  type FrontendId as ProtoFrontendId,
-} from "@/proto/data";
-import { frameworkHref, type VariantId } from "@/proto/routes";
+import { FRAMEWORKS, FRONTENDS as PROTO_FRONTENDS } from "@/proto/data";
+import type { FrontendId as ProtoFrontendId } from "@/proto/data";
+import { frameworkHref } from "@/proto/routes";
+import type { VariantId } from "@/proto/routes";
 import { StackAgent } from "./docs-agent";
 
 /** `/docs`: the stack is the sidebar picker's choice. */

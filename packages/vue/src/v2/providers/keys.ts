@@ -3,6 +3,7 @@ import type { CopilotKitCoreVue } from "../lib/vue-core";
 import type { CopilotChatConfigurationValue } from "./types";
 import type { A2UITheme } from "../types";
 import type { SandboxFunction } from "../types";
+import type { MCPAppsOptions } from "./CopilotKitProvider.types";
 
 export interface CopilotKitContextValue {
   copilotkit: ShallowRef<CopilotKitCoreVue>;
@@ -11,6 +12,8 @@ export interface CopilotKitContextValue {
   a2uiCatalog: ComputedRef<unknown>;
   a2uiLoadingComponent: ComputedRef<unknown>;
   a2uiIncludeSchema: ComputedRef<boolean>;
+  /** Host-side MCP Apps options from `<CopilotKitProvider :mcp-apps="...">`. */
+  mcpApps: ComputedRef<MCPAppsOptions | undefined>;
 }
 
 export const CopilotKitKey: InjectionKey<CopilotKitContextValue> =

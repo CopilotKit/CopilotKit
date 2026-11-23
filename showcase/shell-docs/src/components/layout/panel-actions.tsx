@@ -3,43 +3,101 @@
 import type { ComponentProps } from "react";
 import Link from "fumadocs-core/link";
 import { buttonVariants } from "fumadocs-ui/components/ui/button";
+import { useSidebar } from "fumadocs-ui/components/sidebar/base";
 import { useSpaciousLayout } from "fumadocs-ui/layouts/spacious";
+import { SidebarIcon } from "lucide-react";
 import { AdaptiveThemeSwitch } from "./theme-toggle";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/cn";
 
+/** The layout's icon links (Discord, X, GitHub) as small ghost buttons. */
+export function IconLinks({ className, ...props }: ComponentProps<"div">) {
+  const { menuItems } = useSpaciousLayout();
+  return (
+    <div className={cn("flex items-center gap-1", className)} {...props}>
+      {menuItems.map((item, i) =>
+        item.type === "icon" ? (
+          <Tooltip key={i}>
+            <TooltipTrigger
+              render={
+                <Link
+                  href={item.url}
+                  external={item.external}
+                  aria-label={item.label}
+                  className={cn(
+                    buttonVariants({ variant: "ghost", size: "icon-sm" }),
+                    "text-fd-muted-foreground",
+                  )}
+                />
+              }
+            >
+              {item.icon}
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              {item.label ?? item.text}
+            </TooltipContent>
+          </Tooltip>
+        ) : null,
+      )}
+    </div>
+  );
+}
+
 /**
- * Spacious' `actions` slot: the icon links and the theme switch sit in the
- * page panel's corner instead of behind the overflow menu. "Ask AI" opens
+ * The icon links and the theme switch, out in the open instead of behind
+ * Spacious' overflow menu. Drawn in the docs' top bar on the frame above the
+ * page panel (`topBar` in `src/proto/layout-client.tsx`). "Ask AI" opens
  * from its own round button in the page's bottom-right corner instead
  * (`src/components/ai/docs-layout.tsx`).
  */
 export function PanelActions({ className, ...props }: ComponentProps<"div">) {
-  const { menuItems } = useSpaciousLayout();
   return (
-    <div
-      className={cn(
-        "flex items-center gap-1 rounded-lg bg-fd-background",
-        className,
-      )}
-      {...props}
-    >
-      {menuItems.map((item, i) =>
-        item.type === "icon" ? (
-          <Link
-            key={i}
-            href={item.url}
-            external={item.external}
-            aria-label={item.label}
-            className={cn(
-              buttonVariants({ variant: "ghost", size: "icon-sm" }),
-              "text-fd-muted-foreground",
-            )}
-          >
-            {item.icon}
-          </Link>
-        ) : null,
-      )}
+    <div className={cn("flex items-center gap-1", className)} {...props}>
+      <IconLinks />
       <AdaptiveThemeSwitch className="ms-1" />
     </div>
+  );
+}
+
+/**
+ * Spacious' `actions` slot, in the page panel's header: the sidebar toggle,
+ * moved to the panel's top-left corner so it sits in one place whether the
+ * sidebar is open or collapsed. Spacious draws its own toggle there only when
+ * collapsed (and one beside the logo when open); theme.css hides both, and
+ * this one, first in the header row, takes their place. The header is
+ * desktop-only, so phones keep their own menu button.
+ */
+export function PanelSidebarToggle() {
+  const { collapsed, setCollapsed } = useSidebar();
+  const label = collapsed ? "Expand sidebar" : "Collapse sidebar";
+  // A plain button, not Fumadocs' SidebarCollapseTrigger: that one spreads
+  // its props after its own onClick, so the tooltip's merged onClick would
+  // replace the toggle.
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <button
+            type="button"
+            data-panel-sidebar-toggle=""
+            aria-controls="nd-sidebar"
+            aria-expanded={!collapsed}
+            aria-label={label}
+            onClick={() => setCollapsed((prev) => !prev)}
+            className={cn(
+              buttonVariants({ variant: "ghost", size: "icon-sm" }),
+              "order-first -ms-2 size-8 shrink-0 text-fd-muted-foreground",
+            )}
+          />
+        }
+      >
+        <SidebarIcon />
+      </TooltipTrigger>
+      <TooltipContent side="bottom">{label}</TooltipContent>
+    </Tooltip>
   );
 }

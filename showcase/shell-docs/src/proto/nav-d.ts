@@ -153,7 +153,7 @@ export function navForFramework(fw: {
       icon: "sprout",
       items: [
         folder("Chat", [
-          page("Prebuilt components", "prebuilt-components"),
+          page("Prebuilt components", "prebuilt-components/chat"),
           folder("Custom look and feel", [
             page("Slots", "slots"),
             page("Headless UI", "headless-ui"),
@@ -172,7 +172,11 @@ export function navForFramework(fw: {
       icon: "layout",
       items: [
         folder("Controlled", [
-          page("Components as tools", "generative-ui", "generative-ui"),
+          page(
+            "Components as tools",
+            "generative-ui/tool-based",
+            "generative-ui",
+          ),
           page("Tool call rendering", "tool-rendering"),
           page("State rendering", "state-rendering"),
         ]),

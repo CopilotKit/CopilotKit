@@ -1,5 +1,6 @@
 import type { PlatformAdapter, ReplyTarget } from "./platform-adapter.js";
-import type { ActionRegistry } from "./action-registry.js";
+import { ActionInitiatorMismatchError } from "./action-registry.js";
+import type { ActionRegistry, ChoiceGate } from "./action-registry.js";
 import type {
   ActionContinuationContext,
   ActionContinuationSnapshot,
@@ -142,20 +143,26 @@ export interface ThreadDeps {
   context: ContextEntry[];
   /**
    * Register a pending choice under `conversationKey`. Returns a function that
-   * retires it (unregisters it and revokes its controls) if it is still the
-   * pending choice there.
+   * retires it (unregisters it and revokes its controls) and then rejects it
+   * with `reason`, once no process can run its controls any more.
    */
-  registerWaiter: (conversationKey: string, waiter: ChoiceWaiter) => () => void;
+  registerWaiter: (
+    conversationKey: string,
+    waiter: ChoiceWaiter,
+  ) => (reason: unknown) => void | Promise<void>;
   /**
    * Claim a picker's controls for `actorId` (`undefined`: anyone) before the
    * picker is posted: until {@link registerWaiter} opens its choice, no click
    * runs them. Returns a function that abandons the claim (and revokes the
-   * controls) if the picker never became a pending choice.
+   * controls, and takes `choiceGate`) if the picker never became a pending
+   * choice; its promise settles once no process can run them, and rejects
+   * when that cannot be confirmed.
    */
   reserveChoiceControls: (
     controlIds: Iterable<string>,
     actorId: string | undefined,
-  ) => () => void;
+    choiceGate?: ChoiceGate,
+  ) => () => void | Promise<void>;
   interruptHandlers: Map<
     string,
     (args: {
@@ -252,16 +259,16 @@ export const DEFAULT_AWAIT_CHOICE_ANSWERABLE_BY: ChoiceAnswerableBy =
   "initiator";
 
 /**
- * An `answerableBy: "initiator"` choice was requested in a turn whose actor
- * has no usable id, so no click could ever be matched to it. Use
- * `answerableBy: "conversation"` for such turns.
+ * An `answerableBy: "initiator"` choice or resume was requested for a run
+ * whose actor has no usable id, so no click could ever be matched to it. Use
+ * `answerableBy: "conversation"` for such runs.
  */
 export class ChannelChoiceInitiatorUnknownError extends Error {
   readonly code = "channel_choice_initiator_unknown";
 
   constructor() {
     super(
-      'awaitChoice cannot be limited to the initiator: the turn\'s actor has no id. Pass answerableBy: "conversation" to let anyone in the conversation answer.',
+      'This cannot be limited to the initiator: the run\'s actor has no id. Pass answerableBy: "conversation" to let anyone in the conversation answer.',
     );
     this.name = "ChannelChoiceInitiatorUnknownError";
   }
@@ -852,8 +859,14 @@ export class Thread implements ThreadInterface {
         ),
       );
     }
+    // Inside a run chain the owner is the chain's initiator, the same account
+    // `resume` defaults to, even when someone else resumed this leg of it.
     const actorId =
-      answerableBy === "initiator" ? initiatorId(this.deps.actor) : undefined;
+      answerableBy === "initiator"
+        ? initiatorId(
+            this.activeContinuation?.initiator.actor ?? this.deps.actor,
+          )
+        : undefined;
     if (answerableBy === "initiator" && actorId === undefined) {
       return Promise.reject(new ChannelChoiceInitiatorUnknownError());
     }
@@ -874,15 +887,50 @@ export class Thread implements ThreadInterface {
       const ir = await this.prepareNative(bound.root);
       const controls = collectChoiceControls(ir, unboundActionIds);
       // The controls' ids can reach the platform as soon as the post starts:
-      // claim them for this choice first, and revoke them if the post fails.
-      const abandon = this.deps.reserveChoiceControls(controls.keys(), actorId);
+      // open the picker's shared gate and claim the controls for this choice
+      // first (a failed write means nothing is posted), and revoke them if
+      // the post fails.
+      const choiceGate = await this.deps.registry.openChoiceGate(
+        controls.keys(),
+        {
+          lifetimeMs: timeoutMs,
+          ...(actorId !== undefined ? { ownerActorId: actorId } : {}),
+        },
+      );
+      const abandon = this.deps.reserveChoiceControls(
+        controls.keys(),
+        actorId,
+        choiceGate,
+      );
       let ref: MessageRef;
       try {
         ref = await this.deps.adapter.post(this.deps.replyTarget, ir);
         await this.bindPosted(ref, bound);
       } catch (err) {
-        abandon();
+        // The controls may have been published: report the failure only once
+        // no process can run them, or with the store error as well when that
+        // cannot be confirmed.
+        try {
+          await abandon();
+        } catch (retirementError) {
+          throw new AggregateError(
+            [retirementError, err],
+            "the picker could not be retired in the shared store; its controls may still run in other processes until their deadline",
+            { cause: retirementError },
+          );
+        }
         throw err;
+      }
+      // The timeout counts from the moment the gate opened, so the choice
+      // and its controls end together. A post that used it all up leaves a
+      // picker nobody can answer: settle as timed out without waiting.
+      const remainingMs = Number.isFinite(timeoutMs)
+        ? choiceGate.deadline - Date.now()
+        : Infinity;
+      if (remainingMs <= 0) {
+        // Past its gate's deadline the picker is retired everywhere anyway.
+        await Promise.resolve(abandon()).catch(() => {});
+        throw new ChannelChoiceTimeoutError(timeoutMs);
       }
       // Registered only once the picker is posted (a failed post leaves no
       // waiter behind), under the key a click on the posted picker carries.
@@ -908,19 +956,20 @@ export class Thread implements ThreadInterface {
             platform: this.platform,
             controls,
             actorId,
+            choiceGate,
           },
         );
         // Give up on the choice: retire the picker so it answers nothing more,
-        // then settle with `reason`.
+        // here at once and in every process before the choice settles (with
+        // `reason`, or with the store error if that cannot be confirmed).
         const giveUp = (reason: Error) => {
           cleanup();
-          retire();
-          reject(reason);
+          void Promise.resolve(retire(reason)).finally(() => reject(reason));
         };
-        if (Number.isFinite(timeoutMs)) {
+        if (Number.isFinite(remainingMs)) {
           timer = setTimeout(
             () => giveUp(new ChannelChoiceTimeoutError(timeoutMs)),
-            timeoutMs,
+            remainingMs,
           );
           // A pending choice must not keep the process alive on its own.
           if (typeof timer === "object" && "unref" in timer) timer.unref();
@@ -1013,38 +1062,27 @@ export class Thread implements ThreadInterface {
     );
   }
 
+  /**
+   * Re-enter the interrupted run this click's action continues, consuming the
+   * action.
+   *
+   * `options.answerableBy` decides who may resume (default `"initiator"`):
+   * `"initiator"` accepts only the provider account that started the run
+   * chain, matched by its id. Any other account gets
+   * {@link ActionInitiatorMismatchError}, which the Channel reports as a
+   * refused click; the action is not consumed, so the initiator can still use
+   * it. It rejects with {@link ChannelChoiceInitiatorUnknownError} when the
+   * chain's actor has no id. `"conversation"` accepts anyone in the
+   * conversation. Only one action of an interrupt can resume it: once one has,
+   * the others are refused with {@link ActionAlreadyClaimedError}. Call
+   * {@link assertCanResume} first to do work a refused click must not do.
+   */
   resume(
     value: unknown,
-    options?: {
-      memory?: MemoryGrant;
-      subject?: "initiator" | "actor";
-    },
+    options?: ResumeOptions,
   ): Promise<MessageRef | undefined> {
-    const memoryRequest =
-      options?.memory === undefined
-        ? undefined
-        : { user: options.memory.user, project: options.memory.project };
-    const subject = options?.subject;
-    const actionId = this.deps.interactionActionId;
-    if (!actionId) {
-      return Promise.reject(new ChannelContinuationRequiredError());
-    }
     return this.trackOperation(async () => {
-      const binding = {
-        channelName: this.deps.channelName,
-        conversationKey: this.deps.conversationKey,
-        threadId: this.deps.threadId,
-      };
-      const available = await this.deps.registry.getContinuation(
-        actionId,
-        binding,
-      );
-      const memory = this.resolveResumeMemory(
-        memoryRequest === undefined && subject === undefined
-          ? undefined
-          : { memory: memoryRequest, subject },
-        available,
-      );
+      const { actionId, binding, memory } = await this.checkResume(options);
       const claimed = await this.deps.registry.claimContinuation(
         actionId,
         binding,
@@ -1090,6 +1128,59 @@ export class Thread implements ThreadInterface {
         }
       }
     });
+  }
+
+  /**
+   * Refuse exactly as {@link resume} would, with the same options, and consume
+   * nothing. Call it before updating a card, so a refused click changes
+   * nothing. Two clicks racing can both pass; `resume` still lets only one
+   * through.
+   */
+  assertCanResume(options?: ResumeOptions): Promise<void> {
+    return this.trackOperation(async () => {
+      await this.checkResume(options);
+    });
+  }
+
+  private async checkResume(options: ResumeOptions | undefined) {
+    const memoryRequest =
+      options?.memory === undefined
+        ? undefined
+        : { user: options.memory.user, project: options.memory.project };
+    const subject = options?.subject;
+    const answerableBy = options?.answerableBy ?? "initiator";
+    if (answerableBy !== "initiator" && answerableBy !== "conversation") {
+      throw new RangeError(
+        'resume answerableBy must be "initiator" or "conversation"',
+      );
+    }
+    const actionId = this.deps.interactionActionId;
+    if (!actionId) throw new ChannelContinuationRequiredError();
+    const binding = {
+      channelName: this.deps.channelName,
+      conversationKey: this.deps.conversationKey,
+      threadId: this.deps.threadId,
+    };
+    const available = await this.deps.registry.getContinuation(
+      actionId,
+      binding,
+    );
+    if (answerableBy === "initiator") {
+      const initiator = initiatorId(available.initiator.actor);
+      if (initiator === undefined) {
+        throw new ChannelChoiceInitiatorUnknownError();
+      }
+      if (initiator !== this.deps.actor.id) {
+        throw new ActionInitiatorMismatchError();
+      }
+    }
+    const memory = this.resolveResumeMemory(
+      memoryRequest === undefined && subject === undefined
+        ? undefined
+        : { memory: memoryRequest, subject },
+      available,
+    );
+    return { actionId, binding, memory };
   }
 
   private resolveResumeMemory(
@@ -1374,6 +1465,13 @@ function promptMatchesInbound(
   );
 }
 
+/** Options for {@link Thread.resume} and {@link Thread.assertCanResume}. */
+export interface ResumeOptions {
+  memory?: MemoryGrant;
+  subject?: "initiator" | "actor";
+  answerableBy?: ChoiceAnswerableBy;
+}
+
 /** A pending `awaitChoice`: who may answer it, and with which controls. */
 export interface ChoiceWaiter {
   resolve: (value: unknown) => void;
@@ -1395,6 +1493,11 @@ export interface ChoiceWaiter {
    * or `undefined` when anyone in the conversation may (`"conversation"`).
    */
   actorId?: string;
+  /**
+   * The picker's one-shot gate: the click that answers it takes the gate,
+   * and retiring the picker takes it too, in the store every process shares.
+   */
+  choiceGate?: ChoiceGate;
 }
 
 /**

@@ -1,25 +1,24 @@
 "use client";
 
-import {
-  createContext,
-  isValidElement,
-  useContext,
-  type AnchorHTMLAttributes,
-  type ButtonHTMLAttributes,
-  type ComponentProps,
-  type ReactNode,
+import { createContext, isValidElement, useContext } from "react";
+import type {
+  AnchorHTMLAttributes,
+  ButtonHTMLAttributes,
+  ComponentProps,
+  ReactNode,
 } from "react";
-import {
-  CopilotChatAssistantMessage,
-  type CopilotChatView,
-  type Suggestion,
-} from "@copilotkit/react-core/v2";
+import { CopilotChatAssistantMessage } from "@copilotkit/react-core/v2";
+import type { CopilotChatView, Suggestion } from "@copilotkit/react-core/v2";
 import { DynamicCodeBlock } from "fumadocs-ui/components/dynamic-codeblock";
 import Link from "fumadocs-core/link";
 import { useTreePath } from "fumadocs-ui/contexts/tree";
 import { ArrowUp, Plus } from "lucide-react";
 import { PixelMatrix } from "@/components/brand/pixel-matrix";
-import { MATRIX_GROUND, STAGE_WINDOW, Stage } from "@/components/brand/stage";
+import {
+  MATRIX_GROUND,
+  STAGE_WINDOW,
+  CodeFrame,
+} from "@/components/brand/stage";
 import { FrameworkLogo } from "@/components/icons/framework-icons";
 import {
   GenerativeUIGlyph,
@@ -429,7 +428,7 @@ export function ChatCode({
         : String(children ?? "");
   // Answers sit in a narrow column, so every block takes the compact frame.
   return (
-    <Stage compact className="my-3 shadow-none">
+    <CodeFrame className="my-3">
       <DynamicCodeBlock
         lang={lang}
         code={text.replace(/\n$/, "")}
@@ -440,7 +439,7 @@ export function ChatCode({
         }}
         options={{ themes: { light: brandLight, dark: brandDark } }}
       />
-    </Stage>
+    </CodeFrame>
   );
 }
 

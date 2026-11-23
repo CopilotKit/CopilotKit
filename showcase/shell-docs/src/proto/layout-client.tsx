@@ -4,13 +4,11 @@ import { useEffect } from "react";
 import type { ComponentProps, ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import Link from "fumadocs-core/link";
-import { buttonVariants } from "fumadocs-ui/components/ui/button";
 import {
   AskAIGlyph,
   BackendGlyph,
   CookbookGlyph,
   OpenBotGlyph,
-  DirectoryGlyph,
   DeclarativeUIGlyph,
   FrontendToolsGlyph,
   GenerativeUIGlyph,
@@ -26,16 +24,27 @@ import {
   ThreadsGlyph,
 } from "@/components/icons/glyphs";
 import { SiDiscord, SiX } from "react-icons/si";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, CalendarDays } from "lucide-react";
 import type { LinkItemType } from "fumadocs-ui/layouts/shared";
 // Spacious' DocsLayout with the CopilotKit "Ask AI" chat in its aiChat slot.
 import { DocsLayout as SpaciousLayout } from "@/components/ai/docs-layout";
+import { VersionPicker } from "@/components/version-picker";
 import { ProtoStackAgent } from "@/components/ai/stack-agents";
 import { HomeLayout } from "fumadocs-ui/layouts/home";
 import { FullSearchTrigger } from "fumadocs-ui/layouts/shared/slots/search-trigger";
+import { Header as SpaciousHeader } from "fumadocs-ui/layouts/spacious/slots/header";
 import { CopilotKitLogo } from "@/components/copilotkit-logo";
 import { Button } from "@/components/ui/button";
-import { PanelActions } from "@/components/layout/panel-actions";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  IconLinks,
+  PanelActions,
+  PanelSidebarToggle,
+} from "@/components/layout/panel-actions";
 import { AdaptiveThemeSwitch } from "@/components/layout/theme-toggle";
 import { FRAMEWORKS, FRAMEWORK_FAMILIES } from "./data";
 import { FamilyMenuCard, IntegrationCardBody } from "./link-card";
@@ -112,8 +121,10 @@ const INTELLIGENCE_MENU = [
 ];
 
 /**
- * Spacious' `actions` slot with the docs' three sections before the icon
- * links, where docs.copilotkit.ai's top bar has them: Cookbook and Reference
+ * The docs' top bar contents: the docs' three sections at its left edge, in
+ * line with the page panel, and the theme switch, Talk to an engineer, and
+ * the icon links at its right. Ask CopilotKit stays off the bar: the round
+ * chat button in the page's corner opens it. Cookbook and Reference
  * are one click from any page and Docs one click back, without taking a row
  * of the sidebar. Cookbook and Reference own their URL prefix; Docs is every
  * other docs page, and opens your framework's quickstart.
@@ -132,28 +143,110 @@ function SectionActions({ className, ...props }: ComponentProps<"div">) {
     { title: "Reference", url: "/reference", active: path[0] === "reference" },
   ];
   return (
-    <div className={cn("flex items-center gap-1", className)} {...props}>
-      <nav aria-label="Docs sections" className="flex items-center">
+    <div className={cn("flex w-full items-center gap-2", className)} {...props}>
+      <nav
+        aria-label="Docs sections"
+        className="ms-3.5 me-auto flex items-center gap-1"
+      >
         {sections.map((s) => (
           <Link
             key={s.title}
             href={s.url}
             aria-current={s.active ? "true" : undefined}
             className={cn(
-              buttonVariants({ variant: "ghost" }),
-              "h-7.5 px-2",
-              s.active ? "text-fd-primary" : "text-fd-muted-foreground",
+              "rounded-md px-2.5 py-1 text-[15px] transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-fd-ring motion-reduce:transition-none",
+              s.active
+                ? "font-medium text-primary"
+                : "text-fd-muted-foreground hover:text-fd-foreground",
             )}
           >
             {s.title}
           </Link>
         ))}
       </nav>
-      <span aria-hidden="true" className="mx-1 h-4 w-px bg-fd-border" />
-      <PanelActions />
+      <AdaptiveThemeSwitch className="bg-fd-background" />
+      <TalkToEngineerPill className="h-8 px-3.5" />
+      <span
+        aria-hidden="true"
+        className="mx-1.5 h-5 w-px bg-frame-foreground/25"
+      />
+      <IconLinks className="gap-0.5" />
     </div>
   );
 }
+
+/**
+ * Spacious' `header` slot: its phone navbar, unchanged, and on tablets and
+ * desktops a compact bar on the frame above the page panel carrying the
+ * section links, icon links, and theme switch (the same `actions` component
+ * Spacious would otherwise draw in the panel's corner, where it competed with
+ * the breadcrumb). It spans the page's column and Ask CopilotKit's, so the
+ * chat opens under it. No search: it lives at the top of the sidebar. The panel's
+ * `actions` slot holds the sidebar toggle instead (`PanelSidebarToggle`).
+ */
+function topBar(Actions: (props: ComponentProps<"div">) => ReactNode) {
+  return function TopBar(props: ComponentProps<"header">) {
+    return (
+      <>
+        <SpaciousHeader {...props} />
+        <header
+          data-docs-topbar
+          // It spans the sidebar's column too, so the logo and version picker
+          // live here and stay put while the sidebar collapses. The padding
+          // is the sidebar's 268px width, so the section links keep their x.
+          className="relative [grid-area:1/1/2/-1] flex h-(--fd-header-height) items-center justify-end ps-[268px] pe-3 max-md:hidden"
+        >
+          <div className="absolute inset-y-0 start-0 flex items-center ps-5.5">
+            <Brand
+              href="/"
+              className="inline-flex items-center text-[0.9375rem] font-semibold"
+            />
+          </div>
+          <Actions className="bg-transparent" />
+        </header>
+      </>
+    );
+  };
+}
+
+/**
+ * The logo with the docs version picker beside it. Drawn in the top bar on
+ * tablets and desktops, and in Spacious' phone header via `nav.title`.
+ */
+function Brand({ className, ...props }: ComponentProps<"a">) {
+  // The layout's className (me-auto in the phone header) goes on the wrapper,
+  // so the picker travels with the logo and the header's buttons stay right.
+  return (
+    <span
+      data-brand=""
+      className={cn("inline-flex min-w-0 items-center gap-1", className)}
+    >
+      {/* Link, not <a>: it keeps the logo under this build's base path. */}
+      <Link
+        {...props}
+        href={props.href ?? "/"}
+        className="inline-flex shrink-0 items-center"
+      >
+        <CopilotKitLogo className="h-[22px] w-auto" />
+      </Link>
+      <VersionPicker />
+    </span>
+  );
+}
+
+/**
+ * Spacious' `nav.title`: the sidebar's logo row on tablets and desktops, and
+ * the phone header below 768px. From 768px the top bar draws the logo and
+ * picker (`topBar`), so this copy keeps its row but steps aside; it would
+ * otherwise slide away as the sidebar collapses. The phone header is
+ * hidden from 768px, so `md:invisible` only ever affects the sidebar copy.
+ */
+function NavTitleBrand({ className, ...props }: ComponentProps<"a">) {
+  return <Brand {...props} className={cn(className, "md:invisible")} />;
+}
+
+const SectionsTopBar = topBar(SectionActions);
+const PanelTopBar = topBar(PanelActions);
 
 /**
  * Sets a navbar dropdown on the lilac-grey tray: a hidden marker that
@@ -172,16 +265,15 @@ const TILES_TRAY: Extract<LinkItemType, { type: "custom" }> = {
 };
 
 /**
- * A menu card is a white card in the tray, as on the home (link-card.tsx):
- * borderless at rest (theme.css), and on hover it takes the website's lilac
- * border-action edge.
+ * A menu card is a card, as on the home (link-card.tsx): white with a
+ * hairline and a small lift on the menu's faint lilac panel (theme.css); on
+ * hover it takes the lilac border-action edge and a deeper lift.
  */
 const HOVER =
-  "group/card border-transparent transition-[border-color] duration-200 hover:border-edge-action focus-visible:border-ring motion-reduce:transition-none";
+  "group/card border-border shadow-card transition-[border-color,box-shadow] duration-200 hover:border-edge-action hover:shadow-card-hover focus-visible:border-ring motion-reduce:transition-none dark:bg-[#1a1a24]";
 
-/** A card's glyph: solid plum ink with no tile, lilac on hover. */
-const INK_GLYPH =
-  "text-foreground transition-colors duration-200 group-hover/card:text-primary motion-reduce:transition-none [&_svg]:size-[22px]";
+/** A card's glyph: solid, in the accent, with no tile. */
+const INK_GLYPH = "text-primary [&_svg]:size-[22px]";
 
 /**
  * Topic cards. Fumadocs draws `banner` above the title in place of its own
@@ -198,7 +290,7 @@ function card(icon: ReactNode) {
   };
 }
 
-/** Integrations cards: tiles, the logo's tile over the name. */
+/** Integrations cards: tiles, the logo over the name. */
 const TILE_CARD = `${HOVER} gap-3 p-3`;
 
 /**
@@ -319,29 +411,143 @@ function MenuRow({
 }
 
 /**
- * The Examples menu's lead tile, two rows tall, on the home's blue stage:
- * the gallery of every demo, its glyph in white.
+ * The Examples menu's lead tile, two rows tall: a window onto the gallery.
+ * The words sit on the menu's white like every other card; beside them, a
+ * slice of the home's stage holds three demos in miniature (a chat, a
+ * generated card, an approval), which fan open when the tile is hovered.
  */
 function GalleryTile() {
   return (
     <>
-      <span aria-hidden="true" className="mb-auto text-white [&_svg]:size-6">
-        <DirectoryGlyph />
+      <span className="flex min-w-0 flex-1 flex-col justify-center gap-1">
+        <span className="text-sm font-semibold">Gallery</span>
+        <span className="text-xs leading-[1.45] text-fd-muted-foreground">
+          Every live demo, running on your framework.
+        </span>
+        <span className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-primary">
+          Browse all demos
+          <ArrowRight
+            aria-hidden="true"
+            className="size-3.5 transition-transform duration-200 group-hover/all:translate-x-0.5 motion-reduce:transition-none"
+          />
+        </span>
       </span>
-      <span className="text-lg leading-6 font-semibold text-white">
-        Gallery
-      </span>
-      <span className="text-sm leading-5 text-white/90">
-        Every live demo in one place, running on the framework you use.
-      </span>
-      <span className="mt-1 inline-flex items-center gap-1.5 text-sm font-medium text-white">
-        Browse the demos
-        <ArrowRight
-          aria-hidden="true"
-          className="size-4 transition-transform group-hover/all:translate-x-0.5 motion-reduce:transition-none"
-        />
+      <span
+        aria-hidden="true"
+        className="relative w-[44%] max-w-40 shrink-0 self-stretch overflow-hidden rounded-[10px] border border-white/60 bg-(image:--stage) dark:border-white/10"
+      >
+        <MiniDemo className="-rotate-6 group-hover/all:-translate-x-2.5 group-hover/all:-rotate-10 left-[10%]">
+          <span className="h-1 w-3/4 rounded-full bg-black/10 dark:bg-white/15" />
+          <span className="h-1 w-1/2 rounded-full bg-black/10 dark:bg-white/15" />
+          <span className="mt-auto ms-auto h-2 w-3/5 rounded-full bg-primary/30" />
+        </MiniDemo>
+        <MiniDemo className="z-10 left-[30%] -translate-y-[56%] group-hover/all:-translate-y-[66%]">
+          <span className="h-1 w-2/3 rounded-full bg-black/15 dark:bg-white/20" />
+          <span className="flex flex-1 items-end gap-0.5">
+            <span className="h-[40%] flex-1 rounded-[1px] bg-primary/50" />
+            <span className="h-[75%] flex-1 rounded-[1px] bg-primary/70" />
+            <span className="h-[55%] flex-1 rounded-[1px] bg-brand-mint-deep/60" />
+            <span className="h-full flex-1 rounded-[1px] bg-primary" />
+          </span>
+        </MiniDemo>
+        <MiniDemo className="z-20 left-[50%] rotate-6 group-hover/all:translate-x-2.5 group-hover/all:rotate-10">
+          <span className="h-1 w-4/5 rounded-full bg-black/10 dark:bg-white/15" />
+          <span className="h-1 w-3/5 rounded-full bg-black/10 dark:bg-white/15" />
+          <span className="mt-auto flex gap-0.5">
+            <span className="h-2 flex-1 rounded-full bg-brand-plum dark:bg-white" />
+            <span className="h-2 flex-1 rounded-full border border-black/15 dark:border-white/25" />
+          </span>
+        </MiniDemo>
       </span>
     </>
+  );
+}
+
+/** A demo in miniature: a small white window on the gallery's stage. */
+function MiniDemo({
+  className,
+  children,
+}: {
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <span
+      className={cn(
+        "absolute top-1/2 flex aspect-[4/5] w-[42%] -translate-y-1/2 flex-col gap-1 rounded-md bg-white p-1.5 shadow-[0_6px_14px_-4px_rgb(38_32_116/0.4)] transition-[translate,rotate] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none dark:bg-[#1b1b25]",
+        className,
+      )}
+    >
+      {children}
+    </span>
+  );
+}
+
+/**
+ * The full-page Ask CopilotKit, as a white outlined pill, in the home
+ * navbar. Hidden on /ask itself.
+ */
+function AskCopilotKitPill({ className }: { className?: string }) {
+  const pathname = usePathname();
+  return (
+    <Button
+      variant="outline"
+      render={<Link href="/ask" />}
+      nativeButton={false}
+      aria-current={pathname === "/ask" ? "page" : undefined}
+      className={cn(
+        "h-9 gap-2 rounded-full bg-card px-3.5 shadow-lift aria-[current=page]:hidden [&_svg]:size-4",
+        className,
+      )}
+    >
+      <AskAIGlyph aria-hidden="true" />
+      Ask CopilotKit
+    </Button>
+  );
+}
+
+/**
+ * Talk to an engineer, as the solid indigo pill (the website's lilac-deep,
+ * white text) in both themes. Shared by the home navbar and the docs' top bar.
+ */
+function TalkToEngineerPill({ className }: { className?: string }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <Button
+            render={
+              <a
+                href="https://www.copilotkit.ai/talk-to-an-engineer"
+                target="_blank"
+                rel="noreferrer noopener"
+              />
+            }
+            nativeButton={false}
+            onClick={() =>
+              trackEvent("talk_to_us_clicked", { location: "docs_nav" })
+            }
+            aria-label="Talk to an engineer"
+            className={cn(
+              "h-9 rounded-full bg-brand-lilac-deep px-4 text-white hover:bg-[#5057cc]",
+              className,
+              // Below lg the top bar has no room for the label, so a calendar
+              // icon stands in for it and the tooltip names it.
+              "max-lg:size-8 max-lg:px-0",
+              // The icon stays 32px; an invisible ::after makes the hit area 44px.
+              "max-lg:relative max-lg:after:absolute max-lg:after:-inset-1.5 max-lg:after:content-['']",
+            )}
+          />
+        }
+      >
+        <CalendarDays className="size-4 lg:hidden" aria-hidden />
+        <span className="max-lg:hidden">Talk to an engineer</span>
+      </TooltipTrigger>
+      {/* Only the icon needs a tooltip; the pill says it already. */}
+      <TooltipContent side="bottom" className="lg:hidden">
+        Talk to an engineer
+      </TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -354,7 +560,6 @@ function DHomeLayout({
   children: ReactNode;
 }) {
   const [framework] = useLastFramework();
-  const pathname = usePathname();
   useMenuSwitchClick();
   const links: LinkItemType[] = [
     {
@@ -404,8 +609,7 @@ function DHomeLayout({
           text: "Gallery",
           url: "/examples",
           menu: {
-            className:
-              "group/all row-span-2 gap-1 border-white/60 bg-(image:--stage-captioned) p-4 transition-[border-color] duration-200 hover:border-edge-action motion-reduce:transition-none dark:border-white/10",
+            className: `${HOVER} group/all row-span-2 flex-row items-stretch gap-3 p-2.5`,
             children: <GalleryTile />,
           },
         },
@@ -439,47 +643,19 @@ function DHomeLayout({
       // The full-page Ask CopilotKit, as a pill beside the search pill.
       type: "custom",
       secondary: true,
-      children: (
-        <Button
-          variant="outline"
-          render={<Link href="/ask" />}
-          nativeButton={false}
-          aria-current={pathname === "/ask" ? "page" : undefined}
-          className="h-9 gap-2 rounded-full bg-card px-3.5 shadow-lift aria-[current=page]:hidden [&_svg]:size-4"
-        >
-          <AskAIGlyph aria-hidden="true" />
-          Ask CopilotKit
-        </Button>
-      ),
+      children: <AskCopilotKitPill />,
     },
     {
       // A custom item so the button can match the navbar's pill search.
       type: "custom",
       secondary: true,
-      children: (
-        <Button
-          render={
-            <a
-              href="https://www.copilotkit.ai/talk-to-an-engineer"
-              target="_blank"
-              rel="noreferrer noopener"
-            />
-          }
-          nativeButton={false}
-          onClick={() =>
-            trackEvent("talk_to_us_clicked", { location: "docs_nav" })
-          }
-          className="h-9 rounded-full bg-foreground px-4 text-background hover:bg-foreground/85"
-        >
-          Talk to an engineer
-        </Button>
-      ),
+      children: <TalkToEngineerPill />,
     },
   ];
   return (
     <HomeLayout
       nav={{
-        title: <CopilotKitLogo className="h-[22px] w-auto" />,
+        title: Brand,
         url: "/",
       }}
       links={links}
@@ -541,14 +717,15 @@ export function ProtoLayout({
       <SpaciousLayout
         tree={tree}
         nav={{
-          title: <CopilotKitLogo className="h-[22px] w-auto" />,
+          title: NavTitleBrand,
           url: meta.entry,
         }}
         tabs={layoutTabs(variant) ?? false}
         githubUrl={GITHUB}
         links={[DISCORD, X]}
         slots={{
-          actions: variant === "d" && liveNav ? SectionActions : PanelActions,
+          header: variant === "d" && liveNav ? SectionsTopBar : PanelTopBar,
+          actions: PanelSidebarToggle,
           themeSwitch: AdaptiveThemeSwitch,
         }}
         agent={
@@ -561,11 +738,11 @@ export function ProtoLayout({
         searchToggle={{
           components: {
             lg: (
-              <div className="flex flex-col gap-2">
+              <div className="flex flex-col gap-3">
                 {top}
                 <FullSearchTrigger
                   hideIfDisabled
-                  className="h-10 gap-3 rounded-xl bg-card ps-[calc(--spacing(2.5)-1px)] pe-2 shadow-lift hover:bg-accent [&_svg]:shrink-0"
+                  className="h-10 gap-3 rounded-xl bg-card ps-[calc(--spacing(2.5)-1px)] pe-2 shadow-lift hover:bg-accent dark:bg-[#1e1e2a] dark:hover:bg-[#262634] [&_svg]:shrink-0"
                 />
               </div>
             ),

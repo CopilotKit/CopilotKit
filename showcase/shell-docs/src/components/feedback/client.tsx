@@ -10,28 +10,20 @@ import {
 import { buttonVariants } from "fumadocs-ui/components/ui/button";
 import { CornerDownRightIcon, ThumbsDown, ThumbsUp } from "lucide-react";
 import {
-  type HTMLAttributes,
-  type ReactNode,
-  type SyntheticEvent,
   useEffect,
   useEffectEvent,
   useRef,
   useState,
   useTransition,
 } from "react";
+import type { HTMLAttributes, ReactNode, SyntheticEvent } from "react";
 import {
   Collapsible,
   CollapsibleContent,
 } from "fumadocs-ui/components/ui/collapsible";
 import { cva } from "class-variance-authority";
-import {
-  actionResponse,
-  blockFeedback,
-  pageFeedback,
-  type ActionResponse,
-  type BlockFeedback,
-  type PageFeedback,
-} from "./schema";
+import { actionResponse, blockFeedback, pageFeedback } from "./schema";
+import type { ActionResponse, BlockFeedback, PageFeedback } from "./schema";
 import { z } from "zod/mini";
 import { usePathname } from "fumadocs-core/framework";
 

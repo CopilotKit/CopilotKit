@@ -1,9 +1,7 @@
 "use client";
 
-import {
-  ThemeSwitch,
-  type ThemeSwitchProps,
-} from "fumadocs-ui/layouts/shared/slots/theme-switch";
+import { ThemeSwitch } from "fumadocs-ui/layouts/shared/slots/theme-switch";
+import type { ThemeSwitchProps } from "fumadocs-ui/layouts/shared/slots/theme-switch";
 import { cn } from "@/lib/cn";
 
 /**

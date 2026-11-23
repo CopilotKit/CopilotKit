@@ -2,6 +2,9 @@
   "title": "ADK",
   "root": true,
   "pages": [
+    "---ADK---",
+    "agent-app-context",
+    "deploy-langsmith",
     "---Intelligence---",
     {
       "title": "AG-UI Streams",

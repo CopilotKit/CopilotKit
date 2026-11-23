@@ -1,5 +1,6 @@
 import { cache } from "react";
-import { UNSCOPED, type DocsScope } from "./scope";
+import { UNSCOPED } from "./scope";
+import type { DocsScope } from "./scope";
 
 /** What a ported page tells its MDX components besides its scope. */
 export interface DocsPageInfo {

@@ -13,8 +13,8 @@ import {
   missingDemo,
   resolveSnippet,
   snippetFileName,
-  type SnippetSource,
 } from "@/components/docs-mdx/showcase/sources";
+import type { SnippetSource } from "@/components/docs-mdx/showcase/sources";
 import { ROOT_FRAMEWORK } from "@/lib/live-scope";
 
 // The showcase components of a page as Markdown: what `<FrameworkSetup>`,

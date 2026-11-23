@@ -10,8 +10,16 @@ import {
   OtherGlyph,
 } from "@/components/icons/glyphs";
 import { FrameworkLogo } from "@/components/icons/framework-icons";
+import { FrontendLogo } from "@/components/icons/frontend-logo";
+import { frontendHref } from "@/lib/live-scope";
 import { useIntegrationClickTracking } from "@/components/telemetry/homepage";
-import { FRAMEWORKS, FRAMEWORK_FAMILIES, TOPICS, TOPIC_SUMMARY } from "./data";
+import {
+  FRAMEWORKS,
+  FRAMEWORK_FAMILIES,
+  FRONTENDS,
+  TOPICS,
+  TOPIC_SUMMARY,
+} from "./data";
 import { CopyPromptD } from "./copy-prompt-d";
 import { useLastFramework } from "./last-framework";
 import { FamilyCard, LinkCard, Tray } from "./link-card";
@@ -19,6 +27,12 @@ import { QuickstartMenu } from "./quickstart-menu";
 import { frameworkHref, sectionHref } from "./routes";
 import { StackDiagram } from "./stack-diagram";
 import { TopicGlyph } from "./topic-glyph";
+
+/** Topics whose card opens a page other than their slug. */
+const TOPIC_PATH: Partial<Record<string, string>> = {
+  // The Generative UI overview is retired; its first Controlled page leads.
+  "generative-ui": "generative-ui/tool-based",
+};
 
 const sectionTitle = "text-2xl leading-tight font-medium tracking-[-0.03em]";
 
@@ -63,11 +77,11 @@ export function DHome() {
 
       <section className="flex flex-col gap-5">
         <h2 className={sectionTitle}>Guides</h2>
-        <Tray matrix>
+        <Tray variant="bare">
           {TOPICS.map((t) => (
             <LinkCard
               key={t.slug}
-              href={frameworkHref("d", framework, t.slug)}
+              href={frameworkHref("d", framework, TOPIC_PATH[t.slug] ?? t.slug)}
               icon={<TopicGlyph slug={t.slug} />}
               title={t.title}
               description={TOPIC_SUMMARY[t.slug]}
@@ -82,9 +96,25 @@ export function DHome() {
         </Tray>
       </section>
 
+      <section className="flex flex-col gap-5">
+        <h2 className={sectionTitle}>Frontends</h2>
+        <Tray variant="bare">
+          {FRONTENDS.map((f) => (
+            <LinkCard
+              key={f.id}
+              href={frontendHref([], f.id, "")}
+              glyph="logo"
+              icon={<FrontendLogo icon={f.id} size={22} />}
+              title={f.name}
+              description={f.summary}
+            />
+          ))}
+        </Tray>
+      </section>
+
       <section className="flex flex-col gap-5" onClick={trackIntegrationClick}>
         <h2 className={sectionTitle}>Integrations</h2>
-        <Tray matrix>
+        <Tray variant="bare">
           {FRAMEWORKS.map((f) => {
             // A framework in several languages is one card, where its first
             // variant would be; the other variants fold into it.
@@ -122,7 +152,7 @@ export function DHome() {
       {/* OpenBot, as on docs.copilotkit.ai's home. */}
       <section className="flex flex-col gap-5">
         <h2 className={sectionTitle}>Built with CopilotKit</h2>
-        <Tray>
+        <Tray variant="bare">
           <LinkCard
             href="https://open.bot"
             icon={<OpenBotGlyph />}

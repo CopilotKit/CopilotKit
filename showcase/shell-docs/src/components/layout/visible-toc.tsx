@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ComponentProps } from "react";
+import { useEffect, useMemo, useState } from "react";
+import type { ComponentProps } from "react";
 import { TOCProvider } from "fumadocs-ui/layouts/spacious/page/slots/toc";
 
 type TOCItems = ComponentProps<typeof TOCProvider>["toc"];

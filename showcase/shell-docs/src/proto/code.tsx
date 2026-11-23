@@ -1,9 +1,14 @@
 "use client";
 
 import { DynamicCodeBlock } from "fumadocs-ui/components/dynamic-codeblock";
-import { STAGE_WINDOW, Stage, isCommandLang } from "@/components/brand/stage";
+import {
+  STAGE_WINDOW,
+  CodeFrame,
+  isCommandLang,
+} from "@/components/brand/stage";
 import { brandDark, brandLight } from "./code-theme";
-import { frameworkById, type FrontendId } from "./data";
+import { frameworkById } from "./data";
+import type { FrontendId } from "./data";
 
 // Snippets use APIs checked in this repo (packages/react-core, vue, angular,
 // react-native, runtime). Feature examples exist for React only so far.
@@ -21,14 +26,14 @@ export function Code({
   // Code sits on the same stage as a live demo, as a white window; commands
   // take a compact frame.
   return (
-    <Stage compact={isCommandLang(lang)} className="my-2">
+    <CodeFrame compact={isCommandLang(lang)} className="my-2">
       <DynamicCodeBlock
         lang={lang}
         code={code}
         codeblock={{ title, className: `my-0 ${STAGE_WINDOW}` }}
         options={options}
       />
-    </Stage>
+    </CodeFrame>
   );
 }
 

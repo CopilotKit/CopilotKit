@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, type MouseEvent } from "react";
+import { useCallback } from "react";
+import type { MouseEvent } from "react";
 import { useHomepageTelemetry } from "@/lib/telemetry/use-homepage-telemetry";
 import { useFrontend } from "@/proto/frontend";
 import { locationFromPathname } from "@/proto/routes";

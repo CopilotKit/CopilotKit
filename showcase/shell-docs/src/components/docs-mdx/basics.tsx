@@ -3,13 +3,8 @@
 // icons content names inline (shell-docs drew most icons as emoji stand-ins;
 // here they are the real marks).
 
-import {
-  Children as ReactChildren,
-  isValidElement,
-  type ComponentProps,
-  type ReactElement,
-  type ReactNode,
-} from "react";
+import { Children as ReactChildren, isValidElement } from "react";
+import type { ComponentProps, ReactElement, ReactNode } from "react";
 import NextLink from "next/link";
 import defaultMdxComponents from "fumadocs-ui/mdx";
 import {
@@ -34,6 +29,7 @@ import { SiLangchain, SiNestjs } from "react-icons/si";
 import { Badge } from "@/components/ui/badge";
 import { Button as UiButton } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
+import { withBasePath } from "@/lib/base-path";
 
 type Children = { children?: ReactNode };
 
@@ -166,7 +162,12 @@ const FumadocsImg = defaultMdxComponents.img;
  * Fumadocs' image. An `<img>` authored in JSX usually has no size, which
  * Next's image can't render, so it stays a plain image, as in shell-docs.
  */
-function Img(props: ComponentProps<"img">) {
+function Img(rawProps: ComponentProps<"img">) {
+  // Root-relative sources (`/images/...`) stay under /v2 on the 2.x docs.
+  const props =
+    typeof rawProps.src === "string"
+      ? { ...rawProps, src: withBasePath(rawProps.src) }
+      : rawProps;
   const { src, width, height } = props;
   if (typeof src === "object" || (src && width && height)) {
     return (
@@ -204,7 +205,7 @@ function Image({
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
-      src={src ?? ""}
+      src={withBasePath(src ?? "")}
       alt={alt}
       width={width}
       height={height}
@@ -228,6 +229,7 @@ function ImageZoom({
       height={height}
       {...{ unoptimized: true }}
       {...props}
+      src={typeof props.src === "string" ? withBasePath(props.src) : props.src}
       className={cn("h-auto w-full rounded-lg", props.className)}
     />
   );
@@ -237,6 +239,7 @@ function Video(props: ComponentProps<"video">) {
   return (
     <video
       {...props}
+      src={typeof props.src === "string" ? withBasePath(props.src) : props.src}
       className={cn("my-6 w-full rounded-xl", props.className)}
     />
   );

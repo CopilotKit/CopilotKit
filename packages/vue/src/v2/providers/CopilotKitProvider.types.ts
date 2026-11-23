@@ -17,6 +17,47 @@ import type {
 import type { Component } from "vue";
 import type { GenerativeUIConfig } from "../generative-ui/runtime-context";
 
+/**
+ * Host-side options for MCP Apps widgets, set on `<CopilotKitProvider
+ * :mcp-apps="...">`. The same shape Angular's `provideMCPApps()` takes; every
+ * field is optional and merged over the shared defaults.
+ */
+export interface MCPAppsOptions {
+  /** Maximum time to wait for a busy agent before a queued request fails. */
+  idleTimeoutMs?: number;
+  /** Maximum time to wait for the sandbox proxy initialization handshake. */
+  initializationTimeoutMs?: number;
+  /** Host identity announced during the MCP Apps initialization handshake. */
+  hostInfo?: { name: string; version: string };
+  /** Additional protocol capabilities announced to embedded MCP Apps. */
+  hostCapabilities?: Record<string, unknown>;
+  /**
+   * Additional non-secret UI context announced to embedded MCP Apps.
+   * `availableDisplayModes` narrows the display modes widgets may obtain
+   * (`inline` always stays); `theme` overrides the `.dark` detection.
+   */
+  hostContext?: Record<string, unknown>;
+  /**
+   * Restore `allow-same-origin` on the MCP App sandbox. Default `false`.
+   *
+   * **Unsafe.** The widget then runs with your page's origin: it can read
+   * your cookies, storage and DOM, and call your APIs as the signed-in user.
+   * Only set it for widgets you wrote and trust that need `localStorage`,
+   * `IndexedDB` or cookies. By default widgets get an opaque origin.
+   */
+  allowSameOriginFallback?: boolean;
+  /**
+   * Let MCP Apps report their state to the model through
+   * `ui/update-model-context`. Default `false`.
+   *
+   * **Security.** The reported state goes with every later run of the
+   * conversation, and the built-in agent puts it in the system prompt. The
+   * user does not see it. With this on, the widget of any MCP server your
+   * agent uses can write there. Only enable it for MCP servers you trust.
+   */
+  modelContext?: boolean;
+}
+
 export interface CopilotKitProviderProps {
   runtimeUrl?: string;
   /**
@@ -126,18 +167,12 @@ export interface CopilotKitProviderProps {
    * ```
    */
   generativeUI?: GenerativeUIConfig;
-  /** Configuration for the built-in MCP Apps renderer. */
-  mcpApps?: {
-    /**
-     * Restore `allow-same-origin` on the MCP App sandbox. Default `false`.
-     *
-     * **Unsafe.** The widget then runs with your page's origin: it can read
-     * your cookies, storage and DOM, and call your APIs as the signed-in user.
-     * Only set it for widgets you wrote and trust that need `localStorage`,
-     * `IndexedDB` or cookies. By default widgets get an opaque origin.
-     */
-    allowSameOriginFallback?: boolean;
-  };
+  /**
+   * Host-side options for MCP Apps widgets. Optional; use it to narrow what
+   * widgets may obtain, for example
+   * `{ hostContext: { availableDisplayModes: ["inline"] } }` keeps them inline.
+   */
+  mcpApps?: MCPAppsOptions;
   /**
    * Enable debug logging for the client-side event pipeline.
    *

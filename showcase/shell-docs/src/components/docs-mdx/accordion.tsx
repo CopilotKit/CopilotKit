@@ -1,6 +1,7 @@
 "use client";
 
-import { createContext, useContext, type ComponentProps } from "react";
+import { createContext, useContext } from "react";
+import type { ComponentProps } from "react";
 import {
   Accordion as FumadocsAccordion,
   Accordions as FumadocsAccordions,

@@ -68,9 +68,24 @@ To wire these pieces into a custom chat UI, follow [Headless Threads](/headless-
 
 ### Auto-naming
 
-When the first run creates a thread, the runtime asks a copy of your agent for a short name (2 to 5 words) based on the first messages. This runs asynchronously, so it doesn't block thread creation or the agent's response. The generated name appears through the frontend thread API via realtime sync.
+When the first run creates a thread, the runtime gives the thread a name. By default, the name is the first user message, cut to 8 words. No model runs for this.
 
-Auto-naming is enabled by default. Disable it with `generateThreadNames: false` on the runtime. Users can always override the generated name via `renameThread()`.
+For a short summary title (2 to 5 words), give the runtime a model:
+
+```ts
+const runtime = new CopilotRuntime({
+  agents,
+  intelligence,
+  identifyUser: async (request) => resolveUser(request),
+  generateThreadNames: { model: "openai/gpt-5-mini" },
+});
+```
+
+The runtime calls this model once per new thread, with no tools. If the call fails, the runtime uses the first user message. The runtime never runs your agent to name a thread, because your agent's own tools could run and change app data.
+
+Naming runs asynchronously, so it does not block thread creation or the agent's response. The name appears through the frontend thread API via realtime sync.
+
+Auto-naming is on by default. Turn it off with `generateThreadNames: false` on the runtime. Users can always change the name with `renameThread()`.
 
 ### Archive vs. delete
 

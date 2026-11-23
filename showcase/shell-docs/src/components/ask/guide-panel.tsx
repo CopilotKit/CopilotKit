@@ -1,12 +1,7 @@
 "use client";
 
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type RefObject,
-} from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { RefObject } from "react";
 import {
   GenerativeUISurface,
   useGenerativeUIRuntime,
@@ -24,7 +19,8 @@ import {
 import { cn } from "@/lib/cn";
 import { componentsOf, guideToMarkdown } from "./guide-markdown";
 import { GUIDE_COMPONENTS, guideUI } from "./guide-ui";
-import { GUIDE_TARGET, type Guide } from "./guide-state";
+import { GUIDE_TARGET } from "./guide-state";
+import type { Guide } from "./guide-state";
 import styles from "./guide.module.css";
 
 const GUIDE_DESCRIPTION =

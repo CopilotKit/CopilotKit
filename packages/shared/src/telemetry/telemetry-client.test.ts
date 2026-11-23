@@ -214,6 +214,23 @@ describe("v1 TelemetryClient", () => {
     });
   });
 
+  test("agent_identified goes to the lambda sink only, never to Segment", async () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const client = makeClient({ sampleRate: 0.05 });
+
+    await client.capture("oss.runtime.agent_identified", {
+      framework: "mastra",
+      via_http_agent: false,
+      source: "declared",
+    });
+
+    expect(lambdaSpy).toHaveBeenCalledTimes(1);
+    expect(lambdaSpy.mock.calls[0][0].event).toBe(
+      "oss.runtime.agent_identified",
+    );
+    expect(segmentTrackMock).not.toHaveBeenCalled();
+  });
+
   test("an opt-out set after the client is created stops both sinks", async () => {
     // e.g. dotenv.config() placed below the import that creates the client.
     vi.stubEnv("COPILOTKIT_TELEMETRY_DISABLED", "");
@@ -234,7 +251,8 @@ describe("v1 TelemetryClient", () => {
 
   test("an anonymous event sampled out of Segment still reaches the lambda sink", async () => {
     // Math.random=0.99 vs sampleRate=0.05. The gate is Segment's alone now:
-    // the lambda sink is ours and takes every event, so a rate that drops
+    // the lambda wire takes every event (any sampling happens at the
+    // telemetry sink, not here), so a rate that drops
     // 95% of the Segment copies must drop none of the lambda copies. This is
     // the whole point of the change — if it ever reverts, this fails first.
     vi.spyOn(Math, "random").mockReturnValue(0.99);

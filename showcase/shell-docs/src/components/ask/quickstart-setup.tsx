@@ -13,8 +13,8 @@ import {
   FRAMEWORKS,
   FRONTENDS,
   frameworkById,
-  type FrontendId,
 } from "@/proto/data";
+import type { FrontendId } from "@/proto/data";
 import { useFrontend } from "@/proto/frontend";
 import { useLastFramework } from "@/proto/last-framework";
 

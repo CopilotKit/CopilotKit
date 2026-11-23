@@ -11,7 +11,8 @@
 // Client components read the same values from `useSiteHosts()`
 // (src/components/site-hosts.tsx), which the `(d)` layout fills from here.
 
-import { PRODUCTION_SITE_HOSTS, type SiteHosts } from "./site-hosts";
+import { PRODUCTION_SITE_HOSTS } from "./site-hosts";
+import type { SiteHosts } from "./site-hosts";
 
 export function getSiteHosts(): SiteHosts {
   return {

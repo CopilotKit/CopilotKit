@@ -1,15 +1,16 @@
 "use client";
 
 import "@copilotkit/react-core/v2/styles.css";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
 import { CopilotKitProvider, useAgent } from "@copilotkit/react-core/v2";
 import {
   DocsLayout as SpaciousLayout,
   useSpaciousLayout,
-  type DocsLayoutProps,
 } from "fumadocs-ui/layouts/spacious";
+import type { DocsLayoutProps } from "fumadocs-ui/layouts/spacious";
 import { Maximize2, SquarePen, X } from "lucide-react";
 import { AskAIGlyph } from "@/components/icons/glyphs";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,7 @@ import { KiteMark } from "./chat-parts";
 import { stashConversation } from "@/components/ask/handoff";
 import { DocsAgent, SIDE_BY_SIDE } from "./docs-agent";
 import { DocsChat } from "./docs-chat";
+import { withBasePath } from "@/lib/base-path";
 
 /**
  * Spacious' DocsLayout with CopilotKit in its `aiChat` slot, following
@@ -40,7 +42,7 @@ export function DocsLayout({
 
   return (
     <CopilotKitProvider
-      runtimeUrl="/api/copilotkit"
+      runtimeUrl={withBasePath("/api/copilotkit")}
       useSingleEndpoint
       // Its floating button would sit over the chat's close button.
       enableInspector={false}
@@ -60,7 +62,7 @@ export function DocsLayout({
 
 /**
  * On tablets and desktops the chat opens from a round button in the page's bottom-right
- * corner, the primary pill's plum with a chat glyph. Phones open it from the
+ * corner, the indigo of Talk to an engineer with a white chat glyph. Phones open it from the
  * sidebar drawer, as Spacious does.
  */
 function AskAITrigger({ onOpen }: { onOpen: () => void }) {
@@ -71,7 +73,7 @@ function AskAITrigger({ onOpen }: { onOpen: () => void }) {
           <Button
             aria-label="Ask CopilotKit"
             onClick={onOpen}
-            className="fixed end-6 bottom-6 z-30 size-12 rounded-full bg-foreground text-background shadow-lift hover:bg-foreground/85 max-md:hidden"
+            className="fixed end-6 bottom-6 z-30 size-12 rounded-full bg-brand-lilac-deep text-white shadow-lift hover:bg-[#5057cc] max-md:hidden"
           />
         }
       >

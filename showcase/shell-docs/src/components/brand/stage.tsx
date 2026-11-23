@@ -1,4 +1,5 @@
-import { Children, isValidElement, type ReactNode } from "react";
+import { Children, isValidElement } from "react";
+import type { ReactNode } from "react";
 import { cn } from "@/lib/cn";
 import { PixelMatrix } from "./pixel-matrix";
 
@@ -61,6 +62,35 @@ export function Stage({
   );
 }
 
+/**
+ * Code's frame: no matrix. The code window takes the grey hairline and a
+ * soft indigo lift, the same on every code block, so code carries the
+ * brand without a stage around it.
+ * Nothing pads it, so on a phone the code keeps the full column. `compact`
+ * is accepted for the stage's API and changes nothing. The window's own
+ * white rim and shadow give way to these.
+ */
+export function CodeFrame({
+  children,
+  className,
+}: {
+  compact?: boolean;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "not-prose relative rounded-xl shadow-code",
+        "[&>*]:rounded-xl! [&>*]:border! [&>*]:border-border! [&>*]:shadow-none! dark:[&>*]:border-white/[0.12]!",
+        className,
+      )}
+    >
+      {children}
+    </div>
+  );
+}
+
 /** The white window on a stage: its rim and lift, shared by demos and code. */
 export const STAGE_WINDOW =
   "rounded-xl border border-white/80 shadow-[0_24px_48px_rgb(31_38_36/0.14)] dark:border-white/10";
@@ -72,7 +102,7 @@ export const STAGE_WINDOW =
  * components can read it.)
  */
 export const CODE_TABS_WINDOW = cn(
-  "my-0 overflow-hidden bg-fd-background [&>[role=tablist]]:h-9.5 [&>[role=tablist]]:items-center [&>[role=tablist]]:border-b [&>[role=tabpanel]]:rounded-none [&>[role=tabpanel]]:p-0 [&>[role=tabpanel]>figure]:m-0!",
+  "my-0 overflow-hidden bg-(--code-window) [&>[role=tablist]]:h-9.5 [&>[role=tablist]]:items-center [&>[role=tablist]]:border-b [&>[role=tabpanel]]:rounded-none [&>[role=tabpanel]]:p-0 [&>[role=tabpanel]>figure]:m-0!",
   STAGE_WINDOW,
 );
 

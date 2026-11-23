@@ -1,10 +1,5 @@
-import {
-  Children,
-  Fragment,
-  isValidElement,
-  type ComponentProps,
-  type ReactNode,
-} from "react";
+import { Children, Fragment, isValidElement } from "react";
+import type { ComponentProps, ReactNode } from "react";
 import {
   Tab as FumadocsTab,
   Tabs as FumadocsTabs,

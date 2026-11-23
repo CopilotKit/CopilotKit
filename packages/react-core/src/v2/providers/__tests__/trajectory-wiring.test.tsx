@@ -307,6 +307,7 @@ describe("CopilotKitProvider authenticated Trajectories", () => {
                 url: location.href,
                 title: document.title,
                 referrer: document.referrer,
+                sdkVersion: expect.any(String),
                 seq: SEQ_BASE,
               },
             },
@@ -441,6 +442,21 @@ describe("CopilotKitProvider authenticated Trajectories", () => {
     });
     expect(warn).not.toHaveBeenCalled();
     expect(stop).toHaveBeenCalledTimes(1);
+  });
+
+  it("lets capture replace only an ID that the provider generated", async () => {
+    const start = vi
+      .spyOn(CopilotKitCoreReact.prototype, "startTrajectory")
+      .mockResolvedValue({ status: "started", trajectoryId: FIRST_ID });
+    const view = render(<App learning />);
+    expect(start.mock.calls.at(-1)![0]).toMatchObject({
+      ɵreplaceWhenClosed: true,
+    });
+    view.rerender(<App learning={{ trajectoryId: SECOND_ID }} />);
+    expect(start.mock.calls.at(-1)![0]).toEqual({
+      trajectoryId: SECOND_ID,
+      learningContainerIds: undefined,
+    });
   });
 
   describe("generated Trajectory IDs", () => {

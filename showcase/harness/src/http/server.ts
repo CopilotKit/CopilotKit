@@ -10,6 +10,7 @@ import { registerFleetRunsRoutes } from "./fleet-runs.js";
 import type { FleetRunsRouteDeps } from "./fleet-runs.js";
 import { registerMatrixRoute } from "./matrix.js";
 import { registerCompatibilityRoutes } from "./compatibility.js";
+import { loadRegistryDoc } from "../fleet/control-plane/d0-gone-monitor.js";
 import { renderPrometheus } from "./metrics.js";
 import type { MetricsRegistry } from "./metrics.js";
 
@@ -145,6 +146,14 @@ export function buildServer(deps: ServerDeps): Hono {
     logger: deps.logger,
     secrets: deps.webhookSecrets ?? [],
     environmentId: process.env.RAILWAY_ENVIRONMENT_ID,
+    // registry.json carries each manifest's `deployed` flag. If it cannot be
+    // read, the set is empty and every mapped variant stays required.
+    undeployedSlugs: () =>
+      new Set(
+        (loadRegistryDoc(deps.logger).integrations ?? [])
+          .filter((integration) => integration.deployed === false)
+          .map((integration) => integration.slug),
+      ),
   });
 
   if (deps.metrics) {

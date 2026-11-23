@@ -5,6 +5,7 @@ import { frameworkSupports } from "@/components/docs-mdx/showcase/framework-gate
 import {
   LIVE_FRAMEWORKS,
   REFERENCE_FOLDERS,
+  REFERENCE_OVERVIEW,
   REFERENCE_ROOT_VERSION,
   ROOT_FRAMEWORK,
   frontendSegment,
@@ -127,7 +128,11 @@ export function resolveLivePage(input: string[]): ResolvedLivePage | null {
 
   if (path[0] === "reference") {
     const rest = path.slice(1);
-    const slugs = rest[0] === REFERENCE_ROOT_VERSION ? rest.slice(1) : rest;
+    const slugs = !rest.length
+      ? [REFERENCE_OVERVIEW]
+      : rest[0] === REFERENCE_ROOT_VERSION
+        ? rest.slice(1)
+        : rest;
     const page = referenceSource.getPage(slugs);
     return page
       ? {
@@ -294,6 +299,8 @@ function firstFrameworkFor(folder: string): string {
 
 /** A reference page's live URL: React's under `/reference/v2`, other SDKs under their folder. */
 export function referenceUrl(slugs: string[]): string {
+  if (slugs.length === 1 && slugs[0] === REFERENCE_OVERVIEW)
+    return "/reference";
   const path = REFERENCE_FOLDERS.has(slugs[0])
     ? slugs
     : [REFERENCE_ROOT_VERSION, ...slugs];
@@ -323,6 +330,15 @@ export function unsupportedRedirect(path: string[]): string | null {
 }
 
 /**
+ * Retired overview pages, each with the section page that now leads it
+ * (next-config-redirects.mjs sends their URLs there too).
+ */
+const RETIRED_OVERVIEWS: Record<string, string> = {
+  "generative-ui": "generative-ui/tool-based",
+  "prebuilt-components": "prebuilt-components/chat",
+};
+
+/**
  * The nearest parent page the reader's framework has, in the reader's scope:
  * `/agno/shared-state/streaming` goes to `/agno/shared-state`, since Agno's
  * showcase has no state streaming. Main served these URLs as "not
@@ -342,6 +358,10 @@ function parentTopic(
     if (whereIs(pages, frontend, framework, parent)) {
       return url(fe, framework ?? "", parent);
     }
+    const lead = RETIRED_OVERVIEWS[parent];
+    if (lead && whereIs(pages, frontend, framework, lead)) {
+      return url(fe, framework ?? "", lead);
+    }
   }
   return url(fe, framework ?? "");
 }
@@ -360,10 +380,10 @@ const DROPPED_PAGES: Record<string, string> = {
   "migrate/1.10.X": "migrate/v2",
   "migrate/1.8.2": "migrate/v2",
   "migrate/ag-ui-1.0": "migrate/v2",
-  "generative-ui/frontend-cards": "generative-ui",
+  "generative-ui/frontend-cards": "generative-ui/tool-based",
   headless: "custom-look-and-feel/headless-ui",
   "built-in-agent": "",
-  "agentic-chat-ui": "prebuilt-components",
+  "agentic-chat-ui": "prebuilt-components/chat",
   "human-in-the-loop/interrupt-flow": "human-in-the-loop/useInterrupt",
   "shared-state/state-inputs-outputs": "shared-state",
   "advanced/disabling-state-streaming": "shared-state/streaming",
@@ -443,7 +463,8 @@ function dropTarget(prefix: string, slug: string): string {
   // feature): fall back to its nearest parent, then the scope's root.
   const parts = to ? to.split("/") : [];
   while (parts.length) {
-    const scoped = `${prefix}/${parts.join("/")}`;
+    const joined = parts.join("/");
+    const scoped = `${prefix}/${RETIRED_OVERVIEWS[joined] ?? joined}`;
     if (resolveLivePage(segmentsOf(scoped))) return scoped;
     parts.pop();
   }

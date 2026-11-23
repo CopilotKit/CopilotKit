@@ -10,8 +10,8 @@ import {
   onboardingFrameworkSlug,
   onboardingFrontendSlug,
   pageSourceSentence,
-  type FeatureOnboardingIntent,
 } from "./onboarding";
+import type { FeatureOnboardingIntent } from "./onboarding";
 import { usePageStack } from "./page-stack";
 import { PromptGuidance, PromptPill } from "./prompt-pill";
 

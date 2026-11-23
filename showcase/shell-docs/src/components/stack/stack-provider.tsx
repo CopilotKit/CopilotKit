@@ -7,9 +7,10 @@ import {
   useMemo,
   useState,
   useSyncExternalStore,
-  type ReactNode,
 } from "react";
-import { isServable, type Stack } from "@/lib/stack";
+import type { ReactNode } from "react";
+import { isServable } from "@/lib/stack";
+import type { Stack } from "@/lib/stack";
 
 const STORAGE_KEY = "cpk-docs-stack";
 

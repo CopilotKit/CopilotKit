@@ -4,9 +4,10 @@ import {
   expandFrameworkSetups,
   expandShowcase,
   missingDemoNote,
-  type ShowcasePage,
 } from "./showcase-markdown";
-import { liveHref, type ResolvedLivePage } from "@/lib/live-docs";
+import type { ShowcasePage } from "./showcase-markdown";
+import { liveHref } from "@/lib/live-docs";
+import type { ResolvedLivePage } from "@/lib/live-docs";
 import { NAMED_SNIPPETS } from "@/lib/named-snippets";
 import { isV1Reference, V1_DEPRECATION_MARKDOWN } from "@/lib/v1-deprecation";
 
