@@ -100,6 +100,45 @@ export function runStateStoreConformance(
     });
 
     describe("dedup", () => {
+      it("records a concurrent key only once", async () => {
+        expect(
+          (
+            await Promise.all([
+              s.dedup.seen("concurrent", 1000),
+              s.dedup.seen("concurrent", 1000),
+            ])
+          ).sort(),
+        ).toEqual([false, true]);
+      });
+      it("does not treat application KV values as seen keys or replace them", async () => {
+        await s.kv.set("dedup:x", { application: true });
+        expect(await s.dedup.seen("x", 1000)).toBe(false);
+        expect(await s.kv.get("dedup:x")).toEqual({ application: true });
+      });
+      it("does not expose recorded keys through KV", async () => {
+        expect(await s.dedup.seen("x", 1000)).toBe(false);
+        expect(await s.kv.get("dedup:x")).toBeUndefined();
+        expect(await s.kv.consume("dedup:x")).toBeUndefined();
+        expect(await s.dedup.seen("x", 1000)).toBe(true);
+      });
+      it("does not delete application KV values when forgetting a key", async () => {
+        if (!s.dedup.forget) return;
+        await s.dedup.seen("x", 1000);
+        await s.kv.set("dedup:x", { application: true });
+        await s.dedup.forget("x");
+        expect(await s.kv.get("dedup:x")).toEqual({ application: true });
+        expect(await s.dedup.seen("x", 1000)).toBe(false);
+      });
+      it.each(["delete", "consume"] as const)(
+        "does not forget recorded keys when KV %s removes an application value",
+        async (operation) => {
+          expect(await s.dedup.seen("x", 1000)).toBe(false);
+          await s.kv.set("dedup:x", { application: true });
+          await s.kv[operation]("dedup:x");
+          expect(await s.kv.get("dedup:x")).toBeUndefined();
+          expect(await s.dedup.seen("x", 1000)).toBe(true);
+        },
+      );
       it("first seen false, second true, within ttl", async () => {
         expect(await s.dedup.seen("e1", 1000)).toBe(false);
         expect(await s.dedup.seen("e1", 1000)).toBe(true);
@@ -108,6 +147,12 @@ export function runStateStoreConformance(
         expect(await s.dedup.seen("e2", 30)).toBe(false);
         await new Promise((r) => setTimeout(r, 60));
         expect(await s.dedup.seen("e2", 30)).toBe(false);
+      });
+      it("records a key again after forget, when the store supports it", async () => {
+        if (!s.dedup.forget) return;
+        expect(await s.dedup.seen("e3", 1000)).toBe(false);
+        await s.dedup.forget("e3");
+        expect(await s.dedup.seen("e3", 1000)).toBe(false);
       });
     });
 

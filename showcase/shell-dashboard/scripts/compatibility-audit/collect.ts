@@ -2,7 +2,11 @@ import { lstat, writeFile } from "node:fs/promises";
 import { isAbsolute } from "node:path";
 import { fileURLToPath } from "node:url";
 import { captureDiagnostic, createLiveHttpClient } from "./http";
-import { COMPATIBILITY_MAPPING } from "./mapping";
+import {
+  COMPATIBILITY_MAPPING,
+  isAssessedVariant,
+  readUndeployedSlugs,
+} from "./mapping";
 import { collectMaven } from "./registries/maven";
 import { collectNpm } from "./registries/npm";
 import { collectNuget } from "./registries/nuget";
@@ -27,6 +31,7 @@ export interface CollectAdapters {
   httpClient?: HttpClient;
   clock?: () => Date;
   snapshotPath?: string;
+  undeployedSlugs?: ReadonlySet<string>;
 }
 
 export interface AuditReport {
@@ -103,6 +108,11 @@ export async function collectAudit(
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
   }
 
+  const undeployed =
+    injectedAdapters.undeployedSlugs ?? readUndeployedSlugs(repo);
+  const assessed = COMPATIBILITY_MAPPING.filter((variant) =>
+    isAssessedVariant(variant, undeployed),
+  );
   const sourceSha = (injectedAdapters.resolveOriginMain ?? resolveOriginMain)(
     repo,
   );
@@ -114,8 +124,7 @@ export async function collectAudit(
   );
   const deployedSources = new Map<string, Map<string, string>>();
   if (options.sourceCommits) {
-    for (const variant of COMPATIBILITY_MAPPING) {
-      if (variant.excludedReason !== undefined) continue;
+    for (const variant of assessed) {
       const sha = options.sourceCommits[variant.slug];
       if (!sha || !/^[a-fA-F0-9]{40}$/.test(sha))
         throw new Error(`Missing deployed source commit for ${variant.slug}`);
@@ -169,8 +178,7 @@ export async function collectAudit(
 
   const inventories: Inventory[] = [];
   const collected = new Set<string>();
-  for (const variant of COMPATIBILITY_MAPPING) {
-    if (variant.excludedReason !== undefined) continue;
+  for (const variant of assessed) {
     for (const library of variant.libraries) {
       const key = inventoryKey(library);
       if (!library.required || collected.has(key)) continue;
@@ -199,7 +207,7 @@ export async function collectAudit(
   const result = assessCompatibility({
     sourceSha,
     asOf: options.asOf,
-    mapping: COMPATIBILITY_MAPPING,
+    mapping: assessed,
     inventories,
     sourceCommits: options.sourceCommits,
     readForVariant: options.sourceCommits
