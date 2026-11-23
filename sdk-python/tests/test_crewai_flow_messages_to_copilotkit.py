@@ -244,3 +244,60 @@ class TestCrewAIAssistantMessageAlwaysEmitted:
         assert len(result) == 1
         assert result[0]["role"] == "assistant"
         assert result[0]["content"] == "Hello!"
+
+
+class TestMalformedToolCallArguments:
+    """Tool calls with empty, truncated, missing or null arguments strings.
+
+    Providers can persist an assistant tool call whose ``function.arguments``
+    is an empty string, truncated JSON (a response cut off at max_tokens),
+    missing, or null. Conversion must treat those like an empty call instead
+    of raising, or one malformed historical message breaks every later
+    conversion of the stored flow state.
+    """
+
+    def _messages_with_arguments(self, arguments, drop_key=False):
+        function = {"name": "search"}
+        if not drop_key:
+            function["arguments"] = arguments
+        return [
+            {
+                "id": "ai-1",
+                "role": "assistant",
+                "content": "Let me look that up.",
+                "tool_calls": [{"id": "tc-1", "type": "function", "function": function}],
+            },
+            {"id": "tm-1", "role": "tool", "tool_call_id": "tc-1", "content": "done"},
+        ]
+
+    def _tool_call_entry(self, messages):
+        result = crewai_flow_messages_to_copilotkit(messages)
+        entries = [m for m in result if m.get("parentMessageId")]
+        assert len(entries) == 1
+        return entries[0]
+
+    def test_well_formed_arguments_still_parse(self):
+        entry = self._tool_call_entry(
+            self._messages_with_arguments(json.dumps({"query": "paris"}))
+        )
+        assert entry["arguments"] == {"query": "paris"}
+
+    def test_empty_arguments_string_becomes_empty_dict(self):
+        entry = self._tool_call_entry(self._messages_with_arguments(""))
+        assert entry["arguments"] == {}
+
+    def test_truncated_arguments_become_empty_dict(self):
+        entry = self._tool_call_entry(self._messages_with_arguments('{"query": "par'))
+        assert entry["arguments"] == {}
+
+    def test_missing_arguments_key_becomes_empty_dict(self):
+        entry = self._tool_call_entry(self._messages_with_arguments(None, drop_key=True))
+        assert entry["arguments"] == {}
+
+    def test_null_arguments_become_empty_dict(self):
+        entry = self._tool_call_entry(self._messages_with_arguments(None))
+        assert entry["arguments"] == {}
+
+    def test_dict_arguments_pass_through(self):
+        entry = self._tool_call_entry(self._messages_with_arguments({"query": "paris"}))
+        assert entry["arguments"] == {"query": "paris"}
