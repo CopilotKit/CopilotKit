@@ -12,7 +12,7 @@ no changelog before that.
 
 ## 0.13.0 - 2026-11-23
 
-This release hardens durability across the channels packages, making approval resumes and interactive pickers safe to run across multiple processes and replicas. It also improves resilience when Intelligence thread history fails to replay.
+This release improves the reliability of approval resumes and interactive pickers across multiple processes and replicas. It also improves resilience when Intelligence thread history fails to replay.
 
 ## Breaking Changes
 
@@ -33,12 +33,9 @@ Approval resume is now scoped to the person who started the workflow by default.
 - A superseded bind now waits for the current gate rather than creating a fresh one, and fails closed if the newer write has failed.
 - Isolated MemoryStore deduplication state from application KV, so dedup bookkeeping no longer collides with application data.
 
-### Durable picker retirement across replicas
+### Choice picker fixes
 
-- Pickers now open a single shared gate in the state store before they are posted, recorded in every control's snapshot with a deadline. A click only runs a picker control if it takes the gate first, so exactly one click in any process answers the picker — even after a restart or across replicas. Snapshots stored without a gate behave as before.
-- Retiring a picker (answer, timeout, abort, supersede, or failed post) now takes the gate too, retrying with backoff; if it still can't, the deadline ends the picker everywhere.
-- A failed picker post is now reported only once its controls are retired everywhere. When retirement can't be confirmed, the failure rejects with an `AggregateError` of the store and posting errors.
-- The answer window now counts from the gate's deadline, so posting latency no longer shortens the time available to respond.
+- Fixes approval state handling in choice pickers.
 
 ### Intelligence runner durability and replay (#7826)
 
