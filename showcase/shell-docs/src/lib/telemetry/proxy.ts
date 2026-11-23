@@ -43,8 +43,9 @@ const MAX_USER_AGENT_LENGTH = 512;
 // matcher, so it sees all of these.)
 const UNTRACKED_PATH =
   /^\/(?:api\/|ingest\/|_next\/|__nextjs|favicon\.ico|previews\/|robots\.txt|sitemap\.xml|manifest\.webmanifest|\.well-known\/)/;
+// `.json` too: the version picker fetches `/versions.json` on every page load.
 const ASSET_PATH =
-  /\.(?:png|jpg|jpeg|svg|gif|webp|ico|avif|woff2?|ttf|otf|eot|map)$/;
+  /\.(?:png|jpg|jpeg|svg|gif|webp|ico|avif|woff2?|ttf|otf|eot|map|json)$/;
 
 /** A browser's own speculative prefetch: never a read, of any kind. */
 function isSpeculativePrefetch(request: NextRequest): boolean {
@@ -85,7 +86,21 @@ function isPageLoad(request: NextRequest): boolean {
 }
 
 let warnedMissingKey = false;
+let warnedNonProduction = false;
 function posthogKey(): string | undefined {
+  // Every Railway environment of the docs has the production PostHog
+  // project's key, so a non-production one (staging, PR environments) sends
+  // nothing. Off Railway (local dev), the key alone decides.
+  const railwayEnvironment = process.env.RAILWAY_ENVIRONMENT_NAME;
+  if (railwayEnvironment && railwayEnvironment !== "production") {
+    if (!warnedNonProduction) {
+      warnedNonProduction = true;
+      console.warn(
+        `[proxy] Railway environment "${railwayEnvironment}" is not production — analytics disabled`,
+      );
+    }
+    return undefined;
+  }
   const key = process.env.POSTHOG_KEY;
   if (!key && !warnedMissingKey) {
     warnedMissingKey = true;
@@ -273,7 +288,13 @@ async function captureLlmTextFetch(
 }
 
 function clientIp(request: NextRequest): string | null {
-  // The left-most `x-forwarded-for` entry is the original client.
+  // Behind the Cloudflare proxy, `cf-connecting-ip` is the visitor, and the
+  // left-most `x-forwarded-for` entry is a Cloudflare edge address.
+  // (`src/proxy.ts` strips `cf-*` headers only on /ingest, which is never
+  // tracked.)
+  const cloudflare = request.headers.get("cf-connecting-ip")?.trim();
+  if (cloudflare) return cloudflare;
+  // Without Cloudflare, the left-most `x-forwarded-for` entry is the client.
   const forwarded = request.headers.get("x-forwarded-for");
   if (forwarded) return forwarded.split(",")[0]?.trim() || null;
   return request.headers.get("x-real-ip");
