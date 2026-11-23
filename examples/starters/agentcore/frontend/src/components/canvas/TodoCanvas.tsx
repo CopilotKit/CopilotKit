@@ -1,7 +1,7 @@
 // The canvas is always visible alongside the chat pane (spec: "render chat plus a
 // todo canvas in the same page shell"). It shows an empty state when there are no
 // todos, and fills in as the agent or user adds items.
-import { useAgent } from "@copilotkit/react-core/v2";
+import { useAgent } from "@copilotkit/react-core";
 import { TodoList } from "./TodoList";
 import type { Todo } from "./types";
 

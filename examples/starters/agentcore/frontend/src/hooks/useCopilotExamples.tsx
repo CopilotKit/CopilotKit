@@ -4,7 +4,7 @@ import {
   useFrontendTool,
   useHumanInTheLoop,
   useDefaultRenderTool,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 import {
   PieChart,
   PieChartPropsSchema,
