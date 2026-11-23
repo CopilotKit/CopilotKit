@@ -59,22 +59,45 @@ To keep history, pick the runner for your deployment:
 - One instance that must keep history across restarts: `SqliteAgentRunner` from `@copilotkit/sqlite-runner`. See [Keep history across restarts](#keep-history-across-restarts).
 - Several instances: CopilotKit Intelligence's `IntelligenceAgentRunner`, or your own runner backed by a shared datastore.
 
-<Callout type="warn" title="Without `identifyUser`, a thread id works as a key">
-Without `identifyUser`, whoever has a thread id can read, connect to, and stop
-that thread through the runtime's
-[thread routes](/backend/runtime-endpoints#thread-routes). `GET /threads` and
-`POST /threads/clear` return 403. To list and clear threads per user, pass
-`identifyUser` to `CopilotRuntime`. See
-[Thread authorization](/auth#thread-authorization).
+<Callout type="warn" title="Thread routes are scoped to a user only with `identifyUser`">
+With `identifyUser` on the `CopilotRuntime` from `@copilotkit/runtime/v2`, the
+in-memory runner records the identity that created each thread, and every
+[thread route](/backend/runtime-endpoints#thread-routes) reaches only that
+user's threads. The compatibility `CopilotRuntime` from `@copilotkit/runtime`
+forwards `identifyUser` only with Intelligence, so its local threads stay
+reachable by id.
+
+Without `identifyUser`, `GET /threads` and `POST /threads/clear` return `403`
+unless you set `threads: { access: "open" }`, and anyone who holds an anonymous
+thread's id can read, reconnect to, continue, and stop it. Neither access mode
+makes an identified user's threads reachable by other users or anonymous
+callers. If more than one person uses your deployment, set `identifyUser` on
+the `/v2` runtime. See [Thread authorization](/auth#thread-authorization).
 
 A runner serves the thread routes from its local store only when it opts in.
 `InMemoryAgentRunner` does, along with anything extending it such as
-`AgentCoreRunner`. `SqliteAgentRunner` opts out, so its read routes answer
-`422`. The `422` error body mentions Intelligence. That is expected: you do not
-need Intelligence to run `SqliteAgentRunner`. `IntelligenceAgentRunner` scopes every thread route, including
-`threads/events`, `threads/state`, and `agent/stop`, to the user that
-`identifyUser` returns.
+`AgentCoreRunner`. `SqliteAgentRunner` enforces the same owners for runs but
+opts out of local read routes, so those return `422`. The `422` error body
+mentions Intelligence. That is expected: you do not need Intelligence to run
+`SqliteAgentRunner`. `IntelligenceAgentRunner` scopes every thread route and the
+stop route to the user that `identifyUser` returns.
 </Callout>
+
+### Stored message history
+
+`GET /threads/:threadId/messages` on the in-memory runner returns the history
+the runner merged at the end of each run. It does not overwrite the history with
+the list a client sent, so it stays in line with connect replay:
+
+- A message a client leaves out of its list stays, so a regenerated reply sits
+  beside the new one.
+- A client that resends an id with other content changes nothing, unless the
+  agent emits message events for that id. To change a message, give the new
+  version a new id.
+- An agent that rewrites or removes a message it received unchanged, for example
+  by compacting through `MESSAGES_SNAPSHOT`, updates the history.
+- A message no run sent or produced within the last `maxRunsPerThread` runs is
+  dropped. A client that resends its whole history keeps all of it.
 
 ## Choosing a runner
 

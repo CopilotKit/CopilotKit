@@ -261,8 +261,8 @@ routes exist in multi-route mode whichever
 
 | Method & path | Purpose |
 |---|---|
-| `GET /api/copilotkit/threads` | List threads. With Intelligence, the `agentId` query parameter is required. Without Intelligence, it is optional and filters the list. |
-| `GET /api/copilotkit/threads/:threadId/messages` | That thread's full message history. |
+| `GET /api/copilotkit/threads` | List threads. With Intelligence, the `agentId` query parameter is required. Without Intelligence, it is optional and filters the list, and on a runner with local thread endpoints, such as `InMemoryAgentRunner`, the route answers `403` when no `identifyUser` is set and `threads.access` is not `"open"`. |
+| `GET /api/copilotkit/threads/:threadId/messages` | That thread's stored message history. See [Stored message history](/backend/agent-runner#stored-message-history). |
 | `GET /api/copilotkit/threads/:threadId/events` | That thread's compacted AG-UI event stream. |
 | `GET /api/copilotkit/threads/:threadId/state` | That thread's last state snapshot. |
 | `POST /api/copilotkit/threads/clear` | Clear the caller's in-memory threads. Returns `403` without `identifyUser` unless `threads: { access: "open" }` is set. Returns `204` and clears nothing on a runner that keeps no local store. |
@@ -286,20 +286,27 @@ apply only with Intelligence.
 
 <Callout type="warn" title="Thread routes are scoped to a user only with `identifyUser`">
 On the default `InMemoryAgentRunner`, and on anything extending it, such as
-`AgentCoreRunner`, these routes read the runner's local store. Without
-`identifyUser`, a thread id works as a capability: any caller with the id can
-read, connect to, continue, and stop that thread. `GET /threads` and
-`POST /threads/clear` return `403` unless you pass
-`threads: { access: "open" }` to `CopilotRuntime`. With `identifyUser`, every
-route reaches only the caller's own threads. A runner that keeps no local
-store, such as `SqliteAgentRunner`, answers the four read routes with a `422`
-instead.
+`AgentCoreRunner`, these routes read the runner's local store. With
+`identifyUser` on a `CopilotRuntime` from `@copilotkit/runtime/v2`, every route
+reaches only the caller's own threads, and another user's thread reads like
+an unknown one. The compatibility runtime from `@copilotkit/runtime`
+forwards `identifyUser` only with Intelligence.
+
+Without `identifyUser`, a thread id works as a capability: any caller with an
+anonymous thread's id can read, reconnect to, continue, and stop it.
+`GET /threads` and `POST /threads/clear` return `403` unless you pass
+`threads: { access: "open" }` to `CopilotRuntime`. That option lets anonymous
+callers list and clear anonymous threads; it does not expose threads created
+by identified users. A runner that keeps no local store, such as
+`SqliteAgentRunner`, answers the four read routes with a `422` instead.
 
 An Intelligence runtime scopes every thread route and the stop route to the
-user that `identifyUser` returns.
+user that `identifyUser` returns. For `threads/events`, `threads/state`, and
+`POST /agent/:agentId/stop/:threadId`, it fetches the thread as that user first.
 
-`:threadId` is chosen by the client on the run, so it is not a secret. If more
-than one person uses your deployment, pass `identifyUser`, or authorize these
+`:threadId` is chosen by the client on the run. Treat it as a public
+identifier, and authorize access explicitly. If more than one person uses
+your deployment, pass `identifyUser` to the `/v2` runtime, or authorize these
 routes yourself. See [Thread authorization](/auth#thread-authorization).
 </Callout>
 
@@ -674,6 +681,11 @@ createCopilotExpressHandler({
   },
 });
 ```
+
+An auth hook only decides whether a request may proceed. It does not tell the
+runtime who the caller is, so without `identifyUser` every authenticated user
+still shares the anonymous thread space, where a thread id is enough to reach a
+thread. For per-user separation, also pass `identifyUser` to `CopilotRuntime`.
 
 `onRequest` runs before routing, so it knows the path but not the route. For
 per-thread decisions use `onBeforeHandler`, which runs after routing and
