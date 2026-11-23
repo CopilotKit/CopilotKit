@@ -611,6 +611,81 @@ describe("a dependency scope released ahead of its dependents", () => {
     expect(problems[0]).toContain("Release scope monorepo first");
   });
 
+  it("still refuses a lagging peer range, which npm will not satisfy alongside the new release", () => {
+    // A peer at `^0.12.0` resolves today, but a consumer who installs
+    // channels-core 0.13.0 next to it gets an ERESOLVE peer conflict. Only a
+    // normal or optional dependency may lag; a peer may not.
+    const problems = findSupersededPublishedPins({
+      ...CHANNELS_FIRST,
+      publishedDependencies: {
+        "@copilotkit/runtime": published({
+          peerDependencies: { "@copilotkit/channels-core": "^0.12.0" },
+        }),
+      },
+      workspace: [
+        manifest(
+          "@copilotkit/runtime",
+          {},
+          { peerDependencies: { "@copilotkit/channels-core": "workspace:^" } },
+        ),
+        manifest("@copilotkit/channels-core", {}, { version: "0.13.0" }),
+      ],
+    });
+    expect(problems).toHaveLength(1);
+    expect(problems[0]).toContain("peerDependencies");
+  });
+
+  it("lets a lagging optional range lag like a normal dependency", () => {
+    const { followUps, problems } = checkSupersededPublishedPins({
+      ...CHANNELS_FIRST,
+      publishedDependencies: {
+        "@copilotkit/runtime": published({
+          optionalDependencies: { "@copilotkit/channels-core": "^0.12.0" },
+        }),
+      },
+      workspace: [
+        manifest(
+          "@copilotkit/runtime",
+          {},
+          {
+            optionalDependencies: {
+              "@copilotkit/channels-core": "workspace:^",
+            },
+          },
+        ),
+        manifest("@copilotkit/channels-core", {}, { version: "0.13.0" }),
+      ],
+    });
+    expect(problems).toEqual([]);
+    expect(followUps).toHaveLength(1);
+  });
+
+  it("counts a deprecated version as resolving, because npm still installs it", () => {
+    // `npm view <pkg> versions` lists deprecated versions, and npm installs
+    // them with a warning. A range satisfied only by one still resolves, so
+    // the dependent is a follow-up rather than a refusal.
+    const { followUps, problems } = checkSupersededPublishedPins({
+      ...CHANNELS_FIRST,
+      // Treat 0.12.0 as the deprecated one: it is still in the list.
+      publishedVersions: { "@copilotkit/channels-core": ["0.11.0", "0.12.0"] },
+    });
+    expect(problems).toEqual([]);
+    expect(followUps).toHaveLength(1);
+  });
+
+  it("does not count a prerelease as resolving a plain caret range", () => {
+    // npm does not match `0.12.1-canary.0` against `^0.12.0`, so a range whose
+    // only candidates are prereleases resolves to nothing and is refused.
+    const problems = findSupersededPublishedPins({
+      ...CHANNELS_FIRST,
+      publishedVersions: {
+        "@copilotkit/channels-core": ["0.11.0", "0.12.1-canary.0"],
+      },
+    });
+    expect(problems).toHaveLength(1);
+    expect(problems[0]).toContain("resolves to no published version");
+  });
+
   it("still refuses when the registry versions are unknown", () => {
     const { publishedVersions: _omitted, ...withoutVersions } = CHANNELS_FIRST;
     expect(findSupersededPublishedPins(withoutVersions)).toHaveLength(1);

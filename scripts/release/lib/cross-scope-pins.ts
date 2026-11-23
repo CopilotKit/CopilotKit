@@ -273,7 +273,9 @@ export function findSupersededPublishedPins(
  * Published packages whose declared range would stop admitting this release,
  * split into the ones that block it and the ones that only need a follow-up.
  *
- * A lagging dependent is a follow-up, not a problem, only when both hold:
+ * A lagging dependent is a follow-up, not a problem, only when it is a normal
+ * or optional dependency (a lagging peer range makes npm refuse to install it
+ * next to this release) and both of these hold:
  *
  * - Its published range still resolves to a version already on the registry,
  *   so every current install keeps working after this release.
@@ -332,7 +334,10 @@ export function checkSupersededPublishedPins(
                 workspaceRange,
                 workspaceVersions.get(dependency) ?? inputs.version,
               );
+        // A lagging peer range never downgrades: it still resolves on its
+        // own, but npm refuses (ERESOLVE) to install it next to this release.
         const dependentMustWait =
+          field !== "peerDependencies" &&
           onRegistry !== undefined &&
           packed !== undefined &&
           satisfies(inputs.version, packed) &&
