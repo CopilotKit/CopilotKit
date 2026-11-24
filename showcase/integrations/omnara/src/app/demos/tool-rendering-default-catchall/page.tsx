@@ -17,25 +17,19 @@
 // invisible — the user only sees the assistant's final text summary.
 
 import React from "react";
-import {
-  CopilotKit,
-  CopilotChat,
-  useDefaultRenderTool,
-} from "@copilotkit/react-core/v2";
+import { CopilotChat, useDefaultRenderTool } from "@copilotkit/react-core/v2";
+import { DemoSessionProvider } from "@/lib/demo-session-provider";
 import { useSuggestions } from "./suggestions";
 
 export default function ToolRenderingDefaultCatchallDemo() {
   return (
-    <CopilotKit
-      runtimeUrl="/api/copilotkit"
-      agent="tool-rendering-default-catchall"
-    >
+    <DemoSessionProvider agent="tool-rendering-default-catchall">
       <div className="flex justify-center items-center h-full w-full">
         <div className="h-full w-full max-w-4xl px-6">
           <Chat />
         </div>
       </div>
-    </CopilotKit>
+    </DemoSessionProvider>
   );
 }
 

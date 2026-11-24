@@ -1,5 +1,5 @@
 // Server-side PostHog events sent from `src/proxy.ts`, ported from shell-docs'
-// middleware: `docs_pageview` (every page request, with a first-party
+// middleware: `docs_pageview` (every page load, with a first-party
 // `ph_docs_id` cookie), `docs.llm_text_fetched` (llms.txt, llms-full.txt,
 // and raw markdown, which never run the client snippet), and `seo_redirect`.
 // Same event names, properties, distinct ids, and env vars (`POSTHOG_KEY`,
@@ -47,6 +47,44 @@ const UNTRACKED_PATH =
 const ASSET_PATH =
   /\.(?:png|jpg|jpeg|svg|gif|webp|ico|avif|woff2?|ttf|otf|eot|map|json)$/;
 
+/** A browser's own speculative prefetch: never a read, of any kind. */
+function isSpeculativePrefetch(request: NextRequest): boolean {
+  return (
+    request.headers.get("purpose") === "prefetch" ||
+    request.headers.get("sec-purpose")?.includes("prefetch") === true
+  );
+}
+
+/**
+ * Whether a page request is a page load (a document load, or a direct fetch
+ * from curl or an agent), not one of the Next router's background requests.
+ *
+ * The router fetches every link it prefetches, and every client-side
+ * navigation, as an RSC request. Next strips the flight headers (`rsc`,
+ * `next-router-prefetch`, `next-router-state-tree`, ...) and the `_rsc`
+ * query param before the proxy runs, so they can't be read here. What does
+ * reach the proxy is the browser's `sec-fetch-dest`: `document` for a page
+ * load, `empty` for the router's `fetch()`. A prefetch and a client-side
+ * navigation look the same here, so neither counts: the browser's own
+ * `$pageview` (posthog-js) counts client-side navigations. Callers without
+ * fetch metadata (agents, crawlers, curl) are counted unless they carry a
+ * router marker that survives (the flight headers are checked too, in case
+ * Next stops stripping them).
+ */
+function isPageLoad(request: NextRequest): boolean {
+  const { headers } = request;
+  const destination = headers.get("sec-fetch-dest");
+  if (destination) return destination === "document";
+  return !(
+    headers.get("rsc") === "1" ||
+    headers.has("next-router-prefetch") ||
+    headers.has("next-router-state-tree") ||
+    headers.has("next-url") ||
+    headers.has("x-middleware-prefetch") ||
+    request.nextUrl.searchParams.has("_rsc")
+  );
+}
+
 let warnedMissingKey = false;
 let warnedNonProduction = false;
 function posthogKey(): string | undefined {
@@ -74,10 +112,12 @@ function posthogKey(): string | undefined {
 /**
  * Report a request from `src/proxy.ts`, once its response is decided.
  *
- * Counts real GET reads only (no prefetches) as either a raw-text fetch or a
- * page view, never both. Pass `surface` when the proxy has already decided the
- * request is raw markdown (content negotiation on `Accept`). Returns the
- * response, with the distinct-id cookie set for first-time visitors.
+ * Counts real GET reads only (page loads and direct fetches, not the Next
+ * router's prefetches or client-side navigations) as either a raw-text fetch
+ * or a page view, never both. Pass `surface` when the proxy has already
+ * decided the request is raw markdown (content negotiation on `Accept`).
+ * Returns the response, with the distinct-id cookie set for first-time
+ * visitors.
  */
 export function trackRequest(
   request: NextRequest,
@@ -91,13 +131,7 @@ export function trackRequest(
   }
   // HEAD is excluded on purpose: agents often probe with HEAD before a GET.
   if (request.method !== "GET") return response;
-  if (
-    request.headers.get("next-router-prefetch") === "1" ||
-    request.headers.get("purpose") === "prefetch" ||
-    request.headers.get("sec-purpose") === "prefetch"
-  ) {
-    return response;
-  }
+  if (isSpeculativePrefetch(request)) return response;
 
   if (!posthogKey()) return response;
 
@@ -106,6 +140,9 @@ export function trackRequest(
     event.waitUntil(captureLlmTextFetch(request, pathname, surface));
     return response;
   }
+
+  // Raw text counts however it was fetched; a page view, only a page load.
+  if (!isPageLoad(request)) return response;
 
   const existingDistinctId = request.cookies.get(DISTINCT_ID_COOKIE)?.value;
   const distinctId = existingDistinctId ?? crypto.randomUUID();

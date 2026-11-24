@@ -13,10 +13,13 @@ import type {
 } from "./platform-adapter.js";
 import {
   ActionRegistry,
+  ActionAlreadyClaimedError,
   ActionExpiredError,
+  ActionInitiatorMismatchError,
   ActionScopeMismatchError,
   DEFAULT_ACTION_RETENTION_MS,
 } from "./action-registry.js";
+import type { ChoiceGate } from "./action-registry.js";
 import type { ActionStore } from "./action-store.js";
 import { createHash } from "node:crypto";
 import { MemoryStore } from "./state/memory-store.js";
@@ -28,7 +31,11 @@ import { normalizeCommandName, toCommandSpec } from "./commands.js";
 import type { ChannelCommand, CommandContext } from "./commands.js";
 import { Thread } from "./thread.js";
 import { isMintedActionId } from "./mint-id.js";
-import { ChannelChoiceSupersededError, choiceAnswer } from "./thread.js";
+import {
+  ChannelChoiceInitiatorUnknownError,
+  ChannelChoiceSupersededError,
+  choiceAnswer,
+} from "./thread.js";
 import type { ChoiceWaiter, ThreadDeps } from "./thread.js";
 import type { RenderConfig } from "./render/config.js";
 import type { AbstractAgent } from "@ag-ui/client";
@@ -657,7 +664,7 @@ function conversationLogRef(conversationKey: string): string {
 /** Why an interaction did not run, as logged and as told to the clicker. */
 const INTERACTION_REFUSALS = {
   "not-initiator": {
-    log: "only the person who started the turn may answer this picker",
+    log: "only the person who started the turn may answer this",
     tell: "Only the person who started this can answer it.",
   },
   "value-not-offered": {
@@ -676,6 +683,14 @@ const INTERACTION_REFUSALS = {
     log: "the awaitChoice picker is still being posted",
     tell: "This choice is not open yet. Try again in a moment.",
   },
+  "already-claimed": {
+    log: "another control already answered this interrupt",
+    tell: "This has already been answered.",
+  },
+  "initiator-unknown": {
+    log: 'the run has no known initiator; pass answerableBy: "conversation" to accept this click',
+    tell: "This can't be answered from here.",
+  },
 } as const;
 
 /** Who owns one awaitChoice picker control, and whether it is open (see `choiceControlOwners`). */
@@ -685,6 +700,8 @@ interface ChoiceControlOwner {
   actorId: string | undefined;
   /** The pending choice it answers, once registered. */
   waiter?: ChoiceWaiter;
+  /** The picker's shared one-shot gate, taken when the picker is retired. */
+  choiceGate?: ChoiceGate;
 }
 
 type InteractionRefusal = keyof typeof INTERACTION_REFUSALS;
@@ -727,6 +744,16 @@ async function refuseInteraction(
       err,
     );
   }
+}
+
+/** The refusal a resume error stands for, if it is one. */
+function resumeRefusal(err: unknown): InteractionRefusal | undefined {
+  if (err instanceof ActionInitiatorMismatchError) return "not-initiator";
+  if (err instanceof ActionAlreadyClaimedError) return "already-claimed";
+  if (err instanceof ChannelChoiceInitiatorUnknownError) {
+    return "initiator-unknown";
+  }
+  return undefined;
 }
 
 function ingressPlatform(
@@ -959,31 +986,50 @@ export function createChannel<
    * can run one before its choice exists. Returns a function that gives the
    * claim up when the picker never became a pending choice (its post failed):
    * every control is then revoked, since its ids may have reached the
-   * platform anyway.
+   * platform anyway. Its promise settles once no process can run them (see
+   * `invalidateChoiceControls`).
    */
   function reserveChoiceControls(
     controlIds: Iterable<string>,
     actorId: string | undefined,
-  ): () => void {
+    choiceGate?: ChoiceGate,
+  ): () => Promise<void> {
     const ids = [...controlIds];
-    const owner: ChoiceControlOwner = { state: "reserved", actorId };
+    const owner: ChoiceControlOwner = {
+      state: "reserved",
+      actorId,
+      choiceGate,
+    };
     for (const id of ids) choiceControlOwners.set(id, owner);
-    return () => {
-      if (owner.state === "reserved") invalidateChoiceControls(ids, owner);
+    return async () => {
+      if (owner.state === "reserved") {
+        await invalidateChoiceControls(ids, owner);
+      }
     };
   }
 
   /**
    * Revoke picker controls. They are retired synchronously (see
    * `ActionRegistry.revokeActions`), and their owner check stays in force until
-   * the revocation has settled.
+   * the revocation has settled. Taking the picker's gate is what retires them
+   * in every other process too: the returned promise settles with that, and
+   * rejects when the gate could not be taken (the controls are still retired
+   * here, and their gate's deadline still ends them everywhere).
    */
   function invalidateChoiceControls(
     ids: readonly string[],
     owner: ChoiceControlOwner | undefined,
-  ): void {
+    choiceGate: ChoiceGate | undefined = owner?.choiceGate,
+  ): Promise<void> {
     if (owner) owner.state = "retired";
-    const revocation = registry?.revokeActions(ids) ?? Promise.resolve();
+    const gateRetirement =
+      choiceGate && registry
+        ? registry.retireChoiceGate(choiceGate)
+        : Promise.resolve();
+    const revocation = Promise.all([
+      gateRetirement,
+      registry?.revokeActions(ids),
+    ]);
     void revocation
       .catch((err: unknown) => {
         console.warn(
@@ -997,31 +1043,62 @@ export function createChannel<
             choiceControlOwners.delete(id);
         }
       });
+    return gateRetirement;
   }
 
   /**
    * Remove a settled picker and revoke its controls, so they never run or
-   * answer anything again.
+   * answer anything again. It stops answering here at once; the returned
+   * promise settles once no process can run its controls (see
+   * `invalidateChoiceControls`).
    */
-  function retireWaiter(conversationKey: string, waiter: ChoiceWaiter): void {
+  function retireWaiter(
+    conversationKey: string,
+    waiter: ChoiceWaiter,
+  ): Promise<void> {
     if (waiters.get(conversationKey) === waiter)
       waiters.delete(conversationKey);
     const ids = [...waiter.controls.keys()];
     const owner = ids
       .map((id) => choiceControlOwners.get(id))
       .find((o) => o?.waiter === waiter);
-    invalidateChoiceControls(ids, owner);
+    return invalidateChoiceControls(ids, owner, waiter.choiceGate);
+  }
+
+  /**
+   * Retire a picker, then settle its choice with `reason`, so a caller never
+   * sees the choice settled while a control of the picker can still run in
+   * another process. When that cannot be confirmed (the gate could not be
+   * taken), the choice rejects with an `AggregateError` of the store error
+   * and `reason` instead.
+   */
+  function retireAndReject(
+    conversationKey: string,
+    waiter: ChoiceWaiter,
+    reason: unknown,
+  ): Promise<void> {
+    return retireWaiter(conversationKey, waiter).then(
+      () => waiter.reject(reason),
+      (err: unknown) =>
+        waiter.reject(
+          new AggregateError(
+            [err, reason],
+            "the picker could not be retired in the shared store; its controls may still run in other processes until their deadline",
+          ),
+        ),
+    );
   }
 
   /**
    * Register a pending choice; a newer one supersedes (and settles) the old.
    * The picker's reserved controls open for clicks from here on. Returns a
-   * function that retires this one (for a timeout or an abort).
+   * function that retires this one and then settles it with the given reason
+   * (for a timeout or an abort; see `retireAndReject`).
    */
   function registerWaiter(
     conversationKey: string,
     waiter: ChoiceWaiter,
-  ): () => void {
+  ): (reason: unknown) => Promise<void> {
     const previous = waiters.get(conversationKey);
     waiters.set(conversationKey, waiter);
     for (const id of waiter.controls.keys()) {
@@ -1032,10 +1109,13 @@ export function createChannel<
       }
     }
     if (previous) {
-      retireWaiter(conversationKey, previous);
-      previous.reject(new ChannelChoiceSupersededError());
+      void retireAndReject(
+        conversationKey,
+        previous,
+        new ChannelChoiceSupersededError(),
+      );
     }
-    return () => retireWaiter(conversationKey, waiter);
+    return (reason) => retireAndReject(conversationKey, waiter, reason);
   }
   let intelligenceMemoryAvailable = false;
 
@@ -1203,7 +1283,47 @@ export function createChannel<
       }
     }
 
-    return {
+    /**
+     * Drop a duplicate delivery of `event` within the TTL window. The id is
+     * recorded before `handle` runs, so a redelivery of an in-flight event
+     * does not run twice; a `handle` that throws gives the id back, so a later
+     * redelivery can retry it.
+     */
+    async function oncePerEvent(
+      event: { eventId?: string; platform?: string },
+      handle: () => void | Promise<void>,
+    ): Promise<void> {
+      if (!event.eventId || adapter.skipIngressDedup) return handle();
+      const platform = ingressPlatform(adapter, event);
+      const dupKey = `evt:${platform}:${event.eventId}`;
+      let recorded = false;
+      try {
+        if (await store.dedup.seen(dupKey, cfg.dedupTtl ?? 300_000)) return;
+        recorded = true;
+      } catch (err) {
+        console.warn(
+          `[channel] dedup check failed for ${platform}; processing without dedup`,
+          err,
+        );
+      }
+      try {
+        await handle();
+      } catch (err) {
+        if (recorded) {
+          try {
+            await store.dedup.forget?.(dupKey);
+          } catch (forgetErr) {
+            console.warn(
+              `[channel] could not release ${platform} event ${event.eventId} after a failure`,
+              forgetErr,
+            );
+          }
+        }
+        throw err;
+      }
+    }
+
+    const sink: IngressSink = {
       async onTurn(turn: IncomingTurn) {
         const mode = resolveChannelConcurrency(cfg);
         if (mode === "parallel") {
@@ -1221,19 +1341,6 @@ export function createChannel<
       },
       async onInteraction(evt: InteractionEvent) {
         const platform = ingressPlatform(adapter, evt);
-        // Dedup guard: drop duplicate deliveries of the same event within the TTL window.
-        if (evt.eventId && !adapter.skipIngressDedup) {
-          const dupKey = `evt:${platform}:${evt.eventId}`;
-          try {
-            if (await store.dedup.seen(dupKey, cfg.dedupTtl ?? 300_000)) return;
-          } catch (err) {
-            console.warn(
-              `[channel] dedup check failed for ${platform}; processing without dedup`,
-              err,
-            );
-          }
-        }
-
         const identityContext = identityContextFromIngress(
           platform,
           evt,
@@ -1348,7 +1455,11 @@ export function createChannel<
           if (explicit) {
             await explicit(ctx);
           } else if (control && !control.bound) {
-            // A picker control without a handler: nothing to dispatch.
+            // A picker control without a handler: nothing to dispatch, but
+            // the click still has to take the picker's gate to answer it.
+            if (picker?.choiceGate) {
+              await registry!.takeChoiceGate(picker.choiceGate, evt.id);
+            }
           } else {
             await registry!.dispatch(evt.id, ctx, {
               conversationKey: evt.conversationKey,
@@ -1365,6 +1476,20 @@ export function createChannel<
               evt,
               identityContext.actor,
               "outside-conversation",
+            );
+            return;
+          }
+          // A refused click spends nothing, so a pending choice stays pending:
+          // the initiator can still answer it, and otherwise its timeout
+          // settles it.
+          const refusal = resumeRefusal(err);
+          if (refusal) {
+            await refuseInteraction(
+              adapter,
+              platform,
+              evt,
+              identityContext.actor,
+              refusal,
             );
             return;
           }
@@ -1393,12 +1518,41 @@ export function createChannel<
             console.warn(
               `[channel] ${platform} interaction ${evt.id} in conversation ${conversationLogRef(evt.conversationKey)}: the picker control's handler has expired; answering the picker without it`,
             );
+            // Answering still takes the picker's gate: past its deadline, or
+            // once another process answered or retired it, the click is
+            // refused.
+            if (picker.choiceGate) {
+              try {
+                await registry!.takeChoiceGate(picker.choiceGate, evt.id);
+              } catch (gateErr) {
+                const gateRefusal =
+                  resumeRefusal(gateErr) ??
+                  (gateErr instanceof ActionExpiredError
+                    ? "expired"
+                    : undefined);
+                if (!gateRefusal) {
+                  // A store failure: settle the choice with it, as when the
+                  // picker's own handler fails, rather than leave it pending.
+                  if (waiters.get(evt.conversationKey) === picker) {
+                    await retireAndReject(evt.conversationKey, picker, gateErr);
+                  }
+                  throw gateErr;
+                }
+                await refuseInteraction(
+                  adapter,
+                  platform,
+                  evt,
+                  identityContext.actor,
+                  gateRefusal,
+                );
+                return;
+              }
+            }
           } else {
             // The picker's own handler failed: settle the choice with the
             // error, once, rather than leave it pending and re-runnable.
             if (picker && waiters.get(evt.conversationKey) === picker) {
-              retireWaiter(evt.conversationKey, picker);
-              picker.reject(err);
+              await retireAndReject(evt.conversationKey, picker, err);
             }
             throw err;
           }
@@ -1410,7 +1564,9 @@ export function createChannel<
           picker &&
           waiters.get(evt.conversationKey) === picker
         ) {
-          retireWaiter(evt.conversationKey, picker);
+          // This click took the picker's gate, so the answer is already final
+          // in every process; the retirement only tidies up.
+          void retireWaiter(evt.conversationKey, picker).catch(() => {});
           picker.resolve(answer.value);
         } else if (waiter && !picker) {
           console.debug(
@@ -1420,19 +1576,6 @@ export function createChannel<
       },
       async onCommand(cmd: IncomingCommand) {
         const platform = ingressPlatform(adapter, cmd);
-        // Dedup guard: drop duplicate deliveries of the same event within the TTL window.
-        if (cmd.eventId && !adapter.skipIngressDedup) {
-          const dupKey = `evt:${platform}:${cmd.eventId}`;
-          try {
-            if (await store.dedup.seen(dupKey, cfg.dedupTtl ?? 300_000)) return;
-          } catch (err) {
-            console.warn(
-              `[channel] dedup check failed for ${platform}; processing without dedup`,
-              err,
-            );
-          }
-        }
-
         const command = commandHandlers.get(normalizeCommandName(cmd.command));
         if (!command) return; // unregistered command → skip
         const identityContext = identityContextFromIngress(
@@ -1481,17 +1624,6 @@ export function createChannel<
       },
       async onWelcome(evt: IncomingWelcome) {
         const platform = ingressPlatform(adapter, evt);
-        if (evt.eventId && !adapter.skipIngressDedup) {
-          const dupKey = `evt:${platform}:${evt.eventId}`;
-          try {
-            if (await store.dedup.seen(dupKey, cfg.dedupTtl ?? 300_000)) return;
-          } catch (err) {
-            console.warn(
-              `[channel] dedup check failed for ${platform}; processing welcome without dedup`,
-              err,
-            );
-          }
-        }
         const identityContext = identityContextFromIngress(
           platform,
           evt,
@@ -1667,6 +1799,13 @@ export function createChannel<
           raw: evt.raw,
         });
       },
+    };
+
+    return {
+      ...sink,
+      onInteraction: (evt) => oncePerEvent(evt, () => sink.onInteraction(evt)),
+      onCommand: (cmd) => oncePerEvent(cmd, () => sink.onCommand(cmd)),
+      onWelcome: (evt) => oncePerEvent(evt, () => sink.onWelcome(evt)),
     };
   }
 

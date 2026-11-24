@@ -39,13 +39,12 @@ describe("lookup_slack_user", () => {
       userId?: string;
       mention?: string;
       name?: string;
-      email?: string;
     };
     expect(lookupUser).toHaveBeenCalledWith("atai");
     expect(r.found).toBe(true);
     expect(r.userId).toBe("U001");
     expect(r.name).toBe("Atai Barkai");
-    expect(r.email).toBe("atai@copilotkit.ai");
+    expect(r).not.toHaveProperty("email");
     expect(r.mention).toBe("<@U001>");
   });
 
