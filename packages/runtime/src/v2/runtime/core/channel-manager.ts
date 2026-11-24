@@ -863,8 +863,17 @@ export function isModuleNotFound(err: unknown): boolean {
   if (typeof err !== "object" || err === null) {
     return false;
   }
-  const code = (err as { code?: unknown }).code;
-  return code === "ERR_MODULE_NOT_FOUND" || code === "MODULE_NOT_FOUND";
+  const value = err as { code?: unknown; message?: unknown };
+  if (
+    value.code === "ERR_MODULE_NOT_FOUND" ||
+    value.code === "MODULE_NOT_FOUND"
+  ) {
+    return true;
+  }
+  return (
+    typeof value.message === "string" &&
+    /^No such module "[^"]+"\.?$/.test(value.message)
+  );
 }
 
 /** Default deadline (ms) for a single `handle.stop()` during teardown. */
