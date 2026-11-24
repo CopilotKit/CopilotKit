@@ -1219,6 +1219,23 @@ export const SERVICES: Record<
       },
     },
   },
+  "showcase-omnara": {
+    serviceId: "f23615d4-9ba9-4b10-b6c9-e4d400cc4eba",
+    autoUpdates: { staging: "disabled", prod: "disabled" },
+    ciBuilt: true,
+    gateValidated: true,
+    dispatchName: "omnara",
+    probeDriver: "agent",
+    // The hosted Omnara profile controls model routing.
+    environments: {
+      staging: {
+        instanceId: "c5e4f332-6b5b-452e-aaf9-6ffea1ee9851",
+        healthcheckPath: "/api/health",
+        domain: "showcase-omnara-staging.up.railway.app",
+        probe: true,
+      },
+    },
+  },
   "showcase-langgraph-fastapi": {
     serviceId: "06cccb5c-59f4-46b5-8adc-7113e77011a4",
     autoUpdates: { staging: "disabled", prod: "disabled" },

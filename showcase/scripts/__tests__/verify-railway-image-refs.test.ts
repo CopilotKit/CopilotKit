@@ -280,8 +280,8 @@ describe("WS-C: all gate-managed services gateValidated, with correct overrides"
     ["harness", "showcase-harness"],
   ] as const;
 
-  it("has 44 gate-managed services plus nine staging-only services (seven Intelligence, docs-preview, cloudflare-agents)", () => {
-    expect(Object.keys(SERVICES)).toHaveLength(53);
+  it("has 44 dual-environment services and ten staging-only services", () => {
+    expect(Object.keys(SERVICES)).toHaveLength(54);
   });
 
   it("marks every gate-managed service gateValidated (no Phase-2 holdouts)", () => {
@@ -308,14 +308,16 @@ describe("WS-C: all gate-managed services gateValidated, with correct overrides"
     // With nothing "present", every gateValidated service should appear in
     // the missing set for each env it DECLARES. The dual-env gateValidated
     // services (32 showcase/infra + 12 starters) carry both prod and staging
-    // and are demanded in BOTH envs; the staging-only cloudflare-agents is
-    // demanded in staging alone.
+    // and are demanded in BOTH envs; the staging-only omnara and
+    // cloudflare-agents are demanded in staging alone.
     const missingProd = findMissingServices("prod", new Set<string>());
     const missingStaging = findMissingServices("staging", new Set<string>());
     expect(missingProd).toHaveLength(44);
-    expect(missingStaging).toHaveLength(45);
-    expect(missingStaging).toContain("showcase-cloudflare-agents");
-    expect(missingProd).not.toContain("showcase-cloudflare-agents");
+    expect(missingStaging).toHaveLength(46);
+    for (const name of ["showcase-omnara", "showcase-cloudflare-agents"]) {
+      expect(missingStaging).toContain(name);
+      expect(missingProd).not.toContain(name);
+    }
     expect(missingStaging).toContain("showcase-openai-agents-python");
     expect(missingProd).toContain("showcase-openai-agents-python");
     expect(missingStaging).toContain("showcase-google-antigravity");

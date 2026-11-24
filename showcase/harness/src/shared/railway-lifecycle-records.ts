@@ -8,15 +8,15 @@ import type {
 
 // Reviewed bridge while the staging runner still publishes the policy from
 // before 21552a22b2: the current policy adds only docs-preview,
-// showcase-openai-agents-python and showcase-cloudflare-agents to permanent
-// protection. Keep validating with the stricter current policy; acknowledge the
-// publisher's policy. This exact pair supersedes the earlier pairs (validators
-// d3a7… and 5c3b…), which no committed policy produces any more. The runner is
-// parked, so remove it with the registry reader code. Neither hash may expand
-// to an unreviewed future policy.
+// showcase-openai-agents-python, showcase-omnara and showcase-cloudflare-agents
+// to permanent protection. Keep validating with the stricter current policy;
+// acknowledge the publisher's policy. This exact pair supersedes the earlier
+// pairs (validators d3a7…, 5c3b…, 9af7… and 6480…), which no committed policy
+// produces any more. The runner is parked, so remove it with the registry
+// reader code. Neither hash may expand to an unreviewed future policy.
 const permanentServicesPolicyTransition = {
   publisher: "4ded223bb02ea0cdf7ffed4fb8f78b70fbb50c9f74ae82d34addfc94f712c751",
-  validator: "6480978aceb99b57e1d03763615960e48106dec5564dc87a520a8b643679e06a",
+  validator: "a9e764436dfeeb34da65dda91676c34a3200e3775da9c04c2e0dc10254473096",
 };
 
 /**

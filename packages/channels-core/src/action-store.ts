@@ -13,6 +13,17 @@ export interface ActionContinuationContext {
   threadId: string;
   runChainId: string;
   initiator: ActionContinuationInitiator;
+  /**
+   * Shared by every action rendered in one leg of a run chain (the run up to
+   * its interrupt), so that only one of them can resume it. Absent on
+   * snapshots stored before this field existed; those are limited per action.
+   */
+  resumeGateId?: string;
+  /**
+   * Epoch ms past which no action sharing the gate may live: renewing an
+   * action stops here, and the gate outlives this moment.
+   */
+  resumeGateDeadline?: number;
 }
 
 /** Server-derived delivery facts used to validate a presented continuation. */
@@ -39,6 +50,23 @@ export interface ActionSnapshot {
   boundArgs?: unknown;
   conversationKey: string;
   continuation?: ActionContinuationSnapshot;
+  /**
+   * The only provider account allowed to click an `answerableBy: "initiator"`
+   * picker control. Absent on every other action, and on picker controls
+   * stored before this field existed; those stay clickable by anyone in the
+   * conversation, since nothing tells them apart from an ordinary action.
+   */
+  ownerActorId?: string;
+  /**
+   * The one-shot gate shared by every control of one `awaitChoice` picker.
+   * The click that answers the picker takes it before any handler runs, and
+   * retiring the picker takes it too, so every process sharing the store
+   * refuses the picker's controls from then on. Absent on every other
+   * action, and on picker controls stored before this field existed.
+   */
+  choiceGateId?: string;
+  /** Epoch ms after which a control of the gated picker never runs. */
+  choiceGateDeadline?: number;
 }
 /** @deprecated Configure `createChannel({ state })` instead. Action snapshots are stored via `StateStore.kv`. */
 export interface ActionStore {

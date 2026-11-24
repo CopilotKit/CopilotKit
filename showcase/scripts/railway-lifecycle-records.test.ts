@@ -22,16 +22,23 @@ const headers = {
 };
 const predecessorPolicySha256 =
   "4ded223bb02ea0cdf7ffed4fb8f78b70fbb50c9f74ae82d34addfc94f712c751";
-// Superseded intermediate policies; neither is a valid publisher any more.
+// Superseded intermediate policies; none is a valid publisher any more.
 // docs-preview only:
 const docsPreviewOnlyPolicySha256 =
   "d3a7fe0c6eeda2fce0dc73779d2e19fdfbf9174abeaa07468b3aca21bd097410";
 // docs-preview and showcase-openai-agents-python:
 const openaiAgentsPolicySha256 =
   "5c3ba2cd4f895fb8051a7e33eb55e2cda04bd3ac0b56acc2c205a442815e1b0b";
+// ... plus showcase-omnara:
+const omnaraPolicySha256 =
+  "9af76d9d5bb610b0380890dec0eb0e8f20cdd03163e6d3be824d2aecdd515c59";
+// ... plus showcase-cloudflare-agents instead of showcase-omnara:
+const cloudflareAgentsPolicySha256 =
+  "6480978aceb99b57e1d03763615960e48106dec5564dc87a520a8b643679e06a";
 const bridgedPermanentNames = [
   "docs-preview",
   "showcase-openai-agents-python",
+  "showcase-omnara",
   "showcase-cloudflare-agents",
 ];
 const now = new Date("2026-11-05T12:20:00.000Z");
@@ -284,6 +291,8 @@ it.each([
 it.each([
   ["docs-preview-only", docsPreviewOnlyPolicySha256],
   ["openai-agents-python", openaiAgentsPolicySha256],
+  ["omnara", omnaraPolicySha256],
+  ["cloudflare-agents", cloudflareAgentsPolicySha256],
 ])("refuses the superseded %s publisher", async (_label, policySha256) => {
   const fetcher = vi.fn(
     async () =>

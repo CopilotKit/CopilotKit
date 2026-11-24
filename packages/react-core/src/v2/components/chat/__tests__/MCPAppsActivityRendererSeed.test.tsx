@@ -40,7 +40,10 @@ const { bindMcpAppSpy, sessionSpy } = vi.hoisted(() => {
     syncContent: vi.fn(),
     teardown: vi.fn(),
   };
-  const bind = vi.fn((_opts: { messageId?: string }) => session);
+  const bind = vi.fn(
+    (_opts: { messageId?: string; options?: Record<string, unknown> }) =>
+      session,
+  );
   return { bindMcpAppSpy: bind, sessionSpy: session };
 });
 
@@ -66,15 +69,19 @@ function externalActivityContent(): MCPAppsActivityContent {
   } as MCPAppsActivityContent;
 }
 
-/** Render the adapter directly, inside the provider that supplies the host. */
-function renderAdapter(
+/** The adapter inside the provider that supplies the host and the options. */
+function adapterTree(
   content: MCPAppsActivityContent,
   agent: MockStepwiseAgent,
+  mcpApps?: Record<string, unknown>,
 ) {
   const agentId = "external-agent";
   agent.agentId = agentId;
-  return render(
-    <CopilotKitProvider agents__unsafe_dev_only={{ [agentId]: agent }}>
+  return (
+    <CopilotKitProvider
+      agents__unsafe_dev_only={{ [agentId]: agent }}
+      mcpApps={mcpApps}
+    >
       <CopilotChatConfigurationProvider agentId={agentId} threadId="t1">
         <MCPAppsActivityRenderer
           activityType={MCPAppsActivityType}
@@ -83,8 +90,17 @@ function renderAdapter(
           agent={agent}
         />
       </CopilotChatConfigurationProvider>
-    </CopilotKitProvider>,
+    </CopilotKitProvider>
   );
+}
+
+/** Render the adapter directly, inside the provider that supplies the host. */
+function renderAdapter(
+  content: MCPAppsActivityContent,
+  agent: MockStepwiseAgent,
+  mcpApps?: Record<string, unknown>,
+) {
+  return render(adapterTree(content, agent, mcpApps));
 }
 
 describe("MCPAppsActivityRenderer external-activity seed", () => {
@@ -121,5 +137,34 @@ describe("MCPAppsActivityRenderer external-activity seed", () => {
         result: EXTERNAL_RESULT,
       }),
     );
+  });
+
+  it("hands the host's mcpApps options to the bridge and rebinds on their content, not their identity", async () => {
+    const agent = new MockStepwiseAgent();
+    const content = externalActivityContent();
+    const inlineOnly = () => ({
+      hostContext: { availableDisplayModes: ["inline"] },
+    });
+    const { rerender } = renderAdapter(content, agent, inlineOnly());
+
+    await waitFor(() => expect(bindMcpAppSpy).toHaveBeenCalledTimes(1));
+    expect(bindMcpAppSpy.mock.calls[0][0].options).toEqual(inlineOnly());
+
+    // A parent re-render with the options written inline in JSX: a new object
+    // with the same content must not rebind (that would reload the widget).
+    rerender(adapterTree(content, agent, inlineOnly()));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(bindMcpAppSpy).toHaveBeenCalledTimes(1);
+
+    // Different content does rebind, with the new options.
+    rerender(
+      adapterTree(content, agent, {
+        hostContext: { availableDisplayModes: ["inline", "fullscreen"] },
+      }),
+    );
+    await waitFor(() => expect(bindMcpAppSpy).toHaveBeenCalledTimes(2));
+    expect(bindMcpAppSpy.mock.calls[1][0].options).toEqual({
+      hostContext: { availableDisplayModes: ["inline", "fullscreen"] },
+    });
   });
 });

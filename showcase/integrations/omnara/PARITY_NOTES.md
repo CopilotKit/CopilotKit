@@ -12,7 +12,7 @@ Manifest features identify implemented demo routes, not passing hosted probes.
 | Approvals/questions | Native `omnara:permission` / `omnara:question` interrupts; starter previously tested live    | Not declared as catalog HITL support; those cells use different tool/approval contracts         |
 | Attachments         | Adapter maps images/documents to native files; starter previously tested text attachments    | Shared multimodal cell unverified and not registered                                            |
 | State               | No state snapshot/delta support found in adapter 0.0.1                                       | Shared state read/write/streaming not registered                                                |
-| Persistence         | Native history snapshots and prior starter continuation checks                               | Shared Intelligence, visitor visibility and restart policy require PNI-774                      |
+| Persistence         | Native history snapshots and prior starter continuation checks                               | PNI-774 covers visitor ownership and native sessions. Shared Intelligence is deferred.          |
 
 No unverified cell is listed in `not_supported_features` merely to remove it
 from parity counts. Other catalog features remain unregistered pending actual
@@ -23,8 +23,8 @@ capability work and shared-probe evidence.
 - [PNI-773](https://linear.app/copilotkit/issue/PNI-773): real hosted provider
   routing to the existing public aimock service and fixtures; protocol,
   per-request context, strict misses, isolation and tool continuation proof.
-- [PNI-774](https://linear.app/copilotkit/issue/PNI-774): shared Intelligence,
-  verified visitor/thread ownership, native session continuation and visibility.
+- [PNI-774](https://linear.app/copilotkit/issue/PNI-774): visitor/thread ownership,
+  native session continuation and explicit recovery after a backend restart.
 - [PNI-775](https://linear.app/copilotkit/issue/PNI-775): deployment, public
   rendering, source/image identity, generated docs and full parity evidence.
 
@@ -87,8 +87,8 @@ Limits of this evidence:
 - The provider cannot forward per-run headers or native request/session IDs.
   Runs were serialized. The harness's slug-only journal fallback is not proof
   of concurrent isolation; PNI-773 must keep that limitation explicit.
-- Public visitor ownership, shared Intelligence, and cold process continuation
-  remain PNI-774 work. `deployed: false` and `docs_mode: hidden` remain in effect.
+- Public visitor ownership and restart behavior were open at this checkpoint.
+  `deployed: false` and `docs_mode: hidden` were in effect.
 
 ## Final-source hosted checkpoint — November 17, 2026
 
@@ -132,5 +132,5 @@ cells. They do not establish a public Omnara deployment or concurrent isolation:
 the provider still cannot forward per-run IDs, and all runs were serial. The
 fixture append remains runtime-only. The existing wrapper Dockerfile already
 copies these checked-in fixtures; PNI-775 owns verifying their publication
-through staging and an explicitly approved production promotion. PNI-774's
-public visitor/session and shared Intelligence work remains open.
+through staging and an explicitly approved production promotion. Public
+visitor and session behavior was outside this checkpoint.
