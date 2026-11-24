@@ -129,7 +129,7 @@ describe("runRedeploy", () => {
     expect(result.succeeded).toBe(1);
   });
 
-  it("default staging scope = 42 CI-built services + their imageOf consumers (harness-workers)", async () => {
+  it("default staging scope = 43 CI-built services + their imageOf consumers (harness-workers)", async () => {
     const seenNames: string[] = [];
     const redeploy = vi.fn(async (serviceId: string) => {
       // Reverse-lookup the SSOT name from serviceId so the test can
@@ -149,20 +149,17 @@ describe("runRedeploy", () => {
     });
 
     expect(result.exitCode).toBe(0);
-    // 42 CI-built (30 showcase/infra incl. conversational flows,
-    // google-antigravity and openai-agents-python, + 12
-    // starters) + harness-workers (imageOf consumer of showcase-harness) = 43.
-    // All 42 declare staging, so the env-aware default scope keeps every one
-    // of them.
-    expect(result.attempted).toBe(43);
-    expect(result.succeeded).toBe(43);
-    expect(redeploy).toHaveBeenCalledTimes(43);
+    // 43 CI-built services with staging instances + harness-workers.
+    expect(result.attempted).toBe(44);
+    expect(result.succeeded).toBe(44);
+    expect(redeploy).toHaveBeenCalledTimes(44);
     // pocketbase is now CI-built, so it IS in the default redeploy scope.
     expect(seenNames).toContain("pocketbase");
     // The TypeScript Strands integration declares staging, so it IS in the
     // staging default scope (and now prod too — see below).
     expect(seenNames).toContain("showcase-strands-typescript");
     expect(seenNames).toContain("showcase-crewai-conversational-flows");
+    expect(seenNames).toContain("showcase-omnara");
     // S2: starters are CI-built, so they JOIN the default redeploy scope.
     expect(seenNames).toContain("starter-adk");
     expect(seenNames).toContain("starter-mastra");
@@ -256,6 +253,7 @@ describe("runRedeploy", () => {
     expect(seenNames).toContain("showcase-strands-typescript");
     // CrewAI Conversational Flows is now dual-env, so it joins the prod scope.
     expect(seenNames).toContain("showcase-crewai-conversational-flows");
+    expect(seenNames).not.toContain("showcase-omnara");
     // google-antigravity is now dual-env, so it joins the prod scope.
     expect(seenNames).toContain("showcase-google-antigravity");
     // openai-agents-python is now dual-env, so it joins the prod scope.
@@ -739,12 +737,10 @@ describe("resolveTargetServices", () => {
 
   it("returns the CI_BUILT_SERVICES set sorted when given undefined", () => {
     const resolved = resolveTargetServices(undefined);
-    // 30 showcase/infra CI-built (incl. conversational flows,
-    // google-antigravity and openai-agents-python) + 12
-    // starters = 42.
+    // 31 showcase/infra services + 12 starters.
     // resolveTargetServices returns the FULL CI_BUILT set;
     // the env-aware narrowing happens later in runRedeploy, not here.
-    expect(resolved.length).toBe(42);
+    expect(resolved.length).toBe(43);
     // pocketbase is now CI-built and part of the default scope.
     expect(resolved).toContain("pocketbase");
     expect(resolved).toContain("showcase-crewai-conversational-flows");

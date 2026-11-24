@@ -25,7 +25,11 @@ const predecessorPolicySha256 =
 // Superseded intermediate policy (docs-preview only); no longer a valid publisher.
 const docsPreviewOnlyPolicySha256 =
   "d3a7fe0c6eeda2fce0dc73779d2e19fdfbf9174abeaa07468b3aca21bd097410";
-const bridgedPermanentNames = ["docs-preview", "showcase-openai-agents-python"];
+const bridgedPermanentNames = [
+  "docs-preview",
+  "showcase-openai-agents-python",
+  "showcase-omnara",
+];
 const now = new Date("2026-11-05T12:20:00.000Z");
 const recoveryRun: RunRecord = {
   runId: "policy-recovery-test",
