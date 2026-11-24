@@ -868,13 +868,22 @@ function isRetryableActivationError(err: unknown): boolean {
  * a dynamic `import()` throws when the target package is not installed.
  * Exported so the friendly-error path in {@link defaultActivateChannel} can be
  * unit-tested without forcing a real failing import.
+ *
+ * Node.js sets `code` to `ERR_MODULE_NOT_FOUND` (ESM) or `MODULE_NOT_FOUND`
+ * (CJS). Cloudflare Workers (workerd) throws a plain `Error` with no `code`
+ * but with the message `No such module "<specifier>"` (#8539).
  */
 export function isModuleNotFound(err: unknown): boolean {
   if (typeof err !== "object" || err === null) {
     return false;
   }
   const code = (err as { code?: unknown }).code;
-  return code === "ERR_MODULE_NOT_FOUND" || code === "MODULE_NOT_FOUND";
+  if (code === "ERR_MODULE_NOT_FOUND" || code === "MODULE_NOT_FOUND") {
+    return true;
+  }
+  // Cloudflare Workers (workerd): plain Error, message starts with "No such module".
+  const message = (err as { message?: unknown }).message;
+  return typeof message === "string" && message.startsWith("No such module ");
 }
 
 /** Default deadline (ms) for a single `handle.stop()` during teardown. */

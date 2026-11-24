@@ -74,12 +74,10 @@ import type {
 } from "./channel-component.js";
 import { ChannelTelemetry } from "./telemetry/channel-telemetry.js";
 import { errorClass, normalizePlatform } from "./telemetry/sanitize-error.js";
-import { createRequire } from "node:module";
-
-const pkg = createRequire(import.meta.url)("../package.json") as {
-  name: string;
-  version: string;
-};
+import {
+  CHANNELS_CORE_PACKAGE_NAME,
+  CHANNELS_CORE_PACKAGE_VERSION,
+} from "./package-info.js";
 
 const ADAPTER_ROLLBACK_TIMEOUT_MS = 5_000;
 const DEFAULT_WELCOME_PROMPT = "Introduce yourself to the channel!";
@@ -1871,8 +1869,8 @@ export function createChannel<
         transcripts = new Transcripts(backend, cfg.transcripts ?? {});
         const tel = new ChannelTelemetry({
           backend,
-          packageName: pkg.name,
-          packageVersion: pkg.version,
+          packageName: CHANNELS_CORE_PACKAGE_NAME,
+          packageVersion: CHANNELS_CORE_PACKAGE_VERSION,
         });
         telemetry = tel;
         const retentionMs =

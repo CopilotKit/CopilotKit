@@ -52,7 +52,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsdown",
     "check-types": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.check.json",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -74,6 +74,7 @@
     "pngjs": "^7.0.0",
     "react": "^19.1.0",
     "takumi-js": "^2.7.3",
+    "tsdown": "^0.20.3",
     "typescript": "^5.6.3",
     "vitest": "^4.1.3",
     "zod": "^3.25.76"
