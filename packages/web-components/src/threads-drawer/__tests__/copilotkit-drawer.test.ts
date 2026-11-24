@@ -836,7 +836,8 @@ test("exposes ::part hooks and CSS-variable tokens for theming", async () => {
   const sheets = (CopilotKitThreadsDrawer.styles as { cssText: string })
     .cssText;
   expect(sheets).toContain("--cpk-drawer-bg");
-  expect(sheets).toContain("var(--cpk-drawer-accent");
+  // Whitespace-tolerant: long fallback chains are wrapped across lines.
+  expect(sheets).toMatch(/var\(\s*--cpk-drawer-accent\b/);
   teardown();
 });
 
@@ -1201,7 +1202,6 @@ test("label defaults to Threads: root panel aria-label and listbox aria-label ar
   const root = q("[part='root']") as HTMLElement;
   const list = q("[role='listbox']") as HTMLElement;
 
-  // The redesign has no visible title — `label` drives accessible names only.
   expect(root.getAttribute("aria-label")).toBe("Threads");
   expect(list.getAttribute("aria-label")).toBe("Threads");
   expect(element.label).toBe("Threads");
@@ -1261,22 +1261,43 @@ test("desktop header shows the collapse toggle by default (collapsible)", async 
 
 test("with collapsible=false the header stays hidden until slot=header content is projected", async () => {
   const { element } = await setup({ threads: [makeThread()] });
-  // With no collapse toggle (collapsible=false) and no projected header content,
-  // the empty header bar stays hidden so no padded bar renders above the
-  // "New Conversation" row.
   element.collapsible = false;
   await flush(element);
-  const header = element.shadowRoot!.querySelector('[part="header"]')!;
-  expect((header as HTMLElement).hidden).toBe(true);
-  expect(
-    element.shadowRoot!.querySelector('[part="collapse-toggle"]'),
-  ).toBeNull();
+  const shadow = element.shadowRoot!;
+  const header = shadow.querySelector('[part="header"]') as HTMLElement;
+  expect(header.hidden).toBe(true);
+  expect(shadow.querySelector('[part="collapse-toggle"]')).toBeNull();
+  expect(shadow.querySelector('[part="new-thread-button"]')).not.toBeNull();
 
   const headerContent = document.createElement("div");
   headerContent.slot = "header";
   element.appendChild(headerContent);
   await flush(element);
-  expect((header as HTMLElement).hidden).toBe(false);
+  expect(header.hidden).toBe(false);
+});
+
+test("header is one row: title first, panel toggle last", async () => {
+  const { element } = await setup({ threads: [makeThread()] });
+  const header = element.shadowRoot!.querySelector('[part="header"]')!;
+  const order = Array.from(header.querySelectorAll("[part]")).map((node) =>
+    node.getAttribute("part"),
+  );
+  expect(order).toEqual(["title", "collapse-toggle"]);
+});
+
+test("header title follows `label`; slot=header content replaces it", async () => {
+  const { element, q, teardown } = await setup();
+  element.label = "History";
+  await flush(element);
+  expect(q('[part="title"]')!.textContent).toBe("History");
+
+  const custom = document.createElement("span");
+  custom.slot = "header";
+  element.appendChild(custom);
+  await flush(element);
+  const slot = q('slot[name="header"]') as HTMLSlotElement;
+  expect(slot.assignedElements()).toContain(custom);
+  teardown();
 });
 
 // --- ENT-1051: desktop collapse + floating cluster ------------------------
@@ -1292,7 +1313,7 @@ test("desktop collapse toggle collapses to the cluster and emits collapse-change
     type: "collapse-change",
     detail: { collapsed: true },
   });
-  // Panel is replaced by the floating cluster (sidebar toggle + New Conversation).
+  // Panel is replaced by the floating cluster (sidebar toggle + New Thread).
   const cluster = element.shadowRoot!.querySelector(
     '[part="launcher-cluster"]',
   );
@@ -1317,7 +1338,7 @@ test("collapsed cluster expand toggle restores the panel and emits collapse-chan
   });
 });
 
-test("collapsed cluster New Conversation button fires new-thread", async () => {
+test("collapsed cluster New Thread button fires new-thread", async () => {
   const { element, events } = await setup({ threads: [makeThread()] });
   element.collapsed = true;
   await flush(element);
@@ -1343,7 +1364,7 @@ test("collapsible=false never renders the collapsed cluster on desktop", async (
   ).not.toBeNull();
 });
 
-test("mobile closed state renders the cluster with a New Conversation button", async () => {
+test("mobile closed state renders the cluster with a New Thread button", async () => {
   const { element, events } = await setup({
     threads: [makeThread()],
     mobile: true,
@@ -1369,14 +1390,17 @@ test("mobile closed state renders the cluster with a New Conversation button", a
   });
 });
 
-// --- ENT-1051 Task 2: New Conversation row --------------------------------
+// --- ENT-1051 Task 2: New Thread row --------------------------------
 
-test("New Conversation row fires new-thread and keeps part=new-thread-button", async () => {
+test("New Thread row sits under the header, fires new-thread and keeps part=new-thread-button", async () => {
   const { element } = await setup({ threads: [makeThread()] });
   const btn = element.shadowRoot!.querySelector<HTMLButtonElement>(
     '[part="new-thread-button"]',
   )!;
-  expect(btn.textContent).toContain("New Conversation");
+  expect(btn.textContent).toContain("New Thread");
+  expect(btn.closest('[part="header"]')).toBeNull();
+  // Directly above the section label.
+  expect(btn.nextElementSibling?.getAttribute("part")).toBe("section-heading");
   const onNew = vi.fn();
   element.addEventListener("new-thread", onNew);
   btn.click();
@@ -1615,19 +1639,19 @@ test("menu-up flips the popover to open upward (CSS contract: bottom-anchored)",
 
 // --- CR round 1, Finding 5: locked view hides feature chrome ----------------
 
-test("locked view hides the New Conversation chrome", async () => {
+test("locked view hides the New Thread chrome", async () => {
   const { element, q, teardown } = await setup({ threads: [makeThread()] });
   element.licensed = false;
   await flush(element);
 
   expect(q('[data-testid="drawer-licensed"]')).not.toBeNull();
-  // The feature chrome (New Conversation row) is absent — only the Upgrade
+  // The feature chrome (New Thread row) is absent — only the Upgrade
   // panel is offered.
   expect(q('[part="new-thread-button"]')).toBeNull();
   teardown();
 });
 
-test("licensed view still renders the New Conversation chrome", async () => {
+test("licensed view still renders the New Thread chrome", async () => {
   const { q, teardown } = await setup({ threads: [makeThread()] });
   // default licensed=true
   expect(q('[part="new-thread-button"]')).not.toBeNull();
@@ -1673,4 +1697,274 @@ test("unarchive aria-label falls back to 'New thread' for an empty-string name",
     (q('[part="row-unarchive"]') as HTMLElement).getAttribute("aria-label"),
   ).toBe("Unarchive thread New thread");
   teardown();
+});
+
+// --- Overlay mode (drawer hosted inside a chat popup/sidebar) ----------------
+
+async function setupOverlay(options: SetupOptions = {}) {
+  const ctx = await setup(options);
+  ctx.element.overlay = true;
+  await flush(ctx.element);
+  return ctx;
+}
+
+test("overlay reflects to the `overlay` attribute and defaults off", async () => {
+  const { element, teardown } = await setup();
+  expect(element.overlay).toBe(false);
+  expect(element.hasAttribute("overlay")).toBe(false);
+
+  element.overlay = true;
+  await flush(element);
+  expect(element.hasAttribute("overlay")).toBe(true);
+  teardown();
+});
+
+test("overlay renders no launcher cluster or collapse toggle — the host owns the launcher", async () => {
+  // Closed on a mobile viewport would normally show the cluster.
+  const { q, teardown } = await setupOverlay({ mobile: true });
+  expect(q('[part="launcher-cluster"]')).toBeNull();
+  expect(q('[part="collapse-toggle"]')).toBeNull();
+  teardown();
+
+  const desktop = await setupOverlay({ mobile: false });
+  desktop.element.collapsed = true;
+  await flush(desktop.element);
+  expect(desktop.q('[part="launcher-cluster"]')).toBeNull();
+  expect(desktop.q('[part="collapse-toggle"]')).toBeNull();
+  // The panel stays mounted (off-canvas) so it can slide in.
+  expect(desktop.q('[part="root"]')!.classList.contains("collapsed")).toBe(
+    false,
+  );
+  desktop.teardown();
+});
+
+test("overlay on desktop opens as a modal dialog with a close toggle, and never scroll-locks", async () => {
+  const { element, q, events, teardown } = await setupOverlay({
+    mobile: false,
+  });
+  let root = q('[part="root"]') as HTMLElement;
+  expect(root.getAttribute("role")).toBe("region");
+  expect(root.classList.contains("overlay")).toBe(true);
+  expect(root.classList.contains("mobile")).toBe(false);
+
+  element.open = true;
+  await flush(element);
+  root = q('[part="root"]') as HTMLElement;
+  expect(root.getAttribute("role")).toBe("dialog");
+  expect(root.getAttribute("aria-modal")).toBe("true");
+  expect(document.body.style.overflow).not.toBe("hidden");
+
+  (q('[part="close-toggle"]') as HTMLElement).click();
+  await flush(element);
+  expect(element.open).toBe(false);
+  expect(events).toContainEqual({
+    type: "open-change",
+    detail: { open: false },
+  });
+  teardown();
+});
+
+test("overlay keeps its scrim mounted and toggles it with open; a scrim click closes", async () => {
+  const { element, q, teardown } = await setupOverlay({ mobile: false });
+  const backdrop = () => q('[part="backdrop"]') as HTMLElement | null;
+  expect(backdrop()).not.toBeNull();
+  expect(backdrop()!.classList.contains("open")).toBe(false);
+
+  element.open = true;
+  await flush(element);
+  expect(backdrop()!.classList.contains("open")).toBe(true);
+
+  backdrop()!.click();
+  await flush(element);
+  expect(element.open).toBe(false);
+  expect(backdrop()!.classList.contains("open")).toBe(false);
+  teardown();
+});
+
+test("Escape closes an open overlay even on a desktop viewport", async () => {
+  const { element, teardown } = await setupOverlay({
+    mobile: false,
+    open: true,
+  });
+  element.dispatchEvent(
+    new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+  );
+  await flush(element);
+  expect(element.open).toBe(false);
+  teardown();
+});
+
+test("opening the overlay moves focus into the panel", async () => {
+  const { element, q, teardown } = await setupOverlay({ mobile: false });
+  element.open = true;
+  await flush(element);
+  const root = q('[part="root"]') as HTMLElement;
+  expect(root.getAttribute("tabindex")).toBe("-1");
+  expect(element.shadowRoot!.activeElement).toBe(root);
+  teardown();
+});
+
+test("picking a thread in the overlay selects it, then closes the overlay", async () => {
+  const { element, q, events, teardown } = await setupOverlay({
+    threads: [makeThread({ id: "a", name: "A" })],
+    open: true,
+  });
+  (q("li.row") as HTMLElement).click();
+  await flush(element);
+
+  expect(events.map((e) => e.type)).toEqual(["thread-selected", "open-change"]);
+  expect(events[0]!.detail).toEqual({ threadId: "a" });
+  expect(element.open).toBe(false);
+  teardown();
+});
+
+test("New Thread in the overlay emits new-thread, then closes the overlay", async () => {
+  const { element, q, events, teardown } = await setupOverlay({ open: true });
+  (q('[part="new-thread-button"]') as HTMLElement).click();
+  await flush(element);
+
+  expect(events.map((e) => e.type)).toEqual(["new-thread", "open-change"]);
+  expect(element.open).toBe(false);
+  teardown();
+});
+
+test("outside overlay mode, picking a thread leaves `open` alone", async () => {
+  const { element, q, events, teardown } = await setup({
+    mobile: true,
+    open: true,
+    threads: [makeThread({ id: "a", name: "A" })],
+  });
+  (q("li.row") as HTMLElement).click();
+  await flush(element);
+  expect(events.map((e) => e.type)).toEqual(["thread-selected"]);
+  expect(element.open).toBe(true);
+  teardown();
+});
+
+test("Enter on a row's actions button does not select the row", async () => {
+  const { element, q, events, teardown } = await setup({
+    threads: [makeThread({ id: "a", name: "A" })],
+  });
+  const menuButton = q('[part="row-menu"]') as HTMLElement;
+  menuButton.dispatchEvent(
+    new KeyboardEvent("keydown", {
+      key: "Enter",
+      bubbles: true,
+      composed: true,
+      cancelable: true,
+    }),
+  );
+  await flush(element);
+  expect(events.find((e) => e.type === "thread-selected")).toBeUndefined();
+  teardown();
+});
+
+test("Enter on slotted row content selects the row unless it is interactive", async () => {
+  const { element, events, teardown } = await setup({
+    threads: [makeThread({ id: "row-a", name: "A" })],
+  });
+  const content = document.createElement("span");
+  content.slot = "row:row-a";
+  content.tabIndex = 0;
+  const link = document.createElement("a");
+  link.href = "#details";
+  content.append("Custom A", link);
+  element.appendChild(content);
+  await flush(element);
+
+  const pressEnter = (target: HTMLElement) =>
+    target.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "Enter",
+        bubbles: true,
+        composed: true,
+        cancelable: true,
+      }),
+    );
+
+  pressEnter(link);
+  await flush(element);
+  expect(events.find((e) => e.type === "thread-selected")).toBeUndefined();
+
+  pressEnter(content);
+  await flush(element);
+  expect(events.filter((e) => e.type === "thread-selected")).toEqual([
+    { type: "thread-selected", detail: { threadId: "row-a" } },
+  ]);
+  teardown();
+});
+
+test("clicking slotted row content selects the row unless it is interactive", async () => {
+  const { element, events, teardown } = await setupOverlay({
+    threads: [makeThread({ id: "row-a", name: "A" })],
+    open: true,
+  });
+  const content = document.createElement("span");
+  content.slot = "row:row-a";
+  const link = document.createElement("a");
+  link.href = "#details";
+  content.append("Custom A", link);
+  element.appendChild(content);
+  await flush(element);
+
+  // A link in the row (clicked, or activated from the keyboard) does its own
+  // thing: no selection, and the overlay stays open.
+  link.addEventListener("click", (e) => e.preventDefault());
+  link.click();
+  await flush(element);
+  expect(events.find((e) => e.type === "thread-selected")).toBeUndefined();
+  expect(element.open).toBe(true);
+
+  content.click();
+  await flush(element);
+  expect(events.filter((e) => e.type === "thread-selected")).toEqual([
+    { type: "thread-selected", detail: { threadId: "row-a" } },
+  ]);
+  teardown();
+});
+
+test("host theme tokens drive hovers, text sizes and the launcher cluster (CSS contract)", () => {
+  const cssText = (CopilotKitThreadsDrawer.styles as { cssText: string })
+    .cssText;
+  const rule = (selector: RegExp) =>
+    cssText.match(new RegExp(`${selector.source}\\s*\\{([^}]*)\\}`))?.[1] ?? "";
+
+  // Hovers follow --cpk-drawer-muted when set, the accent otherwise.
+  expect(cssText).toMatch(
+    /--_hover:\s*var\(--cpk-drawer-muted,\s*var\(--_accent\)\)/,
+  );
+  expect(rule(/\.row:hover,\s*\.row\.menu-open/)).toContain(
+    "background: var(--_hover)",
+  );
+  // Text sizes derive from --cpk-drawer-font-size / --cpk-drawer-line-height,
+  // and rows and the header grow with them.
+  expect(cssText).toMatch(/--_text:\s*var\(--cpk-drawer-font-size,\s*14px\)/);
+  const row = rule(/\.row/);
+  expect(row).toContain("font-size: var(--_text)");
+  expect(row).toContain("line-height: var(--cpk-drawer-line-height, 20px)");
+  expect(row).toContain("min-height: 36px");
+  expect(rule(/\.header/)).toContain("min-height: 56px");
+  // The launcher cluster prefers the surface tokens.
+  const cluster = rule(/\.launcher-cluster/);
+  expect(cluster).toContain("var(--cpk-drawer-surface, var(--_bg))");
+  expect(cluster).toContain("var(--cpk-drawer-surface-fg, var(--_fg))");
+});
+
+test("loading renders skeleton rows with a screen-reader status", async () => {
+  const { element, q, qa, teardown } = await setup({ threads: [] });
+  element.loading = true;
+  await flush(element);
+
+  const loading = q('[data-testid="drawer-loading"]') as HTMLElement;
+  expect(loading.getAttribute("role")).toBe("status");
+  expect(loading.getAttribute("aria-busy")).toBe("true");
+  expect(loading.textContent).toContain("Loading threads");
+  expect(qa('[part="skeleton-row"]').length).toBeGreaterThan(0);
+  teardown();
+});
+
+test("motion respects prefers-reduced-motion (CSS contract)", () => {
+  const cssText = (CopilotKitThreadsDrawer.styles as { cssText: string })
+    .cssText;
+  expect(cssText).toMatch(/@media\s*\(prefers-reduced-motion:\s*reduce\)/);
 });
