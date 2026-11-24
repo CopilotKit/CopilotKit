@@ -153,12 +153,24 @@ export function CopilotChat({
   const resolvedAgentId =
     agentId ?? existingConfig?.agentId ?? providerAgentId ?? DEFAULT_AGENT_ID;
   const providedThreadId = threadId ?? existingConfig?.threadId;
-  // A stable, SSR-safe fallback thread id. Calling `randomUUID()` during render
-  // throws under Next.js `cacheComponents` ("unstable value in a Client
-  // Component", issue #8192) and would also differ across a server/client
-  // hydration boundary. `useId()` is deterministic for the component instance
-  // and safe to read during the prerender.
-  const generatedThreadId = useId();
+  // Fallback thread id when the caller doesn't supply one. It has to satisfy two
+  // constraints at once:
+  //   1. never read an unstable value (`randomUUID()`) during render — Next.js
+  //      `cacheComponents` rejects that in the prerender (issue #8192);
+  //   2. be distinct for each fresh mount, so two page loads don't resume the
+  //      same thread (a render-stable `useId()` repeats across loads).
+  // `useId()` is a stable, hydration-safe placeholder for the server render and
+  // the first client render; once mounted we swap in a client-minted UUID. No
+  // backend thread exists until the user runs the agent (a non-explicit thread
+  // skips `/connect`), so the placeholder is never persisted.
+  const placeholderThreadId = useId();
+  const [mintedThreadId, setMintedThreadId] = useState<string | undefined>(
+    undefined,
+  );
+  useEffect(() => {
+    setMintedThreadId(current => current ?? randomUUID());
+  }, []);
+  const generatedThreadId = mintedThreadId ?? placeholderThreadId;
   const baseThreadId = useMemo(
     () => providedThreadId ?? generatedThreadId,
     [providedThreadId, generatedThreadId],

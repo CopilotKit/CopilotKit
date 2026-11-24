@@ -256,11 +256,18 @@ export const CopilotChatConfigurationProvider: React.FC<
     explicit: boolean;
   } | null>(null);
 
-  // A stable, SSR-safe fallback thread id. Calling `randomUUID()` during render
-  // throws under Next.js `cacheComponents` ("unstable value in a Client
-  // Component", issue #8192); `useId()` is deterministic for this provider
-  // instance and safe to read during the prerender.
-  const generatedThreadId = useId();
+  // Fallback thread id — see CopilotChat for the full rationale. `useId()` is a
+  // stable, SSR-safe placeholder (no `randomUUID()` during the prerender, issue
+  // #8192); after mount we swap in a client-minted UUID so each fresh mount gets
+  // its own identity instead of one that repeats across page loads.
+  const placeholderThreadId = useId();
+  const [mintedThreadId, setMintedThreadId] = useState<string | undefined>(
+    undefined,
+  );
+  useEffect(() => {
+    setMintedThreadId(current => current ?? randomUUID());
+  }, []);
+  const generatedThreadId = mintedThreadId ?? placeholderThreadId;
   const resolvedThreadId = useMemo(() => {
     // An authoritative (caller-chosen) threadId prop always wins.
     if (threadIdPropIsAuthoritative) {
