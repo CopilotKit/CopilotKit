@@ -28,6 +28,7 @@ import type { ɵThreadRuntimeContext, ɵThreadStore } from "@copilotkit/core";
 import React, {
   useCallback,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -152,9 +153,15 @@ export function CopilotChat({
   const resolvedAgentId =
     agentId ?? existingConfig?.agentId ?? providerAgentId ?? DEFAULT_AGENT_ID;
   const providedThreadId = threadId ?? existingConfig?.threadId;
+  // A stable, SSR-safe fallback thread id. Calling `randomUUID()` during render
+  // throws under Next.js `cacheComponents` ("unstable value in a Client
+  // Component", issue #8192) and would also differ across a server/client
+  // hydration boundary. `useId()` is deterministic for the component instance
+  // and safe to read during the prerender.
+  const generatedThreadId = useId();
   const baseThreadId = useMemo(
-    () => providedThreadId ?? randomUUID(),
-    [providedThreadId],
+    () => providedThreadId ?? generatedThreadId,
+    [providedThreadId, generatedThreadId],
   );
   // "Explicit" means a caller actually picked this thread — via the
   // `threadId` prop on CopilotChat or a wrapping provider that marked its

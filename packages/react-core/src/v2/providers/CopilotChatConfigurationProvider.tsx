@@ -4,6 +4,7 @@ import React, {
   useCallback,
   useContext,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -255,6 +256,11 @@ export const CopilotChatConfigurationProvider: React.FC<
     explicit: boolean;
   } | null>(null);
 
+  // A stable, SSR-safe fallback thread id. Calling `randomUUID()` during render
+  // throws under Next.js `cacheComponents` ("unstable value in a Client
+  // Component", issue #8192); `useId()` is deterministic for this provider
+  // instance and safe to read during the prerender.
+  const generatedThreadId = useId();
   const resolvedThreadId = useMemo(() => {
     // An authoritative (caller-chosen) threadId prop always wins.
     if (threadIdPropIsAuthoritative) {
@@ -272,12 +278,13 @@ export const CopilotChatConfigurationProvider: React.FC<
     if (threadId) {
       return threadId;
     }
-    return randomUUID();
+    return generatedThreadId;
   }, [
     threadIdPropIsAuthoritative,
     threadId,
     parentConfig?.threadId,
     activeThreadOverride,
+    generatedThreadId,
   ]);
 
   // Tell Core which Thread this view shows, so captured interactions can link
