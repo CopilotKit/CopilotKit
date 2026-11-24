@@ -176,7 +176,19 @@ export function CopilotChatInput({
   const ignoreResizeRef = useRef(false);
   const resizeEvaluationRafRef = useRef<number | null>(null);
   const isExpanded = mode === "input" && layout === "expanded";
-  const [commandQuery, setCommandQuery] = useState<string | null>(null);
+  const [commandQuery, setCommandQueryState] = useState<string | null>(null);
+  // Mirrors the latest requested query so no-op updates never reach React.
+  // A functional no-op setState issued right after a keystroke's commit still
+  // schedules a render; on a burst of input events those renders pile up until
+  // React throws "Maximum update depth exceeded" and drops the keystroke.
+  const commandQueryRef = useRef<string | null>(null);
+  const setCommandQuery = useCallback((next: string | null) => {
+    if (commandQueryRef.current === next) {
+      return;
+    }
+    commandQueryRef.current = next;
+    setCommandQueryState(next);
+  }, []);
   const [slashHighlightIndex, setSlashHighlightIndex] = useState(0);
 
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -287,7 +299,7 @@ export function CopilotChatInput({
     if (commandItems.length === 0 && commandQuery !== null) {
       setCommandQuery(null);
     }
-  }, [commandItems.length, commandQuery]);
+  }, [commandItems.length, commandQuery, setCommandQuery]);
 
   const previousCommandQueryRef = useRef<string | null>(null);
 
@@ -342,24 +354,23 @@ export function CopilotChatInput({
       setLayout("compact");
       setCommandQuery(null);
     }
-  }, [mode]);
+  }, [mode, setCommandQuery]);
 
   const updateSlashState = useCallback(
     (value: string) => {
       if (commandItems.length === 0) {
-        setCommandQuery((prev) => (prev === null ? prev : null));
+        setCommandQuery(null);
         return;
       }
 
       if (value.startsWith("/")) {
         const firstLine = value.split(/\r?\n/, 1)[0] ?? "";
-        const query = firstLine.slice(1);
-        setCommandQuery((prev) => (prev === query ? prev : query));
+        setCommandQuery(firstLine.slice(1));
       } else {
-        setCommandQuery((prev) => (prev === null ? prev : null));
+        setCommandQuery(null);
       }
     },
-    [commandItems.length],
+    [commandItems.length, setCommandQuery],
   );
 
   useEffect(() => {
@@ -399,7 +410,7 @@ export function CopilotChatInput({
         inputRef.current?.focus();
       });
     },
-    [clearInputValue],
+    [clearInputValue, setCommandQuery],
   );
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
