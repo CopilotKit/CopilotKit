@@ -129,7 +129,7 @@ describe("runRedeploy", () => {
     expect(result.succeeded).toBe(1);
   });
 
-  it("default staging scope = 43 CI-built services + their imageOf consumers (harness-workers)", async () => {
+  it("default staging scope = 44 CI-built services + their imageOf consumers (harness-workers)", async () => {
     const seenNames: string[] = [];
     const redeploy = vi.fn(async (serviceId: string) => {
       // Reverse-lookup the SSOT name from serviceId so the test can
@@ -149,10 +149,10 @@ describe("runRedeploy", () => {
     });
 
     expect(result.exitCode).toBe(0);
-    // 43 CI-built services with staging instances + harness-workers.
-    expect(result.attempted).toBe(44);
-    expect(result.succeeded).toBe(44);
-    expect(redeploy).toHaveBeenCalledTimes(44);
+    // 44 CI-built services with staging instances + harness-workers.
+    expect(result.attempted).toBe(45);
+    expect(result.succeeded).toBe(45);
+    expect(redeploy).toHaveBeenCalledTimes(45);
     // pocketbase is now CI-built, so it IS in the default redeploy scope.
     expect(seenNames).toContain("pocketbase");
     // The TypeScript Strands integration declares staging, so it IS in the
@@ -737,10 +737,10 @@ describe("resolveTargetServices", () => {
 
   it("returns the CI_BUILT_SERVICES set sorted when given undefined", () => {
     const resolved = resolveTargetServices(undefined);
-    // 31 showcase/infra services + 12 starters.
+    // 32 showcase/infra services + 12 starters.
     // resolveTargetServices returns the FULL CI_BUILT set;
     // the env-aware narrowing happens later in runRedeploy, not here.
-    expect(resolved.length).toBe(43);
+    expect(resolved.length).toBe(44);
     // pocketbase is now CI-built and part of the default scope.
     expect(resolved).toContain("pocketbase");
     expect(resolved).toContain("showcase-crewai-conversational-flows");

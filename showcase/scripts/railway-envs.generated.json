@@ -132,6 +132,10 @@
         "serviceId": "d6f47c8c-a0a1-4dbe-991c-50f8463fd68d"
       },
       {
+        "name": "showcase-cloudflare-agents",
+        "serviceId": "8ebe5591-d596-4bac-a48e-b20230c37746"
+      },
+      {
         "name": "showcase-intelligence-api",
         "serviceId": "2cf17267-31c4-4e92-8270-5ad92bd7ad19"
       },
@@ -748,6 +752,45 @@
       ],
       "healthcheckPath": {
         "prod": "/api/health",
+        "staging": "/api/health"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
+      }
+    },
+    {
+      "name": "showcase-cloudflare-agents",
+      "serviceId": "8ebe5591-d596-4bac-a48e-b20230c37746",
+      "prodInstanceId": "8ebe5591-d596-4bac-a48e-b20230c37746",
+      "stagingInstanceId": "9cf643f4-0eab-4e7e-882f-1c4b8d6627ec",
+      "ciBuilt": true,
+      "gateValidated": true,
+      "gateIgnore": false,
+      "gatePolicy": {
+        "presence": "required",
+        "image": "showcase-convention"
+      },
+      "onlyEnvironment": "staging",
+      "dispatchName": "cloudflare-agents",
+      "domains": {
+        "staging": "showcase-cloudflare-agents-staging.up.railway.app",
+        "prod": ""
+      },
+      "probe": {
+        "staging": true,
+        "prod": false,
+        "driver": "agent"
+      },
+      "promoteTier": 2,
+      "runtimeDeps": ["aimock"],
+      "serviceRefs": [
+        {
+          "key": "OPENAI_BASE_URL",
+          "target": "aimock"
+        }
+      ],
+      "healthcheckPath": {
         "staging": "/api/health"
       },
       "autoUpdates": {
@@ -2362,6 +2405,10 @@
     "skipped": [
       {
         "name": "showcase-omnara",
+        "reason": "no \"prod\" environment in the SSOT — cannot be promoted (it exists in: staging)."
+      },
+      {
+        "name": "showcase-cloudflare-agents",
         "reason": "no \"prod\" environment in the SSOT — cannot be promoted (it exists in: staging)."
       },
       {

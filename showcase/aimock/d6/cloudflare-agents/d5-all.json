@@ -1,0 +1,33 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for cloudflare-agents / voice",
+    "sourceFile": "d5-all.json",
+    "copiedFrom": "langgraph-python",
+    "created": "2026-05-21"
+  },
+  "fixtures": [
+    {
+      "_comment": "Transcription of the bundled sample (public/demo-audio/sample.wav) posted to the voice route's /transcribe. The probe posts it only when SHOWCASE_VOICE_TRANSCRIPTION_REPLAY lists cloudflare-agents (the local compose harness does). The route's OpenAI client forwards the probe's x-aimock-context, x-aimock-strict and x-test-id (src/lib/cloudflare-agents.ts probeHeaderFetch). The text is the sample's phrase, which the next fixture answers.",
+      "match": {
+        "endpoint": "transcription",
+        "context": "cloudflare-agents"
+      },
+      "response": {
+        "transcription": {
+          "text": "What is the weather in Tokyo?"
+        }
+      }
+    },
+    {
+      "_comment": "Voice probe fast-path: exact-match content-only response.",
+      "match": {
+        "userMessage": "What is the weather in Tokyo?",
+        "turnIndex": 0,
+        "context": "cloudflare-agents"
+      },
+      "response": {
+        "content": "The weather in Tokyo is currently 22°C with partly cloudy skies and light easterly winds."
+      }
+    }
+  ]
+}

@@ -1606,6 +1606,29 @@ export const SERVICES: Record<
       },
     },
   },
+  "showcase-cloudflare-agents": {
+    serviceId: "8ebe5591-d596-4bac-a48e-b20230c37746",
+    autoUpdates: { staging: "disabled", prod: "disabled" },
+    ciBuilt: true,
+    gateValidated: true,
+    dispatchName: "cloudflare-agents",
+    probeDriver: "agent",
+    // Staging-only until its prod instance is provisioned (see RAILWAY.md,
+    // "Promoting a Staging-Only Integration to Production"): there is no
+    // prod key, so fleet-wide promotes leave it out. Runtime dep as
+    // strands-typescript's: the Worker's OpenAI client sends its traffic to
+    // the env-local aimock through OPENAI_BASE_URL.
+    runtimeDeps: ["aimock"],
+    serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
+    environments: {
+      staging: {
+        instanceId: "9cf643f4-0eab-4e7e-882f-1c4b8d6627ec",
+        healthcheckPath: "/api/health",
+        domain: "showcase-cloudflare-agents-staging.up.railway.app",
+        probe: true,
+      },
+    },
+  },
   // Staging-only Intelligence stack, deployed outside showcase_build.yml.
   // These seven services use pinned Intelligence/Caddy/database images rather
   // than the Showcase staging :latest convention. Their registered names and

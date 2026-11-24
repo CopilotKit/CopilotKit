@@ -391,25 +391,29 @@ three activations. Never run a Production promotion just to obtain a receipt.
 
 ### Bounded permanent-services policy recovery
 
-Commit `21552a22b2` added `docs-preview` to permanent-service protection, and
-the OpenAI Agents Python integration added `showcase-openai-agents-python`
-(`be6a4cb2-6258-4994-bd20-4c6e0eb37e96`). PNI-775 adds `showcase-omnara`
-(`f23615d4-9ba9-4b10-b6c9-e4d400cc4eba`). The independently pinned staging
-runner still publishes the policy that predates these services. The shared reader permits
-exactly this publisher/validator pair:
+Commit `21552a22b2` added `docs-preview` to permanent-service protection, the
+OpenAI Agents Python integration added `showcase-openai-agents-python`
+(`be6a4cb2-6258-4994-bd20-4c6e0eb37e96`), the Omnara integration added
+`showcase-omnara` (`f23615d4-9ba9-4b10-b6c9-e4d400cc4eba`), and the Cloudflare
+Agents integration added `showcase-cloudflare-agents`
+(`8ebe5591-d596-4bac-a48e-b20230c37746`). The independently pinned staging
+runner still publishes the policy that predates all four. The shared reader
+permits exactly this publisher/validator pair:
 
 - Publisher: `4ded223bb02ea0cdf7ffed4fb8f78b70fbb50c9f74ae82d34addfc94f712c751`
-- Current validator: `9af76d9d5bb610b0380890dec0eb0e8f20cdd03163e6d3be824d2aecdd515c59`
+- Current validator: `a9e764436dfeeb34da65dda91676c34a3200e3775da9c04c2e0dc10254473096`
 
-The current validator adds only the permanent names and IDs for those three
+The current validator adds only the permanent names and IDs for those four
 services; project, forbidden environments, previous permanent services and
-approved image pins are unchanged. This pair replaces the earlier
-docs-preview-only pair (`4ded…` → `d3a7fe0c…`), whose validator no committed
-policy produces any more; a publisher serving `d3a7fe0c…` is refused. Every
-record and inventory classification still uses the current policy, including
-rejection of disposable ownership of all three services. The acknowledgement names
-the publisher policy and exact fetched bytes; it does not claim the runner has
-adopted the newer policy. Authentication, fresh reads, snapshot checksums and
+approved image pins are unchanged. This pair replaces the earlier pairs
+(`4ded…` → `d3a7fe0c…` for docs-preview only, `4ded…` → `5c3ba2cd…` with
+showcase-openai-agents-python, then `4ded…` → `9af76d9d…` with showcase-omnara
+and `4ded…` → `6480978a…` with showcase-cloudflare-agents), whose validators no
+committed policy produces any more; a publisher serving any of them is refused.
+Every record and inventory classification still uses the current policy,
+including rejection of disposable ownership of any of the four services. The
+acknowledgement names the publisher policy and exact fetched bytes; it does not
+claim the runner has adopted the newer policy. Authentication, fresh reads, snapshot checksums and
 acknowledgement acceptance remain mandatory. Unknown policy pairs and the
 reverse direction fail with `records-policy-mismatch`. The regression test uses
 the real committed policy so further changes require compatibility review
