@@ -73,8 +73,10 @@ function setCorsHeaders(
   // Credentials without a configured origin can only be honored by reflecting
   // the request's own origin, which lets any site read authenticated
   // responses (the docs require an explicit origin with credentials).
-  // Send no CORS headers instead of reflecting.
-  if (config.credentials && config.origin === undefined) {
+  // Send no CORS headers instead of reflecting. `!config.origin` rather than
+  // `=== undefined` because `resolveOrigin` treats every falsy origin as "*",
+  // and `process.env.CORS_ORIGIN || ""` hands us an empty string.
+  if (config.credentials && !config.origin) {
     warnCredentialsWithoutOrigin();
     return;
   }

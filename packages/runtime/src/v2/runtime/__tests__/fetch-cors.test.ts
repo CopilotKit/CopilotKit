@@ -311,6 +311,38 @@ describe("fetch-cors", () => {
       ).toBeNull();
     });
 
+    // `resolveOrigin` maps every falsy origin to "*", so an empty string from
+    // `process.env.CORS_ORIGIN || ""` (or a null from parsed config) used to
+    // skip the guard and reflect the request origin with credentials.
+    it.each<[string, unknown]>([
+      ["an empty string", ""],
+      ["null", null],
+    ])("does not reflect the request origin when origin is %s", (_, origin) => {
+      const config = { credentials: true, origin } as CopilotCorsConfig;
+
+      const preflight = handleCors(
+        new Request("http://localhost/api", {
+          method: "OPTIONS",
+          headers: { Origin: "https://evil.example" },
+        }),
+        config,
+      )!;
+      expect(preflight.headers.get("Access-Control-Allow-Origin")).toBeNull();
+      expect(
+        preflight.headers.get("Access-Control-Allow-Credentials"),
+      ).toBeNull();
+
+      const decorated = addCorsHeaders(
+        new Response("ok", { status: 200 }),
+        config,
+        "https://evil.example",
+      );
+      expect(decorated.headers.get("Access-Control-Allow-Origin")).toBeNull();
+      expect(
+        decorated.headers.get("Access-Control-Allow-Credentials"),
+      ).toBeNull();
+    });
+
     it("does not reflect the request origin on an actual response", () => {
       const response = new Response("ok", { status: 200 });
       const result = addCorsHeaders(
