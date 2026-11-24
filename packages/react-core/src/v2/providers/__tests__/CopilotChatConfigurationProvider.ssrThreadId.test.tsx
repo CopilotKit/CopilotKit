@@ -1,22 +1,23 @@
 import React from "react";
 import { render, screen } from "@testing-library/react";
 import { renderToString } from "react-dom/server";
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 // Regression test for #8192.
 //
 // Under Next.js 16 `cacheComponents`, reading an "unstable" value such as
 // `crypto.randomUUID()` (what `@copilotkit/shared`'s `randomUUID` uses) during
-// render throws ("Next.js encountered the unstable value ... in a Client
+// the prerender throws ("Next.js encountered the unstable value ... in a Client
 // Component"). That aborts the provider's render, so the `connect()` effect
-// never runs and `<CopilotChat>` stays stuck (the `/info` discovery request
-// never fires and the send button stays disabled).
+// never runs and `<CopilotChat>` stays stuck (no `/info` discovery, send button
+// disabled).
 //
-// The fallback thread id must therefore (1) never call `randomUUID` during
-// render, and (2) still be distinct for each fresh mount — a render-stable
-// `useId()` alone would make two page loads reuse the same thread. The provider
-// uses `useId()` as a prerender-safe placeholder and mints the real id in a
-// client effect.
+// The fallback thread id must therefore:
+//   1. never call `randomUUID` during the server render (#8192);
+//   2. be distinct for each fresh mount — a render-stable `useId()` alone would
+//      make two page loads reuse the same thread;
+//   3. stay stable for the lifetime of a mount — a mid-session change would read
+//      as a thread switch and tear down existing agent state.
 //
 // We wrap the real `randomUUID` so each test can swap its behaviour.
 vi.mock("@copilotkit/shared", async importActual => {
@@ -39,15 +40,24 @@ function ThreadIdProbe() {
 
 describe("CopilotChatConfigurationProvider — SSR-safe, unique fallback thread id (#8192)", () => {
   beforeEach(() => {
+    // Deterministic, distinct ids by default so uniqueness assertions are stable.
+    let counter = 0;
     mockedRandomUUID.mockReset();
+    mockedRandomUUID.mockImplementation(
+      () => `11111111-1111-4111-8111-00000000000${counter++}`,
+    );
   });
 
-  it("does not read an unstable value during the server render", () => {
-    // renderToString mirrors the Next.js prerender: effects do not run, so any
-    // render-time `randomUUID()` would surface here.
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("does not read an unstable value during the server render (#8192)", () => {
     mockedRandomUUID.mockImplementation(() => {
       throw new Error("randomUUID() must not be called during render");
     });
+    // Simulate the Next.js prerender: no `window`, and effects do not run.
+    vi.stubGlobal("window", undefined);
 
     let html = "";
     expect(() => {
@@ -64,11 +74,6 @@ describe("CopilotChatConfigurationProvider — SSR-safe, unique fallback thread 
   });
 
   it("mints a distinct fallback threadId for each fresh mount", () => {
-    let counter = 0;
-    mockedRandomUUID.mockImplementation(
-      () => `11111111-1111-4111-8111-00000000000${counter++}`,
-    );
-
     const first = render(
       <CopilotChatConfigurationProvider>
         <ThreadIdProbe />
@@ -87,5 +92,24 @@ describe("CopilotChatConfigurationProvider — SSR-safe, unique fallback thread 
     expect(firstId).toBeTruthy();
     expect(secondId).toBeTruthy();
     expect(firstId).not.toBe(secondId);
+  });
+
+  it("keeps the fallback threadId stable across re-renders (no mid-session switch)", () => {
+    const { rerender } = render(
+      <CopilotChatConfigurationProvider>
+        <ThreadIdProbe />
+      </CopilotChatConfigurationProvider>,
+    );
+    const firstId = screen.getByTestId("threadId").textContent;
+
+    rerender(
+      <CopilotChatConfigurationProvider>
+        <ThreadIdProbe />
+      </CopilotChatConfigurationProvider>,
+    );
+    const afterRerenderId = screen.getByTestId("threadId").textContent;
+
+    expect(firstId).toBeTruthy();
+    expect(afterRerenderId).toBe(firstId);
   });
 });

@@ -153,24 +153,22 @@ export function CopilotChat({
   const resolvedAgentId =
     agentId ?? existingConfig?.agentId ?? providerAgentId ?? DEFAULT_AGENT_ID;
   const providedThreadId = threadId ?? existingConfig?.threadId;
-  // Fallback thread id when the caller doesn't supply one. It has to satisfy two
-  // constraints at once:
-  //   1. never read an unstable value (`randomUUID()`) during render — Next.js
-  //      `cacheComponents` rejects that in the prerender (issue #8192);
-  //   2. be distinct for each fresh mount, so two page loads don't resume the
-  //      same thread (a render-stable `useId()` repeats across loads).
-  // `useId()` is a stable, hydration-safe placeholder for the server render and
-  // the first client render; once mounted we swap in a client-minted UUID. No
-  // backend thread exists until the user runs the agent (a non-explicit thread
-  // skips `/connect`), so the placeholder is never persisted.
+  // Fallback thread id when the caller doesn't supply one. Two constraints:
+  //   1. the prerender must not read an unstable value (`randomUUID()`) — Next.js
+  //      `cacheComponents` rejects that (issue #8192);
+  //   2. each fresh page load needs its own id — a render-stable `useId()` would
+  //      repeat across loads and let a new chat resume an old thread.
+  // Mint the id on the client during the initial render and keep it in state so
+  // it never changes afterwards. (Swapping a placeholder for the real id after
+  // mount would read as a thread switch and tear down initial agent state.) The
+  // server prerender has no `window`, so it uses the hydration-safe `useId()`
+  // placeholder and never calls `randomUUID()`. The placeholder is internal
+  // state, not rendered to the DOM, so it does not affect hydration.
   const placeholderThreadId = useId();
-  const [mintedThreadId, setMintedThreadId] = useState<string | undefined>(
-    undefined,
+  const [clientThreadId] = useState<string | undefined>(() =>
+    typeof window === "undefined" ? undefined : randomUUID(),
   );
-  useEffect(() => {
-    setMintedThreadId(current => current ?? randomUUID());
-  }, []);
-  const generatedThreadId = mintedThreadId ?? placeholderThreadId;
+  const generatedThreadId = clientThreadId ?? placeholderThreadId;
   const baseThreadId = useMemo(
     () => providedThreadId ?? generatedThreadId,
     [providedThreadId, generatedThreadId],
