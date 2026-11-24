@@ -13,12 +13,12 @@ describe("Dojo preview integration configuration", () => {
     vi.stubEnv("SHOWCASE_BACKEND_HOST_PATTERN", STAGING_BACKEND_HOST_PATTERN);
     vi.stubEnv(
       "SHOWCASE_DOJO_PREVIEW_INTEGRATIONS",
-      " omnara, , another-demo ",
+      " first-preview, , second-preview ",
     );
 
     expect(
       getRuntimeConfig({ noStore: false }).previewIntegrationSlugs,
-    ).toEqual(["omnara", "another-demo"]);
+    ).toEqual(["first-preview", "second-preview"]);
   });
 
   it.each(["production", undefined])(
@@ -26,7 +26,7 @@ describe("Dojo preview integration configuration", () => {
     (environment) => {
       vi.stubEnv("RAILWAY_ENVIRONMENT_NAME", environment);
       vi.stubEnv("SHOWCASE_BACKEND_HOST_PATTERN", STAGING_BACKEND_HOST_PATTERN);
-      vi.stubEnv("SHOWCASE_DOJO_PREVIEW_INTEGRATIONS", "omnara");
+      vi.stubEnv("SHOWCASE_DOJO_PREVIEW_INTEGRATIONS", "first-preview");
 
       expect(
         getRuntimeConfig({ noStore: false }).previewIntegrationSlugs,
@@ -48,7 +48,7 @@ describe("Dojo preview integration configuration", () => {
     vi.stubEnv("RAILWAY_ENVIRONMENT_NAME", "staging");
     vi.stubEnv("SHOWCASE_BACKEND_HOST_PATTERN", undefined);
     vi.stubEnv("NEXT_PUBLIC_SHOWCASE_BACKEND_HOST_PATTERN", undefined);
-    vi.stubEnv("SHOWCASE_DOJO_PREVIEW_INTEGRATIONS", "omnara");
+    vi.stubEnv("SHOWCASE_DOJO_PREVIEW_INTEGRATIONS", "first-preview");
 
     expect(
       getRuntimeConfig({ noStore: false }).previewIntegrationSlugs,
