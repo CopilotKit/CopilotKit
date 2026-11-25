@@ -1,8 +1,9 @@
-import { notFound, permanentRedirect } from "next/navigation";
+import { notFound, permanentRedirect, redirect } from "next/navigation";
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import { DExamples } from "@/proto/examples-d";
 import { DHome } from "@/proto/home-d";
+import { ChannelLanding } from "@/proto/channel-landing";
 import { FrameworkLanding } from "@/proto/framework-landing";
 import { LiveArticle } from "@/proto/live-article";
 import { CatalogReferenceArticle } from "@/components/standard-catalog/catalog-reference-page";
@@ -18,6 +19,11 @@ import {
 } from "@/lib/live-docs";
 import { absoluteUrl } from "@/lib/seo/base-url";
 import {
+  earlyAccessChannel,
+  earlyAccessHref,
+} from "@/lib/early-access/channels";
+import { EARLY_ACCESS_CHANNEL_COPY } from "@/lib/early-access/copy";
+import {
   HOME_DESCRIPTION,
   HOME_TITLE,
   liveDocMetadata,
@@ -32,6 +38,15 @@ export default async function Page({ params }: PageProps<"/[[...path]]">) {
         <DExamples />
       </Suspense>
     );
+  }
+
+  // An early-access channel's landing page (/whatsapp). It has no pages
+  // under it yet, so a deeper URL opens the landing page. Temporarily: the
+  // channel's docs will live there once it ships.
+  const channel = earlyAccessChannel(path[0]);
+  if (channel) {
+    if (path.length > 1) redirect(earlyAccessHref(channel.id));
+    return <ChannelLanding id={channel.id} />;
   }
 
   // The live docs, ported from shell-docs, at their docs.copilotkit.ai URLs.
@@ -73,6 +88,20 @@ export async function generateMetadata({
         title: HOME_TITLE,
         description: HOME_DESCRIPTION,
         path: "/",
+      }),
+    };
+  }
+  // An early-access channel's landing page, indexed at its own URL.
+  const channel = path.length === 1 ? earlyAccessChannel(path[0]) : undefined;
+  if (channel) {
+    const { title, description } = EARLY_ACCESS_CHANNEL_COPY[channel.id].meta;
+    return {
+      title,
+      description,
+      ...liveDocMetadata({
+        title,
+        description,
+        path: earlyAccessHref(channel.id),
       }),
     };
   }

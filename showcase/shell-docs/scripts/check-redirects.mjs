@@ -318,8 +318,7 @@ for (const [from, to] of [
   ["/channels/platforms/slack", "/slack"],
   ["/channels/platforms/teams", "/teams"],
   ["/channels/platforms/discord", "/slack"],
-  ["/whatsapp", "/slack"],
-  ["/whatsapp/quickstart", "/slack"],
+  ["/frontends/whatsapp", "/whatsapp"],
   ["/slack/mastra/channels", "/slack/mastra"],
   ["/teams/channels", "/teams"],
   ["/slack/built-in-agent/channels", "/slack"],
@@ -588,6 +587,14 @@ for (const path of [
   "/ms-agent-harness-dotnet",
 ]) {
   none(path);
+}
+
+// --- the early-access channel pages ---------------------------------------
+// Each is a page; a path under it opens it (the page's own redirect()), for
+// now, since the channel's docs will live there once it ships.
+for (const channel of ["imessage", "whatsapp", "sms", "rcs"]) {
+  none(`/${channel}`);
+  redirect(`/${channel}/quickstart`, `/${channel}`, TEMPORARY);
 }
 
 // --- v2's own routes: never redirected -----------------------------------

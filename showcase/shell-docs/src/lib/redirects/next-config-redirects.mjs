@@ -549,9 +549,9 @@ const CHANNEL_PLATFORM_REDIRECTS = [
   ...permanentRedirectsWithSuffixes("/channels/platforms/teams", "/teams"),
   ...permanentRedirectsWithSuffixes("/channels/platforms", "/slack"),
   ...permanentRedirectsWithSuffixes("/channels/platforms/:path*", "/slack"),
-  ...permanentRedirectsWithSuffixes("/whatsapp", "/slack"),
-  ...permanentRedirectsWithSuffixes("/whatsapp/:path*", "/slack"),
-  ...permanentRedirectsWithSuffixes("/frontends/whatsapp", "/slack"),
+  // `/whatsapp` is WhatsApp's early-access page now (src/lib/early-access),
+  // which also sends the paths under it to itself.
+  ...permanentRedirectsWithSuffixes("/frontends/whatsapp", "/whatsapp"),
 ];
 
 /** @type {Redirect[]} */

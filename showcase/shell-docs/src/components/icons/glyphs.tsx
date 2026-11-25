@@ -9,6 +9,7 @@ import {
   PiBriefcaseFill,
   PiChatCircleDotsFill,
   PiChatsCircleFill,
+  PiCodeFill,
   PiCookingPotFill,
   PiCursorClickFill,
   PiDatabaseFill,
@@ -74,6 +75,10 @@ export {
   // OpenBot, built with CopilotKit: the product, for business, for builders.
   PiRobotFill as OpenBotGlyph,
   PiBriefcaseFill as BusinessGlyph,
+  // The early-access channel pages' "how it works": the Channels SDK in your
+  // process, and your agent.
+  PiCodeFill as ChannelsSdkGlyph,
+  PiRobotFill as AgentGlyph,
 };
 
 /** Intelligence is marked with the kite outline the live docs use. */

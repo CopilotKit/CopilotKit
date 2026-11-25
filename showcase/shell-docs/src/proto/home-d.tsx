@@ -197,24 +197,33 @@ export function DHome() {
         </Tray>
       </section>
 
-      {/* The community links live here, so the navbar keeps to search,
-          theme, GitHub, and the one call to action. */}
-      <footer className="flex flex-wrap items-center gap-x-6 gap-y-3 border-t pt-8 text-sm text-muted-foreground">
-        <CopilotKitLogo className="me-auto h-5 w-auto text-foreground" />
-        {COMMUNITY.map((c) => (
-          <a
-            key={c.label}
-            href={c.url}
-            target="_blank"
-            rel="noreferrer noopener"
-            className="inline-flex min-h-11 items-center gap-2 transition-colors hover:text-foreground"
-          >
-            <c.Icon className="size-4" aria-hidden="true" />
-            {c.label}
-          </a>
-        ))}
-      </footer>
+      <DFooter />
     </div>
+  );
+}
+
+/**
+ * The home's footer, also under the early-access channel pages. The community
+ * links live here, so the navbar keeps to search, theme, GitHub, and the one
+ * call to action.
+ */
+export function DFooter() {
+  return (
+    <footer className="flex flex-wrap items-center gap-x-6 gap-y-3 border-t pt-8 text-sm text-muted-foreground">
+      <CopilotKitLogo className="me-auto h-5 w-auto text-foreground" />
+      {COMMUNITY.map((c) => (
+        <a
+          key={c.label}
+          href={c.url}
+          target="_blank"
+          rel="noreferrer noopener"
+          className="inline-flex min-h-11 items-center gap-2 transition-colors hover:text-foreground"
+        >
+          <c.Icon className="size-4" aria-hidden="true" />
+          {c.label}
+        </a>
+      ))}
+    </footer>
   );
 }
 

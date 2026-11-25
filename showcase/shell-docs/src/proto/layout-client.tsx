@@ -62,6 +62,7 @@ import { cn } from "@/lib/cn";
 import type { LiveNav } from "@/lib/live-nav";
 import { whereIs } from "@/lib/live-pages";
 import { ROOT_FRAMEWORK, liveFrontend, scopeFromPath } from "@/lib/live-scope";
+import { isEarlyAccessPath } from "@/lib/early-access/channels";
 import { variantMeta } from "./meta";
 
 const GITHUB = "https://github.com/CopilotKit/CopilotKit";
@@ -704,10 +705,16 @@ export function ProtoLayout({
 }) {
   const pathname = usePathname();
   const [lastFramework] = useLastFramework();
-  const loc = liveLocation(
-    locationFromPathname(pathname).location,
-    liveNav ? pathname : null,
-  );
+  // An early-access channel's landing page (/whatsapp) is not a docs page:
+  // it has no stack to pick, and visiting it must not move the remembered
+  // framework, which reading it as a built-in agent page would.
+  const channelPage = variant === "d" && isEarlyAccessPath(pathname);
+  const loc = channelPage
+    ? null
+    : liveLocation(
+        locationFromPathname(pathname).location,
+        liveNav ? pathname : null,
+      );
   const meta = variantMeta(variant);
   const urlFrontend = scopeFromPath(
     pathname.split("/").filter(Boolean),
@@ -737,11 +744,12 @@ export function ProtoLayout({
     if (variant === "d" && frontend) rememberFrontend(frontend);
   }, [variant, frontend]);
 
-  // The home, the playground, and the full-page Ask CopilotKit take the
-  // navbar-only Home Layout.
+  // The home, the playground, the full-page Ask CopilotKit, and the
+  // early-access channel pages take the navbar-only Home Layout.
   if (
     variant === "d" &&
-    ((loc?.kind === "docs" && !loc.slug) ||
+    (channelPage ||
+      (loc?.kind === "docs" && !loc.slug) ||
       loc?.kind === "examples" ||
       pathname === "/ask")
   ) {
