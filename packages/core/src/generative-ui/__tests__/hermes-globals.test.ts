@@ -425,10 +425,11 @@ const shipped = shippedSources([resolve(here, "../index.ts")], {
     "shared/src/generative-ui/index.ts",
   ),
 });
+const sourceName = (file: string) => relative(SRC, file).replaceAll("\\", "/");
 
 describe("the native-path sources use no API that an engine of the supported range lacks", () => {
   it("scans the modules the native path ships", () => {
-    const names = shipped.files.map((file) => relative(SRC, file));
+    const names = shipped.files.map(sourceName);
     for (const expected of [
       "core/src/generative-ui/surface-manager.ts",
       "core/src/generative-ui/markdown-source.ts",
@@ -439,7 +440,7 @@ describe("the native-path sources use no API that an engine of the supported ran
     }
   });
 
-  it.each(shipped.files.map((file) => [relative(SRC, file), file]))(
+  it.each(shipped.files.map((file) => [sourceName(file), file]))(
     "%s",
     (name, file) => {
       expect(scanFile(file, name)).toEqual([]);
