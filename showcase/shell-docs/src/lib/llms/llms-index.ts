@@ -3,6 +3,10 @@ import {
   getIntegrations,
   ROOT_FRAMEWORK,
 } from "@/components/docs-mdx/data";
+import {
+  EARLY_ACCESS_CHANNELS,
+  earlyAccessHref,
+} from "@/lib/early-access/channels";
 
 // `/llms.txt`, ported verbatim from shell-docs (`CURATED_LLM_PAGES` and
 // `CURATED_FRAMEWORK_PAGES` in its src/lib/curated-llm-pages.ts, and
@@ -337,6 +341,19 @@ export function renderLlmsIndex(baseUrl: string): string {
   for (const page of CURATED_LLM_PAGES) {
     out.push(
       `- [${page.title || page.url}](${baseUrl}/${page.url}): ${page.description}`,
+    );
+  }
+
+  out.push(
+    "",
+    "## Early access channels",
+    "",
+    "iMessage, WhatsApp, SMS, and RCS are in early access. Each page says where the channel stands today and books a demo with the team; Slack and Microsoft Teams (above) are generally available.",
+    "",
+  );
+  for (const channel of EARLY_ACCESS_CHANNELS) {
+    out.push(
+      `- [${channel.name}](${baseUrl}${earlyAccessHref(channel.id)}): ${channel.summary}`,
     );
   }
   return `${out.join("\n")}\n`;

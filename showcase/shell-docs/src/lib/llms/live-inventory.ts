@@ -6,6 +6,10 @@ import {
 import { getPageIndex, livePages } from "@/lib/live-docs";
 import type { ResolvedLivePage } from "@/lib/live-docs";
 import { whereIs } from "@/lib/live-pages";
+import {
+  EARLY_ACCESS_CHANNELS,
+  earlyAccessHref,
+} from "@/lib/early-access/channels";
 import { findSeoRedirect } from "@/lib/redirects/seo-redirects";
 import type { FrontendId } from "@/proto/data";
 
@@ -56,11 +60,18 @@ export interface SitemapEntry {
   lastModified: Date;
 }
 
-/** The home page and every page at its canonical URL. */
+/**
+ * The home page, the early-access channels' landing pages (`/whatsapp`), and
+ * every page at its canonical URL.
+ */
 export function sitemapEntries(): SitemapEntry[] {
   const now = new Date();
   return [
     { url: "/", lastModified: now },
+    ...EARLY_ACCESS_CHANNELS.map((channel) => ({
+      url: earlyAccessHref(channel.id),
+      lastModified: now,
+    })),
     ...entries().map(({ url, live }) => ({
       url,
       lastModified: lastModified(live.page) ?? now,

@@ -1,0 +1,84 @@
+import { withBasePath } from "@/lib/base-path";
+import { EARLY_ACCESS_CHANNELS, earlyAccessHref } from "./channels";
+import type { EarlyAccessChannelId } from "./channels";
+import { EARLY_ACCESS_CHANNEL_COPY, SHARED_EARLY_ACCESS_COPY } from "./copy";
+import type { ConversationMessage } from "./copy";
+
+// An early-access channel page as Markdown, for agents: what `/whatsapp.md`
+// and `Accept: text/markdown` on `/whatsapp` return (src/app/llms.mdx/live),
+// in the shape of every docs page's Markdown: the title, the description as
+// a quote, then the page. The booker is a link: an agent can't pick a time,
+// the reader can.
+
+const fill = (text: string, name: string) => text.replaceAll("{channel}", name);
+
+function transcriptLine(message: ConversationMessage, contact: string) {
+  const who = message.from === "person" ? "Person" : contact;
+  if (message.kind === "text") return `> **${who}:** ${message.text}`;
+  if (message.kind === "choices") {
+    return `> **${who}:** ${message.text} (Replies: ${message.choices.join(", ")})`;
+  }
+  return `> **${who}:** ${message.title}. ${message.body} (Actions: ${message.actions.join(", ")})`;
+}
+
+export function channelPageMarkdown(id: EarlyAccessChannelId): string {
+  const copy = EARLY_ACCESS_CHANNEL_COPY[id];
+  const shared = SHARED_EARLY_ACCESS_COPY;
+  const name = copy.name;
+  const channel = EARLY_ACCESS_CHANNELS.find((c) => c.id === id);
+  const link = (path: string) => withBasePath(path);
+  const lines = [
+    `# ${copy.hero.title}`,
+    "",
+    `> ${copy.meta.description}`,
+    "",
+    copy.hero.lede,
+    "",
+    `**${shared.eyebrow}:** ${copy.status}`,
+    "",
+    `## ${copy.booking.heading}`,
+    "",
+    `${copy.booking.note} Pick a time on [this page](${link(earlyAccessHref(id))}), or book with the team on [copilotkit.ai](${channel?.fallbackUrl}).`,
+    "",
+    `## ${fill(shared.conversationTitle, name)}`,
+    "",
+    copy.conversation.messages
+      .map((message) => transcriptLine(message, copy.conversation.contact))
+      .join("\n>\n"),
+    "",
+    `## ${fill(shared.featuresTitle, name)}`,
+    "",
+    ...copy.features.map((f) => `- **${f.title}.** ${f.body}`),
+    "",
+    `## ${fill(shared.howItWorks.title, name)}`,
+    "",
+    fill(shared.howItWorks.lede, name),
+    "",
+    ...shared.howItWorks.steps.map(
+      (step, index) =>
+        `${index + 1}. **${fill(step.title, name)}.** ${fill(step.body, name)}`,
+    ),
+    "",
+    `Read the [Channels overview](${link("/slack")}).`,
+    "",
+    `## ${fill(shared.specificsTitle, name)}`,
+    "",
+    ...copy.specifics.map((f) => `- **${f.title}.** ${f.body}`),
+    "",
+    `## ${copy.closing.title}`,
+    "",
+    copy.closing.body,
+    "",
+    `## ${shared.otherChannelsTitle}`,
+    "",
+    shared.gaChannelsNote,
+    "",
+    ...EARLY_ACCESS_CHANNELS.filter((c) => c.id !== id).map(
+      (c) =>
+        `- [${c.name}](${link(earlyAccessHref(c.id))}) (${shared.eyebrow.toLowerCase()}): ${c.summary}`,
+    ),
+    `- [Slack](${link("/slack")})`,
+    `- [Microsoft Teams](${link("/teams")})`,
+  ];
+  return `${lines.join("\n")}\n`;
+}
