@@ -12,10 +12,10 @@
     "postinstall": "npm run install:agent"
   },
   "dependencies": {
-    "@ag-ui/client": "1.0.2",
+    "@ag-ui/client": "1.0.5",
     "@ag-ui/crewai": "0.0.3",
-    "@copilotkit/react-core": "1.79.0",
-    "@copilotkit/runtime": "1.79.0",
+    "@copilotkit/react-core": "1.90.2",
+    "@copilotkit/runtime": "1.90.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "hono": "^4",
@@ -36,17 +36,17 @@
     "typescript": "^5"
   },
   "overrides": {
-    "@ag-ui/client": "1.0.2",
-    "@ag-ui/core": "1.0.2",
-    "@ag-ui/encoder": "1.0.2",
-    "@ag-ui/proto": "1.0.2"
+    "@ag-ui/client": "1.0.5",
+    "@ag-ui/core": "1.0.5",
+    "@ag-ui/encoder": "1.0.5",
+    "@ag-ui/proto": "1.0.5"
   },
   "pnpm": {
     "overrides": {
-      "@ag-ui/client": "1.0.2",
-      "@ag-ui/core": "1.0.2",
-      "@ag-ui/encoder": "1.0.2",
-      "@ag-ui/proto": "1.0.2"
+      "@ag-ui/client": "1.0.5",
+      "@ag-ui/core": "1.0.5",
+      "@ag-ui/encoder": "1.0.5",
+      "@ag-ui/proto": "1.0.5"
     }
   }
 }
