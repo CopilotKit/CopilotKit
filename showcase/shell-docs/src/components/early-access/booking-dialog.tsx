@@ -2,8 +2,8 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import type { ReactNode, RefObject } from "react";
-import { CircleCheck } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { CircleCheck, XIcon } from "lucide-react";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Dialog,
   DialogClose,
@@ -83,6 +83,10 @@ const FIELD_ERRORS: Record<FormField, string> = {
   building: TEXT.errors.building,
 };
 
+/** One of the form's own fields: an error can be shown under it. */
+const isFormField = (value: unknown): value is FormField =>
+  typeof value === "string" && Object.hasOwn(FIELD_ERRORS, value);
+
 const isFailure = (value: unknown): value is Failure => {
   if (typeof value !== "object" || value === null) return false;
   const body = value as { ok?: unknown; code?: unknown };
@@ -114,7 +118,8 @@ const isBooking = (value: unknown): value is ChannelDemoBooking => {
 /**
  * Books through the docs' proxy. A network error, or an answer that isn't
  * the proxy's, may still have booked, so it reads as unconfirmed: the reader
- * checks their inbox before trying again.
+ * checks their inbox before trying again. The exception is a refusal (4xx)
+ * that isn't the proxy's, such as a firewall's page: nothing was booked.
  */
 async function postBooking(
   request: ChannelDemoBookRequest,
@@ -143,9 +148,12 @@ async function postBooking(
   // An edge in front of the docs answers a flood with a bare 429.
   if (response.status === 429) return { ok: false, code: "rate_limited" };
   return response.status >= 400 && response.status < 500
-    ? { ok: false, code: "invalid_input" }
+    ? { ok: false, code: "unavailable" }
     : { ok: false, code: "unconfirmed" };
 }
+
+/** How the dialog was opened: by touch, focus stays off the fields. */
+export type OpenedBy = "touch" | "mouse" | "pen" | "keyboard";
 
 /**
  * The chosen time, booked in place: a form for the reader's details, then
@@ -156,6 +164,7 @@ async function postBooking(
 export function BookingDialog({
   channel,
   time,
+  openedBy,
   open,
   timeZone,
   details,
@@ -170,6 +179,7 @@ export function BookingDialog({
   channel: EarlyAccessChannelId;
   /** The time being booked; kept while the dialog animates out. */
   time: OpenTime;
+  openedBy: OpenedBy;
   open: boolean;
   timeZone: string;
   details: BookingDetails;
@@ -197,6 +207,7 @@ export function BookingDialog({
     booking: ChannelDemoBooking;
     email: string;
   } | null>(null);
+  const popupRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const nameRef = useRef<HTMLInputElement>(null);
   const noticeRef = useRef<HTMLDivElement>(null);
@@ -280,11 +291,13 @@ export function BookingDialog({
           return;
         }
         fail("invalid_input");
-        const field = answer.field;
-        if (field && field !== "timeZone") {
+        const field: unknown = answer.field;
+        if (isFormField(field)) {
           setErrors({ [field]: FIELD_ERRORS[field] });
           requestFocus("field");
         } else {
+          // The time zone isn't in the form, and any other field isn't
+          // the form's: the notice says what to do.
           setNotice(field === "timeZone" ? "time_zone" : "invalid");
           requestFocus("notice");
         }
@@ -316,28 +329,36 @@ export function BookingDialog({
       }}
     >
       <DialogContent
-        // Not over a touch keyboard: on touch the dialog itself takes focus.
-        initialFocus={(type) => (type === "touch" ? true : nameRef.current)}
+        ref={popupRef}
+        // Opened by touch, the dialog itself takes focus, so the keyboard
+        // doesn't open over it; otherwise Name does.
+        initialFocus={() =>
+          openedBy === "touch" ? popupRef.current : nameRef.current
+        }
         finalFocus={finalFocus}
+        showCloseButton={false}
         className="max-h-[calc(100dvh-2rem)] gap-5 overflow-y-auto rounded-[24px] p-6 shadow-[var(--menu-lift)] ring-frame-rim sm:max-w-[30rem] dark:bg-[#15151d]"
       >
         <DialogHeader className="gap-1.5 pe-8">
           <DialogTitle className="text-lg leading-snug font-semibold tracking-[-0.01em]">
             {copy.booking.heading}
           </DialogTitle>
-          <DialogDescription className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-foreground">
-            <span>{time.heading}</span>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <DialogDescription className="text-sm text-foreground">
+              {time.heading}
+            </DialogDescription>
             {booked ? null : (
               <button
                 type="button"
                 disabled={submitting}
                 onClick={onClose}
-                className="rounded-sm font-medium text-primary underline-offset-4 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50"
+                // 20px tall; an invisible ::after makes the hit area 44px.
+                className="relative rounded-sm text-sm font-medium text-primary underline-offset-4 outline-none after:absolute after:-inset-x-2 after:-inset-y-3 after:content-[''] hover:underline focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50"
               >
                 {TEXT.form.changeTime}
               </button>
             )}
-          </DialogDescription>
+          </div>
         </DialogHeader>
 
         {booked ? (
@@ -345,6 +366,7 @@ export function BookingDialog({
             booking={booked.booking}
             email={booked.email}
             timeZone={timeZone}
+            chosenHeading={time.heading}
             headingRef={bookedRef}
           />
         ) : (
@@ -424,7 +446,7 @@ export function BookingDialog({
               ref={noticeRef}
               tabIndex={-1}
               role="status"
-              className="rounded-lg text-sm outline-none empty:hidden focus-visible:ring-3 focus-visible:ring-ring/50"
+              className="rounded-lg text-sm outline-none empty:sr-only focus-visible:ring-3 focus-visible:ring-ring/50"
             >
               {notice ? (
                 <p className="flex flex-col gap-1">
@@ -439,7 +461,7 @@ export function BookingDialog({
                         placement: "dialog",
                       })
                     }
-                    className="w-fit font-medium text-primary underline-offset-4 hover:underline"
+                    className="inline-flex min-h-11 w-fit items-center font-medium text-primary underline-offset-4 hover:underline"
                   >
                     {TEXT.errors.fallback}
                     <span className="sr-only"> {TEXT.newTab}</span>
@@ -477,6 +499,22 @@ export function BookingDialog({
             </p>
           </form>
         )}
+        {/* While a booking is in flight the dialog can't close, so neither can this. */}
+        <DialogClose
+          disabled={submitting}
+          render={
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              // 28px across; an invisible ::after makes the hit area 44px (it
+              // sits on the padding box, inside the 1px border).
+              className="absolute top-2 right-2 after:absolute after:-inset-[9px] after:content-['']"
+            />
+          }
+        >
+          <XIcon />
+          <span className="sr-only">{TEXT.form.close}</span>
+        </DialogClose>
       </DialogContent>
     </Dialog>
   );
@@ -566,11 +604,14 @@ function BookedView({
   booking,
   email,
   timeZone,
+  chosenHeading,
   headingRef,
 }: {
   booking: ChannelDemoBooking;
   email: string;
   timeZone: string;
+  /** The chosen time's heading, if the booked time doesn't read as a time. */
+  chosenHeading: string;
   headingRef: RefObject<HTMLHeadingElement | null>;
 }) {
   const hosts = new Intl.ListFormat("en-US", {
@@ -580,7 +621,7 @@ function BookedView({
   const rows: { label: string; value: string; note?: string }[] = [
     {
       label: TEXT.booked.when,
-      value: formatBookedTime(booking.startTime, timeZone),
+      value: formatBookedTime(booking.startTime, timeZone) || chosenHeading,
       note: TEXT.booked.length,
     },
     {
@@ -625,28 +666,31 @@ function BookedView({
         <span className="font-medium break-all">{email}</span>.
       </p>
       <div className="flex flex-wrap items-center gap-2">
-        <Button
-          variant="outline"
-          nativeButton={false}
-          render={
-            <a href={booking.rescheduleUrl} target="_blank" rel="noreferrer" />
-          }
-          className="h-11 rounded-full px-4"
+        {/* Links that look like buttons: each opens Calendly in a new tab. */}
+        <a
+          href={booking.rescheduleUrl}
+          target="_blank"
+          rel="noreferrer"
+          className={cn(
+            buttonVariants({ variant: "outline" }),
+            "h-11 rounded-full px-4",
+          )}
         >
           {TEXT.booked.reschedule}
           <span className="sr-only"> {TEXT.newTab}</span>
-        </Button>
-        <Button
-          variant="ghost"
-          nativeButton={false}
-          render={
-            <a href={booking.cancelUrl} target="_blank" rel="noreferrer" />
-          }
-          className={cn("h-11 rounded-full px-4 text-muted-foreground")}
+        </a>
+        <a
+          href={booking.cancelUrl}
+          target="_blank"
+          rel="noreferrer"
+          className={cn(
+            buttonVariants({ variant: "ghost" }),
+            "h-11 rounded-full px-4 text-muted-foreground",
+          )}
         >
           {TEXT.booked.cancel}
           <span className="sr-only"> {TEXT.newTab}</span>
-        </Button>
+        </a>
         <DialogClose
           render={
             <Button className="ms-auto h-11 rounded-full bg-foreground px-5 text-background hover:bg-foreground/85" />

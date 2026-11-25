@@ -28,7 +28,7 @@ import {
 import type { OpenTime, SlotDay } from "@/lib/early-access/slot-days";
 import { initialTimeZone, storeTimeZone } from "@/lib/early-access/time-zones";
 import { BookingDialog, EMPTY_DETAILS } from "./booking-dialog";
-import type { BookingDetails } from "./booking-dialog";
+import type { BookingDetails, OpenedBy } from "./booking-dialog";
 import { TimeZoneMenu } from "./time-zone-menu";
 import { BOOKER_TEXT as TEXT } from "./text";
 
@@ -218,6 +218,7 @@ const tooSoon = (time: OpenTime) => time.startMs - Date.now() <= SLOT_LEAD_MS;
 /** A chosen time, its place among the times offered, and its dialog. */
 interface Chosen {
   time: OpenTime;
+  openedBy: OpenedBy;
   dayIndex: number;
   slotIndex: number;
   /** One dialog per opening, so each starts clean. */
@@ -262,6 +263,8 @@ export function ChannelDemoBooker({
   const [details, setDetails] = useState<BookingDetails>(EMPTY_DETAILS);
   const outcome = useRef<Outcome>("open");
   const opener = useRef<HTMLElement | null>(null);
+  /** The pointer that last pressed a time: a tap opens the dialog unfocused. */
+  const pointerType = useRef("");
   const rootRef = useRef<HTMLElement>(null);
   const noticeRef = useRef<HTMLParagraphElement>(null);
   const lockedRef = useRef<HTMLDivElement>(null);
@@ -340,7 +343,12 @@ export function ChannelDemoBooker({
   const markTaken = (time: OpenTime) =>
     setTaken((current) => new Set(current).add(time.startMs));
 
-  const openTime = (time: OpenTime, slotIndex: number, from: HTMLElement) => {
+  const openTime = (
+    time: OpenTime,
+    slotIndex: number,
+    from: HTMLElement,
+    openedBy: OpenedBy,
+  ) => {
     if (locked) return;
     if (tooSoon(time)) {
       // Too soon to book by now: the time goes, the times are read again,
@@ -361,6 +369,7 @@ export function ChannelDemoBooker({
     });
     setChosen({
       time,
+      openedBy,
       dayIndex,
       slotIndex,
       session: (chosen?.session ?? 0) + 1,
@@ -525,6 +534,7 @@ export function ChannelDemoBooker({
               >
                 <span className="text-xs font-normal">{d.weekday}</span>
                 <span className="text-sm font-semibold">{d.date}</span>
+                {/* The name: the visible "Wed Nov 25", then the long date. */}
                 <span className="sr-only">, {d.label}</span>
               </TabsTrigger>
             ))}
@@ -543,10 +553,24 @@ export function ChannelDemoBooker({
                       type="button"
                       aria-label={chip.label}
                       aria-haspopup="dialog"
+                      onPointerDown={(event) => {
+                        pointerType.current = event.pointerType;
+                      }}
                       onClick={(event) =>
-                        openTime(chip, slotIndex, event.currentTarget)
+                        openTime(
+                          chip,
+                          slotIndex,
+                          event.currentTarget,
+                          // A click from Enter or Space has no pointer.
+                          event.detail === 0
+                            ? "keyboard"
+                            : pointerType.current === "touch" ||
+                                pointerType.current === "pen"
+                              ? pointerType.current
+                              : "mouse",
+                        )
                       }
-                      className="h-11 w-full rounded-full border bg-background text-sm font-medium tabular-nums transition-colors outline-none hover:border-edge-action hover:bg-accent focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 motion-reduce:transition-none dark:bg-transparent"
+                      className="h-11 w-full rounded-full border bg-background text-sm leading-tight font-medium tabular-nums transition-colors outline-none hover:border-edge-action hover:bg-accent focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 motion-reduce:transition-none dark:bg-transparent"
                     >
                       {chip.time}
                     </button>
@@ -560,7 +584,7 @@ export function ChannelDemoBooker({
                       disabled
                       aria-label={chip.label}
                       title={TEXT.unavailableTimeHint}
-                      className="h-11 w-full cursor-not-allowed rounded-full text-sm text-muted-foreground tabular-nums line-through decoration-muted-foreground/60"
+                      className="h-11 w-full cursor-not-allowed rounded-full text-sm leading-tight text-muted-foreground tabular-nums line-through decoration-muted-foreground/60"
                     >
                       {chip.time}
                     </button>
@@ -582,7 +606,8 @@ export function ChannelDemoBooker({
                 fallbackLink("times", TEXT.anotherTime)
               )}
               {pages.length > 1 ? (
-                <div className="ms-auto flex items-center gap-2">
+                // 10px apart, so the arrows' 44px hit areas don't overlap.
+                <div className="ms-auto flex items-center gap-2.5">
                   <span className="sr-only" aria-live="polite">
                     {shownOpen.length
                       ? TEXT.showing(
@@ -620,6 +645,7 @@ export function ChannelDemoBooker({
           key={chosen.session}
           channel={channel}
           time={chosen.time}
+          openedBy={chosen.openedBy}
           open={dialogOpen}
           timeZone={timeZone}
           details={details}
@@ -677,9 +703,10 @@ function PagerButton({
       aria-label={label}
       disabled={disabled}
       onClick={onClick}
-      // 36px across; an invisible ::after makes the hit area 44px.
+      // 36px across; an invisible ::after makes the hit area 44px (it sits
+      // on the padding box, inside the 1px border).
       className={cn(
-        "relative size-9 rounded-full after:absolute after:-inset-1 after:content-['']",
+        "relative size-9 rounded-full after:absolute after:-inset-[5px] after:content-['']",
       )}
     >
       {children}

@@ -44,7 +44,7 @@ export function TimeZoneMenu({
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="start"
-        className="max-h-[min(22rem,var(--available-height))] w-auto min-w-60 rounded-xl p-1.5 ring-frame-rim"
+        className="max-h-[min(22rem,var(--available-height))] w-auto min-w-60 rounded-xl p-1.5 ring-frame-rim motion-reduce:animate-none!"
       >
         <DropdownMenuGroup>
           <DropdownMenuLabel>{TEXT.timeZone}</DropdownMenuLabel>
@@ -58,7 +58,7 @@ export function TimeZoneMenu({
               <DropdownMenuRadioItem
                 key={option.zone}
                 value={option.zone}
-                className="min-h-9 rounded-lg px-2"
+                className="min-h-11 rounded-lg px-2"
               >
                 {option.label}
               </DropdownMenuRadioItem>

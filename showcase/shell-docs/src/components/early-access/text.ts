@@ -34,6 +34,7 @@ export const BOOKER_TEXT = {
   },
   form: {
     changeTime: "Change time",
+    close: "Close",
     name: "Name",
     email: "Work email",
     company: "Company",
