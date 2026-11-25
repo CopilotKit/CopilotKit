@@ -8,7 +8,8 @@ import { BOOKER_ID } from "./booker";
 /**
  * A button to the page's booker: it scrolls the booker into view (at once
  * for reduced motion) and moves focus to it, so the next Tab reaches the
- * day tabs. Without JavaScript it is a plain link to `#book`.
+ * time zone menu, then the day tabs. Without JavaScript it still goes to
+ * `#book`, as a link does.
  */
 export function BookCta({
   children,

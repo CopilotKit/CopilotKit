@@ -40,7 +40,8 @@ export const BOOKER_TEXT = {
     workEmail: "Use your work email to book this demo.",
     company: "Enter your company name.",
     building: "Shorten this answer and try again.",
-    timeZone: "We couldn't book in your time zone. Pick another one.",
+    timeZone:
+      "We couldn't book in this time zone. Close this, then change the time zone above the times.",
     invalid: "Check your details and try again.",
     rateLimited:
       "Too many booking attempts. Wait a few minutes and try again, or book on copilotkit.ai.",

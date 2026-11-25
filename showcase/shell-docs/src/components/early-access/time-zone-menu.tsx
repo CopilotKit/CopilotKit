@@ -16,22 +16,26 @@ import { BOOKER_TEXT as TEXT } from "./text";
 
 /**
  * "Times in Pacific (PST)": the zone's name opens a menu of zones, the chosen
- * one checked. Arrow keys, Home, End, and type-ahead move through it.
+ * one checked. Arrow keys, Home, End, and type-ahead move through it. Zones
+ * are named as they are at `at`, the first time shown, so the abbreviation
+ * matches the times across a daylight saving change.
  */
 export function TimeZoneMenu({
   value,
+  at,
   onChange,
 }: {
   value: string;
+  at?: number;
   onChange: (zone: string) => void;
 }) {
-  const options = useMemo(() => timeZoneOptions(value), [value]);
+  const options = useMemo(() => timeZoneOptions(value, at), [value, at]);
   return (
     <DropdownMenu>
       <DropdownMenuTrigger className="group/zone -ms-2 inline-flex min-h-11 items-center gap-1 rounded-full px-2 text-sm text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 data-popup-open:text-foreground motion-reduce:transition-none">
         {TEXT.timesIn}{" "}
         <span className="font-medium text-foreground underline decoration-border decoration-1 underline-offset-4 group-hover/zone:decoration-foreground/40">
-          {zoneLabel(value)}
+          {zoneLabel(value, at)}
         </span>
         <ChevronDown
           aria-hidden="true"

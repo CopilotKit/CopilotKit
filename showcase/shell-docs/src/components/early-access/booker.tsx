@@ -317,6 +317,7 @@ export function ChannelDemoBooker({
           {timeZone && phase !== "unavailable" ? (
             <TimeZoneMenu
               value={timeZone}
+              at={day?.times[0]?.startMs}
               onChange={(zone) => {
                 setPickedZone(zone);
                 storeTimeZone(zone);

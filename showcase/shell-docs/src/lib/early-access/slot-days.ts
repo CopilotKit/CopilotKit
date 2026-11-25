@@ -15,7 +15,10 @@ export interface OpenTime {
   available: true;
   startTime: string;
   startMs: number;
-  /** "9:30 AM". */
+  /**
+   * "9:30 AM"; "11:00 PM GMT+3" for a clock time the day has twice (the
+   * hour repeated when the clocks go back).
+   */
   time: string;
   /** "9:30 AM, Tuesday, December 1". */
   label: string;
@@ -59,6 +62,11 @@ function formats(timeZone: string) {
     date: make({ month: "short", day: "numeric" }),
     longDay: make({ weekday: "long", month: "long", day: "numeric" }),
     time: make({ hour: "numeric", minute: "2-digit" }),
+    zonedTime: make({
+      hour: "numeric",
+      minute: "2-digit",
+      timeZoneName: "short",
+    }),
     heading: make({
       weekday: "long",
       month: "long",
@@ -128,9 +136,23 @@ export function groupSlotDays(
     const label = f.longDay.format(day.at);
     const first = day.open[0].ms;
     const last = day.open[day.open.length - 1].ms;
+    // Only those among the open ones: a day never starts or ends on one.
+    const closed = day.closed.filter((ms) => ms >= first && ms <= last);
+    // When the clocks go back, an hour's clock times happen twice in a day:
+    // each of those carries its zone ("11:00 PM GMT+3", "11:00 PM GMT+2").
+    const clocks = [...day.open.map((slot) => slot.ms), ...closed].map((ms) =>
+      f.time.format(ms),
+    );
+    const repeated = new Set(
+      clocks.filter((clock, index) => clocks.indexOf(clock) !== index),
+    );
+    const timeOf = (ms: number) => {
+      const time = f.time.format(ms);
+      return repeated.has(time) ? f.zonedTime.format(ms) : time;
+    };
     const chips: TimeChip[] = [
       ...day.open.map((slot): TimeChip => {
-        const time = f.time.format(slot.ms);
+        const time = timeOf(slot.ms);
         return {
           available: true,
           startTime: slot.startTime,
@@ -140,18 +162,15 @@ export function groupSlotDays(
           heading: f.heading.format(slot.ms),
         };
       }),
-      // Only those among the open ones: a day never starts or ends on one.
-      ...day.closed
-        .filter((ms) => ms >= first && ms <= last)
-        .map((ms): TimeChip => {
-          const time = f.time.format(ms);
-          return {
-            available: false,
-            startMs: ms,
-            time,
-            label: `${time}, ${label}, unavailable`,
-          };
-        }),
+      ...closed.map((ms): TimeChip => {
+        const time = timeOf(ms);
+        return {
+          available: false,
+          startMs: ms,
+          time,
+          label: `${time}, ${label}, unavailable`,
+        };
+      }),
     ].sort((a, b) => a.startMs - b.startMs);
     return {
       key,
