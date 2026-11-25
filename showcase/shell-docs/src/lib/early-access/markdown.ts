@@ -26,7 +26,6 @@ export function channelPageMarkdown(id: EarlyAccessChannelId): string {
   const shared = SHARED_EARLY_ACCESS_COPY;
   const name = copy.name;
   const channel = EARLY_ACCESS_CHANNELS.find((c) => c.id === id);
-  const link = (path: string) => withBasePath(path);
   const lines = [
     `# ${copy.hero.title}`,
     "",
@@ -38,7 +37,7 @@ export function channelPageMarkdown(id: EarlyAccessChannelId): string {
     "",
     `## ${copy.booking.heading}`,
     "",
-    `${copy.booking.note} Pick a time on [this page](${link(earlyAccessHref(id))}), or book with the team on [copilotkit.ai](${channel?.fallbackUrl}).`,
+    `${copy.booking.note} Pick a time on [this page](${withBasePath(earlyAccessHref(id))}), or book with the team on [copilotkit.ai](${channel?.fallbackUrl}).`,
     "",
     `## ${fill(shared.conversationTitle, name)}`,
     "",
@@ -59,7 +58,7 @@ export function channelPageMarkdown(id: EarlyAccessChannelId): string {
         `${index + 1}. **${fill(step.title, name)}.** ${fill(step.body, name)}`,
     ),
     "",
-    `Read the [Channels overview](${link("/slack")}).`,
+    `Read the [Channels overview](${withBasePath("/slack")}).`,
     "",
     `## ${fill(shared.specificsTitle, name)}`,
     "",
@@ -75,10 +74,10 @@ export function channelPageMarkdown(id: EarlyAccessChannelId): string {
     "",
     ...EARLY_ACCESS_CHANNELS.filter((c) => c.id !== id).map(
       (c) =>
-        `- [${c.name}](${link(earlyAccessHref(c.id))}) (${shared.eyebrow.toLowerCase()}): ${c.summary}`,
+        `- [${c.name}](${withBasePath(earlyAccessHref(c.id))}) (${shared.eyebrow.toLowerCase()}): ${c.summary}`,
     ),
-    `- [Slack](${link("/slack")})`,
-    `- [Microsoft Teams](${link("/teams")})`,
+    `- [Slack](${withBasePath("/slack")})`,
+    `- [Microsoft Teams](${withBasePath("/teams")})`,
   ];
   return `${lines.join("\n")}\n`;
 }

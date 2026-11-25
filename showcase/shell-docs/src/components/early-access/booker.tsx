@@ -370,7 +370,7 @@ export function ChannelDemoBooker({
           <TabsList
             aria-label={TEXT.days}
             activateOnFocus
-            className="grid h-auto w-full grid-cols-5 gap-1 rounded-[22px] bg-muted p-1 group-data-horizontal/tabs:h-auto"
+            className="grid h-auto w-full auto-cols-fr grid-flow-col gap-1 rounded-[22px] bg-muted p-1 group-data-horizontal/tabs:h-auto"
           >
             {days.map((d) => (
               <TabsTrigger
@@ -384,7 +384,12 @@ export function ChannelDemoBooker({
               </TabsTrigger>
             ))}
           </TabsList>
-          <TabsContent value={day.key} className="flex flex-col gap-3">
+          {/* Not a tab stop of its own: Tab goes from the day to its times. */}
+          <TabsContent
+            value={day.key}
+            tabIndex={-1}
+            className="flex flex-col gap-3"
+          >
             <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4">
               {shown.map(({ chip, slotIndex }) =>
                 chip.available ? (
