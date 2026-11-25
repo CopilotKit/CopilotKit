@@ -9,7 +9,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { frontendHref } from "@/lib/live-scope";
+import { ROOT_FRAMEWORK, frontendHref } from "@/lib/live-scope";
 import {
   earlyAccessChannel,
   earlyAccessHref,
@@ -23,8 +23,9 @@ import { FrontendOptions } from "./pieces";
 /**
  * The frontend picker on an early-access channel's page, which has no docs
  * sidebar: the same list as the sidebar's, with this channel checked. A docs
- * frontend opens its home and is remembered; another early-access channel
- * opens its page and leaves the remembered frontend alone.
+ * frontend opens its home on the reader's remembered framework (`/vue/mastra`,
+ * React's `/mastra/quickstart`) and is remembered; another early-access
+ * channel opens its page and leaves the remembered frontend alone.
  */
 export function ChannelSwitcher({
   channel,
@@ -78,9 +79,14 @@ export function ChannelSwitcher({
                 router.push(destination);
                 return;
               }
-              // A docs frontend: remembered, and opened at its home.
+              // A docs frontend: remembered, and opened at its home on the
+              // framework the reader was reading before this page.
               setFrontend(pick.id);
-              const destination = frontendHref([], pick.id, "");
+              const destination = frontendHref(
+                framework === ROOT_FRAMEWORK ? [] : [framework],
+                pick.id,
+                "",
+              );
               trackEvent("docs.frontend_selected", {
                 frontend: pick.id,
                 from_frontend: channel,
