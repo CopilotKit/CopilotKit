@@ -30,24 +30,23 @@ export interface EarlyAccessChannel {
 /** The website's booking page, where the fallback links go. */
 const BOOKING_PAGE = "https://www.copilotkit.ai/talk-to-an-engineer";
 
-/** In the picker's and the home page's order. */
-const IDS: readonly EarlyAccessChannelId[] = [
+/** Every early-access channel, in the picker's and the home page's order. */
+export const EARLY_ACCESS_CHANNEL_IDS = [
   "imessage",
   "whatsapp",
   "sms",
   "rcs",
-];
+] as const satisfies readonly EarlyAccessChannelId[];
 
-export const EARLY_ACCESS_CHANNELS: readonly EarlyAccessChannel[] = IDS.map(
-  (id) => ({
+export const EARLY_ACCESS_CHANNELS: readonly EarlyAccessChannel[] =
+  EARLY_ACCESS_CHANNEL_IDS.map((id) => ({
     id,
     name: EARLY_ACCESS_CHANNEL_COPY[id].name,
     summary: EARLY_ACCESS_CHANNEL_COPY[id].summary,
     event: `${id}_demo`,
     ref: `docs_${id}_early_access`,
     fallbackUrl: `${BOOKING_PAGE}?ref=docs_${id}_early_access`,
-  }),
-);
+  }));
 
 /** The early-access channel a URL segment or request names, if it is one. */
 export function earlyAccessChannel(
