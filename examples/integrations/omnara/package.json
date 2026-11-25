@@ -19,13 +19,13 @@
     "typecheck:channel": "tsc -p tsconfig.channel.json --noEmit"
   },
   "dependencies": {
-    "@ag-ui/client": "1.0.2",
-    "@ag-ui/core": "1.0.2",
+    "@ag-ui/client": "1.0.5",
+    "@ag-ui/core": "1.0.5",
     "@ag-ui/omnara": "0.0.1",
-    "@copilotkit/channels": "0.11.1",
-    "@copilotkit/react-core": "1.79.0",
-    "@copilotkit/runtime": "1.79.0",
-    "@copilotkit/shared": "1.79.0",
+    "@copilotkit/channels": "0.13.0",
+    "@copilotkit/react-core": "1.90.2",
+    "@copilotkit/runtime": "1.90.2",
+    "@copilotkit/shared": "1.90.2",
     "@fontsource-variable/plus-jakarta-sans": "^5.2.8",
     "@fontsource-variable/spline-sans-mono": "^5.2.8",
     "@next/env": "16.3.8",
@@ -51,17 +51,17 @@
     "node": ">=22.15.0"
   },
   "overrides": {
-    "@ag-ui/client": "1.0.2",
-    "@ag-ui/core": "1.0.2",
-    "@ag-ui/encoder": "1.0.2",
-    "@ag-ui/proto": "1.0.2"
+    "@ag-ui/client": "1.0.5",
+    "@ag-ui/core": "1.0.5",
+    "@ag-ui/encoder": "1.0.5",
+    "@ag-ui/proto": "1.0.5"
   },
   "pnpm": {
     "overrides": {
-      "@ag-ui/client": "1.0.2",
-      "@ag-ui/core": "1.0.2",
-      "@ag-ui/encoder": "1.0.2",
-      "@ag-ui/proto": "1.0.2"
+      "@ag-ui/client": "1.0.5",
+      "@ag-ui/core": "1.0.5",
+      "@ag-ui/encoder": "1.0.5",
+      "@ag-ui/proto": "1.0.5"
     }
   }
 }
