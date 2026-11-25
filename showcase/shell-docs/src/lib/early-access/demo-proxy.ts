@@ -312,10 +312,12 @@ export async function bookChannelDemo(request: Request) {
     return respond(UNCONFIRMED.status, UNCONFIRMED.body);
   }
   const { status, body } = await readWebsiteBooking(response);
-  if (status >= 500) {
-    console.error("[channel-demo] the booking did not go through", {
+  if (!body.ok && status >= 500) {
+    // Unavailable (nothing booked) or unconfirmed (it may have booked).
+    console.error("[channel-demo] the website did not confirm a booking", {
       channel: channel.id,
       status: response.status,
+      code: body.code,
     });
   }
   return respond(status, body);

@@ -312,8 +312,9 @@ export function ChannelDemoBooker({
         <p className="text-sm leading-normal text-muted-foreground">
           {copy.booking.note}
         </p>
-        <div className="min-h-11">
-          {timeZone ? (
+        {/* Holds its place while the times load; with none, it says nothing. */}
+        <div className={cn("min-h-11", phase === "unavailable" && "hidden")}>
+          {timeZone && phase !== "unavailable" ? (
             <TimeZoneMenu
               value={timeZone}
               onChange={(zone) => {
