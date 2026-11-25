@@ -36,7 +36,7 @@ CopilotKit is the enterprise agentic frontend stack for connecting any agent to 
 - The showcase build deploys it to docs.staging.copilotkit.ai on merge to `main`; production follows a promote.
 - **Agent backends get their own URLs** (e.g. a Mastra section under its own path). Required for co-marketing with each framework partner.
 - **Every agent backend is first-class to some degree.** How complete each one is comes from the showcase D6 results, not from a hand-kept tier list.
-- **Frontends:** React, Vue, and React Native are fully functional, first-class frontends. React SPA is not a separate frontend; its content folds into the React docs. Angular stays. Slack and Teams are channels.
+- **Frontends:** React, Vue, and React Native are fully functional, first-class frontends. React SPA is not a separate frontend; its content folds into the React docs. Angular stays. Slack and Teams are channels. iMessage, WhatsApp, SMS, and RCS are channels in early access: each has a landing page with a demo booker (`/whatsapp`), not docs.
 - **Intelligence** gets its own section, and its features are also spliced into the normal docs where they add value, so readers discover them in context.
 - Undecided: URL structure (docs at `/` versus `/docs`), redirect strategy from current URLs, and the parity cut-over criteria.
 
