@@ -1,7 +1,6 @@
 import { resolveLivePage } from "@/lib/live-docs";
 import { renderLivePageMarkdown } from "@/lib/llms/page-markdown";
-import { earlyAccessChannel } from "@/lib/early-access/channels";
-import { channelPageMarkdown } from "@/lib/early-access/markdown";
+import { channelMarkdownResponse } from "@/lib/early-access/markdown";
 
 // One live docs page as Markdown. `src/proxy.ts` rewrites `<path>.md`,
 // `<path>.mdx`, and `Accept: text/markdown` requests for a live URL here,
@@ -15,16 +14,10 @@ export async function GET(
   { params }: RouteContext<"/llms.mdx/live/[[...path]]">,
 ) {
   const { path = [] } = await params;
-  // An early-access channel's landing page (/whatsapp).
-  const channel = path.length === 1 ? earlyAccessChannel(path[0]) : undefined;
-  if (channel) {
-    return new Response(channelPageMarkdown(channel.id), {
-      headers: {
-        "Content-Type": "text/markdown; charset=utf-8",
-        "Cache-Control": "public, max-age=60, stale-while-revalidate=300",
-      },
-    });
-  }
+  // An early-access channel's landing page (/whatsapp), or a redirect to it
+  // from a path under it (/whatsapp/quickstart).
+  const channel = channelMarkdownResponse(path);
+  if (channel) return channel;
   const live = resolveLivePage(path);
   if (!live) return new Response("Not found", { status: 404 });
 

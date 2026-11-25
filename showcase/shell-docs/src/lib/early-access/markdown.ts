@@ -1,5 +1,9 @@
 import { withBasePath } from "@/lib/base-path";
-import { EARLY_ACCESS_CHANNELS, earlyAccessHref } from "./channels";
+import {
+  EARLY_ACCESS_CHANNELS,
+  earlyAccessChannel,
+  earlyAccessHref,
+} from "./channels";
 import type { EarlyAccessChannelId } from "./channels";
 import { EARLY_ACCESS_CHANNEL_COPY, SHARED_EARLY_ACCESS_COPY } from "./copy";
 import type { ConversationMessage } from "./copy";
@@ -25,7 +29,7 @@ export function channelPageMarkdown(id: EarlyAccessChannelId): string {
   const copy = EARLY_ACCESS_CHANNEL_COPY[id];
   const shared = SHARED_EARLY_ACCESS_COPY;
   const name = copy.name;
-  const channel = EARLY_ACCESS_CHANNELS.find((c) => c.id === id);
+  const channel = earlyAccessChannel(id);
   const lines = [
     `# ${copy.hero.title}`,
     "",
@@ -80,4 +84,31 @@ export function channelPageMarkdown(id: EarlyAccessChannelId): string {
     `- [Microsoft Teams](${withBasePath("/teams")})`,
   ];
   return `${lines.join("\n")}\n`;
+}
+
+/**
+ * The Markdown route's answer for a channel's path (src/app/llms.mdx/live):
+ * the page's Markdown for `/whatsapp`, and a temporary redirect to it for a
+ * path under the page (`/whatsapp/quickstart`), as the page itself redirects.
+ * next.config redirects those first (`.md`, `.mdx`, and `Accept`); this
+ * covers a request straight to the route. Null when the path isn't a
+ * channel's.
+ */
+export function channelMarkdownResponse(path: string[]): Response | null {
+  const channel = earlyAccessChannel(path[0]);
+  if (!channel) return null;
+  if (path.length > 1) {
+    return new Response(null, {
+      status: 307,
+      headers: {
+        Location: withBasePath(`${earlyAccessHref(channel.id)}.md`),
+      },
+    });
+  }
+  return new Response(channelPageMarkdown(channel.id), {
+    headers: {
+      "Content-Type": "text/markdown; charset=utf-8",
+      "Cache-Control": "public, max-age=60, stale-while-revalidate=300",
+    },
+  });
 }

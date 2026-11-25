@@ -318,7 +318,6 @@ for (const [from, to] of [
   ["/channels/platforms/slack", "/slack"],
   ["/channels/platforms/teams", "/teams"],
   ["/channels/platforms/discord", "/slack"],
-  ["/frontends/whatsapp", "/whatsapp"],
   ["/slack/mastra/channels", "/slack/mastra"],
   ["/teams/channels", "/teams"],
   ["/slack/built-in-agent/channels", "/slack"],
@@ -590,12 +589,34 @@ for (const path of [
 }
 
 // --- the early-access channel pages ---------------------------------------
-// Each is a page; a path under it opens it (the page's own redirect()), for
-// now, since the channel's docs will live there once it ships.
+// Each is a page, with its Markdown at `.md` and `.mdx`. A path under it
+// opens it, for now, since the channel's docs will live there once it ships:
+// the page, or its Markdown for `.md` and `.mdx`. No legacy rule may catch
+// those first: `/whatsapp/channels` read as the `whatsapp` framework's
+// channels page went, permanently, to `/slack/whatsapp`, a 404.
 for (const channel of ["imessage", "whatsapp", "sms", "rcs"]) {
-  none(`/${channel}`);
-  redirect(`/${channel}/quickstart`, `/${channel}`, TEMPORARY);
+  for (const suffix of SUFFIXES) none(`/${channel}${suffix}`);
+  for (const page of [
+    "quickstart",
+    "channels",
+    "threads",
+    "generative-ui",
+    "channels/overview",
+    "x",
+  ]) {
+    redirect(`/${channel}/${page}`, `/${channel}`, TEMPORARY);
+    redirect(`/${channel}/${page}.md`, `/${channel}.md`, TEMPORARY);
+    redirect(`/${channel}/${page}.mdx`, `/${channel}.md`, TEMPORARY);
+  }
 }
+// WhatsApp's old URLs open its page, with their Markdown.
+withSuffixes(
+  [
+    ["/frontends/whatsapp", "/whatsapp"],
+    ["/channels/platforms/whatsapp", "/whatsapp"],
+  ],
+  PERMANENT,
+);
 
 // --- v2's own routes: never redirected -----------------------------------
 for (const path of [

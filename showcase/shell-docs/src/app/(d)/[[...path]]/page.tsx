@@ -42,7 +42,9 @@ export default async function Page({ params }: PageProps<"/[[...path]]">) {
 
   // An early-access channel's landing page (/whatsapp). It has no pages
   // under it yet, so a deeper URL opens the landing page. Temporarily: the
-  // channel's docs will live there once it ships.
+  // channel's docs will live there once it ships. next.config redirects
+  // those URLs first (next-config-redirects.mjs), so no other legacy rule
+  // reads `/whatsapp/channels` as a framework's page.
   const channel = earlyAccessChannel(path[0]);
   if (channel) {
     if (path.length > 1) redirect(earlyAccessHref(channel.id));
@@ -95,14 +97,17 @@ export async function generateMetadata({
   const channel = path.length === 1 ? earlyAccessChannel(path[0]) : undefined;
   if (channel) {
     const { title, description } = EARLY_ACCESS_CHANNEL_COPY[channel.id].meta;
+    const href = earlyAccessHref(channel.id);
+    const seo = liveDocMetadata({ title, description, path: href });
     return {
       title,
       description,
-      ...liveDocMetadata({
-        title,
-        description,
-        path: earlyAccessHref(channel.id),
-      }),
+      ...seo,
+      alternates: {
+        ...seo.alternates,
+        // As every docs page: agents on the HTML find its Markdown.
+        types: { "text/markdown": `${href}.md` },
+      },
     };
   }
   // The examples playground, not the hidden `examples.mdx` page behind it.
