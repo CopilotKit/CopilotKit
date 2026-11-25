@@ -22,6 +22,7 @@ export interface RunEventFinalizer {
 
 const defaultStopMessage = "Run stopped by user";
 const defaultAbruptEndMessage = "Run ended without emitting a terminal event";
+const defaultRunErrorMessage = "Run ended with an error";
 
 interface OpenToolCall {
   hasEnd: boolean;
@@ -43,6 +44,9 @@ export function createRunEventFinalizer(): RunEventFinalizer {
   const openReasoningMessageIds = new Set<string>();
   const openReasoningSpanIds = new Set<string>();
   const openToolCalls = new Map<string, OpenToolCall>();
+  // Open steps as a stack: each entry is { stepName, subagentRunId? }.
+  // STEP_STARTED pushes; STEP_FINISHED pops the most-recent matching name.
+  const openSteps: Array<{ stepName: string; subagentRunId?: string }> = [];
   // Insertion order is start order, so closing in reverse closes children first.
   const openSubagentRunIds = new Set<string>();
   let runIdentity: { threadId?: string; runId?: string } = {};
@@ -53,6 +57,7 @@ export function createRunEventFinalizer(): RunEventFinalizer {
     openReasoningMessageIds.clear();
     openReasoningSpanIds.clear();
     openToolCalls.clear();
+    openSteps.length = 0;
     openSubagentRunIds.clear();
   };
 
@@ -116,6 +121,28 @@ export function createRunEventFinalizer(): RunEventFinalizer {
         if (event.type === EventType.TOOL_CALL_END) info.hasEnd = true;
         else info.hasResult = true;
         if (info.hasEnd && info.hasResult) openToolCalls.delete(toolCallId);
+        break;
+      }
+      case EventType.STEP_STARTED: {
+        const stepName = (event as { stepName?: string }).stepName;
+        if (stepName) {
+          const subagentRunId = (event as { subagentRunId?: string })
+            .subagentRunId;
+          openSteps.push({ stepName, subagentRunId });
+        }
+        break;
+      }
+      case EventType.STEP_FINISHED: {
+        const stepName = (event as { stepName?: string }).stepName;
+        if (stepName) {
+          // Remove the most-recently opened step with this name.
+          for (let i = openSteps.length - 1; i >= 0; i--) {
+            if (openSteps[i].stepName === stepName) {
+              openSteps.splice(i, 1);
+              break;
+            }
+          }
+        }
         break;
       }
       case EventType.SUBAGENT_STARTED:
@@ -201,6 +228,16 @@ export function createRunEventFinalizer(): RunEventFinalizer {
       }
     }
 
+    // Close open steps in reverse order (last opened, first closed).
+    for (let i = openSteps.length - 1; i >= 0; i--) {
+      const { stepName, subagentRunId } = openSteps[i];
+      appended.push({
+        type: EventType.STEP_FINISHED,
+        stepName,
+        ...(subagentRunId !== undefined && { subagentRunId }),
+      } as BaseEvent);
+    }
+
     if (stopRequested) {
       // Newest first, so a nested subagent closes before its parent. An index
       // loop, because `toReversed` is ES2023 and this package targets older.
@@ -244,17 +281,81 @@ export function createRunEventFinalizer(): RunEventFinalizer {
 
 /**
  * Array form of {@link createRunEventFinalizer} for callers that already keep
- * the run's events (runners persist them). Appends the closers to `events` in
- * place and returns them.
+ * the run's events (runners persist them).
+ *
+ * When no terminal event is present, closers and a terminal are appended to
+ * `events` in place and returned.
+ *
+ * When the terminal event (`RUN_FINISHED` or `RUN_ERROR`) is already present
+ * (e.g. the run was aborted while a tool call was still open), the lifecycle
+ * closers are spliced in BEFORE it so that `compactEvents` sees a well-ordered
+ * stream on replay. In this case an empty array is returned because the
+ * terminal has already been emitted to live subscribers; returning the closers
+ * would cause the runner to re-emit them after the terminal, producing the
+ * same invalid order that the splice is meant to fix.
  */
 export function finalizeRunEvents(
   events: BaseEvent[],
   options: FinalizeRunOptions = {},
 ): BaseEvent[] {
   const finalizer = createRunEventFinalizer();
-  for (const event of events) finalizer.observe(event);
 
-  const appended = finalizer.finalize(options);
-  events.push(...appended);
-  return appended;
+  // Observe events one at a time and stop at the first terminal event so the
+  // finalizer knows which lifecycles are still open at that point.
+  let terminalIdx = -1;
+  for (let i = 0; i < events.length; i++) {
+    const evt = events[i];
+    if (
+      evt.type === EventType.RUN_FINISHED ||
+      evt.type === EventType.RUN_ERROR
+    ) {
+      terminalIdx = i;
+      break;
+    }
+    finalizer.observe(evt);
+  }
+
+  if (terminalIdx === -1) {
+    // No terminal in the stream yet — original path: append closers + terminal.
+    const appended = finalizer.finalize(options);
+    events.push(...appended);
+    return appended;
+  }
+
+  // Terminal already present. Ask the finalizer what is still open before it.
+  // finalize() will produce lifecycle closers + a synthetic terminal; we keep
+  // only the closers because the real terminal is already in the array.
+  // When the existing terminal is RUN_ERROR, use its message so the synthetic
+  // TOOL_CALL_RESULT describes what actually happened instead of saying the run
+  // ended without a terminal event.
+  const terminalEvt = events[terminalIdx];
+  let finalizeOptions = options;
+  if (
+    terminalEvt.type === EventType.RUN_ERROR &&
+    !options.interruptionMessage
+  ) {
+    const errMsg = (terminalEvt as RunErrorEvent).message;
+    finalizeOptions = {
+      ...options,
+      interruptionMessage: errMsg || defaultRunErrorMessage,
+    };
+  }
+  const all = finalizer.finalize(finalizeOptions);
+  const lifecycleClosers = all.filter(
+    (e) => e.type !== EventType.RUN_FINISHED && e.type !== EventType.RUN_ERROR,
+  );
+
+  if (lifecycleClosers.length === 0) return [];
+
+  // Splice the closers immediately before the existing terminal event so the
+  // stored sequence is valid and compactEvents does not reorder across it.
+  events.splice(terminalIdx, 0, ...lifecycleClosers);
+
+  // Return an empty array: the terminal has already been emitted to live
+  // subscribers by the runner before finalizeRunEvents was called. Returning
+  // the closers would cause the runner to emit them AFTER the terminal, which
+  // is the same invalid order we are fixing for replay. History is correct
+  // from the splice above; live-stream closer ordering requires buffering the
+  // terminal at the runner level, which is a separate concern.
+  return [];
 }
