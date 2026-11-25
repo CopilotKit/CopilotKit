@@ -1613,14 +1613,21 @@ export const SERVICES: Record<
     gateValidated: true,
     dispatchName: "cloudflare-agents",
     probeDriver: "agent",
-    // Staging-only until its prod instance is provisioned (see RAILWAY.md,
-    // "Promoting a Staging-Only Integration to Production"): there is no
-    // prod key, so fleet-wide promotes leave it out. Runtime dep as
-    // strands-typescript's: the Worker's OpenAI client sends its traffic to
-    // the env-local aimock through OPENAI_BASE_URL.
+    // The production serviceInstance was provisioned, deployed and
+    // health-verified (see RAILWAY.md, "Promoting a Staging-Only Integration
+    // to Production"). Both env entries are read verbatim from the live
+    // Railway service. Runtime dep as strands-typescript's: the Worker's
+    // OpenAI client sends its traffic to the env-local aimock through
+    // OPENAI_BASE_URL.
     runtimeDeps: ["aimock"],
     serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
     environments: {
+      prod: {
+        instanceId: "ffb0902e-8f43-49a5-821b-b33af6f92902",
+        healthcheckPath: "/api/health",
+        domain: "showcase-cloudflare-agents-production.up.railway.app",
+        probe: true,
+      },
       staging: {
         instanceId: "9cf643f4-0eab-4e7e-882f-1c4b8d6627ec",
         healthcheckPath: "/api/health",

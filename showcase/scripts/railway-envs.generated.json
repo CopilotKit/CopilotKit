@@ -762,7 +762,7 @@
     {
       "name": "showcase-cloudflare-agents",
       "serviceId": "8ebe5591-d596-4bac-a48e-b20230c37746",
-      "prodInstanceId": "8ebe5591-d596-4bac-a48e-b20230c37746",
+      "prodInstanceId": "ffb0902e-8f43-49a5-821b-b33af6f92902",
       "stagingInstanceId": "9cf643f4-0eab-4e7e-882f-1c4b8d6627ec",
       "ciBuilt": true,
       "gateValidated": true,
@@ -771,15 +771,14 @@
         "presence": "required",
         "image": "showcase-convention"
       },
-      "onlyEnvironment": "staging",
       "dispatchName": "cloudflare-agents",
       "domains": {
         "staging": "showcase-cloudflare-agents-staging.up.railway.app",
-        "prod": ""
+        "prod": "showcase-cloudflare-agents-production.up.railway.app"
       },
       "probe": {
         "staging": true,
-        "prod": false,
+        "prod": true,
         "driver": "agent"
       },
       "promoteTier": 2,
@@ -791,6 +790,7 @@
         }
       ],
       "healthcheckPath": {
+        "prod": "/api/health",
         "staging": "/api/health"
       },
       "autoUpdates": {
@@ -2354,6 +2354,10 @@
         "tier": 2
       },
       {
+        "name": "showcase-cloudflare-agents",
+        "tier": 2
+      },
+      {
         "name": "starter-adk",
         "tier": 2
       },
@@ -2405,10 +2409,6 @@
     "skipped": [
       {
         "name": "showcase-omnara",
-        "reason": "no \"prod\" environment in the SSOT — cannot be promoted (it exists in: staging)."
-      },
-      {
-        "name": "showcase-cloudflare-agents",
         "reason": "no \"prod\" environment in the SSOT — cannot be promoted (it exists in: staging)."
       },
       {
