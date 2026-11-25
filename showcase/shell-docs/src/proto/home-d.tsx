@@ -11,6 +11,11 @@ import {
 } from "@/components/icons/glyphs";
 import { FrameworkLogo } from "@/components/icons/framework-icons";
 import { FrontendLogo } from "@/components/icons/frontend-logo";
+import {
+  EARLY_ACCESS_CHANNELS,
+  earlyAccessHref,
+} from "@/lib/early-access/channels";
+import { EarlyAccessBadge } from "@/components/early-access/badge";
 import { useIntegrationClickTracking } from "@/components/telemetry/homepage";
 import {
   FRAMEWORKS,
@@ -112,6 +117,19 @@ export function DHome() {
               icon={<FrontendLogo icon={f.id} size={22} />}
               title={f.name}
               description={f.summary}
+            />
+          ))}
+          {/* The early-access channels, after Teams: each opens its landing
+              page. SMS has no brand mark, so its glyph takes the accent. */}
+          {EARLY_ACCESS_CHANNELS.map((c) => (
+            <LinkCard
+              key={c.id}
+              href={earlyAccessHref(c.id)}
+              glyph={c.id === "sms" ? "ink" : "logo"}
+              icon={<FrontendLogo icon={c.id} size={22} />}
+              title={c.name}
+              description={c.summary}
+              badge={<EarlyAccessBadge />}
             />
           ))}
         </Tray>

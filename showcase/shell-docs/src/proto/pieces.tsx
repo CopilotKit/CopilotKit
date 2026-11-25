@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { ArrowRight, Check, ChevronsUpDown, Info, Search } from "lucide-react";
 import { IntelligenceGlyph } from "@/components/icons/glyphs";
+import { EarlyAccessBadge } from "@/components/early-access/badge";
 import {
   Popover,
   PopoverContent,
@@ -14,6 +15,11 @@ import {
 import { cn } from "@/lib/cn";
 import { whereIs } from "@/lib/live-pages";
 import { frontendHref, liveFrontend, scopeFromPath } from "@/lib/live-scope";
+import {
+  EARLY_ACCESS_CHANNELS,
+  earlyAccessHref,
+} from "@/lib/early-access/channels";
+import type { EarlyAccessChannelId } from "@/lib/early-access/channels";
 import { useLivePages } from "./live-pages-context";
 import { trackEvent } from "@/lib/telemetry/analytics";
 import frameworkCategories from "@/data/framework-categories.json";
@@ -674,6 +680,63 @@ function StackRow({
   );
 }
 
+/** A pick in the frontend list: a docs frontend, or an early-access channel. */
+export type FrontendPick =
+  | { earlyAccess: false; id: FrontendId }
+  | { earlyAccess: true; id: EarlyAccessChannelId };
+
+/**
+ * The frontend picker's list: the app frontends, then the channels, with the
+ * early-access channels after Slack and Teams, each badged "Early access".
+ */
+export function FrontendOptions({
+  current,
+  onPick,
+}: {
+  current: FrontendId | EarlyAccessChannelId;
+  onPick: (pick: FrontendPick) => void;
+}) {
+  const option = (
+    pick: FrontendPick,
+    name: string,
+    badge?: ReactNode,
+  ): ReactNode => (
+    <button
+      key={pick.id}
+      type="button"
+      aria-current={pick.id === current ? "true" : undefined}
+      onClick={() => onPick(pick)}
+      className="flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-start text-sm outline-none hover:bg-accent focus-visible:bg-accent focus-visible:ring-2 focus-visible:ring-fd-ring"
+    >
+      <FrontendLogo icon={pick.id} size={16} className="shrink-0" />
+      <span className="min-w-0 flex-1 truncate">{name}</span>
+      {badge}
+      {pick.id === current ? (
+        <Check className="size-4 shrink-0 text-fd-primary" aria-hidden="true" />
+      ) : null}
+    </button>
+  );
+  return (["app", "channel"] as const).map((kind) => (
+    <div key={kind} className="p-1">
+      <p className="px-2 pt-1.5 pb-1 text-xs text-fd-muted-foreground">
+        {kind === "app" ? "Frontends" : "Channels"}
+      </p>
+      {FRONTENDS.filter((f) => f.kind === kind).map((f) =>
+        option({ earlyAccess: false, id: f.id }, f.name),
+      )}
+      {kind === "channel"
+        ? EARLY_ACCESS_CHANNELS.map((c) =>
+            option(
+              { earlyAccess: true, id: c.id },
+              c.name,
+              <EarlyAccessBadge />,
+            ),
+          )
+        : null}
+    </div>
+  ));
+}
+
 /**
  * Frontend and agent framework as two rows, like the current docs sidebar.
  * Each changes the URL and keeps your page: the frontend is the URL's
@@ -722,55 +785,50 @@ export function StackRows({
         open={open === "frontend"}
         onOpenChange={(o) => setOpen(o ? "frontend" : null)}
       >
-        {(["app", "channel"] as const).map((kind) => (
-          <div key={kind} className="p-1">
-            <p className="px-2 pt-1.5 pb-1 text-xs text-fd-muted-foreground">
-              {kind === "app" ? "Frontends" : "Channels"}
-            </p>
-            {FRONTENDS.filter((f) => f.kind === kind).map((f) => (
-              <button
-                key={f.id}
-                type="button"
-                onClick={() => {
-                  setOpen(null);
-                  if (f.id === frontend) return;
-                  // Remembered for the pages that aren't per frontend.
-                  setFrontend(f.id);
-                  // The same page on the new frontend when it has one, else
-                  // the frontend's home.
-                  const same =
-                    !pages ||
-                    !scope.slug ||
-                    !!whereIs(pages, f.id, scope.framework, scope.slug);
-                  const destination = frontendHref(
-                    path,
-                    f.id,
-                    same ? undefined : "",
-                  );
-                  // Shell-docs' framework selector event, same properties.
-                  trackEvent("docs.frontend_selected", {
-                    frontend: f.id,
-                    from_frontend: frontend,
-                    backend: framework,
-                    from_path: pathname,
-                    destination_path: destination,
-                  });
-                  router.push(destination);
-                }}
-                className="flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-start text-sm hover:bg-accent"
-              >
-                <FrontendLogo icon={f.id} size={16} className="shrink-0" />
-                <span className="min-w-0 flex-1 truncate">{f.name}</span>
-                {f.id === frontend ? (
-                  <Check
-                    className="size-4 text-fd-primary"
-                    aria-hidden="true"
-                  />
-                ) : null}
-              </button>
-            ))}
-          </div>
-        ))}
+        <FrontendOptions
+          current={frontend}
+          onPick={(pick) => {
+            setOpen(null);
+            if (pick.id === frontend) return;
+            if (pick.earlyAccess) {
+              // An early-access channel is a landing page, not a docs scope,
+              // so the remembered frontend stays the reader's last real one.
+              const destination = earlyAccessHref(pick.id);
+              trackEvent("docs.frontend_selected", {
+                frontend: pick.id,
+                from_frontend: frontend,
+                backend: framework,
+                from_path: pathname,
+                destination_path: destination,
+                early_access: true,
+              });
+              router.push(destination);
+              return;
+            }
+            // Remembered for the pages that aren't per frontend.
+            setFrontend(pick.id);
+            // The same page on the new frontend when it has one, else the
+            // frontend's home.
+            const same =
+              !pages ||
+              !scope.slug ||
+              !!whereIs(pages, pick.id, scope.framework, scope.slug);
+            const destination = frontendHref(
+              path,
+              pick.id,
+              same ? undefined : "",
+            );
+            // Shell-docs' framework selector event, same properties.
+            trackEvent("docs.frontend_selected", {
+              frontend: pick.id,
+              from_frontend: frontend,
+              backend: framework,
+              from_path: pathname,
+              destination_path: destination,
+            });
+            router.push(destination);
+          }}
+        />
       </StackRow>
       <div className="mx-2 my-0.5 border-t" />
       <StackRow

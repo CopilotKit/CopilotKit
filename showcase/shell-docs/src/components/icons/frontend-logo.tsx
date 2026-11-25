@@ -1,10 +1,21 @@
 import type React from "react";
+import { MessageSquareText } from "lucide-react";
 import { BiLogoMicrosoftTeams } from "react-icons/bi";
-import { SiAngular, SiReact, SiVuedotjs } from "react-icons/si";
+import {
+  SiAngular,
+  SiGooglemessages,
+  SiImessage,
+  SiReact,
+  SiVuedotjs,
+  SiWhatsapp,
+} from "react-icons/si";
 import { TbBrandReactNative } from "react-icons/tb";
+import type { EarlyAccessChannelId } from "@/lib/early-access/channels";
 import type { FrontendId } from "@/lib/stack";
 
-// Brand marks for each frontend (copied from shell-docs' frontend-logo.tsx).
+// Brand marks for each frontend (copied from shell-docs' frontend-logo.tsx),
+// and for the early-access channels. SMS has no brand, so it takes a plain
+// message glyph in the text color around it.
 
 type BrandIcon = React.ComponentType<{
   "aria-hidden"?: boolean;
@@ -72,13 +83,43 @@ function SlackColorLogo({
   );
 }
 
-const FRONTEND_ICONS: Record<FrontendId, { Icon: BrandIcon; color: string }> = {
+function SmsGlyph({
+  className,
+  color,
+  size = 18,
+}: {
+  "aria-hidden"?: boolean;
+  className?: string;
+  color?: string;
+  focusable?: boolean | "false";
+  size?: number | string;
+  title?: string;
+}) {
+  return (
+    <MessageSquareText
+      aria-hidden={true}
+      className={className}
+      color={color}
+      focusable={false}
+      size={size}
+    />
+  );
+}
+
+const FRONTEND_ICONS: Record<
+  FrontendId | EarlyAccessChannelId,
+  { Icon: BrandIcon; color: string }
+> = {
   react: { Icon: SiReact, color: "#61DAFB" },
   vue: { Icon: SiVuedotjs, color: "#4FC08D" },
   "react-native": { Icon: TbBrandReactNative, color: "#61DAFB" },
   angular: { Icon: SiAngular, color: "#DD0031" },
   slack: { Icon: SlackColorLogo, color: "currentColor" },
   teams: { Icon: BiLogoMicrosoftTeams, color: "#6264A7" },
+  imessage: { Icon: SiImessage, color: "#34DA50" },
+  whatsapp: { Icon: SiWhatsapp, color: "#25D366" },
+  sms: { Icon: SmsGlyph, color: "currentColor" },
+  rcs: { Icon: SiGooglemessages, color: "#1A73E8" },
 };
 
 export function FrontendLogo({
@@ -86,7 +127,7 @@ export function FrontendLogo({
   size = 18,
   className,
 }: {
-  icon: FrontendId;
+  icon: FrontendId | EarlyAccessChannelId;
   size?: number;
   className?: string;
 }) {
