@@ -319,6 +319,106 @@ describe("TeamsAdapter inbound files", () => {
   });
 });
 
+describe("TeamsAdapter Action.Execute invokes", () => {
+  const prevClientId = process.env.clientId;
+  beforeEach(() => delete process.env.clientId);
+  afterEach(() => {
+    if (prevClientId !== undefined) process.env.clientId = prevClientId;
+  });
+
+  function invokeContext(name: string, data?: Record<string, unknown>) {
+    const sendActivity = vi.fn().mockResolvedValue({ id: "" });
+    const activity = {
+      type: ActivityTypes.Invoke,
+      name,
+      value: data
+        ? { action: { type: "Action.Execute", verb: "go", data } }
+        : undefined,
+      conversation: { id: "conv-1" },
+      from: { id: "user-1", name: "Tester" },
+      replyToId: "card-activity-1",
+      getConversationReference: () => ({
+        conversation: { id: "conv-1" },
+        serviceUrl: "https://smba.trafficmanager.net/amer/",
+      }),
+    };
+    return {
+      context: { activity, sendActivity } as unknown as TurnContext,
+      sendActivity,
+    };
+  }
+
+  it("routes the click as an interaction and answers the invoke", async () => {
+    const adapter = new TeamsAdapter({});
+    const sink = mockSink();
+    const { context, sendActivity } = invokeContext("adaptiveCard/action", {
+      ckActionId: "ck:approve",
+      value: "yes",
+      comment: "ship it",
+    });
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (adapter as any).handleActivity(context, sink);
+    await flush();
+
+    expect(sendActivity).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: ActivityTypes.InvokeResponse,
+        value: expect.objectContaining({ status: 200 }),
+      }),
+    );
+    expect(sink.onInteraction).toHaveBeenCalledTimes(1);
+    const evt = sink.onInteraction.mock.calls[0]![0];
+    expect(evt.id).toBe("ck:approve");
+    expect(evt.value).toBe("yes");
+    expect(evt.values).toEqual({ comment: "ship it" });
+    expect(sink.onTurn).not.toHaveBeenCalled();
+  });
+
+  it("ignores other invokes", async () => {
+    const adapter = new TeamsAdapter({});
+    const sink = mockSink();
+    const { context, sendActivity } = invokeContext("signin/verifyState");
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (adapter as any).handleActivity(context, sink);
+    await flush();
+
+    expect(sendActivity).not.toHaveBeenCalled();
+    expect(sink.onInteraction).not.toHaveBeenCalled();
+    expect(sink.onTurn).not.toHaveBeenCalled();
+  });
+});
+
+describe("TeamsAdapter mentions", () => {
+  const prevClientId = process.env.clientId;
+  beforeEach(() => delete process.env.clientId);
+  afterEach(() => {
+    if (prevClientId !== undefined) process.env.clientId = prevClientId;
+  });
+
+  it.each([
+    [
+      "mentions the bot",
+      [{ type: "mention", mentioned: { id: "bot-1" } }],
+      true,
+    ],
+    ["has no mention", undefined, false],
+  ])("marks a turn that %s", async (_label, entities, mentioned) => {
+    const adapter = new TeamsAdapter({});
+    const sink = mockSink();
+    const ctx = messageContext("hello");
+    Object.assign(ctx.activity, { recipient: { id: "bot-1" }, entities });
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (adapter as any).handleActivity(ctx, sink);
+    await flush();
+
+    expect(sink.onTurn).toHaveBeenCalledTimes(1);
+    expect(sink.onTurn.mock.calls[0]![0].operation.mentioned).toBe(mentioned);
+  });
+});
+
 describe("TeamsAdapter.postFile", () => {
   it("sends a PNG as an inline image attachment via a data: URI", async () => {
     const adapter = new TeamsAdapter({});

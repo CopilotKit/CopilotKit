@@ -41,3 +41,17 @@ test("keeps submitted Teams input values beside routing metadata", () => {
     },
   });
 });
+
+test("keeps Action.Execute input values from the action data", () => {
+  expect(
+    parseCardAction({
+      value: {
+        action: {
+          type: "Action.Execute",
+          data: { ckActionId: "ck:save", value: "save", customer: "Ada" },
+        },
+        trigger: "manual",
+      },
+    }),
+  ).toEqual({ id: "ck:save", value: "save", values: { customer: "Ada" } });
+});

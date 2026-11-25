@@ -58,8 +58,8 @@ const VALUE_ONLY_ID = "wa:choice";
  * `button`/`select` nodes. Then decide a single shape:
  *   - 0 actions            → a text message (image nodes emitted separately).
  *   - 1..3 button actions   → interactive `button`.
- *   - 4..10 actions         → interactive `list`.
- *   - >10 actions           → numbered text menu (degraded).
+ *   - 4+ actions (or a select) → interactive `list`; more than 10 options are
+ *     split into several lists of up to 10 rows each.
  * Image nodes always emit their own image payload.
  */
 export function renderWhatsAppMessage(ir: ChannelNode[]): WhatsAppOutbound[] {
@@ -175,14 +175,23 @@ export function renderWhatsAppMessage(ir: ChannelNode[]): WhatsAppOutbound[] {
     return out;
   }
 
-  if (actions.length <= WA_LIMITS.listRows) {
-    out.unshift(listPayload(bodyText || "​", selectButtonLabel, actions));
-    return out;
+  // A list holds at most 10 rows. Send more options as several lists, so every
+  // option stays a tappable reply that routes back to its handler.
+  const pages = Math.ceil(actions.length / WA_LIMITS.listRows);
+  const lists: WhatsAppOutbound[] = [];
+  for (let page = 0; page < pages; page++) {
+    const start = page * WA_LIMITS.listRows;
+    const body =
+      page === 0 ? bodyText || "​" : `More options (${page + 1}/${pages})`;
+    lists.push(
+      listPayload(
+        body,
+        selectButtonLabel,
+        actions.slice(start, start + WA_LIMITS.listRows),
+      ),
+    );
   }
-
-  // Degrade: numbered text menu.
-  const numbered = actions.map((a, i) => `${i + 1}. ${a.title}`).join("\n");
-  out.unshift(textPayload(`${bodyText}\n\n${numbered}`.trim()));
+  out.unshift(...lists);
   return out;
 }
 
