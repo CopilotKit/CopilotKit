@@ -13,29 +13,53 @@ import { useFrontend } from "./frontend";
 import { useLastFramework } from "./last-framework";
 import { useLivePages } from "./live-pages-context";
 
+/** The framework a stack's URLs name: none for the built-in agent's pages, or a framework without docs. */
+function urlFramework(framework: string | null | undefined) {
+  return framework && framework !== ROOT_FRAMEWORK && liveFramework(framework)
+    ? framework
+    : null;
+}
+
+/** A stack's URL prefix: `/vue/mastra`, `/mastra` on React, `""` for React and the built-in agent. */
+export function stackPrefix(
+  frontend: FrontendId,
+  framework: string | null | undefined,
+) {
+  const fw = urlFramework(framework);
+  const fe = frontend !== "react" ? `/${frontendSegment(frontend)}` : "";
+  return `${fe}${fw ? `/${fw}` : ""}`;
+}
+
 /**
- * A live docs page's URL on a stack: `intelligence/overview` on Vue with
- * Mastra is `/vue/mastra/intelligence/overview`. `""` is the stack's home
- * (React's is the framework's quickstart). When the stack has no such page
- * (`pages` says where every page lives), it is the stack's home instead, so a
- * link never sends the reader off their stack or to a missing page.
+ * A live docs page's URL on a stack (`intelligence/overview` on Vue with
+ * Mastra is `/vue/mastra/intelligence/overview`), or null when the stack has
+ * no such page (`pages` says where every page lives). `""` is the stack's
+ * landing.
+ */
+export function stackPage(
+  frontend: FrontendId,
+  framework: string | null | undefined,
+  slug: string,
+  pages: PageIndex | null,
+) {
+  if (pages && slug && !whereIs(pages, frontend, urlFramework(framework), slug))
+    return null;
+  return `${stackPrefix(frontend, framework)}${slug ? `/${slug}` : ""}` || "/";
+}
+
+/**
+ * `stackPage`, or the stack's home when it has no such page (React's is the
+ * framework's quickstart, another frontend's its own home), so a link never
+ * sends the reader off their stack or to a missing page.
  */
 export function stackHref(
   frontend: FrontendId,
   framework: string | null | undefined,
   slug: string,
   pages: PageIndex | null,
-) {
-  // The built-in agent's pages are the unscoped ones; a framework without
-  // docs falls back to them too.
-  const fw =
-    framework && framework !== ROOT_FRAMEWORK && liveFramework(framework)
-      ? framework
-      : null;
-  const exists = !pages || !slug || !!whereIs(pages, frontend, fw, slug);
-  const page = exists && slug ? slug : frontend === "react" ? "quickstart" : "";
-  const fe = frontend !== "react" ? `/${frontendSegment(frontend)}` : "";
-  return `${fe}${fw ? `/${fw}` : ""}${page ? `/${page}` : ""}` || "/";
+): string {
+  const home = `${stackPrefix(frontend, framework)}${frontend === "react" ? "/quickstart" : ""}`;
+  return stackPage(frontend, framework, slug, pages) ?? (home || "/");
 }
 
 /**

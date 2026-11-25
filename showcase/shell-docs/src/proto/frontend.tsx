@@ -50,6 +50,15 @@ export function rememberFrontend(id: FrontendId) {
   for (const l of listeners) l();
 }
 
+/**
+ * The saved frontend, or null before the reader has one, without the
+ * provider: for UI mounted outside the docs layout (the search dialog).
+ */
+export function useSavedFrontend(): FrontendId | null {
+  const raw = useSyncExternalStore(subscribe, read, () => "");
+  return isFrontend(raw) ? raw : null;
+}
+
 interface FrontendContextValue {
   frontend: FrontendId;
   chosen: boolean;

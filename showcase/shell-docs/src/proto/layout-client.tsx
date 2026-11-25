@@ -60,6 +60,7 @@ import { LivePagesProvider } from "./live-pages-context";
 import { trackEvent } from "@/lib/telemetry/analytics";
 import { cn } from "@/lib/cn";
 import type { LiveNav } from "@/lib/live-nav";
+import { whereIs } from "@/lib/live-pages";
 import { ROOT_FRAMEWORK, liveFrontend, scopeFromPath } from "@/lib/live-scope";
 import { variantMeta } from "./meta";
 
@@ -708,12 +709,24 @@ export function ProtoLayout({
     liveNav ? pathname : null,
   );
   const meta = variantMeta(variant);
-  const framework = loc?.kind === "framework" ? loc.framework : undefined;
+  const urlFrontend = scopeFromPath(
+    pathname.split("/").filter(Boolean),
+  ).frontend;
+  // A URL no page answers (a 404) isn't a stack the reader chose.
+  const exists =
+    loc?.kind !== "framework" ||
+    !liveNav ||
+    !loc.slug ||
+    !!whereIs(
+      liveNav.index,
+      urlFrontend,
+      loc.framework === ROOT_FRAMEWORK ? null : loc.framework,
+      loc.slug,
+    );
+  const framework =
+    loc?.kind === "framework" && exists ? loc.framework : undefined;
   // The URL's frontend, on a docs page (`/vue/...`; React when it names none).
-  const frontend =
-    framework && liveNav
-      ? scopeFromPath(pathname.split("/").filter(Boolean)).frontend
-      : undefined;
+  const frontend = framework && liveNav ? urlFrontend : undefined;
 
   // Prototype D remembers the stack being read so the home, the reference,
   // and the cookbook point at your docs.
