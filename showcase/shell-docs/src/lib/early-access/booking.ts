@@ -38,14 +38,24 @@ export const ANSWER_LIMIT =
   Math.max(...EARLY_ACCESS_CHANNELS.map((c) => channelLine(c.name).length)) -
   2;
 
-/** `GET /api/channel-demo/slots?channel=<id>`. */
-export interface ChannelDemoTimes {
-  status: "live" | "unavailable";
-  /** Open start times, ISO 8601 in UTC; send one back to book it. */
-  slots: { startTime: string }[];
-  /** Times on the event's hours that aren't open, shown beside them. */
-  unavailable: { startTime: string }[];
+/** A start time, ISO 8601 in UTC, as the website's Calendly booker gives it. */
+export interface StartTime {
+  startTime: string;
 }
+
+/**
+ * `GET /api/channel-demo/slots?channel=<id>`: the open times (send one back
+ * to book it) and the times on the event's hours that aren't open; or none,
+ * because the event has no open time (`none`) or the read failed (`error`).
+ */
+export type ChannelDemoTimes =
+  | { status: "live"; slots: StartTime[]; unavailable: StartTime[] }
+  | {
+      status: "unavailable";
+      reason: "none" | "error";
+      slots: StartTime[];
+      unavailable: StartTime[];
+    };
 
 /** `POST /api/channel-demo/book`. */
 export interface ChannelDemoBookRequest {

@@ -33,8 +33,8 @@ import { BOOKER_TEXT as TEXT } from "./text";
 export const BOOKER_ID = "book";
 
 const TIMES_ENDPOINT = "/api/channel-demo/slots";
-/** The proxy gives the website five seconds; this covers it and the trip. */
-const CLIENT_TIMEOUT_MS = 8_000;
+/** The proxy gives the website 12 seconds; this covers it and the trip. */
+const CLIENT_TIMEOUT_MS = 15_000;
 /** Back on the tab after this long, the times are read again. */
 const STALE_MS = 60_000;
 const SKELETON_DAYS = 5;
