@@ -1,0 +1,41 @@
+<Steps>
+  <Step>
+    ### Use the state-aware Agno endpoint
+
+    Shared state lives in Agno's `RunContext.session_state`. The
+    [Agno example agent](https://github.com/CopilotKit/CopilotKit/blob/main/showcase/integrations/agno/src/agents/shared_state_read_write.py)
+    reads `preferences` when it builds its instructions. Its `set_notes` tool
+    writes a list of strings to `notes`.
+
+    Point your CopilotKit runtime's `HttpAgent` at the example's
+    `/shared-state-rw/agui` endpoint. Register it as `default` to match
+    `NotesCard` below, or use your existing runtime key in `useAgent`.
+
+    The [example server](https://github.com/CopilotKit/CopilotKit/blob/main/showcase/integrations/agno/src/agent_server.py)
+    passes the incoming AG-UI state to Agno as session state. Its custom
+    endpoint sends a `STATE_SNAPSHOT` before the run ends, so React Native can
+    see what the tool wrote. The stock Agno endpoint used in the quickstart
+    does not send this snapshot in the example's Agno version.
+
+  </Step>
+  <Step>
+    ### Give a new thread an initial state
+
+    The `NotesState` type below describes the fields. It does not create them.
+    To start a new demo thread with a visible note, add the defaults below in
+    the state-aware handler before it calls `agent.arun`. They preserve keys
+    already present in the incoming state.
+
+    ```python title="src/agent_server.py"
+    session_state = validate_agui_state(run_input.state, thread_id) or {}
+    session_state.setdefault("notes", ["Ready to take notes."])
+    session_state.setdefault("preferences", {"tone": "concise"})
+    # Pass this dictionary as session_state= when calling agent.arun.
+    ```
+
+    Send a message to run the agent. The notes appear in the UI after the
+    first snapshot. Ask the agent to remember a specific detail and check
+    that the notes list updates when it calls `set_notes`.
+
+  </Step>
+</Steps>
