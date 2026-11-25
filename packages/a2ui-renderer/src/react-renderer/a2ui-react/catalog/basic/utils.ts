@@ -40,6 +40,8 @@ export function getAccessibilityProps(accessibility?: {
 /** Standard leaf margin from the implementation guide. */
 export const LEAF_MARGIN = "8px";
 
+export const LEAF_FULL_WIDTH = `calc(100% - 2 * ${LEAF_MARGIN})`;
+
 /** Standard internal padding for visually bounded containers. */
 export const CONTAINER_PADDING = "16px";
 

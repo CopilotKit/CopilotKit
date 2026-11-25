@@ -17,7 +17,11 @@
 import React from "react";
 import { createReactComponent } from "../../../adapter";
 import { AudioPlayerApi } from "@a2ui/web_core/v0_9/basic_catalog";
-import { getAccessibilityProps, getBaseLeafStyle } from "../utils";
+import {
+  getAccessibilityProps,
+  getBaseLeafStyle,
+  LEAF_FULL_WIDTH,
+} from "../utils";
 
 export const AudioPlayer = createReactComponent(
   AudioPlayerApi,
@@ -25,7 +29,7 @@ export const AudioPlayer = createReactComponent(
   ({ props }) => {
     const style: React.CSSProperties = {
       ...getBaseLeafStyle(),
-      width: "100%",
+      width: LEAF_FULL_WIDTH,
     };
 
     return (

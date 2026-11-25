@@ -17,7 +17,11 @@
 import React from "react";
 import { createReactComponent } from "../../../adapter";
 import { CardApi } from "@a2ui/web_core/v0_9/basic_catalog";
-import { getAccessibilityProps, getBaseContainerStyle } from "../utils";
+import {
+  getAccessibilityProps,
+  getBaseContainerStyle,
+  LEAF_FULL_WIDTH,
+} from "../utils";
 
 export const Card = createReactComponent(
   CardApi,
@@ -27,7 +31,7 @@ export const Card = createReactComponent(
       ...getBaseContainerStyle(),
       backgroundColor: "var(--a2ui-color-surface, #fff)",
       boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-      width: "100%",
+      width: LEAF_FULL_WIDTH,
     };
 
     return (

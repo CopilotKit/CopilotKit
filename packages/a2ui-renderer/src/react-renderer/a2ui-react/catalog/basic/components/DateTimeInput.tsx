@@ -22,6 +22,7 @@ import {
   LEAF_MARGIN,
   STANDARD_BORDER,
   STANDARD_RADIUS,
+  LEAF_FULL_WIDTH,
 } from "../utils";
 
 export const DateTimeInput = createReactComponent(
@@ -53,7 +54,7 @@ export const DateTimeInput = createReactComponent(
           display: "flex",
           flexDirection: "column",
           gap: "4px",
-          width: "100%",
+          width: LEAF_FULL_WIDTH,
           margin: LEAF_MARGIN,
         }}
       >

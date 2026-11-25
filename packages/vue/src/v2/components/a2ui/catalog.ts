@@ -5,7 +5,8 @@
  * mirroring the React renderer's catalog/basic/.
  */
 
-import { h, ref, type CSSProperties, type VNode } from "vue";
+import { h, ref } from "vue";
+import type { CSSProperties, VNode } from "vue";
 import { Catalog } from "@a2ui/web_core/v0_9";
 import {
   TextApi,
@@ -29,8 +30,10 @@ import {
   BASIC_FUNCTIONS,
 } from "@a2ui/web_core/v0_9/basic_catalog";
 
-import { createVueComponent, type VueComponentImplementation } from "./adapter";
+import { createVueComponent } from "./adapter";
+import type { VueComponentImplementation } from "./adapter";
 import {
+  LEAF_FULL_WIDTH,
   LEAF_MARGIN,
   STANDARD_BORDER,
   STANDARD_RADIUS,
@@ -112,7 +115,7 @@ const Image = createVueComponent(ImageApi, ({ props }) => {
   const style: CSSProperties = {
     ...getBaseLeafStyle(),
     objectFit: mapFit(props.fit) as CSSProperties["objectFit"],
-    width: "100%",
+    width: LEAF_FULL_WIDTH,
     height: "auto",
     display: "block",
   };
@@ -157,7 +160,7 @@ const Icon = createVueComponent(IconApi, ({ props }) => {
 const Video = createVueComponent(VideoApi, ({ props }) => {
   const style = {
     ...getBaseLeafStyle(),
-    width: "100%",
+    width: LEAF_FULL_WIDTH,
     aspectRatio: "16/9",
   };
 
@@ -165,7 +168,7 @@ const Video = createVueComponent(VideoApi, ({ props }) => {
 });
 
 const AudioPlayer = createVueComponent(AudioPlayerApi, ({ props }) => {
-  const style = { ...getBaseLeafStyle(), width: "100%" };
+  const style = { ...getBaseLeafStyle(), width: LEAF_FULL_WIDTH };
 
   return h(
     "div",
@@ -252,7 +255,7 @@ const Card = createVueComponent(CardApi, ({ props, buildChild }) => {
     ...getBaseContainerStyle(),
     backgroundColor: "var(--a2ui-color-surface, #fff)",
     boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-    width: "100%",
+    width: LEAF_FULL_WIDTH,
   };
 
   return h("div", { style }, [props.child ? buildChild(props.child) : null]);
@@ -269,7 +272,7 @@ const Tabs = createVueComponent(
         style: {
           display: "flex",
           flexDirection: "column",
-          width: "100%",
+          width: LEAF_FULL_WIDTH,
           margin: LEAF_MARGIN,
         },
       },
@@ -339,7 +342,7 @@ const Divider = createVueComponent(DividerApi, ({ props }) => {
     style.width = "1px";
     style.height = "100%";
   } else {
-    style.width = "100%";
+    style.width = LEAF_FULL_WIDTH;
     style.height = "1px";
   }
 
@@ -496,7 +499,7 @@ const TextField = createVueComponent(
           display: "flex",
           flexDirection: "column",
           gap: "4px",
-          width: "100%",
+          width: LEAF_FULL_WIDTH,
           margin: LEAF_MARGIN,
         },
       },
@@ -653,7 +656,7 @@ const ChoicePicker = createVueComponent(
           flexDirection: "column",
           gap: "8px",
           margin: LEAF_MARGIN,
-          width: "100%",
+          width: LEAF_FULL_WIDTH,
         },
       },
       [
@@ -758,7 +761,7 @@ const Slider = createVueComponent(
           flexDirection: "column",
           gap: "4px",
           margin: LEAF_MARGIN,
-          width: "100%",
+          width: LEAF_FULL_WIDTH,
         },
       },
       [
@@ -828,7 +831,7 @@ const DateTimeInput = createVueComponent(
           display: "flex",
           flexDirection: "column",
           gap: "4px",
-          width: "100%",
+          width: LEAF_FULL_WIDTH,
           margin: LEAF_MARGIN,
         },
       },
