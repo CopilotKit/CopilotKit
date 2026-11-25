@@ -129,3 +129,33 @@ export function channelMarkdownResponse(path: string[]): Response | null {
     },
   });
 }
+
+/**
+ * A channel page's words for search and the page tools
+ * (src/lib/llms/live-search.ts, page-tools.ts): its title, its description,
+ * and the lines that are its own. The example conversation and the steps
+ * every channel page shares are left out, so a search for an order number or
+ * "Channels SDK" doesn't turn up four landing pages.
+ */
+export function channelPageSearchText(id: EarlyAccessChannelId): {
+  title: string;
+  description: string;
+  contents: string[];
+} {
+  const copy = EARLY_ACCESS_CHANNEL_COPY[id];
+  return {
+    title: copy.hero.title,
+    description: copy.meta.description,
+    contents: [
+      copy.hero.lede,
+      copy.status,
+      copy.booking.heading,
+      copy.booking.note,
+      ...copy.features.map((f) => `${f.title}. ${f.body}`),
+      ...(copy.howItWorksNote ? [copy.howItWorksNote] : []),
+      ...copy.specifics.map((f) => `${f.title}. ${f.body}`),
+      copy.closing.title,
+      copy.closing.body,
+    ],
+  };
+}

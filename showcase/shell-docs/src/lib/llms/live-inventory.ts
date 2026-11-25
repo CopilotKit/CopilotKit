@@ -10,6 +10,7 @@ import {
   EARLY_ACCESS_CHANNELS,
   earlyAccessHref,
 } from "@/lib/early-access/channels";
+import type { EarlyAccessChannelId } from "@/lib/early-access/channels";
 import { findSeoRedirect } from "@/lib/redirects/seo-redirects";
 import type { FrontendId } from "@/proto/data";
 
@@ -18,10 +19,12 @@ import type { FrontendId } from "@/proto/data";
 // `src/lib/live-docs.ts`), so the sitemap, llms.txt, search, and the MCP
 // server never offer the same page under a second URL.
 //
-//   sitemapEntries()   /sitemap.xml
-//   llmsFullEntries()  /llms-full.txt
-//   searchEntries()    Cmd-K search and /api/mcp, each tagged with the
-//                      frontends whose readers have the page
+//   sitemapEntries()      /sitemap.xml
+//   llmsFullEntries()     /llms-full.txt
+//   searchEntries()       Cmd-K search and /api/mcp, each tagged with the
+//                         frontends whose readers have the page
+//   earlyAccessEntries()  the early-access channels' landing pages
+//                         (`/whatsapp`) in search and /api/mcp
 
 export interface LiveEntry {
   /** Public path, `/mastra/background-tasks`. */
@@ -130,6 +133,26 @@ export function searchEntries(): (LiveEntry & { frontends: FrontendId[] })[] {
         !live.overview && !live.variant && !isEarlyAccess(live.page),
     )
     .map((entry) => ({ ...entry, frontends: frontendsOf(entry) }));
+}
+
+export interface EarlyAccessEntry {
+  /** `/whatsapp`. */
+  url: string;
+  id: EarlyAccessChannelId;
+  frontends: FrontendId[];
+}
+
+/**
+ * The early-access channels' landing pages, for search and the page tools
+ * (`/api/mcp`, Ask AI): one page each, at its one URL, for readers on every
+ * frontend.
+ */
+export function earlyAccessEntries(): EarlyAccessEntry[] {
+  return EARLY_ACCESS_CHANNELS.map((channel) => ({
+    url: earlyAccessHref(channel.id),
+    id: channel.id,
+    frontends: ALL_FRONTENDS,
+  }));
 }
 
 /** The frontends a framework's version of a shared page opens on. */
