@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { ArrowDown, ArrowRight } from "lucide-react";
+import { ArrowDown, ArrowRight, Info } from "lucide-react";
 import { EarlyAccessBadge } from "@/components/early-access/badge";
 import { BookCta } from "@/components/early-access/book-cta";
 import { ChannelDemoBooker } from "@/components/early-access/booker";
@@ -24,7 +24,9 @@ import type { EarlyAccessChannelId } from "@/lib/early-access/channels";
 import {
   EARLY_ACCESS_CHANNEL_COPY,
   SHARED_EARLY_ACCESS_COPY,
+  linkSegments,
 } from "@/lib/early-access/copy";
+import type { TextLink } from "@/lib/early-access/copy";
 import { ChannelSwitcher } from "./channel-switcher";
 import { FRONTENDS } from "./data";
 import { DFooter } from "./home-d";
@@ -37,9 +39,25 @@ const CHANNELS_OVERVIEW = "/slack";
 const sectionTitle = "text-2xl leading-tight font-medium tracking-[-0.03em]";
 /** A card standing on the page, as the home's: white, a hairline, a lift. */
 const card = "rounded-xl border bg-card shadow-card dark:bg-[#13131b]";
+/** A link inside a line of text, as the docs' prose links. */
+const inlineLink =
+  "rounded-sm font-medium text-primary underline decoration-[1.5px] underline-offset-[3.5px] outline-none transition-opacity hover:opacity-80 focus-visible:ring-3 focus-visible:ring-ring/50 motion-reduce:transition-none";
 
 /** Shared lines name the channel as "{channel}". */
 const fill = (text: string, name: string) => text.replaceAll("{channel}", name);
+
+/** A line of copy with its links (`/sms` in iMessage's Android line). */
+function Linked({ text, links }: { text: string; links?: TextLink[] }) {
+  return linkSegments(text, links).map((segment, index) =>
+    segment.href ? (
+      <Link key={index} href={segment.href} className={inlineLink}>
+        {segment.text}
+      </Link>
+    ) : (
+      segment.text
+    ),
+  );
+}
 
 /**
  * An early-access channel's landing page (/imessage, /whatsapp, /sms, /rcs),
@@ -75,10 +93,19 @@ export function ChannelLanding({ id }: { id: EarlyAccessChannelId }) {
               {copy.hero.lede}
             </p>
           </div>
-          {/* Where the channel stands today, after its early-access badge. */}
+          {/* Where the channel stands today, after its early-access badge,
+              and a link to what ships now (WhatsApp's adapter). */}
           <p className="max-w-[36rem] text-sm leading-relaxed text-muted-foreground">
             <EarlyAccessBadge className="me-2" />
             {copy.status}
+            {copy.statusLink ? (
+              <>
+                {" "}
+                <Link href={copy.statusLink.href} className={inlineLink}>
+                  {copy.statusLink.label}
+                </Link>
+              </>
+            ) : null}
           </p>
           <div className="flex flex-wrap items-center gap-3">
             <BookCta>{shared.primaryCta}</BookCta>
@@ -142,6 +169,17 @@ export function ChannelLanding({ id }: { id: EarlyAccessChannelId }) {
             <p className="leading-relaxed text-muted-foreground">
               {fill(shared.howItWorks.lede, name)}
             </p>
+            {/* Where the channel also runs another way today (WhatsApp's
+                direct adapter): a quiet aside, as a docs callout. */}
+            {copy.howItWorksNote ? (
+              <p className="flex gap-2.5 text-sm leading-relaxed text-muted-foreground">
+                <Info
+                  aria-hidden="true"
+                  className="mt-0.5 size-4 shrink-0 text-primary"
+                />
+                {copy.howItWorksNote}
+              </p>
+            ) : null}
           </div>
           <Link
             href={CHANNELS_OVERVIEW}
@@ -200,7 +238,7 @@ export function ChannelLanding({ id }: { id: EarlyAccessChannelId }) {
             <li key={fact.title} className="flex flex-col gap-2 border-t pt-5">
               <h3 className="leading-6 font-semibold">{fact.title}</h3>
               <p className="leading-relaxed text-muted-foreground">
-                {fact.body}
+                <Linked text={fact.body} links={fact.links} />
               </p>
             </li>
           ))}

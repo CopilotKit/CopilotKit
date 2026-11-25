@@ -5,8 +5,12 @@ import {
   earlyAccessHref,
 } from "./channels";
 import type { EarlyAccessChannelId } from "./channels";
-import { EARLY_ACCESS_CHANNEL_COPY, SHARED_EARLY_ACCESS_COPY } from "./copy";
-import type { ConversationMessage } from "./copy";
+import {
+  EARLY_ACCESS_CHANNEL_COPY,
+  SHARED_EARLY_ACCESS_COPY,
+  linkSegments,
+} from "./copy";
+import type { ConversationMessage, TextLink } from "./copy";
 
 // An early-access channel page as Markdown, for agents: what `/whatsapp.md`
 // and `Accept: text/markdown` on `/whatsapp` return (src/app/llms.mdx/live),
@@ -15,6 +19,13 @@ import type { ConversationMessage } from "./copy";
 // the reader can.
 
 const fill = (text: string, name: string) => text.replaceAll("{channel}", name);
+
+/** A line of copy with its links as Markdown links. */
+function linked(line: string, links?: TextLink[]) {
+  return linkSegments(line, links)
+    .map(({ text, href }) => (href ? `[${text}](${withBasePath(href)})` : text))
+    .join("");
+}
 
 function transcriptLine(message: ConversationMessage, contact: string) {
   const who = message.from === "person" ? "Person" : contact;
@@ -30,6 +41,9 @@ export function channelPageMarkdown(id: EarlyAccessChannelId): string {
   const shared = SHARED_EARLY_ACCESS_COPY;
   const name = copy.name;
   const channel = earlyAccessChannel(id);
+  const statusLink = copy.statusLink
+    ? ` [${copy.statusLink.label}](${withBasePath(copy.statusLink.href)}).`
+    : "";
   const lines = [
     `# ${copy.hero.title}`,
     "",
@@ -37,7 +51,7 @@ export function channelPageMarkdown(id: EarlyAccessChannelId): string {
     "",
     copy.hero.lede,
     "",
-    `**${shared.eyebrow}:** ${copy.status}`,
+    `**${shared.eyebrow}:** ${copy.status}${statusLink}`,
     "",
     `## ${copy.booking.heading}`,
     "",
@@ -57,6 +71,7 @@ export function channelPageMarkdown(id: EarlyAccessChannelId): string {
     "",
     fill(shared.howItWorks.lede, name),
     "",
+    ...(copy.howItWorksNote ? [copy.howItWorksNote, ""] : []),
     ...shared.howItWorks.steps.map(
       (step, index) =>
         `${index + 1}. **${fill(step.title, name)}.** ${fill(step.body, name)}`,
@@ -66,7 +81,9 @@ export function channelPageMarkdown(id: EarlyAccessChannelId): string {
     "",
     `## ${fill(shared.specificsTitle, name)}`,
     "",
-    ...copy.specifics.map((f) => `- **${f.title}.** ${f.body}`),
+    ...copy.specifics.map(
+      (f) => `- **${f.title}.** ${linked(f.body, f.links)}`,
+    ),
     "",
     `## ${copy.closing.title}`,
     "",

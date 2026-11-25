@@ -29,10 +29,38 @@ export type ConversationMessage =
       actions: string[];
     };
 
+/** A link on words in a line of copy: the first `text` in the line links to `href` (a docs path). */
+export interface TextLink {
+  text: string;
+  href: string;
+}
+
+/** A line of copy split around its links, in reading order, for the page and its Markdown. */
+export function linkSegments(
+  line: string,
+  links: TextLink[] = [],
+): { text: string; href?: string }[] {
+  const found = links
+    .map((link) => ({ ...link, at: line.indexOf(link.text) }))
+    .filter((link) => link.at >= 0)
+    .sort((a, b) => a.at - b.at);
+  const segments: { text: string; href?: string }[] = [];
+  let from = 0;
+  for (const link of found) {
+    // A link inside one already placed stays plain text.
+    if (link.at < from) continue;
+    if (link.at > from) segments.push({ text: line.slice(from, link.at) });
+    segments.push({ text: link.text, href: link.href });
+    from = link.at + link.text.length;
+  }
+  if (from < line.length) segments.push({ text: line.slice(from) });
+  return segments;
+}
+
 export interface EarlyAccessChannelCopy {
   id: EarlyAccessChannelId;
   name: string; // "iMessage", "WhatsApp", "SMS", "RCS": from ./channels
-  meta: { title: string; description: string }; // title <= 60 chars, description <= 155 chars
+  meta: { title: string; description: string }; // title <= 60 chars, description <= 132 chars (the social card cuts it there)
   hero: { title: string; lede: string }; // H1 <= 8 words; lede 1-2 sentences
   booking: {
     heading: string; // "Book a 25-minute iMessage demo"
@@ -42,8 +70,10 @@ export interface EarlyAccessChannelCopy {
   };
   conversation: { contact: string; messages: ConversationMessage[] }; // 4-6 messages, a realistic use case, channel-appropriate kinds only (SMS and iMessage: text only; WhatsApp: text + choices; RCS: text + card + choices)
   features: { title: string; body: string }[]; // exactly 3: what you get with CopilotKit in this channel
-  specifics: { title: string; body: string }[]; // exactly 3: facts unique to this channel
+  specifics: { title: string; body: string; links?: TextLink[] }[]; // exactly 3: facts unique to this channel
   status: string; // one sentence on availability today
+  statusLink?: { label: string; href: string }; // a link after the status line, to what ships today
+  howItWorksNote?: string; // one line under "How it works", where the channel also works another way today
   closing: { title: string; body: string };
 }
 
@@ -58,7 +88,7 @@ export const EARLY_ACCESS_CHANNEL_COPY: Record<
     meta: {
       title: "Bring your AI agent to iMessage (early access) | CopilotKit",
       description:
-        "Answer customers in iMessage with your AI agent. Get early access to CopilotKit Channels for iMessage and book a demo with an engineer.",
+        "Answer customers in iMessage with your AI agent. Get early access to CopilotKit Channels for iMessage and book a demo.",
     },
     hero: {
       title: "Bring your agent to iMessage",
@@ -118,6 +148,10 @@ export const EARLY_ACCESS_CHANNEL_COPY: Record<
       {
         title: "For people on Apple devices",
         body: "iMessage runs between Apple devices. For Android phones, see SMS and RCS, which are in early access too.",
+        links: [
+          { text: "SMS", href: "/sms" },
+          { text: "RCS", href: "/rcs" },
+        ],
       },
     ],
     status: "iMessage support is in early access and not released yet.",
@@ -135,11 +169,11 @@ export const EARLY_ACCESS_CHANNEL_COPY: Record<
     meta: {
       title: "Bring your AI agent to WhatsApp | CopilotKit",
       description:
-        "Answer customers on WhatsApp with your AI agent. The CopilotKit Channels adapter ships today, and managed WhatsApp is in early access. Book a demo.",
+        "Answer customers on WhatsApp with your AI agent. The CopilotKit adapter ships today, and managed WhatsApp is in early access.",
     },
     hero: {
       title: "Bring your agent to WhatsApp",
-      lede: "Answer customers on WhatsApp with the AG-UI agent you already run. Reply buttons and approvals ship today in the direct adapter, and managed WhatsApp on CopilotKit Intelligence is in early access.",
+      lede: "Answer customers on WhatsApp with the AG-UI agent you already run, with reply buttons, lists, and approvals in the chat.",
     },
     booking: {
       heading: "Book a 25-minute WhatsApp demo",
@@ -203,6 +237,12 @@ export const EARLY_ACCESS_CHANNEL_COPY: Record<
     ],
     status:
       "The direct adapter in @copilotkit/channels/whatsapp is available today, and managed WhatsApp on CopilotKit Intelligence is in early access.",
+    statusLink: {
+      label: "Read the WhatsApp adapter docs",
+      href: "/reference/channels/sdk/direct-adapters#whatsapp",
+    },
+    howItWorksNote:
+      "This is how managed WhatsApp works in early access. With the direct adapter you can use today, your process holds the WhatsApp credentials and receives the webhook itself.",
     closing: {
       title: "Your agent can answer on WhatsApp today",
       body: "Book a demo to talk through the direct adapter, managed early access, and what your agent should do on WhatsApp.",
@@ -216,7 +256,7 @@ export const EARLY_ACCESS_CHANNEL_COPY: Record<
     meta: {
       title: "Bring your AI agent to SMS (early access) | CopilotKit",
       description:
-        "Answer customers and field crews by text with your AI agent. SMS reaches any mobile phone. Get early access to CopilotKit Channels for SMS.",
+        "Answer customers and field crews by text with your AI agent. Get early access to CopilotKit Channels for SMS and book a demo.",
     },
     hero: {
       title: "Bring your agent to SMS",
@@ -293,7 +333,7 @@ export const EARLY_ACCESS_CHANNEL_COPY: Record<
     meta: {
       title: "Bring your AI agent to RCS (early access) | CopilotKit",
       description:
-        "Answer customers in RCS business messages with your AI agent. Get early access to CopilotKit Channels for RCS and book a demo with an engineer.",
+        "Answer customers in RCS business messages with your AI agent. Get early access to CopilotKit Channels for RCS and book a demo.",
     },
     hero: {
       title: "Bring your agent to RCS",

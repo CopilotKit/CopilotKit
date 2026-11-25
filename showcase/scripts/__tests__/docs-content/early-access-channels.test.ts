@@ -28,6 +28,7 @@ import {
   nextConfigRedirects,
 } from "../../../shell-docs/src/lib/redirects/next-config-redirects.mjs";
 import { EARLY_ACCESS_CHANNEL_IDS } from "../../../shell-docs/src/lib/early-access/channels";
+import { EARLY_ACCESS_CHANNEL_COPY } from "../../../shell-docs/src/lib/early-access/copy";
 import {
   channelMarkdownResponse,
   channelPageMarkdown,
@@ -150,5 +151,36 @@ describe("the channel list every docs page loads", () => {
       "utf8",
     );
     expect(source).not.toMatch(/^\s*import\s/m);
+  });
+});
+
+describe("the channel pages' words", () => {
+  test("each description fits the social card, which cuts at 132 characters", () => {
+    for (const id of EARLY_ACCESS_CHANNEL_IDS) {
+      expect(
+        EARLY_ACCESS_CHANNEL_COPY[id].meta.description.length,
+      ).toBeLessThanOrEqual(132);
+    }
+  });
+
+  test("WhatsApp's Markdown links the adapter that ships today and says how it differs", () => {
+    const link =
+      "[Read the WhatsApp adapter docs](/reference/channels/sdk/direct-adapters#whatsapp)";
+    const note =
+      "This is how managed WhatsApp works in early access. With the direct adapter you can use today, your process holds the WhatsApp credentials and receives the webhook itself.";
+    const markdown = channelPageMarkdown("whatsapp");
+    expect(markdown).toContain(link);
+    expect(markdown).toContain(note);
+    // The channels with no adapter yet have neither.
+    for (const id of ["imessage", "sms", "rcs"] as const) {
+      expect(channelPageMarkdown(id)).not.toContain(link);
+      expect(channelPageMarkdown(id)).not.toContain(note);
+    }
+  });
+
+  test("iMessage's Markdown links the Android channels", () => {
+    expect(channelPageMarkdown("imessage")).toContain(
+      "For Android phones, see [SMS](/sms) and [RCS](/rcs), which are in early access too.",
+    );
   });
 });
