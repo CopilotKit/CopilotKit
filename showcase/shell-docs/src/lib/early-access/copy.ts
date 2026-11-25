@@ -1,6 +1,7 @@
 /*
   Every word on the four early-access channel landing pages on docs.copilotkit.ai (/imessage, /whatsapp, /sms, /rcs),
-  in reading order. Self-contained: no imports.
+  in reading order. Each channel's name, its card line, and the "Early access" label live in ./channels, which every
+  docs page loads; the rest is here, and only the landing page, its Markdown, its metadata, and its social card load it.
 
   - The example conversations are illustrative, not customer data.
   - iMessage, SMS, and RCS have not shipped. Their copy states the intent and what the Channels SDK already does, and
@@ -10,7 +11,10 @@
   - Every factual claim and its source file is listed in copy.md, under "Claims check".
 */
 
-export type EarlyAccessChannelId = "imessage" | "whatsapp" | "sms" | "rcs";
+import { EARLY_ACCESS_CHANNEL_NAMES, EARLY_ACCESS_LABEL } from "./channels";
+import type { EarlyAccessChannelId } from "./channels";
+
+export type { EarlyAccessChannelId };
 
 export type ConversationMessage =
   | { from: "person" | "agent"; kind: "text"; text: string }
@@ -27,8 +31,7 @@ export type ConversationMessage =
 
 export interface EarlyAccessChannelCopy {
   id: EarlyAccessChannelId;
-  name: string; // "iMessage", "WhatsApp", "SMS", "RCS"
-  summary: string; // picker + home card line, <= 70 chars
+  name: string; // "iMessage", "WhatsApp", "SMS", "RCS": from ./channels
   meta: { title: string; description: string }; // title <= 60 chars, description <= 155 chars
   hero: { title: string; lede: string }; // H1 <= 8 words; lede 1-2 sentences
   booking: {
@@ -51,8 +54,7 @@ export const EARLY_ACCESS_CHANNEL_COPY: Record<
   /* Use case: a customer moves a service appointment. Text only. */
   imessage: {
     id: "imessage",
-    name: "iMessage",
-    summary: "Run your agent in iMessage conversations.",
+    name: EARLY_ACCESS_CHANNEL_NAMES.imessage,
     meta: {
       title: "Bring your AI agent to iMessage (early access) | CopilotKit",
       description:
@@ -129,8 +131,7 @@ export const EARLY_ACCESS_CHANNEL_COPY: Record<
      characters, and no message carries more than three. */
   whatsapp: {
     id: "whatsapp",
-    name: "WhatsApp",
-    summary: "Run your agent on WhatsApp. The direct adapter ships today.",
+    name: EARLY_ACCESS_CHANNEL_NAMES.whatsapp,
     meta: {
       title: "Bring your AI agent to WhatsApp | CopilotKit",
       description:
@@ -211,8 +212,7 @@ export const EARLY_ACCESS_CHANNEL_COPY: Record<
   /* Use case: field-service dispatch, a technician texting between jobs. Text only. */
   sms: {
     id: "sms",
-    name: "SMS",
-    summary: "Run your agent over SMS.",
+    name: EARLY_ACCESS_CHANNEL_NAMES.sms,
     meta: {
       title: "Bring your AI agent to SMS (early access) | CopilotKit",
       description:
@@ -289,8 +289,7 @@ export const EARLY_ACCESS_CHANNEL_COPY: Record<
      suggested replies stay within RCS's 25 characters. */
   rcs: {
     id: "rcs",
-    name: "RCS",
-    summary: "Run your agent in RCS business messages.",
+    name: EARLY_ACCESS_CHANNEL_NAMES.rcs,
     meta: {
       title: "Bring your AI agent to RCS (early access) | CopilotKit",
       description:
@@ -383,7 +382,7 @@ export const SHARED_EARLY_ACCESS_COPY: {
   otherChannelsTitle: string;
   gaChannelsNote: string; // one line: Slack and Microsoft Teams are generally available today
 } = {
-  eyebrow: "Early access",
+  eyebrow: EARLY_ACCESS_LABEL,
   primaryCta: "Get early access",
   secondaryCta: "See how Channels works in Slack",
   /* `{channel}` never follows "a" or "an": "an SMS" and "a WhatsApp" need different articles. */

@@ -3,10 +3,21 @@
 // hand (they can't import app code), so the two lists must match and the
 // channels' rules must run before any legacy `:framework` rule.
 // `scripts/check-redirects.mjs` checks the same redirects on a running server.
+import fs from "node:fs";
+import path from "node:path";
+
 import { describe, expect, test, vi } from "vitest";
 
-// markdown.ts imports through shell-docs' `@/` alias, which this package
-// doesn't resolve: point that specifier at the file.
+// markdown.ts and live-scope.ts import through shell-docs' `@/` alias, which
+// this package doesn't resolve: point those specifiers at the files, and
+// stand in for the generated registry (shell-docs' src/data is gitignored).
+vi.mock("@/data/docs-modes.json", () => ({
+  default: { mastra: "generated", "langgraph-python": "generated" },
+}));
+vi.mock(
+  "@/lib/early-access/channels",
+  () => import("../../../shell-docs/src/lib/early-access/channels"),
+);
 vi.mock(
   "@/lib/base-path",
   () => import("../../../shell-docs/src/lib/base-path"),
@@ -21,7 +32,12 @@ import {
   channelMarkdownResponse,
   channelPageMarkdown,
 } from "../../../shell-docs/src/lib/early-access/markdown";
+import {
+  UNSCOPED_SEGMENTS,
+  scopedHref,
+} from "../../../shell-docs/src/lib/live-scope";
 
+const SHELL_DOCS = path.resolve(import.meta.dirname, "../../../shell-docs");
 const CHANNEL = `:channel(${EARLY_ACCESS_CHANNEL_IDS.join("|")})`;
 
 describe("next.config redirects under the early-access channels", () => {
@@ -98,5 +114,41 @@ describe("Markdown under an early-access channel", () => {
     expect(channelMarkdownResponse([])).toBeNull();
     expect(channelMarkdownResponse(["quickstart"])).toBeNull();
     expect(channelMarkdownResponse(["mastra", "whatsapp"])).toBeNull();
+  });
+});
+
+describe("links to an early-access channel", () => {
+  test("are never scoped under the reader's framework or frontend", () => {
+    for (const id of EARLY_ACCESS_CHANNEL_IDS) {
+      expect(UNSCOPED_SEGMENTS.has(id)).toBe(true);
+      expect(
+        scopedHref(`/${id}`, { frontend: "react", framework: "mastra" }),
+      ).toBe(`/${id}`);
+      expect(
+        scopedHref(`/${id}`, { frontend: "vue", framework: "mastra" }),
+      ).toBe(`/${id}`);
+      expect(
+        scopedHref(`/${id}#book`, { frontend: "slack", framework: null }),
+      ).toBe(`/${id}#book`);
+    }
+  });
+
+  test("leave docs links scoped as before", () => {
+    expect(
+      scopedHref("/quickstart", { frontend: "vue", framework: "mastra" }),
+    ).toBe("/vue/mastra/quickstart");
+    expect(
+      scopedHref("/whatsapp-guide", { frontend: "react", framework: "mastra" }),
+    ).toBe("/mastra/whatsapp-guide");
+  });
+});
+
+describe("the channel list every docs page loads", () => {
+  test("imports nothing, so the landing pages' copy stays out of the docs' bundle", () => {
+    const source = fs.readFileSync(
+      path.join(SHELL_DOCS, "src/lib/early-access/channels.ts"),
+      "utf8",
+    );
+    expect(source).not.toMatch(/^\s*import\s/m);
   });
 });

@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import { DExamples } from "@/proto/examples-d";
 import { DHome } from "@/proto/home-d";
-import { ChannelLanding } from "@/proto/channel-landing";
+import { ChannelLandingLoader } from "@/proto/channel-landing-loader";
 import { FrameworkLanding } from "@/proto/framework-landing";
 import { LiveArticle } from "@/proto/live-article";
 import { CatalogReferenceArticle } from "@/components/standard-catalog/catalog-reference-page";
@@ -48,7 +48,8 @@ export default async function Page({ params }: PageProps<"/[[...path]]">) {
   const channel = earlyAccessChannel(path[0]);
   if (channel) {
     if (path.length > 1) redirect(earlyAccessHref(channel.id));
-    return <ChannelLanding id={channel.id} />;
+    // Through its loader, so its client code ships to these pages only.
+    return <ChannelLandingLoader id={channel.id} />;
   }
 
   // The live docs, ported from shell-docs, at their docs.copilotkit.ai URLs.
