@@ -147,9 +147,6 @@ async function postBooking(
     : { ok: false, code: "unconfirmed" };
 }
 
-/** Why the dialog closed: the booker picks where focus goes from it. */
-export type CloseReason = "dismissed" | "slot_taken";
-
 /**
  * The chosen time, booked in place: a form for the reader's details, then
  * the confirmation. While a booking is in flight the dialog stays open, since
@@ -165,6 +162,7 @@ export function BookingDialog({
   onDetailsChange,
   onBooked,
   onSlotTaken,
+  onUnconfirmed,
   onClose,
   onClosed,
   finalFocus,
@@ -179,10 +177,13 @@ export function BookingDialog({
   onBooked: (time: OpenTime) => void;
   /** The time was just taken: the booker marks it and closes the dialog. */
   onSlotTaken: (time: OpenTime) => void;
-  onClose: (reason: CloseReason) => void;
+  /** It may have booked: the booker stops offering times. */
+  onUnconfirmed: (time: OpenTime) => void;
+  onClose: () => void;
   /** After the closing animation, once the dialog is gone. */
   onClosed: () => void;
-  finalFocus: () => HTMLElement | null;
+  /** The element focus returns to, or false for none. */
+  finalFocus: () => HTMLElement | false;
 }) {
   const copy = EARLY_ACCESS_CHANNEL_COPY[channel];
   const fallbackUrl = earlyAccessChannel(channel)?.fallbackUrl ?? "";
@@ -294,6 +295,7 @@ export function BookingDialog({
         setLocked(true);
         setNotice("unconfirmed");
         requestFocus("notice");
+        onUnconfirmed(time);
         return;
       default:
         fail(answer.code);
@@ -307,7 +309,7 @@ export function BookingDialog({
       open={open}
       onOpenChange={(next) => {
         // The answer to a booking in flight must be seen.
-        if (!next && !submittingRef.current) onClose("dismissed");
+        if (!next && !submittingRef.current) onClose();
       }}
       onOpenChangeComplete={(isOpen) => {
         if (!isOpen) onClosed();
@@ -329,7 +331,7 @@ export function BookingDialog({
               <button
                 type="button"
                 disabled={submitting}
-                onClick={() => onClose("dismissed")}
+                onClick={onClose}
                 className="rounded-sm font-medium text-primary underline-offset-4 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50"
               >
                 {TEXT.form.changeTime}

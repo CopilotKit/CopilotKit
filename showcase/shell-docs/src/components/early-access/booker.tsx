@@ -7,7 +7,6 @@ import {
   useMemo,
   useRef,
   useState,
-  useSyncExternalStore,
 } from "react";
 import type { ReactNode, RefObject } from "react";
 import { ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
@@ -21,11 +20,15 @@ import type { ChannelDemoTimes } from "@/lib/early-access/booking";
 import { earlyAccessChannel } from "@/lib/early-access/channels";
 import type { EarlyAccessChannelId } from "@/lib/early-access/channels";
 import { EARLY_ACCESS_CHANNEL_COPY } from "@/lib/early-access/copy";
-import { groupSlotDays, pageTimes } from "@/lib/early-access/slot-days";
-import type { OpenTime } from "@/lib/early-access/slot-days";
+import {
+  SLOT_LEAD_MS,
+  groupSlotDays,
+  pageTimes,
+} from "@/lib/early-access/slot-days";
+import type { OpenTime, SlotDay } from "@/lib/early-access/slot-days";
 import { initialTimeZone, storeTimeZone } from "@/lib/early-access/time-zones";
 import { BookingDialog, EMPTY_DETAILS } from "./booking-dialog";
-import type { BookingDetails, CloseReason } from "./booking-dialog";
+import type { BookingDetails } from "./booking-dialog";
 import { TimeZoneMenu } from "./time-zone-menu";
 import { BOOKER_TEXT as TEXT } from "./text";
 
@@ -37,15 +40,26 @@ const TIMES_ENDPOINT = "/api/channel-demo/slots";
 const CLIENT_TIMEOUT_MS = 15_000;
 /** Back on the tab after this long, the times are read again. */
 const STALE_MS = 60_000;
+/** How often the clock that retires past times moves while the tab is seen. */
+const TICK_MS = 60_000;
 const SKELETON_DAYS = 5;
-/** Two rows of times: four across, three on a phone. */
-const WIDE_QUERY = "(min-width: 640px)";
+/** Two rows of times: four across from Tailwind's `sm`, three on a phone. */
+const WIDE_QUERY = "(min-width: 40rem)";
+
+type LiveTimes = Extract<ChannelDemoTimes, { status: "live" }>;
 
 type TimesState =
   | { phase: "loading" }
-  | { phase: "unavailable" }
-  /** `at`: when they loaded; times sooner than that plus the lead are gone. */
-  | { phase: "ready"; times: ChannelDemoTimes; at: number };
+  /** No times: the event has none (`none`), or they didn't load (`error`). */
+  | { phase: "unavailable"; reason: "none" | "error" }
+  /** `at`: when they loaded. */
+  | { phase: "ready"; times: LiveTimes; at: number };
+
+/** What a read of the times found. */
+type TimesRead =
+  | { kind: "live"; times: LiveTimes }
+  | { kind: "none" }
+  | { kind: "error" };
 
 const isStartList = (value: unknown): value is { startTime: string }[] =>
   Array.isArray(value) &&
@@ -56,28 +70,45 @@ const isStartList = (value: unknown): value is { startTime: string }[] =>
       typeof (item as { startTime?: unknown }).startTime === "string",
   );
 
-/** The proxy's answer when it has open times; null for anything else. */
-function readTimes(body: unknown): ChannelDemoTimes | null {
-  if (typeof body !== "object" || body === null) return null;
-  const times = body as Partial<ChannelDemoTimes>;
-  if (times.status !== "live" || !isStartList(times.slots)) return null;
-  if (!times.slots.length) return null;
+/** The proxy's answer: open times, none at all, or a read that failed. */
+function readTimes(body: unknown): TimesRead {
+  if (typeof body !== "object" || body === null) return { kind: "error" };
+  const answer = body as {
+    status?: unknown;
+    reason?: unknown;
+    slots?: unknown;
+    unavailable?: unknown;
+  };
+  if (answer.status === "unavailable") {
+    return answer.reason === "none" ? { kind: "none" } : { kind: "error" };
+  }
+  if (answer.status !== "live" || !isStartList(answer.slots)) {
+    return { kind: "error" };
+  }
+  if (!answer.slots.length) return { kind: "none" };
   return {
-    status: "live",
-    slots: times.slots,
-    unavailable: isStartList(times.unavailable) ? times.unavailable : [],
+    kind: "live",
+    times: {
+      status: "live",
+      slots: answer.slots,
+      unavailable: isStartList(answer.unavailable) ? answer.unavailable : [],
+    },
   };
 }
 
 /**
  * The channel event's open times, through the docs' proxy. A refresh is
- * silent: the times on screen stay until fresh ones arrive, and a failed
- * refresh keeps them.
+ * silent: the times on screen stay until fresh ones arrive. A refresh that
+ * fails keeps them; one that finds no open times replaces them. Back on the
+ * tab, the times are read again when they are a minute old or the last read
+ * failed.
  */
 function useChannelTimes(channel: EarlyAccessChannelId) {
   const [state, setState] = useState<TimesState>({ phase: "loading" });
   const current = useRef<AbortController | null>(null);
-  const loadedAt = useRef<number | null>(null);
+  /** When the last read that answered was made. */
+  const readAt = useRef<number | null>(null);
+  const lastReadFailed = useRef(false);
 
   const load = useCallback(
     (silent: boolean) => {
@@ -85,14 +116,19 @@ function useChannelTimes(channel: EarlyAccessChannelId) {
       const controller = new AbortController();
       current.current = controller;
       const timer = setTimeout(() => controller.abort(), CLIENT_TIMEOUT_MS);
-      const settle = (times: ChannelDemoTimes | null) => {
+      const settle = (read: TimesRead) => {
         if (current.current !== controller) return;
-        if (times) {
-          loadedAt.current = Date.now();
-          setState({ phase: "ready", times, at: loadedAt.current });
-        } else if (!silent) {
-          setState({ phase: "unavailable" });
+        lastReadFailed.current = read.kind === "error";
+        if (read.kind === "error") {
+          if (!silent) setState({ phase: "unavailable", reason: "error" });
+          return;
         }
+        readAt.current = Date.now();
+        setState(
+          read.kind === "live"
+            ? { phase: "ready", times: read.times, at: readAt.current }
+            : { phase: "unavailable", reason: "none" },
+        );
       };
       fetch(withBasePath(`${TIMES_ENDPOINT}?channel=${channel}`), {
         signal: controller.signal,
@@ -101,7 +137,7 @@ function useChannelTimes(channel: EarlyAccessChannelId) {
       })
         .then((response) => response.json())
         .then((body: unknown) => settle(readTimes(body)))
-        .catch(() => settle(null))
+        .catch(() => settle({ kind: "error" }))
         .finally(() => clearTimeout(timer));
     },
     [channel],
@@ -110,8 +146,10 @@ function useChannelTimes(channel: EarlyAccessChannelId) {
   useEffect(() => {
     load(false);
     const onVisible = () => {
-      if (document.visibilityState !== "visible" || !loadedAt.current) return;
-      if (Date.now() - loadedAt.current > STALE_MS) load(true);
+      if (document.visibilityState !== "visible") return;
+      const stale =
+        readAt.current !== null && Date.now() - readAt.current > STALE_MS;
+      if (lastReadFailed.current || stale) load(true);
     };
     document.addEventListener("visibilitychange", onVisible);
     return () => {
@@ -122,6 +160,31 @@ function useChannelTimes(channel: EarlyAccessChannelId) {
   }, [load]);
 
   return { state, refresh: useCallback(() => load(true), [load]) };
+}
+
+/**
+ * The time, moved on every minute while the tab is seen, so a time stops
+ * being offered once it is inside the lead. Null until mounted.
+ */
+function useNow() {
+  const [now, setNow] = useState<number | null>(null);
+  useEffect(() => {
+    let timer: ReturnType<typeof setInterval> | undefined;
+    const sync = () => {
+      clearInterval(timer);
+      timer = undefined;
+      if (document.visibilityState !== "visible") return;
+      setNow(Date.now());
+      timer = setInterval(() => setNow(Date.now()), TICK_MS);
+    };
+    sync();
+    document.addEventListener("visibilitychange", sync);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", sync);
+    };
+  }, []);
+  return now;
 }
 
 function usePageSize() {
@@ -136,9 +199,21 @@ function usePageSize() {
   return size;
 }
 
-/** The browser's zone, or the reader's saved one; unknown on the server. */
-const subscribeNever = () => () => {};
-const serverTimeZone = () => null;
+/**
+ * The day to show: the chosen one; once it has gone, the next later one,
+ * else the last (keys are YYYY-MM-DD, so they compare as strings).
+ */
+function selectedDayIndex(days: readonly SlotDay[], key: string | null) {
+  if (!days.length) return -1;
+  if (key === null) return 0;
+  const chosen = days.findIndex((day) => day.key === key);
+  if (chosen !== -1) return chosen;
+  const later = days.findIndex((day) => day.key > key);
+  return later !== -1 ? later : days.length - 1;
+}
+
+/** Whether a time is too soon to book by now (inside the lead). */
+const tooSoon = (time: OpenTime) => time.startMs - Date.now() <= SLOT_LEAD_MS;
 
 /** A chosen time, its place among the times offered, and its dialog. */
 interface Chosen {
@@ -148,6 +223,9 @@ interface Chosen {
   /** One dialog per opening, so each starts clean. */
   session: number;
 }
+
+/** How the dialog's last opening ended, which says where focus goes. */
+type Outcome = "open" | "booked" | "slot_taken" | "unconfirmed";
 
 /**
  * The channel page's demo booker: the next days with open times on the
@@ -164,26 +242,29 @@ export function ChannelDemoBooker({
   const copy = EARLY_ACCESS_CHANNEL_COPY[channel];
   const fallbackUrl = earlyAccessChannel(channel)?.fallbackUrl ?? "";
   const { state, refresh } = useChannelTimes(channel);
-  // The zone the times show and book in: known once hydrated, then the
-  // reader's pick.
-  const startZone = useSyncExternalStore(
-    subscribeNever,
-    initialTimeZone,
-    serverTimeZone,
-  );
-  const [pickedZone, setPickedZone] = useState<string | null>(null);
-  const timeZone = pickedZone ?? startZone;
+  const now = useNow();
+  // The zone the times show and book in. The reader's stored choice and the
+  // browser's zone exist only in the browser, so they are read once, after
+  // hydration; from then on only the reader's own pick changes it.
+  const [timeZone, setTimeZone] = useState<string | null>(null);
+  useEffect(() => {
+    // oxlint-disable-next-line react/set-state-in-effect -- reads browser-only storage once, after hydration
+    setTimeZone(initialTimeZone());
+  }, []);
   const [taken, setTaken] = useState<ReadonlySet<number>>(() => new Set());
   const [dayKey, setDayKey] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   const [notice, setNotice] = useState<string | null>(null);
+  /** A booking that may have gone through: nothing more is booked here. */
+  const [locked, setLocked] = useState(false);
   const [chosen, setChosen] = useState<Chosen | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [details, setDetails] = useState<BookingDetails>(EMPTY_DETAILS);
-  const closeReason = useRef<CloseReason>("dismissed");
+  const outcome = useRef<Outcome>("open");
   const opener = useRef<HTMLElement | null>(null);
   const rootRef = useRef<HTMLElement>(null);
   const noticeRef = useRef<HTMLParagraphElement>(null);
+  const lockedRef = useRef<HTMLDivElement>(null);
   const earlierRef = useRef<HTMLButtonElement>(null);
   const laterRef = useRef<HTMLButtonElement>(null);
   const viewed = useRef(false);
@@ -200,23 +281,32 @@ export function ChannelDemoBooker({
   const days = useMemo(
     () =>
       state.phase === "ready" && timeZone
-        ? groupSlotDays(state.times, timeZone, state.at, taken)
+        ? groupSlotDays(
+            state.times,
+            timeZone,
+            Math.max(now ?? 0, state.at),
+            taken,
+          )
         : [],
-    [state, timeZone, taken],
+    [state, timeZone, now, taken],
   );
-  const phase =
-    state.phase === "ready" && timeZone && days.length === 0
-      ? "unavailable"
-      : state.phase === "ready" && !timeZone
+  const phase = locked
+    ? "locked"
+    : state.phase !== "ready"
+      ? state.phase
+      : !timeZone
         ? "loading"
-        : state.phase;
-  // The chosen day by its date, so a refresh that drops a time (or a whole
-  // day) keeps the reader where they were.
-  const dayIndex = Math.max(
-    0,
-    days.findIndex((day) => day.key === dayKey),
-  );
-  const day = days[dayIndex];
+        : days.length
+          ? "ready"
+          : "unavailable";
+  const dayIndex = selectedDayIndex(days, dayKey);
+  const day: SlotDay | undefined = days[dayIndex];
+  // The chosen day has gone (its times passed or were taken): the day shown
+  // instead becomes the choice.
+  if (day && dayKey !== null && day.key !== dayKey) {
+    setDayKey(day.key);
+    setPage(0);
+  }
   const pages = useMemo(
     () => pageTimes(day?.times ?? [], pageSize),
     [day, pageSize],
@@ -225,6 +315,10 @@ export function ChannelDemoBooker({
   const shown = pages[pageIndex] ?? [];
   const shownOpen = shown.filter((entry) => entry.chip.available);
   const openCount = pages.flat().filter((entry) => entry.chip.available).length;
+
+  /** Focus, once the change that renders the target has. */
+  const focusSoon = (target: () => HTMLElement | null) =>
+    requestAnimationFrame(() => (target() ?? rootRef.current)?.focus());
 
   const selectDay = (key: string) => {
     if (key === day?.key) return;
@@ -243,10 +337,23 @@ export function ChannelDemoBooker({
       (step > 0 ? earlierRef : laterRef).current?.focus();
   };
 
+  const markTaken = (time: OpenTime) =>
+    setTaken((current) => new Set(current).add(time.startMs));
+
   const openTime = (time: OpenTime, slotIndex: number, from: HTMLElement) => {
+    if (locked) return;
+    if (tooSoon(time)) {
+      // Too soon to book by now: the time goes, the times are read again,
+      // and the reader is told why.
+      markTaken(time);
+      setNotice(TEXT.tooSoon);
+      refresh();
+      focusSoon(() => noticeRef.current);
+      return;
+    }
     setNotice(null);
     opener.current = from;
-    closeReason.current = "dismissed";
+    outcome.current = "open";
     trackEvent("docs.channel_demo_slot_selected", {
       channel,
       day_index: dayIndex,
@@ -261,20 +368,32 @@ export function ChannelDemoBooker({
     setDialogOpen(true);
   };
 
-  const markTaken = (time: OpenTime) =>
-    setTaken((current) => new Set(current).add(time.startMs));
-
-  /** Where focus goes as the dialog closes. */
+  /**
+   * Where focus goes as the dialog closes: back to the time when it is still
+   * there. Otherwise nowhere yet: `onClosed` moves it once the dialog has
+   * gone, since base-ui would pick the booker's first control instead.
+   */
   const finalFocus = () => {
-    if (closeReason.current === "slot_taken" && noticeRef.current) {
-      return noticeRef.current;
-    }
     const time = opener.current;
-    // A time that was booked or taken is gone from the grid.
-    return time?.isConnected ? time : rootRef.current;
+    return outcome.current === "open" && time?.isConnected ? time : false;
   };
 
-  const fallbackLink = (placement: "unavailable" | "times", label: string) => (
+  const focusAfterClose = () => {
+    const ended = outcome.current;
+    if (ended === "open" && opener.current?.isConnected) return;
+    focusSoon(() =>
+      ended === "slot_taken"
+        ? noticeRef.current
+        : ended === "unconfirmed"
+          ? lockedRef.current
+          : rootRef.current,
+    );
+  };
+
+  const fallbackLink = (
+    placement: "unavailable" | "times" | "unconfirmed",
+    label: string,
+  ) => (
     <a
       href={fallbackUrl}
       target="_blank"
@@ -292,6 +411,8 @@ export function ChannelDemoBooker({
       <span className="sr-only"> {TEXT.newTab}</span>
     </a>
   );
+
+  const showsZone = phase === "loading" || phase === "ready";
 
   return (
     <section
@@ -313,14 +434,15 @@ export function ChannelDemoBooker({
           {copy.booking.note}
         </p>
         {/* Holds its place while the times load; with none, it says nothing. */}
-        <div className={cn("min-h-11", phase === "unavailable" && "hidden")}>
-          {timeZone && phase !== "unavailable" ? (
+        <div className={cn("min-h-11", !showsZone && "hidden")}>
+          {timeZone && showsZone ? (
             <TimeZoneMenu
               value={timeZone}
               at={day?.times[0]?.startMs}
               onChange={(zone) => {
-                setPickedZone(zone);
+                setTimeZone(zone);
                 storeTimeZone(zone);
+                setPage(0);
               }}
             />
           ) : null}
@@ -333,16 +455,19 @@ export function ChannelDemoBooker({
             {Array.from({ length: SKELETON_DAYS }, (_, index) => (
               <Skeleton
                 key={index}
-                className="h-[3.25rem] rounded-[18px] bg-background/70 dark:bg-white/5"
+                className="h-[3.25rem] rounded-[18px] bg-background/70 motion-reduce:animate-none dark:bg-white/5"
               />
             ))}
           </div>
           <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
             {Array.from({ length: pageSize }, (_, index) => (
-              <Skeleton key={index} className="h-11 rounded-full" />
+              <Skeleton
+                key={index}
+                className="h-11 rounded-full motion-reduce:animate-none"
+              />
             ))}
           </div>
-          <Skeleton className="h-4 w-32" />
+          <Skeleton className="h-4 w-32 motion-reduce:animate-none" />
         </div>
       ) : null}
       {phase === "loading" ? (
@@ -353,11 +478,29 @@ export function ChannelDemoBooker({
 
       {phase === "unavailable" ? (
         <div className="flex flex-col items-start gap-1 rounded-2xl border border-dashed p-5">
-          <p className="font-medium">{TEXT.unavailable.title}</p>
+          <p className="font-medium">
+            {state.phase === "unavailable" && state.reason === "error"
+              ? TEXT.unavailable.error
+              : TEXT.unavailable.none}
+          </p>
           <p className="text-sm text-muted-foreground">
             {TEXT.unavailable.body}
           </p>
           {fallbackLink("unavailable", TEXT.unavailable.link)}
+        </div>
+      ) : null}
+
+      {phase === "locked" ? (
+        <div
+          ref={lockedRef}
+          tabIndex={-1}
+          className="flex flex-col items-start gap-1 rounded-2xl border border-dashed p-5 outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+        >
+          <p className="font-medium">{TEXT.unconfirmed.title}</p>
+          <p className="text-sm text-muted-foreground">
+            {TEXT.unconfirmed.body}
+          </p>
+          {fallbackLink("unconfirmed", TEXT.unconfirmed.link)}
         </div>
       ) : null}
 
@@ -378,11 +521,11 @@ export function ChannelDemoBooker({
               <TabsTrigger
                 key={d.key}
                 value={d.key}
-                aria-label={d.label}
                 className="flex h-[3.25rem] min-w-0 flex-col gap-0 rounded-[18px] px-1 text-foreground/70 hover:text-foreground data-active:bg-background data-active:text-foreground data-active:shadow-sm data-active:ring-1 data-active:ring-brand-lilac-mid dark:data-active:bg-[#23232f] dark:data-active:ring-brand-lilac"
               >
                 <span className="text-xs font-normal">{d.weekday}</span>
                 <span className="text-sm font-semibold">{d.date}</span>
+                <span className="sr-only">, {d.label}</span>
               </TabsTrigger>
             ))}
           </TabsList>
@@ -482,26 +625,29 @@ export function ChannelDemoBooker({
           details={details}
           onDetailsChange={setDetails}
           onBooked={(time) => {
+            outcome.current = "booked";
             markTaken(time);
             refresh();
           }}
           onSlotTaken={(time) => {
+            outcome.current = "slot_taken";
             markTaken(time);
             setNotice(TEXT.slotTaken);
             refresh();
-            closeReason.current = "slot_taken";
             setDialogOpen(false);
           }}
-          onClose={(reason) => {
-            closeReason.current = reason;
-            setDialogOpen(false);
+          onUnconfirmed={(time) => {
+            // It may have booked: the time goes, and nothing more is booked
+            // here, so it can't be booked twice.
+            outcome.current = "unconfirmed";
+            markTaken(time);
+            setLocked(true);
+            refresh();
           }}
+          onClose={() => setDialogOpen(false)}
           onClosed={() => {
             setChosen(null);
-            // The notice renders with the close; make sure it has focus.
-            if (closeReason.current === "slot_taken") {
-              requestAnimationFrame(() => noticeRef.current?.focus());
-            }
+            focusAfterClose();
           }}
           finalFocus={finalFocus}
         />

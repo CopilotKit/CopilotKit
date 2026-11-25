@@ -15,11 +15,21 @@ export const BOOKER_TEXT = {
     `Showing times ${from} to ${to} of ${of}`,
   unavailableTimeHint: "Already booked",
   slotTaken: "That time was just taken. Pick another time.",
+  tooSoon: "That time is too soon to book now. Pick a later time.",
   anotherTime: "Need another time?",
   newTab: "(opens in a new tab)",
   unavailable: {
-    title: "No open times to show right now",
+    /** The event has no open time. */
+    none: "No open times to show right now",
+    /** The times didn't load. */
+    error: "We couldn't load the open times",
     body: "You can still book a call with the team on copilotkit.ai.",
+    link: "Book on copilotkit.ai",
+  },
+  /** In place of the times, after a booking that may have gone through. */
+  unconfirmed: {
+    title: "We couldn't confirm your booking.",
+    body: "Check your inbox for a calendar invite before booking again.",
     link: "Book on copilotkit.ai",
   },
   form: {
