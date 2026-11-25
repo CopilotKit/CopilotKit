@@ -38,6 +38,18 @@ function read(): string {
   return localStorage.getItem(KEY) ?? "";
 }
 
+/**
+ * Remembers the frontend of the docs page being read (`/vue/...` is Vue, a
+ * URL with no frontend is React), so links on the pages that aren't per
+ * frontend (the home, the reference, the cookbook) keep the reader on it.
+ * The `?frontend=` pin wins while it is in the URL.
+ */
+export function rememberFrontend(id: FrontendId) {
+  if (localStorage.getItem(KEY) === id) return;
+  localStorage.setItem(KEY, id);
+  for (const l of listeners) l();
+}
+
 interface FrontendContextValue {
   frontend: FrontendId;
   chosen: boolean;
