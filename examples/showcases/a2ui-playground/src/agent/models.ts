@@ -119,8 +119,8 @@ export const MODELS: Record<ModelId, ModelSpec> = {
   gpt: {
     id: "gpt",
     label: modelLabel("gpt"),
-    router: env("A2UI_ROUTER_MODEL") ?? "gpt-5.5",
-    composer: env("A2UI_COMPOSER_MODEL") ?? "gpt-5.4-mini",
+    router: env("A2UI_ROUTER_MODEL") ?? "gpt-6-luna",
+    composer: env("A2UI_COMPOSER_MODEL") ?? "gpt-6-luna",
     extra: { reasoning_effort: "none" },
     parallelToolCalls: true,
     maxTokens: (tokens) => ({ max_completion_tokens: tokens }),
