@@ -132,7 +132,8 @@ export function ConversationPreview({
   return (
     <figure
       aria-labelledby={captionId}
-      className="w-full max-w-[20.5rem] rounded-[2.9rem] bg-[#1b1b1f] p-2.5 shadow-[0_24px_48px_-24px_rgb(20_16_33/0.45)] ring-1 ring-black/5 dark:bg-[#2a2a31] dark:ring-white/10"
+      // A framed illustration: the stage's broad shell shadow (--lift-stage).
+      className="w-full max-w-[20.5rem] rounded-[2.9rem] bg-[#1b1b1f] p-2.5 shadow-lift-stage ring-1 ring-black/5 dark:bg-[#2a2a31] dark:ring-white/10"
     >
       <figcaption id={captionId} className="sr-only">
         An example {name} conversation with {contact}

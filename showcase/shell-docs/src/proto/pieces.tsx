@@ -688,6 +688,8 @@ export type FrontendPick =
 /**
  * The frontend picker's list: the app frontends, then the channels, with the
  * early-access channels after Slack and Teams, each badged "Early access".
+ * Rows grow to 44px on touch screens, and the check mark has a slot of its
+ * own on every row, so the badges line up whichever row is checked.
  */
 export function FrontendOptions({
   current,
@@ -706,14 +708,16 @@ export function FrontendOptions({
       type="button"
       aria-current={pick.id === current ? "true" : undefined}
       onClick={() => onPick(pick)}
-      className="flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-start text-sm outline-none hover:bg-accent focus-visible:bg-accent focus-visible:ring-2 focus-visible:ring-fd-ring"
+      className="flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-start text-sm outline-none hover:bg-accent focus-visible:bg-accent focus-visible:ring-2 focus-visible:ring-fd-ring pointer-coarse:min-h-11"
     >
       <FrontendLogo icon={pick.id} size={16} className="shrink-0" />
       <span className="min-w-0 flex-1 truncate">{name}</span>
       {badge}
-      {pick.id === current ? (
-        <Check className="size-4 shrink-0 text-fd-primary" aria-hidden="true" />
-      ) : null}
+      <span aria-hidden="true" className="flex size-4 shrink-0">
+        {pick.id === current ? (
+          <Check className="size-4 text-fd-primary" />
+        ) : null}
+      </span>
     </button>
   );
   return (["app", "channel"] as const).map((kind) => (

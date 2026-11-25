@@ -37,8 +37,8 @@ const SLACK_GUIDE = "/slack/connect";
 const CHANNELS_OVERVIEW = "/slack";
 
 const sectionTitle = "text-2xl leading-tight font-medium tracking-[-0.03em]";
-/** A card standing on the page, as the home's: white, a hairline, a lift. */
-const card = "rounded-xl border bg-card shadow-card dark:bg-[#13131b]";
+/** A card standing on the page, as the home's: 12px, a hairline, a lift. */
+const card = "rounded-lg border bg-card shadow-card dark:bg-[#13131b]";
 /** A link inside a line of text, as the docs' prose links. */
 const inlineLink =
   "rounded-sm font-medium text-primary underline decoration-[1.5px] underline-offset-[3.5px] outline-none transition-opacity hover:opacity-80 focus-visible:ring-3 focus-visible:ring-ring/50 motion-reduce:transition-none";
@@ -247,7 +247,7 @@ export function ChannelLanding({ id }: { id: EarlyAccessChannelId }) {
 
       <section
         aria-labelledby="channel-closing"
-        className="flex flex-col items-center gap-5 rounded-[24px] border bg-card px-6 py-14 text-center shadow-card md:py-16 dark:bg-[#13131b]"
+        className="flex flex-col items-center gap-5 rounded-2xl border bg-card px-6 py-14 text-center shadow-card md:py-16 dark:bg-[#13131b]"
       >
         <span
           aria-hidden="true"
@@ -255,9 +255,10 @@ export function ChannelLanding({ id }: { id: EarlyAccessChannelId }) {
         >
           <FrontendLogo icon={id} size={36} />
         </span>
+        {/* Display small: the light display voice, one step down. */}
         <h2
           id="channel-closing"
-          className="max-w-[38rem] text-[2rem] leading-[1.1] font-normal tracking-[-0.03em] text-balance md:text-[2.5rem]"
+          className="max-w-[38rem] text-[2.5rem] leading-[1.04] font-normal tracking-[-0.03em] text-balance"
         >
           {copy.closing.title}
         </h2>

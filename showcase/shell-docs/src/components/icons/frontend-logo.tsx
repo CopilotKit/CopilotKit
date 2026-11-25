@@ -1,5 +1,4 @@
 import type React from "react";
-import { MessageSquareText } from "lucide-react";
 import { BiLogoMicrosoftTeams } from "react-icons/bi";
 import {
   SiAngular,
@@ -12,10 +11,11 @@ import {
 import { TbBrandReactNative } from "react-icons/tb";
 import type { EarlyAccessChannelId } from "@/lib/early-access/channels";
 import type { FrontendId } from "@/lib/stack";
+import { SmsGlyph } from "./glyphs";
 
 // Brand marks for each frontend (copied from shell-docs' frontend-logo.tsx),
-// and for the early-access channels. SMS has no brand, so it takes a plain
-// message glyph in the text color around it.
+// and for the early-access channels. SMS has no brand, so it takes a solid
+// chat glyph from the wayfinding set (./glyphs) in the text color around it.
 
 type BrandIcon = React.ComponentType<{
   "aria-hidden"?: boolean;
@@ -80,29 +80,6 @@ function SlackColorLogo({
         d="M15.165 17.688a2.527 2.527 0 0 1-2.52-2.523 2.526 2.526 0 0 1 2.52-2.52h6.313A2.527 2.527 0 0 1 24 15.165a2.528 2.528 0 0 1-2.522 2.523h-6.313z"
       />
     </svg>
-  );
-}
-
-function SmsGlyph({
-  className,
-  color,
-  size = 18,
-}: {
-  "aria-hidden"?: boolean;
-  className?: string;
-  color?: string;
-  focusable?: boolean | "false";
-  size?: number | string;
-  title?: string;
-}) {
-  return (
-    <MessageSquareText
-      aria-hidden={true}
-      className={className}
-      color={color}
-      focusable={false}
-      size={size}
-    />
   );
 }
 
