@@ -137,11 +137,14 @@ describe("CopilotKitProvider defaultWebMCPTools", () => {
       },
     ];
     const Host = defineComponent({
+      components: { CopilotKitProvider },
       props: { providerKey: { type: String, required: true } },
-      setup(hostProps) {
-        return () =>
-          h(CopilotKitProvider, { key: hostProps.providerKey, frontendTools });
+      setup() {
+        return { frontendTools };
       },
+      template: `
+        <CopilotKitProvider :key="providerKey" :frontend-tools="frontendTools" />
+      `,
     });
     const wrapper = mount(Host, { props: { providerKey: "a" } });
     expect(registered.has("providerTool")).toBe(true);
