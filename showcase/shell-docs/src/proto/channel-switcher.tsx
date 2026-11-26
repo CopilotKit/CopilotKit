@@ -17,8 +17,8 @@ import { FrontendOptions, usePickFrontend } from "./pieces";
 /**
  * The frontend picker on an early-access frontend's landing page, which has
  * no docs sidebar: the sidebar's list, with this frontend checked. A pick
- * does what it does in the sidebar: the frontend is remembered and its home
- * opens on the reader's remembered framework (`/vue/mastra`, React's
+ * does what it does in the sidebar: the frontend is remembered (if it has
+ * docs) and its home opens on the reader's remembered framework (`/vue/mastra`, React's
  * `/mastra/quickstart`, another early-access frontend's landing page).
  */
 export function ChannelSwitcher({ channel }: { channel: FrontendId }) {

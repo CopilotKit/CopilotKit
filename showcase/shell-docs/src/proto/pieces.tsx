@@ -720,8 +720,10 @@ export function FrontendOptions({
 
 /**
  * What picking a frontend in a picker does: the frontend is remembered as the
- * reader's, `docs.frontend_selected` goes out (shell-docs' framework selector
- * event, same properties), and the destination opens.
+ * reader's (`setFrontend` remembers only a frontend with docs, so an
+ * early-access pick leaves it alone), `docs.frontend_selected` goes out
+ * (shell-docs' framework selector event, same properties), and the
+ * destination opens.
  */
 export function usePickFrontend() {
   const { setFrontend } = useFrontend();
@@ -734,7 +736,7 @@ export function usePickFrontend() {
       framework: string;
       destination: string;
     }) => {
-      // Remembered for the pages that aren't per frontend.
+      // Remembered for the pages that aren't per frontend, if it has docs.
       setFrontend(pick.frontend);
       trackEvent("docs.frontend_selected", {
         ...frontendEventProperties(pick.frontend),

@@ -9,8 +9,9 @@
 //   1. Wherever a frontend's row or card is drawn, it carries the "Early
 //      access" badge (EARLY_ACCESS_LABEL).
 //   2. The frontend's only page is its landing page, `/<id>`, with a demo
-//      booker (`landingPage`). It has no docs pages, so
-//      every per-stack link on it falls back to that page.
+//      booker (`landingPage`). It has no docs pages, so every per-stack link
+//      on it falls back to that page, and it is never the reader's remembered
+//      frontend (`hasDocs`), so the docs never follow a stack with no docs.
 
 const ENTRIES = [
   {
@@ -143,6 +144,15 @@ export function isEarlyAccessFrontend(
  */
 export function landingPage(id: string | null | undefined) {
   return isEarlyAccessFrontend(id) ? `/${id}` : null;
+}
+
+/**
+ * Whether `id` is a frontend with docs, which every frontend but those in
+ * early access is. Only such a frontend can be the reader's remembered one
+ * (src/proto/frontend.tsx).
+ */
+export function hasDocs(id: string | null | undefined): id is FrontendId {
+  return !!frontendById(id) && landingPage(id) === null;
 }
 
 /**
