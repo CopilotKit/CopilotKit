@@ -127,7 +127,7 @@ describe("railway-envs SSOT", () => {
     expect(ENV_IDS.staging).toBe(STAGING_ENV_ID);
   });
 
-  it("contains 44 dual-environment services and ten staging-only services", () => {
+  it("contains 45 dual-environment services and nine staging-only services", () => {
     const names = listServiceNames();
     expect(names.length).toBe(54);
   });

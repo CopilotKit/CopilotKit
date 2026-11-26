@@ -217,6 +217,13 @@
     }
   },
   "showcase-cloudflare-agents": {
+    "prod": {
+      "instanceId": "ffb0902e-8f43-49a5-821b-b33af6f92902",
+      "domain": "showcase-cloudflare-agents-production.up.railway.app",
+      "probe": true,
+      "driver": "agent",
+      "repoName": "showcase-cloudflare-agents"
+    },
     "staging": {
       "instanceId": "9cf643f4-0eab-4e7e-882f-1c4b8d6627ec",
       "domain": "showcase-cloudflare-agents-staging.up.railway.app",
