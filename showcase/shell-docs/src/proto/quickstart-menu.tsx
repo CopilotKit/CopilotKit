@@ -238,6 +238,7 @@ export function QuickstartMenu() {
       }}
     >
       <ComboboxTrigger
+        aria-label="Start the quickstart"
         render={
           <Button className="group h-11 rounded-full bg-foreground px-5 text-background hover:bg-foreground/85 data-popup-open:bg-foreground/85 [&>svg]:text-background [&>svg]:transition-transform [&>svg]:duration-200 data-popup-open:[&>svg]:rotate-180 motion-reduce:[&>svg]:transition-none" />
         }
