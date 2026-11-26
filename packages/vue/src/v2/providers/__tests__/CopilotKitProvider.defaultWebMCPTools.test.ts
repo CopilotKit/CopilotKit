@@ -99,4 +99,24 @@ describe("CopilotKitProvider defaultWebMCPTools", () => {
     expect(getCore().defaultWebMCPTools).toBe(true);
     expect(registered.has("searchOrders")).toBe(true);
   });
+
+  it("removes every registration when the provider unmounts", () => {
+    const { wrapper } = mountProvider(CopilotKitProvider, {
+      frontendTools: [
+        {
+          name: "providerTool",
+          description: "Passed to the provider",
+          handler: async () => "ok",
+        },
+      ],
+    });
+    expect([...registered.keys()].sort()).toEqual([
+      "providerTool",
+      "searchOrders",
+    ]);
+
+    wrapper.unmount();
+
+    expect(registered.size).toBe(0);
+  });
 });

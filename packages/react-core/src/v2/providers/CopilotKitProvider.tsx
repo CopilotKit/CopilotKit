@@ -922,6 +922,10 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
       agents__unsafe_dev_only: mergedAgents,
       tools: allTools,
       defaultWebMCPTools,
+      // Same reason as `deferInitialConnection`: a discarded render must not
+      // leave callable tools on `document.modelContext`. The effect below
+      // registers them once the provider commits.
+      deferWebMCP: true,
       renderToolCalls: allRenderToolCalls,
       renderActivityMessages: allActivityRenderers,
       renderCustomMessages: renderCustomMessagesList,
@@ -1086,6 +1090,13 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   useEffect(() => {
     copilotkit.setDefaultWebMCPTools(defaultWebMCPTools);
   }, [copilotkit, defaultWebMCPTools]);
+
+  // Expose the tools to WebMCP only while the provider is mounted, so a
+  // browser agent cannot call a handler after its provider is gone.
+  useEffect(() => {
+    copilotkit.startWebMCP();
+    return () => copilotkit.stopWebMCP();
+  }, [copilotkit]);
 
   useEffect(() => {
     copilotkit.setRuntimeUrl(chatApiEndpoint);

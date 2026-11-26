@@ -99,3 +99,61 @@ describe("CopilotKitProvider defaultWebMCPTools", () => {
     expect(registered.has("searchOrders")).toBe(false);
   });
 });
+
+const providerTools = [
+  {
+    name: "providerTool",
+    description: "Passed to the provider",
+    handler: async () => "ok",
+  },
+];
+
+describe("CopilotKitProvider WebMCP lifecycle", () => {
+  it("registers provider tools only after the provider commits", () => {
+    let calledDuringRender: string[] | undefined;
+    function RenderProbe() {
+      calledDuringRender ??= [...registerCalls];
+      return null;
+    }
+
+    render(
+      <CopilotKitProvider frontendTools={providerTools}>
+        <RenderProbe />
+      </CopilotKitProvider>,
+    );
+
+    expect(calledDuringRender).toEqual([]);
+    expect(registered.has("providerTool")).toBe(true);
+  });
+
+  it("removes every registration when the provider unmounts", () => {
+    const ui = render(
+      <CopilotKitProvider frontendTools={providerTools}>
+        <Tool />
+      </CopilotKitProvider>,
+    );
+    expect([...registered.keys()].sort()).toEqual([
+      "providerTool",
+      "searchOrders",
+    ]);
+
+    ui.unmount();
+
+    expect(registered.size).toBe(0);
+  });
+
+  it("keeps the tools registered under StrictMode", () => {
+    render(
+      <React.StrictMode>
+        <CopilotKitProvider frontendTools={providerTools}>
+          <Tool />
+        </CopilotKitProvider>
+      </React.StrictMode>,
+    );
+
+    expect([...registered.keys()].sort()).toEqual([
+      "providerTool",
+      "searchOrders",
+    ]);
+  });
+});

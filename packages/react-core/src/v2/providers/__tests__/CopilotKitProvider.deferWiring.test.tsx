@@ -48,6 +48,8 @@ vi.mock("../../lib/react-core", () => {
     setProperties() {}
     setMessageFilter() {}
     setDefaultWebMCPTools() {}
+    startWebMCP() {}
+    stopWebMCP() {}
     setTools() {}
     setRenderToolCalls() {}
     setRenderActivityMessages() {}

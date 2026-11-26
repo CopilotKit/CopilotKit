@@ -564,6 +564,47 @@ describe("RunHandler WebMCP default (defaultWebMCPTools)", () => {
   });
 });
 
+describe("CopilotKitCore startWebMCP / stopWebMCP", () => {
+  it("registers nothing until startWebMCP when deferWebMCP is set", () => {
+    const modelContext = stubWebMCP();
+    const core = new CopilotKitCore({
+      tools: [{ name: "providerTool", description: "from config", handler }],
+      deferWebMCP: true,
+    });
+    core.addTool({ name: "hookTool", description: "Hook", handler });
+    expect(modelContext.registerTool).not.toHaveBeenCalled();
+
+    core.startWebMCP();
+    core.startWebMCP();
+
+    expect([...modelContext.registered.keys()].sort()).toEqual([
+      "hookTool",
+      "providerTool",
+    ]);
+    expect(modelContext.registerTool).toHaveBeenCalledTimes(2);
+  });
+
+  it("releases every registration on stopWebMCP and restores them on startWebMCP", () => {
+    const modelContext = stubWebMCP();
+    const core = new CopilotKitCore({
+      tools: [{ name: "providerTool", description: "from config", handler }],
+    });
+    expect(modelContext.registered.has("providerTool")).toBe(true);
+
+    core.stopWebMCP();
+    core.addTool({ name: "hookTool", description: "Hook", handler });
+    core.setDefaultWebMCPTools(false);
+    core.setDefaultWebMCPTools(true);
+    expect(modelContext.registered.size).toBe(0);
+
+    core.startWebMCP();
+    expect([...modelContext.registered.keys()].sort()).toEqual([
+      "hookTool",
+      "providerTool",
+    ]);
+  });
+});
+
 describe("CopilotKitCore defaultWebMCPTools", () => {
   const tool = { name: "searchOrders", description: "Search", handler };
 

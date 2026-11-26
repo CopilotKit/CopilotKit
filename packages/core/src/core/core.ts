@@ -122,6 +122,14 @@ export interface CopilotKitCoreConfig {
    * always wins. See `setDefaultWebMCPTools`.
    */
   defaultWebMCPTools?: boolean;
+  /**
+   * When true, the constructor does not register any tool with WebMCP. Call
+   * {@link CopilotKitCore.startWebMCP} to register them, typically from a
+   * host's commit-phase effect. This keeps a core that a host constructs and
+   * then discards during render (React concurrent rendering, Suspense,
+   * StrictMode) from leaving callable tools on the page.
+   */
+  deferWebMCP?: boolean;
   /** Suggestions config for the core. */
   suggestionsConfig?: SuggestionsConfig[];
   /** Enable debug logging for the client-side event pipeline. */
@@ -542,6 +550,7 @@ export class CopilotKitCore {
     agents__unsafe_dev_only = {},
     tools = [],
     defaultWebMCPTools = true,
+    deferWebMCP = false,
     suggestionsConfig = [],
     debug,
     learning,
@@ -569,7 +578,7 @@ export class CopilotKitCore {
 
     // Initialize each subsystem
     this.agentRegistry.initialize(agents__unsafe_dev_only);
-    this.runHandler.initialize(tools, { defaultWebMCPTools });
+    this.runHandler.initialize(tools, { defaultWebMCPTools, deferWebMCP });
     this.suggestionEngine.initialize(suggestionsConfig);
     this.stateManager.initialize();
     // After agent initialization: the bridge reads the initial agents.
@@ -1476,6 +1485,25 @@ export class CopilotKitCore {
    */
   setDefaultWebMCPTools(enabled: boolean): void {
     this.runHandler.setDefaultWebMCPTools(enabled);
+  }
+
+  /**
+   * Register this core's tools with WebMCP and keep them in sync. Needed only
+   * after {@link CopilotKitCoreConfig.deferWebMCP} or {@link stopWebMCP}.
+   * Calling it again while started does nothing.
+   */
+  startWebMCP(): void {
+    this.runHandler.startWebMCP();
+  }
+
+  /**
+   * Remove every WebMCP registration this core made, so browser agents can no
+   * longer call its tools. Tool changes register nothing until
+   * {@link startWebMCP} is called. Call it when the host that owns the core
+   * unmounts. The tools stay available to the core's own agents.
+   */
+  stopWebMCP(): void {
+    this.runHandler.stopWebMCP();
   }
 
   /**

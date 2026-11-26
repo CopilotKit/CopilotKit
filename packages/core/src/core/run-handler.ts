@@ -299,6 +299,12 @@ export class RunHandler {
   private _webmcpRegistry = new WebMCPRegistry();
 
   /**
+   * Whether this core keeps its tools registered with WebMCP. While stopped,
+   * every registration is released and registry changes register nothing.
+   */
+  private _webmcpStarted = true;
+
+  /**
    * Whether tools that do not set `webmcp` themselves are registered with
    * WebMCP. See `CopilotKitCoreConfig.defaultWebMCPTools`.
    */
@@ -433,9 +439,10 @@ export class RunHandler {
    */
   initialize(
     tools: FrontendTool<any>[],
-    options: { defaultWebMCPTools?: boolean } = {},
+    options: { defaultWebMCPTools?: boolean; deferWebMCP?: boolean } = {},
   ): void {
     this._defaultWebMCPTools = options.defaultWebMCPTools ?? true;
+    this._webmcpStarted = !options.deferWebMCP;
     // Copied, like `setTools` does: the merged view is memoized, so holding the
     // caller's array would let an in-place mutation of it go unnoticed. (It
     // also used to be mutated from this side — `addTool` pushed straight onto
@@ -2091,6 +2098,19 @@ export class RunHandler {
     this.syncWebMCP();
   }
 
+  startWebMCP(): void {
+    if (this._webmcpStarted) {
+      return;
+    }
+    this._webmcpStarted = true;
+    this.syncWebMCP();
+  }
+
+  stopWebMCP(): void {
+    this._webmcpStarted = false;
+    this._webmcpRegistry.sync(new Map());
+  }
+
   /**
    * Whether a tool is exposed through WebMCP. A tool's own `webmcp` value
    * wins. Without one, the tool follows `defaultWebMCPTools`, which covers
@@ -2122,6 +2142,10 @@ export class RunHandler {
    */
   private syncWebMCP(): void {
     const desired = new Map<string, FrontendTool<any>>();
+    if (!this._webmcpStarted) {
+      this._webmcpRegistry.sync(desired);
+      return;
+    }
     const warnedCollisions = new Set<string>();
     for (const tool of this.tools) {
       if (!this.isWebMCPTool(tool)) {

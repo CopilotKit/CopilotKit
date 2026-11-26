@@ -17,6 +17,7 @@ import {
 } from "@copilotkit/core";
 import type { Signal, WritableSignal } from "@angular/core";
 import {
+  DestroyRef,
   Injectable,
   Injector,
   computed,
@@ -285,6 +286,10 @@ export class CopilotKit {
 
   constructor() {
     void this.#inspector.isInspectorEnabled;
+    // Remove the WebMCP registrations when the injector that owns this
+    // service is destroyed, so a browser agent cannot call a handler after
+    // the app is gone.
+    inject(DestroyRef).onDestroy(() => this.core.stopWebMCP());
     // A builder is only evaluated at send time, so it can't be read here.
     // The record branch below already has its own key-header fallback.
     ensureLicenseWatermark(

@@ -4,6 +4,7 @@ import {
   computed,
   h,
   onMounted,
+  onUnmounted,
   provide,
   ref,
   shallowRef,
@@ -694,6 +695,12 @@ watch(
     copilotkit.value.setDefaultWebMCPTools(enabled);
   },
 );
+
+// Remove the WebMCP registrations when the provider unmounts, so a browser
+// agent cannot call a handler after its provider is gone.
+onUnmounted(() => {
+  copilotkit.value.stopWebMCP();
+});
 
 watch(
   () => props.defaultThrottleMs,
