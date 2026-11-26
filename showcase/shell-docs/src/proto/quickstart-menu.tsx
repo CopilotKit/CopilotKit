@@ -19,7 +19,7 @@ import {
   ComboboxTrigger,
 } from "@/components/ui/combobox";
 import { InputGroupAddon } from "@/components/ui/input-group";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { FrameworkLogo } from "@/components/icons/framework-icons";
 import { FrontendLogo } from "@/components/icons/frontend-logo";
 import { frontendHref, isChannel } from "@/lib/live-scope";
@@ -76,11 +76,14 @@ const SIDES: Record<
 };
 
 /**
- * A half of the switch: the label draws the demo frame's round segment
- * around a visually hidden radio, so the switch reads as one setting.
+ * A half of the switch, drawn as the demo frame's round segment: the pressed
+ * half is white on the grey track (outlined at night). In forced colors the
+ * fill would vanish, so the pressed half takes the system's highlight, kept
+ * as set (no text backplate, which would hide HighlightText) and ahead of
+ * the night styles, and the focus outline stays where the ring can't show.
  */
 const SEGMENT =
-  "relative flex h-full flex-1 cursor-pointer items-center justify-center rounded-full border border-transparent px-3.5 py-0.5 text-xs font-medium whitespace-nowrap text-foreground/60 transition-all select-none hover:text-foreground has-focus-visible:border-ring has-focus-visible:ring-[3px] has-focus-visible:ring-ring/50 has-focus-visible:outline-1 has-focus-visible:outline-ring has-data-checked:bg-background has-data-checked:text-foreground has-data-checked:shadow-sm dark:text-muted-foreground dark:hover:text-foreground dark:has-data-checked:border-input dark:has-data-checked:bg-input/30 dark:has-data-checked:text-foreground";
+  "h-full flex-1 cursor-pointer rounded-full border border-transparent px-3.5 py-0.5 text-xs font-medium text-foreground/60 select-none hover:bg-transparent hover:text-foreground focus-visible:outline-1 focus-visible:outline-ring focus-visible:outline-solid data-pressed:bg-background data-pressed:text-foreground data-pressed:shadow-sm dark:text-muted-foreground dark:hover:text-foreground dark:data-pressed:border-input dark:data-pressed:bg-input/30 dark:data-pressed:text-foreground forced-colors:data-pressed:border-[color:Highlight]! forced-colors:data-pressed:bg-[color:Highlight]! forced-colors:data-pressed:text-[color:HighlightText]! forced-colors:data-pressed:forced-color-adjust-none";
 
 /** Each half's heading, over its groups. */
 const SECTION: Record<Side, string> = {
@@ -179,9 +182,10 @@ function highlightAfterSwitch(list: HTMLElement | null, query: string) {
  * The home's primary action: start from your agent framework or your
  * frontend, and land on its quickstart. One list holds both halves, each
  * under its heading and by its groups; the switch at its top picks which
- * half comes first, and the search always spans both. Opens with the search
- * focused at the top of the first half, where your last framework, or your
- * frontend, is checked.
+ * half comes first, and the search always spans both. Opens at the top of
+ * the first half, where your last framework, or your frontend, is checked,
+ * with the search focused (a tap opens it with the popup focused, so no
+ * keyboard rises).
  */
 export function QuickstartMenu() {
   const router = useRouter();
@@ -192,8 +196,8 @@ export function QuickstartMenu() {
   const [side, setSide] = useState<Side>("agent");
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
-  // Whether the switch was last pressed by a tap. A radio checks on focus,
-  // so the switch's own event can't tell.
+  // Whether the switch was last pressed by a tap, read from its own
+  // pointerdown: not every browser's click says which pointer made it.
   const tapped = useRef(false);
   const { search, empty, groups } = SIDES[side];
 
@@ -201,6 +205,10 @@ export function QuickstartMenu() {
     <Combobox
       items={groups}
       value={side === "frontend" ? frontend : current}
+      // An empty search from the first render. Base UI would otherwise seed
+      // it with the server's pick (Mastra) and filter the closed list by it,
+      // so a reader with another framework found it unchecked on first open.
+      defaultInputValue=""
       itemToStringLabel={nameOf}
       autoHighlight
       onValueChange={(id: string | null, { reason }) => {
@@ -240,25 +248,28 @@ export function QuickstartMenu() {
         sideOffset={8}
         className="w-80 rounded-xl ring-frame-rim [--list-h:min(24rem,calc(var(--available-height)-5.375rem))]"
       >
-        {/* Which half comes first: a radio group, since it's one setting
-            over the same list. Arrows move and check, like the demo frame's
-            switch; a change hands focus back to the search. */}
-        <RadioGroup
-          aria-label="List first"
-          value={side}
-          onValueChange={(next) => {
+        {/* Which half comes first: one choice, so a single-choice toggle
+            group, as the Frontend picker uses. Arrows only move between the
+            halves; a click, Space, or Enter flips it. */}
+        <ToggleGroup
+          aria-label="Show first"
+          value={[side]}
+          onValueChange={(value) => {
+            // Pressing the pressed half would empty the group: keep it.
+            const next = value[0];
             if (next !== "agent" && next !== "frontend") return;
             setSide(next);
-            const tap = tapped.current;
-            // After the rows move: settle the highlight, then hand focus back
-            // to the search so typing, arrows, and Enter carry on. A tap
-            // leaves the phone's keyboard down, as a tap that opens the menu
-            // does.
-            requestAnimationFrame(() => {
-              const input = inputRef.current;
-              highlightAfterSwitch(listRef.current, input?.value.trim() ?? "");
-              if (!tap) input?.focus();
-            });
+            // Back to the search at once, so typing, arrows, and Enter carry
+            // on. A tap leaves the phone's keyboard down, as a tap that opens
+            // the menu does.
+            if (!tapped.current) inputRef.current?.focus();
+            // Once the rows remount, settle the highlight.
+            requestAnimationFrame(() =>
+              highlightAfterSwitch(
+                listRef.current,
+                inputRef.current?.value.trim() ?? "",
+              ),
+            );
           }}
           onPointerDownCapture={(e) => {
             tapped.current = e.pointerType === "touch";
@@ -267,15 +278,14 @@ export function QuickstartMenu() {
             tapped.current = false;
           }}
           // 6px over the search, so its focus ring clears the switch.
-          className="m-1 mb-1.5 flex h-8 w-auto gap-0 rounded-full bg-secondary p-0.5"
+          className="m-1 mb-1.5 h-8 w-auto gap-0 rounded-full bg-secondary p-0.5"
         >
           {(Object.keys(SIDES) as Side[]).map((s) => (
-            <label key={s} className={SEGMENT}>
-              <RadioGroupItem value={s} className="sr-only absolute size-px" />
+            <ToggleGroupItem key={s} value={s} className={SEGMENT}>
               {SIDES[s].label}
-            </label>
+            </ToggleGroupItem>
           ))}
-        </RadioGroup>
+        </ToggleGroup>
         <ComboboxInput
           ref={inputRef}
           showTrigger={false}
@@ -296,8 +306,15 @@ export function QuickstartMenu() {
           ref={listRef}
           className="max-h-(--list-h) p-1.5 group-data-[side=top]/combobox-content:not-data-empty:min-h-(--list-h)"
         >
+          {/* Keyed by side, so a flip remounts the rows: Base UI then indexes
+              them in their new order within the same render, rather than
+              after an update the post-flip highlight could outrun. */}
           {(group: MenuGroup, index: number) => (
-            <MenuGroupRows key={group.value} group={group} index={index} />
+            <MenuGroupRows
+              key={`${side}:${group.value}`}
+              group={group}
+              index={index}
+            />
           )}
         </ComboboxList>
       </ComboboxContent>
