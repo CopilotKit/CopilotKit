@@ -290,7 +290,9 @@ describe("booking through the website", () => {
     const [url, init] = fetchMock.mock.calls[0];
     expect(String(url)).toBe("https://website.test/api/talk-to-engineer/book");
     expect(JSON.parse(String(init?.body))).toMatchObject({
-      event: "imessage_demo",
+      // Every channel books the website's "Talk to an Engineer" event for
+      // now; the channel rides in the answer line and the ref.
+      event: "talk_to_engineer",
       ref: "docs_imessage_early_access",
       workEmailOnly: true,
       kt_hp: "",

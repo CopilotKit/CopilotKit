@@ -50,15 +50,27 @@ export interface EarlyAccessChannel {
   summary: string;
   /**
    * The website's allowlisted booking event (`BOOKING_EVENTS` in
-   * CopilotKit/website `src/lib/talkToEngineer/contracts.ts`): the Calendly
-   * event type "<Name> - Book a Demo", so the invite says what the call is for.
+   * CopilotKit/website `src/lib/talkToEngineer/contracts.ts`). For now every
+   * channel books the website's "Talk to an Engineer" event, and the booking
+   * says which channel it is for in the answer the hosts read (`channelLine`)
+   * and in its `ref`. To give a channel its own invite title, create its
+   * Calendly event type ("iMessage - Book a Demo"), allowlist it on the
+   * website as `<id>_demo`, and name that key here.
    */
-  event: `${EarlyAccessChannelId}_demo`;
+  event: ChannelDemoEvent;
   /** The booking ref, which the website sends to Calendly as `utm_content`. */
   ref: `docs_${EarlyAccessChannelId}_early_access`;
   /** Where to book when the page's own booker can't. */
   fallbackUrl: string;
 }
+
+/**
+ * A booking event the website allowlists: its shared "Talk to an Engineer"
+ * event, or a channel's own demo event once the website has one.
+ */
+export type ChannelDemoEvent =
+  | "talk_to_engineer"
+  | `${EarlyAccessChannelId}_demo`;
 
 /** The website's booking page, where the fallback links go. */
 const BOOKING_PAGE = "https://www.copilotkit.ai/talk-to-an-engineer";
@@ -68,7 +80,7 @@ export const EARLY_ACCESS_CHANNELS: readonly EarlyAccessChannel[] =
     id,
     name: EARLY_ACCESS_CHANNEL_NAMES[id],
     summary: SUMMARIES[id],
-    event: `${id}_demo`,
+    event: "talk_to_engineer",
     ref: `docs_${id}_early_access`,
     fallbackUrl: `${BOOKING_PAGE}?ref=docs_${id}_early_access`,
   }));
