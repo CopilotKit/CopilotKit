@@ -32,6 +32,7 @@ vi.mock("../../../shell-docs/src/proto/live-pages-context", () => ({}));
 import {
   FRONTENDS,
   frontendEventProperties,
+  hasDocs,
   landingPage,
 } from "../../../shell-docs/src/lib/frontends";
 import type { FrontendId } from "../../../shell-docs/src/lib/frontends";
@@ -45,6 +46,7 @@ import {
 } from "../../../shell-docs/src/lib/live-scope";
 import {
   stackHref,
+  stackPage,
   stackPrefix,
 } from "../../../shell-docs/src/proto/stack-href";
 
@@ -141,13 +143,25 @@ describe("an early-access frontend's only page", () => {
 
   test("is where every per-stack link falls back to", () => {
     for (const id of EARLY_ACCESS) {
-      expect(stackPrefix(id, "mastra")).toBe(`/${id}`);
       for (const framework of [null, "built-in-agent", "mastra"]) {
         for (const slug of ["", "quickstart", "connect", "generative-ui"]) {
           expect(stackHref(id, framework, slug, INDEX)).toBe(`/${id}`);
+          expect(stackPage(id, framework, slug, INDEX)).toBe(`/${id}`);
+          // Without the page index too.
+          expect(stackPage(id, framework, slug, null)).toBe(`/${id}`);
+          expect(stackHref(id, framework, slug, null)).toBe(`/${id}`);
         }
       }
     }
+  });
+
+  test("while a stack's prefix stays a prefix", () => {
+    expect(stackPrefix("vue", "mastra")).toBe("/vue/mastra");
+    expect(stackPrefix("react", "built-in-agent")).toBe("");
+    expect(stackPage("vue", "mastra", "frontend-tools", null)).toBe(
+      "/vue/mastra/frontend-tools",
+    );
+    expect(stackPage("vue", "mastra", "nope", INDEX)).toBeNull();
   });
 
   test("is what the frontend pickers open, from any page", () => {
@@ -177,6 +191,14 @@ describe("an early-access frontend's only page", () => {
     expect(frontendHref(["vue", "mastra"], "react", "")).toBe(
       "/mastra/quickstart",
     );
+  });
+
+  test("means the frontend has no docs", () => {
+    for (const id of EARLY_ACCESS) expect(hasDocs(id)).toBe(false);
+    for (const f of FRONTENDS.filter((f) => !f.earlyAccess)) {
+      expect(hasDocs(f.id)).toBe(true);
+    }
+    expect(hasDocs("nope")).toBe(false);
   });
 
   test("is never scoped under a reader's stack", () => {

@@ -21,17 +21,11 @@ function urlFramework(framework: string | null | undefined) {
     : null;
 }
 
-/**
- * A stack's URL prefix: `/vue/mastra`, `/mastra` on React, `""` for React and
- * the built-in agent. An early-access frontend's is its landing page
- * (`/whatsapp`), on every framework.
- */
+/** A stack's URL prefix: `/vue/mastra`, `/mastra` on React, `""` for React and the built-in agent. */
 export function stackPrefix(
   frontend: FrontendId,
   framework: string | null | undefined,
 ) {
-  const landing = landingPage(frontend);
-  if (landing) return landing;
   const fw = urlFramework(framework);
   const fe = frontend !== "react" ? `/${frontendSegment(frontend)}` : "";
   return `${fe}${fw ? `/${fw}` : ""}`;
@@ -41,7 +35,8 @@ export function stackPrefix(
  * A live docs page's URL on a stack (`intelligence/overview` on Vue with
  * Mastra is `/vue/mastra/intelligence/overview`), or null when the stack has
  * no such page (`pages` says where every page lives). `""` is the stack's
- * landing.
+ * landing. An early-access frontend's only page is its landing page
+ * (`/whatsapp`), whatever the page and framework.
  */
 export function stackPage(
   frontend: FrontendId,
@@ -49,6 +44,8 @@ export function stackPage(
   slug: string,
   pages: PageIndex | null,
 ) {
+  const landing = landingPage(frontend);
+  if (landing) return landing;
   if (pages && slug && !whereIs(pages, frontend, urlFramework(framework), slug))
     return null;
   return `${stackPrefix(frontend, framework)}${slug ? `/${slug}` : ""}` || "/";
