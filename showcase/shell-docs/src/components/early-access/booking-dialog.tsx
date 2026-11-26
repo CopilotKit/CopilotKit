@@ -27,7 +27,7 @@ import { earlyAccessChannel } from "@/lib/early-access/channels";
 import type { EarlyAccessChannelId } from "@/lib/early-access/channels";
 import { EARLY_ACCESS_CHANNEL_COPY } from "@/lib/early-access/copy";
 import { postBooking } from "@/lib/early-access/post-booking";
-import { formatBookedTime } from "@/lib/early-access/slot-days";
+import { formatBookedTime, tooSoon } from "@/lib/early-access/slot-days";
 import type { OpenTime } from "@/lib/early-access/slot-days";
 import { BOOKER_TEXT as TEXT } from "./text";
 
@@ -99,6 +99,7 @@ export function BookingDialog({
   onDetailsChange,
   onBooked,
   onSlotTaken,
+  onTooSoon,
   onUnconfirmed,
   onClose,
   onClosed,
@@ -115,6 +116,11 @@ export function BookingDialog({
   onBooked: (time: OpenTime) => void;
   /** The time was just taken: the booker marks it and closes the dialog. */
   onSlotTaken: (time: OpenTime) => void;
+  /**
+   * The time is too soon to book by now, so nothing was sent: the booker
+   * marks it and closes the dialog.
+   */
+  onTooSoon: (time: OpenTime) => void;
   /** It may have booked: the booker stops offering times. */
   onUnconfirmed: (time: OpenTime) => void;
   onClose: () => void;
@@ -169,6 +175,12 @@ export function BookingDialog({
 
   const submit = async () => {
     if (submittingRef.current || locked) return;
+    // The lead passed while the dialog was open: nothing is sent, and the
+    // booker says why. First, so no one fixes a field for a time that's gone.
+    if (tooSoon(time)) {
+      onTooSoon(time);
+      return;
+    }
     // The browser's own checks, said the docs' way under each field.
     const found: Partial<Record<FormField, string>> = {};
     if (!details.name.trim()) found.name = TEXT.errors.name;

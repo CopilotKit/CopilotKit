@@ -21,9 +21,9 @@ import { earlyAccessChannel } from "@/lib/early-access/channels";
 import type { EarlyAccessChannelId } from "@/lib/early-access/channels";
 import { EARLY_ACCESS_CHANNEL_COPY } from "@/lib/early-access/copy";
 import {
-  SLOT_LEAD_MS,
   groupSlotDays,
   pageTimes,
+  tooSoon,
 } from "@/lib/early-access/slot-days";
 import type { OpenTime, SlotDay } from "@/lib/early-access/slot-days";
 import { initialTimeZone, storeTimeZone } from "@/lib/early-access/time-zones";
@@ -211,9 +211,6 @@ function selectedDayIndex(days: readonly SlotDay[], key: string | null) {
   const later = days.findIndex((day) => day.key > key);
   return later !== -1 ? later : days.length - 1;
 }
-
-/** Whether a time is too soon to book by now (inside the lead). */
-const tooSoon = (time: OpenTime) => time.startMs - Date.now() <= SLOT_LEAD_MS;
 
 /** Why the time the reader picked went, which the notice says. */
 type Notice = keyof typeof TEXT.notices;
@@ -680,6 +677,11 @@ export function ChannelDemoBooker({
           onSlotTaken={(time) => {
             outcome.current = "notice";
             timeGone(time, "slot_taken");
+            setDialogOpen(false);
+          }}
+          onTooSoon={(time) => {
+            outcome.current = "notice";
+            timeGone(time, "too_soon");
             setDialogOpen(false);
           }}
           onUnconfirmed={(time) => {

@@ -7,6 +7,10 @@ import type { ChannelDemoTimes } from "./booking";
 /** Times closer than this are too soon to book, as on the website. */
 export const SLOT_LEAD_MS = 5 * 60_000;
 
+/** Whether a time is too soon to book by `now` (inside the lead). */
+export const tooSoon = (time: { startMs: number }, now = Date.now()) =>
+  time.startMs - now <= SLOT_LEAD_MS;
+
 /** Day tabs: the next days with an open time. */
 const DAYS = 5;
 

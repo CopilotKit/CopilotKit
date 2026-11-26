@@ -6,6 +6,7 @@ import {
   SLOT_LEAD_MS,
   groupSlotDays,
   pageTimes,
+  tooSoon,
 } from "../../../shell-docs/src/lib/early-access/slot-days";
 import type { TimeChip } from "../../../shell-docs/src/lib/early-access/slot-days";
 
@@ -140,5 +141,13 @@ describe("pageTimes", () => {
     ]);
     expect(pages[1].map((e) => e.slotIndex)).toEqual([5, -1, -1]);
     expect(pageTimes([closed(1), closed(2)], 8)).toEqual([]);
+  });
+});
+
+describe("tooSoon", () => {
+  test("a time is too soon to book from the start of the lead", () => {
+    const now = Date.parse("2026-12-02T16:00:00Z");
+    expect(tooSoon({ startMs: now + SLOT_LEAD_MS }, now)).toBe(true);
+    expect(tooSoon({ startMs: now + SLOT_LEAD_MS + 1 }, now)).toBe(false);
   });
 });
