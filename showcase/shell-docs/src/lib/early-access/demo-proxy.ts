@@ -62,9 +62,41 @@ const PRE_CONNECTION_ERROR_CODES: ReadonlySet<string> = new Set([
 // a minute per address: so five a minute across all readers, and five in
 // ten minutes for each reader, so one reader can't use them all. Every
 // booking request, valid or not, also counts toward a ceiling per reader.
-const allowBookRequest = createRateLimit({ limit: 30, windowMs: 60_000 });
-const allowBooking = createRateLimit({ limit: 5, windowMs: 10 * 60_000 });
-const allowTimesRead = createRateLimit({ limit: 60, windowMs: 60_000 });
+// Readers whose address can't be read all have one key (`UNKNOWN_READER`),
+// so a limit on that key would let one of them use up the others' allowance.
+// They get no limits of their own: their bookings count only toward the
+// five a minute across all readers, and their reads of the times toward one
+// cap for all of them together.
+
+type Limit = ReturnType<typeof createRateLimit>;
+
+/**
+ * `own`, counted for each reader. Readers whose address can't be read are
+ * counted together by `shared` instead, or not at all.
+ */
+function perReader(own: Limit, shared?: Limit): Limit {
+  return (reader) => {
+    if (reader !== UNKNOWN_READER) return own(reader);
+    return shared ? shared(reader) : { ok: true };
+  };
+}
+
+const allowBookRequest = perReader(
+  createRateLimit({ limit: 30, windowMs: 60_000 }),
+);
+const allowBooking = perReader(
+  createRateLimit({ limit: 5, windowMs: 10 * 60_000 }),
+);
+/**
+ * Reads of the times a minute by all readers without a readable address
+ * together: ten readers' worth. Normal traffic stays well under it even if
+ * no reader's address can be read; it only keeps a flood off the website.
+ */
+const UNKNOWN_TIMES_READ_LIMIT = 600;
+const allowTimesRead = perReader(
+  createRateLimit({ limit: 60, windowMs: 60_000 }),
+  createRateLimit({ limit: UNKNOWN_TIMES_READ_LIMIT, windowMs: 60_000 }),
+);
 const SHARED_BOOKING_LIMIT = 5;
 const SHARED_BOOKING_WINDOW_MS = 60_000;
 /** When each of the last minute's bookings went to the website. */
@@ -145,7 +177,10 @@ const CLOUDFLARE_RANGES = [
   "2c0f:f248::/32",
 ];
 
-/** The key of every request whose reader's address can't be read. */
+/**
+ * The key of every request whose reader's address can't be read. It is no
+ * one reader's, so no per-reader limit counts under it (`perReader`).
+ */
 const UNKNOWN_READER = "unknown";
 /** The longest address: IPv6 with an IPv4 tail. */
 const MAX_ADDRESS_LENGTH = 45;
@@ -243,7 +278,9 @@ function keyOf(address: Address) {
  * fronts the docs; Cloudflare then names the reader in `cf-connecting-ip`,
  * which is believed only then, since a client can send it too.
  * `x-forwarded-for` is never read: its first entry is whatever the client
- * wrote. A request without a readable address counts under one shared key.
+ * wrote. A request without a readable address (no `x-real-ip`, or a
+ * Cloudflare peer that names no reader) gets `UNKNOWN_READER`, which the
+ * per-reader limits skip.
  */
 export function clientKey(headers: Headers): string {
   const peer = readAddress(headers.get("x-real-ip"));
@@ -251,6 +288,25 @@ export function clientKey(headers: Headers): string {
   if (!fromCloudflare(peer)) return keyOf(peer);
   const reader = readAddress(headers.get("cf-connecting-ip"));
   return reader ? keyOf(reader) : UNKNOWN_READER;
+}
+
+/** Whether a request without a readable address has been logged yet. */
+let unknownReaderLogged = false;
+
+/**
+ * `request`'s key (`clientKey`). The first request without a readable
+ * address is logged, once per process, so an edge that stops naming readers
+ * shows up in the logs. The line names no address.
+ */
+function readerKey(request: Request) {
+  const key = clientKey(request.headers);
+  if (key === UNKNOWN_READER && !unknownReaderLogged) {
+    unknownReaderLogged = true;
+    console.warn(
+      "[channel-demo] no readable client address; per-reader limits skipped",
+    );
+  }
+  return key;
 }
 
 /* ---------- answers ---------- */
@@ -326,7 +382,7 @@ export async function getChannelDemoTimes(request: Request) {
     new URL(request.url).searchParams.get("channel"),
   );
   if (!channel) return respond(400, noTimes("error"));
-  const allowed = allowTimesRead(clientKey(request.headers));
+  const allowed = allowTimesRead(readerKey(request));
   if (!allowed.ok) {
     return respond(429, noTimes("error"), {
       "Retry-After": String(allowed.retryAfter),
@@ -524,7 +580,7 @@ function rateLimited(retryAfter: number) {
  * channel's ref as its `utm_content`.
  */
 export async function bookChannelDemo(request: Request) {
-  const reader = clientKey(request.headers);
+  const reader = readerKey(request);
   const attempt = allowBookRequest(reader);
   if (!attempt.ok) return rateLimited(attempt.retryAfter);
 

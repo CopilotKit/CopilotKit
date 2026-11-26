@@ -494,4 +494,130 @@ describe("open times", () => {
     await getChannelDemoTimes(slotsRequest("rcs"));
     expect(cancel).toHaveBeenCalled();
   });
+
+  test("gives each reader sixty reads a minute", async () => {
+    const { getChannelDemoTimes } = await loadProxy();
+    website(() => json(200, { ok: true, slots: [], unavailable: [] }));
+    const ip = readerIp();
+    const statuses: number[] = [];
+    for (let i = 0; i < 61; i++) {
+      const response = await getChannelDemoTimes(
+        slotsRequest("sms", { "x-real-ip": ip }),
+      );
+      statuses.push(response.status);
+    }
+    expect(statuses.slice(0, 60).filter((s) => s !== 200)).toEqual([]);
+    expect(statuses[60]).toBe(429);
+    // Another reader keeps their own.
+    expect((await getChannelDemoTimes(slotsRequest("sms"))).status).toBe(200);
+  });
+});
+
+describe("readers without a readable address", () => {
+  // Railway's edge doesn't set x-real-ip on every connection, and a
+  // Cloudflare edge may not name the reader. Such readers can't be told
+  // apart, so none of them has limits of their own.
+  const NO_ADDRESS_LINE =
+    "[channel-demo] no readable client address; per-reader limits skipped";
+  const CLOUDFLARE_EDGE = "162.158.10.20";
+  const NO_TIMES = { ok: true, slots: [], unavailable: [] };
+
+  let turn = 0;
+  /**
+   * `request` from a reader whose address can't be read: by turns, with no
+   * x-real-ip, and through a Cloudflare edge that doesn't name the reader.
+   */
+  function fromUnknownReader(request: Request) {
+    if (turn++ % 2 === 0) request.headers.delete("x-real-ip");
+    else request.headers.set("x-real-ip", CLOUDFLARE_EDGE);
+    return request;
+  }
+
+  test("aren't held to one reader's limit on booking requests", async () => {
+    const { bookChannelDemo } = await loadProxy();
+    website(() => json(200, BOOKED));
+    // Past one reader's 30 a minute. These fail validation: nothing books.
+    const statuses: number[] = [];
+    for (let i = 0; i < 40; i++) {
+      const response = await bookChannelDemo(
+        fromUnknownReader(bookRequest({ ...VALID, name: "" })),
+      );
+      statuses.push(response.status);
+    }
+    expect(statuses.filter((s) => s !== 400)).toEqual([]);
+  });
+
+  test("aren't held to one reader's five bookings in ten minutes", async () => {
+    const { bookChannelDemo } = await loadProxy();
+    const fetchMock = website(() => json(200, BOOKED));
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      const start = Date.now();
+      // Five a minute, the limit across all readers, for three minutes.
+      const statuses: number[] = [];
+      for (let minute = 0; minute < 3; minute++) {
+        vi.setSystemTime(start + minute * 61_000);
+        for (let i = 0; i < 5; i++) {
+          const response = await bookChannelDemo(
+            fromUnknownReader(bookRequest(VALID)),
+          );
+          statuses.push(response.status);
+        }
+      }
+      expect(statuses.filter((s) => s !== 200)).toEqual([]);
+      expect(fetchMock).toHaveBeenCalledTimes(15);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  test("still book at most five a minute, the limit across all readers", async () => {
+    const { bookChannelDemo } = await loadProxy();
+    const fetchMock = website(() => json(200, BOOKED));
+    const statuses: number[] = [];
+    for (let i = 0; i < 6; i++) {
+      const response = await bookChannelDemo(
+        fromUnknownReader(bookRequest(VALID)),
+      );
+      statuses.push(response.status);
+    }
+    expect(statuses).toEqual([200, 200, 200, 200, 200, 429]);
+    expect(fetchMock).toHaveBeenCalledTimes(5);
+  });
+
+  test("share one cap of 600 reads of the times a minute", async () => {
+    const { getChannelDemoTimes } = await loadProxy();
+    website(() => json(200, NO_TIMES));
+    const statuses: number[] = [];
+    for (let i = 0; i < 600; i++) {
+      const response = await getChannelDemoTimes(
+        fromUnknownReader(slotsRequest("sms")),
+      );
+      statuses.push(response.status);
+    }
+    expect(statuses.filter((s) => s !== 200)).toEqual([]);
+    const capped = await getChannelDemoTimes(
+      fromUnknownReader(slotsRequest("sms")),
+    );
+    expect(capped.status).toBe(429);
+    expect(Number(capped.headers.get("Retry-After"))).toBeGreaterThan(0);
+    // A reader with an address doesn't count toward it.
+    expect((await getChannelDemoTimes(slotsRequest("sms"))).status).toBe(200);
+  });
+
+  test("are logged once, in a line without any address", async () => {
+    const { bookChannelDemo, getChannelDemoTimes } = await loadProxy();
+    website((url) => json(200, url.endsWith("/book") ? BOOKED : NO_TIMES));
+    await getChannelDemoTimes(slotsRequest("sms"));
+    await bookChannelDemo(bookRequest(VALID));
+    expect(console.warn).not.toHaveBeenCalledWith(NO_ADDRESS_LINE);
+    for (let i = 0; i < 2; i++) {
+      await getChannelDemoTimes(fromUnknownReader(slotsRequest("sms")));
+      await bookChannelDemo(fromUnknownReader(bookRequest(VALID)));
+    }
+    const lines = vi
+      .mocked(console.warn)
+      .mock.calls.filter(([line]) => line === NO_ADDRESS_LINE);
+    expect(lines).toEqual([[NO_ADDRESS_LINE]]);
+  });
 });
