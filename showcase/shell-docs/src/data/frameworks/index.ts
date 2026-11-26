@@ -3,6 +3,7 @@ import a2a from "./a2a";
 import agentSpec from "./agent-spec";
 import claudeSdkPython from "./claude-sdk-python";
 import claudeSdkTypescript from "./claude-sdk-typescript";
+import cloudflareAgents from "./cloudflare-agents";
 import googleAdk from "./google-adk";
 import googleAntigravity from "./google-antigravity";
 import langgraphPython from "./langgraph-python";
@@ -27,6 +28,7 @@ export const frameworkOverviews: Record<string, FrameworkOverviewData> = {
   "agent-spec": agentSpec,
   "claude-sdk-python": claudeSdkPython,
   "claude-sdk-typescript": claudeSdkTypescript,
+  "cloudflare-agents": cloudflareAgents,
   // Authored discovery sections live in content/framework-overviews; keep
   // these slot overrides here rather than editing extracted data records.
   "google-adk": { ...googleAdk, hasAfterFeaturesMdx: true },
