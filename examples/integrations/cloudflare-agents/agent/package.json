@@ -1,0 +1,29 @@
+{
+  "name": "cloudflare-agents-starter-agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Cloudflare Worker serving the starter's agent over AG-UI: an Agents SDK agent (one Durable Object per thread) made AG-UI-capable by @ag-ui/cloudflare-agents",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@ag-ui/a2ui-toolkit": "0.0.5",
+    "@ag-ui/client": "1.0.5",
+    "@ag-ui/cloudflare-agents": "0.1.0",
+    "@ag-ui/core": "1.0.5",
+    "@ai-sdk/openai": "4.0.114",
+    "@modelcontextprotocol/client": "2.4.0",
+    "agents": "0.33.0",
+    "ai": "7.0.169",
+    "rxjs": "7.8.1",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "5.20261120.1",
+    "typescript": "5.9.3",
+    "wrangler": "4.160.0"
+  }
+}
