@@ -22,6 +22,7 @@ import type { EarlyAccessChannelId } from "@/lib/early-access/channels";
 import { EARLY_ACCESS_CHANNEL_COPY } from "@/lib/early-access/copy";
 import {
   groupSlotDays,
+  holdEnds,
   keptOut,
   pageTimes,
   tooSoon,
@@ -266,8 +267,8 @@ export function ChannelDemoBooker({
   /**
    * Times the reader can't book here, each with when it may come back: one
    * someone else took, once times read after its hold list it open again
-   * (its booking was cancelled); one the reader booked, or that was too
-   * soon, never.
+   * (its booking was cancelled; the times are read when the hold ends); one
+   * the reader booked, or that was too soon, never.
    */
   const [taken, setTaken] = useState<ReadonlyMap<number, number>>(
     () => new Map(),
@@ -302,6 +303,16 @@ export function ChannelDemoBooker({
     viewed.current = true;
     trackEvent("docs.channel_demo_viewed", { channel });
   }, [channel]);
+
+  // When a taken time's hold ends, the times are read once more, so it
+  // comes back if it is open again although the reader stays on the page.
+  useEffect(() => {
+    const now = Date.now();
+    const timers = holdEnds(taken, now).map((until) =>
+      setTimeout(refresh, until - now),
+    );
+    return () => timers.forEach(clearTimeout);
+  }, [taken, refresh]);
 
   const days = useMemo(
     () =>

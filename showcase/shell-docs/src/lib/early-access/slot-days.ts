@@ -24,6 +24,22 @@ export function keptOut(
   return out;
 }
 
+/**
+ * When the holds still on at `now` end, soonest first, once each: the booker
+ * reads the times again then, so a taken time can come back while the
+ * reader stays on the page.
+ */
+export function holdEnds(
+  taken: ReadonlyMap<number, number>,
+  now: number,
+): number[] {
+  const ends = new Set<number>();
+  for (const until of taken.values()) {
+    if (Number.isFinite(until) && until > now) ends.add(until);
+  }
+  return [...ends].sort((a, b) => a - b);
+}
+
 /** Day tabs: the next days with an open time. */
 const DAYS = 5;
 

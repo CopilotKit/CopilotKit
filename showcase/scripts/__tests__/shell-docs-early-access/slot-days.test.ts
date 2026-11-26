@@ -5,6 +5,7 @@ import { describe, expect, test } from "vitest";
 import {
   SLOT_LEAD_MS,
   groupSlotDays,
+  holdEnds,
   keptOut,
   pageTimes,
   tooSoon,
@@ -163,5 +164,23 @@ describe("keptOut", () => {
     expect([...keptOut(taken, 119_999)]).toEqual([1, 2]);
     expect([...keptOut(taken, 120_000)]).toEqual([1]);
     expect([...keptOut(new Map(), 0)]).toEqual([]);
+  });
+});
+
+describe("holdEnds", () => {
+  test("lists when each hold still on ends, soonest first, once each", () => {
+    // 1 was booked (for good), 2 and 4 are held to 180000, 3 to 150000, and
+    // 5's hold ended at 90000.
+    const taken = new Map([
+      [1, Infinity],
+      [2, 180_000],
+      [3, 150_000],
+      [4, 180_000],
+      [5, 90_000],
+    ]);
+    expect(holdEnds(taken, 100_000)).toEqual([150_000, 180_000]);
+    expect(holdEnds(taken, 150_000)).toEqual([180_000]);
+    expect(holdEnds(taken, 180_000)).toEqual([]);
+    expect(holdEnds(new Map(), 0)).toEqual([]);
   });
 });
