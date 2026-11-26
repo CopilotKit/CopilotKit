@@ -7,7 +7,7 @@ import { EarlyAccessBadge } from "@/components/early-access/badge";
 import { BookCta } from "@/components/early-access/book-cta";
 import { ChannelDemoBooker } from "@/components/early-access/booker";
 import { ConversationPreview } from "@/components/early-access/conversation";
-import { FrontendLogo } from "@/components/icons/frontend-logo";
+import { FrontendLogo, frontendGlyph } from "@/components/icons/frontend-logo";
 import {
   AgentGlyph,
   ChannelsSdkGlyph,
@@ -67,8 +67,8 @@ export function ChannelLanding({ id }: { id: EarlyAccessChannelId }) {
   const copy = EARLY_ACCESS_CHANNEL_COPY[id];
   const shared = SHARED_EARLY_ACCESS_COPY;
   const name = copy.name;
-  // SMS has no brand mark: its glyph takes the accent, as a card glyph does.
-  const glyph = id === "sms" ? "ink" : "logo";
+  // A frontend with no brand mark (SMS) takes the accent, as a card glyph does.
+  const glyph = frontendGlyph(id);
   const stepGlyphs: ReactNode[] = [
     <FrontendLogo key="channel" icon={id} size={22} />,
     <IntelligenceGlyph key="intelligence" />,
@@ -279,7 +279,7 @@ export function ChannelLanding({ id }: { id: EarlyAccessChannelId }) {
               <LinkCard
                 key={f.id}
                 href={frontendHref([], f.id, "")}
-                glyph={f.id === "sms" ? "ink" : "logo"}
+                glyph={frontendGlyph(f.id)}
                 icon={<FrontendLogo icon={f.id} size={22} />}
                 title={f.name}
                 description={f.summary}

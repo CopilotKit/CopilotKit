@@ -10,7 +10,7 @@ import {
   OtherGlyph,
 } from "@/components/icons/glyphs";
 import { FrameworkLogo } from "@/components/icons/framework-icons";
-import { FrontendLogo } from "@/components/icons/frontend-logo";
+import { FrontendLogo, frontendGlyph } from "@/components/icons/frontend-logo";
 import { EarlyAccessBadge } from "@/components/early-access/badge";
 import { useIntegrationClickTracking } from "@/components/telemetry/homepage";
 import {
@@ -105,13 +105,12 @@ export function DHome() {
       <section className="flex flex-col gap-5">
         <h2 className={sectionTitle}>Frontends</h2>
         <Tray variant="bare">
-          {/* An early-access frontend's home is its landing page. SMS has no
-              brand mark, so its glyph takes the accent. */}
+          {/* An early-access frontend's home is its landing page. */}
           {FRONTENDS.map((f) => (
             <LinkCard
               key={f.id}
               href={stackHref("", { frontend: f.id })}
-              glyph={f.id === "sms" ? "ink" : "logo"}
+              glyph={frontendGlyph(f.id)}
               icon={<FrontendLogo icon={f.id} size={22} />}
               title={f.name}
               description={f.summary}

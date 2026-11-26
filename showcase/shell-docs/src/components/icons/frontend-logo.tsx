@@ -82,7 +82,11 @@ function SlackColorLogo({
   );
 }
 
-const FRONTEND_ICONS: Record<FrontendId, { Icon: BrandIcon; color: string }> = {
+const FRONTEND_ICONS: Record<
+  FrontendId,
+  /** `ink`: no brand mark, so on a card the glyph takes the accent. */
+  { Icon: BrandIcon; color: string; ink?: true }
+> = {
   react: { Icon: SiReact, color: "#61DAFB" },
   vue: { Icon: SiVuedotjs, color: "#4FC08D" },
   "react-native": { Icon: TbBrandReactNative, color: "#61DAFB" },
@@ -91,9 +95,18 @@ const FRONTEND_ICONS: Record<FrontendId, { Icon: BrandIcon; color: string }> = {
   teams: { Icon: BiLogoMicrosoftTeams, color: "#6264A7" },
   imessage: { Icon: SiImessage, color: "#34DA50" },
   whatsapp: { Icon: SiWhatsapp, color: "#25D366" },
-  sms: { Icon: SmsGlyph, color: "currentColor" },
+  sms: { Icon: SmsGlyph, color: "currentColor", ink: true },
   rcs: { Icon: SiGooglemessages, color: "#1A73E8" },
 };
+
+/**
+ * How a card draws the frontend's glyph (`LinkCard`'s `glyph`): a brand mark
+ * in its own colors, or, for a frontend with no brand mark (SMS), the solid
+ * glyph in the accent.
+ */
+export function frontendGlyph(icon: FrontendId): "ink" | "logo" {
+  return FRONTEND_ICONS[icon].ink ? "ink" : "logo";
+}
 
 export function FrontendLogo({
   icon,
