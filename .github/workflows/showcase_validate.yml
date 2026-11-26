@@ -562,7 +562,7 @@ jobs:
 
       - name: Notify Slack (failure)
         if: failure() && github.event_name == 'push' && env.SLACK_WEBHOOK != ''
-        uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
+        uses: slackapi/slack-github-action@0bc3581177d9a0f8d555e07689384b376528e8fa # v4.1.0
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
@@ -918,7 +918,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
       - name: Post to #oss-alerts
         if: steps.state.outputs.state == 'failure' && env.SLACK_WEBHOOK != ''
-        uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
+        uses: slackapi/slack-github-action@0bc3581177d9a0f8d555e07689384b376528e8fa # v4.1.0
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
