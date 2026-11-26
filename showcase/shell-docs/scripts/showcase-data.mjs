@@ -175,8 +175,10 @@ for (const file of walkDocs(docsDir)) {
     .filter((s) => s.region && s.cell && !s.pinned);
   const concepts = [
     ...new Set(
-      [...source.matchAll(/<FrameworkSetup\s+concept="([^"]+)"/g)].map(
-        ([, concept]) => concept,
+      [...source.matchAll(/<FrameworkSetup\b([^>]*)>/g)].flatMap(([, attrs]) =>
+        [...attrs.matchAll(/\b(?:concept|preferredConcept)="([^"]+)"/g)].map(
+          ([, concept]) => concept,
+        ),
       ),
     ),
   ];

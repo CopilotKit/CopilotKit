@@ -1,0 +1,28 @@
+<Steps>
+  <Step>
+    ### Nothing to wire on the agent
+
+    Keep `filter_tasks` on the device, where you register it with
+    `useFrontendTool`. The AG-UI Mastra adapter forwards the tool definition
+    to `agent.stream()` as a client tool on each run. Do not add
+    `filter_tasks` to the Mastra agent’s `tools`.
+
+  </Step>
+  <Step>
+    ### Tell the model when to call it
+
+    In the Mastra agent you connected in the [quickstart](/quickstart), add
+    these directions to the agent’s `instructions`:
+
+    ```ts title="Mastra agent instructions"
+    const taskFilterInstructions = `When the user asks to filter the visible
+    task list, call the frontend \`filter_tasks\` tool with \`status\` set to
+    "all", "open", or "done". Confirm the filter only after the tool
+    reports that it was applied.`;
+    ```
+
+    Ask the agent to show only open tasks. It should call `filter_tasks`
+    with `status: "open"`. The device updates the filter and returns the result.
+
+  </Step>
+</Steps>
