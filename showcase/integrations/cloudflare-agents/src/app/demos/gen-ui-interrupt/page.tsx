@@ -12,68 +12,26 @@ import { TimePickerCard } from "./_components/time-picker-card";
 import { generateFallbackSlots } from "../_shared/interrupt-fallback-slots";
 import { useGenUiInterruptSuggestions } from "./suggestions";
 
-// Shape the backend `schedule_meeting` tool pauses with: its `interrupt()`
-// `reason` payload. `slots` is absent on the Strands path (the tool passes only
-// topic and attendee), so the picker falls back to generated slots.
+// What the picker shows: the paused `schedule_meeting` call's arguments. The
+// tool takes only a topic and an attendee, so `slots` stays empty and the
+// picker falls back to generated slots.
 type SchedulingPayload = {
   topic?: string;
   attendee?: string;
   slots?: TimeSlot[];
 };
 
-// Read the tool's `interrupt()` reason off an AG-UI interrupt.
-//
-// The two bridges expose it on different channels: `ag_ui_strands` (Python)
-// carries the reason object under `metadata.reason`, while the published
-// `@ag-ui/aws-strands` 0.2.3 JSON-encodes it into `message` instead. Both are
-// read so one page serves both, and the legacy event value is read last for
-// adapters that pass the payload through unwrapped.
-/**
- * JSON.parse that never throws and never returns a primitive. Both readers run
- * inside a React render callback, where a throw takes the whole pane down.
- */
-function parseObject(raw: string | undefined): Record<string, unknown> | null {
-  if (!raw) return null;
-  try {
-    const parsed: unknown = JSON.parse(raw);
-    return parsed && typeof parsed === "object"
-      ? (parsed as Record<string, unknown>)
-      : null;
-  } catch {
-    return null;
-  }
-}
-
+// `schedule_meeting` needs approval (AI SDK `toolApproval`), so
+// @ag-ui/cloudflare-agents ends the run with a `tool_approval` interrupt
+// before the tool runs. Its `metadata.tool_input` holds the call's arguments.
 function readSchedulingPayload(
-  interrupt: { metadata?: unknown; message?: string } | null | undefined,
-  eventValue: unknown,
+  interrupt: { metadata?: unknown } | null | undefined,
 ): SchedulingPayload {
-  const metadata = interrupt?.metadata as
-    | { reason?: SchedulingPayload }
-    | undefined;
-  if (metadata?.reason && typeof metadata.reason === "object") {
-    return metadata.reason;
-  }
-
-  // The published TypeScript bridge JSON-encodes the reason into `message`
-  // instead of carrying it on metadata.
-  const decoded = parseObject(interrupt?.message);
-  if (decoded) {
-    const nested = (decoded as { reason?: SchedulingPayload }).reason;
-    return nested && typeof nested === "object"
-      ? nested
-      : (decoded as SchedulingPayload);
-  }
-
-  // Legacy channel: some adapters pass the payload through as the event value,
-  // JSON-encoded or not.
-  const legacy =
-    typeof eventValue === "string" ? parseObject(eventValue) : eventValue;
-  if (!legacy || typeof legacy !== "object") return {};
-  const wrapped = (legacy as { metadata?: { reason?: SchedulingPayload } })
-    .metadata?.reason;
-  if (wrapped && typeof wrapped === "object") return wrapped;
-  return legacy as SchedulingPayload;
+  const input = (interrupt?.metadata as { tool_input?: unknown } | undefined)
+    ?.tool_input;
+  return input && typeof input === "object" && !Array.isArray(input)
+    ? (input as SchedulingPayload)
+    : {};
 }
 
 export default function GenUiInterruptDemo() {
@@ -120,17 +78,15 @@ function InterruptChat({
 }) {
   useGenUiInterruptSuggestions();
 
-  // Native interrupt path. The backend `schedule_meeting` tool calls Strands'
-  // `context.interrupt(...)`; the @ag-ui/aws-strands bridge finishes the run
-  // with `outcome.type === "interrupt"`. Where the tool's `reason` travels
-  // depends on the bridge version, so the reader below accepts both channels.
-  // `resolve(...)` resumes the same Strands run, handing the selection back to
-  // that `interrupt()` call.
+  // Native interrupt path. The run finishes with `outcome.type ===
+  // "interrupt"` before `schedule_meeting` runs. `resolve(...)` sends the
+  // picked slot as the resume payload; the Worker turns it into the approval
+  // and hands the slot to the tool (src/agent/scheduling.ts).
   useInterrupt({
     agentId: "gen-ui-interrupt",
     renderInChat: true,
-    render: ({ event, interrupt, resolve }) => {
-      const payload = readSchedulingPayload(interrupt, event.value);
+    render: ({ interrupt, resolve }) => {
+      const payload = readSchedulingPayload(interrupt);
       const slots =
         payload.slots && payload.slots.length > 0
           ? payload.slots
