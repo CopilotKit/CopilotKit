@@ -307,9 +307,9 @@ export function ChannelDemoBooker({
   // When a taken time's hold ends, the times are read once more, so it
   // comes back if it is open again although the reader stays on the page.
   useEffect(() => {
-    const now = Date.now();
-    const timers = holdEnds(taken, now).map((until) =>
-      setTimeout(refresh, until - now),
+    const from = Date.now();
+    const timers = holdEnds(taken, from).map((until) =>
+      setTimeout(refresh, until - from),
     );
     return () => timers.forEach(clearTimeout);
   }, [taken, refresh]);
