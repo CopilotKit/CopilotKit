@@ -4,16 +4,11 @@ import { useCallback } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useStack } from "@/components/stack/stack-provider";
 import { frontendHref, liveFrontend, scopeFromPath } from "@/lib/live-scope";
-import {
-  BACKENDS,
-  FRONTENDS,
-  backendById,
-  frontendById,
-  isServable,
-} from "@/lib/stack";
+import { BACKENDS, backendById, frontendById, isServable } from "@/lib/stack";
 import type { FrontendId } from "@/lib/stack";
+import { DOCS_FRONTENDS } from "@/lib/frontends";
 import { useFrontend } from "@/proto/frontend";
-import { FRAMEWORKS, FRONTENDS as PROTO_FRONTENDS } from "@/proto/data";
+import { FRAMEWORKS } from "@/proto/data";
 import type { FrontendId as ProtoFrontendId } from "@/proto/data";
 import { frameworkHref } from "@/proto/routes";
 import type { VariantId } from "@/proto/routes";
@@ -38,7 +33,7 @@ export function DocsStackAgent() {
     <StackAgent
       frontend={stack?.frontend ?? null}
       agentFramework={stack?.backend ?? null}
-      frontends={FRONTENDS}
+      frontends={DOCS_FRONTENDS}
       frameworks={BACKENDS}
       onSwitch={onSwitch}
     />
@@ -77,17 +72,13 @@ export function ProtoStackAgent({
               .split("/")
               .filter(Boolean);
       const next = nextFrontend as ProtoFrontendId;
-      // Remembered for the pages that aren't per frontend, when it has docs.
-      const remembered = setFrontend(next);
-      const destination =
-        next === frontend ? `/${page.join("/")}` : frontendHref(page, next);
-      router.push(destination);
+      // Remembered for the pages that aren't per frontend.
+      setFrontend(next);
+      router.push(
+        next === frontend ? `/${page.join("/")}` : frontendHref(page, next),
+      );
       const name = FRAMEWORKS.find((f) => f.id === nextFramework)?.name;
-      const fe = PROTO_FRONTENDS.find((f) => f.id === next)?.name ?? next;
-      // A frontend in early access has no docs: its page is its landing page.
-      return remembered || next === frontend
-        ? `Opened the docs for ${name} on ${fe}.`
-        : `${fe} is in early access and has no docs yet: opened its page, ${destination}, where the reader can book a demo. The reader's docs stack is unchanged.`;
+      return `Opened the docs for ${name} on ${nextFrontend}.`;
     },
     [router, setFrontend, pathname, frontend, framework, variant, slug],
   );
@@ -96,7 +87,7 @@ export function ProtoStackAgent({
     <StackAgent
       frontend={frontend}
       agentFramework={framework ?? null}
-      frontends={PROTO_FRONTENDS}
+      frontends={DOCS_FRONTENDS}
       frameworks={FRAMEWORKS}
       onSwitch={onSwitch}
     />

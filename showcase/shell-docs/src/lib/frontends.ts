@@ -156,6 +156,14 @@ export function hasDocs(id: string | null | undefined): id is FrontendId {
 }
 
 /**
+ * The frontends with docs: what the reader's docs stack can be. The docs
+ * assistant offers only these when it switches the reader's stack.
+ */
+export const DOCS_FRONTENDS: readonly Frontend[] = FRONTENDS.filter((f) =>
+  hasDocs(f.id),
+);
+
+/**
  * The frontend part of an analytics event about a frontend
  * (`docs.frontend_selected`, `docs.homepage_quickstart_selected`): its id,
  * and `early_access: true` when it is in early access.
