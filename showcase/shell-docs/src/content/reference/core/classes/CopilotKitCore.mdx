@@ -51,6 +51,10 @@ new CopilotKitCore(config: CopilotKitCoreConfig)
     Frontend tools available to the core. See [FrontendTool](/reference/core/types/FrontendTool).
   </PropertyReference>
 
+  <PropertyReference name="defaultWebMCPTools" type="boolean" default="true">
+    Exposes tools that have a `handler` and a `description` to browser agents through [WebMCP](/webmcp). A tool's own `webmcp` value always wins. See [CopilotKitCoreConfig](/reference/core/types/CopilotKitCoreConfig).
+  </PropertyReference>
+
   <PropertyReference name="suggestionsConfig" type="SuggestionsConfig[]" default="[]">
     Suggestion configurations registered at construction. See [SuggestionsConfig](/reference/core/types/SuggestionsConfig).
   </PropertyReference>
@@ -116,6 +120,10 @@ new CopilotKitCore(config: CopilotKitCoreConfig)
 
 <PropertyReference name="setTools" type="(tools: FrontendTool<any>[]) => void" required>
   Replaces the tools set by the `tools` config. Tools registered with `addTool` stay registered.
+</PropertyReference>
+
+<PropertyReference name="setDefaultWebMCPTools" type="(enabled: boolean) => void" required>
+  Turns the WebMCP default on or off. The WebMCP registrations update at once: tools that only had the default are added or removed. Read the current value from `defaultWebMCPTools`.
 </PropertyReference>
 
 <PropertyReference name="runTool" type="(params: CopilotKitCoreRunToolParams) => Promise<CopilotKitCoreRunToolResult>" required>

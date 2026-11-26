@@ -66,7 +66,7 @@ This hook lets you dynamically generate UI elements and render them in the copil
     </PropertyReference>
 
     <PropertyReference name="webmcp" type="boolean | WebMCPToolConfig">
-      Also expose the action to browser agents through the WebMCP API (`document.modelContext`). Pass `true` for the default annotations, or `{ annotations }` to set your own.
+      Controls whether browser agents can call the action through the WebMCP API (`document.modelContext`). Pass `true` to expose it, `{ annotations }` to expose it with annotations, or `false` to keep it private. When you leave it out, the action follows the provider's `defaultWebMCPTools` setting, which exposes tools that have a `handler` and a `description`.
     </PropertyReference>
 
     <PropertyReference name="parameters" type="Parameter[]">

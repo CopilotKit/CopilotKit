@@ -168,6 +168,15 @@ Receives a structured error event for debugging and observability.
 ```
 </PropertyReference>
 
+<PropertyReference name="defaultWebMCPTools" type="boolean" default="true">
+  Exposes your frontend tools to browser agents through
+  [WebMCP](/webmcp) (`document.modelContext`), not only to your own agent.
+  When `true`, every tool that has a `handler` and a `description` is
+  exposed, except human-in-the-loop tools and tools that set `webmcp: false`.
+  When `false`, only tools that set `webmcp` themselves are exposed. A tool's
+  own `webmcp` value always wins.
+</PropertyReference>
+
 <PropertyReference name="enableInspector" type="boolean"  > 
 Enable or disable the CopilotKit Inspector, letting you inspect AG-UI events,
 view agent messages, check agent state, and visualize agent context. The

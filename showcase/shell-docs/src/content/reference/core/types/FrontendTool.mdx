@@ -89,7 +89,7 @@ type FrontendToolHandlerContext = {
 </PropertyReference>
 
 <PropertyReference name="webmcp" type="boolean | WebMCPToolConfig">
-  Also exposes the tool to browser agents through WebMCP (`document.modelContext`). `true` registers it with default annotations. `{ annotations }` sets the annotations, for example `readOnlyHint`. When a browser agent calls the tool, the handler context has no `agent`.
+  Controls whether browser agents can call the tool through WebMCP (`document.modelContext`). `true` exposes it. `{ annotations }` exposes it with annotations, for example `readOnlyHint`. `false` keeps it private. When you leave it out, the tool follows the core's `defaultWebMCPTools` setting. That setting is on by default and exposes tools that have a `handler` and a `description` and are not human-in-the-loop tools. When a browser agent calls the tool, the handler context has no `agent`.
 </PropertyReference>
 
 ## Usage

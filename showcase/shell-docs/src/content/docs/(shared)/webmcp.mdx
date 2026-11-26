@@ -1,15 +1,17 @@
 ---
 title: WebMCP
 icon: "lucide/Globe2"
-description: Expose browser-side actions as structured tools that compatible agents can discover and call.
+description: Every frontend tool you define is also a WebMCP tool, so any compatible browser agent on your site can call it.
 ---
 
 
 ## Overview
 
-WebMCP lets your website tell compatible browser agents what they can do. Instead of guessing which buttons to click, an agent discovers a named tool with a description, a typed input schema, and a JavaScript handler.
+Browser agents that visit your site have to guess which buttons to click. WebMCP lets your site tell them what they can do. The agent discovers a named tool with a description, a typed input schema, and a JavaScript handler.
 
-CopilotKit can publish an existing [frontend tool](/frontend-tools) to [`document.modelContext`](https://webmachinelearning.github.io/webmcp/). The same handler then works for your CopilotKit agent and for WebMCP-aware browser agents.
+With CopilotKit, every [frontend tool](/frontend-tools) you define is also a WebMCP tool by default. Your own agent can call it. Any compatible browser agent that visits your site can call it too.
+
+CopilotKit publishes the tool to [`document.modelContext`](https://webmachinelearning.github.io/webmcp/). The same handler runs for your agent and for browser agents. You write the tool once.
 
 <Callout type="warn" title="WebMCP is experimental">
   WebMCP is a draft Community Group report, not a W3C Standard. Chrome offers
@@ -26,37 +28,56 @@ Use this pre-built prompt to add WebMCP to your project. Your coding agent will 
 
 <WebMCPSetupPrompt />
 
+## What is exposed by default
+
+CopilotKit registers a frontend tool with WebMCP when all of these are true:
+
+- The tool has a `handler`.
+- The tool has a non-empty `description`. WebMCP rejects tools without one.
+- The tool is available. A tool with `available: false` is removed from WebMCP until it is available again.
+- The tool does not set `webmcp: false`.
+
+These tools are never exposed by default:
+
+- **Human-in-the-loop tools.** Their handler waits for a response from UI in your chat, and a browser agent never sees that UI.
+- **Render-only tools.** A tool with no `handler` has nothing for a browser agent to run.
+- **CopilotKit's built-in tools**, such as the tool for Open Generative UI.
+
+You can still expose any of these yourself with `webmcp: true`.
+
 ## Do I need an agent?
 
-You do not need a CopilotKit backend agent to handle a WebMCP call. A compatible browser agent calls the frontend tool handler directly on the page; in that path, the handler context has no `agent`.
+You do not need a CopilotKit backend agent to handle a WebMCP call. A compatible browser agent calls the frontend tool handler directly on the page. In that path, the handler context has no `agent`.
 
 Choose the smallest path that fits your app:
 
 | What your app has today | What to do |
 | --- | --- |
-| A CopilotKit frontend tool for the action | Add `webmcp: true`, or add annotations with `webmcp: { annotations: ... }`. |
-| CopilotKit, but no frontend tool for the action | Wrap the smallest suitable browser-side action in a frontend tool, then opt it into WebMCP. |
-| A backend agent | Keep it. The tool can remain available to that agent, but WebMCP calls do not pass through it. |
+| A CopilotKit frontend tool for the action | Nothing. The tool is already a WebMCP tool. Add annotations if they help. |
+| CopilotKit, but no frontend tool for the action | Wrap the smallest suitable browser-side action in a frontend tool. |
+| A backend agent | Keep it. The tool stays available to that agent, but WebMCP calls do not pass through it. |
 | No backend agent | Use `CopilotKitCore` directly in browser code, or add the appropriate frontend integration. Do not create an agent only for WebMCP. |
 
-React Native does not expose `document.modelContext`, so WebMCP registration is a no-op there. CopilotKit currently supports this WebMCP option in its browser integrations for React, Vue, Angular, and direct core usage.
+React Native does not expose `document.modelContext`, so WebMCP registration is a no-op there. CopilotKit supports WebMCP in its browser integrations for React, Vue, Angular, and direct core usage.
 
 ## How CopilotKit connects WebMCP
 
-1. Your app registers a CopilotKit frontend tool with `webmcp` enabled.
+1. Your app registers a CopilotKit frontend tool.
 2. CopilotKit mirrors the tool's name, description, JSON Schema, annotations, and handler onto `document.modelContext`.
 3. A compatible browser agent discovers the tool and calls the same JavaScript handler while the page is open.
 4. CopilotKit unregisters the WebMCP tool when the frontend tool is removed or becomes unavailable.
 
-The WebMCP call stays in the browser unless your handler deliberately calls an API. CopilotKit does not route that call through a Runtime or backend agent.
+The WebMCP call stays in the browser unless your handler calls an API. CopilotKit does not route that call through a Runtime or backend agent.
 
-## Add WebMCP manually
+## Add annotations
+
+Annotations tell browser agents how to treat a tool. For example, `readOnlyHint: true` says that the tool does not change anything. Set them in the `webmcp` option of the tool.
 
 <FrontendOnly frontend="react">
 
 ### React frontend tool
 
-Add `webmcp` to the tool you already register. This code must run inside your existing `CopilotKitProvider`.
+This code must run inside your existing `CopilotKitProvider`.
 
 ```tsx title="OrderSearch.tsx"
 "use client";
@@ -86,7 +107,7 @@ export function OrderSearch() {
 }
 ```
 
-Use the equivalent option with [`useFrontendTool` for Vue](/reference/vue/hooks/useFrontendTool) or [`registerFrontendTool` for Angular](/reference/angular/functions/registerFrontendTool). The React API is documented in [`useFrontendTool`](/reference/hooks/useFrontendTool).
+The React API is documented in [`useFrontendTool`](/reference/hooks/useFrontendTool).
 
 </FrontendOnly>
 
@@ -94,7 +115,7 @@ Use the equivalent option with [`useFrontendTool` for Vue](/reference/vue/hooks/
 
 ### Vue frontend tool
 
-Add `webmcp` to the tool you already register. This code must run inside your existing `CopilotKitProvider`.
+This code must run inside your existing `CopilotKitProvider`.
 
 ```vue title="OrderSearch.vue"
 <script setup lang="ts">
@@ -128,7 +149,7 @@ See the Vue [`useFrontendTool` reference](/reference/vue/hooks/useFrontendTool) 
 
 ### Angular frontend tool
 
-Add `webmcp` to the tool you register in an Angular injection context.
+Register the tool in an Angular injection context.
 
 ```ts title="src/app/order-search.component.ts"
 import { Component } from "@angular/core";
@@ -168,7 +189,7 @@ See the Angular [`registerFrontendTool` reference](/reference/angular/functions/
 
 ### WebMCP only, with no agent
 
-For browser code that does not use a framework provider, register the frontend tool directly with the core. Keep the core instance alive for as long as the tool should remain available.
+For browser code that does not use a framework provider, register the frontend tool directly with the core. Keep the core instance alive for as long as the tool must stay available.
 
 ```ts title="webmcp.ts"
 import { CopilotKitCore } from "@copilotkit/core";
@@ -196,31 +217,118 @@ export const copilotkit = new CopilotKitCore({
 });
 ```
 
-This path does not configure a Runtime or an agent. It only registers browser-side tools through CopilotKit's core lifecycle.
+This path does not configure a Runtime or an agent. It only registers browser-side tools through the core.
+
+## Keep tools private
+
+Some tools must stay with your own agent. For example, a tool that deletes data can rely on your chat to ask the user first. A browser agent calls the handler directly and skips that step.
+
+You have two controls:
+
+- **One tool:** set `webmcp: false` on the tool.
+- **All tools:** set `defaultWebMCPTools` to `false` on the provider. Then only tools with `webmcp: true` or `webmcp: { annotations }` are exposed.
+
+A tool's own `webmcp` value always wins over `defaultWebMCPTools`.
+
+### Keep one tool private
+
+Add `webmcp: false` to the tool. The tool stays available to your own agent.
+
+```tsx title="DeleteOrder.tsx"
+import { useFrontendTool } from "@copilotkit/react-core/v2";
+import { z } from "zod";
+
+export function DeleteOrder() {
+  useFrontendTool({
+    name: "deleteOrder",
+    description: "Delete one of the signed-in user's orders",
+    parameters: z.object({ orderId: z.string() }),
+    handler: async ({ orderId }) => {
+      await deleteOrder(orderId);
+      return "Deleted";
+    },
+    webmcp: false,
+  });
+
+  return null;
+}
+```
+
+The option is the same for Vue `useFrontendTool`, Angular `registerFrontendTool`, and core tools.
+
+### Expose only the tools you choose
+
+Turn off the default on the provider. Then add `webmcp: true` to each tool that browser agents can call.
+
+<FrontendOnly frontend="react">
+
+```tsx title="layout.tsx"
+<CopilotKitProvider runtimeUrl="/api/copilotkit" defaultWebMCPTools={false}>
+  {children}
+</CopilotKitProvider>
+```
+
+</FrontendOnly>
+
+<FrontendOnly frontend="vue">
+
+```vue title="App.vue"
+<CopilotKitProvider runtime-url="/api/copilotkit" :defaultWebMCPTools="false">
+  <RouterView />
+</CopilotKitProvider>
+```
+
+</FrontendOnly>
+
+<FrontendOnly frontend="angular">
+
+```ts title="src/app/app.config.ts"
+import { ApplicationConfig } from "@angular/core";
+import { provideCopilotKit } from "@copilotkit/angular";
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideCopilotKit({
+      runtimeUrl: "/api/copilotkit",
+      defaultWebMCPTools: false,
+    }),
+  ],
+};
+```
+
+</FrontendOnly>
+
+For direct core usage, pass `defaultWebMCPTools: false` to `new CopilotKitCore()`. To change it later, call `copilotkit.setDefaultWebMCPTools(false)`.
 
 ## Design tools agents can use reliably
 
 Required:
 
-- Give every WebMCP tool a non-empty, specific `description`. CopilotKit skips WebMCP registration when it is missing.
+- Give every tool a non-empty, specific `description`. CopilotKit does not register a tool with WebMCP without one.
 - Use `readOnlyHint: true` only when the handler cannot change state.
-- Set the frontend tool to unavailable when the action cannot currently run; CopilotKit removes it from WebMCP until it is available again.
+- Set the frontend tool to unavailable when the action cannot run now. CopilotKit removes it from WebMCP until it is available again.
 
 For better results:
 
-- Keep each tool focused on one action and give every parameter a useful description.
-- Use `untrustedContentHint: true` when results may contain user-generated or external content.
+- Keep each tool focused on one action, and give every parameter a useful description.
+- Use `untrustedContentHint: true` when results can contain user-generated or external content.
 - Return concise, structured results that tell the caller what happened.
 
 For more, see Chrome's [WebMCP best practices](https://developer.chrome.com/docs/ai/webmcp/best-practices).
 
-Annotations are hints for browser agents, not security controls. Enforce authentication, authorization, validation, rate limits, and required user confirmation inside the handler or the API it calls. See Chrome's [WebMCP tool security guidance](https://developer.chrome.com/docs/ai/webmcp/secure-tools).
+<Callout type="warn" title="Protect every handler">
+  Any compatible browser agent on your page can call an exposed tool.
+  Annotations are hints, not security controls. Enforce authentication,
+  authorization, validation, rate limits, and user confirmation inside the
+  handler or the API that it calls. See Chrome's [WebMCP tool security
+  guidance](https://developer.chrome.com/docs/ai/webmcp/secure-tools).
+</Callout>
 
 <Callout type="warn" title="Agent scope does not scope WebMCP">
   `agentId` limits which CopilotKit agent receives a frontend tool. WebMCP tools
   are page-level, so `agentId` does not restrict browser-agent access. If
-  multiple opted-in tools share a name across agent IDs, CopilotKit exposes the
-  first one and logs a warning.
+  multiple tools share a name across agent IDs, CopilotKit exposes the first
+  one.
 </Callout>
 
 ## Test the complete path
@@ -228,20 +336,23 @@ Annotations are hints for browser agents, not security controls. Enforce authent
 Set up the browser:
 
 1. Open Chrome 149 or newer and enable the WebMCP origin trial or local testing flag.
-2. Load the app in an [origin-isolated document](https://developer.chrome.com/docs/ai/webmcp#origin-isolation). The `tools` permissions policy defaults to `self`; cross-origin iframes also need `allow="tools"`.
+2. Load the app in an [origin-isolated document](https://developer.chrome.com/docs/ai/webmcp#origin-isolation). The `tools` permissions policy defaults to `self`. Cross-origin iframes also need `allow="tools"`.
 3. Make sure that `document.modelContext` exists.
 
 Test the tool:
 
 1. Open Chrome's [Model Context Tool Inspector](https://developer.chrome.com/docs/ai/webmcp#imitate-agent-chat-with-the-inspector-extension).
-2. Make sure that the tool name and schema appear.
-3. Call the tool with representative inputs and read its result.
+2. Make sure that your tool names and schemas appear.
+3. Call a tool with representative inputs and read its result.
 4. Ask the inspector's agent to complete the user task in natural language.
 5. Make sure that the agent chooses the right tool, and that authentication and confirmation boundaries still hold.
 
-If the tool does not appear, make sure that:
+If a tool does not appear, make sure that:
 
 1. The browser setup is complete.
 2. The tool has a `description`.
-3. `webmcp` is set on the tool.
-4. The frontend tool is available.
+3. The tool is available.
+4. The tool is in the default set (see [What is exposed by default](#what-is-exposed-by-default)), or it sets `webmcp: true`.
+5. If `defaultWebMCPTools` is `false`, the tool sets `webmcp: true`.
+
+When your tools appear in the inspector and its agent can call them, your site works with any WebMCP-aware browser agent.

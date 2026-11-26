@@ -92,12 +92,14 @@ function useFrontendTool<T extends Record<string, unknown>>(
   </PropertyReference>
 
   <PropertyReference name="webmcp" type="boolean | { annotations?: { readOnlyHint?: boolean; untrustedContentHint?: boolean } }">
-    Also expose the tool to browser agents through the WebMCP API
-    (`document.modelContext`). Pass `true` to register with default
-    annotations, or an object to register with WebMCP annotations. The same
-    `handler` runs when a browser agent calls the tool; the context then has
-    no `agent`. This is a no-op where WebMCP is not available (SSR, React
-    Native, or browsers without the API enabled).
+Controls whether browser agents can call this tool through the WebMCP API
+    (`document.modelContext`). `true` exposes the tool. An object exposes it
+    with WebMCP annotations. `false` keeps it private. When you leave it out,
+    the tool follows the provider's `defaultWebMCPTools` setting, which is on by
+    default and exposes tools that have a `handler` and a `description`. The
+    same `handler` runs when a browser agent calls the tool, and the context
+    then has no `agent`. This does nothing where WebMCP is not available
+    (SSR, React Native, or browsers without the API enabled).
   </PropertyReference>
 </PropertyReference>
 
@@ -224,11 +226,12 @@ function AdminPanel({ isAdmin }: { isAdmin: boolean }) {
 }
 ```
 
-### Expose a Tool to Browser Agents (WebMCP)
+### Add WebMCP Annotations
 
-Pass `webmcp` to also register the tool on `document.modelContext`. Browser
-agents that support [WebMCP](https://developer.chrome.com/docs/ai/webmcp) can
-then discover and call the tool while the page is open.
+A tool with a `handler` and a `description` is also registered on
+`document.modelContext` by default. Browser agents that support
+[WebMCP](/webmcp) can then discover and call the tool while the page is open.
+Use `webmcp` to add annotations, or set it to `false` to keep the tool private.
 
 ```tsx
 function OrderSearch() {
@@ -257,6 +260,6 @@ function OrderSearch() {
 - **Mount/Unmount lifecycle**: The tool and its optional render component are registered on mount. On unmount, the hook removes the tool. The render component stays registered, so past tool calls still render in the chat history.
 - **Calls after unmount**: If the agent calls the tool after it was removed (for example, the component unmounted while the run was in flight), CopilotKit answers the call with a `Tool not found` error result and reports a `TOOL_NOT_FOUND` error, so the conversation can continue. This applies only to tools that were sent to the agent for that run, and only when the run finishes normally; an interrupted, stopped or failed run leaves the call open. A call to a name that was not sent to the agent for that run stays unanswered; register a wildcard tool (`name: "*"`) to handle those.
 - **Dependency tracking**: When `deps` is provided, the tool registration is refreshed whenever a dependency changes. Plain data compares by value. A function never counts as changed. Class instances and other objects compare by identity.
-- **WebMCP registration**: With `webmcp` set, the tool is also registered on `document.modelContext` and unregistered on unmount. The tool needs a `description` for this (WebMCP rejects tools without one).
+- **WebMCP registration**: By default, a tool with a `handler` and a `description` is also registered on `document.modelContext`, and unregistered on unmount. Set `webmcp: false` to keep the tool private. See [WebMCP](/webmcp).
 - **Render component lifecycle**: If a `render` function is provided, it is added to the internal render tool calls registry. It receives streaming `args` (partial during `InProgress`, complete during `Executing` and `Complete`).
 - **No return value**: The hook returns `void`.

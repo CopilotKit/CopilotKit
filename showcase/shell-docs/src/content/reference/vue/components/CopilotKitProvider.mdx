@@ -186,6 +186,15 @@ Don't have it yet? Go to https://dashboard.operations.copilotkit.ai and get one 
   Human-in-the-loop tools that pause for user input before resolving. Must be a stable array; to add or remove them dynamically, use the [`useHumanInTheLoop`](/reference/vue/hooks/useHumanInTheLoop) composable instead.
 </PropertyReference>
 
+<PropertyReference name="defaultWebMCPTools" type="boolean" default="true">
+  Exposes your frontend tools to browser agents through
+  [WebMCP](/webmcp) (`document.modelContext`), not only to your own agent.
+  When `true`, every tool that has a `handler` and a `description` is
+  exposed, except human-in-the-loop tools and tools that set `webmcp: false`.
+  When `false`, only tools that set `webmcp` themselves are exposed. A tool's
+  own `webmcp` value always wins.
+</PropertyReference>
+
 <PropertyReference name="openGenerativeUI" type="{ sandboxFunctions?: SandboxFunction[]; designSkill?: string }">
   Configuration for Open Generative UI. `sandboxFunctions` exposes host functions to generated sandboxed UI (callable via `Websandbox.connection.remote`), and `designSkill` overrides the default design guidelines provided to the generation tool. `sandboxFunctions` must be a stable array.
 </PropertyReference>

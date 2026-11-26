@@ -94,7 +94,7 @@ export const MEMORY_SETUP_PROMPT =
   "recalling a memory for the signed-in user. Never reveal credentials.";
 
 export const WEBMCP_SETUP_PROMPT =
-  "Set up WebMCP in this project using https://docs.copilotkit.ai/webmcp. First inspect the app and extend its existing CopilotKit setup if present; do not add a backend agent solely for WebMCP. If I haven’t specified a tool, ask what I want to expose. If I don’t have one in mind, add a small, read-only demo tool that fits the app. Finish by verifying that a compatible browser can discover and call it.";
+  "Set up WebMCP in this project using https://docs.copilotkit.ai/webmcp. First inspect the app and extend its existing CopilotKit setup if present; do not add a backend agent solely for WebMCP. CopilotKit exposes every frontend tool that has a handler and a description to WebMCP by default, so list the tools that are already exposed and ask me which must stay private; set `webmcp: false` on those. If the app has no frontend tool, ask what I want to expose. If I don’t have one in mind, add a small, read-only demo tool that fits the app. Finish by verifying that a compatible browser can discover and call it.";
 
 // ---------------------------------------------------------------------------
 // Argument sentences appended to the onboarding prompt
