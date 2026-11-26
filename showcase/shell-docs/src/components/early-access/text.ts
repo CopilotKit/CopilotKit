@@ -14,8 +14,20 @@ export const BOOKER_TEXT = {
   showing: (from: number, to: number, of: number) =>
     `Showing times ${from} to ${to} of ${of}`,
   unavailableTimeHint: "Already booked",
-  slotTaken: "That time was just taken. Pick another time.",
-  tooSoon: "That time is too soon to book now. Pick a later time.",
+  /**
+   * Why the time the reader picked went, then, while other times show, what
+   * to do next.
+   */
+  notices: {
+    slot_taken: {
+      why: "That time was just taken.",
+      next: "Pick another time.",
+    },
+    too_soon: {
+      why: "That time is too soon to book now.",
+      next: "Pick a later time.",
+    },
+  },
   anotherTime: "Need another time?",
   newTab: "(opens in a new tab)",
   unavailable: {

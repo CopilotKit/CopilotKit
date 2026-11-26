@@ -215,6 +215,9 @@ function selectedDayIndex(days: readonly SlotDay[], key: string | null) {
 /** Whether a time is too soon to book by now (inside the lead). */
 const tooSoon = (time: OpenTime) => time.startMs - Date.now() <= SLOT_LEAD_MS;
 
+/** Why the time the reader picked went, which the notice says. */
+type Notice = keyof typeof TEXT.notices;
+
 /** A chosen time, its place among the times offered, and its dialog. */
 interface Chosen {
   time: OpenTime;
@@ -226,7 +229,7 @@ interface Chosen {
 }
 
 /** How the dialog's last opening ended, which says where focus goes. */
-type Outcome = "open" | "booked" | "slot_taken" | "unconfirmed";
+type Outcome = "open" | "booked" | "notice" | "unconfirmed";
 
 /**
  * The channel page's demo booker: the next days with open times on the
@@ -258,7 +261,7 @@ export function ChannelDemoBooker({
   const [turned, setTurned] = useState<{ day: string; page: number } | null>(
     null,
   );
-  const [notice, setNotice] = useState<string | null>(null);
+  const [notice, setNotice] = useState<Notice | null>(null);
   /** A booking that may have gone through: nothing more is booked here. */
   const [locked, setLocked] = useState(false);
   const [chosen, setChosen] = useState<Chosen | null>(null);
@@ -347,6 +350,16 @@ export function ChannelDemoBooker({
   const markTaken = (time: OpenTime) =>
     setTaken((current) => new Set(current).add(time.startMs));
 
+  /**
+   * The time the reader picked can't be booked: it goes, the times are read
+   * again, and the notice says why.
+   */
+  const timeGone = (time: OpenTime, why: Notice) => {
+    markTaken(time);
+    setNotice(why);
+    refresh();
+  };
+
   const openTime = (
     time: OpenTime,
     slotIndex: number,
@@ -355,11 +368,7 @@ export function ChannelDemoBooker({
   ) => {
     if (locked) return;
     if (tooSoon(time)) {
-      // Too soon to book by now: the time goes, the times are read again,
-      // and the reader is told why.
-      markTaken(time);
-      setNotice(TEXT.tooSoon);
-      refresh();
+      timeGone(time, "too_soon");
       focusSoon(() => noticeRef.current);
       return;
     }
@@ -395,13 +404,30 @@ export function ChannelDemoBooker({
     const ended = outcome.current;
     if (ended === "open" && opener.current?.isConnected) return;
     focusSoon(() =>
-      ended === "slot_taken"
+      ended === "notice"
         ? noticeRef.current
         : ended === "unconfirmed"
           ? lockedRef.current
           : rootRef.current,
     );
   };
+
+  /**
+   * The notice, said in place of the link to another time while times show,
+   * and over the dashed box when none are left, so the reader always sees
+   * why the time went. Only with times to pick does it say what to do next.
+   */
+  const noticeLine = notice ? (
+    <p
+      ref={noticeRef}
+      role="status"
+      tabIndex={-1}
+      className="rounded-sm text-sm font-medium outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+    >
+      {TEXT.notices[notice].why}
+      {phase === "ready" ? ` ${TEXT.notices[notice].next}` : null}
+    </p>
+  ) : null;
 
   const fallbackLink = (
     placement: "unavailable" | "times" | "unconfirmed",
@@ -490,16 +516,19 @@ export function ChannelDemoBooker({
       ) : null}
 
       {phase === "unavailable" ? (
-        <div className="flex flex-col items-start gap-1 rounded-2xl border border-dashed p-5">
-          <p className="font-medium">
-            {state.phase === "unavailable" && state.reason === "error"
-              ? TEXT.unavailable.error
-              : TEXT.unavailable.none}
-          </p>
-          <p className="text-sm text-muted-foreground">
-            {TEXT.unavailable.body}
-          </p>
-          {fallbackLink("unavailable", TEXT.unavailable.link)}
+        <div className="flex flex-col gap-3">
+          {noticeLine}
+          <div className="flex flex-col items-start gap-1 rounded-2xl border border-dashed p-5">
+            <p className="font-medium">
+              {state.phase === "unavailable" && state.reason === "error"
+                ? TEXT.unavailable.error
+                : TEXT.unavailable.none}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              {TEXT.unavailable.body}
+            </p>
+            {fallbackLink("unavailable", TEXT.unavailable.link)}
+          </div>
         </div>
       ) : null}
 
@@ -597,18 +626,7 @@ export function ChannelDemoBooker({
               )}
             </ul>
             <div className="flex min-h-11 flex-wrap items-center justify-between gap-x-4 gap-y-2">
-              {notice ? (
-                <p
-                  ref={noticeRef}
-                  role="status"
-                  tabIndex={-1}
-                  className="rounded-sm text-sm font-medium outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-                >
-                  {notice}
-                </p>
-              ) : (
-                fallbackLink("times", TEXT.anotherTime)
-              )}
+              {noticeLine ?? fallbackLink("times", TEXT.anotherTime)}
               {pages.length > 1 ? (
                 // 10px apart, so the arrows' 44px hit areas don't overlap.
                 <div className="ms-auto flex items-center gap-2.5">
@@ -660,10 +678,8 @@ export function ChannelDemoBooker({
             refresh();
           }}
           onSlotTaken={(time) => {
-            outcome.current = "slot_taken";
-            markTaken(time);
-            setNotice(TEXT.slotTaken);
-            refresh();
+            outcome.current = "notice";
+            timeGone(time, "slot_taken");
             setDialogOpen(false);
           }}
           onUnconfirmed={(time) => {
