@@ -22,10 +22,15 @@ export function AskAgent() {
 
   const onSwitch = useCallback(
     (nextFrontend: string, nextFramework: string) => {
-      setFrontend(nextFrontend as FrontendId);
+      const remembered = setFrontend(nextFrontend as FrontendId);
       setFramework(nextFramework);
       const name = frameworkById(nextFramework)?.name ?? nextFramework;
-      return `Switched the reader's stack to ${name} on ${nextFrontend}.`;
+      const fe =
+        FRONTENDS.find((f) => f.id === nextFrontend)?.name ?? nextFrontend;
+      // A frontend in early access has no docs, so it can't be the stack's.
+      return remembered
+        ? `Switched the reader's stack to ${name} on ${fe}.`
+        : `Switched the reader's agent framework to ${name}. ${fe} is in early access and has no docs yet, so the reader's frontend is unchanged.`;
     },
     [setFrontend, setFramework],
   );

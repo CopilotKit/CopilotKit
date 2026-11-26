@@ -269,13 +269,9 @@ export function StackAgent({
 
   useAgentContext({
     description:
-      "The reader's stack: the frontend and agent framework the docs' code samples follow. null where they haven't picked one. A frontend in early access (earlyAccessFrontends) isn't released: it has no docs yet, only a landing page where readers book a demo.",
+      "The reader's stack: the frontend and agent framework the docs' code samples follow. null where they haven't picked one. The frontends in early access (earlyAccessFrontends) aren't released: they have no docs yet, only a landing page where readers book a demo, so they are never the reader's stack.",
     value: {
-      frontend: fe
-        ? fe.earlyAccess
-          ? `${fe.name} (early access)`
-          : fe.name
-        : null,
+      frontend: fe?.name ?? null,
       agentFramework: fw?.name ?? null,
       earlyAccessFrontends: frontends
         .filter((f) => f.earlyAccess)
