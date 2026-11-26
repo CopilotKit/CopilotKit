@@ -1,46 +1,39 @@
-// The messaging channels in early access: iMessage, WhatsApp, SMS, and RCS.
-// They sit beside Slack and Teams in the frontend picker and on the home
-// page, but they aren't docs frontends (`FrontendId`): each has one landing
-// page at `/<id>` with a demo booker, and no docs scope, sidebar, or
-// llms-full scope.
+// The booking details of the frontends in early access (iMessage, WhatsApp,
+// SMS, and RCS). They are ordinary frontends in the frontend list
+// (src/lib/frontends.ts), flagged `earlyAccess`, so their ids, names, and
+// card lines come from there; this module adds only what the landing page's
+// demo booker and its proxy need.
 //
-// The docs layout, the frontend picker, and link scoping (live-scope.ts) read
-// this module on every docs page, so it holds only what they need: the ids,
-// names, and card lines. The landing pages' words are in ./copy, which only
-// the landing page, its Markdown, its metadata, and its social card import.
+// It imports only the frontend list, by a relative path so the booking
+// proxy's tests load it without the app's `@/` alias.
+//
 // next.config's redirects can't import app code, so
 // src/lib/redirects/next-config-redirects.mjs repeats the ids (a test keeps
 // the two lists in step).
 
-/** Every early-access channel, in the picker's and the home page's order. */
-export const EARLY_ACCESS_CHANNEL_IDS = [
-  "imessage",
-  "whatsapp",
-  "sms",
-  "rcs",
-] as const;
+import {
+  EARLY_ACCESS_LABEL,
+  FRONTENDS,
+  isEarlyAccessFrontend,
+  landingPage,
+} from "../frontends";
+import type { EarlyAccessFrontendId } from "../frontends";
 
-export type EarlyAccessChannelId = (typeof EARLY_ACCESS_CHANNEL_IDS)[number];
+export { EARLY_ACCESS_LABEL };
 
-/** The badge beside an early-access channel's name. */
-export const EARLY_ACCESS_LABEL = "Early access";
+export type EarlyAccessChannelId = EarlyAccessFrontendId;
+
+/** Every early-access channel, in the frontend list's order. */
+export const EARLY_ACCESS_CHANNEL_IDS = FRONTENDS.flatMap((f) =>
+  isEarlyAccessFrontend(f.id) ? [f.id] : [],
+);
 
 /** Each channel's display name. */
-export const EARLY_ACCESS_CHANNEL_NAMES: Record<EarlyAccessChannelId, string> =
-  {
-    imessage: "iMessage",
-    whatsapp: "WhatsApp",
-    sms: "SMS",
-    rcs: "RCS",
-  };
-
-/** One line for the home page's and the landing pages' cards, <= 70 chars. */
-const SUMMARIES: Record<EarlyAccessChannelId, string> = {
-  imessage: "Run your agent in iMessage conversations.",
-  whatsapp: "Run your agent on WhatsApp. The direct adapter ships today.",
-  sms: "Run your agent over SMS.",
-  rcs: "Run your agent in RCS business messages.",
-};
+export const EARLY_ACCESS_CHANNEL_NAMES = Object.fromEntries(
+  FRONTENDS.flatMap((f) =>
+    isEarlyAccessFrontend(f.id) ? [[f.id, f.name]] : [],
+  ),
+) as Record<EarlyAccessChannelId, string>;
 
 export interface EarlyAccessChannel {
   id: EarlyAccessChannelId;
@@ -76,14 +69,20 @@ export type ChannelDemoEvent =
 const BOOKING_PAGE = "https://www.copilotkit.ai/talk-to-an-engineer";
 
 export const EARLY_ACCESS_CHANNELS: readonly EarlyAccessChannel[] =
-  EARLY_ACCESS_CHANNEL_IDS.map((id) => ({
-    id,
-    name: EARLY_ACCESS_CHANNEL_NAMES[id],
-    summary: SUMMARIES[id],
-    event: "talk_to_engineer",
-    ref: `docs_${id}_early_access`,
-    fallbackUrl: `${BOOKING_PAGE}?ref=docs_${id}_early_access`,
-  }));
+  FRONTENDS.flatMap(({ id, name, summary }): EarlyAccessChannel[] =>
+    isEarlyAccessFrontend(id)
+      ? [
+          {
+            id,
+            name,
+            summary,
+            event: "talk_to_engineer",
+            ref: `docs_${id}_early_access`,
+            fallbackUrl: `${BOOKING_PAGE}?ref=docs_${id}_early_access`,
+          },
+        ]
+      : [],
+  );
 
 /** The early-access channel a URL segment or request names, if it is one. */
 export function earlyAccessChannel(
@@ -92,18 +91,7 @@ export function earlyAccessChannel(
   return EARLY_ACCESS_CHANNELS.find((c) => c.id === id);
 }
 
-export function isEarlyAccessChannel(
-  id: string | null | undefined,
-): id is EarlyAccessChannelId {
-  return !!earlyAccessChannel(id);
-}
-
-/** A channel's landing page. */
+/** A channel's landing page, its only page (`landingPage`). */
 export function earlyAccessHref(id: EarlyAccessChannelId) {
-  return `/${id}`;
-}
-
-/** Whether a pathname is a channel's landing page, or a path under it. */
-export function isEarlyAccessPath(pathname: string) {
-  return isEarlyAccessChannel(pathname.split("/").filter(Boolean)[0]);
+  return landingPage(id)!;
 }

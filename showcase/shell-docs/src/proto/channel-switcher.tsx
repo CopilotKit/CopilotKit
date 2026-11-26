@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
 import { ChevronsUpDown } from "lucide-react";
 import { FrontendLogo } from "@/components/icons/frontend-logo";
 import {
@@ -10,34 +9,23 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { ROOT_FRAMEWORK, frontendHref } from "@/lib/live-scope";
-import {
-  earlyAccessChannel,
-  earlyAccessHref,
-} from "@/lib/early-access/channels";
-import type { EarlyAccessChannelId } from "@/lib/early-access/channels";
-import { trackEvent } from "@/lib/telemetry/analytics";
-import { useFrontend } from "./frontend";
+import { frontendById } from "@/lib/frontends";
+import type { FrontendId } from "@/lib/frontends";
 import { useLastFramework } from "./last-framework";
-import { FrontendOptions } from "./pieces";
+import { FrontendOptions, usePickFrontend } from "./pieces";
 
 /**
- * The frontend picker on an early-access channel's page, which has no docs
- * sidebar: the same list as the sidebar's, with this channel checked. A docs
- * frontend opens its home on the reader's remembered framework (`/vue/mastra`,
- * React's `/mastra/quickstart`) and is remembered; another early-access
- * channel opens its page and leaves the remembered frontend alone.
+ * The frontend picker on an early-access frontend's landing page, which has
+ * no docs sidebar: the sidebar's list, with this frontend checked. A pick
+ * does what it does in the sidebar: the frontend is remembered and its home
+ * opens on the reader's remembered framework (`/vue/mastra`, React's
+ * `/mastra/quickstart`, another early-access frontend's landing page).
  */
-export function ChannelSwitcher({
-  channel,
-}: {
-  channel: EarlyAccessChannelId;
-}) {
-  const { setFrontend } = useFrontend();
+export function ChannelSwitcher({ channel }: { channel: FrontendId }) {
+  const pickFrontend = usePickFrontend();
   const [framework] = useLastFramework();
-  const router = useRouter();
-  const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const name = earlyAccessChannel(channel)?.name ?? channel;
+  const name = frontendById(channel)?.name ?? channel;
   return (
     <div className="flex items-center gap-2.5 text-sm">
       <span aria-hidden="true" className="text-muted-foreground">
@@ -63,38 +51,19 @@ export function ChannelSwitcher({
         >
           <FrontendOptions
             current={channel}
-            onPick={(pick) => {
+            onPick={(id) => {
               setOpen(false);
-              if (pick.id === channel) return;
-              if (pick.earlyAccess) {
-                const destination = earlyAccessHref(pick.id);
-                trackEvent("docs.frontend_selected", {
-                  frontend: pick.id,
-                  from_frontend: channel,
-                  backend: framework,
-                  from_path: pathname,
-                  destination_path: destination,
-                  early_access: true,
-                });
-                router.push(destination);
-                return;
-              }
-              // A docs frontend: remembered, and opened at its home on the
-              // framework the reader was reading before this page.
-              setFrontend(pick.id);
-              const destination = frontendHref(
-                framework === ROOT_FRAMEWORK ? [] : [framework],
-                pick.id,
-                "",
-              );
-              trackEvent("docs.frontend_selected", {
-                frontend: pick.id,
-                from_frontend: channel,
-                backend: framework,
-                from_path: pathname,
-                destination_path: destination,
+              if (id === channel) return;
+              pickFrontend({
+                frontend: id,
+                from: channel,
+                framework,
+                destination: frontendHref(
+                  framework === ROOT_FRAMEWORK ? [] : [framework],
+                  id,
+                  "",
+                ),
               });
-              router.push(destination);
             }}
           />
         </PopoverContent>

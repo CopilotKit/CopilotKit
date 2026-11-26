@@ -16,10 +16,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
 import { frontendHref } from "@/lib/live-scope";
-import {
-  EARLY_ACCESS_CHANNELS,
-  earlyAccessHref,
-} from "@/lib/early-access/channels";
 import type { EarlyAccessChannelId } from "@/lib/early-access/channels";
 import {
   EARLY_ACCESS_CHANNEL_COPY,
@@ -276,27 +272,20 @@ export function ChannelLanding({ id }: { id: EarlyAccessChannelId }) {
           <p className="text-muted-foreground">{shared.gaChannelsNote}</p>
         </div>
         <Tray variant="bare">
-          {EARLY_ACCESS_CHANNELS.filter((c) => c.id !== id).map((c) => (
-            <LinkCard
-              key={c.id}
-              href={earlyAccessHref(c.id)}
-              glyph={c.id === "sms" ? "ink" : "logo"}
-              icon={<FrontendLogo icon={c.id} size={22} />}
-              title={c.name}
-              description={c.summary}
-              badge={<EarlyAccessBadge />}
-            />
-          ))}
-          {FRONTENDS.filter((f) => f.kind === "channel").map((f) => (
-            <LinkCard
-              key={f.id}
-              href={frontendHref([], f.id, "")}
-              glyph="logo"
-              icon={<FrontendLogo icon={f.id} size={22} />}
-              title={f.name}
-              description={f.summary}
-            />
-          ))}
+          {/* The other channels, those in early access first. */}
+          {FRONTENDS.filter((f) => f.kind === "channel" && f.id !== id)
+            .sort((a, b) => Number(!!b.earlyAccess) - Number(!!a.earlyAccess))
+            .map((f) => (
+              <LinkCard
+                key={f.id}
+                href={frontendHref([], f.id, "")}
+                glyph={f.id === "sms" ? "ink" : "logo"}
+                icon={<FrontendLogo icon={f.id} size={22} />}
+                title={f.name}
+                description={f.summary}
+                badge={f.earlyAccess ? <EarlyAccessBadge /> : undefined}
+              />
+            ))}
         </Tray>
       </section>
 

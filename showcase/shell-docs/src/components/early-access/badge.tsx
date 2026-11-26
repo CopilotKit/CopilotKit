@@ -1,12 +1,12 @@
 import { Badge } from "@/components/ui/badge";
-import { EARLY_ACCESS_LABEL } from "@/lib/early-access/channels";
+import { EARLY_ACCESS_LABEL } from "@/lib/frontends";
 import { cn } from "@/lib/cn";
 
 /**
- * "Early access" beside a channel's name: a lilac outline pill, since brand
- * color marks things and never fills them. The sidebar's frontend picker
- * shows it on every docs page, so its words come from the small channel list
- * (src/lib/early-access/channels.ts), not the landing pages' copy.
+ * "Early access" beside the name of a frontend in early access, wherever its
+ * row or card is drawn: a lilac outline pill, since brand color marks things
+ * and never fills them. Its words come from the frontend list
+ * (src/lib/frontends.ts), not the landing pages' copy.
  */
 export function EarlyAccessBadge({ className }: { className?: string }) {
   return (

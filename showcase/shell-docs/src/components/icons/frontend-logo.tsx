@@ -9,8 +9,7 @@ import {
   SiWhatsapp,
 } from "react-icons/si";
 import { TbBrandReactNative } from "react-icons/tb";
-import type { EarlyAccessChannelId } from "@/lib/early-access/channels";
-import type { FrontendId } from "@/lib/stack";
+import type { FrontendId } from "@/lib/frontends";
 import { SmsGlyph } from "./glyphs";
 
 // Brand marks for each frontend (copied from shell-docs' frontend-logo.tsx),
@@ -83,10 +82,7 @@ function SlackColorLogo({
   );
 }
 
-const FRONTEND_ICONS: Record<
-  FrontendId | EarlyAccessChannelId,
-  { Icon: BrandIcon; color: string }
-> = {
+const FRONTEND_ICONS: Record<FrontendId, { Icon: BrandIcon; color: string }> = {
   react: { Icon: SiReact, color: "#61DAFB" },
   vue: { Icon: SiVuedotjs, color: "#4FC08D" },
   "react-native": { Icon: TbBrandReactNative, color: "#61DAFB" },
@@ -104,7 +100,7 @@ export function FrontendLogo({
   size = 18,
   className,
 }: {
-  icon: FrontendId | EarlyAccessChannelId;
+  icon: FrontendId;
   size?: number;
   className?: string;
 }) {

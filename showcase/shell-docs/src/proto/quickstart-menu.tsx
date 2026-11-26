@@ -24,12 +24,12 @@ import { EarlyAccessBadge } from "@/components/early-access/badge";
 import { FrameworkLogo } from "@/components/icons/framework-icons";
 import { FrontendLogo } from "@/components/icons/frontend-logo";
 import {
-  EARLY_ACCESS_CHANNEL_IDS,
-  earlyAccessChannel,
-  earlyAccessHref,
-} from "@/lib/early-access/channels";
+  FRONTENDS,
+  FRONTEND_GROUPS,
+  frontendById,
+  frontendEventProperties,
+} from "@/lib/frontends";
 import { isChannel } from "@/lib/live-scope";
-import { FRONTENDS, FRONTEND_GROUPS, frontendById } from "@/lib/stack";
 import { useHomepageTelemetry } from "@/lib/telemetry/use-homepage-telemetry";
 import { FRAMEWORKS, LANGUAGES, frameworkById } from "./data";
 import { useFrontend } from "./frontend";
@@ -55,15 +55,12 @@ const FRAMEWORK_GROUPS: MenuGroup[] = LANGUAGES.map((lang) => ({
   items: FRAMEWORKS.filter((f) => f.language === lang).map((f) => f.id),
 })).filter((group) => group.items.length > 0);
 
-// Grouped as the sidebar's Frontend picker groups them, with the early-access
-// channels after Slack and Teams.
+// By platform, each in the frontend list's order (the early-access channels
+// follow Slack and Teams).
 const FRONTEND_ITEM_GROUPS: MenuGroup[] = FRONTEND_GROUPS.map((group) => ({
   value: group,
   kind: "frontend" as const,
-  items: [
-    ...FRONTENDS.filter((f) => f.group === group).map((f) => f.id),
-    ...(group === "Channels" ? EARLY_ACCESS_CHANNEL_IDS : []),
-  ],
+  items: FRONTENDS.filter((f) => f.group === group).map((f) => f.id),
 }));
 
 /** Each side of the switch: its own half first, then the other. */
@@ -101,18 +98,13 @@ const SECTION: Record<Side, string> = {
   frontend: "Frontends",
 };
 
-// Frontend, early-access channel, and framework ids never collide, so one
-// lookup names every row, and the search finds the channels by name.
+// Frontend and framework ids never collide, so one lookup names every row.
 const nameOf = (id: string) =>
-  frontendById(id)?.name ??
-  earlyAccessChannel(id)?.name ??
-  frameworkById(id)?.name ??
-  id;
+  frontendById(id)?.name ?? frameworkById(id)?.name ?? id;
 
 function Row({ id }: { id: string }) {
-  const channel = earlyAccessChannel(id);
-  // FrontendLogo draws the early-access channels' marks too.
-  const mark = frontendById(id)?.id ?? channel?.id;
+  const frontend = frontendById(id);
+  const mark = frontend?.id;
   return (
     <ComboboxItem
       value={id}
@@ -132,7 +124,9 @@ function Row({ id }: { id: string }) {
       <span className="min-w-0 flex-1 truncate">{nameOf(id)}</span>
       {/* After the name, which truncates first, and lilac when highlighted
           too, since the highlight recolors all the row's text. */}
-      {channel ? <EarlyAccessBadge className="text-primary!" /> : null}
+      {frontend?.earlyAccess ? (
+        <EarlyAccessBadge className="text-primary!" />
+      ) : null}
     </ComboboxItem>
   );
 }
@@ -203,8 +197,8 @@ function highlightAfterSwitch(list: HTMLElement | null, query: string) {
 /**
  * The home's primary action: start from your agent framework or your
  * frontend, and land on its quickstart on your stack, a framework on your
- * frontend and a frontend with your framework (`useStackHref`); an
- * early-access channel opens its landing page instead. One list holds both
+ * frontend and a frontend with your framework (`useStackHref`; an
+ * early-access frontend's is its landing page). One list holds both
  * halves, each under its heading and by its groups; the switch at its top
  * picks which half comes first, and the search always spans both.
  * Opens at the top of the first half, where your last framework, or your
@@ -240,28 +234,19 @@ export function QuickstartMenu() {
         // Only a pick opens a quickstart: typing on the closed pill would
         // otherwise "select" the first name with that letter and navigate.
         if (!id || reason !== "item-press") return;
-        const channel = earlyAccessChannel(id);
-        if (channel) {
-          // An early-access channel has a landing page, not a quickstart, and
-          // isn't a docs frontend, so the reader's stack stays as it was.
-          const destination = earlyAccessHref(channel.id);
-          track("quickstart_selected", {
-            frontend: channel.id,
-            destination,
-            early_access: true,
-          });
-          router.push(destination);
-          return;
-        }
         const picked = frontendById(id);
         if (picked) {
           // With the reader's framework. A channel's quickstart is its
-          // "Connect and run your agent" guide.
+          // "Connect and run your agent" guide, and an early-access
+          // frontend's is its landing page, its only page.
           const destination = stackHref(
             isChannel(picked.id) ? "connect" : "quickstart",
             { frontend: picked.id },
           );
-          track("quickstart_selected", { frontend: picked.id, destination });
+          track("quickstart_selected", {
+            ...frontendEventProperties(picked.id),
+            destination,
+          });
           setFrontend(picked.id);
           router.push(destination);
           return;

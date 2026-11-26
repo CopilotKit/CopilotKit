@@ -19,6 +19,10 @@ vi.mock(
   () => import("../../../shell-docs/src/lib/early-access/channels"),
 );
 vi.mock(
+  "@/lib/frontends",
+  () => import("../../../shell-docs/src/lib/frontends"),
+);
+vi.mock(
   "@/lib/base-path",
   () => import("../../../shell-docs/src/lib/base-path"),
 );
@@ -144,13 +148,20 @@ describe("links to an early-access channel", () => {
   });
 });
 
-describe("the channel list every docs page loads", () => {
+describe("the frontend list every docs page loads", () => {
+  const imports = (file: string) =>
+    fs
+      .readFileSync(path.join(SHELL_DOCS, file), "utf8")
+      .match(/^\s*import\s[^;]*;/gm) ?? [];
+
   test("imports nothing, so the landing pages' copy stays out of the docs' bundle", () => {
-    const source = fs.readFileSync(
-      path.join(SHELL_DOCS, "src/lib/early-access/channels.ts"),
-      "utf8",
-    );
-    expect(source).not.toMatch(/^\s*import\s/m);
+    expect(imports("src/lib/frontends.ts")).toEqual([]);
+  });
+
+  test("is all the channels' booking details import", () => {
+    for (const line of imports("src/lib/early-access/channels.ts")) {
+      expect(line).toMatch(/from "\.\.\/frontends";$/);
+    }
   });
 });
 

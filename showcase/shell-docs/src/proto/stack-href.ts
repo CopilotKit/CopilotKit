@@ -8,7 +8,8 @@ import {
   frontendSegment,
   liveFramework,
 } from "@/lib/live-scope";
-import type { FrontendId } from "./data";
+import { landingPage } from "@/lib/frontends";
+import type { FrontendId } from "@/lib/frontends";
 import { useFrontend } from "./frontend";
 import { useLastFramework } from "./last-framework";
 import { useLivePages } from "./live-pages-context";
@@ -20,11 +21,17 @@ function urlFramework(framework: string | null | undefined) {
     : null;
 }
 
-/** A stack's URL prefix: `/vue/mastra`, `/mastra` on React, `""` for React and the built-in agent. */
+/**
+ * A stack's URL prefix: `/vue/mastra`, `/mastra` on React, `""` for React and
+ * the built-in agent. An early-access frontend's is its landing page
+ * (`/whatsapp`), on every framework.
+ */
 export function stackPrefix(
   frontend: FrontendId,
   framework: string | null | undefined,
 ) {
+  const landing = landingPage(frontend);
+  if (landing) return landing;
   const fw = urlFramework(framework);
   const fe = frontend !== "react" ? `/${frontendSegment(frontend)}` : "";
   return `${fe}${fw ? `/${fw}` : ""}`;

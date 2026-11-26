@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { ArrowRight, Check, ChevronsUpDown, Info, Search } from "lucide-react";
 import { IntelligenceGlyph } from "@/components/icons/glyphs";
@@ -15,11 +15,7 @@ import {
 import { cn } from "@/lib/cn";
 import { whereIs } from "@/lib/live-pages";
 import { frontendHref, liveFrontend, scopeFromPath } from "@/lib/live-scope";
-import {
-  EARLY_ACCESS_CHANNELS,
-  earlyAccessHref,
-} from "@/lib/early-access/channels";
-import type { EarlyAccessChannelId } from "@/lib/early-access/channels";
+import { frontendEventProperties } from "@/lib/frontends";
 import { useLivePages } from "./live-pages-context";
 import { trackEvent } from "@/lib/telemetry/analytics";
 import frameworkCategories from "@/data/framework-categories.json";
@@ -680,65 +676,77 @@ function StackRow({
   );
 }
 
-/** A pick in the frontend list: a docs frontend, or an early-access channel. */
-export type FrontendPick =
-  | { earlyAccess: false; id: FrontendId }
-  | { earlyAccess: true; id: EarlyAccessChannelId };
-
 /**
- * The frontend picker's list: the app frontends, then the channels, with the
- * early-access channels after Slack and Teams, each badged "Early access".
- * Rows grow to 44px on touch screens, and the check mark has a slot of its
- * own on every row, so the badges line up whichever row is checked.
+ * The frontend list of the sidebar's picker and the landing pages' picker:
+ * the app frontends, then the channels, each in the frontend list's order
+ * (the early-access channels follow Slack and Teams). A frontend in early
+ * access carries the "Early access" badge. Rows grow to 44px on touch
+ * screens, and the check mark has a slot of its own on every row, so the
+ * badges line up whichever row is checked.
  */
 export function FrontendOptions({
   current,
   onPick,
 }: {
-  current: FrontendId | EarlyAccessChannelId;
-  onPick: (pick: FrontendPick) => void;
+  current: FrontendId;
+  onPick: (id: FrontendId) => void;
 }) {
-  const option = (
-    pick: FrontendPick,
-    name: string,
-    badge?: ReactNode,
-  ): ReactNode => (
-    <button
-      key={pick.id}
-      type="button"
-      aria-current={pick.id === current ? "true" : undefined}
-      onClick={() => onPick(pick)}
-      className="flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-start text-sm outline-none hover:bg-accent focus-visible:bg-accent focus-visible:ring-2 focus-visible:ring-fd-ring pointer-coarse:min-h-11"
-    >
-      <FrontendLogo icon={pick.id} size={16} className="shrink-0" />
-      <span className="min-w-0 flex-1 truncate">{name}</span>
-      {badge}
-      <span aria-hidden="true" className="flex size-4 shrink-0">
-        {pick.id === current ? (
-          <Check className="size-4 text-fd-primary" />
-        ) : null}
-      </span>
-    </button>
-  );
   return (["app", "channel"] as const).map((kind) => (
     <div key={kind} className="p-1">
       <p className="px-2 pt-1.5 pb-1 text-xs text-fd-muted-foreground">
         {kind === "app" ? "Frontends" : "Channels"}
       </p>
-      {FRONTENDS.filter((f) => f.kind === kind).map((f) =>
-        option({ earlyAccess: false, id: f.id }, f.name),
-      )}
-      {kind === "channel"
-        ? EARLY_ACCESS_CHANNELS.map((c) =>
-            option(
-              { earlyAccess: true, id: c.id },
-              c.name,
-              <EarlyAccessBadge />,
-            ),
-          )
-        : null}
+      {FRONTENDS.filter((f) => f.kind === kind).map((f) => (
+        <button
+          key={f.id}
+          type="button"
+          aria-current={f.id === current ? "true" : undefined}
+          onClick={() => onPick(f.id)}
+          className="flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-start text-sm outline-none hover:bg-accent focus-visible:bg-accent focus-visible:ring-2 focus-visible:ring-fd-ring pointer-coarse:min-h-11"
+        >
+          <FrontendLogo icon={f.id} size={16} className="shrink-0" />
+          <span className="min-w-0 flex-1 truncate">{f.name}</span>
+          {f.earlyAccess ? <EarlyAccessBadge /> : null}
+          <span aria-hidden="true" className="flex size-4 shrink-0">
+            {f.id === current ? (
+              <Check className="size-4 text-fd-primary" />
+            ) : null}
+          </span>
+        </button>
+      ))}
     </div>
   ));
+}
+
+/**
+ * What picking a frontend in a picker does: the frontend is remembered as the
+ * reader's, `docs.frontend_selected` goes out (shell-docs' framework selector
+ * event, same properties), and the destination opens.
+ */
+export function usePickFrontend() {
+  const { setFrontend } = useFrontend();
+  const router = useRouter();
+  const pathname = usePathname();
+  return useCallback(
+    (pick: {
+      frontend: FrontendId;
+      from: FrontendId;
+      framework: string;
+      destination: string;
+    }) => {
+      // Remembered for the pages that aren't per frontend.
+      setFrontend(pick.frontend);
+      trackEvent("docs.frontend_selected", {
+        ...frontendEventProperties(pick.frontend),
+        from_frontend: pick.from,
+        backend: pick.framework,
+        from_path: pathname,
+        destination_path: pick.destination,
+      });
+      router.push(pick.destination);
+    },
+    [setFrontend, router, pathname],
+  );
 }
 
 /**
@@ -779,8 +787,7 @@ export function StackRows({
   /** Hears the stack the picker shows, to hand back as `shown`. */
   onShown?: (values: string) => void;
 }) {
-  const { setFrontend } = useFrontend();
-  const router = useRouter();
+  const pickFrontend = usePickFrontend();
   const pathname = usePathname();
   const path = pathname.split("/").filter(Boolean);
   const { frontend } = scopeFromPath(path);
@@ -826,46 +833,21 @@ export function StackRows({
       >
         <FrontendOptions
           current={frontend}
-          onPick={(pick) => {
+          onPick={(id) => {
             setOpen(null);
-            if (pick.id === frontend) return;
-            if (pick.earlyAccess) {
-              // An early-access channel is a landing page, not a docs scope,
-              // so the remembered frontend stays the reader's last real one.
-              const destination = earlyAccessHref(pick.id);
-              trackEvent("docs.frontend_selected", {
-                frontend: pick.id,
-                from_frontend: frontend,
-                backend: framework,
-                from_path: pathname,
-                destination_path: destination,
-                early_access: true,
-              });
-              router.push(destination);
-              return;
-            }
-            // Remembered for the pages that aren't per frontend.
-            setFrontend(pick.id);
+            if (id === frontend) return;
             // The same page on the new frontend when it has one, else the
             // frontend's home.
             const same =
               !pages ||
               !scope.slug ||
-              !!whereIs(pages, pick.id, scope.framework, scope.slug);
-            const destination = frontendHref(
-              path,
-              pick.id,
-              same ? undefined : "",
-            );
-            // Shell-docs' framework selector event, same properties.
-            trackEvent("docs.frontend_selected", {
-              frontend: pick.id,
-              from_frontend: frontend,
-              backend: framework,
-              from_path: pathname,
-              destination_path: destination,
+              !!whereIs(pages, id, scope.framework, scope.slug);
+            pickFrontend({
+              frontend: id,
+              from: frontend,
+              framework,
+              destination: frontendHref(path, id, same ? undefined : ""),
             });
-            router.push(destination);
           }}
         />
       </StackRow>

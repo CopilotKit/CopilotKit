@@ -62,7 +62,7 @@ import { cn } from "@/lib/cn";
 import type { LiveNav } from "@/lib/live-nav";
 import { whereIs } from "@/lib/live-pages";
 import { ROOT_FRAMEWORK, liveFrontend, scopeFromPath } from "@/lib/live-scope";
-import { isEarlyAccessPath } from "@/lib/early-access/channels";
+import { landingPage } from "@/lib/frontends";
 import { variantMeta } from "./meta";
 
 const GITHUB = "https://github.com/CopilotKit/CopilotKit";
@@ -705,10 +705,11 @@ export function ProtoLayout({
 }) {
   const pathname = usePathname();
   const [lastFramework] = useLastFramework();
-  // An early-access channel's landing page (/whatsapp) is not a docs page:
-  // it has no stack to pick, and visiting it must not move the remembered
-  // framework, which reading it as a built-in agent page would.
-  const channelPage = variant === "d" && isEarlyAccessPath(pathname);
+  // An early-access frontend's landing page (/whatsapp), its only page, is
+  // not a docs page: it has no stack to pick, and visiting it must not move
+  // the remembered framework, which reading it as a built-in agent page would.
+  const channelPage =
+    variant === "d" && landingPage(pathname.split("/")[1]) === pathname;
   const loc = channelPage
     ? null
     : liveLocation(
