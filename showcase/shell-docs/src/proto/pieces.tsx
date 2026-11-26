@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { ArrowRight, Check, ChevronsUpDown, Info, Search } from "lucide-react";
 import { IntelligenceGlyph } from "@/components/icons/glyphs";
@@ -675,6 +675,15 @@ function StackRow({
 }
 
 /**
+ * The picker's cue, an overlay on the card: its edge turns lilac and eases
+ * back to the card's hairline over 2.5s while a thin ring pings out from it
+ * twice, from 300ms in (`stack-edge` and `stack-ping` in theme.css). For
+ * reduced motion, the edge alone, which only changes color.
+ */
+const CUE =
+  "pointer-events-none absolute -inset-px rounded-[24px] border border-transparent motion-safe:animate-[stack-edge_2.5s_ease-in,stack-ping_1.1s_cubic-bezier(0.16,1,0.3,1)_300ms_2] motion-reduce:animate-[stack-edge_2.5s_ease-in]";
+
+/**
  * Frontend and agent framework as two rows, like the current docs sidebar.
  * Each changes the URL and keeps your page: the frontend is the URL's
  * (`/vue/mastra/...`, React when it names none), since that is what the page
@@ -685,18 +694,41 @@ export function StackRows({
   framework,
   slug,
   onFramework,
+  shown,
+  onShown,
 }: {
   variant: VariantId;
   framework: string;
   slug: string;
   /** Replaces navigating to the same page under the new framework. */
   onFramework?: (id: string) => void;
+  /**
+   * The stack the picker last showed in this visit (`"react mastra"`), or
+   * null before it first shows. The picker plays its cue as it mounts unless
+   * it shows that same stack again, and replays it whenever its frontend or
+   * framework changes, so readers notice where they set their stack.
+   */
+  shown?: string | null;
+  /** Hears the stack the picker shows, to hand back as `shown`. */
+  onShown?: (values: string) => void;
 }) {
   const { setFrontend } = useFrontend();
   const router = useRouter();
   const pathname = usePathname();
   const path = pathname.split("/").filter(Boolean);
   const { frontend } = scopeFromPath(path);
+  // Each new stack is a new run of the cue. A run remounts only the cue's
+  // overlay, which restarts its animation and leaves the rows, and the
+  // focus on a trigger after a pick, in place.
+  const values = `${frontend} ${framework}`;
+  const [cue, setCue] = useState(() => ({
+    values,
+    run: shown === values ? 0 : 1,
+  }));
+  if (cue.values !== values) setCue({ values, run: cue.run + 1 });
+  useEffect(() => {
+    onShown?.(values);
+  }, [values, onShown]);
   const [open, setOpen] = useState<"frontend" | "framework" | null>(null);
   const pages = useLivePages();
   const scope = scopeFromPath(path);
@@ -714,7 +746,10 @@ export function StackRows({
     // sidebar's grey ground; at night a raised ink, since
     // the card color is darker than the frame. It takes the page panel's 24px
     // corners, and starts level with it (theme.css sizes the logo row).
-    <div className="flex flex-col rounded-[24px] border bg-card p-1 text-sm shadow-lift dark:bg-[#1e1e2a]">
+    <div className="relative flex flex-col rounded-[24px] border bg-card p-1 text-sm shadow-lift dark:bg-[#1e1e2a]">
+      {cue.run > 0 ? (
+        <span key={cue.run} aria-hidden="true" className={CUE} />
+      ) : null}
       <StackRow
         label="Frontend"
         value={frontendById(frontend)?.name ?? ""}
