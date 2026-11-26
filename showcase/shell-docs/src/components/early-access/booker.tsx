@@ -335,9 +335,10 @@ export function ChannelDemoBooker({
     if (!pages[next]) return;
     setNotice(null);
     setPage(next);
-    // At either end the arrow pressed is disabled: focus moves to the other.
+    // At either end the arrow pressed is disabled: focus moves to the other,
+    // once the new page has rendered and that arrow is enabled.
     if (!pages[next + step])
-      (step > 0 ? earlierRef : laterRef).current?.focus();
+      focusSoon(() => (step > 0 ? earlierRef : laterRef).current);
   };
 
   const markTaken = (time: OpenTime) =>
