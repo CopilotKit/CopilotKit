@@ -107,7 +107,8 @@ export const UNSCOPED_SEGMENTS = new Set([
   "reference",
   "frontends",
   "api",
-  "agentic-protocols",
+  // Not `agentic-protocols`: its pages are shared ones every stack has
+  // (`/vue/mastra/agentic-protocols/mcp`), so its links keep the reader's.
   "cookbook",
   "examples",
 ]);
@@ -165,6 +166,33 @@ export function scopedHref(href: string | undefined, scope: DocsScope) {
       ? `/${scope.framework}`
       : "";
   return `${fe}${fw}${href}`;
+}
+
+/**
+ * A root-relative link to a per-stack page that names no stack
+ * (`/quickstart#install`), as its slug (`quickstart`) and its `?query#hash`.
+ * Null for any other link: one that names a framework or frontend, a global
+ * section (`/reference`), the channel guide, or an outside URL. A page that
+ * isn't per stack (the cookbook) sends these to the reader's own stack.
+ */
+export function unscopedStackLink(href: string | undefined) {
+  if (!href?.startsWith("/") || href.startsWith("//")) return null;
+  const path = href.split(/[?#]/, 1)[0];
+  const first = path.slice(1).split("/", 1)[0];
+  if (
+    !first ||
+    UNSCOPED_SEGMENTS.has(first) ||
+    liveFramework(first) ||
+    liveFrontend(first) ||
+    first === "channels" ||
+    first === "integrations"
+  ) {
+    return null;
+  }
+  return {
+    slug: path.slice(1).replace(/\/+$/, ""),
+    suffix: href.slice(path.length),
+  };
 }
 
 /** The framework a docs folder name points at: the reader's own if it uses the folder. */
