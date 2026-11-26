@@ -9,6 +9,7 @@ export * from "./lib/agent";
 export * from "./lib/capabilities";
 export * from "./lib/interrupt";
 export * from "./lib/inject-interrupt";
+export * from "./lib/init-agent-store";
 export * from "./lib/threads";
 export * from "./lib/chat-config";
 export * from "./lib/chat-configuration";
