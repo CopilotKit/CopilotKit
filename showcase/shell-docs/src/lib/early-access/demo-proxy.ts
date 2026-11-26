@@ -64,9 +64,9 @@ const PRE_CONNECTION_ERROR_CODES: ReadonlySet<string> = new Set([
 // booking request, valid or not, also counts toward a ceiling per reader.
 // Readers whose address can't be read all have one key (`UNKNOWN_READER`),
 // so a limit on that key would let one of them use up the others' allowance.
-// They get no limits of their own: their bookings count only toward the
-// five a minute across all readers, and their reads of the times toward one
-// cap for all of them together.
+// They get no limits of their own, only caps they share: together they take
+// at most two of the five bookings a minute, so readers with an address
+// always keep three, and their reads of the times count toward one cap.
 
 type Limit = ReturnType<typeof createRateLimit>;
 
@@ -84,8 +84,14 @@ function perReader(own: Limit, shared?: Limit): Limit {
 const allowBookRequest = perReader(
   createRateLimit({ limit: 30, windowMs: 60_000 }),
 );
+/**
+ * Of the five bookings a minute across all readers, the most that readers
+ * without a readable address take together.
+ */
+const UNKNOWN_BOOKING_LIMIT = 2;
 const allowBooking = perReader(
   createRateLimit({ limit: 5, windowMs: 10 * 60_000 }),
+  createRateLimit({ limit: UNKNOWN_BOOKING_LIMIT, windowMs: 60_000 }),
 );
 /**
  * Reads of the times a minute by all readers without a readable address
@@ -613,7 +619,8 @@ export async function bookChannelDemo(request: Request) {
     return respond(UNAVAILABLE.status, UNAVAILABLE.body);
   }
   // The shared limit first, and a shared booking is counted only once the
-  // reader's own limit allows it, so a reader past theirs uses up nobody's.
+  // reader's own limit (without an address, their shared cap) allows it, so
+  // a reader past theirs uses up nobody's.
   const now = Date.now();
   const sharedWait = sharedBookingWait(now);
   if (sharedWait) return rateLimited(sharedWait);
@@ -640,6 +647,10 @@ export async function bookChannelDemo(request: Request) {
         workEmailOnly: true,
       }),
       cache: "no-store",
+      // Followed, a redirect would carry the reader's details on to wherever
+      // it points, and could book twice. Node's fetch hands back the 3xx
+      // itself, which reads as unconfirmed.
+      redirect: "manual",
       signal: AbortSignal.timeout(BOOK_TIMEOUT_MS),
     });
   } catch (error) {
@@ -669,8 +680,8 @@ export async function bookChannelDemo(request: Request) {
 
 /**
  * The website's answer, mapped as Intelligence maps it. Anything that isn't
- * a clear "not booked" is reported as possibly booked, so the reader checks
- * their email instead of booking twice.
+ * a clear "not booked", a redirect among them, is reported as possibly
+ * booked, so the reader checks their email instead of booking twice.
  */
 async function readWebsiteBooking(response: Response): Promise<Answer> {
   const body: unknown = await response.json().catch(() => null);

@@ -146,9 +146,21 @@ describe("input validation", () => {
       await import("../../../shell-docs/src/lib/early-access/booking");
     website(() => json(200, BOOKED));
     const patternTest = vi.spyOn(EMAIL_PATTERN, "test");
-    const email = `a@${"a.".repeat(8100)}@`;
-    const response = await bookChannelDemo(bookRequest({ ...VALID, email }));
+    // The spy sees the pattern check a valid email...
+    expect((await bookChannelDemo(bookRequest(VALID))).status).toBe(200);
+    expect(patternTest).toHaveBeenCalled();
+    patternTest.mockClear();
+    // ...but never one over the limit. Its body is under the 16 KB ceiling,
+    // so the email's own length check is what refuses it.
+    const body = JSON.stringify({ ...VALID, email: `a@${"a.".repeat(8100)}@` });
+    expect(new TextEncoder().encode(body).byteLength).toBeLessThan(16_384);
+    const response = await bookChannelDemo(bookRequest(body));
     expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      ok: false,
+      code: "invalid_input",
+      field: "email",
+    });
     expect(patternTest).not.toHaveBeenCalled();
   });
 
@@ -359,6 +371,33 @@ describe("booking through the website", () => {
     expect(response.status).toBe(502);
   });
 
+  test.each([303, 307, 308])(
+    "doesn't follow a %i with the reader's details, and reads it as unconfirmed",
+    async (redirect) => {
+      const { bookChannelDemo } = await loadProxy();
+      const fetchMock = website(
+        () =>
+          new Response(null, {
+            status: redirect,
+            headers: { location: "https://elsewhere.test/book" },
+          }),
+      );
+      const response = await bookChannelDemo(bookRequest(VALID));
+      expect(response.status).toBe(502);
+      expect(await response.json()).toEqual({
+        ok: false,
+        code: "unconfirmed",
+      });
+      // Manual: fetch hands back the redirect itself, so nothing is sent to it.
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock.mock.calls[0][1]?.redirect).toBe("manual");
+      expect(console.error).toHaveBeenCalledWith(
+        "[channel-demo] the website did not confirm a booking",
+        { channel: "whatsapp", status: redirect },
+      );
+    },
+  );
+
   test("a connection that never opened is unavailable, a timeout unconfirmed", async () => {
     const { bookChannelDemo } = await loadProxy();
     for (const code of [
@@ -516,7 +555,7 @@ describe("open times", () => {
 describe("readers without a readable address", () => {
   // A request can arrive with no x-real-ip, or through a Cloudflare edge
   // that doesn't name the reader. Such readers can't be told apart, so none
-  // of them has limits of their own.
+  // of them has limits of their own: they share caps instead.
   const NO_ADDRESS_LINE =
     "[channel-demo] no readable client address; per-reader limits skipped";
   const CLOUDFLARE_EDGE = "162.158.10.20";
@@ -553,11 +592,11 @@ describe("readers without a readable address", () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     try {
       const start = Date.now();
-      // Five a minute, the limit across all readers, for three minutes.
+      // Two a minute, their share, for three minutes.
       const statuses: number[] = [];
       for (let minute = 0; minute < 3; minute++) {
         vi.setSystemTime(start + minute * 61_000);
-        for (let i = 0; i < 5; i++) {
+        for (let i = 0; i < 2; i++) {
           const response = await bookChannelDemo(
             fromUnknownReader(bookRequest(VALID)),
           );
@@ -565,23 +604,83 @@ describe("readers without a readable address", () => {
         }
       }
       expect(statuses.filter((s) => s !== 200)).toEqual([]);
-      expect(fetchMock).toHaveBeenCalledTimes(15);
+      expect(fetchMock).toHaveBeenCalledTimes(6);
     } finally {
       vi.useRealTimers();
     }
   });
 
-  test("still book at most five a minute, the limit across all readers", async () => {
+  test("book at most two a minute together", async () => {
     const { bookChannelDemo } = await loadProxy();
     const fetchMock = website(() => json(200, BOOKED));
-    const statuses: number[] = [];
-    for (let i = 0; i < 6; i++) {
-      const response = await bookChannelDemo(
-        fromUnknownReader(bookRequest(VALID)),
-      );
-      statuses.push(response.status);
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      const start = Date.now();
+      const answers: Response[] = [];
+      for (let i = 0; i < 3; i++) {
+        answers.push(
+          await bookChannelDemo(fromUnknownReader(bookRequest(VALID))),
+        );
+      }
+      expect(answers.map((a) => a.status)).toEqual([200, 200, 429]);
+      expect(await answers[2].json()).toEqual({
+        ok: false,
+        code: "rate_limited",
+      });
+      const retryAfter = Number(answers[2].headers.get("Retry-After"));
+      expect(retryAfter).toBeGreaterThan(0);
+      expect(retryAfter).toBeLessThanOrEqual(60);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      // A minute on, their two are free again.
+      vi.setSystemTime(start + 61_000);
+      const later: number[] = [];
+      for (let i = 0; i < 2; i++) {
+        later.push(
+          (await bookChannelDemo(fromUnknownReader(bookRequest(VALID)))).status,
+        );
+      }
+      expect(later).toEqual([200, 200]);
+    } finally {
+      vi.useRealTimers();
     }
-    expect(statuses).toEqual([200, 200, 200, 200, 200, 429]);
+  });
+
+  test("leave readers with an address three of the five bookings a minute", async () => {
+    const { bookChannelDemo } = await loadProxy();
+    const fetchMock = website(() => json(200, BOOKED));
+    const unknown: number[] = [];
+    for (let i = 0; i < 3; i++) {
+      unknown.push(
+        (await bookChannelDemo(fromUnknownReader(bookRequest(VALID)))).status,
+      );
+    }
+    expect(unknown).toEqual([200, 200, 429]);
+    // Readers with an address (each their own) still book the other three,
+    // and then the five a minute across all readers are used up.
+    const known: number[] = [];
+    for (let i = 0; i < 4; i++) {
+      known.push((await bookChannelDemo(bookRequest(VALID))).status);
+    }
+    expect(known).toEqual([200, 200, 200, 429]);
+    expect(fetchMock).toHaveBeenCalledTimes(5);
+  });
+
+  test("count toward the five a minute across all readers", async () => {
+    const { bookChannelDemo } = await loadProxy();
+    const fetchMock = website(() => json(200, BOOKED));
+    const known: number[] = [];
+    for (let i = 0; i < 4; i++) {
+      known.push((await bookChannelDemo(bookRequest(VALID))).status);
+    }
+    expect(known).toEqual([200, 200, 200, 200]);
+    // One of the five is left, and is all they get.
+    const unknown: number[] = [];
+    for (let i = 0; i < 2; i++) {
+      unknown.push(
+        (await bookChannelDemo(fromUnknownReader(bookRequest(VALID)))).status,
+      );
+    }
+    expect(unknown).toEqual([200, 429]);
     expect(fetchMock).toHaveBeenCalledTimes(5);
   });
 
