@@ -22,13 +22,13 @@ import { InputGroupAddon } from "@/components/ui/input-group";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { FrameworkLogo } from "@/components/icons/framework-icons";
 import { FrontendLogo } from "@/components/icons/frontend-logo";
-import { frontendHref, isChannel } from "@/lib/live-scope";
+import { isChannel } from "@/lib/live-scope";
 import { FRONTENDS, FRONTEND_GROUPS, frontendById } from "@/lib/stack";
 import { useHomepageTelemetry } from "@/lib/telemetry/use-homepage-telemetry";
 import { FRAMEWORKS, LANGUAGES, frameworkById } from "./data";
 import { useFrontend } from "./frontend";
 import { rememberFramework, useLastFramework } from "./last-framework";
-import { frameworkHref } from "./routes";
+import { useStackHref } from "./stack-href";
 
 /** The two halves of the list, and which one the switch puts first. */
 type Side = "agent" | "frontend";
@@ -180,17 +180,19 @@ function highlightAfterSwitch(list: HTMLElement | null, query: string) {
 
 /**
  * The home's primary action: start from your agent framework or your
- * frontend, and land on its quickstart. One list holds both halves, each
- * under its heading and by its groups; the switch at its top picks which
- * half comes first, and the search always spans both. Opens at the top of
- * the first half, where your last framework, or your frontend, is checked,
- * with the search focused (a tap opens it with the popup focused, so no
- * keyboard rises).
+ * frontend, and land on its quickstart on your stack, a framework on your
+ * frontend and a frontend with your framework (`useStackHref`). One list
+ * holds both halves, each under its heading and by its groups; the switch at
+ * its top picks which half comes first, and the search always spans both.
+ * Opens at the top of the first half, where your last framework, or your
+ * frontend, is checked, with the search focused (a tap opens it with the
+ * popup focused, so no keyboard rises).
  */
 export function QuickstartMenu() {
   const router = useRouter();
   const [current] = useLastFramework();
   const { frontend, setFrontend } = useFrontend();
+  const stackHref = useStackHref();
   const track = useHomepageTelemetry();
   // Kept while the page is open, so the menu reopens on the reader's side.
   const [side, setSide] = useState<Side>("agent");
@@ -217,18 +219,19 @@ export function QuickstartMenu() {
         if (!id || reason !== "item-press") return;
         const picked = frontendById(id);
         if (picked) {
-          // A channel's quickstart is its "Connect and run your agent" guide.
-          const destination = frontendHref(
-            [],
-            picked.id,
-            isChannel(picked.id) ? "connect" : "",
+          // With the reader's framework. A channel's quickstart is its
+          // "Connect and run your agent" guide.
+          const destination = stackHref(
+            isChannel(picked.id) ? "connect" : "quickstart",
+            { frontend: picked.id },
           );
           track("quickstart_selected", { frontend: picked.id, destination });
           setFrontend(picked.id);
           router.push(destination);
           return;
         }
-        const destination = frameworkHref("d", id, "quickstart");
+        // On the reader's frontend.
+        const destination = stackHref("quickstart", { framework: id });
         track("quickstart_selected", { backend: id, destination });
         rememberFramework(id);
         router.push(destination);
