@@ -1,0 +1,41 @@
+<Steps>
+  <Step>
+    ### Nothing to wire on the agent
+
+    The tools a page registers arrive with every run, and
+    `run.streamTextOptions()` hands them to `streamText` as AI SDK tools
+    without `execute`, so the agent declares none of its own for this. When
+    the model calls one, the run ends there, because the browser owns that
+    call. The browser runs the handler, and the next run carries the result
+    back to the model.
+
+    The agent's own tools are spread after the page's. A server tool with
+    `execute` that has the same name as a frontend tool replaces it, and the
+    agent answers its calls instead, so keep frontend tool names distinct from
+    your server tools.
+
+  </Step>
+  <Step>
+    ### Tell the model when to call it
+
+    This is the part that is easy to miss. The tool arrives on every run, but a
+    model with no instruction about it may answer in prose and never call it.
+    Name the tool in the instructions you pass to `run.streamTextOptions()` and
+    say what it is for. In the quickstart's agent:
+
+    ```ts title="src/index.ts"
+    onAGUIRun(run: AGUIRun<State>) {
+      const openai = createOpenAI({ apiKey: this.env.OPENAI_API_KEY });
+      return streamText({
+        model: openai("gpt-6-luna"),
+        ...run.streamTextOptions({
+          instructions:
+            "When the user asks for a new look, call the frontend " +
+            "`change_background` tool with a CSS background value.",
+        }),
+      });
+    }
+    ```
+
+  </Step>
+</Steps>

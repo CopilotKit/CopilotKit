@@ -1,0 +1,45 @@
+<Steps>
+  <Step>
+    ### The agent's state is the thread's state
+
+    Each thread is one Durable Object, and the agent's `state` is that
+    thread's AG-UI shared state. Edits the page makes with `agent.setState`
+    arrive with the next run and are saved into the Durable Object, so a page
+    that comes back to the thread gets the state back. Declare its starting
+    value as the agent's `initialState`.
+
+  </Step>
+  <Step>
+    ### The model reads it from its instructions
+
+    `run.streamTextOptions()` adds the shared state to the instructions as
+    JSON on every run, under
+    `Shared state (the application shows it to the user and can change it):`,
+    so the model always sees the current value, including the user's latest
+    edits. Say in your instructions what each key means. Pass `state: false`
+    to `run.streamTextOptions()` to leave the state out.
+
+  </Step>
+  <Step>
+    ### Write state from a server tool
+
+    A server tool writes the state with the agent's `this.setState()`. Every
+    call during a run streams a `STATE_SNAPSHOT` to the page at once, so any
+    component subscribed with `useAgent` re-renders while the agent is still
+    running, and the Durable Object keeps the new value. The showcase hands its
+    tools a small accessor over `this.state` and `this.setState()` and merges
+    each write into the current state:
+
+    <DemoCode file="src/agent/tools.ts" region="state-access" />
+
+    <DemoCode file="src/agent/tools.ts" region="shared-state-write-tool" />
+
+  </Step>
+</Steps>
+
+<Callout type="info" title="An empty state from the page means none">
+  A page that sends `{}` has no state of its own yet: it is what every new
+  client sends, so the thread's state comes back instead of being wiped. To
+  clear the state from the page, send its empty shape, such as
+  `{ notes: [] }`. The agent can always replace it with `this.setState()`.
+</Callout>

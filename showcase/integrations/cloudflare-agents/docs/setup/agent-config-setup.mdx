@@ -1,0 +1,23 @@
+<Steps>
+  <Step>
+    ### Put the rulebook in the instructions, not the values
+
+    The page publishes its typed config with `useAgentContext`, so it reaches
+    the agent as a context entry on every run. `run.streamTextOptions()` adds
+    that entry to the instructions under `Context from the application:`, so
+    the model always sees the values the user picked just before sending. The
+    agent's own instructions only need the rules for each value, for example
+    what an "expert" answer leaves out.
+
+  </Step>
+  <Step>
+    ### Serve the agent from its own runtime route
+
+    The demo keeps agent config on a dedicated runtime,
+    `/api/copilotkit-agent-config`, which points an `HttpAgent` at the Worker's
+    shared agent and registers it under both the page's agent name and
+    `default`. Nothing on the route touches the config: `useAgentContext`
+    entries travel in the run input on their own.
+
+  </Step>
+</Steps>

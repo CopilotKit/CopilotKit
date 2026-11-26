@@ -1,0 +1,71 @@
+<Steps>
+  <Step>
+    ### Install the Cloudflare Agents AG-UI adapter
+
+    ```bash
+    npm install agents @ag-ui/cloudflare-agents ai
+    ```
+
+  </Step>
+  <Step>
+    ### Ask for the human with a frontend tool
+
+    The simplest route is an ordinary frontend tool. Register it in the
+    browser with `useHumanInTheLoop`, or with `useFrontendTool` and an `async`
+    handler that resolves once the user has answered. `run.streamTextOptions()`
+    hands the tool to the model on every run. When the model calls it, the run
+    ends and the browser asks the user. The answer goes back with the next
+    request as the call's result, and the model continues from there.
+
+    That leaves the agent with one job: knowing the tool exists and when to
+    call it. Name it in the instructions you pass to `run.streamTextOptions()`,
+    or a model that is never told about it may answer in prose.
+
+  </Step>
+  <Step>
+    ### Or pause a server tool with tool approval
+
+    When the backend decides it needs the user, put the tool under the AI
+    SDK's tool approval: `toolApproval: { schedule_meeting: "user-approval" }`
+    on `streamText` with AI SDK v7, or `needsApproval: true` on the tool with
+    AI SDK v6. The AI SDK stops before the tool runs, and the adapter ends the
+    AG-UI run with an interrupt for that call, which `useInterrupt` renders.
+    The interrupt's `reason` is `"tool_approval"`, its `metadata` carries
+    `tool_name` and the parsed `tool_input`, and it asks for
+    `{ "approved": boolean }`.
+
+    The showcase's agents list the tools that need approval in
+    `approvalRequired`, and the shared run loop turns that list into
+    `toolApproval`:
+
+    <DemoCode file="src/agent/agents.ts" region="agent-run" />
+
+    The next request resumes the interrupt. `{ "approved": true }` runs the
+    tool before the model is called again. A rejection or a cancel tells the
+    model the tool did not run, and a `reason` in the payload becomes the
+    reason the model reads.
+
+  </Step>
+  <Step>
+    ### Hand the tool more than a yes or no
+
+    An approval is only a yes or a no, so an approved tool runs with its own
+    arguments and nothing else. The showcase's time picker resumes with the
+    chosen slot instead. Its `Interrupt` agent rewrites the resume before the
+    adapter reads the request: a picked slot becomes `{ approved: true }` and is
+    kept by tool call id, where `schedule_meeting` reads it once it runs:
+
+    <DemoCode file="src/agent/scheduling.ts" region="interrupt-resume-payload" />
+
+  </Step>
+</Steps>
+
+<Callout type="info" title="The Durable Object guards the approval">
+  The agent records in its Durable Object which calls it paused, so a resume
+  can only approve a call the model actually made, and an approved tool runs
+  at most once, even if a retry answers the same approval again. Answer every
+  waiting approval: a request that leaves one unanswered is refused with a
+  `RUN_ERROR` (code `INVALID_RESUME`) before the model runs. For a tool whose
+  effect must never repeat, also pass the tool call id (`execute`'s second
+  argument has `toolCallId`) as the idempotency key of the API it calls.
+</Callout>
