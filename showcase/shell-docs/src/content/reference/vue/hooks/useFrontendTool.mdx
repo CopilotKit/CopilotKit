@@ -94,7 +94,7 @@ function useFrontendTool<T extends Record<string, unknown>>(
 
   <PropertyReference name="agentId" type="string">
     Optional agent scope. When set, the tool is only available to the agent with
-    this id. Duplicate-name detection is scoped per `agentId`.
+    this id. Duplicate-name detection is scoped per `agentId`. It does not limit [WebMCP](/webmcp): browser agents can still call the tool. Set `webmcp: false` to keep it private.
   </PropertyReference>
 
   <PropertyReference name="followUp" type="boolean">
@@ -109,7 +109,8 @@ function useFrontendTool<T extends Record<string, unknown>>(
   <PropertyReference name="webmcp" type="boolean | { annotations?: { readOnlyHint?: boolean; untrustedContentHint?: boolean } }">
 Controls whether browser agents can call this tool through the WebMCP API
     (`document.modelContext`). `true` exposes the tool. An object exposes it
-    with WebMCP annotations. `false` keeps it private. When you leave it out,
+    with WebMCP annotations. Both need a `description`: without one, the tool
+    is skipped and a warning is logged. `false` keeps it private. When you leave it out,
     the tool follows the provider's `defaultWebMCPTools` setting, which is on by
     default and exposes tools that have a `handler` and a `description`. The
     same `handler` runs when a browser agent calls the tool, and the context

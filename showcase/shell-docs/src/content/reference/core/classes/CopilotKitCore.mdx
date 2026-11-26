@@ -55,6 +55,10 @@ new CopilotKitCore(config: CopilotKitCoreConfig)
     Exposes tools that have a `handler` and a `description` to browser agents through [WebMCP](/webmcp). A tool's own `webmcp` value always wins. See [CopilotKitCoreConfig](/reference/core/types/CopilotKitCoreConfig).
   </PropertyReference>
 
+  <PropertyReference name="deferWebMCP" type="boolean" default="false">
+    Waits for `startWebMCP()` before registering any tool with WebMCP. See [CopilotKitCoreConfig](/reference/core/types/CopilotKitCoreConfig).
+  </PropertyReference>
+
   <PropertyReference name="suggestionsConfig" type="SuggestionsConfig[]" default="[]">
     Suggestion configurations registered at construction. See [SuggestionsConfig](/reference/core/types/SuggestionsConfig).
   </PropertyReference>
@@ -124,6 +128,14 @@ new CopilotKitCore(config: CopilotKitCoreConfig)
 
 <PropertyReference name="setDefaultWebMCPTools" type="(enabled: boolean) => void" required>
   Turns the WebMCP default on or off. The WebMCP registrations update at once: tools that only had the default are added or removed. Read the current value from `defaultWebMCPTools`.
+</PropertyReference>
+
+<PropertyReference name="startWebMCP" type="() => void" required>
+  Registers the core's tools with WebMCP and keeps them in sync. You need it only after `deferWebMCP` or `stopWebMCP()`. A second call does nothing.
+</PropertyReference>
+
+<PropertyReference name="stopWebMCP" type="() => void" required>
+  Unregisters every WebMCP tool that this core registered, so browser agents can no longer call them. Tool changes register nothing until you call `startWebMCP()`. The tools stay available to your own agents. Call it when the code that owns the core is removed.
 </PropertyReference>
 
 <PropertyReference name="runTool" type="(params: CopilotKitCoreRunToolParams) => Promise<CopilotKitCoreRunToolResult>" required>

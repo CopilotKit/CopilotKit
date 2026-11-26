@@ -65,7 +65,7 @@ React Native does not expose `document.modelContext`, so WebMCP registration is 
 1. Your app registers a CopilotKit frontend tool.
 2. CopilotKit mirrors the tool's name, description, JSON Schema, annotations, and handler onto `document.modelContext`.
 3. A compatible browser agent discovers the tool and calls the same JavaScript handler while the page is open.
-4. CopilotKit unregisters the WebMCP tool when the frontend tool is removed or becomes unavailable.
+4. CopilotKit unregisters the WebMCP tool when the frontend tool is removed or becomes unavailable, and unregisters all tools when the provider unmounts.
 
 The WebMCP call stays in the browser unless your handler calls an API. CopilotKit does not route that call through a Runtime or backend agent.
 
@@ -217,7 +217,7 @@ export const copilotkit = new CopilotKitCore({
 });
 ```
 
-This path does not configure a Runtime or an agent. It only registers browser-side tools through the core.
+This path does not configure a Runtime or an agent. It only registers browser-side tools through the core. Call `copilotkit.stopWebMCP()` to unregister all of them, and `copilotkit.startWebMCP()` to register them again.
 
 ## Keep tools private
 
@@ -328,7 +328,10 @@ For more, see Chrome's [WebMCP best practices](https://developer.chrome.com/docs
   `agentId` limits which CopilotKit agent receives a frontend tool. WebMCP tools
   are page-level, so `agentId` does not restrict browser-agent access. If
   multiple tools share a name across agent IDs, CopilotKit exposes only one.
-  A tool that sets `webmcp` itself wins. Otherwise, the first one wins.
+  A tool that opts in with `webmcp: true` or `webmcp: { annotations }` wins
+  over one that only follows the default. Otherwise, the first one wins.
+  `webmcp: false` keeps only that tool private. Another eligible tool with the
+  same name is still exposed.
 </Callout>
 
 ## Test the complete path

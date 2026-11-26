@@ -27,6 +27,7 @@ interface CopilotKitCoreConfig {
   properties?: Record<string, unknown>;
   tools?: FrontendTool<any>[];
   defaultWebMCPTools?: boolean;
+  deferWebMCP?: boolean;
   suggestionsConfig?: SuggestionsConfig[];
   debug?: DebugConfig;
   learning?: LearningConfig;
@@ -95,6 +96,13 @@ interface CopilotKitCoreConfig {
   exposed, except human-in-the-loop tools and tools that set `webmcp: false`.
   When `false`, only tools that set `webmcp` themselves are exposed. A tool's
   own `webmcp` value always wins. Change it later with `setDefaultWebMCPTools`.
+</PropertyReference>
+
+<PropertyReference name="deferWebMCP" type="boolean" default="false">
+  When `true`, the constructor does not register any tool with WebMCP. Call
+  `startWebMCP()` to register them, for example from a commit-phase effect.
+  This keeps a core that is created and then discarded during render from
+  leaving callable tools on the page.
 </PropertyReference>
 
 <PropertyReference name="suggestionsConfig" type="SuggestionsConfig[]" default="[]">

@@ -94,7 +94,8 @@ function useFrontendTool<T extends Record<string, unknown>>(
   <PropertyReference name="webmcp" type="boolean | { annotations?: { readOnlyHint?: boolean; untrustedContentHint?: boolean } }">
 Controls whether browser agents can call this tool through the WebMCP API
     (`document.modelContext`). `true` exposes the tool. An object exposes it
-    with WebMCP annotations. `false` keeps it private. When you leave it out,
+    with WebMCP annotations. Both need a `description`: without one, the tool
+    is skipped and a warning is logged. `false` keeps it private. When you leave it out,
     the tool follows the provider's `defaultWebMCPTools` setting, which is on by
     default and exposes tools that have a `handler` and a `description`. The
     same `handler` runs when a browser agent calls the tool, and the context
