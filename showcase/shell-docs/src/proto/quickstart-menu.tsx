@@ -114,7 +114,10 @@ function Row({ id }: { id: string }) {
   // FrontendLogo draws the early-access channels' marks too.
   const mark = frontendById(id)?.id ?? channel?.id;
   return (
-    <ComboboxItem value={id} className="min-h-9 gap-2.5 rounded-lg px-2">
+    <ComboboxItem
+      value={id}
+      className="min-h-9 gap-2.5 rounded-lg px-2 pointer-coarse:min-h-11"
+    >
       {mark ? (
         // At its full 18px (rows shrink a bare svg to 16), in its own colors
         // when highlighted too.
