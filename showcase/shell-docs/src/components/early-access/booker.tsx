@@ -254,7 +254,10 @@ export function ChannelDemoBooker({
   }, []);
   const [taken, setTaken] = useState<ReadonlySet<number>>(() => new Set());
   const [dayKey, setDayKey] = useState<string | null>(null);
-  const [page, setPage] = useState(0);
+  /** The page of times turned to, and the day it was turned on. */
+  const [turned, setTurned] = useState<{ day: string; page: number } | null>(
+    null,
+  );
   const [notice, setNotice] = useState<string | null>(null);
   /** A booking that may have gone through: nothing more is booked here. */
   const [locked, setLocked] = useState(false);
@@ -306,14 +309,14 @@ export function ChannelDemoBooker({
   const day: SlotDay | undefined = days[dayIndex];
   // The chosen day has gone (its times passed or were taken): the day shown
   // instead becomes the choice.
-  if (day && dayKey !== null && day.key !== dayKey) {
-    setDayKey(day.key);
-    setPage(0);
-  }
+  if (day && dayKey !== null && day.key !== dayKey) setDayKey(day.key);
   const pages = useMemo(
     () => pageTimes(day?.times ?? [], pageSize),
     [day, pageSize],
   );
+  // A page belongs to the day it was turned on: any other day shown, the
+  // first one included, starts on its first page.
+  const page = turned && turned.day === day?.key ? turned.page : 0;
   const pageIndex = Math.min(page, Math.max(0, pages.length - 1));
   const shown = pages[pageIndex] ?? [];
   const shownOpen = shown.filter((entry) => entry.chip.available);
@@ -326,15 +329,15 @@ export function ChannelDemoBooker({
   const selectDay = (key: string) => {
     if (key === day?.key) return;
     setNotice(null);
-    setPage(0);
+    setTurned(null);
     setDayKey(key);
   };
 
   const turnPage = (step: 1 | -1) => {
     const next = pageIndex + step;
-    if (!pages[next]) return;
+    if (!day || !pages[next]) return;
     setNotice(null);
-    setPage(next);
+    setTurned({ day: day.key, page: next });
     // At either end the arrow pressed is disabled: focus moves to the other,
     // once the new page has rendered and that arrow is enabled.
     if (!pages[next + step])
@@ -452,7 +455,7 @@ export function ChannelDemoBooker({
               onChange={(zone) => {
                 setTimeZone(zone);
                 storeTimeZone(zone);
-                setPage(0);
+                setTurned(null);
               }}
             />
           ) : null}
