@@ -15,7 +15,7 @@ import {
 import { cn } from "@/lib/cn";
 import { whereIs } from "@/lib/live-pages";
 import { frontendHref, liveFrontend, scopeFromPath } from "@/lib/live-scope";
-import { frontendEventProperties } from "@/lib/frontends";
+import { DOCS_FRONTENDS, frontendEventProperties } from "@/lib/frontends";
 import { useLivePages } from "./live-pages-context";
 import { trackEvent } from "@/lib/telemetry/analytics";
 import frameworkCategories from "@/data/framework-categories.json";
@@ -183,7 +183,11 @@ export function FrameworkMenu({
   );
 }
 
-/** Frontend dropdown, remembered across pages. */
+/**
+ * Frontend dropdown, remembered across pages. It only sets the reader's docs
+ * stack, so it lists the frontends with docs, as FrontendChips,
+ * PlainSentence, and TwoQuestions do: an early-access pick would do nothing.
+ */
 export function FrontendMenu({
   label,
   look = "sidebar",
@@ -214,7 +218,7 @@ export function FrontendMenu({
           />
         </PopoverTrigger>
         <PopoverContent align="start" sideOffset={6} className="w-72 p-1">
-          {FRONTENDS.map((f) => (
+          {DOCS_FRONTENDS.map((f) => (
             <button
               key={f.id}
               type="button"
@@ -253,7 +257,7 @@ export function FrontendChips({ size = "md" }: { size?: "sm" | "md" }) {
       // Above the content that follows, so the chips' grown hit area wins.
       className="not-prose relative z-10 flex-wrap"
     >
-      {FRONTENDS.map((f) => (
+      {DOCS_FRONTENDS.map((f) => (
         <ToggleGroupItem
           key={f.id}
           value={f.id}
@@ -285,7 +289,7 @@ export function PlainSentence({
   slug: string;
 }) {
   const { frontend, setFrontend } = useFrontend();
-  const other = FRONTENDS.find((f) => f.id !== frontend)!;
+  const other = DOCS_FRONTENDS.find((f) => f.id !== frontend)!;
   const fw = frameworkById(framework);
   const alt = FRAMEWORKS.find((f) => f.id !== framework && f.popular)!;
   return (
@@ -506,7 +510,7 @@ export function TwoQuestions({
           What are you building with?
         </p>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {FRONTENDS.map((f) => {
+          {DOCS_FRONTENDS.map((f) => {
             const on = f.id === frontend;
             return (
               <button
