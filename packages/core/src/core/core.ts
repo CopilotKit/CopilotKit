@@ -111,6 +111,17 @@ export interface CopilotKitCoreConfig {
   properties?: Record<string, unknown>;
   /** Ordered collection of frontend tools available to the core. */
   tools?: FrontendTool<any>[];
+  /**
+   * Expose frontend tools to browser agents through WebMCP
+   * (`document.modelContext`) by default. Defaults to `true`.
+   *
+   * When `true`, every tool that has a `handler` and a `description`, is not a
+   * human-in-the-loop tool, and does not set `webmcp` itself is registered with
+   * WebMCP. When `false`, only tools that set `webmcp: true` (or
+   * `webmcp: { annotations }`) are registered. A tool's own `webmcp` value
+   * always wins. See `setDefaultWebMCPTools`.
+   */
+  defaultWebMCPTools?: boolean;
   /** Suggestions config for the core. */
   suggestionsConfig?: SuggestionsConfig[];
   /** Enable debug logging for the client-side event pipeline. */
@@ -530,6 +541,7 @@ export class CopilotKitCore {
     properties = {},
     agents__unsafe_dev_only = {},
     tools = [],
+    defaultWebMCPTools = true,
     suggestionsConfig = [],
     debug,
     learning,
@@ -557,7 +569,7 @@ export class CopilotKitCore {
 
     // Initialize each subsystem
     this.agentRegistry.initialize(agents__unsafe_dev_only);
-    this.runHandler.initialize(tools);
+    this.runHandler.initialize(tools, { defaultWebMCPTools });
     this.suggestionEngine.initialize(suggestionsConfig);
     this.stateManager.initialize();
     // After agent initialization: the bridge reads the initial agents.
@@ -1448,6 +1460,22 @@ export class CopilotKitCore {
 
   setTools(tools: FrontendTool<any>[]): void {
     this.runHandler.setTools(tools);
+  }
+
+  /**
+   * Whether tools that do not set `webmcp` are exposed to browser agents
+   * through WebMCP. See {@link CopilotKitCoreConfig.defaultWebMCPTools}.
+   */
+  get defaultWebMCPTools(): boolean {
+    return this.runHandler.defaultWebMCPTools;
+  }
+
+  /**
+   * Turn the WebMCP default on or off at runtime. The WebMCP registrations are
+   * reconciled at once: tools that only had the default are added or removed.
+   */
+  setDefaultWebMCPTools(enabled: boolean): void {
+    this.runHandler.setDefaultWebMCPTools(enabled);
   }
 
   /**

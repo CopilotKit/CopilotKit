@@ -138,7 +138,10 @@ export type FrontendTool<
    *
    * - `true` — register with default annotations.
    * - `{ annotations }` — register with the given WebMCP annotations.
-   * - `false` / `undefined` — do not register.
+   * - `false` — do not register.
+   * - `undefined` — follow the core's `defaultWebMCPTools` setting (on by
+   *   default). The default covers tools that have a `handler` and a
+   *   `description` and are not human-in-the-loop tools.
    *
    * The tool's `handler` runs when a browser agent calls the tool; the handler
    * context then has no `agent`. No-op in environments without WebMCP support

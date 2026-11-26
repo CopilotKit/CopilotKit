@@ -229,6 +229,7 @@ export class CopilotKit {
       ...this.#config.selfManagedAgents,
     },
     tools: this.#config.tools,
+    defaultWebMCPTools: this.#config.defaultWebMCPTools,
     suggestionsConfig: this.#config.suggestionsConfig,
     properties: withA2UICatalogCapability(
       this.#config.properties,
@@ -595,6 +596,8 @@ export class CopilotKit {
       handler: async () => "UI generated",
       // This acknowledgement has no side effects and is safe to reconstruct.
       reconnectBehavior: "resume-pending",
+      // Renders in the chat only, so it is never offered to browser agents.
+      webmcp: false,
       followUp: true,
       injector: this.#rootInjector,
     };

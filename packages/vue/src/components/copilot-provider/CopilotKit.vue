@@ -8,7 +8,11 @@
 import type { CopilotKitProps } from "./types";
 import CopilotKitProvider from "../../v2/providers/CopilotKitProvider.vue";
 
-const props = defineProps<CopilotKitProps>();
+// Vue casts an absent boolean prop to `false`, and `v-bind` would forward
+// that, so the on-by-default WebMCP setting needs its default here too.
+const props = withDefaults(defineProps<CopilotKitProps>(), {
+  defaultWebMCPTools: true,
+});
 </script>
 
 <template>
