@@ -704,9 +704,23 @@ export async function bookChannelDemo(request: Request) {
 /**
  * The website's answer, mapped as Intelligence maps it. Anything that isn't
  * a clear "not booked", a redirect among them, is reported as possibly
- * booked, so the reader checks their email instead of booking twice.
+ * booked, so the reader checks their email instead of booking twice. Only a
+ * 200 and a 400 have a body to read: any other answer is mapped from its
+ * status at once, and its body is dropped unread, so one that stalls can't
+ * hold the reader until the booking deadline.
  */
 async function readWebsiteBooking(response: Response): Promise<Answer> {
+  if (!response.ok && response.status !== 400) {
+    void response.body?.cancel().catch(() => {});
+    if (response.status === 409) {
+      return { status: 409, body: { ok: false, code: "slot_taken" } };
+    }
+    if (response.status === 429) {
+      return { status: 429, body: { ok: false, code: "rate_limited" } };
+    }
+    if (response.status === 404 || response.status === 503) return UNAVAILABLE;
+    return UNCONFIRMED;
+  }
   const body: unknown = await response.json().catch(() => null);
   if (response.ok) {
     const parsed = websiteBookingSchema.safeParse(body);
@@ -714,37 +728,27 @@ async function readWebsiteBooking(response: Response): Promise<Answer> {
       ? { status: 200, body: { ok: true, booking: parsed.data.booking } }
       : UNCONFIRMED;
   }
-  if (response.status === 400) {
-    const refusal =
-      typeof body === "object" && body !== null
-        ? (body as { field?: unknown; reason?: unknown })
-        : {};
-    if (refusal.reason === "work_email_required") {
-      return {
-        status: 400,
-        body: {
-          ok: false,
-          code: "invalid_input",
-          field: "email",
-          reason: "work_email_required",
-        },
-      };
-    }
-    const field =
-      typeof refusal.field === "string" && FIELDS.has(refusal.field)
-        ? (refusal.field as ChannelDemoField)
-        : undefined;
+  const refusal =
+    typeof body === "object" && body !== null
+      ? (body as { field?: unknown; reason?: unknown })
+      : {};
+  if (refusal.reason === "work_email_required") {
     return {
       status: 400,
-      body: { ok: false, code: "invalid_input", ...(field ? { field } : {}) },
+      body: {
+        ok: false,
+        code: "invalid_input",
+        field: "email",
+        reason: "work_email_required",
+      },
     };
   }
-  if (response.status === 409) {
-    return { status: 409, body: { ok: false, code: "slot_taken" } };
-  }
-  if (response.status === 429) {
-    return { status: 429, body: { ok: false, code: "rate_limited" } };
-  }
-  if (response.status === 404 || response.status === 503) return UNAVAILABLE;
-  return UNCONFIRMED;
+  const field =
+    typeof refusal.field === "string" && FIELDS.has(refusal.field)
+      ? (refusal.field as ChannelDemoField)
+      : undefined;
+  return {
+    status: 400,
+    body: { ok: false, code: "invalid_input", ...(field ? { field } : {}) },
+  };
 }

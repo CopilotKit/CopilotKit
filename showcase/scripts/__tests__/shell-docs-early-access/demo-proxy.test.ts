@@ -334,6 +334,41 @@ describe("booking through the website", () => {
     },
   );
 
+  // Only a 200 and a 400 have a body worth reading. Any other answer is
+  // mapped from its status at once, and its body is dropped: one that
+  // stalls must not hold the reader until the booking deadline.
+  test.each([
+    [409, 409, "slot_taken"],
+    [429, 429, "rate_limited"],
+    [503, 503, "unavailable"],
+    [404, 503, "unavailable"],
+    [500, 502, "unconfirmed"],
+    [307, 502, "unconfirmed"],
+  ] as const)(
+    "maps a website %i with a stalled body at once, to %i %s",
+    async (websiteStatus, status, code) => {
+      const { bookChannelDemo } = await loadProxy();
+      const cancel = vi.fn();
+      website(
+        () =>
+          new Response(new ReadableStream({ start() {}, cancel }), {
+            status: websiteStatus,
+          }),
+      );
+      const response = await Promise.race([
+        bookChannelDemo(bookRequest(VALID)),
+        new Promise<"stalled">((resolve) =>
+          setTimeout(() => resolve("stalled"), 1000),
+        ),
+      ]);
+      expect(response).not.toBe("stalled");
+      if (response === "stalled") return;
+      expect(response.status).toBe(status);
+      expect(await response.json()).toEqual({ ok: false, code });
+      expect(cancel).toHaveBeenCalled();
+    },
+  );
+
   test("passes a work email refusal and a known field through", async () => {
     const { bookChannelDemo } = await loadProxy();
     website(() =>
