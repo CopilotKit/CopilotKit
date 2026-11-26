@@ -26,9 +26,15 @@ beforeEach(() => {
     registerTool: vi.fn(
       async (tool: { name: string }, options: { signal: AbortSignal }) => {
         registerCalls.push(tool.name);
+        // Like the real API, a duplicate name rejects.
+        if (registered.has(tool.name)) {
+          throw new DOMException("duplicate", "InvalidStateError");
+        }
         registered.set(tool.name, tool);
         options.signal.addEventListener("abort", () => {
-          registered.delete(tool.name);
+          if (registered.get(tool.name) === tool) {
+            registered.delete(tool.name);
+          }
         });
       },
     ),
@@ -118,5 +124,36 @@ describe("CopilotKitProvider defaultWebMCPTools", () => {
     wrapper.unmount();
 
     expect(registered.size).toBe(0);
+  });
+
+  it("registers the replacement's tools when a keyed provider is replaced", async () => {
+    // Provider tools register during the replacement's setup, before Vue runs
+    // the old provider's unmounted hooks.
+    const frontendTools = [
+      {
+        name: "providerTool",
+        description: "Passed to the provider",
+        handler: async () => "ok",
+      },
+    ];
+    const Host = defineComponent({
+      props: { providerKey: { type: String, required: true } },
+      setup(hostProps) {
+        return () =>
+          h(CopilotKitProvider, { key: hostProps.providerKey, frontendTools });
+      },
+    });
+    const wrapper = mount(Host, { props: { providerKey: "a" } });
+    expect(registered.has("providerTool")).toBe(true);
+
+    await wrapper.setProps({ providerKey: "b" });
+    await nextTick();
+    // Let a rejected registration settle, if there was one.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(registered.has("providerTool")).toBe(true);
+    expect(
+      registerCalls.filter((name) => name === "providerTool"),
+    ).toHaveLength(2);
   });
 });

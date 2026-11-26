@@ -3,8 +3,8 @@ import { GENERATE_SANDBOXED_UI_DESCRIPTION } from "@copilotkit/shared";
 import {
   computed,
   h,
+  onBeforeUnmount,
   onMounted,
-  onUnmounted,
   provide,
   ref,
   shallowRef,
@@ -697,8 +697,10 @@ watch(
 );
 
 // Remove the WebMCP registrations when the provider unmounts, so a browser
-// agent cannot call a handler after its provider is gone.
-onUnmounted(() => {
+// agent cannot call a handler after its provider is gone. `onBeforeUnmount`,
+// not `onUnmounted`: Vue runs unmounted hooks after a replacement provider's
+// setup, which would make the replacement's same-named tools collide.
+onBeforeUnmount(() => {
   copilotkit.value.stopWebMCP();
 });
 
