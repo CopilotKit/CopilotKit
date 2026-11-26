@@ -23,6 +23,7 @@ import { manageTodosImpl } from "../../shared-tools/todos";
 import type { Flight } from "../../shared-tools/types";
 import { SUBAGENT_SYSTEM_PROMPTS } from "./prompts";
 
+// @region[state-access]
 /** The shared state the shared agent's tools read and write. */
 export type ShowcaseState = Record<string, unknown>;
 
@@ -36,6 +37,7 @@ export interface StateAccess {
 function update(state: StateAccess, patch: ShowcaseState): void {
   state.set({ ...state.get(), ...patch });
 }
+// @endregion[state-access]
 
 /**
  * The board todos one `manage_sales_todos` call carries. A todo the model sent
@@ -53,6 +55,7 @@ export function salesTodosForCall(
   );
 }
 
+// @region[supervisor-delegation-tools]
 /** Result text of a sub-agent call whose model request failed. */
 export const SUBAGENT_FAILURE_PREFIX = "Sub-agent call failed";
 
@@ -118,6 +121,7 @@ function subagentTool(
     },
   });
 }
+// @endregion[supervisor-delegation-tools]
 
 export interface ShowcaseToolsOptions {
   state: StateAccess;
@@ -132,9 +136,11 @@ export function showcaseTools({
   model,
   providerOptions,
 }: ShowcaseToolsOptions): ToolSet {
+  // @region[state-streaming-middleware]
   // write_document streams the document into state while the model is still
   // writing the call's arguments (shared-state-streaming).
   let documentArgs = "";
+  // @endregion[state-streaming-middleware]
 
   return {
     get_sales_todos: tool({
@@ -190,6 +196,7 @@ export function showcaseTools({
       },
     }),
 
+    // @region[weather-tool-backend]
     get_weather: tool({
       description: "Get current weather for a location.",
       inputSchema: z.object({
@@ -197,6 +204,7 @@ export function showcaseTools({
       }),
       execute: async ({ location }) => getWeatherImpl(location),
     }),
+    // @endregion[weather-tool-backend]
 
     query_data: tool({
       description:
@@ -256,6 +264,7 @@ export function showcaseTools({
       execute: async ({ theme_color }) => `Theme color set to ${theme_color}.`,
     }),
 
+    // @region[shared-state-write-tool]
     set_notes: tool({
       description:
         "Replace the notes array in shared state with the full updated list. Use whenever the user asks you to remember something. ALWAYS pass the FULL notes list (existing + new), not a diff. Keep each note short (< 120 chars).",
@@ -269,6 +278,7 @@ export function showcaseTools({
         return `Notes updated. Tracking ${notes.length} note(s).`;
       },
     }),
+    // @endregion[shared-state-write-tool]
 
     set_steps: tool({
       description:
@@ -286,6 +296,7 @@ export function showcaseTools({
       },
     }),
 
+    // @region[state-streaming-middleware]
     write_document: tool({
       description:
         "Write a document for the user. Call this whenever the user asks you to write, draft, or revise any piece of text (a poem, email, essay, summary, etc.). Pass the FULL content as a single string in the `document` argument — the document lives in shared state and the UI renders it live; never paste it into a chat message.",
@@ -314,7 +325,9 @@ export function showcaseTools({
         return "Document written to shared state.";
       },
     }),
+    // @endregion[state-streaming-middleware]
 
+    // @region[supervisor-delegation-tools]
     research_agent: subagentTool(
       "research_agent",
       "Delegate a research task to the research sub-agent. Use for gathering facts, background, definitions, statistics. Returns a bulleted list of key facts.",
@@ -336,5 +349,6 @@ export function showcaseTools({
       providerOptions,
       state,
     ),
+    // @endregion[supervisor-delegation-tools]
   };
 }

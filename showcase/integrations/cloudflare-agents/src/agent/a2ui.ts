@@ -35,7 +35,9 @@ import type { Context, Message } from "@ag-ui/client";
 import { generateText, jsonSchema, tool } from "ai";
 import type { LanguageModel, ModelMessage, ToolSet } from "ai";
 import { z } from "zod";
+// @region[backend-schema-json-load]
 import flightSchema from "./a2ui_schemas/flight_schema.json";
+// @endregion[backend-schema-json-load]
 
 const RENDER_TOOL = RENDER_A2UI_TOOL_DEF.function.name;
 
@@ -56,6 +58,7 @@ export function withoutRenderTool(tools: ToolSet): ToolSet {
 
 // ---- a2ui-fixed-schema ---------------------------------------------------------
 
+// @region[backend-render-operations]
 const FIXED_CATALOG_ID = "copilotkit://flight-fixed-catalog";
 const FIXED_SURFACE_ID = "flight-fixed-schema";
 
@@ -91,6 +94,7 @@ export function displayFlightTool() {
     }),
   });
 }
+// @endregion[backend-render-operations]
 
 // ---- generate_a2ui ---------------------------------------------------------------
 

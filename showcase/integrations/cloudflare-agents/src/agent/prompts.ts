@@ -192,6 +192,7 @@ Only skip chaining when the user has clearly asked for a single, atomic answer a
 
 // ---- Sub-agents ---------------------------------------------------------------
 
+// @region[subagent-setup]
 export const SUBAGENT_SYSTEM_PROMPTS = {
   research_agent:
     "You are a research sub-agent. Given a topic, produce a concise bulleted list of 3-5 key facts. No preamble, no closing.",
@@ -200,3 +201,4 @@ export const SUBAGENT_SYSTEM_PROMPTS = {
   critique_agent:
     "You are an editorial critique sub-agent. Given a draft, give 2-3 crisp, actionable critiques. No preamble.",
 } as const;
+// @endregion[subagent-setup]
