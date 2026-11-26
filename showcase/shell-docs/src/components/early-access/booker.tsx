@@ -113,7 +113,10 @@ function readTimes(body: unknown): TimesRead {
 function useChannelTimes(channel: EarlyAccessChannelId) {
   const [state, setState] = useState<TimesState>({ phase: "loading" });
   const current = useRef<AbortController | null>(null);
-  /** When the last read that answered was made. */
+  /**
+   * When the last read that answered was made: when it was sent, since what
+   * it says can be no newer than that.
+   */
   const readAt = useRef<number | null>(null);
   const lastReadFailed = useRef(false);
 
@@ -123,6 +126,7 @@ function useChannelTimes(channel: EarlyAccessChannelId) {
       const controller = new AbortController();
       current.current = controller;
       const timer = setTimeout(() => controller.abort(), CLIENT_TIMEOUT_MS);
+      const sentAt = Date.now();
       const settle = (read: TimesRead) => {
         if (current.current !== controller) return;
         lastReadFailed.current = read.kind === "error";
@@ -130,7 +134,7 @@ function useChannelTimes(channel: EarlyAccessChannelId) {
           if (!silent) setState({ phase: "unavailable", reason: "error" });
           return;
         }
-        readAt.current = Date.now();
+        readAt.current = sentAt;
         setState(
           read.kind === "live"
             ? { phase: "ready", times: read.times, at: readAt.current }
