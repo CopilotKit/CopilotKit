@@ -84,13 +84,18 @@ export interface SlotDay {
 function formats(timeZone: string) {
   const make = (options: Intl.DateTimeFormatOptions) =>
     new Intl.DateTimeFormat("en-US", { timeZone, ...options });
+  const day = make({ year: "numeric", month: "2-digit", day: "2-digit" });
   return {
-    key: new Intl.DateTimeFormat("en-CA", {
-      timeZone,
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    }),
+    /**
+     * The day's key, "2026-12-01", from its parts: no locale's date format
+     * is that pattern on every runtime.
+     */
+    key: (ms: number) => {
+      const parts = day.formatToParts(ms);
+      const part = (type: Intl.DateTimeFormatPartTypes) =>
+        parts.find((p) => p.type === type)?.value;
+      return `${part("year")}-${part("month")}-${part("day")}`;
+    },
     weekday: make({ weekday: "short" }),
     date: make({ month: "short", day: "numeric" }),
     longDay: make({ weekday: "long", month: "long", day: "numeric" }),
@@ -147,7 +152,7 @@ export function groupSlotDays(
     { at: number; open: typeof open; closed: number[] }
   >();
   for (const slot of open) {
-    const key = f.key.format(slot.ms);
+    const key = f.key(slot.ms);
     const day = byDay.get(key);
     if (day) day.open.push(slot);
     else if (byDay.size < DAYS)
@@ -162,7 +167,7 @@ export function groupSlotDays(
   ]);
   for (const ms of closedMs) {
     if (!Number.isFinite(ms) || ms <= soonest || openMs.has(ms)) continue;
-    byDay.get(f.key.format(ms))?.closed.push(ms);
+    byDay.get(f.key(ms))?.closed.push(ms);
   }
 
   return [...byDay].map(([key, day]) => {

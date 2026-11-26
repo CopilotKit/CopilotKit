@@ -1,6 +1,6 @@
 // The channel demo booker's day tabs and pages of times (shell-docs
 // src/lib/early-access/slot-days.ts), in the reader's time zone.
-import { describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 
 import {
   SLOT_LEAD_MS,
@@ -182,5 +182,43 @@ describe("holdEnds", () => {
     expect(holdEnds(taken, 150_000)).toEqual([180_000]);
     expect(holdEnds(taken, 180_000)).toEqual([]);
     expect(holdEnds(new Map(), 0)).toEqual([]);
+  });
+});
+
+describe("a day's key", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  // The booker compares keys as strings to find the next later day, so the
+  // key must be YYYY-MM-DD whatever a runtime's "en-CA" date looks like
+  // (some ICU versions have formatted it as "12/1/2026").
+  test("is YYYY-MM-DD even where en-CA formats dates another way", () => {
+    const Real = Intl.DateTimeFormat;
+    class SlashedCanada extends Real {
+      constructor(
+        locales?: string | string[],
+        options?: Intl.DateTimeFormatOptions,
+      ) {
+        super(locales, options);
+        if (locales === "en-CA") {
+          const parts = (date?: Date | number) => this.formatToParts(date);
+          // `format` is a getter on the prototype: shadow it on the instance.
+          Object.defineProperty(this, "format", {
+            value: (date?: Date | number) => {
+              const part = (type: string) =>
+                parts(date).find((p) => p.type === type)?.value;
+              return `${Number(part("month"))}/${Number(part("day"))}/${part("year")}`;
+            },
+          });
+        }
+      }
+    }
+    vi.stubGlobal("Intl", { ...Intl, DateTimeFormat: SlashedCanada });
+    const days = groupSlotDays(
+      live(["2026-12-01T17:00:00Z", "2026-12-10T17:00:00Z"]),
+      "America/New_York",
+      Date.parse("2026-11-30T12:00:00Z"),
+      NONE,
+    );
+    expect(days.map((day) => day.key)).toEqual(["2026-12-01", "2026-12-10"]);
   });
 });
