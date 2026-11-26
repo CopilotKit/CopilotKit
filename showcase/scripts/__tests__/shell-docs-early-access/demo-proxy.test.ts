@@ -514,9 +514,9 @@ describe("open times", () => {
 });
 
 describe("readers without a readable address", () => {
-  // Railway's edge doesn't set x-real-ip on every connection, and a
-  // Cloudflare edge may not name the reader. Such readers can't be told
-  // apart, so none of them has limits of their own.
+  // A request can arrive with no x-real-ip, or through a Cloudflare edge
+  // that doesn't name the reader. Such readers can't be told apart, so none
+  // of them has limits of their own.
   const NO_ADDRESS_LINE =
     "[channel-demo] no readable client address; per-reader limits skipped";
   const CLOUDFLARE_EDGE = "162.158.10.20";
