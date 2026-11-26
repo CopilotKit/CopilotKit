@@ -710,7 +710,7 @@ export async function bookChannelDemo(request: Request) {
  * hold the reader until the booking deadline.
  */
 async function readWebsiteBooking(response: Response): Promise<Answer> {
-  if (!response.ok && response.status !== 400) {
+  if (response.status !== 200 && response.status !== 400) {
     void response.body?.cancel().catch(() => {});
     if (response.status === 409) {
       return { status: 409, body: { ok: false, code: "slot_taken" } };
@@ -722,7 +722,7 @@ async function readWebsiteBooking(response: Response): Promise<Answer> {
     return UNCONFIRMED;
   }
   const body: unknown = await response.json().catch(() => null);
-  if (response.ok) {
+  if (response.status === 200) {
     const parsed = websiteBookingSchema.safeParse(body);
     return parsed.success
       ? { status: 200, body: { ok: true, booking: parsed.data.booking } }

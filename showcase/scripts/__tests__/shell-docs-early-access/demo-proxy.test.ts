@@ -344,6 +344,7 @@ describe("booking through the website", () => {
     [404, 503, "unavailable"],
     [500, 502, "unconfirmed"],
     [307, 502, "unconfirmed"],
+    [202, 502, "unconfirmed"],
   ] as const)(
     "maps a website %i with a stalled body at once, to %i %s",
     async (websiteStatus, status, code) => {
