@@ -602,6 +602,22 @@ describe("GenerativeUIMiddleware", () => {
     expect(output.indexOf(findToolResult(output))).toBeLessThan(finishedIndex);
   });
 
+  it("reports an error, with the reasons, when every operation is rejected", async () => {
+    const { output } = await run(
+      renderCall({
+        target: "recommendations",
+        operations: [components("recs", { id: "x", component: "Unknown" })],
+      }),
+    );
+    expect(toolResult(output)).toEqual({
+      status: "error",
+      applied: 0,
+      calls: 0,
+      rejected: [{ index: 0, reason: expect.any(String) }],
+      reason: "every operation was rejected; nothing was rendered",
+    });
+  });
+
   it.each([
     ["no catalogId", { surfaceId: "recs" }],
     ["another catalogId", { surfaceId: "recs", catalogId: "old/catalog@1" }],
@@ -763,12 +779,13 @@ describe("GenerativeUIMiddleware", () => {
         );
         expect(activity(output)).toEqual([]);
         expect(toolResult(output)).toEqual({
-          status: "rendered",
+          status: "error",
           applied: 0,
           calls: 0,
           rejected: [
             { index: 0, reason: GENERATIVE_UI_AGENT_FUNCTION_CALLS_OFF_REASON },
           ],
+          reason: "every operation was rejected; nothing was rendered",
         });
       },
     );
@@ -1046,12 +1063,14 @@ describe("GenerativeUIMiddleware", () => {
         renderCall({ operations: JSON.stringify([create("recs")]) }),
       );
       expect(activity(output)).toEqual([]);
-      expect(toolResult(output)).toMatchObject({
-        status: "rendered",
+      expect(toolResult(output)).toEqual({
+        status: "error",
         applied: 0,
+        calls: 0,
         rejected: [
           { index: 0, reason: "render_ui was called without a target" },
         ],
+        reason: "every operation was rejected; nothing was rendered",
       });
     });
 
