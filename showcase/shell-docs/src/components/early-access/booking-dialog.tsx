@@ -16,26 +16,21 @@ import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/cn";
-import { withBasePath } from "@/lib/base-path";
 import { trackEvent } from "@/lib/telemetry/analytics";
 import {
   ANSWER_LIMIT,
   BOOK_LIMITS,
   EMAIL_PATTERN,
 } from "@/lib/early-access/booking";
-import type {
-  ChannelDemoBookRequest,
-  ChannelDemoBookResponse,
-  ChannelDemoBooking,
-} from "@/lib/early-access/booking";
+import type { ChannelDemoBooking } from "@/lib/early-access/booking";
 import { earlyAccessChannel } from "@/lib/early-access/channels";
 import type { EarlyAccessChannelId } from "@/lib/early-access/channels";
 import { EARLY_ACCESS_CHANNEL_COPY } from "@/lib/early-access/copy";
+import { postBooking } from "@/lib/early-access/post-booking";
 import { formatBookedTime } from "@/lib/early-access/slot-days";
 import type { OpenTime } from "@/lib/early-access/slot-days";
 import { BOOKER_TEXT as TEXT } from "./text";
 
-const BOOK_ENDPOINT = "/api/channel-demo/book";
 const PRIVACY_POLICY = "https://www.copilotkit.ai/privacy-policy";
 
 /** What the reader types, kept by the booker so a new time keeps it. */
@@ -57,8 +52,6 @@ export const EMPTY_DETAILS: BookingDetails = {
 };
 
 type FormField = "name" | "email" | "company" | "building";
-
-type Failure = Exclude<ChannelDemoBookResponse, { ok: true }>;
 
 /** The failures said in the notice, not under a field. */
 type NoticeCode =
@@ -86,71 +79,6 @@ const FIELD_ERRORS: Record<FormField, string> = {
 /** One of the form's own fields: an error can be shown under it. */
 const isFormField = (value: unknown): value is FormField =>
   typeof value === "string" && Object.hasOwn(FIELD_ERRORS, value);
-
-const isFailure = (value: unknown): value is Failure => {
-  if (typeof value !== "object" || value === null) return false;
-  const body = value as { ok?: unknown; code?: unknown };
-  return (
-    body.ok === false &&
-    typeof body.code === "string" &&
-    [
-      "invalid_input",
-      "slot_taken",
-      "rate_limited",
-      "unavailable",
-      "unconfirmed",
-    ].includes(body.code)
-  );
-};
-
-const isBooking = (value: unknown): value is ChannelDemoBooking => {
-  if (typeof value !== "object" || value === null) return false;
-  const booking = value as Record<string, unknown>;
-  return (
-    typeof booking.startTime === "string" &&
-    typeof booking.rescheduleUrl === "string" &&
-    typeof booking.cancelUrl === "string" &&
-    Array.isArray(booking.hosts) &&
-    booking.hosts.every((host) => typeof host === "string")
-  );
-};
-
-/**
- * Books through the docs' proxy. A network error, or an answer that isn't
- * the proxy's, may still have booked, so it reads as unconfirmed: the reader
- * checks their inbox before trying again. The exception is a refusal (4xx)
- * that isn't the proxy's, such as a firewall's page: nothing was booked.
- */
-async function postBooking(
-  request: ChannelDemoBookRequest,
-): Promise<ChannelDemoBookResponse> {
-  let response: Response;
-  try {
-    response = await fetch(withBasePath(BOOK_ENDPOINT), {
-      method: "POST",
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(request),
-    });
-  } catch {
-    return { ok: false, code: "unconfirmed" };
-  }
-  const body: unknown = await response.json().catch(() => null);
-  if (typeof body === "object" && body !== null) {
-    const answer = body as { ok?: unknown; booking?: unknown };
-    if (answer.ok === true && isBooking(answer.booking)) {
-      return { ok: true, booking: answer.booking };
-    }
-    if (isFailure(body)) return body;
-  }
-  // An edge in front of the docs answers a flood with a bare 429.
-  if (response.status === 429) return { ok: false, code: "rate_limited" };
-  return response.status >= 400 && response.status < 500
-    ? { ok: false, code: "unavailable" }
-    : { ok: false, code: "unconfirmed" };
-}
 
 /** How the dialog was opened: by touch, focus stays off the fields. */
 export type OpenedBy = "touch" | "mouse" | "pen" | "keyboard";
