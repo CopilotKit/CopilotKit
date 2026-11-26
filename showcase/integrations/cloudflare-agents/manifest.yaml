@@ -17,7 +17,7 @@ repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/c
 copilotkit_version: 2.0.0
 deployed: true
 test_coverage: shared-d6
-docs_mode: hidden
+docs_mode: generated
 sort_order: 63
 generative_ui:
   - constrained-explicit
