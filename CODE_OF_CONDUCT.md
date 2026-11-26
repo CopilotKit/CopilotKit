@@ -2,15 +2,15 @@
 
 ## Table of Contents
 
-1. [Statement of Purpose](#statement-of-purpose)
-2. [Community Values](#community-values)
-3. [Expected Behavior](#expected-behavior)
-4. [Unacceptable Behavior](#unacceptable-behavior)
-5. [Procedures for Reporting and Resolving Issues](#procedures-for-reporting-and-resolving-issues)
-6. [Consequences of Unacceptable Behavior](#consequences-of-unacceptable-behavior)
-7. [Scope](#scope)
-8. [Acknowledgments](#acknowledgments)
-9. [Get Involved](#get-involved)
+1. [Statement of Purpose](#1-statement-of-purpose)
+2. [Community Values](#2-community-values)
+3. [Expected Behavior](#3-expected-behavior)
+4. [Unacceptable Behavior](#4-unacceptable-behavior)
+5. [Procedures for Reporting and Resolving Issues](#5-procedures-for-reporting-and-resolving-issues)
+6. [Consequences of Unacceptable Behavior](#6-consequences-of-unacceptable-behavior)
+7. [Scope](#7-scope)
+8. [Acknowledgments](#8-acknowledgments)
+9. [Get Involved](#9-get-involved)
 
 ---
 
