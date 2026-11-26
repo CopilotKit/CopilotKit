@@ -20,8 +20,14 @@ import {
 } from "@/components/ui/combobox";
 import { InputGroupAddon } from "@/components/ui/input-group";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { EarlyAccessBadge } from "@/components/early-access/badge";
 import { FrameworkLogo } from "@/components/icons/framework-icons";
 import { FrontendLogo } from "@/components/icons/frontend-logo";
+import {
+  EARLY_ACCESS_CHANNEL_IDS,
+  earlyAccessChannel,
+  earlyAccessHref,
+} from "@/lib/early-access/channels";
 import { isChannel } from "@/lib/live-scope";
 import { FRONTENDS, FRONTEND_GROUPS, frontendById } from "@/lib/stack";
 import { useHomepageTelemetry } from "@/lib/telemetry/use-homepage-telemetry";
@@ -49,11 +55,15 @@ const FRAMEWORK_GROUPS: MenuGroup[] = LANGUAGES.map((lang) => ({
   items: FRAMEWORKS.filter((f) => f.language === lang).map((f) => f.id),
 })).filter((group) => group.items.length > 0);
 
-// Grouped as the sidebar's Frontend picker groups them.
+// Grouped as the sidebar's Frontend picker groups them, with the early-access
+// channels after Slack and Teams.
 const FRONTEND_ITEM_GROUPS: MenuGroup[] = FRONTEND_GROUPS.map((group) => ({
   value: group,
   kind: "frontend" as const,
-  items: FRONTENDS.filter((f) => f.group === group).map((f) => f.id),
+  items: [
+    ...FRONTENDS.filter((f) => f.group === group).map((f) => f.id),
+    ...(group === "Channels" ? EARLY_ACCESS_CHANNEL_IDS : []),
+  ],
 }));
 
 /** Each side of the switch: its own half first, then the other. */
@@ -91,19 +101,25 @@ const SECTION: Record<Side, string> = {
   frontend: "Frontends",
 };
 
-// Frontend and framework ids never collide, so one lookup names both halves.
+// Frontend, early-access channel, and framework ids never collide, so one
+// lookup names every row, and the search finds the channels by name.
 const nameOf = (id: string) =>
-  frontendById(id)?.name ?? frameworkById(id)?.name ?? id;
+  frontendById(id)?.name ??
+  earlyAccessChannel(id)?.name ??
+  frameworkById(id)?.name ??
+  id;
 
 function Row({ id }: { id: string }) {
-  const fe = frontendById(id);
+  const channel = earlyAccessChannel(id);
+  // FrontendLogo draws the early-access channels' marks too.
+  const mark = frontendById(id)?.id ?? channel?.id;
   return (
     <ComboboxItem value={id} className="min-h-9 gap-2.5 rounded-lg px-2">
-      {fe ? (
+      {mark ? (
         // At its full 18px (rows shrink a bare svg to 16), in its own colors
         // when highlighted too.
         <FrontendLogo
-          icon={fe.id}
+          icon={mark}
           size={18}
           className="size-4.5 **:text-inherit!"
         />
@@ -111,6 +127,9 @@ function Row({ id }: { id: string }) {
         <FrameworkLogo slug={id} size={18} />
       )}
       <span className="min-w-0 flex-1 truncate">{nameOf(id)}</span>
+      {/* After the name, which truncates first, and lilac when highlighted
+          too, since the highlight recolors all the row's text. */}
+      {channel ? <EarlyAccessBadge className="text-primary!" /> : null}
     </ComboboxItem>
   );
 }
@@ -181,9 +200,10 @@ function highlightAfterSwitch(list: HTMLElement | null, query: string) {
 /**
  * The home's primary action: start from your agent framework or your
  * frontend, and land on its quickstart on your stack, a framework on your
- * frontend and a frontend with your framework (`useStackHref`). One list
- * holds both halves, each under its heading and by its groups; the switch at
- * its top picks which half comes first, and the search always spans both.
+ * frontend and a frontend with your framework (`useStackHref`); an
+ * early-access channel opens its landing page instead. One list holds both
+ * halves, each under its heading and by its groups; the switch at its top
+ * picks which half comes first, and the search always spans both.
  * Opens at the top of the first half, where your last framework, or your
  * frontend, is checked, with the search focused (a tap opens it with the
  * popup focused, so no keyboard rises).
@@ -217,6 +237,19 @@ export function QuickstartMenu() {
         // Only a pick opens a quickstart: typing on the closed pill would
         // otherwise "select" the first name with that letter and navigate.
         if (!id || reason !== "item-press") return;
+        const channel = earlyAccessChannel(id);
+        if (channel) {
+          // An early-access channel has a landing page, not a quickstart, and
+          // isn't a docs frontend, so the reader's stack stays as it was.
+          const destination = earlyAccessHref(channel.id);
+          track("quickstart_selected", {
+            frontend: channel.id,
+            destination,
+            early_access: true,
+          });
+          router.push(destination);
+          return;
+        }
         const picked = frontendById(id);
         if (picked) {
           // With the reader's framework. A channel's quickstart is its
