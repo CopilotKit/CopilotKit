@@ -241,6 +241,8 @@ const SET_STACK_PARAMS = z.object({
 interface Choice {
   id: string;
   name: string;
+  /** A frontend in early access: a landing page with a demo booker, no docs. */
+  earlyAccess?: boolean;
 }
 
 /**
@@ -267,8 +269,18 @@ export function StackAgent({
 
   useAgentContext({
     description:
-      "The reader's stack: the frontend and agent framework the docs' code samples follow. null where they haven't picked one.",
-    value: { frontend: fe?.name ?? null, agentFramework: fw?.name ?? null },
+      "The reader's stack: the frontend and agent framework the docs' code samples follow. null where they haven't picked one. A frontend in early access (earlyAccessFrontends) isn't released: it has no docs yet, only a landing page where readers book a demo.",
+    value: {
+      frontend: fe
+        ? fe.earlyAccess
+          ? `${fe.name} (early access)`
+          : fe.name
+        : null,
+      agentFramework: fw?.name ?? null,
+      earlyAccessFrontends: frontends
+        .filter((f) => f.earlyAccess)
+        .map((f) => f.name),
+    },
   });
 
   const nameOf = (list: readonly Choice[], id?: string) =>
