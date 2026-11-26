@@ -11,6 +11,19 @@ export const SLOT_LEAD_MS = 5 * 60_000;
 export const tooSoon = (time: { startMs: number }, now = Date.now()) =>
   time.startMs - now <= SLOT_LEAD_MS;
 
+/**
+ * The taken times kept out of times read at `readAt`: each until its hold
+ * ends (`Infinity`: for good).
+ */
+export function keptOut(
+  taken: ReadonlyMap<number, number>,
+  readAt: number,
+): Set<number> {
+  const out = new Set<number>();
+  for (const [ms, until] of taken) if (readAt < until) out.add(ms);
+  return out;
+}
+
 /** Day tabs: the next days with an open time. */
 const DAYS = 5;
 
@@ -90,9 +103,9 @@ export function formatBookedTime(startTime: string, timeZone: string) {
 
 /**
  * The first days (in the reader's zone) with an open time, each with every
- * open time and the unavailable ones between them. Times the reader booked or
- * was told were taken (`taken`) count as unavailable before the next read
- * confirms it.
+ * open time and the unavailable ones between them. Times the booker keeps
+ * out (`taken`: booked, or taken or too soon when picked) count as
+ * unavailable, whatever the times say.
  */
 export function groupSlotDays(
   times: ChannelDemoTimes,

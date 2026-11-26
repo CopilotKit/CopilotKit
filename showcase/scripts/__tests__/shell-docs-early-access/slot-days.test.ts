@@ -5,6 +5,7 @@ import { describe, expect, test } from "vitest";
 import {
   SLOT_LEAD_MS,
   groupSlotDays,
+  keptOut,
   pageTimes,
   tooSoon,
 } from "../../../shell-docs/src/lib/early-access/slot-days";
@@ -149,5 +150,18 @@ describe("tooSoon", () => {
     const now = Date.parse("2026-12-02T16:00:00Z");
     expect(tooSoon({ startMs: now + SLOT_LEAD_MS }, now)).toBe(true);
     expect(tooSoon({ startMs: now + SLOT_LEAD_MS + 1 }, now)).toBe(false);
+  });
+});
+
+describe("keptOut", () => {
+  test("a taken time stays out of times read before its hold ends", () => {
+    // 1 was booked (for good); 2 was taken by someone else, held to 120000.
+    const taken = new Map([
+      [1, Infinity],
+      [2, 120_000],
+    ]);
+    expect([...keptOut(taken, 119_999)]).toEqual([1, 2]);
+    expect([...keptOut(taken, 120_000)]).toEqual([1]);
+    expect([...keptOut(new Map(), 0)]).toEqual([]);
   });
 });

@@ -22,6 +22,7 @@ import type { EarlyAccessChannelId } from "@/lib/early-access/channels";
 import { EARLY_ACCESS_CHANNEL_COPY } from "@/lib/early-access/copy";
 import {
   groupSlotDays,
+  keptOut,
   pageTimes,
   tooSoon,
 } from "@/lib/early-access/slot-days";
@@ -42,6 +43,12 @@ const CLIENT_TIMEOUT_MS = 15_000;
 const STALE_MS = 60_000;
 /** How often the clock that retires past times moves while the tab is seen. */
 const TICK_MS = 60_000;
+/**
+ * How long a time someone else took stays out, whatever the times say: the
+ * website keeps open times for up to a minute, so a sooner read may still
+ * list it.
+ */
+const TAKEN_HOLD_MS = 2 * 60_000;
 const SKELETON_DAYS = 5;
 /** Two rows of times: four across from Tailwind's `sm`, three on a phone. */
 const WIDE_QUERY = "(min-width: 40rem)";
@@ -252,7 +259,15 @@ export function ChannelDemoBooker({
     // oxlint-disable-next-line react/set-state-in-effect -- reads browser-only storage once, after hydration
     setTimeZone(initialTimeZone());
   }, []);
-  const [taken, setTaken] = useState<ReadonlySet<number>>(() => new Set());
+  /**
+   * Times the reader can't book here, each with when it may come back: one
+   * someone else took, once times read after its hold list it open again
+   * (its booking was cancelled); one the reader booked, or that was too
+   * soon, never.
+   */
+  const [taken, setTaken] = useState<ReadonlyMap<number, number>>(
+    () => new Map(),
+  );
   const [dayKey, setDayKey] = useState<string | null>(null);
   /** The page of times turned to, and the day it was turned on. */
   const [turned, setTurned] = useState<{ day: string; page: number } | null>(
@@ -291,7 +306,7 @@ export function ChannelDemoBooker({
             state.times,
             timeZone,
             Math.max(now ?? 0, state.at),
-            taken,
+            keptOut(taken, state.at),
           )
         : [],
     [state, timeZone, now, taken],
@@ -344,15 +359,19 @@ export function ChannelDemoBooker({
       focusSoon(() => (step > 0 ? earlierRef : laterRef).current);
   };
 
-  const markTaken = (time: OpenTime) =>
-    setTaken((current) => new Set(current).add(time.startMs));
+  /** The time goes: for good, or for `holdMs`. */
+  const markTaken = (time: OpenTime, holdMs = Infinity) =>
+    setTaken((current) =>
+      new Map(current).set(time.startMs, Date.now() + holdMs),
+    );
 
   /**
-   * The time the reader picked can't be booked: it goes, the times are read
-   * again, and the notice says why.
+   * The time the reader picked can't be booked: it goes (one someone else
+   * took, for `TAKEN_HOLD_MS`), the times are read again, and the notice
+   * says why.
    */
   const timeGone = (time: OpenTime, why: Notice) => {
-    markTaken(time);
+    markTaken(time, why === "slot_taken" ? TAKEN_HOLD_MS : Infinity);
     setNotice(why);
     refresh();
   };
