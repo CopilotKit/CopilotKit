@@ -1,63 +1,71 @@
-"""AG2 agent for the Declarative Generative UI (A2UI Dynamic Schema) demo.
-
-Option A (JS-runtime-injected A2UI): the agent wires a no-arg
-``generate_a2ui`` tool stub whose body raises loudly if called — the
-CopilotKit runtime middleware (``a2ui.injectA2UITool: true``, enabled by
-default in route.ts) intercepts the toolcall before it reaches Python and
-drives the secondary ``render_a2ui`` LLM pass itself.  The frontend renderer
-paints the emitted ``a2ui_operations``.
-
-Reference: langgraph-python/src/agents/a2ui_dynamic.py (same pattern).
-"""
+"""AG2 agent for the Vantage Threads declarative A2UI demo."""
 
 from __future__ import annotations
 
-import logging
+import json
 
-from ag2 import Agent
+from _shared.a2ui_sales import (
+    SALES_ANALYST_PROMPT,
+    SALES_CATALOG_ID,
+    sales_render_tool_description,
+)
+from ag2 import Agent, Context
 from ag2.ag_ui import AGUIStream
 from ag2.config.openai import OpenAIResponsesConfig
+from ag2.events import ModelRequest, ModelResponse, TextInput
 from fastapi import FastAPI
+from openai import AsyncOpenAI
 
+from tools import RENDER_A2UI_TOOL_SCHEMA, build_a2ui_operations_from_tool_call
+
+from ._header_forwarding import get_forwarded_headers
 from ._loop_cap import loop_cap
 
-logger = logging.getLogger(__name__)
-
-SYSTEM_PROMPT = (
-    "You are a demo assistant for Declarative Generative UI (A2UI — Dynamic "
-    "Schema). Whenever a response would benefit from a rich visual — a "
-    "dashboard, status report, KPI summary, card layout, info grid, a "
-    "pie/donut chart of part-of-whole breakdowns, a bar chart comparing "
-    "values across categories, or anything more structured than plain text — "
-    "call `generate_a2ui` to draw it. The registered catalog includes "
-    "`Card`, `StatusBadge`, `Metric`, `InfoRow`, `PrimaryButton`, `PieChart`, "
-    "and `BarChart` (in addition to the basic A2UI primitives). Prefer "
-    "`PieChart` for part-of-whole breakdowns (sales by region, traffic "
-    "sources, portfolio allocation) and `BarChart` for comparisons across "
-    "categories (quarterly revenue, headcount by team, signups per month). "
-    "`generate_a2ui` takes no arguments and handles the rendering "
-    "automatically. Never ask clarifying questions: if a request is "
-    "underspecified (time period, region, metric), assume sensible defaults "
-    "and call `generate_a2ui` immediately. Keep chat replies to one short "
-    "sentence; let the UI do the talking."
-)
+SYSTEM_PROMPT = SALES_ANALYST_PROMPT + " Call `generate_a2ui` without arguments."
 
 
-def generate_a2ui() -> str:
-    """Generate dynamic A2UI components based on the conversation.
+async def generate_a2ui(ctx: Context) -> str:
+    """Generate a dashboard from the conversation and the application's sales data."""
+    planner_prompt = "Design a Vantage Threads dashboard and call `render_a2ui`."
+    app_prompts = [prompt for prompt in ctx.prompt if prompt != SYSTEM_PROMPT]
+    messages = [
+        {"role": "system", "content": "\n\n".join([planner_prompt, *app_prompts])}
+    ]
+    for event in await ctx.stream.history.get_events():
+        if isinstance(event, ModelRequest):
+            text = "".join(
+                part.content for part in event.parts if isinstance(part, TextInput)
+            )
+            if text:
+                messages.append({"role": "user", "content": text})
+        elif isinstance(event, ModelResponse) and event.content:
+            messages.append({"role": "assistant", "content": event.content})
 
-    Takes NO arguments. The CopilotKit runtime middleware
-    (``a2ui.injectA2UITool: true``) intercepts this toolcall before it
-    reaches the Python body and drives the secondary ``render_a2ui`` LLM
-    pass itself. If this body actually executes, the middleware is
-    misconfigured — raise loudly so the failure is visible.
-    """
-    raise RuntimeError(
-        "generate_a2ui called directly — the CopilotKit a2ui middleware "
-        "should intercept this call before it reaches the agent. "
-        "Check the route configuration at "
-        "app/api/copilotkit-declarative-gen-ui/route.ts."
-    )
+    async with AsyncOpenAI() as client:
+        response = await client.chat.completions.create(
+            model="gpt-6-luna",
+            reasoning_effort="none",
+            messages=messages,
+            tools=[
+                {
+                    "type": "function",
+                    "function": {
+                        **RENDER_A2UI_TOOL_SCHEMA,
+                        "description": sales_render_tool_description(
+                            RENDER_A2UI_TOOL_SCHEMA["description"]
+                        ),
+                    },
+                }
+            ],
+            tool_choice={"type": "function", "function": {"name": "render_a2ui"}},
+            extra_headers=get_forwarded_headers() or None,
+        )
+    calls = response.choices[0].message.tool_calls if response.choices else None
+    if not calls:
+        return json.dumps({"error": "LLM did not call render_a2ui"})
+    args = json.loads(calls[0].function.arguments)
+    args["catalogId"] = SALES_CATALOG_ID
+    return json.dumps(build_a2ui_operations_from_tool_call(args))
 
 
 agent = Agent(
