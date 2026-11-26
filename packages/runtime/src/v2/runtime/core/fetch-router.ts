@@ -58,6 +58,30 @@ function safeDecodeURIComponent(value: string): string | null {
   }
 }
 
+/**
+ * Decode an `:agentId` path segment for `agent/:agentId/connect`.
+ *
+ * The wire stays compatible with legacy single-decode runtimes: every id
+ * keeps its ordinary `encodeURIComponent` form, except dot-only ids which
+ * the client (`encodeAgentPathSegment` in `packages/core/src/agent.ts`)
+ * escapes as "%252E" / "%252E%252E" so URL parsers cannot resolve them away.
+ * Only those exact wire forms get the second decode; every other id keeps
+ * its existing single-decode behavior.
+ */
+function safeDecodeAgentIdSegment(value: string): string | null {
+  const decoded = safeDecodeURIComponent(value);
+  if (decoded === null) {
+    return null;
+  }
+  if (decoded === "%2E") {
+    return ".";
+  }
+  if (decoded === "%2E%2E") {
+    return "..";
+  }
+  return decoded;
+}
+
 function matchSegments(path: string): RouteInfo | null {
   const segments = path.split("/").filter(Boolean);
   const len = segments.length;
@@ -123,7 +147,7 @@ function matchSegments(path: string): RouteInfo | null {
     segments[len - 3] === "agent" &&
     segments[len - 1] === "connect"
   ) {
-    const agentId = safeDecodeURIComponent(segments[len - 2]!);
+    const agentId = safeDecodeAgentIdSegment(segments[len - 2]!);
     if (!agentId) return null;
     return { method: "agent/connect", agentId };
   }
