@@ -145,13 +145,34 @@ function websiteEndpoint(path: string): URL | null {
 
 /**
  * `CHANNEL_DEMO_FIXTURE=1`: made-up times and bookings, with no network call
- * (./demo-fixture.ts). Ignored in production, so it can never fake a booking
- * there.
+ * (./demo-fixture.ts). Development only: a production build never fakes a
+ * booking (see `fixtureRefused`).
  */
 function fixtureMode() {
   return (
     process.env.NODE_ENV !== "production" && env("CHANNEL_DEMO_FIXTURE") === "1"
   );
+}
+
+let refusalLogged = false;
+
+/**
+ * The fake-booking switch set (to any truthy value) on a production build.
+ * It can't fake a booking there, and the reader who set it expects nothing
+ * real, so it fails closed: both routes answer unavailable with no outbound
+ * call, and the booker shows its fallback link. Said once per process.
+ */
+function fixtureRefused() {
+  const value = env("CHANNEL_DEMO_FIXTURE");
+  if (process.env.NODE_ENV !== "production") return false;
+  if (!value || /^(0|false|no|off)$/i.test(value)) return false;
+  if (!refusalLogged) {
+    refusalLogged = true;
+    console.warn(
+      "[channel-demo] CHANNEL_DEMO_FIXTURE is set on a production build: fake bookings are off here and real bookings are refused. Unset it to book for real.",
+    );
+  }
+  return true;
 }
 
 /* ---------- the reader's key ---------- */
@@ -388,6 +409,7 @@ export async function getChannelDemoTimes(request: Request) {
     new URL(request.url).searchParams.get("channel"),
   );
   if (!channel) return respond(400, noTimes("error"));
+  if (fixtureRefused()) return respond(200, noTimes("none"));
   const allowed = allowTimesRead(readerKey(request));
   if (!allowed.ok) {
     return respond(429, noTimes("error"), {
@@ -586,6 +608,7 @@ function rateLimited(retryAfter: number) {
  * channel's ref as its `utm_content`.
  */
 export async function bookChannelDemo(request: Request) {
+  if (fixtureRefused()) return respond(UNAVAILABLE.status, UNAVAILABLE.body);
   const reader = readerKey(request);
   const attempt = allowBookRequest(reader);
   if (!attempt.ok) return rateLimited(attempt.retryAfter);

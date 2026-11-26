@@ -720,3 +720,101 @@ describe("readers without a readable address", () => {
     expect(lines).toEqual([[NO_ADDRESS_LINE]]);
   });
 });
+
+// The fake-booking switch fails closed: on a production build it can't fake
+// a booking, and it must not let one through either. 2026-11-26: a test run
+// against `next start` with the switch set booked real meetings.
+describe("the fake-booking switch on a production build", () => {
+  const SLOT_OPEN = {
+    ok: true,
+    slots: [{ startTime: "2026-12-02T17:00:00Z" }],
+    unavailable: [],
+  };
+
+  test("refuses both routes without any outbound call, and says so once", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("CHANNEL_DEMO_FIXTURE", "1");
+    const { bookChannelDemo, getChannelDemoTimes } = await loadProxy();
+    const fetchMock = website((url) =>
+      url.includes("/slots") ? json(200, SLOT_OPEN) : json(200, BOOKED),
+    );
+    const book = await bookChannelDemo(bookRequest(VALID));
+    expect(book.status).toBe(503);
+    expect(await book.json()).toEqual({ ok: false, code: "unavailable" });
+    const times = await getChannelDemoTimes(slotsRequest("whatsapp"));
+    expect(times.status).toBe(200);
+    expect(await times.json()).toEqual({
+      status: "unavailable",
+      reason: "none",
+      slots: [],
+      unavailable: [],
+    });
+    await bookChannelDemo(bookRequest(VALID));
+    expect(fetchMock).not.toHaveBeenCalled();
+    const said = vi
+      .mocked(console.warn)
+      .mock.calls.filter(([line]) =>
+        String(line).includes(
+          "CHANNEL_DEMO_FIXTURE is set on a production build",
+        ),
+      );
+    expect(said).toHaveLength(1);
+    // No personal data in it.
+    expect(JSON.stringify(said)).not.toMatch(/Jane|jane@|Acme/);
+  });
+
+  test("refuses for any truthy value, not only 1", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    for (const value of ["true", "yes", "on", "2"]) {
+      vi.stubEnv("CHANNEL_DEMO_FIXTURE", value);
+      const { bookChannelDemo } = await loadProxy();
+      const fetchMock = website(() => json(200, BOOKED));
+      const book = await bookChannelDemo(bookRequest(VALID));
+      expect(await book.json(), value).toEqual({
+        ok: false,
+        code: "unavailable",
+      });
+      expect(fetchMock, value).not.toHaveBeenCalled();
+    }
+  });
+
+  test("without the switch, production books through the website as before", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    for (const value of ["", "0", "false"]) {
+      vi.stubEnv("CHANNEL_DEMO_FIXTURE", value);
+      const { bookChannelDemo, getChannelDemoTimes } = await loadProxy();
+      const fetchMock = website((url) =>
+        url.includes("/slots") ? json(200, SLOT_OPEN) : json(200, BOOKED),
+      );
+      const book = await bookChannelDemo(bookRequest(VALID));
+      expect(book.status, value).toBe(200);
+      expect((await book.json()).ok, value).toBe(true);
+      const times = await getChannelDemoTimes(slotsRequest("whatsapp"));
+      expect((await times.json()).status, value).toBe("live");
+      expect(fetchMock, value).toHaveBeenCalledTimes(2);
+    }
+  });
+
+  test("in development, the switch still fakes bookings without the website", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      vi.stubEnv("NODE_ENV", "development");
+      vi.stubEnv("CHANNEL_DEMO_FIXTURE", "1");
+      const { bookChannelDemo, getChannelDemoTimes } = await loadProxy();
+      const fetchMock = website(() => json(200, BOOKED));
+      const booking = bookChannelDemo(bookRequest(VALID));
+      await vi.runAllTimersAsync();
+      const book = await booking;
+      expect(book.status).toBe(200);
+      const body = await book.json();
+      expect(body.ok).toBe(true);
+      expect(body.booking.rescheduleUrl).toContain("channel-demo-fixture");
+      const reading = getChannelDemoTimes(slotsRequest("whatsapp"));
+      await vi.runAllTimersAsync();
+      expect((await (await reading).json()).status).toBe("live");
+      expect(fetchMock).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});

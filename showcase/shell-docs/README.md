@@ -28,7 +28,9 @@ book demos on Calendly through copilotkit.ai. To work on them without
 booking anything, start the server with `CHANNEL_DEMO_FIXTURE=1 npm run dev`:
 it serves made-up open times and fakes each booking (see
 `src/lib/early-access/demo-fixture.ts` for the emails that simulate each
-failure). The channels are listed in `src/lib/early-access/channels.ts`, and
+failure). Only the dev server fakes bookings. On a production build
+(`npm start`) the same switch refuses every booking instead: the booker
+shows no times and its fallback link, and nothing reaches the website. The channels are listed in `src/lib/early-access/channels.ts`, and
 again in `src/lib/redirects/next-config-redirects.mjs`, which can't import
 app code; a test in `showcase/scripts` fails when the two lists differ.
 
