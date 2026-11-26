@@ -15,6 +15,8 @@ import {
 import { docsHref } from "./href";
 import type { DocsScope } from "./scope";
 import { withBasePath } from "@/lib/base-path";
+import { unscopedStackLink } from "@/lib/live-scope";
+import { ReaderStackCard } from "@/proto/reader-stack-link";
 
 type CardProps = ComponentProps<typeof FumadocsCard> & {
   /** An image mark instead of an icon (a partner logo). */
@@ -42,9 +44,10 @@ const CTA_COLUMNS: Record<number, string> = {
 
 /**
  * Fumadocs' cards. Links stay in the reader's docs surface: on
- * `/mastra/...` a card to `/quickstart` goes to `/mastra/quickstart`.
+ * `/mastra/...` a card to `/quickstart` goes to `/mastra/quickstart`. On a
+ * page that isn't per stack (`readerStack`), it opens on the reader's stack.
  */
-export function createCards(scope: DocsScope) {
+export function createCards(scope: DocsScope, readerStack = false) {
   function Card({
     href,
     icon,
@@ -65,13 +68,14 @@ export function createCards(scope: DocsScope) {
           className={logoClassName ?? "size-5 object-contain"}
         />
       ) : undefined);
-    return (
-      <FumadocsCard
-        {...props}
-        icon={mark}
-        href={href ? docsHref(href, scope) : undefined}
-      />
-    );
+    const to = href ? docsHref(href, scope) : undefined;
+    const stackLink = readerStack ? unscopedStackLink(to) : null;
+    if (to && stackLink) {
+      return (
+        <ReaderStackCard {...props} icon={mark} href={to} {...stackLink} />
+      );
+    }
+    return <FumadocsCard {...props} icon={mark} href={to} />;
   }
 
   function CTACards({

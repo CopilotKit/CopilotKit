@@ -20,7 +20,7 @@ import { FrameworkLogo } from "@/components/icons/framework-icons";
 import { useHomepageTelemetry } from "@/lib/telemetry/use-homepage-telemetry";
 import { FRAMEWORKS, LANGUAGES, frameworkById } from "./data";
 import { rememberFramework, useLastFramework } from "./last-framework";
-import { frameworkHref } from "./routes";
+import { useStackHref } from "./stack-href";
 
 /** Framework ids grouped by language, the shape Base UI's grouped list takes. */
 const GROUPS = LANGUAGES.map((lang) => ({
@@ -32,11 +32,12 @@ const nameOf = (id: string) => frameworkById(id)?.name ?? id;
 
 /**
  * The home's primary action: pick your agent framework, land on its
- * quickstart. Opens with the search focused; the last one you used is checked.
+ * quickstart on your frontend. Opens with the search focused; the last one you used is checked.
  */
 export function QuickstartMenu() {
   const router = useRouter();
   const [current] = useLastFramework();
+  const stackHref = useStackHref();
   const track = useHomepageTelemetry();
 
   return (
@@ -47,7 +48,8 @@ export function QuickstartMenu() {
       autoHighlight
       onValueChange={(id: string | null) => {
         if (!id) return;
-        const destination = frameworkHref("d", id, "quickstart");
+        // On the reader's frontend.
+        const destination = stackHref("quickstart", { framework: id });
         track("quickstart_selected", { backend: id, destination });
         rememberFramework(id);
         router.push(destination);
