@@ -62,6 +62,14 @@ const STARTERS: Starter[] = [
     expectedChatUiText: "Total Revenue",
     hasAppMode: true,
   },
+  {
+    ...DEFAULT_STARTER,
+    slug: "cloudflare-agents",
+    chatMessage:
+      "First use the query_data tool to fetch the financial sales data, then using A2UI, show me a sales dashboard with total revenue, new customers, and conversion rate metrics. Include a pie chart of revenue by category and a bar chart of monthly sales.",
+    expectedChatUiText: "Total Revenue",
+    hasAppMode: true,
+  },
   { ...DEFAULT_STARTER, slug: "ms-agent-framework-python" },
   { ...DEFAULT_STARTER, slug: "ms-agent-framework-dotnet" },
 ];

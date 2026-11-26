@@ -92,6 +92,7 @@ const INTELLIGENCE_CLI_FRAMEWORKS = [
   "microsoft-agent-framework-py",
   "mcp-apps",
   "openai-agents-py",
+  "cloudflare-agents",
   "agentcore-langgraph",
   "agentcore-strands",
   "a2ui",
@@ -338,6 +339,18 @@ const STRANDS_RUNTIME_AGENT_CONTRACT = {
   ],
 } as const satisfies RuntimeAgentContract;
 
+const CLOUDFLARE_AGENTS_RUNTIME_AGENT_CONTRACT = {
+  registration: "default",
+  constructorName: "HttpAgent",
+  options: [
+    {
+      property: "url",
+      environmentReads: ["AGENT_URL"],
+      stringLiterals: ["http://localhost:8000", "/agents/assistant"],
+    },
+  ],
+} as const satisfies RuntimeAgentContract;
+
 const INTELLIGENCE_TEMPLATE_CONTRACTS = [
   {
     directory: "langgraph-python",
@@ -419,6 +432,15 @@ const INTELLIGENCE_TEMPLATE_CONTRACTS = [
     envPath: ".env.example",
     readmePath: "README.md",
     runtimeAgent: HTTP_LOCALHOST_SLASH_RUNTIME_AGENT_CONTRACT,
+  },
+  {
+    directory: "cloudflare-agents",
+    frameworks: ["cloudflare-agents"],
+    runtimePath: "src/app/api/copilotkit/[[...slug]]/route.ts",
+    gatePath: "next.config.ts",
+    envPath: ".env.example",
+    readmePath: "README.md",
+    runtimeAgent: CLOUDFLARE_AGENTS_RUNTIME_AGENT_CONTRACT,
   },
   {
     directory: "llamaindex",
@@ -3741,7 +3763,7 @@ jobs:
   ).toThrow();
 });
 
-test("the 18 Intelligence template directories back all 20 in-repo CLI frameworks", () => {
+test("the 19 Intelligence template directories back all 21 in-repo CLI frameworks", () => {
   const frameworks = INTELLIGENCE_TEMPLATE_CONTRACTS.flatMap(
     (contract) => contract.frameworks,
   );
@@ -3749,9 +3771,9 @@ test("the 18 Intelligence template directories back all 20 in-repo CLI framework
     (contract) => "runtimeAgent" in contract,
   );
 
-  expect(INTELLIGENCE_TEMPLATE_CONTRACTS).toHaveLength(18);
-  expect(ordinaryRuntimeContracts).toHaveLength(15);
-  expect(new Set(frameworks).size).toBe(20);
+  expect(INTELLIGENCE_TEMPLATE_CONTRACTS).toHaveLength(19);
+  expect(ordinaryRuntimeContracts).toHaveLength(16);
+  expect(new Set(frameworks).size).toBe(21);
   expect([...frameworks].sort()).toEqual(
     [...INTELLIGENCE_CLI_FRAMEWORKS].sort(),
   );

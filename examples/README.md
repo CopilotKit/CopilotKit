@@ -1,6 +1,6 @@
 # CopilotKit Examples
 
-This directory contains 70 consolidated demo repositories showcasing CopilotKit integrations, canvas apps, and showcases.
+This directory contains 71 consolidated demo repositories showcasing CopilotKit integrations, canvas apps, and showcases.
 
 Each example is a self-contained project. To get started:
 
@@ -18,7 +18,7 @@ cd examples/<category>/<name>
 
 > The Intelligence dashboard also links to [Project Manager](./canvas/mastra-pm/), a maintained v2 example covered by the public-example tests.
 
-## Integrations (26)
+## Integrations (27)
 
 Framework integration starters demonstrating CopilotKit with various agent frameworks.
 
@@ -36,6 +36,7 @@ Framework integration starters demonstrating CopilotKit with various agent frame
 | [ms-agent-framework-dotnet](./integrations/ms-agent-framework-dotnet/) | CopilotKit with Microsoft Agent Framework (.NET/C#, AG-UI protocol)                  |
 | [strands-python](./integrations/strands-python/)                       | Starter template with a Strands investment analyst agent                             |
 | [strands-typescript](./integrations/strands-typescript/)               | Starter template using AWS Strands (TypeScript), AG-UI, and CopilotKit               |
+| [cloudflare-agents](./integrations/cloudflare-agents/)                 | Starter template using Cloudflare Agents (Workers + Durable Objects) and CopilotKit  |
 | [mcp-apps](./integrations/mcp-apps/)                                   | Integration of MCP Apps with CopilotKit using Three.js                               |
 | [adk](./integrations/adk/)                                             | Starter template using Google ADK with an investment analyst agent                   |
 | [adk-angular](./integrations/adk-angular/)                             | Angular starter with a Node runtime and Python Google ADK agent                      |
