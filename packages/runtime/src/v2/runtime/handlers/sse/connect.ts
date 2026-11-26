@@ -22,6 +22,11 @@ interface HandleSseConnectParams {
   agentId: string;
   threadId: string;
   /**
+   * Client-supplied cursor of the last event received on this thread, forwarded
+   * to `runner.connect` for runners that support resuming streams.
+   */
+  lastSeenEventId?: string | null;
+  /**
    * The per-request agent clone, carrying any server-configured `agent.headers`
    * (e.g. service-to-service auth). Used only to compute the merged header set
    * threaded into `runner.connect` below — see the note there for why that
@@ -37,6 +42,7 @@ export function handleSseConnect({
   request,
   agentId,
   threadId,
+  lastSeenEventId,
   agent,
   ownerId,
 }: HandleSseConnectParams): Response {
@@ -53,6 +59,7 @@ export function handleSseConnect({
         threadId,
         agentId,
         ...(ownerId === undefined ? {} : { ownerId }),
+        ...(lastSeenEventId === undefined ? {} : { lastSeenEventId }),
         // Forward-looking plumbing: we compute the merged header set (server
         // `agent.headers` win on collision, case-insensitively; non-colliding
         // inbound headers still forward — see `mergeForwardableHeaders`, #5712)

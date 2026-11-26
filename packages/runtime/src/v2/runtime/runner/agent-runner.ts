@@ -104,6 +104,12 @@ export interface AgentRunnerConnectRequest {
   headers?: Record<string, string>;
   joinCode?: string;
   /**
+   * Client-supplied cursor identifying the last event it received on this
+   * thread. Custom runners that support resumable streams can resume from this
+   * position; runners that do not support resuming may ignore it.
+   */
+  lastSeenEventId?: string | null;
+  /**
    * Caller identity. A Thread owned by another identity is treated as unknown.
    * When omitted, the call acts as {@link ɵSERVER_THREAD_OWNER}.
    */

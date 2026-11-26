@@ -119,6 +119,93 @@ describe("handleSseConnect → agentId in runner.connect call", () => {
   });
 });
 
+async function drainResponse(response: Response) {
+  const reader = response.body!.getReader();
+  while (true) {
+    const { done } = await reader.read();
+    if (done) break;
+  }
+}
+
+describe("handleSseConnect → lastSeenEventId in runner.connect call", () => {
+  const event: BaseEvent = {
+    type: EventType.RUN_STARTED,
+    threadId: "t-1",
+    runId: "r-1",
+  } as BaseEvent;
+
+  it("forwards a string lastSeenEventId into the runner.connect request", async () => {
+    const connectSpy = vi.fn((_req: AgentRunnerConnectRequest) => of(event));
+    const fakeRuntime = {
+      debugEventBus: new DebugEventBus(),
+      forwardHeadersPolicy: defaultPolicy,
+      runner: { connect: connectSpy },
+    } as any;
+
+    const response = handleSseConnect({
+      runtime: fakeRuntime,
+      request: new Request("http://localhost/agent/weather-agent/connect", {
+        method: "POST",
+      }),
+      agentId: "weather-agent",
+      threadId: "t-1",
+      lastSeenEventId: "event-42",
+    });
+
+    await drainResponse(response);
+
+    expect(connectSpy).toHaveBeenCalledTimes(1);
+    expect(connectSpy.mock.calls[0][0].lastSeenEventId).toBe("event-42");
+  });
+
+  it("forwards lastSeenEventId: null into the runner.connect request", async () => {
+    const connectSpy = vi.fn((_req: AgentRunnerConnectRequest) => of(event));
+    const fakeRuntime = {
+      debugEventBus: new DebugEventBus(),
+      forwardHeadersPolicy: defaultPolicy,
+      runner: { connect: connectSpy },
+    } as any;
+
+    const response = handleSseConnect({
+      runtime: fakeRuntime,
+      request: new Request("http://localhost/agent/weather-agent/connect", {
+        method: "POST",
+      }),
+      agentId: "weather-agent",
+      threadId: "t-1",
+      lastSeenEventId: null,
+    });
+
+    await drainResponse(response);
+
+    expect(connectSpy).toHaveBeenCalledTimes(1);
+    expect(connectSpy.mock.calls[0][0].lastSeenEventId).toBeNull();
+  });
+
+  it("omits lastSeenEventId from the runner.connect request when undefined", async () => {
+    const connectSpy = vi.fn((_req: AgentRunnerConnectRequest) => of(event));
+    const fakeRuntime = {
+      debugEventBus: new DebugEventBus(),
+      forwardHeadersPolicy: defaultPolicy,
+      runner: { connect: connectSpy },
+    } as any;
+
+    const response = handleSseConnect({
+      runtime: fakeRuntime,
+      request: new Request("http://localhost/agent/weather-agent/connect", {
+        method: "POST",
+      }),
+      agentId: "weather-agent",
+      threadId: "t-1",
+    });
+
+    await drainResponse(response);
+
+    expect(connectSpy).toHaveBeenCalledTimes(1);
+    expect("lastSeenEventId" in connectSpy.mock.calls[0][0]).toBe(false);
+  });
+});
+
 /**
  * Regression guard for issue #5712 on the /connect path. `handleSseConnect`
  * used to forward raw inbound `authorization`/`x-*` headers straight to
