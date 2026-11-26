@@ -98,7 +98,10 @@ const nameOf = (id: string) =>
 function Row({ id }: { id: string }) {
   const fe = frontendById(id);
   return (
-    <ComboboxItem value={id} className="min-h-9 gap-2.5 rounded-lg px-2">
+    <ComboboxItem
+      value={id}
+      className="min-h-9 gap-2.5 rounded-lg px-2 pointer-coarse:min-h-11"
+    >
       {fe ? (
         // At its full 18px (rows shrink a bare svg to 16), in its own colors
         // when highlighted too.
