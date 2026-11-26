@@ -12,14 +12,18 @@ import type { CopilotKitCoreReact } from "../../lib/react-core";
  * a hook tool without `webmcp` reaches `document.modelContext` by default.
  */
 let registered: Map<string, unknown>;
+// Every registration ever made, including ones that were later removed.
+let registerCalls: string[];
 
 beforeEach(() => {
   vi.spyOn(console, "error").mockImplementation(() => {});
   vi.spyOn(console, "warn").mockImplementation(() => {});
   registered = new Map();
+  registerCalls = [];
   (document as Document & { modelContext?: unknown }).modelContext = {
     registerTool: vi.fn(
       async (tool: { name: string }, options: { signal: AbortSignal }) => {
+        registerCalls.push(tool.name);
         registered.set(tool.name, tool);
         options.signal.addEventListener("abort", () => {
           registered.delete(tool.name);
@@ -80,6 +84,8 @@ describe("CopilotKitProvider defaultWebMCPTools", () => {
 
     expect(getCore().defaultWebMCPTools).toBe(false);
     expect(registered.has("searchOrders")).toBe(false);
+    // Never registered, not registered and then removed.
+    expect(registerCalls).not.toContain("searchOrders");
   });
 
   it("follows later prop changes", () => {

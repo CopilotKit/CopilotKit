@@ -2116,8 +2116,9 @@ export class RunHandler {
    * opt in via `webmcp: true` or `webmcp: { annotations }`, or through
    * `defaultWebMCPTools` (see `isWebMCPTool`); the same availability rules as
    * `buildFrontendTools` apply. WebMCP tools are page-level, so unlike the
-   * agent tool list they are not filtered by agentId — a name collision across
-   * agentIds keeps the first registration.
+   * agent tool list they are not filtered by agentId. On a name collision
+   * across agentIds, the first tool that set `webmcp` itself wins; without
+   * one, the first registration wins.
    */
   private syncWebMCP(): void {
     const desired = new Map<string, FrontendTool<any>>();
@@ -2138,7 +2139,14 @@ export class RunHandler {
       if (!this.isToolEnabled(tool.name, tool.agentId)) {
         continue;
       }
-      if (desired.has(tool.name)) {
+      const existing = desired.get(tool.name);
+      if (existing) {
+        // A tool that opted in itself wins over one that only follows
+        // defaultWebMCPTools, so explicit annotations are never dropped.
+        if (tool.webmcp && existing.webmcp === undefined) {
+          desired.set(tool.name, tool);
+          continue;
+        }
         // Same-named tools scoped to different agents are normal; warn only
         // when the tool left out asked for WebMCP itself.
         if (tool.webmcp && !warnedCollisions.has(tool.name)) {

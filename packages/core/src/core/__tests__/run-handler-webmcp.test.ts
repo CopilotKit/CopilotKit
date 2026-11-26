@@ -504,6 +504,39 @@ describe("RunHandler WebMCP default (defaultWebMCPTools)", () => {
     runHandler.setDefaultWebMCPTools(true);
     expect(modelContext.registered.has("defaultTool")).toBe(true);
     expect(modelContext.registered.size).toBe(2);
+    // The explicit tool stayed registered through both changes.
+    const explicitCalls = modelContext.registerTool.mock.calls.filter(
+      ([tool]) => tool.name === "explicitTool",
+    );
+    expect(explicitCalls).toHaveLength(1);
+  });
+
+  it("prefers a tool that set webmcp itself over a default-only tool with the same name", () => {
+    const modelContext = stubWebMCP();
+    const warnSpy = vi.spyOn(logger, "warn").mockImplementation(() => {});
+    const runHandler = createRunHandler();
+
+    runHandler.addTool({
+      name: "search",
+      description: "a",
+      agentId: "a",
+      handler,
+    });
+    runHandler.addTool({
+      name: "search",
+      description: "b",
+      agentId: "b",
+      handler,
+      webmcp: { annotations: { readOnlyHint: true } },
+    });
+
+    expect(modelContext.registered.get("search")?.tool.description).toBe("b");
+    expect(
+      modelContext.registered.get("search")?.tool.annotations,
+    ).toMatchObject({ readOnlyHint: true });
+    expect(warnSpy).not.toHaveBeenCalledWith(
+      expect.stringContaining("share the name"),
+    );
   });
 
   it("does not warn when same-named agent-scoped tools only use the default", () => {

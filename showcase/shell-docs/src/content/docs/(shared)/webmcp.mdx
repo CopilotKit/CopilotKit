@@ -43,7 +43,7 @@ These tools are never exposed by default:
 - **Render-only tools.** A tool with no `handler` has nothing for a browser agent to run.
 - **CopilotKit's built-in tools**, such as the tool for Open Generative UI.
 
-You can still expose any of these yourself with `webmcp: true`.
+Do not set `webmcp: true` on a human-in-the-loop tool. The browser agent waits for a response that never comes. CopilotKit's built-in tools always stay private.
 
 ## Do I need an agent?
 
@@ -327,8 +327,8 @@ For more, see Chrome's [WebMCP best practices](https://developer.chrome.com/docs
 <Callout type="warn" title="Agent scope does not scope WebMCP">
   `agentId` limits which CopilotKit agent receives a frontend tool. WebMCP tools
   are page-level, so `agentId` does not restrict browser-agent access. If
-  multiple tools share a name across agent IDs, CopilotKit exposes the first
-  one.
+  multiple tools share a name across agent IDs, CopilotKit exposes only one.
+  A tool that sets `webmcp` itself wins. Otherwise, the first one wins.
 </Callout>
 
 ## Test the complete path
