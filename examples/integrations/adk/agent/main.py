@@ -95,7 +95,7 @@ def page_context_instruction(state) -> str:
 
 
 # --- Define the Callback Function ---
-#  modifying the agent's system prompt to incude the current state of the proverbs list
+#  modifying the agent's system prompt to include the current state of the proverbs list
 def before_model_modifier(
     callback_context: CallbackContext, llm_request: LlmRequest
 ) -> Optional[LlmResponse]:
@@ -115,7 +115,7 @@ def before_model_modifier(
         # Add a prefix to the system instruction
         prefix = f"""You are a helpful assistant for maintaining a list of proverbs.
         This is the current state of the list of proverbs: {proverbs_json}
-        When you modify the list of proverbs (wether to add, remove, or modify one or more proverbs), use the set_proverbs tool to update the list."""
+        When you modify the list of proverbs (whether to add, remove, or modify one or more proverbs), use the set_proverbs tool to update the list."""
         original_instruction = llm_request.config.system_instruction or ""
         if isinstance(original_instruction, types.Content):
             original_instruction = "".join(
