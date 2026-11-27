@@ -1,9 +1,13 @@
 "use client";
 
+import { useCallback, useState } from "react";
 import { CopilotChatAssistantMessage } from "@copilotkit/react-core/v2";
 import type { CopilotChatAssistantMessageProps } from "@copilotkit/react-core/v2";
 import { useSubagentActivity } from "./subagent-activity";
-import { useToolCallsAllAgedOut } from "@/shell/chat/tool-activity";
+import {
+  ToolActivityInspectionContext,
+  useToolCallsAllAgedOut,
+} from "@/shell/chat/tool-activity";
 
 /**
  * The transcript's assistant-message renderer, minus anything a SUBAGENT said.
@@ -110,13 +114,29 @@ function HideWhenEmpty({
   empty: boolean;
   children: React.ReactNode;
 }) {
+  const [inspections, setInspections] = useState(0);
+  const registerInspection = useCallback(() => {
+    setInspections((count) => count + 1);
+    let active = true;
+    return () => {
+      if (!active) return;
+      active = false;
+      setInspections((count) => count - 1);
+    };
+  }, []);
+  // Several rows can be open in one message. Release each inspection on
+  // collapse or unmount without hiding any other row the user is reading.
+  const hidden = empty && inspections === 0;
+
   return (
-    <div
-      data-testid={empty ? "assistant-message-empty" : undefined}
-      style={{ display: empty ? "none" : "contents" }}
-    >
-      {children}
-    </div>
+    <ToolActivityInspectionContext.Provider value={registerInspection}>
+      <div
+        data-testid={hidden ? "assistant-message-empty" : undefined}
+        style={{ display: hidden ? "none" : "contents" }}
+      >
+        {children}
+      </div>
+    </ToolActivityInspectionContext.Provider>
   );
 }
 
