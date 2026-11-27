@@ -38,7 +38,7 @@ export function Code({
 }
 
 export function installCommand(frontend: FrontendId): string {
-  const pkg = {
+  const packages: Partial<Record<FrontendId, string>> = {
     react: "@copilotkit/react-core",
     vue: "@copilotkit/vue",
     angular: "@copilotkit/angular",
@@ -47,8 +47,9 @@ export function installCommand(frontend: FrontendId): string {
       "@copilotkit/channels @copilotkit/channels-ui @copilotkit/channels-slack",
     teams:
       "@copilotkit/channels @copilotkit/channels-ui @copilotkit/channels-teams @microsoft/agents-hosting @microsoft/agents-activity",
-  }[frontend];
-  return `npm install ${pkg} @copilotkit/runtime`;
+  };
+  // A frontend in early access has no package of its own yet.
+  return `npm install ${packages[frontend] ?? packages.react} @copilotkit/runtime`;
 }
 
 /** Channels run inside the runtime, so their setup is the bot itself. */

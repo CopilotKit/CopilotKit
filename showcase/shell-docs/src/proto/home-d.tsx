@@ -10,7 +10,8 @@ import {
   OtherGlyph,
 } from "@/components/icons/glyphs";
 import { FrameworkLogo } from "@/components/icons/framework-icons";
-import { FrontendLogo } from "@/components/icons/frontend-logo";
+import { FrontendLogo, frontendGlyph } from "@/components/icons/frontend-logo";
+import { EarlyAccessBadge } from "@/components/early-access/badge";
 import { useIntegrationClickTracking } from "@/components/telemetry/homepage";
 import {
   FRAMEWORKS,
@@ -104,14 +105,16 @@ export function DHome() {
       <section className="flex flex-col gap-5">
         <h2 className={sectionTitle}>Frontends</h2>
         <Tray variant="bare">
+          {/* An early-access frontend's home is its landing page. */}
           {FRONTENDS.map((f) => (
             <LinkCard
               key={f.id}
               href={stackHref("", { frontend: f.id })}
-              glyph="logo"
+              glyph={frontendGlyph(f.id)}
               icon={<FrontendLogo icon={f.id} size={22} />}
               title={f.name}
               description={f.summary}
+              badge={f.earlyAccess ? <EarlyAccessBadge /> : undefined}
             />
           ))}
         </Tray>
@@ -179,24 +182,33 @@ export function DHome() {
         </Tray>
       </section>
 
-      {/* The community links live here, so the navbar keeps to search,
-          theme, GitHub, and the one call to action. */}
-      <footer className="flex flex-wrap items-center gap-x-6 gap-y-3 border-t pt-8 text-sm text-muted-foreground">
-        <CopilotKitLogo className="me-auto h-5 w-auto text-foreground" />
-        {COMMUNITY.map((c) => (
-          <a
-            key={c.label}
-            href={c.url}
-            target="_blank"
-            rel="noreferrer noopener"
-            className="inline-flex min-h-11 items-center gap-2 transition-colors hover:text-foreground"
-          >
-            <c.Icon className="size-4" aria-hidden="true" />
-            {c.label}
-          </a>
-        ))}
-      </footer>
+      <DFooter />
     </div>
+  );
+}
+
+/**
+ * The home's footer, also under the early-access channel pages. The community
+ * links live here, so the navbar keeps to search, theme, GitHub, and the one
+ * call to action.
+ */
+export function DFooter() {
+  return (
+    <footer className="flex flex-wrap items-center gap-x-6 gap-y-3 border-t pt-8 text-sm text-muted-foreground">
+      <CopilotKitLogo className="me-auto h-5 w-auto text-foreground" />
+      {COMMUNITY.map((c) => (
+        <a
+          key={c.label}
+          href={c.url}
+          target="_blank"
+          rel="noreferrer noopener"
+          className="inline-flex min-h-11 items-center gap-2 transition-colors hover:text-foreground"
+        >
+          <c.Icon className="size-4" aria-hidden="true" />
+          {c.label}
+        </a>
+      ))}
+    </footer>
   );
 }
 

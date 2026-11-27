@@ -642,6 +642,7 @@
     "/human-in-the-loop/governed-actions",
     "/human-in-the-loop/headless",
     "/human-in-the-loop/useInterrupt",
+    "/imessage",
     "/inspector",
     "/intelligence/analytics",
     "/intelligence/bring-your-own-thread-system",
@@ -980,6 +981,7 @@
     "/pydantic-ai/shared-state/agent-readonly",
     "/pydantic-ai/voice",
     "/quickstart",
+    "/rcs",
     "/react-native",
     "/react-native/custom-look-and-feel/headless-ui",
     "/react-native/custom-look-and-feel/markdown",
@@ -1214,6 +1216,7 @@
     "/slack/rich-messages",
     "/slack/threads-and-state",
     "/slack/tools",
+    "/sms",
     "/strands",
     "/strands-typescript",
     "/strands-typescript/agent-config",
@@ -1327,6 +1330,7 @@
     "/vue/shared-state/agent-readonly",
     "/vue/shared-state/rendering-in-app",
     "/vue/threads-lifecycle",
-    "/webmcp"
+    "/webmcp",
+    "/whatsapp"
   ]
 }

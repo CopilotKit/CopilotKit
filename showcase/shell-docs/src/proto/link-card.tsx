@@ -83,12 +83,15 @@ export function LinkCard({
   description,
   icon,
   glyph = "ink",
+  badge,
 }: {
   href: string;
   title: string;
   description?: string;
   icon: ReactNode;
   glyph?: keyof typeof GLYPH;
+  /** Beside the title, as the early-access channels' "Early access". */
+  badge?: ReactNode;
 }) {
   return (
     <Item render={<Link href={href} />} className={CARD}>
@@ -96,6 +99,7 @@ export function LinkCard({
       <ItemContent className="gap-1.5">
         <ItemTitle className="text-base leading-6 font-semibold transition-colors duration-200 group-hover/item:text-primary motion-reduce:transition-none">
           {title}
+          {badge}
         </ItemTitle>
         {description ? (
           <ItemDescription className="leading-normal">
