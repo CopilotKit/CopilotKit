@@ -249,6 +249,12 @@ describe("CopilotChat attachments", () => {
           ).toBeTruthy();
         });
 
+        // The composer remains available while the queued submission waits.
+        // Text entered now belongs to the next draft and must survive recovery.
+        fireEvent.change(input, {
+          target: { value: "Start the next request" },
+        });
+
         // Release the in-flight run so the queued send resumes past the await.
         await act(async () => {
           resolveInFlight();
@@ -266,11 +272,12 @@ describe("CopilotChat attachments", () => {
         });
         expect(addMessageSpy).not.toHaveBeenCalled();
 
-        // The typed text is PRESERVED in the composer (restored on the blocked
-        // path) so the user's input is never silently lost.
+        // Both the blocked submission and the newer draft are preserved.
         await waitFor(() => {
           const composer = screen.getByRole("textbox") as HTMLTextAreaElement;
-          expect(composer.value).toBe("Send with no files yet");
+          expect(composer.value).toBe(
+            "Send with no files yet\nStart the next request",
+          );
         });
 
         // Cleanup: let the pending upload resolve.
