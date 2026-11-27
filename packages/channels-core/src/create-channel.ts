@@ -74,12 +74,7 @@ import type {
 } from "./channel-component.js";
 import { ChannelTelemetry } from "./telemetry/channel-telemetry.js";
 import { errorClass, normalizePlatform } from "./telemetry/sanitize-error.js";
-import { createRequire } from "node:module";
-
-const pkg = createRequire(import.meta.url)("../package.json") as {
-  name: string;
-  version: string;
-};
+import { getChannelsCorePackageInfo } from "./package-info.js";
 
 const ADAPTER_ROLLBACK_TIMEOUT_MS = 5_000;
 const DEFAULT_WELCOME_PROMPT = "Introduce yourself to the channel!";
@@ -1869,6 +1864,7 @@ export function createChannel<
         // registry, and register components against it.
         backend = resolveBackend(cfg.adapter, adapters);
         transcripts = new Transcripts(backend, cfg.transcripts ?? {});
+        const pkg = getChannelsCorePackageInfo();
         const tel = new ChannelTelemetry({
           backend,
           packageName: pkg.name,

@@ -381,14 +381,6 @@ interface ChannelEntry {
 }
 
 /**
- * Runtime installs this pure-ESM package as a direct dependency, but the
- * specifier must stay non-literal so it never becomes a static dependency of
- * the runtime's CJS build. The packed-consumer contract is enforced by
- * `scripts/release/verify-runtime-package.ts`.
- */
-const CHANNELS_INTELLIGENCE_SPECIFIER = "@copilotkit/channels-intelligence";
-
-/**
  * Structural view of the `@copilotkit/channels-intelligence` module surface the
  * default engine consumes. Declared locally (not imported) for the same
  * CJS/ESM-boundary reason the {@link ChannelsHandle} view is.
@@ -456,9 +448,9 @@ export interface ChannelsIntelligenceModule {
  * Default engine: wrap the channels-intelligence Realtime Gateway launcher.
  *
  * The module is reached through an injectable importer that defaults to a
- * dynamic `import()` of a non-literal specifier, so the pure-ESM
+ * dynamic `import()` of a literal specifier, so the pure-ESM
  * `@copilotkit/channels-intelligence` never becomes a static dependency of this
- * CJS package (mirrors the runtime's other channels seams). The `import`
+ * CJS package and edge-runtime bundlers can resolve it. The `import`
  * seam is a parameter purely so this function's config→opts mapping and its
  * module-not-found / generic-error branches are unit-testable WITHOUT the real
  * package installed; production always uses the default importer.
@@ -478,9 +470,7 @@ export async function defaultActivateChannel(
   config: ChannelActivationConfig,
   channel: Channel,
   importChannelsIntelligence: () => Promise<ChannelsIntelligenceModule> = () =>
-    import(
-      CHANNELS_INTELLIGENCE_SPECIFIER
-    ) as Promise<ChannelsIntelligenceModule>,
+    import("@copilotkit/channels-intelligence") as Promise<ChannelsIntelligenceModule>,
   log?: (msg: string, meta?: unknown) => void,
   services?: {
     runner: AgentRunner;
@@ -873,8 +863,17 @@ export function isModuleNotFound(err: unknown): boolean {
   if (typeof err !== "object" || err === null) {
     return false;
   }
-  const code = (err as { code?: unknown }).code;
-  return code === "ERR_MODULE_NOT_FOUND" || code === "MODULE_NOT_FOUND";
+  const value = err as { code?: unknown; message?: unknown };
+  if (
+    value.code === "ERR_MODULE_NOT_FOUND" ||
+    value.code === "MODULE_NOT_FOUND"
+  ) {
+    return true;
+  }
+  return (
+    typeof value.message === "string" &&
+    /^No such module "[^"]+"\.?$/.test(value.message)
+  );
 }
 
 /** Default deadline (ms) for a single `handle.stop()` during teardown. */

@@ -1088,6 +1088,22 @@ describe("defaultActivateChannel", () => {
     );
   });
 
+  it("throws the install hint for Workerd message-only module errors", async () => {
+    const channel = createChannel({
+      identifyUser: "platform",
+      name: "support",
+    });
+    const importer = async (): Promise<ChannelsIntelligenceModule> => {
+      throw new Error('No such module "@copilotkit/channels-intelligence".');
+    };
+
+    await expect(
+      defaultActivateChannel(config, channel, importer),
+    ).rejects.toThrow(
+      /Managed Channels require '@copilotkit\/channels-intelligence'/,
+    );
+  });
+
   it("rethrows a generic import failure unchanged", async () => {
     const channel = createChannel({
       identifyUser: "platform",
@@ -1107,6 +1123,14 @@ describe("isModuleNotFound", () => {
   it("recognizes ERR_MODULE_NOT_FOUND and MODULE_NOT_FOUND error codes", () => {
     expect(isModuleNotFound({ code: "ERR_MODULE_NOT_FOUND" })).toBe(true);
     expect(isModuleNotFound({ code: "MODULE_NOT_FOUND" })).toBe(true);
+  });
+
+  it("recognizes Workerd message-only module errors", () => {
+    expect(
+      isModuleNotFound(
+        new Error('No such module "@copilotkit/channels-intelligence".'),
+      ),
+    ).toBe(true);
   });
 
   it("returns false for unrelated errors and non-error values", () => {
