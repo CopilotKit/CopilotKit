@@ -13,14 +13,14 @@
     "typecheck:channel": "tsc -p tsconfig.channel.json --noEmit"
   },
   "dependencies": {
-    "@ag-ui/client": "1.0.2",
+    "@ag-ui/client": "1.0.5",
     "@ag-ui/mastra": "1.1.2",
     "@ai-sdk/anthropic": "^2.0.109",
     "@ai-sdk/google": "^2.0.102",
     "@ai-sdk/openai": "^2.0.42",
-    "@copilotkit/channels": "0.11.1",
-    "@copilotkit/react-core": "1.79.0",
-    "@copilotkit/runtime": "1.79.0",
+    "@copilotkit/channels": "0.13.0",
+    "@copilotkit/react-core": "1.90.2",
+    "@copilotkit/runtime": "1.90.2",
     "@libsql/client": "^0.15.15",
     "@mastra/client-js": "1.23.2",
     "@mastra/core": "1.41.0",
@@ -50,19 +50,19 @@
     "typescript": "^5"
   },
   "overrides": {
-    "@ag-ui/client": "1.0.2",
-    "@ag-ui/core": "1.0.2",
-    "@ag-ui/encoder": "1.0.2",
-    "@ag-ui/proto": "1.0.2",
+    "@ag-ui/client": "1.0.5",
+    "@ag-ui/core": "1.0.5",
+    "@ag-ui/encoder": "1.0.5",
+    "@ag-ui/proto": "1.0.5",
     "@mastra/loggers": "1.2.0",
     "@mastra/deployer": "1.41.0"
   },
   "pnpm": {
     "overrides": {
-      "@ag-ui/client": "1.0.2",
-      "@ag-ui/core": "1.0.2",
-      "@ag-ui/encoder": "1.0.2",
-      "@ag-ui/proto": "1.0.2"
+      "@ag-ui/client": "1.0.5",
+      "@ag-ui/core": "1.0.5",
+      "@ag-ui/encoder": "1.0.5",
+      "@ag-ui/proto": "1.0.5"
     }
   }
 }

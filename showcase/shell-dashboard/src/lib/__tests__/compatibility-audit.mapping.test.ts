@@ -128,10 +128,7 @@ describe("Showcase compatibility mapping", () => {
 
   it("reads undeployed integrations from manifest deployed flags", () => {
     const repo = fileURLToPath(new URL("../../../../../", import.meta.url));
-    expect([...readUndeployedSlugs(repo)]).toEqual([
-      "cloudflare-agents",
-      "omnara",
-    ]);
+    expect([...readUndeployedSlugs(repo)]).toEqual(["omnara"]);
   });
 
   it("leaves excluded and undeployed variants out of the assessed roster", () => {
