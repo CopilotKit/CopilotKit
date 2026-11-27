@@ -42,11 +42,14 @@ export async function FrameworkSetup({
   scope,
   ctx,
   concept,
+  preferredConcept,
   currentFramework,
 }: {
   scope: DocsScope;
   ctx: DocsMdxContext;
   concept: string;
+  /** Prefer this concept when the selected framework supplies it. */
+  preferredConcept?: string;
   /** Used when the URL names no framework. */
   currentFramework?: string;
   /** Deprecated in shell-docs and ignored: concepts own their structure. */
@@ -58,17 +61,21 @@ export async function FrameworkSetup({
 
   // A concept nobody bundled for this framework is a deliberate "no setup
   // needed here".
-  const source = getSetupSource(framework, concept);
+  const preferredSource = preferredConcept
+    ? getSetupSource(framework, preferredConcept)
+    : null;
+  const selectedConcept = preferredSource !== null ? preferredConcept : concept;
+  const source = preferredSource ?? getSetupSource(framework, concept);
   if (source === null) return null;
 
   let result: Compiled;
   try {
-    result = await compileConcept(`${framework}::${concept}`, source);
+    result = await compileConcept(`${framework}::${selectedConcept}`, source);
   } catch (err) {
     // A concept that IS bundled and doesn't compile is a defect: fail loudly
     // rather than render as if the framework needed no setup (OSS-1036).
     throw new Error(
-      `[framework-setup] bundled concept "${concept}" for ${framework} failed to compile`,
+      `[framework-setup] bundled concept "${selectedConcept}" for ${framework} failed to compile`,
       { cause: err },
     );
   }

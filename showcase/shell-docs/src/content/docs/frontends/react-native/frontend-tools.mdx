@@ -23,7 +23,10 @@ Use frontend tools when your agent needs to:
 
 ## How it works in code
 
-<FrameworkSetup concept="frontend-tools-setup" />
+<FrameworkSetup
+  concept="frontend-tools-setup"
+  preferredConcept="react-native-frontend-tools-setup"
+/>
 
 Register a frontend tool with `useFrontendTool`. Give it a name, a schema for its parameters, and a handler. The agent can then call it like any other tool, and your app runs it on the device.
 
