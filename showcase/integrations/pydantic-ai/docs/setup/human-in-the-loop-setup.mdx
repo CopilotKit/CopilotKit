@@ -19,8 +19,8 @@
     agent = Agent(
         "openai:gpt-6-luna",
         instructions=(
-            "When the user asks for an essay, call the write_essay tool with the full draft. "
-            "Wait for the user's answer before you continue."
+            "When the user asks to book a call, call book_call with the topic and attendee. "
+            "Wait for the user's choice. Confirm the selected time or acknowledge cancellation."
         ),
     )
 
