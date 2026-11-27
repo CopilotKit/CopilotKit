@@ -60,6 +60,8 @@
     in your Mastra `agents` map, for example `searchAgent` in
     `agents: { searchAgent }`.
 
+    <FrontendOnly frontend="react">
+
     Working memory starts empty. To show a default before the agent writes
     anything, set the missing value with `agent.setState` once `isReady` is
     true:
@@ -78,6 +80,8 @@
       agent.setState({ ...(agent.state ?? {}), language: "english" });
     }, [agent, isReady, state.language]);
     ```
+
+    </FrontendOnly>
 
   </Step>
 </Steps>

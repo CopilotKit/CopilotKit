@@ -118,3 +118,35 @@ export function WhenAngularBackend({
 export function hasAngularBackend(framework: string | null | undefined) {
   return Boolean(framework && framework !== ROOT_FRAMEWORK);
 }
+
+/** Render children only for the named framework, or invert the match with `not`. */
+export function WhenFramework({
+  scope,
+  is,
+  not = false,
+  currentFramework,
+  children,
+}: {
+  scope: DocsScope;
+  is: string;
+  not?: boolean;
+  currentFramework?: string | null;
+  children?: ReactNode;
+}) {
+  return frameworkIs(scope.framework ?? currentFramework, is) !== not ? (
+    <>{children}</>
+  ) : null;
+}
+
+export function frameworkIs(
+  framework: string | null | undefined,
+  is: string,
+): boolean {
+  return Boolean(
+    framework &&
+    is
+      .split(",")
+      .map((slug) => slug.trim())
+      .includes(framework),
+  );
+}
