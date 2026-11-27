@@ -17,7 +17,7 @@
 import React from "react";
 import { createReactComponent } from "../../../adapter";
 import { DividerApi } from "@a2ui/web_core/v0_9/basic_catalog";
-import { getAccessibilityProps, LEAF_MARGIN } from "../utils";
+import { getAccessibilityProps, LEAF_MARGIN, LEAF_FULL_WIDTH } from "../utils";
 
 export const Divider = createReactComponent(
   DividerApi,
@@ -34,7 +34,7 @@ export const Divider = createReactComponent(
       style.width = "1px";
       style.height = "100%";
     } else {
-      style.width = "100%";
+      style.width = LEAF_FULL_WIDTH;
       style.height = "1px";
     }
 

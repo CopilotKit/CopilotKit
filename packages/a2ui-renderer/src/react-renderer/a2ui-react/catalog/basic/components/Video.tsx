@@ -18,7 +18,11 @@ import React from "react";
 import { createReactComponent } from "../../../adapter";
 import { VideoApi } from "@a2ui/web_core/v0_9/basic_catalog";
 import { sanitizeMediaUrl } from "@a2ui/web_core/universal";
-import { getAccessibilityProps, getBaseLeafStyle } from "../utils";
+import {
+  getAccessibilityProps,
+  getBaseLeafStyle,
+  LEAF_FULL_WIDTH,
+} from "../utils";
 
 export const Video = createReactComponent(
   VideoApi,
@@ -28,7 +32,7 @@ export const Video = createReactComponent(
       "posterUrl" in props ? sanitizeMediaUrl(props.posterUrl) : undefined;
     const style: React.CSSProperties = {
       ...getBaseLeafStyle(),
-      width: "100%",
+      width: LEAF_FULL_WIDTH,
       aspectRatio: "16/9",
     };
 

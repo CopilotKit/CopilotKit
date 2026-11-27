@@ -22,6 +22,7 @@ import {
   LEAF_MARGIN,
   STANDARD_BORDER,
   STANDARD_RADIUS,
+  LEAF_FULL_WIDTH,
 } from "../utils";
 
 // The type of an option is deeply nested into the ChoicePickerApi schema, and
@@ -61,7 +62,7 @@ export const ChoicePicker = createReactComponent(
       flexDirection: "column",
       gap: "8px",
       margin: LEAF_MARGIN,
-      width: "100%",
+      width: LEAF_FULL_WIDTH,
     };
 
     const listStyle: React.CSSProperties = {

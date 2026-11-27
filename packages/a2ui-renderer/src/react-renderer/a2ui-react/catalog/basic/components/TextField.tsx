@@ -22,6 +22,7 @@ import {
   LEAF_MARGIN,
   STANDARD_BORDER,
   STANDARD_RADIUS,
+  LEAF_FULL_WIDTH,
 } from "../utils";
 
 export const TextField = createReactComponent(
@@ -68,7 +69,7 @@ export const TextField = createReactComponent(
           display: "flex",
           flexDirection: "column",
           gap: "4px",
-          width: "100%",
+          width: LEAF_FULL_WIDTH,
           margin: LEAF_MARGIN,
         }}
       >

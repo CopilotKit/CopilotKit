@@ -17,7 +17,12 @@
 import { useState } from "react";
 import { createReactComponent } from "../../../adapter";
 import { TabsApi } from "@a2ui/web_core/v0_9/basic_catalog";
-import { getAccessibilityProps, LEAF_MARGIN, STANDARD_BORDER } from "../utils";
+import {
+  getAccessibilityProps,
+  LEAF_MARGIN,
+  STANDARD_BORDER,
+  LEAF_FULL_WIDTH,
+} from "../utils";
 
 // The type of a tab is deeply nested into the TabsApi schema, and
 // it seems z.infer is not inferring it correctly (?). We use `any` for now.
@@ -39,7 +44,7 @@ export const Tabs = createReactComponent(
         style={{
           display: "flex",
           flexDirection: "column",
-          width: "100%",
+          width: LEAF_FULL_WIDTH,
           margin: LEAF_MARGIN,
         }}
       >

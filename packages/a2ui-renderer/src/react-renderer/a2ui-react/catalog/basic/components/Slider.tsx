@@ -17,7 +17,7 @@
 import React from "react";
 import { createReactComponent } from "../../../adapter";
 import { SliderApi } from "@a2ui/web_core/v0_9/basic_catalog";
-import { getAccessibilityProps, LEAF_MARGIN } from "../utils";
+import { getAccessibilityProps, LEAF_MARGIN, LEAF_FULL_WIDTH } from "../utils";
 
 export const Slider = createReactComponent(
   SliderApi,
@@ -46,7 +46,7 @@ export const Slider = createReactComponent(
           flexDirection: "column",
           gap: "4px",
           margin: LEAF_MARGIN,
-          width: "100%",
+          width: LEAF_FULL_WIDTH,
         }}
       >
         <div style={{ display: "flex", justifyContent: "space-between" }}>
