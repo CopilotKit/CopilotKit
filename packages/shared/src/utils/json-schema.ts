@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { Parameter } from "../types";
+import type { Parameter } from "../types";
 
 export type JSONSchemaString = {
   type: "string";
@@ -339,11 +339,7 @@ export function convertJsonSchemaToZodSchema(
   if (jsonSchema.type === "object") {
     const spec: { [key: string]: z.ZodSchema } = {};
 
-    if (!jsonSchema.properties || !Object.keys(jsonSchema.properties).length) {
-      return !required ? z.object(spec).optional() : z.object(spec);
-    }
-
-    for (const [key, value] of Object.entries(jsonSchema.properties)) {
+    for (const [key, value] of Object.entries(jsonSchema.properties ?? {})) {
       spec[key] = convertJsonSchemaToZodSchema(
         value,
         jsonSchema.required ? jsonSchema.required.includes(key) : false,
@@ -351,7 +347,28 @@ export function convertJsonSchemaToZodSchema(
         visitedRefs,
       );
     }
-    let schema = z.object(spec).describe(jsonSchema.description);
+    const objectSchema = z.object(spec);
+    let schema: z.ZodSchema = objectSchema;
+    const additionalProperties = jsonSchema.additionalProperties;
+    if (additionalProperties === true) {
+      schema = objectSchema.passthrough();
+    } else if (
+      additionalProperties &&
+      typeof additionalProperties === "object"
+    ) {
+      schema =
+        Object.keys(additionalProperties).length === 0
+          ? objectSchema.passthrough()
+          : objectSchema.catchall(
+              convertJsonSchemaToZodSchema(
+                additionalProperties,
+                true,
+                defs,
+                visitedRefs,
+              ),
+            );
+    }
+    schema = schema.describe(jsonSchema.description);
     return required ? schema : schema.optional();
   } else if (jsonSchema.type === "string") {
     if (jsonSchema.enum && jsonSchema.enum.length > 0) {
