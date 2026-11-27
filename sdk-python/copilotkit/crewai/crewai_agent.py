@@ -5,7 +5,7 @@ CrewAI Agent
 import uuid
 import json
 from copy import deepcopy
-from typing import Optional, List, Callable
+from typing import Literal, Optional, List, Callable
 from typing_extensions import TypedDict, NotRequired, Any, Dict, cast
 from pydantic import BaseModel
 from crewai import Crew, Flow
@@ -35,6 +35,7 @@ from copilotkit.crewai.crewai_sdk import (
 )
 
 from copilotkit.runloop import copilotkit_run, CopilotKitRunExecution
+from copilotkit.prompt_prefix import prepend_to_newest_user_message
 
 
 class CopilotKitConfig(TypedDict):
@@ -151,7 +152,15 @@ class CrewAIAgent(Agent):
         crew: Optional[Crew] = None,
         flow: Optional[Flow] = None,
         copilotkit_config: Optional[CopilotKitConfig] = None,
+        context_placement: Literal["system", "message"] = "system",
     ):
+        """
+        ``context_placement`` sets where a crew chat puts the crew's current
+        inputs. ``"system"`` (default) appends them to the system message.
+        ``"message"`` puts them at the start of the newest user message, so
+        the system message stays the same between turns and the provider's
+        prompt cache covers the history before the last turn.
+        """
         super().__init__(
             name=name,
             description=description,
@@ -162,6 +171,11 @@ class CrewAIAgent(Agent):
         self.crew = crew
         self.flow = flow
         self.copilotkit_config = copilotkit_config or {}
+        if context_placement not in ("system", "message"):
+            raise ValueError(
+                f'context_placement must be "system" or "message", got {context_placement!r}'
+            )
+        self.context_placement = context_placement
 
     def execute(  # pylint: disable=too-many-arguments
         self,
@@ -214,6 +228,7 @@ class CrewAIAgent(Agent):
             crew_name=self.name,
             thread_id=thread_id,
             cache_key=f"crew_{id(self.crew)}",
+            context_placement=self.context_placement,
         )
 
         return self.execute_flow(
@@ -395,8 +410,17 @@ _CREW_INPUTS_CACHE = {}
 class ChatWithCrewFlow(Flow):
     """Chat with crew"""
 
-    def __init__(self, *, crew: Crew, crew_name: str, thread_id: str, cache_key: str):
+    def __init__(
+        self,
+        *,
+        crew: Crew,
+        crew_name: str,
+        thread_id: str,
+        cache_key: str,
+        context_placement: Literal["system", "message"] = "system",
+    ):
         super().__init__()
+        self.context_placement = context_placement
 
         self.crew = cast(Any, crew).crew()
 
@@ -427,8 +451,18 @@ class ChatWithCrewFlow(Flow):
         """Chat with the crew"""
 
         system_message = self.system_message
+        history = list(self.state["messages"])
         if self.state.get("inputs"):
-            system_message += "\n\nCurrent inputs: " + json.dumps(self.state["inputs"])
+            note = "Current inputs: " + json.dumps(self.state["inputs"])
+            placed = (
+                prepend_to_newest_user_message(history, note)
+                if self.context_placement == "message"
+                else None
+            )
+            if placed is None:
+                system_message += "\n\n" + note
+            else:
+                history = placed
 
         messages = [
             {
@@ -436,14 +470,20 @@ class ChatWithCrewFlow(Flow):
                 "content": system_message,
                 "id": self.thread_id + "-system",
             },
-            *self.state["messages"],
+            *history,
         ]
 
-        tools = [
-            action
-            for action in self.state["copilotkit"]["actions"]
-            if action["function"]["name"] != self.crew_name
-        ]
+        # Sorted by name: the client sends frontend tools in registration
+        # order, which can change between renders, and the tool list starts
+        # the provider's cached prefix.
+        tools = sorted(
+            (
+                action
+                for action in self.state["copilotkit"]["actions"]
+                if action["function"]["name"] != self.crew_name
+            ),
+            key=lambda action: action["function"]["name"],
+        )
 
         tools += [self.crew_tool_schema, CREW_EXIT_TOOL]
 

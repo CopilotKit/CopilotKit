@@ -6,6 +6,7 @@ from crewai import LLM
 from crewai.utilities.events import crewai_event_bus
 import logging
 from crewai.utilities.events.base_events import BaseEvent
+from copilotkit.prompt_prefix import drop_in_blocks
 from pydantic import Field
 from typing import TypeVar
 from pydantic import BaseModel
@@ -181,22 +182,18 @@ class CopilotKitFlow(Flow[S], Generic[S]):  # Make it generic
                 messages.insert(0, {"role": "system", "content": system_prompt})
                 logger.info(f"get_message_history: Added system prompt message")
 
-        # Limit to max_messages, but keep the system message if present
+        # Limit to about max_messages, but keep the system message if present.
+        # Old messages are dropped in blocks of half the limit, not one per
+        # turn: then the start of the history stays the same until the next
+        # block drop, and the provider's prompt cache covers it. A cut on a tool
+        # result moves back to its tool call, so a few more messages can stay.
         if len(messages) > max_messages:
-            # If first message is system message, keep it and take the (max_messages-1) most recent messages
-            if messages and messages[0].get("role") == "system":
-                system_msg = messages[0]
-                recent_msgs = messages[-(max_messages - 1) :]
-                messages = [system_msg] + recent_msgs
-                logger.info(
-                    f"get_message_history: Truncated to {len(messages)} messages (including system message)"
-                )
-            else:
-                # Otherwise just take most recent messages
-                messages = messages[-max_messages:]
-                logger.info(
-                    f"get_message_history: Truncated to {len(messages)} most recent messages"
-                )
+            keep_system = bool(messages) and messages[0].get("role") == "system"
+            head = messages[:1] if keep_system else []
+            body = messages[1:] if keep_system else messages
+            limit = max(1, max_messages - len(head))
+            messages = head + drop_in_blocks(body, limit)
+            logger.info(f"get_message_history: Truncated to {len(messages)} messages")
 
         return messages
 
