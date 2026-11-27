@@ -4,6 +4,7 @@ import {
   unsupportedRedirect,
 } from "@/lib/live-docs";
 import { renderLivePageMarkdown } from "@/lib/llms/page-markdown";
+import { channelMarkdownResponse } from "@/lib/early-access/markdown";
 
 // One live docs page as Markdown. `src/proxy.ts` rewrites `<path>.md`,
 // `<path>.mdx`, and `Accept: text/markdown` requests for a live URL here,
@@ -17,6 +18,10 @@ export async function GET(
   { params }: RouteContext<"/llms.mdx/live/[[...path]]">,
 ) {
   const { path = [] } = await params;
+  // An early-access channel's landing page (/whatsapp), or a redirect to it
+  // from a path under it (/whatsapp/quickstart).
+  const channel = channelMarkdownResponse(path);
+  if (channel) return channel;
   const live = resolveLivePage(path);
   if (!live) return redirectToMarkdown(path);
 

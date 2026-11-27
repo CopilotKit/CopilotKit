@@ -7,6 +7,11 @@ import {
 import { getPageIndex, livePages } from "@/lib/live-docs";
 import type { ResolvedLivePage } from "@/lib/live-docs";
 import { whereIs } from "@/lib/live-pages";
+import {
+  EARLY_ACCESS_CHANNELS,
+  earlyAccessHref,
+} from "@/lib/early-access/channels";
+import type { EarlyAccessChannelId } from "@/lib/early-access/channels";
 import { findSeoRedirect } from "@/lib/redirects/seo-redirects";
 import type { FrontendId } from "@/proto/data";
 
@@ -15,10 +20,12 @@ import type { FrontendId } from "@/proto/data";
 // `src/lib/live-docs.ts`), so the sitemap, llms.txt, search, and the MCP
 // server never offer the same page under a second URL.
 //
-//   sitemapEntries()   /sitemap.xml
-//   llmsFullEntries()  /llms-full.txt
-//   searchEntries()    Cmd-K search and /api/mcp, each tagged with the
-//                      frontends whose readers have the page
+//   sitemapEntries()      /sitemap.xml
+//   llmsFullEntries()     /llms-full.txt
+//   searchEntries()       Cmd-K search and /api/mcp, each tagged with the
+//                         frontends whose readers have the page
+//   earlyAccessEntries()  the early-access channels' landing pages
+//                         (`/whatsapp`) in search and /api/mcp
 
 export interface LiveEntry {
   /** Public path, `/mastra/background-tasks`. */
@@ -82,14 +89,18 @@ export interface SitemapEntry {
 }
 
 /**
- * The home page and every page at its canonical URL. A page's date is its
- * frontmatter `lastmod` or nothing: file times in a checkout or an image are
- * when the files were copied, not when the page changed, and a sitemap that
- * marks every page as changed on every deploy teaches crawlers to ignore it.
+ * The home page, the early-access channels' landing pages (`/whatsapp`), and
+ * every page at its canonical URL. A page's date is its frontmatter `lastmod`
+ * or nothing: file times in a checkout or an image are when the files were
+ * copied, not when the page changed, and a sitemap that marks every page as
+ * changed on every deploy teaches crawlers to ignore it.
  */
 export function sitemapEntries(): SitemapEntry[] {
   return [
     { url: "/" },
+    ...EARLY_ACCESS_CHANNELS.map((channel) => ({
+      url: earlyAccessHref(channel.id),
+    })),
     ...entries().map(({ url, live }) => ({
       url,
       lastModified: lastModified(live.page),
@@ -145,6 +156,26 @@ export function searchEntries(): (LiveEntry & { frontends: FrontendId[] })[] {
   return entries()
     .filter(({ live }) => !live.variant && !isEarlyAccess(live.page))
     .map((entry) => ({ ...entry, frontends: frontendsOf(entry) }));
+}
+
+export interface EarlyAccessEntry {
+  /** `/whatsapp`. */
+  url: string;
+  id: EarlyAccessChannelId;
+  frontends: FrontendId[];
+}
+
+/**
+ * The early-access channels' landing pages, for search and the page tools
+ * (`/api/mcp`, Ask AI): one page each, at its one URL, for readers on every
+ * frontend.
+ */
+export function earlyAccessEntries(): EarlyAccessEntry[] {
+  return EARLY_ACCESS_CHANNELS.map((channel) => ({
+    url: earlyAccessHref(channel.id),
+    id: channel.id,
+    frontends: ALL_FRONTENDS,
+  }));
 }
 
 /** The frontends a framework's version of a shared page opens on. */

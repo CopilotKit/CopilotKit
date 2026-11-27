@@ -1,8 +1,9 @@
-import { notFound, permanentRedirect } from "next/navigation";
+import { notFound, permanentRedirect, redirect } from "next/navigation";
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import { DExamples } from "@/proto/examples-d";
 import { DHome } from "@/proto/home-d";
+import { ChannelLandingLoader } from "@/proto/channel-landing-loader";
 import { LiveArticle } from "@/proto/live-article";
 import { CatalogReferenceArticle } from "@/components/standard-catalog/catalog-reference-page";
 import {
@@ -18,6 +19,11 @@ import {
 import { entryTitle } from "@/lib/llms/live-inventory";
 import { absoluteUrl } from "@/lib/seo/base-url";
 import {
+  earlyAccessChannel,
+  earlyAccessHref,
+} from "@/lib/early-access/channels";
+import { EARLY_ACCESS_CHANNEL_COPY } from "@/lib/early-access/copy";
+import {
   HOME_DESCRIPTION,
   HOME_TITLE,
   liveDocMetadata,
@@ -32,6 +38,18 @@ export default async function Page({ params }: PageProps<"/[[...path]]">) {
         <DExamples />
       </Suspense>
     );
+  }
+
+  // An early-access channel's landing page (/whatsapp). It has no pages
+  // under it yet, so a deeper URL opens the landing page. Temporarily: the
+  // channel's docs will live there once it ships. next.config redirects
+  // those URLs first (next-config-redirects.mjs), so no other legacy rule
+  // reads `/whatsapp/channels` as a framework's page.
+  const channel = earlyAccessChannel(path[0]);
+  if (channel) {
+    if (path.length > 1) redirect(earlyAccessHref(channel.id));
+    // Through its loader, so its client code ships to these pages only.
+    return <ChannelLandingLoader id={channel.id} />;
   }
 
   // The live docs, ported from shell-docs, at their docs.copilotkit.ai URLs.
@@ -72,6 +90,23 @@ export async function generateMetadata({
         description: HOME_DESCRIPTION,
         path: "/",
       }),
+    };
+  }
+  // An early-access channel's landing page, indexed at its own URL.
+  const channel = path.length === 1 ? earlyAccessChannel(path[0]) : undefined;
+  if (channel) {
+    const { title, description } = EARLY_ACCESS_CHANNEL_COPY[channel.id].meta;
+    const href = earlyAccessHref(channel.id);
+    const seo = liveDocMetadata({ title, description, path: href });
+    return {
+      title,
+      description,
+      ...seo,
+      alternates: {
+        ...seo.alternates,
+        // As every docs page: agents on the HTML find its Markdown.
+        types: { "text/markdown": `${href}.md` },
+      },
     };
   }
   // The examples playground, not the hidden `examples.mdx` page behind it.

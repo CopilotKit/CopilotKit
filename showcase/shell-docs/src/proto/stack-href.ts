@@ -8,7 +8,8 @@ import {
   frontendSegment,
   liveFramework,
 } from "@/lib/live-scope";
-import type { FrontendId } from "./data";
+import { landingPage } from "@/lib/frontends";
+import type { FrontendId } from "@/lib/frontends";
 import { useFrontend } from "./frontend";
 import { useLastFramework } from "./last-framework";
 import { useLivePages } from "./live-pages-context";
@@ -35,7 +36,8 @@ export function stackPrefix(
  * Mastra is `/vue/mastra/intelligence/overview`), or null when the stack has
  * no such page (`pages` says where every page lives). `""` is the stack's
  * home: React's is the framework's quickstart (frameworks have no landing
- * page), another frontend's its root page.
+ * page), another frontend's its root page. An early-access frontend's only
+ * page is its landing page (`/whatsapp`), whatever the page and framework.
  */
 export function stackPage(
   frontend: FrontendId,
@@ -43,6 +45,8 @@ export function stackPage(
   slug: string,
   pages: PageIndex | null,
 ) {
+  const landing = landingPage(frontend);
+  if (landing) return landing;
   const at =
     pages && slug
       ? whereIs(pages, frontend, urlFramework(framework), slug)

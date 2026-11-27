@@ -79,6 +79,8 @@ function distinct(ids: string[]) {
   );
 }
 
+// Every frontend, the early-access channels included, on purpose: the
+// diagram shows where CopilotKit runs. (Whether to keep them is open.)
 const FRONTEND_POOL = distinct(FRONTENDS.map((f) => f.id));
 // CopilotKit's own agent is the middle tile, so it isn't in the right column.
 const AGENT_POOL = distinct(
