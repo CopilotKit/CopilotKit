@@ -4,58 +4,10 @@
 // from showcase/integrations/*/manifest.yaml. Page content is illustrative.
 
 import { liveFramework } from "@/lib/live-scope";
-export type FrontendId =
-  | "react"
-  | "vue"
-  | "angular"
-  | "react-native"
-  | "slack"
-  | "teams";
-
-export const FRONTENDS: {
-  id: FrontendId;
-  name: string;
-  summary: string;
-  /** Channels are the chat-platform SDKs (`@copilotkit/channels-*`). */
-  kind: "app" | "channel";
-}[] = [
-  {
-    id: "react",
-    name: "React",
-    summary: "Provider, hooks, and chat components.",
-    kind: "app",
-  },
-  {
-    id: "vue",
-    name: "Vue",
-    summary: "Vue 3 provider, composables, and chat primitives.",
-    kind: "app",
-  },
-  {
-    id: "angular",
-    name: "Angular",
-    summary: "Components, directives, and services.",
-    kind: "app",
-  },
-  {
-    id: "react-native",
-    name: "React Native",
-    summary: "Bindings for React Native and Expo apps.",
-    kind: "app",
-  },
-  {
-    id: "slack",
-    name: "Slack",
-    summary: "Run your agent as a Slack bot.",
-    kind: "channel",
-  },
-  {
-    id: "teams",
-    name: "Teams",
-    summary: "Run your agent as a Microsoft Teams bot.",
-    kind: "channel",
-  },
-];
+// The frontends live in their own small module, which the URL helpers read
+// too; they are re-exported here for the prototypes.
+export { FRONTENDS, frontendById } from "@/lib/frontends";
+export type { FrontendId } from "@/lib/frontends";
 
 export const CAPABILITIES = [
   "Generative UI",
@@ -411,10 +363,6 @@ export const FRAMEWORK_FAMILIES: {
 
 export function frameworkById(id: string): Framework | undefined {
   return FRAMEWORKS.find((f) => f.id === id);
-}
-
-export function frontendById(id: string) {
-  return FRONTENDS.find((f) => f.id === id);
 }
 
 /** Pages that exist for every framework, in sidebar order. */

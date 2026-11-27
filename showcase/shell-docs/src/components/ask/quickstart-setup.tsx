@@ -8,14 +8,10 @@ import { FrameworkPicker } from "@/components/framework-picker";
 import { FrontendLogo } from "@/components/icons/frontend-logo";
 import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import {
-  DEFAULT_FRAMEWORK,
-  FRAMEWORKS,
-  FRONTENDS,
-  frameworkById,
-} from "@/proto/data";
+import { DEFAULT_FRAMEWORK, FRAMEWORKS, frameworkById } from "@/proto/data";
 import type { FrontendId } from "@/proto/data";
 import { useFrontend } from "@/proto/frontend";
+import { DOCS_FRONTENDS } from "@/lib/frontends";
 import { useLastFramework } from "@/proto/last-framework";
 
 /*
@@ -27,7 +23,7 @@ import { useLastFramework } from "@/proto/last-framework";
  */
 
 /** App frontends only; Slack and Teams are channels, with their own setup. */
-const APP_FRONTENDS = FRONTENDS.filter((f) => f.kind === "app");
+const APP_FRONTENDS = DOCS_FRONTENDS.filter((f) => f.kind === "app");
 
 const FRAMEWORK_IDS = FRAMEWORKS.map((f) => f.id);
 
