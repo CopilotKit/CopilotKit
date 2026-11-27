@@ -4,6 +4,7 @@ import React, {
   useCallback,
   useContext,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -255,6 +256,16 @@ export const CopilotChatConfigurationProvider: React.FC<
     explicit: boolean;
   } | null>(null);
 
+  // Fallback thread id — see CopilotChat for the full rationale. Mint it on the
+  // client during the initial render and keep it in state so it never changes
+  // (a later change would read as a thread switch). The server prerender has no
+  // `window`, so it uses the hydration-safe `useId()` placeholder and never
+  // calls `randomUUID()` (issue #8192).
+  const placeholderThreadId = useId();
+  const [clientThreadId] = useState<string | undefined>(() =>
+    typeof window === "undefined" ? undefined : randomUUID(),
+  );
+  const generatedThreadId = clientThreadId ?? placeholderThreadId;
   const resolvedThreadId = useMemo(() => {
     // An authoritative (caller-chosen) threadId prop always wins.
     if (threadIdPropIsAuthoritative) {
@@ -272,12 +283,13 @@ export const CopilotChatConfigurationProvider: React.FC<
     if (threadId) {
       return threadId;
     }
-    return randomUUID();
+    return generatedThreadId;
   }, [
     threadIdPropIsAuthoritative,
     threadId,
     parentConfig?.threadId,
     activeThreadOverride,
+    generatedThreadId,
   ]);
 
   // Tell Core which Thread this view shows, so captured interactions can link

@@ -28,6 +28,7 @@ import type { ɵThreadRuntimeContext, ɵThreadStore } from "@copilotkit/core";
 import React, {
   useCallback,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -152,9 +153,25 @@ export function CopilotChat({
   const resolvedAgentId =
     agentId ?? existingConfig?.agentId ?? providerAgentId ?? DEFAULT_AGENT_ID;
   const providedThreadId = threadId ?? existingConfig?.threadId;
+  // Fallback thread id when the caller doesn't supply one. Two constraints:
+  //   1. the prerender must not read an unstable value (`randomUUID()`) — Next.js
+  //      `cacheComponents` rejects that (issue #8192);
+  //   2. each fresh page load needs its own id — a render-stable `useId()` would
+  //      repeat across loads and let a new chat resume an old thread.
+  // Mint the id on the client during the initial render and keep it in state so
+  // it never changes afterwards. (Swapping a placeholder for the real id after
+  // mount would read as a thread switch and tear down initial agent state.) The
+  // server prerender has no `window`, so it uses the hydration-safe `useId()`
+  // placeholder and never calls `randomUUID()`. The placeholder is internal
+  // state, not rendered to the DOM, so it does not affect hydration.
+  const placeholderThreadId = useId();
+  const [clientThreadId] = useState<string | undefined>(() =>
+    typeof window === "undefined" ? undefined : randomUUID(),
+  );
+  const generatedThreadId = clientThreadId ?? placeholderThreadId;
   const baseThreadId = useMemo(
-    () => providedThreadId ?? randomUUID(),
-    [providedThreadId],
+    () => providedThreadId ?? generatedThreadId,
+    [providedThreadId, generatedThreadId],
   );
   // "Explicit" means a caller actually picked this thread — via the
   // `threadId` prop on CopilotChat or a wrapping provider that marked its
