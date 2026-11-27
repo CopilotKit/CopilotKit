@@ -17,7 +17,7 @@ jobs:
   remote-a2ui:
     # ubuntu-latest is now Ubuntu 26.04. Playwright only has a Chromium build for
     # it from 1.61, and the harness locks 1.59.1.
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7

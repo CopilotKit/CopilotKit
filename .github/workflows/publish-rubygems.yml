@@ -33,7 +33,7 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "22.x"
-      - uses: ruby/setup-ruby@20eb24b0d509e2b9ed9b6d42ddfeb992915e0564 # v1.341.0
+      - uses: ruby/setup-ruby@145243922b4465b78e04dd66294782c7de45901f # v1.345.0
         with:
           ruby-version: "3.3"
       - run: pnpm install --frozen-lockfile --ignore-scripts
@@ -66,10 +66,10 @@ jobs:
         with:
           name: ruby-gem
           path: artifacts
-      - uses: ruby/setup-ruby@20eb24b0d509e2b9ed9b6d42ddfeb992915e0564 # v1.341.0
+      - uses: ruby/setup-ruby@145243922b4465b78e04dd66294782c7de45901f # v1.345.0
         with:
           ruby-version: "3.3"
       # RubyGems publisher: CopilotKit/CopilotKit, publish-rubygems.yml,
       # environment rubygems, gem copilotkit-runtime.
-      - uses: rubygems/configure-rubygems-credentials@dc5a8d8553e6ee01fc26761a49e99e733d17954a # v2.1.0
+      - uses: rubygems/configure-rubygems-credentials@c6ca7f4bac0e29c9bde8eeae0a0a986b27efa05f # v2.2.0
       - run: gem push artifacts/copilotkit-runtime.gem --host https://rubygems.org
