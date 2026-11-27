@@ -97,6 +97,79 @@ read `agent.state.delegations`, and render one card per entry.
 <Snippet region="delegation-log-frontend" title="frontend/src/app/delegation-log.tsx — live log component" />
 </FrontendOnly>
 
+<FrontendOnly frontend="react-native">
+
+The embedded demo and its Code tab use React for the web. For a native app, render the log next to `CopilotChat` with React Native components.
+
+1. Set up your backend as shown above. For the separate Mastra server in this guide, use its `/copilotkit` endpoint and the `subagentsSupervisorAgent` key. If you use the local showcase runtime instead, use its runtime URL and the `subagents` alias.
+2. Add the following to your React Native app. Set `runtimeUrl` to an address your device can reach. Use the same agent ID for the log and chat.
+
+```tsx title="App.tsx"
+import { ScrollView, Text, View } from "react-native";
+import {
+  CopilotKitProvider,
+  useAgent,
+  UseAgentUpdate,
+} from "@copilotkit/react-native/headless";
+import { CopilotChat } from "@copilotkit/react-native/components";
+
+type Delegation = {
+  id: string;
+  sub_agent: string;
+  task: string;
+  status: "running" | "completed" | "failed";
+  result: string;
+};
+
+const runtimeUrl = "http://127.0.0.1:4111/copilotkit";
+const agentId = "subagentsSupervisorAgent";
+
+function DelegationLog() {
+  const { agent } = useAgent({
+    agentId,
+    updates: [UseAgentUpdate.OnStateChanged, UseAgentUpdate.OnRunStatusChanged],
+  });
+  const state = agent.state as { delegations?: Delegation[] } | undefined;
+  const delegations = state?.delegations ?? [];
+
+  return (
+    <View style={{ padding: 12 }}>
+      <Text accessibilityRole="header">Delegation log</Text>
+      {delegations.length === 0 ? (
+        <Text>{agent.isRunning ? "Waiting for a delegation…" : "No delegations yet."}</Text>
+      ) : (
+        <ScrollView style={{ maxHeight: 180 }}>
+          {delegations.map((entry) => (
+            <View key={entry.id} style={{ paddingVertical: 6 }}>
+              <Text>{entry.sub_agent}: {entry.status}</Text>
+              <Text>{entry.task}</Text>
+              {entry.result ? <Text>{entry.result}</Text> : null}
+            </View>
+          ))}
+        </ScrollView>
+      )}
+    </View>
+  );
+}
+
+export default function App() {
+  return (
+    <CopilotKitProvider runtimeUrl={runtimeUrl}>
+      <View style={{ flex: 1 }}>
+        <DelegationLog />
+        <View style={{ flex: 1 }}>
+          <CopilotChat agentName={agentId} />
+        </View>
+      </View>
+    </CopilotKitProvider>
+  );
+}
+```
+
+3. Ask the supervisor to delegate research, writing, and critique. In Mastra, the log adds a row after each tool writes its result to working memory. If you add a custom New chat button, clear the agent state before starting a new thread so the old log does not carry over.
+
+</FrontendOnly>
+
 <FrontendOnly frontend="angular">
 Read the selected agent's state through `injectAgentStore`, derive the
 delegations with `computed`, and register one typed renderer for each sub-agent
