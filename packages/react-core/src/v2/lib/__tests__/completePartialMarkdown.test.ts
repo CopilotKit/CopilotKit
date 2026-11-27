@@ -492,4 +492,40 @@ describe("completePartialMarkdown", () => {
       );
     });
   });
+
+  describe("Complete text that only looks like an open delimiter", () => {
+    it.each([
+      "Rename file_name.txt first.",
+      "snake_case",
+      "snake_case_name and more_words",
+      "2 * 3 = 6",
+      "a * b * c",
+      "Use arr[0] to read it.",
+      "- [ ] buy milk",
+      "- [x] done\n- [ ] todo",
+      "see [1] and [2]",
+      "foo_bar_",
+      "foo*",
+      "*foo *bar* baz*",
+    ])("returns %j unchanged", (input) => {
+      expect(completePartialMarkdown(input)).toBe(input);
+    });
+
+    it("still closes emphasis that is genuinely open", () => {
+      expect(completePartialMarkdown("This is _important")).toBe(
+        "This is _important_",
+      );
+      expect(completePartialMarkdown("Use *this")).toBe("Use *this*");
+      expect(completePartialMarkdown("a snake_case and _emph")).toBe(
+        "a snake_case and _emph_",
+      );
+    });
+
+    it("still closes a bracket that has no matching close", () => {
+      expect(completePartialMarkdown("See [the docs")).toBe("See [the docs]");
+      expect(completePartialMarkdown("arr[0] and [open")).toBe(
+        "arr[0] and [open]",
+      );
+    });
+  });
 });
