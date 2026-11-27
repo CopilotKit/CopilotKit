@@ -1,0 +1,36 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for cloudflare-agents / beautiful-chat (toggle theme pill)",
+    "sourceFile": "d5-all.json",
+    "copiedFrom": "langgraph-python",
+    "created": "2026-05-21"
+  },
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "d5 beautiful-chat probe: toggle the theme",
+        "hasToolResult": false,
+        "context": "cloudflare-agents"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_bc_toggle_theme_001",
+            "name": "toggleTheme",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "d5 beautiful-chat probe: toggle the theme",
+        "hasToolResult": true,
+        "context": "cloudflare-agents"
+      },
+      "response": {
+        "content": "Theme toggled."
+      }
+    }
+  ]
+}

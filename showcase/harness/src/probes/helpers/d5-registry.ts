@@ -210,6 +210,12 @@ export interface D5BuildContext {
   baseUrl: string;
   /** Optional server inference format; omitted preserves each integration default. */
   a2uiFormat?: A2uiFormat;
+  /**
+   * Whether this environment replays the integration's audio transcription
+   * from aimock, so the voice script may upload its sample. Omitted means
+   * no replay: a runtime reporting transcription on may use a real provider.
+   */
+  transcriptionReplay?: boolean;
 }
 
 /**

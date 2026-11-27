@@ -3,6 +3,8 @@ import type { AnchorHTMLAttributes, ComponentType } from "react";
 import Link from "next/link";
 import { getMDXComponents } from "@/components/mdx";
 import { liveHref } from "@/lib/live-docs";
+import { unscopedStackLink } from "@/lib/live-scope";
+import { ReaderStackLink } from "@/proto/reader-stack-link";
 import { Accordion, Accordions } from "./accordion";
 import { basicComponents } from "./basics";
 import { createCards } from "./cards";
@@ -46,7 +48,16 @@ function withPageDefaults(
   };
 }
 
-function build(scope: DocsScope) {
+/** How a page's links behave beyond its scope. */
+interface LinkOptions {
+  /**
+   * The page isn't per stack (the cookbook, the reference): links to pages
+   * that are open on the reader's own stack (`ReaderStackLink`).
+   */
+  readerStack?: boolean;
+}
+
+function build(scope: DocsScope, { readerStack = false }: LinkOptions = {}) {
   let map: MDXComponents;
   let full: MDXComponents | undefined;
   const ctx: DocsMdxContext = {
@@ -57,6 +68,10 @@ function build(scope: DocsScope) {
         ...map,
         a: ({ href, ...props }: AnchorHTMLAttributes<HTMLAnchorElement>) => {
           const to = liveHref(href, scope);
+          const stackLink = readerStack ? unscopedStackLink(to) : null;
+          if (to && stackLink) {
+            return <ReaderStackLink href={to} {...stackLink} {...props} />;
+          }
           return to?.startsWith("/") ? (
             <Link href={to} {...props} />
           ) : (
@@ -75,7 +90,7 @@ function build(scope: DocsScope) {
 
   map = {
     ...basicComponents,
-    ...createCards(scope),
+    ...createCards(scope, readerStack),
     Tabs: createTabs(scope),
     Tab,
     Accordions,
@@ -128,6 +143,9 @@ export function docsMdxComponents(scope: DocsScope): MDXComponents {
  * The page's whole map: Fumadocs' and the app's MDX components, these, and
  * links scoped like prose links. What snippet files render with.
  */
-export function docsPageComponents(scope: DocsScope): MDXComponents {
-  return build(scope).ctx.components();
+export function docsPageComponents(
+  scope: DocsScope,
+  options?: LinkOptions,
+): MDXComponents {
+  return build(scope, options).ctx.components();
 }
