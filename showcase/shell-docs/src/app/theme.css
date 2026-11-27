@@ -359,23 +359,24 @@ html .copilotKitChat:hover ::-webkit-scrollbar-thumb {
   }
 }
 /* The sidebar's stack picker, as it first shows in a visit and when its stack
- * changes (the cue in pieces.tsx): a thin lilac ring eases out from its edge
- * and fades. It is an outline, so it follows the corners and moves nothing. */
-@keyframes stack-ping {
-  from {
-    outline: 2px solid var(--ring);
-    outline-offset: 0;
+ * changes (the cue in pieces.tsx): the card fades to lilac and back. The cue's
+ * overlay holds the lilac (a deeper edge and a wash over the card's white).
+ * Over the cue's 1.8s this brings it in for the first quarter on the docs'
+ * settle curve, so the change starts fast enough to register, then with no
+ * hold fades it out over the rest, easing in and out to land on the card at
+ * rest. Only opacity changes: the browser can run that off the main thread,
+ * so the fade stays smooth while a fresh page loads, and nothing moves. */
+@keyframes stack-tint {
+  0% {
+    opacity: 0;
+    animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
   }
-  to {
-    outline: 2px solid transparent;
-    outline-offset: 8px;
+  25% {
+    opacity: 1;
+    animation-timing-function: ease-in-out;
   }
-}
-/* Meanwhile its edge turns lilac and eases back to the card's own hairline:
- * with no end keyframe, the cue's border returns to transparent. */
-@keyframes stack-edge {
-  from {
-    border-color: var(--edge-action);
+  100% {
+    opacity: 0;
   }
 }
 /* Callout states, from the brand palette. */
