@@ -58,6 +58,53 @@ class MockNextAgent extends AbstractAgent {
   }
 }
 
+/** Records injected tools and emits calls for both the allowed and hidden names. */
+class ToolListingAgent extends AbstractAgent {
+  toolNames: string[] = [];
+
+  run(input: RunAgentInput): Observable<BaseEvent> {
+    this.toolNames = input.tools.map((tool) => tool.name);
+    return new Observable((subscriber) => {
+      subscriber.next({
+        type: EventType.RUN_STARTED,
+        threadId: input.threadId,
+        runId: input.runId,
+      } as BaseEvent);
+      for (const name of ["generate_qr", "admin_dashboard"]) {
+        const toolCallId = `call-${name}`;
+        subscriber.next({
+          type: EventType.TOOL_CALL_START,
+          toolCallId,
+          toolCallName: name,
+        } as BaseEvent);
+        subscriber.next({
+          type: EventType.TOOL_CALL_ARGS,
+          toolCallId,
+          delta: "{}",
+        } as BaseEvent);
+        subscriber.next({
+          type: EventType.TOOL_CALL_END,
+          toolCallId,
+        } as BaseEvent);
+      }
+      subscriber.next({
+        type: EventType.RUN_FINISHED,
+        threadId: input.threadId,
+        runId: input.runId,
+      } as BaseEvent);
+      subscriber.complete();
+    });
+  }
+
+  clone(): AbstractAgent {
+    return new ToolListingAgent();
+  }
+
+  protected connect(): ReturnType<AbstractAgent["connect"]> {
+    throw new Error("not used");
+  }
+}
+
 function createRunInput(overrides: Partial<RunAgentInput> = {}): RunAgentInput {
   return {
     threadId: "thread-1",
@@ -135,12 +182,12 @@ describe("MCPAppsMiddleware integration", () => {
     expect(middleware).toBeInstanceOf(MCPAppsMiddleware);
   });
 
-  it("rejects unsupported policy before the runtime constructs middleware", async () => {
+  it("rejects a malformed tool policy before the runtime constructs middleware", async () => {
     const server = {
       type: "http" as const,
       url: "https://mcp.example.com/mcp",
       serverId: "weather",
-      excludeTools: ["delete_account"],
+      excludeTools: "delete_account",
     } as unknown as McpAppsServerConfig;
     const runtime = new CopilotRuntime({
       agents: { default: new MockNextAgent() },
@@ -162,12 +209,195 @@ describe("MCPAppsMiddleware integration", () => {
       expect(response.status).toBe(500);
       await expect(response.json()).resolves.toMatchObject({
         error: "Failed to run agent",
-        message: expect.stringContaining("excludeTools"),
+        message: expect.stringContaining(
+          "excludeTools at server[0] (weather) must be an array of non-empty tool names",
+        ),
       });
       expect(middlewareConstructor).not.toHaveBeenCalled();
     } finally {
       errorSpy.mockRestore();
     }
+  });
+
+  it("exposes only tools selected by includeTools and excludeTools", async () => {
+    const calls: string[] = [];
+    mcpMock = new MCPMock();
+    for (const name of ["generate_qr", "admin_dashboard"]) {
+      const tool = {
+        name,
+        description: name,
+        inputSchema: { type: "object" as const, properties: {} },
+        _meta: { "ui/resourceUri": `ui://${name}` },
+      };
+      mcpMock.addTool(tool);
+      mcpMock.onToolCall(name, () => {
+        calls.push(name);
+        return name;
+      });
+    }
+    mcpMock.addResource(
+      { uri: "ui://generate_qr", name: "QR", mimeType: "text/plain" },
+      { text: "qr-widget" },
+    );
+    llm = new LLMock({ port: 0 });
+    llm.mount("/mcp", mcpMock);
+    await llm.start();
+    const url = `${llm.url}/mcp`;
+
+    const cases: Array<{
+      includeTools?: string[];
+      excludeTools?: string[];
+      expected: string[];
+    }> = [
+      { includeTools: ["generate_qr"], expected: ["generate_qr"] },
+      { excludeTools: ["admin_dashboard"], expected: ["generate_qr"] },
+      {
+        includeTools: ["generate_qr", "admin_dashboard"],
+        excludeTools: ["admin_dashboard"],
+        expected: ["generate_qr"],
+      },
+      { includeTools: [], expected: [] },
+      { expected: ["generate_qr", "admin_dashboard"] },
+    ];
+
+    for (const { expected, ...policy } of cases) {
+      calls.length = 0;
+      middlewareConstructor.mockClear();
+      const host = new MockNextAgent();
+      const use = vi.spyOn(host, "use");
+      configureAgentForRequest({
+        runtime: {
+          mcpApps: {
+            servers: [{ type: "http", url, serverId: "crm", ...policy }],
+          },
+        } as unknown as CopilotRuntimeLike,
+        request: new Request("https://example.com/run"),
+        agentId: "default",
+        agent: host,
+      });
+
+      expect(use).toHaveBeenCalledOnce();
+      const [created] = middlewareConstructor.mock.calls.at(-1) as [
+        { mcpServers: Record<string, unknown>[] },
+      ];
+      expect(created.mcpServers[0]).not.toHaveProperty("includeTools");
+      expect(created.mcpServers[0]).not.toHaveProperty("excludeTools");
+
+      const middleware = use.mock.calls[0][0] as MCPAppsMiddleware;
+      const listing = new ToolListingAgent();
+      const events = await collectEvents(
+        middleware.run(createRunInput(), listing),
+      );
+      expect(listing.toolNames).toEqual(expected);
+      expect(calls).toEqual(expected);
+      if (!expected.includes("admin_dashboard")) {
+        const rejectedAt = events.findIndex(
+          (event) =>
+            event.type === EventType.TOOL_CALL_RESULT &&
+            "toolCallId" in event &&
+            event.toolCallId === "call-admin_dashboard",
+        );
+        const finishedAt = events.findIndex(
+          (event) => event.type === EventType.RUN_FINISHED,
+        );
+        expect(rejectedAt).toBeGreaterThanOrEqual(0);
+        expect(rejectedAt).toBeLessThan(finishedAt);
+        expect(events[rejectedAt]).toMatchObject({
+          content: "MCP tool is not allowed: admin_dashboard",
+        });
+      }
+    }
+
+    calls.length = 0;
+    const host = new MockNextAgent();
+    const use = vi.spyOn(host, "use");
+    configureAgentForRequest({
+      runtime: {
+        mcpApps: {
+          servers: [
+            {
+              type: "http" as const,
+              url,
+              serverId: "crm",
+              includeTools: ["generate_qr", "admin_dashboard"],
+              excludeTools: ["admin_dashboard"],
+            },
+          ],
+        },
+      } as unknown as CopilotRuntimeLike,
+      request: new Request("https://example.com/run"),
+      agentId: "default",
+      agent: host,
+    });
+    const middleware = use.mock.calls[0][0] as MCPAppsMiddleware;
+
+    const denied = await collectEvents(
+      middleware.run(
+        createRunInput({
+          forwardedProps: {
+            __proxiedMCPRequest: {
+              serverId: "crm",
+              method: "tools/call",
+              params: { name: "admin_dashboard", arguments: {} },
+            },
+          },
+        }),
+        new MockNextAgent(),
+      ),
+    );
+    const deniedResult = denied.find(
+      (event) => event.type === EventType.RUN_FINISHED,
+    ) as BaseEvent & {
+      result?: { isError?: boolean; content?: Array<{ text?: string }> };
+    };
+    expect(deniedResult.result?.isError).toBe(true);
+    expect(deniedResult.result?.content?.[0]?.text).toContain(
+      "admin_dashboard",
+    );
+    expect(calls).not.toContain("admin_dashboard");
+
+    const allowed = await collectEvents(
+      middleware.run(
+        createRunInput({
+          forwardedProps: {
+            __proxiedMCPRequest: {
+              serverId: "crm",
+              method: "tools/call",
+              params: { name: "generate_qr", arguments: {} },
+            },
+          },
+        }),
+        new MockNextAgent(),
+      ),
+    );
+    const allowedResult = allowed.find(
+      (event) => event.type === EventType.RUN_FINISHED,
+    ) as BaseEvent & { result?: { content?: Array<{ text?: string }> } };
+    expect(
+      allowedResult.result?.content?.some(
+        (item) => item.text === "generate_qr",
+      ),
+    ).toBe(true);
+    expect(calls).toEqual(["generate_qr"]);
+
+    const resource = await collectEvents(
+      middleware.run(
+        createRunInput({
+          forwardedProps: {
+            __proxiedMCPRequest: {
+              serverId: "crm",
+              method: "resources/read",
+              params: { uri: "ui://generate_qr" },
+            },
+          },
+        }),
+        new MockNextAgent(),
+      ),
+    );
+    const resourceResult = resource.find(
+      (event) => event.type === EventType.RUN_FINISHED,
+    ) as BaseEvent & { result?: { contents?: Array<{ text?: string }> } };
+    expect(resourceResult.result?.contents?.[0]?.text).toBe("qr-widget");
   });
 
   it("attaches valid MCP Apps servers through the production adapter", () => {
