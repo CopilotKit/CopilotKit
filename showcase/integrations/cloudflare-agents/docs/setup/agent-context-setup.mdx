@@ -1,0 +1,25 @@
+<Steps>
+  <Step>
+    ### Say in the instructions what the context is for
+
+    Each `useAgentContext` entry reaches the agent in the run's
+    `RunAgentInput.context`. `run.streamTextOptions()` adds the entries to the
+    instructions on every run, under `Context from the application:` as
+    `- description: value` lines, so the model always sees the current values.
+    The agent's own instructions only have to say how to use them. The
+    showcase's agents pass theirs as `instructions`:
+
+    <DemoCode file="src/agent/agents.ts" region="agent-run" />
+
+  </Step>
+  <Step>
+    ### Or read the context in code
+
+    `run.context` holds the same entries as the client sent them, each a
+    `{ description, value }` pair. Read it in `onAGUIRun` when code, not the
+    model, needs a value: to filter a tool's query by the user's timezone,
+    say, without asking the model to pass it along. The entries still reach
+    the model through `run.streamTextOptions()`.
+
+  </Step>
+</Steps>

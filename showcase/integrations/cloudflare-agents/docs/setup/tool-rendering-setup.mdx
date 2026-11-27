@@ -1,0 +1,30 @@
+<Steps>
+  <Step>
+    ### Pass the backend tools to the agent
+
+    Backend tools are AI SDK `tool()`s with an `execute` function. Pass them
+    as `tools` to `run.streamTextOptions()`, which puts them after the page's
+    tools, and the AI SDK runs each call in the Worker when the model asks for
+    it. The adapter streams every call to the browser as `TOOL_CALL_START`,
+    `TOOL_CALL_ARGS` and `TOOL_CALL_END`, then `TOOL_CALL_RESULT` with the
+    returned value, so a frontend renderer registered under the same name
+    paints the card.
+
+  </Step>
+  <Step>
+    ### Let the model answer after the tool
+
+    `streamText` stops after one step unless you give it a `stopWhen`, so the
+    model would call the tool and never write its reply. The showcase's run
+    loop allows several steps:
+
+    <DemoCode file="src/agent/agents.ts" region="agent-run" />
+
+  </Step>
+</Steps>
+
+<Callout type="info" title="Arguments stream as the model writes them">
+  `TOOL_CALL_ARGS` arrives in pieces while the model generates the call, so
+  a renderer can show partial arguments during `inProgress`, before the call
+  executes and completes.
+</Callout>

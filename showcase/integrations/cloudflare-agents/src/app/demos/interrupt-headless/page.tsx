@@ -3,9 +3,9 @@
 // Headless Interrupt cell: renders `useInterrupt` outside the chat.
 //
 // Layout: chat on the right, empty app surface on the left. The user
-// triggers the agent from a chat suggestion. When the backend calls
-// `schedule_meeting`, Strands' native `context.interrupt()` surfaces as a
-// standard AG-UI interrupt via the hook
+// triggers the agent from a chat suggestion. When the model calls
+// `schedule_meeting`, its AI SDK tool approval surfaces as a standard AG-UI
+// interrupt via the hook
 // and we render a time-picker popup IN THE APP SURFACE (left pane) —
 // not inside the chat. Picking a slot resolves the interrupt, the
 // popup vanishes, and the agent confirms back in chat.
@@ -27,59 +27,17 @@ type InterruptPayload = {
   slots?: TimeSlot[];
 };
 
-// Read the tool's `interrupt()` reason off an AG-UI interrupt.
-//
-// The two bridges expose it on different channels: `ag_ui_strands` (Python)
-// carries the reason object under `metadata.reason`, while the published
-// `@ag-ui/aws-strands` 0.2.3 JSON-encodes it into `message` instead. Both are
-// read so one page serves both, and the legacy event value is read last for
-// adapters that pass the payload through unwrapped.
-/**
- * JSON.parse that never throws and never returns a primitive. Both readers run
- * inside a React render callback, where a throw takes the whole pane down.
- */
-function parseObject(raw: string | undefined): Record<string, unknown> | null {
-  if (!raw) return null;
-  try {
-    const parsed: unknown = JSON.parse(raw);
-    return parsed && typeof parsed === "object"
-      ? (parsed as Record<string, unknown>)
-      : null;
-  } catch {
-    return null;
-  }
-}
-
+// `schedule_meeting` needs approval (AI SDK `toolApproval`), so
+// @ag-ui/cloudflare-agents ends the run with a `tool_approval` interrupt
+// before the tool runs. Its `metadata.tool_input` holds the call's arguments.
 function readInterruptPayload(
-  interrupt: { metadata?: unknown; message?: string } | null | undefined,
-  eventValue: unknown,
+  interrupt: { metadata?: unknown } | null | undefined,
 ): InterruptPayload {
-  const metadata = interrupt?.metadata as
-    | { reason?: InterruptPayload }
-    | undefined;
-  if (metadata?.reason && typeof metadata.reason === "object") {
-    return metadata.reason;
-  }
-
-  // The published TypeScript bridge JSON-encodes the reason into `message`
-  // instead of carrying it on metadata.
-  const decoded = parseObject(interrupt?.message);
-  if (decoded) {
-    const nested = (decoded as { reason?: InterruptPayload }).reason;
-    return nested && typeof nested === "object"
-      ? nested
-      : (decoded as InterruptPayload);
-  }
-
-  // Legacy channel: some adapters pass the payload through as the event value,
-  // JSON-encoded or not.
-  const legacy =
-    typeof eventValue === "string" ? parseObject(eventValue) : eventValue;
-  if (!legacy || typeof legacy !== "object") return {};
-  const wrapped = (legacy as { metadata?: { reason?: InterruptPayload } })
-    .metadata?.reason;
-  if (wrapped && typeof wrapped === "object") return wrapped;
-  return legacy as InterruptPayload;
+  const input = (interrupt?.metadata as { tool_input?: unknown } | undefined)
+    ?.tool_input;
+  return input && typeof input === "object" && !Array.isArray(input)
+    ? (input as InterruptPayload)
+    : {};
 }
 
 export default function InterruptHeadlessDemo() {
@@ -95,8 +53,8 @@ function Layout() {
   const interruptElement = useInterrupt({
     agentId: "interrupt-headless",
     renderInChat: false,
-    render: ({ event, interrupt, resolve }) => {
-      const payload = readInterruptPayload(interrupt, event.value);
+    render: ({ interrupt, resolve }) => {
+      const payload = readInterruptPayload(interrupt);
       const resumeAfterPaint = (response: unknown) => {
         setResolving(true);
         // A frame boundary lets React paint before resume unmounts the
@@ -252,8 +210,8 @@ function TimeSlotPopup({ payload, onPick, onCancel }: TimeSlotPopupProps) {
   // One answer per interrupt: the buttons latch on the first click so a second
   // one cannot race the resume that is already in flight.
   const [answered, setAnswered] = useState(false);
-  // The interrupt payload carries the topic and attendee, not the slots: both
-  // backends pause with a reason only, so the times below are generated here,
+  // The interrupt payload carries the topic and attendee, not the slots: the
+  // tool takes no candidate times, so the times below are generated here,
   // relative to "now", so the picker always shows future slots. The payload
   // branch stays for a backend that does send its own candidates.
   const slots =

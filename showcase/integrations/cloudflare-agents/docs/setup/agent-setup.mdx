@@ -1,0 +1,59 @@
+A Cloudflare agent is an Agents SDK `Agent` class that runs as a Durable
+Object: each AG-UI thread gets its own instance, and that instance keeps the
+thread's state. `withAGUI` from `@ag-ui/cloudflare-agents` makes the class
+serve AG-UI. Its `onAGUIRun(run)` handler returns the result of the AI SDK's
+`streamText`, and `run.streamTextOptions()` supplies what the client sent: the
+instructions with the application's context and the shared state, the
+conversation, the page's tools followed by the agent's own, and the signal
+that stops the model when the user stops the run.
+
+The showcase puts that wiring in one base class that every demo agent extends:
+
+<DemoCode file="src/agent/agents.ts" region="agent-setup" />
+
+Nothing about CopilotKit is configured on the agent itself. On every run the
+adapter:
+
+- gives the model the tools the page registered, as tools the browser answers;
+- adds the page's `useAgentContext` entries and the shared state to the
+  instructions;
+- saves the page's state edits into the Durable Object, and streams every
+  `this.setState()` back to the page as a `STATE_SNAPSHOT`.
+
+Each agent class needs a Durable Object binding in `wrangler.jsonc`. The Agents
+SDK's `routeAgentRequest` serves a binding at
+`/agents/<binding name in kebab case>/<thread id>`, so the `Showcase` binding
+is `/agents/showcase/<thread id>`. Copilot Runtime's `HttpAgent` posts every run
+to one URL, so the Worker first moves the run's thread id from the request
+body into the path with the adapter's `toThreadRequest`. Without the
+showcase's diagnostics wrapper, its entry point is:
+
+```ts title="src/agent/index.ts"
+import { routeAgentRequest } from "agents";
+import { toThreadRequest } from "@ag-ui/cloudflare-agents";
+import type { Env } from "./agents";
+
+// Durable Object classes are exported from the Worker's main module.
+export { Showcase } from "./agents";
+
+export default {
+  async fetch(request: Request, env: Env): Promise<Response> {
+    return (
+      (await routeAgentRequest(await toThreadRequest(request), env)) ??
+      new Response("Not found", { status: 404 })
+    );
+  },
+} satisfies ExportedHandler<Env>;
+```
+
+`wrangler dev --port 8000` runs the Worker locally on workerd, with a local
+Durable Object store. Then point Copilot Runtime at
+`http://localhost:8000/agents/<agent>`.
+
+<Accordions>
+  <Accordion title="Install the SDKs">
+    ```bash
+    npm install agents @ag-ui/cloudflare-agents ai @ai-sdk/openai
+    ```
+  </Accordion>
+</Accordions>

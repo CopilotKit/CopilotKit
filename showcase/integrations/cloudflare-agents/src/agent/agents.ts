@@ -51,6 +51,7 @@ export type Env = ModelEnv & Record<string, unknown>;
 type Run = AGUIRun<ShowcaseState>;
 type ProviderOptions = Parameters<typeof streamText>[0]["providerOptions"];
 
+// @region[agent-setup]
 /** What every agent shares: the model, the page's tools, the run loop. */
 abstract class ShowcaseAgentBase extends withAGUI(Agent<Env, ShowcaseState>) {
   initialState: ShowcaseState = {};
@@ -87,6 +88,7 @@ abstract class ShowcaseAgentBase extends withAGUI(Agent<Env, ShowcaseState>) {
     return chatProviderOptions(chatModelId(this.env));
   }
 
+  // @region[agent-run]
   onAGUIRun(run: Run) {
     const options = run.streamTextOptions({
       instructions: this.prompt,
@@ -103,6 +105,7 @@ abstract class ShowcaseAgentBase extends withAGUI(Agent<Env, ShowcaseState>) {
       stopWhen: stepCountIs(this.maxSteps),
     });
   }
+  // @endregion[agent-run]
 
   /** The state accessor the tools write through. */
   protected stateAccess() {
@@ -112,6 +115,7 @@ abstract class ShowcaseAgentBase extends withAGUI(Agent<Env, ShowcaseState>) {
     };
   }
 }
+// @endregion[agent-setup]
 
 /**
  * The shared agent: chat, server tools, shared state, sub-agents. gen-ui-agent
@@ -213,6 +217,7 @@ export class DeclarativeGenUi extends ShowcaseAgentBase {
  */
 export class A2uiRecovery extends DeclarativeGenUi {}
 
+// @region[backend-interrupt-tool]
 /**
  * gen-ui-interrupt and interrupt-headless: `schedule_meeting` pauses for the
  * user's pick (AI SDK `toolApproval`, an AG-UI interrupt). The pages resume
@@ -245,6 +250,7 @@ export class Interrupt extends ShowcaseAgentBase {
     return super.onRequest(withBody(JSON.stringify(translated)));
   }
 }
+// @endregion[backend-interrupt-tool]
 
 /**
  * reasoning-default and reasoning-custom: a reasoning model on the Responses

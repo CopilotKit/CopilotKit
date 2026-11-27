@@ -280,6 +280,16 @@ const ALL_FRAMEWORKS: Framework[] = [
     caps: ALL,
   },
   {
+    id: "cloudflare-agents",
+    name: "Cloudflare Agents",
+    short: "Cloudflare Agents",
+    language: "TypeScript",
+    summary:
+      "Cloudflare's SDK for stateful agents on Workers and Durable Objects.",
+    demos: 41,
+    caps: WITH_INTERRUPTS,
+  },
+  {
     id: "langroid",
     name: "Langroid",
     short: "Langroid",

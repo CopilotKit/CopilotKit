@@ -17,7 +17,7 @@ repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/c
 copilotkit_version: 2.0.0
 deployed: true
 test_coverage: shared-d6
-docs_mode: hidden
+docs_mode: generated
 sort_order: 63
 generative_ui:
   - constrained-explicit
@@ -329,6 +329,7 @@ demos:
     animated_preview_url:
     highlight:
       - src/agent/agents.ts
+      - src/agent/a2ui.ts
       - src/app/demos/a2ui-fixed-schema/page.tsx
       - src/app/demos/a2ui-fixed-schema/a2ui/catalog.ts
       - src/app/demos/a2ui-fixed-schema/a2ui/definitions.ts
@@ -379,6 +380,7 @@ demos:
     highlight:
       - src/agent/agents.ts
       - src/agent/tools.ts
+      - src/agent/prompts.ts
       - src/app/demos/subagents/page.tsx
       - src/app/demos/subagents/delegation-log.tsx
       - src/app/api/copilotkit/route.ts
@@ -389,6 +391,10 @@ demos:
       - agent-state
     route: /demos/shared-state-streaming
     animated_preview_url:
+    highlight:
+      - src/agent/tools.ts
+      - src/app/demos/shared-state-streaming/page.tsx
+      - src/app/api/copilotkit/route.ts
   - id: readonly-state-agent-context
     name: Readonly State (Agent Context)
     description: Frontend provides read-only context to the agent via useAgentContext
@@ -579,6 +585,7 @@ demos:
     route: /demos/gen-ui-interrupt
     animated_preview_url:
     highlight:
+      - src/agent/agents.ts
       - src/agent/scheduling.ts
       - src/app/demos/gen-ui-interrupt/page.tsx
       - src/app/demos/gen-ui-interrupt/_components/time-picker-card.tsx
@@ -592,6 +599,7 @@ demos:
     route: /demos/interrupt-headless
     animated_preview_url:
     highlight:
+      - src/agent/agents.ts
       - src/agent/scheduling.ts
       - src/app/demos/interrupt-headless/page.tsx
       - src/app/api/copilotkit/route.ts

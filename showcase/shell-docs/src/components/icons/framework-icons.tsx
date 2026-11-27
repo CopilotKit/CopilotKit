@@ -405,6 +405,9 @@ const BRAND_LOGOS: Record<
   "strands-typescript": { src: "/logos/frameworks/strands.svg", tile: true },
   // Oracle's Agent Spec mark, as shell-docs shows it.
   "agent-spec": { src: "/logos/oracle-agent-spec.png" },
+  // The Cloudflare cloud from Simple Icons (simple-icons@16.37.0, CC0) in
+  // Cloudflare orange #F38020; the showcase shell ships the same file.
+  "cloudflare-agents": { src: "/logos/cloudflare-agents.svg" },
 };
 
 function BrandImage({

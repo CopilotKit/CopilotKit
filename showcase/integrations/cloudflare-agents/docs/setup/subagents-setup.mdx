@@ -1,0 +1,33 @@
+<Steps>
+  <Step>
+    ### Install the Cloudflare Agents AG-UI adapter
+
+    ```bash
+    npm install agents @ag-ui/cloudflare-agents ai
+    ```
+
+  </Step>
+  <Step>
+    ### Give the supervisor one tool per sub-agent
+
+    In the showcase, each sub-agent is one AI SDK `generateText` call with its
+    own system prompt, run from inside a server tool of the supervisor. The
+    supervisor's instructions decide the order. Every delegation is an
+    ordinary tool call, so the adapter streams the `TOOL_CALL_*` events the UI
+    renders its per-delegation cards from, and the sub-agent's text comes back
+    as the tool's result.
+
+    Each delegation also appends an entry to the `delegations` slot of shared
+    state with `this.setState()`, which streams a `STATE_SNAPSHOT` as the tool
+    finishes, so the UI's delegation log fills in while the supervisor is
+    still running. The Durable Object keeps the log, so it is still there when
+    the user comes back to the thread.
+
+  </Step>
+</Steps>
+
+<Callout type="info" title="Pass the run's abort signal on">
+  The tool's `execute` receives the run's `abortSignal`. Hand it to the
+  sub-agent's `generateText`, so stopping the run in the UI stops the
+  sub-agent's model call too.
+</Callout>

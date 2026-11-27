@@ -41,6 +41,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+// @region[interrupt-resume-payload]
 /**
  * Rewrites the resume entries of a RunAgentInput: a picked slot becomes
  * `{ approved: true }` (the slot goes into `choices`, keyed by the interrupt
@@ -101,3 +102,4 @@ export function scheduleMeetingTool(choices: Map<string, MeetingChoice>) {
     },
   });
 }
+// @endregion[interrupt-resume-payload]
