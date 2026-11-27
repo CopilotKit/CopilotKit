@@ -38,6 +38,27 @@ function read(): string {
   return localStorage.getItem(KEY) ?? "";
 }
 
+/**
+ * Remembers the frontend of the docs page being read (`/vue/...` is Vue, a
+ * URL with no frontend is React), so links on the pages that aren't per
+ * frontend (the home, the reference, the cookbook) keep the reader on it.
+ * The `?frontend=` pin wins while it is in the URL.
+ */
+export function rememberFrontend(id: FrontendId) {
+  if (localStorage.getItem(KEY) === id) return;
+  localStorage.setItem(KEY, id);
+  for (const l of listeners) l();
+}
+
+/**
+ * The saved frontend, or null before the reader has one, without the
+ * provider: for UI mounted outside the docs layout (the search dialog).
+ */
+export function useSavedFrontend(): FrontendId | null {
+  const raw = useSyncExternalStore(subscribe, read, () => "");
+  return isFrontend(raw) ? raw : null;
+}
+
 interface FrontendContextValue {
   frontend: FrontendId;
   chosen: boolean;

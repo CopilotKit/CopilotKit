@@ -1,6 +1,7 @@
 "use client";
 
 import type * as PageTree from "fumadocs-core/page-tree";
+import { useState } from "react";
 import {
   AgentsGlyph,
   BackendGlyph,
@@ -295,6 +296,13 @@ export function SidebarTop({
 }) {
   const fw = loc?.kind === "framework" ? loc.framework : undefined;
   const slug = loc?.kind === "framework" ? loc.slug : "";
+  // The stack D's picker last showed. This stays mounted as long as the docs
+  // layout, on the reference and cookbook too, where it draws no picker, so
+  // the picker plays its cue when it first shows in a visit (a fresh load, or
+  // arriving from the home, Examples, or Ask CopilotKit, which use another
+  // layout) and when its stack changes, but not on a page change or a return
+  // to the same stack (StackRows' `shown`).
+  const [shown, setShown] = useState<string | null>(null);
   if (variant === "d" && loc?.kind === "intelligence") {
     // Intelligence pages aren't per framework: switching keeps the page.
     return (
@@ -303,6 +311,8 @@ export function SidebarTop({
         framework={lastFramework ?? "mastra"}
         slug=""
         onFramework={rememberFramework}
+        shown={shown}
+        onShown={setShown}
       />
     );
   }
@@ -333,7 +343,13 @@ export function SidebarTop({
       return <FrontendMenu label="Choose your frontend" />;
     case "d":
       return fw ? (
-        <StackRows variant={variant} framework={fw} slug={slug} />
+        <StackRows
+          variant={variant}
+          framework={fw}
+          slug={slug}
+          shown={shown}
+          onShown={setShown}
+        />
       ) : null;
   }
 }

@@ -11,7 +11,6 @@ import {
 } from "@/components/icons/glyphs";
 import { FrameworkLogo } from "@/components/icons/framework-icons";
 import { FrontendLogo } from "@/components/icons/frontend-logo";
-import { frontendHref } from "@/lib/live-scope";
 import { useIntegrationClickTracking } from "@/components/telemetry/homepage";
 import {
   FRAMEWORKS,
@@ -21,10 +20,9 @@ import {
   TOPIC_SUMMARY,
 } from "./data";
 import { CopyPromptD } from "./copy-prompt-d";
-import { useLastFramework } from "./last-framework";
 import { FamilyCard, LinkCard, Tray } from "./link-card";
 import { QuickstartMenu } from "./quickstart-menu";
-import { frameworkHref, sectionHref } from "./routes";
+import { useStackHref } from "./stack-href";
 import { StackDiagram } from "./stack-diagram";
 import { TopicGlyph } from "./topic-glyph";
 
@@ -32,12 +30,19 @@ import { TopicGlyph } from "./topic-glyph";
 const TOPIC_PATH: Partial<Record<string, string>> = {
   // The Generative UI overview is retired; its first Controlled page leads.
   "generative-ui": "generative-ui/tool-based",
+  // `/threads` only redirects here, and the card checks the page exists.
+  threads: "AG-UI-Streams",
 };
 
 const sectionTitle = "text-2xl leading-tight font-medium tracking-[-0.03em]";
 
+/**
+ * The home. Every card opens on the reader's stack, the frontend and
+ * framework they last read docs for: a topic on both, a frontend with their
+ * framework, a framework on their frontend.
+ */
 export function DHome() {
-  const [framework] = useLastFramework();
+  const stackHref = useStackHref();
   const trackIntegrationClick = useIntegrationClickTracking();
 
   return (
@@ -81,14 +86,14 @@ export function DHome() {
           {TOPICS.map((t) => (
             <LinkCard
               key={t.slug}
-              href={frameworkHref("d", framework, TOPIC_PATH[t.slug] ?? t.slug)}
+              href={stackHref(TOPIC_PATH[t.slug] ?? t.slug)}
               icon={<TopicGlyph slug={t.slug} />}
               title={t.title}
               description={TOPIC_SUMMARY[t.slug]}
             />
           ))}
           <LinkCard
-            href={sectionHref("d", "intelligence")}
+            href={stackHref("intelligence/overview")}
             icon={<IntelligenceGlyph />}
             title="Intelligence"
             description="Threads that persist, user memories, and agents that learn from real use."
@@ -102,7 +107,7 @@ export function DHome() {
           {FRONTENDS.map((f) => (
             <LinkCard
               key={f.id}
-              href={frontendHref([], f.id, "")}
+              href={stackHref("", { frontend: f.id })}
               glyph="logo"
               icon={<FrontendLogo icon={f.id} size={22} />}
               title={f.name}
@@ -125,7 +130,7 @@ export function DHome() {
               return (
                 <LinkCard
                   key={f.id}
-                  href={frameworkHref("d", f.id, "quickstart")}
+                  href={stackHref("quickstart", { framework: f.id })}
                   glyph="logo"
                   icon={<FrameworkLogo slug={f.id} size={22} />}
                   title={f.name}
@@ -141,7 +146,7 @@ export function DHome() {
                 summary={family.summary}
                 variants={family.variants.map((v) => ({
                   ...v,
-                  href: frameworkHref("d", v.id, "quickstart"),
+                  href: stackHref("quickstart", { framework: v.id }),
                 }))}
               />
             );
