@@ -1,9 +1,15 @@
 import { resolveLivePage } from "@/lib/live-docs";
-import { searchEntries } from "./live-inventory";
+import { earlyAccessChannel } from "@/lib/early-access/channels";
+import {
+  channelPageMarkdown,
+  channelPageSearchText,
+} from "@/lib/early-access/markdown";
+import { earlyAccessEntries, searchEntries } from "./live-inventory";
 import { renderLivePageMarkdown } from "./page-markdown";
 
 // Page lookups for agents reading the site through tools (`/api/mcp`): every
-// page with its URL, and one page as Markdown.
+// page with its URL, and one page as Markdown. Search finds the early-access
+// channels' landing pages (`/whatsapp`) too, so these read them as well.
 
 /** Every page, one per line: `- [Title](/url): description`. */
 export async function listPages(): Promise<string> {
@@ -11,7 +17,11 @@ export async function listPages(): Promise<string> {
     const { title, description } = live.page.data;
     return `- [${title}](${url})${description ? `: ${description}` : ""}`;
   });
-  return live.join("\n");
+  const channels = earlyAccessEntries().map(({ url, id }) => {
+    const { title, description } = channelPageSearchText(id);
+    return `- [${title}](${url}): ${description}`;
+  });
+  return [...live, ...channels].join("\n");
 }
 
 /**
@@ -38,6 +48,8 @@ export async function getPageMarkdown(url: string): Promise<string | null> {
         return segment;
       }
     });
+  const channel = path.length === 1 ? earlyAccessChannel(path[0]) : undefined;
+  if (channel) return channelPageMarkdown(channel.id);
   const live = resolveLivePage(path);
   return live ? renderLivePageMarkdown(live, `/${path.join("/")}`) : null;
 }

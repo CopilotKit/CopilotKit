@@ -5,9 +5,9 @@
 // destination, same status (`permanent: true` = 308, `permanent: false` =
 // 307, `statusCode: 301` = 301), same order.
 //
-// Imported ONLY by next.config.mjs. Keep it free of app imports and don't
-// import it from runtime code: shell-docs found that a module shared between
-// next.config and the app pulls the config into route NFT traces.
+// Imported ONLY by next.config.mjs (and tests). Keep it free of app imports
+// and don't import it from runtime code: shell-docs found that a module shared
+// between next.config and the app pulls the config into route NFT traces.
 //
 // Next runs these before src/proxy.ts, which carries the second legacy table
 // (seo-redirects.ts). Same layering as shell-docs (config, then middleware).
@@ -77,6 +77,43 @@ function permanentRedirectsWithSuffixes(source, destination) {
 }
 
 const NON_REACT_DOCS_FRONTENDS = ["react-spa", "vue", "react-native"];
+
+// ---------------------------------------------------------------------------
+// The early-access channels' landing pages (`/whatsapp`). Nothing lives under
+// them yet, so a deeper URL opens the page, as the page itself does
+// (`src/app/(d)/[[...path]]/page.tsx`): `.md` and `.mdx` open its Markdown,
+// and a plain URL opens the page, where `Accept: text/markdown` still gets the
+// Markdown. Temporary (307), since a channel's docs will live there once it
+// ships. These rules lead the table: the leading `:framework` and `:prefix+`
+// rules below would read `/whatsapp/channels` as a `whatsapp` framework's page
+// and send it, permanently, to `/slack/whatsapp`, a 404.
+// ---------------------------------------------------------------------------
+/**
+ * `EARLY_ACCESS_CHANNEL_IDS` in src/lib/early-access/channels.ts, which this
+ * file can't import; a test in showcase/scripts keeps the two lists equal.
+ */
+export const EARLY_ACCESS_CHANNEL_IDS = ["imessage", "whatsapp", "sms", "rcs"];
+
+const EARLY_ACCESS_CHANNEL = `:channel(${EARLY_ACCESS_CHANNEL_IDS.join("|")})`;
+
+/** @type {Redirect[]} */
+const EARLY_ACCESS_CHANNEL_REDIRECTS = [
+  {
+    source: `/${EARLY_ACCESS_CHANNEL}/:path+.md`,
+    destination: "/:channel.md",
+    permanent: false,
+  },
+  {
+    source: `/${EARLY_ACCESS_CHANNEL}/:path+.mdx`,
+    destination: "/:channel.md",
+    permanent: false,
+  },
+  {
+    source: `/${EARLY_ACCESS_CHANNEL}/:path+`,
+    destination: "/:channel",
+    permanent: false,
+  },
+];
 
 /** Angular's own threads page, where its retired threads URLs land. */
 const ANGULAR_THREADS_PAGE = "headless-threads";
@@ -547,11 +584,15 @@ const CHANNEL_ROOT_REDIRECTS = [
 const CHANNEL_PLATFORM_REDIRECTS = [
   ...permanentRedirectsWithSuffixes("/channels/platforms/slack", "/slack"),
   ...permanentRedirectsWithSuffixes("/channels/platforms/teams", "/teams"),
+  // `/whatsapp` is WhatsApp's early-access page now (src/lib/early-access);
+  // EARLY_ACCESS_CHANNEL_REDIRECTS send the paths under it there too.
+  ...permanentRedirectsWithSuffixes(
+    "/channels/platforms/whatsapp",
+    "/whatsapp",
+  ),
   ...permanentRedirectsWithSuffixes("/channels/platforms", "/slack"),
   ...permanentRedirectsWithSuffixes("/channels/platforms/:path*", "/slack"),
-  ...permanentRedirectsWithSuffixes("/whatsapp", "/slack"),
-  ...permanentRedirectsWithSuffixes("/whatsapp/:path*", "/slack"),
-  ...permanentRedirectsWithSuffixes("/frontends/whatsapp", "/slack"),
+  ...permanentRedirectsWithSuffixes("/frontends/whatsapp", "/whatsapp"),
 ];
 
 /** @type {Redirect[]} */
@@ -1039,6 +1080,8 @@ const ANTIGRAVITY_COOKBOOK_REDIRECTS = [
 ];
 
 export const nextConfigRedirects = [
+  // First: nothing below may catch a path under an early-access channel.
+  ...EARLY_ACCESS_CHANNEL_REDIRECTS,
   ...ANTIGRAVITY_COOKBOOK_REDIRECTS,
   ...AG_UI_STREAMS_REDIRECTS,
   ...RETIRED_OVERVIEW_REDIRECTS,

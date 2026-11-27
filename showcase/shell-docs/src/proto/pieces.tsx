@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { ArrowRight, Check, ChevronsUpDown, Info, Search } from "lucide-react";
 import { IntelligenceGlyph } from "@/components/icons/glyphs";
+import { EarlyAccessBadge } from "@/components/early-access/badge";
 import {
   Popover,
   PopoverContent,
@@ -14,6 +15,7 @@ import {
 import { cn } from "@/lib/cn";
 import { whereIs } from "@/lib/live-pages";
 import { frontendHref, liveFrontend, scopeFromPath } from "@/lib/live-scope";
+import { DOCS_FRONTENDS, frontendEventProperties } from "@/lib/frontends";
 import { useLivePages } from "./live-pages-context";
 import { trackEvent } from "@/lib/telemetry/analytics";
 import frameworkCategories from "@/data/framework-categories.json";
@@ -181,7 +183,11 @@ export function FrameworkMenu({
   );
 }
 
-/** Frontend dropdown, remembered across pages. */
+/**
+ * Frontend dropdown, remembered across pages. It only sets the reader's docs
+ * stack, so it lists the frontends with docs, as FrontendChips,
+ * PlainSentence, and TwoQuestions do: an early-access pick would do nothing.
+ */
 export function FrontendMenu({
   label,
   look = "sidebar",
@@ -212,7 +218,7 @@ export function FrontendMenu({
           />
         </PopoverTrigger>
         <PopoverContent align="start" sideOffset={6} className="w-72 p-1">
-          {FRONTENDS.map((f) => (
+          {DOCS_FRONTENDS.map((f) => (
             <button
               key={f.id}
               type="button"
@@ -251,7 +257,7 @@ export function FrontendChips({ size = "md" }: { size?: "sm" | "md" }) {
       // Above the content that follows, so the chips' grown hit area wins.
       className="not-prose relative z-10 flex-wrap"
     >
-      {FRONTENDS.map((f) => (
+      {DOCS_FRONTENDS.map((f) => (
         <ToggleGroupItem
           key={f.id}
           value={f.id}
@@ -283,7 +289,7 @@ export function PlainSentence({
   slug: string;
 }) {
   const { frontend, setFrontend } = useFrontend();
-  const other = FRONTENDS.find((f) => f.id !== frontend)!;
+  const other = DOCS_FRONTENDS.find((f) => f.id !== frontend)!;
   const fw = frameworkById(framework);
   const alt = FRAMEWORKS.find((f) => f.id !== framework && f.popular)!;
   return (
@@ -504,7 +510,7 @@ export function TwoQuestions({
           What are you building with?
         </p>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {FRONTENDS.map((f) => {
+          {DOCS_FRONTENDS.map((f) => {
             const on = f.id === frontend;
             return (
               <button
@@ -675,6 +681,81 @@ function StackRow({
 }
 
 /**
+ * The frontend list of the sidebar's picker and the landing pages' picker:
+ * the app frontends, then the channels, each in the frontend list's order
+ * (the early-access channels follow Slack and Teams). A frontend in early
+ * access carries the "Early access" badge. Rows grow to 44px on touch
+ * screens, and the check mark has a slot of its own on every row, so the
+ * badges line up whichever row is checked.
+ */
+export function FrontendOptions({
+  current,
+  onPick,
+}: {
+  current: FrontendId;
+  onPick: (id: FrontendId) => void;
+}) {
+  return (["app", "channel"] as const).map((kind) => (
+    <div key={kind} className="p-1">
+      <p className="px-2 pt-1.5 pb-1 text-xs text-fd-muted-foreground">
+        {kind === "app" ? "Frontends" : "Channels"}
+      </p>
+      {FRONTENDS.filter((f) => f.kind === kind).map((f) => (
+        <button
+          key={f.id}
+          type="button"
+          aria-current={f.id === current ? "true" : undefined}
+          onClick={() => onPick(f.id)}
+          className="flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-start text-sm outline-none hover:bg-accent focus-visible:bg-accent focus-visible:ring-2 focus-visible:ring-fd-ring pointer-coarse:min-h-11"
+        >
+          <FrontendLogo icon={f.id} size={16} className="shrink-0" />
+          <span className="min-w-0 flex-1 truncate">{f.name}</span>
+          {f.earlyAccess ? <EarlyAccessBadge /> : null}
+          <span aria-hidden="true" className="flex size-4 shrink-0">
+            {f.id === current ? (
+              <Check className="size-4 text-fd-primary" />
+            ) : null}
+          </span>
+        </button>
+      ))}
+    </div>
+  ));
+}
+
+/**
+ * What picking a frontend in a picker does: the frontend is remembered as the
+ * reader's (`setFrontend` remembers only a frontend with docs, so an
+ * early-access pick leaves it alone), `docs.frontend_selected` goes out
+ * (shell-docs' framework selector event, same properties), and the
+ * destination opens.
+ */
+export function usePickFrontend() {
+  const { setFrontend } = useFrontend();
+  const router = useRouter();
+  const pathname = usePathname();
+  return useCallback(
+    (pick: {
+      frontend: FrontendId;
+      from: FrontendId;
+      framework: string;
+      destination: string;
+    }) => {
+      // Remembered for the pages that aren't per frontend, if it has docs.
+      setFrontend(pick.frontend);
+      trackEvent("docs.frontend_selected", {
+        ...frontendEventProperties(pick.frontend),
+        from_frontend: pick.from,
+        backend: pick.framework,
+        from_path: pathname,
+        destination_path: pick.destination,
+      });
+      router.push(pick.destination);
+    },
+    [setFrontend, router, pathname],
+  );
+}
+
+/**
  * The picker's cue, an overlay on the card: one quick fade to lilac and back.
  * The overlay is the card's look at the peak, its edge deepened to lilac-mid
  * (2px with the ring around it) and its white washed lilac, and only its
@@ -717,8 +798,7 @@ export function StackRows({
   /** Hears the stack the picker shows, to hand back as `shown`. */
   onShown?: (values: string) => void;
 }) {
-  const { setFrontend } = useFrontend();
-  const router = useRouter();
+  const pickFrontend = usePickFrontend();
   const pathname = usePathname();
   const path = pathname.split("/").filter(Boolean);
   const { frontend } = scopeFromPath(path);
@@ -762,55 +842,25 @@ export function StackRows({
         open={open === "frontend"}
         onOpenChange={(o) => setOpen(o ? "frontend" : null)}
       >
-        {(["app", "channel"] as const).map((kind) => (
-          <div key={kind} className="p-1">
-            <p className="px-2 pt-1.5 pb-1 text-xs text-fd-muted-foreground">
-              {kind === "app" ? "Frontends" : "Channels"}
-            </p>
-            {FRONTENDS.filter((f) => f.kind === kind).map((f) => (
-              <button
-                key={f.id}
-                type="button"
-                onClick={() => {
-                  setOpen(null);
-                  if (f.id === frontend) return;
-                  // Remembered for the pages that aren't per frontend.
-                  setFrontend(f.id);
-                  // The same page on the new frontend when it has one, else
-                  // the frontend's home.
-                  const same =
-                    !pages ||
-                    !scope.slug ||
-                    !!whereIs(pages, f.id, scope.framework, scope.slug);
-                  const destination = frontendHref(
-                    path,
-                    f.id,
-                    same ? undefined : "",
-                  );
-                  // Shell-docs' framework selector event, same properties.
-                  trackEvent("docs.frontend_selected", {
-                    frontend: f.id,
-                    from_frontend: frontend,
-                    backend: framework,
-                    from_path: pathname,
-                    destination_path: destination,
-                  });
-                  router.push(destination);
-                }}
-                className="flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-start text-sm hover:bg-accent"
-              >
-                <FrontendLogo icon={f.id} size={16} className="shrink-0" />
-                <span className="min-w-0 flex-1 truncate">{f.name}</span>
-                {f.id === frontend ? (
-                  <Check
-                    className="size-4 text-fd-primary"
-                    aria-hidden="true"
-                  />
-                ) : null}
-              </button>
-            ))}
-          </div>
-        ))}
+        <FrontendOptions
+          current={frontend}
+          onPick={(id) => {
+            setOpen(null);
+            if (id === frontend) return;
+            // The same page on the new frontend when it has one, else the
+            // frontend's home.
+            const same =
+              !pages ||
+              !scope.slug ||
+              !!whereIs(pages, id, scope.framework, scope.slug);
+            pickFrontend({
+              frontend: id,
+              from: frontend,
+              framework,
+              destination: frontendHref(path, id, same ? undefined : ""),
+            });
+          }}
+        />
       </StackRow>
       <div className="mx-2 my-0.5 border-t" />
       <StackRow

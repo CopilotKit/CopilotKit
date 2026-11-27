@@ -3,7 +3,8 @@
 import { useCallback } from "react";
 import { useConfigureSuggestions } from "@copilotkit/react-core/v2";
 import { StackAgent, useToolStatus } from "@/components/ai/docs-agent";
-import { FRAMEWORKS, FRONTENDS, frameworkById } from "@/proto/data";
+import { DOCS_FRONTENDS } from "@/lib/frontends";
+import { FRAMEWORKS, frameworkById } from "@/proto/data";
 import type { FrontendId } from "@/proto/data";
 import { useFrontend } from "@/proto/frontend";
 import { useLastFramework } from "@/proto/last-framework";
@@ -62,7 +63,7 @@ export function AskAgent() {
     <StackAgent
       frontend={frontend}
       agentFramework={framework}
-      frontends={FRONTENDS}
+      frontends={DOCS_FRONTENDS}
       frameworks={FRAMEWORKS}
       onSwitch={onSwitch}
     />

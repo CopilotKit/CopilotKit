@@ -23,6 +23,17 @@ docs.copilotkit.ai URLs (`/quickstart`, `/mastra/frontend-tools`,
 "Ask AI" needs an OpenAI key: copy `.env.example` to `.env.local` and set
 `OPENAI_API_KEY`.
 
+The early-access channel pages (`/imessage`, `/whatsapp`, `/sms`, `/rcs`)
+book demos on Calendly through copilotkit.ai. To work on them without
+booking anything, start the server with `CHANNEL_DEMO_FIXTURE=1 npm run dev`:
+it serves made-up open times and fakes each booking (see
+`src/lib/early-access/demo-fixture.ts` for the emails that simulate each
+failure). Only the dev server fakes bookings. On a production build
+(`npm start`) the same switch refuses every booking instead: the booker
+shows no times and its fallback link, and nothing reaches the website. The channels are listed in `src/lib/early-access/channels.ts`, and
+again in `src/lib/redirects/next-config-redirects.mjs`, which can't import
+app code; a test in `showcase/scripts` fails when the two lists differ.
+
 ## Content
 
 The docs pages live in `src/content`. Components resolve by name, so a page
@@ -86,6 +97,8 @@ npm run lint
 | `src/app/api/copilotkit`                        | "Ask AI" runtime: per-IP rate limit and request caps        |
 | `src/lib/docs-agent.ts`                         | "Ask AI" agent: model, scope prompt, tools, hosted MCP      |
 | `src/components/ai`                             | "Ask AI" chat in Spacious' `aiChat` slot, frontend tools    |
+| `src/lib/early-access`                          | Early-access channels: the list, the pages' words, booking  |
+| `src/app/api/channel-demo`                      | The channel pages' demo booking proxy to copilotkit.ai      |
 
 Scaffolded with `create-fumadocs-app@16.2.26` (`+next+fuma-docs-mdx`, `--src`,
 oxlint, Orama search, `next-og`).
