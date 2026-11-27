@@ -120,7 +120,7 @@ The frontend renderer only sees what the agent sends. The matching backend must 
 
 <FrameworkSetup concept="tool-rendering-setup" />
 
-<WhenAngularBackend selected={false}>
+<WhenAgentBackend selected={false}>
 
 On the Built-in Agent, define the tool with `defineTool` and pass it to the agent in the `server.ts` from the [quickstart](/quickstart). `zod` is already installed from the quickstart:
 
@@ -148,13 +148,13 @@ const runtime = new CopilotRuntime({
 
 Restart the runtime with `npx tsx server.ts`.
 
-</WhenAngularBackend>
+</WhenAgentBackend>
 
-<WhenAngularBackend selected>
+<WhenAgentBackend selected>
 
 <Snippet region="weather-tool-backend" cell="tool-rendering" title="backend: weather tool" />
 
-</WhenAngularBackend>
+</WhenAgentBackend>
 
 Register both hooks in a component under `CopilotKitProvider`, and render the chat there:
 

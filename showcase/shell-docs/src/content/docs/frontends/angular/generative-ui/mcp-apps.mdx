@@ -18,6 +18,8 @@ side works.
 
 Add your server to `mcpApps.servers` in the quickstart's `server.ts`:
 
+<WhenAgentBackend selected={false}>
+
 ```ts title="server.ts"
 const runtime = new CopilotRuntime({
   agents: {
@@ -34,6 +36,26 @@ const runtime = new CopilotRuntime({
   },
 });
 ```
+
+</WhenAgentBackend>
+
+<WhenAgentBackend selected>
+
+```ts title="server.ts"
+const runtime = new CopilotRuntime({
+  agents: {
+    // ...the `default` agent from the quickstart, unchanged
+  },
+  // [!code highlight:5]
+  mcpApps: {
+    servers: [
+      { type: "http", url: "https://your-mcp-server.example/mcp", serverId: "my-app" },
+    ],
+  },
+});
+```
+
+</WhenAgentBackend>
 
 Copilot Runtime connects to the MCP server and gives its tools to the agent.
 Keep `serverId` stable, so apps saved in earlier threads still restore.

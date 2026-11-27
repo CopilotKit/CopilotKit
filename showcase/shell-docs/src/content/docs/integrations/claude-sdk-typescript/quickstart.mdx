@@ -457,3 +457,20 @@ app.post("/", async (req, res) => {
 ```
 
 Restart the agent server and ask `What is the weather in Rome?`. The agent calls the tool as `mcp__copilotkit__get_weather` (the MCP bridge adds the prefix), then replies with the tool result. To update shared state from a tool, return the new state as `state` instead of `null`. The adapter emits it as a `STATE_SNAPSHOT` event.
+
+## Next steps
+
+The Claude Agent SDK runs your agent loop. CopilotKit puts it in your app, where your users can see the run, interrupt it and steer it.
+
+Add a capability:
+
+- [Generative UI](/claude-sdk-typescript/generative-ui/tool-rendering): show the agent's tool calls as components that update while the agent runs.
+- [Human-in-the-loop](/claude-sdk-typescript/human-in-the-loop): the agent calls an approval tool and waits. The user decides in your app, and the same run continues with the answer.
+- [Shared state](/claude-sdk-typescript/shared-state): keep the agent's state and your app's state in sync, in both directions.
+- [Frontend tools](/claude-sdk-typescript/frontend-tools): let the agent call tools that update your app directly.
+- [And more](/claude-sdk-typescript/build-with-agents): chat surfaces, headless UI and multi-agent flows work with the Claude Agent SDK too. Give your AI coding agent current CopilotKit knowledge, so it can help you build them.
+
+Go further:
+
+- [Live demos](/examples?framework=claude-sdk-typescript): try each capability with a Claude Agent SDK agent.
+- Using Vue, Angular, or React Native? Pick it in the sidebar's **Frontend** menu. Its quickstart connects this agent.

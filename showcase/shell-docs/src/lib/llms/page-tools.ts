@@ -19,7 +19,7 @@ import { renderLivePageMarkdown } from "./page-markdown";
 export async function listPages(): Promise<string> {
   const live = searchEntries().map(({ url, live }) => {
     const title = entryTitle(live);
-    const description = live.overview?.subheader ?? live.page.data.description;
+    const description = live.page.data.description;
     return `- [${title}](${url})${description ? `: ${description}` : ""}`;
   });
   const channels = earlyAccessEntries().map(({ url, id }) => {

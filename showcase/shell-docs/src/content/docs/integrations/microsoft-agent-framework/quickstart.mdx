@@ -555,33 +555,19 @@ using Microsoft.Extensions.AI;
 
 </Steps>
 
-## What's next?
+## Next steps
 
-Now that you have your basic agent setup, explore these advanced features:
+The Microsoft Agent Framework runs your agent, with its tools and threads, in Python or .NET. CopilotKit puts that agent in your app, where your users can see the run, step in and steer it.
 
-<Cards>
-  <Card
-    title="Implement Human in the Loop"
-    description="Allow your users and agents to collaborate together on tasks."
-    href="/microsoft-agent-framework/human-in-the-loop"
-    icon={<UserIcon />}
-  />
-  <Card
-    title="Use Shared State"
-    description="Learn how to synchronize your agent's state with your UI's state, and vice versa."
-    href="/microsoft-agent-framework/shared-state"
-    icon={<RepeatIcon />}
-  />
-  <Card
-    title="Add some generative UI"
-    description="Render your agent's progress and output in the UI."
-    href="/microsoft-agent-framework/generative-ui/tool-rendering"
-    icon={<PaintbrushIcon />}
-  />
-  <Card
-    title="Add frontend tools"
-    description="Give your agent the ability to call frontend tools, directly updating your application."
-    href="/microsoft-agent-framework/frontend-tools"
-    icon={<WrenchIcon />}
-  />
-</Cards>
+Add a capability:
+
+- [Generative UI](/microsoft-agent-framework/generative-ui/tool-rendering): show the agent's tool calls and state as components that update while it runs.
+- [Human-in-the-loop](/microsoft-agent-framework/human-in-the-loop): the agent pauses for a decision, or calls a tool in the browser, and resumes with the user's answer.
+- [Shared state](/microsoft-agent-framework/shared-state): keep the agent's thread state and your app's state in sync, in both directions.
+- [Frontend tools](/microsoft-agent-framework/frontend-tools): let the agent call tools that update your app directly.
+- [And more](/microsoft-agent-framework/build-with-agents): chat surfaces, headless UI and multi-agent flows work with the Microsoft Agent Framework too. Give your AI coding agent current CopilotKit knowledge, so it can help you build them.
+
+Go further:
+
+- Live demos: try each capability with a Microsoft Agent Framework agent in [Python](/examples?framework=ms-agent-python), [.NET](/examples?framework=ms-agent-dotnet) or [Agent Harness for .NET](/examples?framework=ms-agent-harness-dotnet).
+- Using Vue, Angular, or React Native? Pick it in the sidebar's **Frontend** menu. Its quickstart connects this agent.

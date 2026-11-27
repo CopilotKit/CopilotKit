@@ -31,7 +31,7 @@ If you don't feel ready to make a code contribution yet, no problem! You can als
 
 There are two documentation domains — make sure your change goes to the right place, or it won't reach the live site:
 
-- **CopilotKit docs** (docs.copilotkit.ai) are authored in **`showcase/shell-docs/src/content/`** (`docs/`, `reference/`, `snippets/`, `framework-overviews/`). When adding a page, update the relevant `meta.json` so it appears in navigation. Top-level `docs/` is only a symlink to `showcase/shell-docs/`; do not recreate the old `docs/content/docs/` tree.
+- **CopilotKit docs** (docs.copilotkit.ai) are authored in **`showcase/shell-docs/src/content/`** (`docs/`, `reference/`, `snippets/`). When adding a page, update the relevant `meta.json` so it appears in navigation. Top-level `docs/` is only a symlink to `showcase/shell-docs/`; do not recreate the old `docs/content/docs/` tree.
 
 Merged docs changes update [docs staging](https://docs.staging.copilotkit.ai). Production (`docs.copilotkit.ai`) updates when a maintainer merges the bot-opened `release/docs/prod` PR. Do not run **Showcase: Promote** for docs-only changes.
 

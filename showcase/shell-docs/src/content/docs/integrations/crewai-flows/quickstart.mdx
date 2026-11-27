@@ -142,7 +142,7 @@ Both paths also need:
             CopilotKit connects to agents over [AG-UI](https://docs.ag-ui.com), an open protocol that streams agent events to the frontend. A CrewAI Enterprise Live Automation URL or another plain CrewAI endpoint is not automatically AG-UI-compatible, even if it returns HTTP 200. Add the official CrewAI adapter to the service that hosts your Flow:
 
             ```bash title="Terminal"
-            pip install -U "crewai>=1.15.11,<2" ag-ui-crewai fastapi uvicorn
+            pip install -U "crewai>=1.15.11,<2" ag-ui-crewai litellm fastapi uvicorn
             ```
 
             ```python title="server.py"
@@ -382,31 +382,19 @@ Copilot Cloud can host the runtime for you instead of the route above. It needs 
 
 ---
 
-## What's next?
+## Next steps
 
-<Cards>
-  <Card
-    title="Implement Human in the Loop"
-    description="Allow your users and agents to collaborate together on tasks."
-    href="/crewai-flows/human-in-the-loop"
-    icon={<UserIcon />}
-  />
-  <Card
-    title="Use the Shared State"
-    description="Learn how to synchronize your agent's state with your UI's state, and vice versa."
-    href="/crewai-flows/shared-state"
-    icon={<RepeatIcon />}
-  />
-  <Card
-    title="Add some generative UI"
-    description="Render your agent's progress and output in the UI."
-    href="/crewai-flows/generative-ui/tool-rendering"
-    icon={<PaintbrushIcon />}
-  />
-  <Card
-    title="Setup frontend actions"
-    description="Give your agent the ability to call frontend tools, directly updating your application."
-    href="/crewai-flows/frontend-tools"
-    icon={<WrenchIcon />}
-  />
-</Cards>
+CrewAI runs your Flow, with its steps and state. CopilotKit puts that Flow in your app, where your users can watch each step, interrupt it and steer it.
+
+Add a capability:
+
+- [Generative UI](/crewai-flows/generative-ui/tool-rendering): show the Flow's tool calls and state as components that update while each step runs.
+- [Human-in-the-loop](/crewai-flows/human-in-the-loop): the Flow stops for a decision, your UI asks the user, and the Flow resumes with the answer.
+- [Shared state](/crewai-flows/shared-state): keep Flow state and your app's state in sync, in both directions.
+- [Frontend tools](/crewai-flows/frontend-tools): let the Flow call tools that update your app directly.
+- [And more](/crewai-flows/build-with-agents): chat surfaces, headless UI and multi-agent flows work with CrewAI too. Give your AI coding agent current CopilotKit knowledge, so it can help you build them.
+
+Go further:
+
+- [Live demos](/examples?framework=crewai-crews): try each capability with a CrewAI agent.
+- Using Vue, Angular, or React Native? Pick it in the sidebar's **Frontend** menu. Its quickstart connects this agent.

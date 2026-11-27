@@ -488,31 +488,6 @@ Before you begin, you'll need the following:
 
 </Steps>
 
-## What's next?
-
-Now that you have your basic agent setup, explore these advanced features:
-
-<Cards>
-  <Card
-    title="Implement Human in the Loop"
-    description="Allow your users and agents to collaborate together on tasks."
-    href="/mastra/human-in-the-loop"
-    icon={<UserIcon />}
-  />
-  <Card
-    title="Add some generative UI"
-    description="Render your agent's progress and output in the UI."
-    href="/mastra/generative-ui/tool-rendering"
-    icon={<PaintbrushIcon />}
-  />
-  <Card
-    title="Setup frontend actions"
-    description="Give your agent the ability to call frontend tools, directly updating your application."
-    href="/mastra/frontend-tools"
-    icon={<WrenchIcon />}
-  />
-</Cards>
-
 <video
   src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/chat-example.mp4"
   className="rounded-lg shadow-xl"
@@ -522,3 +497,20 @@ Now that you have your basic agent setup, explore these advanced features:
   autoPlay
   muted
 />
+
+## Next steps
+
+Mastra runs your agents, tools and workflows. CopilotKit puts them in your app, where your users can see the run, interrupt it and steer it.
+
+Add a capability:
+
+- [Generative UI](/mastra/generative-ui/state-rendering): show the agent's working memory as your own components while the agent works.
+- [Human-in-the-loop](/mastra/human-in-the-loop/useInterrupt): when a tool calls `suspend()`, show your own UI for the decision, then resume the run with the answer.
+- [Shared state](/mastra/shared-state): keep the agent's working memory and your app's state in sync, in both directions.
+- [Frontend tools](/mastra/frontend-tools): let the agent call tools that update your app directly.
+- [And more](/mastra/build-with-agents): chat surfaces, headless UI and background tasks work with Mastra too. Give your AI coding agent current CopilotKit knowledge, so it can help you build them.
+
+Go further:
+
+- [Live demos](/examples?framework=mastra): try each capability with a Mastra agent.
+- Using Vue, Angular, or React Native? Pick it in the sidebar's **Frontend** menu. Its quickstart connects this agent.

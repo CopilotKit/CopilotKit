@@ -11,7 +11,6 @@ import { FRAMEWORKS, FRONTENDS, frameworkById, frontendById } from "./data";
 import type { FrontendId } from "./data";
 import { useFrontend } from "./frontend";
 import { useLastFramework } from "./last-framework";
-import { frameworkHref } from "./routes";
 import { useStackHref } from "./stack-href";
 
 /*
@@ -555,11 +554,7 @@ export function StackDiagram() {
         offset={rightOffset}
         label={(id) => frameworkById(id)?.name ?? id}
         logo={(id) => <FrameworkLogo slug={id} size={22} />}
-        href={(id) =>
-          frontend === "react"
-            ? frameworkHref("d", id)
-            : stackHref("", { framework: id })
-        }
+        href={(id) => stackHref("quickstart", { framework: id })}
       />
 
       {/* A soft ring as each request or reply passes through CopilotKit. */}

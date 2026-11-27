@@ -35,8 +35,9 @@ export function stackPrefix(
  * A live docs page's URL on a stack (`intelligence/overview` on Vue with
  * Mastra is `/vue/mastra/intelligence/overview`), or null when the stack has
  * no such page (`pages` says where every page lives). `""` is the stack's
- * landing. An early-access frontend's only page is its landing page
- * (`/whatsapp`), whatever the page and framework.
+ * home: React's is the framework's quickstart (frameworks have no landing
+ * page), another frontend's its root page. An early-access frontend's only
+ * page is its landing page (`/whatsapp`), whatever the page and framework.
  */
 export function stackPage(
   frontend: FrontendId,
@@ -46,9 +47,19 @@ export function stackPage(
 ) {
   const landing = landingPage(frontend);
   if (landing) return landing;
-  if (pages && slug && !whereIs(pages, frontend, urlFramework(framework), slug))
-    return null;
-  return `${stackPrefix(frontend, framework)}${slug ? `/${slug}` : ""}` || "/";
+  const at =
+    pages && slug
+      ? whereIs(pages, frontend, urlFramework(framework), slug)
+      : undefined;
+  if (at === null) return null;
+  // Off React, `quickstart` is the frontend's root page (`/vue/mastra`, a
+  // channel's overview): link its one indexed URL, not the alias.
+  const root =
+    frontend !== "react" &&
+    slug === "quickstart" &&
+    (at ? at.kind === "frontend" && at.slug === "" : true);
+  const page = root ? "" : slug || (frontend === "react" ? "quickstart" : "");
+  return `${stackPrefix(frontend, framework)}${page ? `/${page}` : ""}` || "/";
 }
 
 /**

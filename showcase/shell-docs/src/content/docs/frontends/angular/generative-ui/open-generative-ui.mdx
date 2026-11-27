@@ -14,6 +14,8 @@ something, it calls a narrow host function that you expose.
 Add `openGenerativeUI: true` to `CopilotRuntime` in the quickstart's
 `server.ts`. Without it, the agent's UI does not render.
 
+<WhenAgentBackend selected={false}>
+
 ```ts title="server.ts"
 const runtime = new CopilotRuntime({
   openGenerativeUI: true, // [!code highlight]
@@ -25,6 +27,21 @@ const runtime = new CopilotRuntime({
   },
 });
 ```
+
+</WhenAgentBackend>
+
+<WhenAgentBackend selected>
+
+```ts title="server.ts"
+const runtime = new CopilotRuntime({
+  openGenerativeUI: true, // [!code highlight]
+  agents: {
+    // ...the `default` agent from the quickstart, unchanged
+  },
+});
+```
+
+</WhenAgentBackend>
 
 Restart the runtime after the change.
 

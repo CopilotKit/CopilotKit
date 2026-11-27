@@ -78,7 +78,8 @@ export function whereIs(
     }
   }
   const fwFolder = LIVE_FRAMEWORKS[fw]?.folder;
-  // A framework's index is its landing, which the URL `/mastra` opens.
+  // A framework has no index page: `/mastra` redirects to its quickstart
+  // (`goneRedirect`).
   if (slug && fwFolder && has(`integrations/${fwFolder}`, slug)) {
     return { kind: "framework", folder: `integrations/${fwFolder}`, slug };
   }

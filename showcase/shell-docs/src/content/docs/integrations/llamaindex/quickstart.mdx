@@ -467,43 +467,19 @@ Before you begin, you'll need the following:
     </Step>
 </Steps>
 
-## What's next?
+## Next steps
 
-Now that you have your basic agent setup, explore these advanced features:
+LlamaIndex runs your agent, with its indexes, retrievers and workflow. CopilotKit puts that agent in your app, where your users can see the run, step in and steer it.
 
-<Cards>
-  <Card
-    title="Implement Human in the Loop"
-    description="Allow your users and agents to collaborate together on tasks."
-    href="/llamaindex/human-in-the-loop"
-    icon={<UserIcon />}
-  />
-  <Card
-    title="Use the Shared State"
-    description="Learn how to synchronize your agent's state with your UI's state, and vice versa."
-    href="/llamaindex/shared-state"
-    icon={<RepeatIcon />}
-  />
-  <Card
-    title="Add some generative UI"
-    description="Render your agent's progress and output in the UI."
-    href="/llamaindex/generative-ui/tool-rendering"
-    icon={<PaintbrushIcon />}
-  />
-  <Card
-    title="Add frontend tools"
-    description="Give your agent the ability to call frontend tools, directly updating your application."
-    href="/llamaindex/frontend-tools"
-    icon={<WrenchIcon />}
-  />
-</Cards>
+Add a capability:
 
-<video
-  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/chat-example.mp4"
-  className="rounded-lg shadow-xl"
-  loop
-  playsInline
-  controls
-  autoPlay
-  muted
-/>
+- [Generative UI](/llamaindex/generative-ui/tool-rendering): show the workflow's events and tool calls as components, so retrieval and reasoning are visible while it runs.
+- [Human-in-the-loop](/llamaindex/human-in-the-loop): a frontend tool asks the user for a decision and returns the answer to the agent as the tool result.
+- [Shared state](/llamaindex/shared-state): keep workflow state and your app's state in sync, in both directions.
+- [Frontend tools](/llamaindex/frontend-tools): let the agent call tools that update your app directly.
+- [And more](/llamaindex/build-with-agents): chat surfaces, headless UI and multi-agent flows work with LlamaIndex too. Give your AI coding agent current CopilotKit knowledge, so it can help you build them.
+
+Go further:
+
+- [Live demos](/examples?framework=llamaindex): try each capability with a LlamaIndex agent.
+- Using Vue, Angular, or React Native? Pick it in the sidebar's **Frontend** menu. Its quickstart connects this agent.

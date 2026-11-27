@@ -79,9 +79,13 @@ function destinationPrefix(canonicalFramework: string): string {
     : `/${canonicalFramework}`;
 }
 
+/**
+ * A framework's page at `pathSuffix`. With no suffix, the framework's home:
+ * its quickstart, since a bare `/<framework>` URL only redirects there.
+ */
 function destinationPath(canonicalFramework: string, pathSuffix = ""): string {
   const prefix = destinationPrefix(canonicalFramework);
-  if (!pathSuffix) return prefix || "/";
+  if (!pathSuffix) return prefix ? `${prefix}/quickstart` : "/";
   return `${prefix}/${pathSuffix}`;
 }
 
@@ -285,7 +289,7 @@ const DEEP_COAGENTS: RedirectEntry[] = [
   {
     id: "D11",
     source: "/coagents/advanced/router-mode-agent-lock",
-    destination: "/langgraph-python",
+    destination: "/langgraph-python/quickstart",
   },
   {
     id: "D12",
@@ -341,7 +345,7 @@ const DEEP_COAGENTS: RedirectEntry[] = [
   {
     id: "D22",
     source: "/coagents/concepts/multi-agent-flows",
-    destination: "/langgraph-python",
+    destination: "/langgraph-python/quickstart",
   },
   {
     id: "D23",
@@ -645,7 +649,7 @@ const MOVED_ROOT_REDIRECTS: RedirectEntry[] = [
   {
     id: "MV-deep-agents",
     source: "/deep-agents",
-    destination: "/deepagents",
+    destination: "/deepagents/quickstart",
   },
   // /multi-agent-flows is a LangGraph-only topic. The bare URL was
   // never authored agnostically; send legacy hits to the LangGraph
@@ -804,7 +808,7 @@ const INTEGRATIONS_PREFIX_RENAMES: RedirectEntry[] = FRAMEWORKS.filter(
     {
       id: `INT-root×${fw}`,
       source: `/integrations/${fw}`,
-      destination: `/${fwDest}`,
+      destination: destinationPath(fwDest),
     },
   ];
 });
@@ -818,7 +822,7 @@ const LEGACY_CHAINS_EXACT: RedirectEntry[] = [
   {
     id: "L1",
     source: "/coagents",
-    destination: "/langgraph-python",
+    destination: "/langgraph-python/quickstart",
   },
   {
     id: "L2",
@@ -858,7 +862,7 @@ const LEGACY_CHAINS_EXACT: RedirectEntry[] = [
   {
     id: "L9",
     source: "/coagents/concepts",
-    destination: "/langgraph-python",
+    destination: "/langgraph-python/quickstart",
   },
   {
     id: "L10",
@@ -878,12 +882,12 @@ const LEGACY_CHAINS_EXACT: RedirectEntry[] = [
   {
     id: "L12",
     source: "/langgraph/deep-agents",
-    destination: "/deepagents",
+    destination: "/deepagents/quickstart",
   },
   {
     id: "L13",
     source: "/langgraph-python/deep-agents",
-    destination: "/deepagents",
+    destination: "/deepagents/quickstart",
   },
 ];
 

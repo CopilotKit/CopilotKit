@@ -69,7 +69,7 @@ export OPENAI_API_KEY=sk-...
 uv run langgraph dev --port 8123 --no-browser
 ```
 
-Then register the graph in the `server.ts` from the [quickstart](/quickstart), in place of the Built-in Agent:
+Then register the graph in the `server.ts` from the [quickstart](/quickstart), in place of the `default` agent there:
 
 ```ts title="server.ts"
 import { LangGraphAgent } from "@copilotkit/runtime/langgraph";

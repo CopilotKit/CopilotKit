@@ -28,18 +28,18 @@ Promise-based integrations have no native interrupt. Build the same experience w
 </WhenFrameworkHas>
 
 <WhenFrameworkHas flag="interrupt_pattern" absent>
-<WhenAngularBackend selected>
+<WhenAgentBackend selected>
 
 > **Use `useHumanInTheLoop` on this framework.** Headless interrupts need an agent that emits an AG-UI interrupt (`RUN_FINISHED` with `outcome.type === "interrupt"`) or an `on_interrupt` custom event, and a working resume path. [`useHumanInTheLoop`](/human-in-the-loop) pauses on a tool call instead. It works on every framework that supports tool calls.
 
-</WhenAngularBackend>
+</WhenAgentBackend>
 </WhenFrameworkHas>
 
-<WhenAngularBackend selected={false}>
+<WhenAgentBackend selected={false}>
 
 Set `renderInChat: false` on `useInterrupt`, and the hook returns the interrupt element instead of handing it to the chat. Render that element wherever you like. `resolve(...)` starts the run again with the user's answer.
 
-</WhenAngularBackend>
+</WhenAgentBackend>
 
 ## When should I use this?
 
@@ -50,7 +50,7 @@ Set `renderInChat: false` on `useInterrupt`, and the hook returns the interrupt 
 
 If you want a picker in the rendered chat, use [`useInterrupt`](/human-in-the-loop/useInterrupt) with the default `renderInChat: true`. For pauses that the model decides on, use [`useHumanInTheLoop`](/human-in-the-loop).
 
-<WhenAngularBackend selected={false}>
+<WhenAgentBackend selected={false}>
 
 ## Use `useInterrupt` without the chat
 
@@ -96,7 +96,7 @@ Tap **Pay ACME**. When the agent pauses, **Approve** and **Reject** replace the 
 
 In your own chat, render the element as the `ListFooterComponent` of your message list. That's where the rendered chat from `/components` puts it.
 
-</WhenAngularBackend>
+</WhenAgentBackend>
 
 <WhenFrameworkHas flag="interrupt_pattern" equals="native">
 
