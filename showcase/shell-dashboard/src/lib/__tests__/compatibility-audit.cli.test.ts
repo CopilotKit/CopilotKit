@@ -390,8 +390,8 @@ describe("manual compatibility audit", () => {
       asOf: AS_OF,
       snapshot: result.snapshot,
     });
-    // 36 mapped libraries minus Omnara's SDK: its manifest is not deployed.
-    expect(result.packages).toHaveLength(35);
+    // 37 mapped libraries minus Omnara's SDK: its manifest is not deployed.
+    expect(result.packages).toHaveLength(36);
     expect(result.packages.some((pkg) => pkg.slug === "omnara")).toBe(false);
     for (const slug of ["ms-agent-dotnet", "ms-agent-harness-dotnet"]) {
       const row = result.snapshot.rows.find((item) => item.slug === slug)!;

@@ -20,9 +20,11 @@ const declarativeGenUiAgent = new LangGraphAgent({
 const runtime = new CopilotRuntime({
   // @ts-ignore -- see main route.ts
   agents: { "declarative-gen-ui": declarativeGenUiAgent },
-  // No runtime `a2ui` config: the page passes a catalog to the provider
-  // (`<CopilotKit a2ui={{ catalog }}>`), which auto-enables A2UI and defaults
-  // tool injection on (CopilotKit >= 1.61.2, PR #5611).
+  // The graph owns generate_a2ui using the pinned LangGraph adapter.
+  a2ui: {
+    injectA2UITool: false,
+    defaultCatalogId: "declarative-gen-ui-catalog",
+  },
 });
 
 export const POST = async (req: NextRequest) => {

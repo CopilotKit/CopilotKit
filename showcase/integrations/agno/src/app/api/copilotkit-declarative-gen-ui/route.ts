@@ -30,8 +30,8 @@ const runtime = new CopilotRuntime({
     // The backend agent owns `generate_a2ui` explicitly (see
     // src/agents/a2ui_dynamic_agent.py), so the runtime MUST NOT
     // auto-inject its own A2UI tool on top. The A2UI middleware still runs
-    // — it serialises the registered client catalog into the agent's
-    // `state.copilotkit.context` so the secondary LLM inside
+    // — it forwards the registered client catalog as App Context so
+    // the secondary LLM inside
     // `generate_a2ui` knows which components to emit — and it still
     // detects the `a2ui_operations` container in the tool result and
     // streams rendered surfaces to the frontend.

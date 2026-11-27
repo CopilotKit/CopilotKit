@@ -127,9 +127,9 @@ describe("railway-envs SSOT", () => {
     expect(ENV_IDS.staging).toBe(STAGING_ENV_ID);
   });
 
-  it("contains 44 managed services plus eight staging-only services (seven Intelligence, docs-preview)", () => {
+  it("contains 45 dual-environment services and nine staging-only services", () => {
     const names = listServiceNames();
-    expect(names.length).toBe(52);
+    expect(names.length).toBe(54);
   });
 
   it("models CrewAI conversational flows as a dual-environment showcase deployment", () => {
@@ -272,13 +272,12 @@ describe("railway-envs SSOT", () => {
     );
   });
 
-  it("CI_BUILT_SERVICES contains exactly 42 services (incl. pocketbase + 12 starters) and excludes webhooks", () => {
-    // 30 showcase/infra CI-built (including conversational flows,
-    // google-antigravity and openai-agents-python) + 12
+  it("CI_BUILT_SERVICES contains exactly 44 services (incl. pocketbase + 12 starters) and excludes webhooks", () => {
+    // 32 showcase/infra CI-built + 12
     // starter-<slug> (S2 brought them under the gate; they ARE built+pushed by
     // showcase_build.yml's `build-starters` job to
     // ghcr.io/copilotkit/starter-<slug>:latest).
-    expect(CI_BUILT_SERVICES.size).toBe(42);
+    expect(CI_BUILT_SERVICES.size).toBe(44);
     // pocketbase is now CI-built (showcase_build.yml `pocketbase` slot,
     // gated to showcase/pocketbase/** changes).
     expect(CI_BUILT_SERVICES.has("pocketbase")).toBe(true);
@@ -1110,9 +1109,9 @@ describe("promote-tier SSOT fields", () => {
     }
   });
 
-  it("declares runtimeDeps: every agent service needs a current aimock", () => {
-    for (const entry of Object.values(SERVICES)) {
-      if (entry.probeDriver !== "agent") continue;
+  it("declares the aimock dependency for agents that use the local provider", () => {
+    for (const [name, entry] of Object.entries(SERVICES)) {
+      if (entry.probeDriver !== "agent" || name === "showcase-omnara") continue;
       expect(entry.runtimeDeps).toContain("aimock");
     }
   });
@@ -1497,7 +1496,7 @@ describe("static gate and disposable approval policy", () => {
   });
 
   it("approves only the reviewed bounded milestone images and preserves permanent identities", () => {
-    expect(Object.keys(SERVICES)).toHaveLength(52);
+    expect(Object.keys(SERVICES)).toHaveLength(54);
     expect(DISPOSABLE_LIFECYCLE_POLICY).toEqual({
       projectId: PROJECT_ID,
       forbiddenEnvironmentIds: [PRODUCTION_ENV_ID],
