@@ -164,7 +164,9 @@ class EventEmittingMockAgent extends AbstractAgent {
     }
   }
 
-  // Helper to emit state delta event
+  // Helper to emit state delta event. `currentState` is the PRE-patch state,
+  // matching the upstream contract: subscribers receive the state before
+  // jsonpatch.applyPatch mutates the pipeline state.
   public async emitStateDelta(
     runId: string,
     delta: any[],
@@ -330,10 +332,11 @@ describe("StateManager - Basic State Tracking", () => {
     const deltaState = { count: 2, user: "alice" };
 
     await agent.emitRunStarted(runId, initialState);
+    // The subscriber receives the PRE-patch state (upstream contract).
     await agent.emitStateDelta(
       runId,
       [{ op: "replace", path: "/count", value: 2 }],
-      deltaState,
+      initialState,
     );
 
     const storedState = copilotKitCore.getStateByRun(
@@ -342,6 +345,34 @@ describe("StateManager - Basic State Tracking", () => {
       runId,
     );
     expect(storedState).toEqual(deltaState);
+  });
+
+  it("stores the post-patch state and drops keys removed by a shrinking snapshot (#8193)", async () => {
+    const runId = "run2";
+
+    await agent.emitRunStarted(runId, { count: 0 });
+    await agent.emitStateSnapshot(runId, { count: 0, cart: { items: [1] } });
+    // The agent deletes `cart` via a full-state snapshot replacement.
+    await agent.emitStateSnapshot(runId, { count: 1 });
+    // Upstream replaces the whole state — a merged snapshot would leave the
+    // deleted `cart` behind as a ghost here.
+    expect(
+      copilotKitCore.getStateByRun("agent1", "thread1", runId),
+    ).toEqual({ count: 1 });
+    await agent.emitStateDelta(
+      runId,
+      [{ op: "replace", path: "/count", value: 2 }],
+      { count: 1 }, // pre-patch state, as the upstream subscriber receives it
+    );
+
+    const storedState = copilotKitCore.getStateByRun(
+      "agent1",
+      "thread1",
+      runId,
+    );
+    // One-delta lag would leave { count: 1, cart: { items: [1] } } here.
+    expect(storedState).toEqual({ count: 2 });
+    expect(storedState).not.toHaveProperty("cart");
   });
 
   it("should return undefined for non-existent run", () => {
