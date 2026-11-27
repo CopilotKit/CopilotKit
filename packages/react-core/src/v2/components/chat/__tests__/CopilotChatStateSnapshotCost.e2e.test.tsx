@@ -12,7 +12,9 @@ import {
   runStartedEvent,
   stateSnapshotEvent,
   generateMessages,
+  textChunkEvent,
 } from "../../../__tests__/utils/test-helpers";
+import type { ReactCustomMessageRenderer } from "../../../types/react-custom-message-renderer";
 
 /**
  * Measures how many bytes of the agent's STATE_SNAPSHOT the message view
@@ -81,9 +83,13 @@ function installSerializationProbe() {
  * Starts a real run (so CopilotKitCore wires its state subscription), streams
  * `messageCount` assistant messages, and lands a STATE_SNAPSHOT on that run.
  */
-async function seedThread(messageCount: number, channelEntries: number) {
+async function seedThread(
+  messageCount: number,
+  channelEntries: number,
+  renderCustomMessages?: ReactCustomMessageRenderer[],
+) {
   const agent = new MockStepwiseAgent();
-  renderWithCopilotKit({ agent });
+  renderWithCopilotKit({ agent, renderCustomMessages });
 
   const input = await screen.findByRole("textbox");
   fireEvent.change(input, { target: { value: "start" } });
@@ -109,6 +115,22 @@ async function measureOneStateEvent(
   probe.enabled = true;
   await act(async () => {
     agent.emit(stateSnapshotEvent(makeSnapshot(channelEntries, 1)));
+    await Promise.resolve();
+  });
+  probe.enabled = false;
+  restore();
+  return { calls: probe.calls, bytes: probe.bytes };
+}
+
+/** Streams one text chunk into the last message and returns bytes serialized during it. */
+async function measureOneTextChunk(
+  agent: MockStepwiseAgent,
+  messageCount: number,
+) {
+  const { probe, restore } = installSerializationProbe();
+  probe.enabled = true;
+  await act(async () => {
+    agent.emit(textChunkEvent(`gen-msg-${messageCount - 1}`, " and more"));
     await Promise.resolve();
   });
   probe.enabled = false;
@@ -156,6 +178,54 @@ describe("state-snapshot serialization cost per render (no custom renderers)", (
       console.log(
         `[scaling] messages=${messageCount} → ${(bytes / 1024 / 1024).toFixed(2)}MB serialized per state event`,
       );
+    }
+
+    expect(results[80]!).toBeLessThanOrEqual(results[20]! * 1.5);
+  });
+});
+
+describe("state-snapshot serialization cost per render (a custom renderer registered)", () => {
+  // The `<CopilotKit>` provider always registers one (the CoAgent state render
+  // bridge), so this is the path most apps take.
+  const renderCustomMessages: ReactCustomMessageRenderer[] = [
+    { render: () => null },
+  ];
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("does not serialize the snapshot per message while text streams", async () => {
+    const MESSAGES = 60;
+    const CHANNEL = 40;
+
+    const agent = await seedThread(MESSAGES, CHANNEL, renderCustomMessages);
+    const { calls, bytes } = await measureOneTextChunk(agent, MESSAGES);
+
+    // eslint-disable-next-line no-console
+    console.log(
+      `[cost, renderer registered] messages=${MESSAGES} → stringify calls=${calls}, ` +
+        `bytes=${(bytes / 1024 / 1024).toFixed(2)}MB for one text chunk`,
+    );
+
+    // Only the message that changed may re-render its custom messages, and the
+    // state did not change. Anything proportional to MESSAGES is the regression.
+    expect(calls).toBeLessThan(5);
+  });
+
+  it("text-chunk cost does not scale with thread length", async () => {
+    const CHANNEL = 40;
+    const results: Record<number, number> = {};
+
+    for (const messageCount of [20, 80]) {
+      cleanup();
+      const agent = await seedThread(
+        messageCount,
+        CHANNEL,
+        renderCustomMessages,
+      );
+      const { bytes } = await measureOneTextChunk(agent, messageCount);
+      results[messageCount] = bytes;
     }
 
     expect(results[80]!).toBeLessThanOrEqual(results[20]! * 1.5);

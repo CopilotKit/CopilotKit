@@ -370,6 +370,34 @@ describe("StateManager - Basic State Tracking", () => {
     );
     expect(storedState).toBeUndefined();
   });
+
+  it("should change the state token only when the run state changes", async () => {
+    const runId = "run1";
+    const token = () =>
+      copilotKitCore.ɵgetStateTokenByRun("agent1", "thread1", runId);
+
+    expect(token()).toBeUndefined();
+
+    await agent.emitRunStarted(runId, { count: 1 });
+    const started = token();
+    expect(started).toBeDefined();
+    copilotKitCore.getStateByRun("agent1", "thread1", runId);
+    expect(token()).toBe(started);
+
+    await agent.emitStateSnapshot(runId, { count: 2 });
+    const snapshot = token();
+    expect(snapshot).not.toBe(started);
+
+    await agent.emitStateDelta(
+      runId,
+      [{ op: "replace", path: "/count", value: 3 }],
+      { count: 3 },
+    );
+    expect(token()).not.toBe(snapshot);
+    expect(
+      copilotKitCore.ɵgetStateTokenByRun("agent1", "thread1", "other-run"),
+    ).toBeUndefined();
+  });
 });
 
 describe("StateManager - Multiple Runs", () => {

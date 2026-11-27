@@ -1765,6 +1765,19 @@ export class CopilotKitCore {
     return this.stateManager.getStateByRun(agentId, threadId, runId);
   }
 
+  /**
+   * @internal An opaque token for the state stored for a run. It changes
+   * whenever the run's state changes, so comparing two tokens tells whether
+   * the state changed without the deep copy {@link getStateByRun} makes.
+   */
+  ɵgetStateTokenByRun(
+    agentId: string,
+    threadId: string,
+    runId: string,
+  ): unknown {
+    return this.stateManager.getStateTokenByRun(agentId, threadId, runId);
+  }
+
   getRunIdForMessage(
     agentId: string,
     threadId: string,
