@@ -7,6 +7,14 @@ hideTOC: true
 snippet_cell: subagents
 ---
 
+<FrontendOnly frontend="vue">
+<Callout type="info">
+  The embedded demo and its Code tab use React. For a Vue frontend connected to
+  the same agent, use the Vue components in
+  [Rendering a live delegation log](#rendering-a-live-delegation-log).
+</Callout>
+</FrontendOnly>
+
 <InlineDemo demo="subagents" llmRegion="subagent-state-from-result" />
 
 ## What is this?
@@ -95,6 +103,74 @@ Subscribe with `useAgent({ updates:
 read `agent.state.delegations`, and render one card per entry.
 
 <Snippet region="delegation-log-frontend" title="frontend/src/app/delegation-log.tsx — live log component" />
+</FrontendOnly>
+
+<FrontendOnly frontend="vue">
+Create a log component that reads the `agent` ref from `useAgent`.
+Subscribe to state and run status changes, then derive the log with `computed`.
+The entry fields below match the supervisor's `delegations` state.
+
+```vue title="src/components/DelegationLog.vue"
+<script setup lang="ts">
+import { computed } from "vue";
+import { useAgent, UseAgentUpdate } from "@copilotkit/vue/v2";
+
+type Delegation = {
+  id: string;
+  sub_agent: string;
+  task: string;
+  status: "completed";
+  result: string;
+};
+
+type SupervisorState = { delegations?: Delegation[] };
+
+const { agent } = useAgent({
+  agentId: "subagents",
+  updates: [UseAgentUpdate.OnStateChanged, UseAgentUpdate.OnRunStatusChanged],
+});
+
+const delegations = computed(
+  () => (agent.value?.state as SupervisorState | undefined)?.delegations ?? [],
+);
+const isRunning = computed(() => agent.value?.isRunning ?? false);
+</script>
+
+<template>
+  <section aria-label="Sub-agent delegations" aria-live="polite">
+    <h2>Delegation log</h2>
+    <p>{{ isRunning ? "Supervisor is running..." : "Supervisor is idle." }}</p>
+    <p v-if="delegations.length === 0">No delegations yet.</p>
+    <article v-for="entry in delegations" :key="entry.id">
+      <h3>{{ entry.sub_agent }}: {{ entry.status }}</h3>
+      <p>{{ entry.task }}</p>
+      <pre>{{ entry.result }}</pre>
+    </article>
+  </section>
+</template>
+```
+
+Mount the log and chat below `CopilotKitProvider` in a separate parent component.
+Both select `subagents`, the agent ID registered by the backend example.
+If your runtime registers a different ID, change it in both components.
+
+```vue title="src/App.vue"
+<script setup lang="ts">
+import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue/v2";
+import "@copilotkit/vue/styles.css";
+import DelegationLog from "./components/DelegationLog.vue";
+</script>
+
+<template>
+  <CopilotKitProvider runtime-url="/api/copilotkit">
+    <DelegationLog />
+    <CopilotChat agent-id="subagents" />
+  </CopilotKitProvider>
+</template>
+```
+
+With the Built-in Agent example, each completed tool result adds a log entry.
+The supervisor status changes while the run is active.
 </FrontendOnly>
 
 <FrontendOnly frontend="angular">
