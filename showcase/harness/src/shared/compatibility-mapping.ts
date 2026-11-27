@@ -142,6 +142,19 @@ export const COMPATIBILITY_MAPPING: VariantMapping[] = [
     excludedLibraries: [adapter("@ag-ui/claude-agent-sdk")],
   },
   {
+    slug: "cloudflare-agents",
+    language: "typescript",
+    libraries: [
+      framework(
+        "agents",
+        "npm",
+        npm("cloudflare-agents", true),
+        "Cloudflare Agents SDK agent framework",
+      ),
+    ],
+    excludedLibraries: [adapter("@ag-ui/cloudflare-agents")],
+  },
+  {
     slug: "crewai-conversational-flows",
     language: "python",
     libraries: [
