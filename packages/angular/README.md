@@ -268,7 +268,7 @@ export interface HumanInTheLoopToolRenderer<Args> {
 }
 ```
 
-`AngularToolCall` / `HumanInTheLoopToolCall` expose `args`, `status` (`"in-progress" | "executing" | "complete"`), and `result`.
+`AngularToolCall` / `HumanInTheLoopToolCall` expose `args`, `status` (`"in-progress" | "executing" | "complete"`), and `result`. A `complete` call that failed also carries `error`. A `HumanInTheLoopToolCall` whose run was stopped while it waited on the user is `complete` with `aborted: true`, `result: undefined` and the abort message in `error`.
 
 ### Register tools with DI
 

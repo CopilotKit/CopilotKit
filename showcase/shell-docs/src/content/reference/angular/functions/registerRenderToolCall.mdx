@@ -106,12 +106,13 @@ type AngularToolCall<Args extends Record<string, unknown>> =
       args: Args; // fully parsed
       status: "complete";
       result: string; // the tool result, as a string
+      error?: string; // set when the tool call failed
     };
 ```
 
 - **`in-progress`** means the agent run is still active and the tool has no result yet. `args` is `Partial<Args>` because the arguments can still be streaming, and `result` is `undefined`.
 - **`executing`** means the run has stopped and the tool has no result yet, for example while a frontend tool's handler runs. `args` is the complete `Args` and `result` is still `undefined`. A server-side tool usually goes from `in-progress` straight to `complete`.
-- **`complete`** means the tool finished, so `args` is complete and `result` holds the string result.
+- **`complete`** means the tool finished, so `args` is complete and `result` holds the string result. When the tool call failed instead, `error` is set: it is the tool message's raw `error` field, usually the failure message, though some history adapters restore it as a bare marker such as `"error"`. `result` then holds the failure text sent to the agent (`Error: <message>` when CopilotKit produced it).
 
 ## Usage
 
