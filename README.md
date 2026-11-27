@@ -20,7 +20,7 @@
 <br />
 
 <a href="https://www.npmjs.com/package/@copilotkit/react-core"><img src="https://img.shields.io/npm/v/%40copilotkit%2Freact-core?logo=npm&logoColor=white&label=npm&color=6666fc" alt="npm version"></a>
-<a href="https://github.com/CopilotKit/CopilotKit/stargazers"><img src="https://img.shields.io/github/stars/CopilotKit/CopilotKit?style=flat&logo=github&logoColor=white&label=stars&color=6666fc" alt="GitHub stars"></a>
+<a href="https://github.com/CopilotKit/CopilotKit"><img src="https://img.shields.io/github/stars/CopilotKit/CopilotKit?style=flat&logo=github&logoColor=white&label=stars&color=6666fc" alt="GitHub stars"></a>
 <a href="https://discord.gg/6dffbvGU3D"><img src="https://img.shields.io/discord/1122926057641742418?logo=discord&logoColor=white&label=discord&color=6666fc" alt="Discord"></a>
 <a href="https://github.com/CopilotKit/CopilotKit/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-6666fc" alt="License: MIT"></a>
 
