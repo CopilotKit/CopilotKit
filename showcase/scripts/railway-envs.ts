@@ -1219,6 +1219,23 @@ export const SERVICES: Record<
       },
     },
   },
+  "showcase-omnara": {
+    serviceId: "f23615d4-9ba9-4b10-b6c9-e4d400cc4eba",
+    autoUpdates: { staging: "disabled", prod: "disabled" },
+    ciBuilt: true,
+    gateValidated: true,
+    dispatchName: "omnara",
+    probeDriver: "agent",
+    // The hosted Omnara profile controls model routing.
+    environments: {
+      staging: {
+        instanceId: "c5e4f332-6b5b-452e-aaf9-6ffea1ee9851",
+        healthcheckPath: "/api/health",
+        domain: "showcase-omnara-staging.up.railway.app",
+        probe: true,
+      },
+    },
+  },
   "showcase-langgraph-fastapi": {
     serviceId: "06cccb5c-59f4-46b5-8adc-7113e77011a4",
     autoUpdates: { staging: "disabled", prod: "disabled" },
@@ -1585,6 +1602,36 @@ export const SERVICES: Record<
         instanceId: "3f917b9f-c3f0-4d8b-96ca-7f455e06b5ba",
         healthcheckPath: "/api/health",
         domain: "showcase-strands-typescript-staging.up.railway.app",
+        probe: true,
+      },
+    },
+  },
+  "showcase-cloudflare-agents": {
+    serviceId: "8ebe5591-d596-4bac-a48e-b20230c37746",
+    autoUpdates: { staging: "disabled", prod: "disabled" },
+    ciBuilt: true,
+    gateValidated: true,
+    dispatchName: "cloudflare-agents",
+    probeDriver: "agent",
+    // The production serviceInstance was provisioned, deployed and
+    // health-verified (see RAILWAY.md, "Promoting a Staging-Only Integration
+    // to Production"). Both env entries are read verbatim from the live
+    // Railway service. Runtime dep as strands-typescript's: the Worker's
+    // OpenAI client sends its traffic to the env-local aimock through
+    // OPENAI_BASE_URL.
+    runtimeDeps: ["aimock"],
+    serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
+    environments: {
+      prod: {
+        instanceId: "ffb0902e-8f43-49a5-821b-b33af6f92902",
+        healthcheckPath: "/api/health",
+        domain: "showcase-cloudflare-agents-production.up.railway.app",
+        probe: true,
+      },
+      staging: {
+        instanceId: "9cf643f4-0eab-4e7e-882f-1c4b8d6627ec",
+        healthcheckPath: "/api/health",
+        domain: "showcase-cloudflare-agents-staging.up.railway.app",
         probe: true,
       },
     },

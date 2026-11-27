@@ -480,6 +480,23 @@ export function resolveAimockStrictHeaders(
 }
 
 /**
+ * Whether this environment replays `slug`'s audio transcription from aimock.
+ * SHOWCASE_VOICE_TRANSCRIPTION_REPLAY lists the integration slugs
+ * (comma-separated) whose transcription client points at aimock here, and
+ * only those let the voice script upload its sample. A runtime's `/info`
+ * reporting transcription on is not enough: it may use a real provider.
+ */
+export function resolveTranscriptionReplay(
+  slug: string,
+  env: Readonly<Record<string, string | undefined>> = process.env,
+): boolean {
+  return (env.SHOWCASE_VOICE_TRANSCRIPTION_REPLAY ?? "")
+    .split(",")
+    .map((entry) => entry.trim())
+    .includes(slug);
+}
+
+/**
  * Default Playwright-backed launcher. Sets X-AIMock-Strict header at the
  * browser level. Per-context headers (X-AIMock-Context, X-Test-Id) are
  * set per-feature in newContext calls from the feature loop.
@@ -1322,6 +1339,7 @@ export function createE2eFullDriver(
                   featureType: ft,
                   baseUrl: backendUrl,
                   a2uiFormat: input.a2uiFormat,
+                  transcriptionReplay: resolveTranscriptionReplay(slug),
                 },
                 abortSignal: attemptAbort.signal,
                 logger: ctx.logger,

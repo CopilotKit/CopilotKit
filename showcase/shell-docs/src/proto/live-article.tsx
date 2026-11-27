@@ -23,7 +23,7 @@ import { sendPageFeedback } from "@/lib/feedback";
 import { Fragment } from "react";
 import { gitConfig } from "@/lib/shared";
 import type { ResolvedLivePage } from "@/lib/live-docs";
-import { ROOT_FRAMEWORK } from "@/lib/live-scope";
+import { ROOT_FRAMEWORK, UNSCOPED_SEGMENTS } from "@/lib/live-scope";
 import { isV1Reference, V1_DEPRECATION_NOTICE } from "@/lib/v1-deprecation";
 
 /** A page ported from shell-docs, at its live URL, in D's docs panel. */
@@ -95,7 +95,13 @@ export async function LiveArticle({
       {isV1Reference(url) ? <V1DeprecationNotice /> : null}
       <DocsBody>
         {/* The same components snippet files get, links kept in scope. */}
-        <MDX components={docsPageComponents(scope)} />
+        <MDX
+          components={docsPageComponents(scope, {
+            // The cookbook, reference, and protocol pages aren't per stack:
+            // their links open the reader's own stack.
+            readerStack: UNSCOPED_SEGMENTS.has(url.split("/")[1] ?? ""),
+          })}
+        />
       </DocsBody>
       <Feedback onSendAction={sendPageFeedback} />
     </DocsPage>

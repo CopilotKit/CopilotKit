@@ -6,9 +6,8 @@ Mirrors `langgraph-python/src/agents/a2ui_dynamic.py`:
 - The agent binds a single `generate_a2ui` backend tool.
 - When called, `generate_a2ui` kicks off a secondary OpenAI chat completion with
   a forced `_design_a2ui_surface` tool call. The registered client catalog is
-  expected to surface through the system prompt (the LlamaIndex router does not
-  yet auto-inject `copilotkit.context`, so the catalog description is inlined
-  into the system prompt for parity).
+  described in the planner prompt. The router passes the run's App Context
+  to both models.
 - The tool result carries the planner's A2UI component payload, which the
   workflow then RE-EMITS as a streamed ``render_a2ui`` tool-CALL on the outbound
   AG-UI stream so ``@ag-ui/a2ui-middleware`` mounts the surface.
@@ -63,14 +62,14 @@ import json
 import logging
 import os
 import uuid
-from typing import Annotated, Awaitable, Callable, List, Optional, Union
+from typing import Annotated, List, Optional, Union
 
+from ag_ui.core import Context as AppContext
 from ag_ui.core import RunAgentInput
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 from llama_index.core.llms import ChatMessage
 from llama_index.core.workflow import Context, Workflow, step
-from agents._openai_models import OpenAI
 from llama_index.protocols.ag_ui.agent import (
     AGUIChatWorkflow,
     LoopEvent,
@@ -87,6 +86,9 @@ from llama_index.protocols.ag_ui.events import (
 from llama_index.protocols.ag_ui.router import AG_UI_EVENTS
 from llama_index.protocols.ag_ui.utils import timestamp, workflow_event_to_sse
 from llama_index.core.workflow.events import StopEvent
+
+from _shared.a2ui_sales import SALES_ANALYST_PROMPT, with_app_context
+from agents._openai_models import OpenAI
 
 
 logger = logging.getLogger(__name__)
@@ -258,9 +260,7 @@ class _A2UIRenderToolCallWorkflow(AGUIChatWorkflow):
         return LoopEvent(messages=chat_history)
 
 
-def _make_a2ui_router(
-    workflow_factory: Callable[[], Awaitable[Workflow]],
-) -> APIRouter:
+def _make_a2ui_router() -> APIRouter:
     """SSE router mirroring upstream ``AGUIWorkflowRouter``.
 
     Upstream ``AGUIWorkflowRouter.run`` filters ``handler.stream_events()``
@@ -273,7 +273,7 @@ def _make_a2ui_router(
     router = APIRouter()
 
     async def run(input: RunAgentInput):
-        workflow = await workflow_factory()
+        workflow = _create_workflow(input.context)
         handler = workflow.run(input_data=input)
 
         async def stream_response():
@@ -313,7 +313,7 @@ def _make_a2ui_router(
     return router
 
 
-def _generate_a2ui(context: str) -> str:
+def _generate_a2ui(context: str, app_context: list[AppContext]) -> str:
     """Blocking secondary-LLM round-trip for `generate_a2ui`.
 
     Kept synchronous and offloaded via ``asyncio.to_thread`` from the async
@@ -348,7 +348,7 @@ def _generate_a2ui(context: str) -> str:
         messages=[
             {
                 "role": "system",
-                "content": (
+                "content": with_app_context(
                     "You design dynamic A2UI v0.9 surfaces for the "
                     "declarative-gen-ui demo. Use catalogId "
                     f"'{CUSTOM_CATALOG_ID}'. Components: Card (title, "
@@ -363,7 +363,8 @@ def _generate_a2ui(context: str) -> str:
                     "per-person/per-item breakdowns like rep performance vs "
                     "quota). Basic primitives "
                     "(Column, Row, Text, Image, Card, Button) are also "
-                    "available. The root component id must be 'root'."
+                    "available. The root component id must be 'root'.",
+                    app_context,
                 ),
             },
             {"role": "user", "content": context or "Generate a useful dashboard UI."},
@@ -387,36 +388,8 @@ def _generate_a2ui(context: str) -> str:
     return json.dumps(args)
 
 
-async def generate_a2ui(
-    context: Annotated[
-        str,
-        "Short description of what the UI should show; mirrors the last user "
-        "message so the secondary LLM has full context.",
-    ],
-) -> str:
-    """Generate dynamic A2UI components based on the conversation.
-
-    Invokes a secondary LLM bound to `_design_a2ui_surface` (tool_choice
-    forced) and returns the planner's `render_a2ui` args (surfaceId, catalogId,
-    components, data) as JSON. The workflow override
-    (`_A2UIRenderToolCallWorkflow.aggregate_tool_calls`) parses this result and
-    RE-EMITS it as a streamed `render_a2ui` tool-CALL that the A2UI middleware
-    watches and mounts the surface from.
-
-    The blocking LLM round-trip runs in ``_generate_a2ui`` and is offloaded
-    via ``asyncio.to_thread`` so it never blocks the event loop.
-    """
-    return await asyncio.to_thread(_generate_a2ui, context)
-
-
 SYSTEM_PROMPT = (
-    "You are a demo assistant for Declarative Generative UI (A2UI — Dynamic "
-    "Schema). Whenever a response would benefit from a rich visual — a "
-    "dashboard, status report, KPI summary, card layout, info grid, a "
-    "pie/donut chart of part-of-whole breakdowns, a bar chart comparing "
-    "values across categories, or anything more structured than plain text — "
-    "call `generate_a2ui` with a short `context` describing what to render. "
-    "Keep chat replies to one short sentence; let the UI do the talking."
+    SALES_ANALYST_PROMPT + " Pass a `context` string summarizing what to render."
 )
 
 
@@ -425,18 +398,21 @@ if os.environ.get("OPENAI_BASE_URL"):
     _openai_kwargs["api_base"] = os.environ["OPENAI_BASE_URL"]
 
 
-def _a2ui_dynamic_workflow_factory() -> Callable[[], Awaitable[Workflow]]:
-    async def factory() -> Workflow:
-        return _A2UIRenderToolCallWorkflow(
-            llm=OpenAI(model="gpt-6-luna", **_openai_kwargs),
-            frontend_tools=[],
-            backend_tools=[generate_a2ui],
-            system_prompt=SYSTEM_PROMPT,
-            initial_state={},
-            timeout=120,
-        )
+def _create_workflow(app_context: list[AppContext]) -> Workflow:
+    async def generate_a2ui(
+        context: Annotated[str, "Short description of what the UI should show."],
+    ) -> str:
+        """Design dynamic A2UI components for the current conversation."""
+        return await asyncio.to_thread(_generate_a2ui, context, app_context)
 
-    return factory
+    return _A2UIRenderToolCallWorkflow(
+        llm=OpenAI(model="gpt-6-luna", **_openai_kwargs),
+        frontend_tools=[],
+        backend_tools=[generate_a2ui],
+        system_prompt=with_app_context(SYSTEM_PROMPT, app_context),
+        initial_state={},
+        timeout=120,
+    )
 
 
-a2ui_dynamic_router = _make_a2ui_router(_a2ui_dynamic_workflow_factory())
+a2ui_dynamic_router = _make_a2ui_router()

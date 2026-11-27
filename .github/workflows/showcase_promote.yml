@@ -49,6 +49,7 @@ on:
           - built-in-agent
           - claude-sdk-python
           - claude-sdk-typescript
+          - cloudflare-agents
           - crewai-conversational-flows
           - crewai-crews
           - google-adk

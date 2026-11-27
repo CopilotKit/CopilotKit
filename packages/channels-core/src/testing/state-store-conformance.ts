@@ -41,6 +41,17 @@ export function runStateStoreConformance(
         await new Promise((r) => setTimeout(r, 60));
         expect(await s.kv.get("t")).toBeUndefined();
       });
+      it("consume of a missing key is undefined and leaves other keys", async () => {
+        await s.kv.set("kept", { n: 2 });
+        expect(await s.kv.consume("never-set")).toBeUndefined();
+        expect(await s.kv.consume("kept")).toEqual({ n: 2 });
+        expect(await s.kv.consume("kept")).toBeUndefined();
+      });
+      it("consume takes a value written with a ttl before it expires", async () => {
+        await s.kv.set("ttl-once", { n: 3 }, 1000);
+        expect(await s.kv.consume("ttl-once")).toEqual({ n: 3 });
+        expect(await s.kv.get("ttl-once")).toBeUndefined();
+      });
       it("does not return an expired value from consume", async () => {
         await s.kv.set("expired-once", 1, 30);
         await new Promise((r) => setTimeout(r, 60));

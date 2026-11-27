@@ -18,10 +18,8 @@ from langchain_openai import ChatOpenAI
 # byte-identical across LP and ADK).
 #
 # The fictional sales dataset and the per-question composition rules
-# are injected via App Context from
-# showcase/integrations/langgraph-python/src/app/demos/declarative-gen-ui/sales-context.ts
-# (a frontend file shared byte-for-byte with the ADK integration — see
-# its DUPLICATION NOTICE).
+# are injected via App Context from the shared frontend fixture at
+# showcase/integrations/_shared/ts/a2ui/sales-context.ts.
 #
 # Keep this SYSTEM_PROMPT and the ADK `_INSTRUCTION` aligned in spirit.
 # Minor wording differences are tolerated (e.g. this prompt uses shape
