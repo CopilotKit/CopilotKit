@@ -134,6 +134,26 @@ describe("Content Bundler", () => {
     expect(context.content).toContain("export function systemPromptFrom");
   });
 
+  it("bundles both Agno fixed-schema backend snippets with their dependencies", () => {
+    const { regions } = runBundlerAndRead().demos["agno::a2ui-fixed-schema"];
+    const load = regions["backend-schema-json-load"];
+    expect(load.language).toBe("python");
+    expect(load.code).toContain("import json");
+    expect(load.code).toContain("from pathlib import Path");
+    expect(load.code).toContain("def _load_schema(");
+    expect(load.code).toContain(
+      'FLIGHT_SCHEMA = _load_schema("flight_schema.json")',
+    );
+
+    const render = regions["backend-render-operations"];
+    expect(render.file).toBe("src/agents/a2ui_fixed_agent.py");
+    expect(render.code).toContain("from agno.tools import tool");
+    expect(render.code).toContain("def display_flight(");
+    expect(render.code).toContain(
+      'return json.dumps({"a2ui_operations": operations})',
+    );
+  });
+
   it("includes core langgraph-python demos", () => {
     const content = runBundlerAndRead();
 
