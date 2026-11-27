@@ -44,6 +44,12 @@ const REFERENCE_FOLDERS = new Set([
   "channels",
 ]);
 
+// readdirSync's recursive walk emits backslash separators on Windows, while
+// toSlugs, the FOLDER_SLUG lookup, the REFERENCE_FOLDERS membership and the
+// route-group strip all assume POSIX paths, so normalize the walk's output
+// (a no-op on POSIX) and the URL set stays the same on every host.
+const posix = (p) => p.replaceAll("\\", "/");
+
 const toSlugs = (file) =>
   file
     .replace(/\.mdx?$/, "")
@@ -51,7 +57,9 @@ const toSlugs = (file) =>
     .filter((s) => s !== "index" && !/^\(.+\)$/.test(s));
 
 const urls = new Set();
-for (const file of readdirSync(join(live, "docs"), { recursive: true })) {
+for (const file of readdirSync(join(live, "docs"), { recursive: true }).map(
+  posix,
+)) {
   if (!/\.mdx?$/.test(file)) continue;
   const slugs = toSlugs(file);
   if (slugs[0] === "integrations") {
@@ -61,7 +69,9 @@ for (const file of readdirSync(join(live, "docs"), { recursive: true })) {
     urls.add(`/${slugs.join("/")}`);
   }
 }
-for (const file of readdirSync(join(live, "reference"), { recursive: true })) {
+for (const file of readdirSync(join(live, "reference"), {
+  recursive: true,
+}).map(posix)) {
   if (!/\.mdx?$/.test(file)) continue;
   const slugs = toSlugs(file);
   urls.add(
