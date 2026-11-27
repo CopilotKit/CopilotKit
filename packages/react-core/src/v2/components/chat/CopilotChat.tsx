@@ -224,27 +224,6 @@ export function CopilotChat({
     };
   }, [copilotkit, resolvedAgentId]);
 
-  useEffect(() => {
-    if (!inspectorRequestId) return;
-    const requestId = inspectorRequestId;
-    const expectedThreadId = resolvedThreadId;
-    const subscription = copilotkit.subscribe({
-      onError: (event) => {
-        if (event.code !== CopilotKitCoreErrorCode.AGENT_CONNECT_FAILED) return;
-        if (event.context?.agentId !== resolvedAgentId) return;
-        if (event.context?.threadId !== expectedThreadId) return;
-        failInspectorOverride(requestId);
-      },
-    });
-    return () => subscription.unsubscribe();
-  }, [
-    copilotkit,
-    failInspectorOverride,
-    inspectorRequestId,
-    resolvedAgentId,
-    resolvedThreadId,
-  ]);
-
   // Transcription state
   const [transcribeMode, setTranscribeMode] =
     useState<CopilotChatInputMode>("input");
@@ -585,7 +564,29 @@ export function CopilotChat({
         if (ɵisHttpAgent(agentToConnect)) {
           agentToConnect.abortController = connectAbortController;
         }
-        await copilotkit.connectAgent({ agent: agentToConnect });
+        const subscription = inspectorRequestId
+          ? copilotkit.subscribe({
+              onError: (event) => {
+                if (detached) return;
+                if (
+                  event.code !== CopilotKitCoreErrorCode.HEADER_RESOLUTION_FAILED &&
+                  event.code !== CopilotKitCoreErrorCode.AGENT_CONNECT_FAILED
+                ) {
+                  return;
+                }
+                if (event.context?.agentId !== resolvedAgentId) return;
+                if (event.context?.threadId !== resolvedThreadId) return;
+
+                failInspectorOverride(inspectorRequestId);
+              },
+            })
+          : undefined;
+
+        try {
+          await copilotkit.connectAgent({ agent: agentToConnect });
+        } finally {
+          subscription?.unsubscribe();
+        }
       } catch (error) {
         // Ignore errors from aborted connections (e.g., React StrictMode cleanup)
         if (detached) return;

@@ -211,7 +211,11 @@ export type WhatsNewSignalPresentation = LauncherSignalPresentation;
  * are unread *events* that clear when their landing view is read.
  */
 export type InspectorWiringErrorSource = "connection" | "threads";
-export type InspectorEventErrorSource = "run" | "tool" | "memory";
+export type InspectorEventErrorSource =
+  | "run"
+  | "tool"
+  | "memory"
+  | "headers";
 export type InspectorErrorSignalSource =
   | InspectorWiringErrorSource
   | InspectorEventErrorSource;
