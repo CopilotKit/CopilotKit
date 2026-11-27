@@ -2,6 +2,7 @@ export {
   CopilotChatConfigurationProvider,
   useCopilotChatConfiguration,
   type CopilotChatLabels,
+  type CopilotChatTimestampFormatter,
   type CopilotChatConfigurationValue,
   type CopilotChatConfigurationProviderProps,
 } from "./CopilotChatConfigurationProvider";
