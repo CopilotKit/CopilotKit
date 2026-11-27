@@ -57,6 +57,16 @@ export interface ActionSnapshot {
    * conversation, since nothing tells them apart from an ordinary action.
    */
   ownerActorId?: string;
+  /**
+   * The one-shot gate shared by every control of one `awaitChoice` picker.
+   * The click that answers the picker takes it before any handler runs, and
+   * retiring the picker takes it too, so every process sharing the store
+   * refuses the picker's controls from then on. Absent on every other
+   * action, and on picker controls stored before this field existed.
+   */
+  choiceGateId?: string;
+  /** Epoch ms after which a control of the gated picker never runs. */
+  choiceGateDeadline?: number;
 }
 /** @deprecated Configure `createChannel({ state })` instead. Action snapshots are stored via `StateStore.kv`. */
 export interface ActionStore {

@@ -458,6 +458,7 @@ demos:
     highlight:
       - src/app/demos/voice/page.tsx
       - src/app/demos/voice/sample-audio-button.tsx
+      - src/lib/transcription-service.ts
       - src/app/api/copilotkit-voice/[[...slug]]/route.ts
   - id: multimodal
     name: Multimodal Attachments

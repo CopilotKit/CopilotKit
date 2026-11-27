@@ -5,7 +5,6 @@ import type { CSSProperties, ReactNode } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/cn";
-import { frontendHref } from "@/lib/live-scope";
 import { FrameworkLogo } from "@/components/icons/framework-icons";
 import { FrontendLogo } from "@/components/icons/frontend-logo";
 import { FRAMEWORKS, FRONTENDS, frameworkById, frontendById } from "./data";
@@ -13,6 +12,7 @@ import type { FrontendId } from "./data";
 import { useFrontend } from "./frontend";
 import { useLastFramework } from "./last-framework";
 import { frameworkHref } from "./routes";
+import { useStackHref } from "./stack-href";
 
 /*
  * The product in one picture, the way copilotkit.ai draws its protocol map:
@@ -471,6 +471,7 @@ function Wire({
 export function StackDiagram() {
   const { frontend } = useFrontend();
   const [framework] = useLastFramework();
+  const stackHref = useStackHref();
   const [ref, live, running] = useRunning();
   // CopilotKit's own agent is the middle tile, so then nothing is picked on
   // the right and the middle tile is the reader's.
@@ -543,7 +544,8 @@ export function StackDiagram() {
         offset={leftOffset}
         label={(id) => frontendById(id as FrontendId)?.name ?? id}
         logo={(id) => <FrontendLogo icon={id as FrontendId} size={22} />}
-        href={(id) => frontendHref([], id as FrontendId, "")}
+        // A frontend opens with your framework, a framework on your frontend.
+        href={(id) => stackHref("", { frontend: id as FrontendId })}
       />
       <Column
         x={RIGHT_X}
@@ -551,7 +553,11 @@ export function StackDiagram() {
         offset={rightOffset}
         label={(id) => frameworkById(id)?.name ?? id}
         logo={(id) => <FrameworkLogo slug={id} size={22} />}
-        href={(id) => frameworkHref("d", id)}
+        href={(id) =>
+          frontend === "react"
+            ? frameworkHref("d", id)
+            : stackHref("", { framework: id })
+        }
       />
 
       {/* A soft ring as each request or reply passes through CopilotKit. */}
