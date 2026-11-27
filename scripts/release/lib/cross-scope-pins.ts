@@ -25,6 +25,11 @@ import type { ReleaseConfig, ReleaseScope } from "./config.js";
  *    not a bigger release: the stranded scope is released first, from a tree
  *    where the new version is already set, because `workspace:^` resolves
  *    against the workspace rather than against what npm currently holds.
+ *    The order reverses when the stranded scope's tree packs a range only
+ *    this release satisfies: releasing it first would publish a manifest no
+ *    install can resolve. If its published range still resolves on the
+ *    registry, this scope goes first and the stranded scope is reported as
+ *    the follow-up release (see {@link checkSupersededPublishedPins}).
  */
 
 /** A workspace manifest, reduced to what these rules read. */
@@ -211,6 +216,45 @@ export interface SupersededPinInputs {
   readonly publishedDependencies: Readonly<Record<string, PublishedManifest>>;
   /** The release configuration that assigns packages to scopes. */
   readonly config: ReleaseConfig;
+  /**
+   * Every version of each package in the scope being released that the
+   * registry already holds, keyed by package name. Optional: without it the
+   * check cannot prove a lagging dependent is harmless, so it refuses.
+   */
+  readonly publishedVersions?: Readonly<Record<string, readonly string[]>>;
+}
+
+/** What {@link checkSupersededPublishedPins} found. */
+export interface SupersededPinReport {
+  /** Releases that must not happen. Any entry fails the gate. */
+  readonly problems: readonly string[];
+  /**
+   * Dependents left on an older range that keeps resolving. They do not block
+   * this release, but each names the scope that has to be released next.
+   */
+  readonly followUps: readonly string[];
+}
+
+/**
+ * The range `pnpm pack` writes for a declared range.
+ *
+ * @param range - The range declared in the tree.
+ * @param dependencyVersion - The dependency's version in the tree.
+ * @returns The packed range, or undefined when it is not a semver range.
+ */
+function packedRange(
+  range: string,
+  dependencyVersion: string,
+): string | undefined {
+  let declared = range.trim();
+  if (declared.startsWith("workspace:")) {
+    const protocol = declared.slice("workspace:".length);
+    if (protocol === "*") declared = dependencyVersion;
+    else if (protocol === "^" || protocol === "~") {
+      declared = `${protocol}${dependencyVersion}`;
+    } else declared = protocol;
+  }
+  return validRange(declared) === null ? undefined : declared;
 }
 
 /**
@@ -222,13 +266,51 @@ export interface SupersededPinInputs {
 export function findSupersededPublishedPins(
   inputs: SupersededPinInputs,
 ): readonly string[] {
+  return checkSupersededPublishedPins(inputs).problems;
+}
+
+/**
+ * Published packages whose declared range would stop admitting this release,
+ * split into the ones that block it and the ones that only need a follow-up.
+ *
+ * A dependency this run does not publish, because the registry already holds
+ * it at this version (a retry after a partial publish), is a follow-up.
+ *
+ * A lagging dependent is a follow-up, not a problem, only when its published
+ * range is not an exact pin (an exact pin keeps its own copy, the split tree
+ * of OSS-1107), it is a normal or optional dependency (a lagging peer range
+ * makes npm refuse to install it next to this release), and both of these
+ * hold:
+ *
+ * - Its published range still resolves to a version already on the registry,
+ *   so every current install keeps working after this release.
+ * - The range the tree would pack for it admits this release and nothing on
+ *   the registry yet. Releasing the dependent first would then publish a
+ *   manifest no install can satisfy, so this scope has to go first.
+ *
+ * Without {@link SupersededPinInputs.publishedVersions} neither can be proven,
+ * and every lagging dependent stays a problem.
+ *
+ * @param inputs - The scope being released and what the registry already holds.
+ * @returns The blocking problems and the follow-up releases.
+ */
+export function checkSupersededPublishedPins(
+  inputs: SupersededPinInputs,
+): SupersededPinReport {
   const index = scopeIndex(inputs.config);
   const problems: string[] = [];
+  const followUps: string[] = [];
 
   // What the tree would pack for each edge, so the remedy can name it.
   const workspaceRanges = new Map<string, string>();
   for (const edge of crossScopeEdges(inputs.workspace, inputs.config)) {
     workspaceRanges.set(`${edge.package}\u0000${edge.dependency}`, edge.range);
+  }
+  const workspaceVersions = new Map<string, string>();
+  for (const manifest of inputs.workspace) {
+    if (manifest.version !== undefined) {
+      workspaceVersions.set(manifest.name, manifest.version);
+    }
   }
 
   for (const [packageName, published] of Object.entries(
@@ -248,6 +330,67 @@ export function findSupersededPublishedPins(
         const workspaceRange = workspaceRanges.get(
           `${packageName}\u0000${dependency}`,
         );
+
+        const onRegistry = inputs.publishedVersions?.[dependency];
+
+        // The publisher skips a package already at the target version, so a
+        // retry after a partial publish does not ship it again. Refusing on
+        // its account would block the packages still to publish, which the
+        // stranded scope's next release needs: a deadlock.
+        if (onRegistry?.includes(inputs.version)) {
+          followUps.push(
+            `Published ${packageName} declares ${dependency} as "${range}" in ${field}, ` +
+              `which ${inputs.version} does not satisfy. ${dependency}@${inputs.version} ` +
+              `is already on npm, so this run does not publish it. ` +
+              `Release scope ${packageScope} next.`,
+          );
+          continue;
+        }
+
+        const packed =
+          workspaceRange === undefined
+            ? undefined
+            : packedRange(
+                workspaceRange,
+                workspaceVersions.get(dependency) ?? inputs.version,
+              );
+        // A lagging peer range never downgrades: it still resolves on its
+        // own, but npm refuses (ERESOLVE) to install it next to this release.
+        // Neither does an exact pin: it keeps its own copy under the
+        // dependent next to this release, the split tree of OSS-1107.
+        const dependentMustWait =
+          field !== "peerDependencies" &&
+          admitsALaterRelease(range) &&
+          onRegistry !== undefined &&
+          packed !== undefined &&
+          satisfies(inputs.version, packed) &&
+          !onRegistry.some((candidate) => satisfies(candidate, packed));
+
+        if (dependentMustWait) {
+          const stillResolves = onRegistry.some((candidate) =>
+            satisfies(candidate, range),
+          );
+          if (stillResolves) {
+            followUps.push(
+              `Published ${packageName} declares ${dependency} as "${range}" in ${field}, ` +
+                `which ${inputs.version} does not satisfy. Its installs keep resolving ` +
+                `an existing ${dependency}, so this release does not break them. ` +
+                `Release scope ${packageScope} next: this tree packs ${dependency} as ` +
+                `"${packed}", which only this release satisfies.`,
+            );
+          } else {
+            problems.push(
+              `Published ${packageName} declares ${dependency} as "${range}" in ${field}, ` +
+                `which resolves to no published version of ${dependency} and which ` +
+                `${inputs.version} does not satisfy either. Releasing scope ` +
+                `${inputs.scope} would not repair its installs, and releasing scope ` +
+                `${packageScope} first would require ${dependency}@${inputs.version} ` +
+                `before it exists. Release scope ${packageScope} from a tree whose range for ${dependency} admits a published version.`,
+            );
+          }
+          continue;
+        }
+
         const remedy =
           workspaceRange === undefined
             ? `Release scope ${packageScope} first: this tree no longer declares ` +
@@ -273,5 +416,5 @@ export function findSupersededPublishedPins(
     }
   }
 
-  return problems;
+  return { followUps, problems };
 }

@@ -19,14 +19,14 @@
  * copies of core (OSS-1107).
  */
 
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { appendFileSync, existsSync, readdirSync, readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 import { ROOT, loadConfig, resolveScopes } from "./lib/config.js";
 import type { ReleaseScope } from "./lib/config.js";
 import {
+  checkSupersededPublishedPins,
   findExactCrossScopePins,
-  findSupersededPublishedPins,
 } from "./lib/cross-scope-pins.js";
 import type {
   PublishedManifest,
@@ -130,6 +130,69 @@ function readPublishedManifest(
   );
 }
 
+/**
+ * Reads every version of a package the registry holds.
+ *
+ * An unpublished package answers `undefined`, which leaves a lagging dependent
+ * of it unproven and therefore blocking. Any other registry failure throws.
+ */
+function readPublishedVersions(
+  packageName: string,
+): readonly string[] | undefined {
+  const result = spawnSync("npm", ["view", packageName, "versions", "--json"], {
+    encoding: "utf8",
+    timeout: 30_000,
+  });
+
+  if (result.status === 0) {
+    const output = result.stdout.trim();
+    if (output === "") return [];
+    const parsed = JSON.parse(output) as unknown;
+    // npm answers a bare string when exactly one version exists.
+    if (typeof parsed === "string") return [parsed];
+    if (
+      Array.isArray(parsed) &&
+      parsed.every((version) => typeof version === "string")
+    ) {
+      return parsed;
+    }
+    throw new Error(
+      `npm registry check failed for ${packageName}: unexpected versions shape`,
+    );
+  }
+
+  const stderr = result.stderr ?? "";
+  if (stderr.includes("E404") || stderr.includes("is not in this registry")) {
+    return undefined;
+  }
+  throw new Error(
+    `npm registry check failed for ${packageName}: ${stderr.trim() || "unknown error"}`,
+  );
+}
+
+/**
+ * Reports dependents that need a release after this one. They do not fail the
+ * gate; on GitHub Actions they become warnings and a step-summary note.
+ */
+function reportFollowUps(followUps: readonly string[]): void {
+  if (followUps.length === 0) return;
+  const onActions = process.env.GITHUB_ACTIONS === "true";
+  for (const followUp of followUps) {
+    console.log(
+      onActions ? `::warning::${followUp}` : `Follow-up: ${followUp}`,
+    );
+  }
+  const summary = process.env.GITHUB_STEP_SUMMARY;
+  if (onActions && summary) {
+    appendFileSync(
+      summary,
+      `### Follow-up releases needed\n\n${followUps
+        .map((followUp) => `- ${followUp}`)
+        .join("\n")}\n`,
+    );
+  }
+}
+
 /** Reports problems and sets a non-zero exit code, or reports the pass. */
 function report(problems: readonly string[], passed: string): void {
   if (problems.length === 0) {
@@ -186,19 +249,33 @@ function main(): void {
     if (published !== undefined) publishedDependencies[name] = published;
   }
 
-  const problems: string[] = [];
+  // What the registry already holds of every package being released, so a
+  // dependent left on an older range can be proven harmless rather than
+  // assumed to be.
+  const publishedVersions: Record<string, readonly string[]> = {};
   for (const scope of scopes) {
-    problems.push(
-      ...findSupersededPublishedPins({
-        config,
-        publishedDependencies,
-        scope,
-        version: getCurrentVersion(scope),
-        workspace,
-      }),
-    );
+    for (const name of config.scopes[scope].packages) {
+      const versions = readPublishedVersions(name);
+      if (versions !== undefined) publishedVersions[name] = versions;
+    }
   }
 
+  const problems: string[] = [];
+  const followUps: string[] = [];
+  for (const scope of scopes) {
+    const result = checkSupersededPublishedPins({
+      config,
+      publishedDependencies,
+      publishedVersions,
+      scope,
+      version: getCurrentVersion(scope),
+      workspace,
+    });
+    problems.push(...result.problems);
+    followUps.push(...result.followUps);
+  }
+
+  reportFollowUps(followUps);
   report(
     problems,
     `every published @copilotkit dependent still admits ${scopes.join(", ")}.`,
