@@ -29,8 +29,9 @@
   The headless interrupt-resolver pattern (read the interrupt off the agent,
   answer it with a `resume`) works with a server tool under the AI SDK's tool
   approval (`toolApproval` in AI SDK v7, `needsApproval` in v6). The run ends
-  with an interrupt for the call, and a `resume` of `{ "approved": true }`
-  runs it (see the human-in-the-loop setup). To ask the user from code
+  with an interrupt for the call. Any `resume` payload but a no runs it, and
+  the tool reads that payload with `run.resumePayload(toolCallId)` (see the
+  human-in-the-loop setup). To ask the user from code
   without a backend tool, use the frontend-tool Promise pattern: register the
   tool with `useFrontendTool` and an `async` handler, and resolve its promise
   when your own UI has the answer.
