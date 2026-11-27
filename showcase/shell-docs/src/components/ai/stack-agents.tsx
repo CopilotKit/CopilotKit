@@ -4,16 +4,11 @@ import { useCallback } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useStack } from "@/components/stack/stack-provider";
 import { frontendHref, liveFrontend, scopeFromPath } from "@/lib/live-scope";
-import {
-  BACKENDS,
-  FRONTENDS,
-  backendById,
-  frontendById,
-  isServable,
-} from "@/lib/stack";
+import { BACKENDS, backendById, frontendById, isServable } from "@/lib/stack";
 import type { FrontendId } from "@/lib/stack";
+import { DOCS_FRONTENDS } from "@/lib/frontends";
 import { useFrontend } from "@/proto/frontend";
-import { FRAMEWORKS, FRONTENDS as PROTO_FRONTENDS } from "@/proto/data";
+import { FRAMEWORKS } from "@/proto/data";
 import type { FrontendId as ProtoFrontendId } from "@/proto/data";
 import { frameworkHref } from "@/proto/routes";
 import type { VariantId } from "@/proto/routes";
@@ -38,7 +33,7 @@ export function DocsStackAgent() {
     <StackAgent
       frontend={stack?.frontend ?? null}
       agentFramework={stack?.backend ?? null}
-      frontends={FRONTENDS}
+      frontends={DOCS_FRONTENDS}
       frameworks={BACKENDS}
       onSwitch={onSwitch}
     />
@@ -92,7 +87,7 @@ export function ProtoStackAgent({
     <StackAgent
       frontend={frontend}
       agentFramework={framework ?? null}
-      frontends={PROTO_FRONTENDS}
+      frontends={DOCS_FRONTENDS}
       frameworks={FRAMEWORKS}
       onSwitch={onSwitch}
     />
