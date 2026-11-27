@@ -195,6 +195,43 @@ describe("usePinToSend", () => {
     }
   });
 
+  it("collapses the spacer when the pinned message leaves the list", async () => {
+    let observed: (() => void) | null = null;
+    const ROStub = vi.fn().mockImplementation((cb: () => void) => {
+      observed = cb;
+      return { observe: vi.fn(), unobserve: vi.fn(), disconnect: vi.fn() };
+    });
+    const prevRO = global.ResizeObserver;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    global.ResizeObserver = ROStub as any;
+
+    try {
+      const { rerender, getByTestId } = render(
+        <Harness lastUserMessage={{ id: null, sendNonce: 0 }} />,
+      );
+      const scroll = getByTestId("scroll");
+      const spacer = getByTestId("spacer");
+      setHeight(scroll, 800);
+      const userMsg = scroll.querySelector(
+        '[data-message-id="m3"]',
+      ) as HTMLElement;
+      setHeight(userMsg, 40);
+      setHeight(getByTestId("content"), 200);
+
+      act(() => {
+        rerender(<Harness lastUserMessage={{ id: "m3", sendNonce: 1 }} />);
+      });
+      expect(spacer.style.height).toBe("744px");
+
+      // A queued message dropped unsent leaves the list; nothing replaces it.
+      userMsg.remove();
+      act(() => observed?.());
+      expect(spacer.style.height).toBe("0px");
+    } finally {
+      global.ResizeObserver = prevRO;
+    }
+  });
+
   it("still pins a send whose message list mounts under StrictMode", () => {
     // The first send mounts the message list, and StrictMode then runs the
     // effect, its cleanup, and the effect again, all before a frame. Queue

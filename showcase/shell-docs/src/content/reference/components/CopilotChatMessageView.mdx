@@ -26,6 +26,14 @@ import "@copilotkit/react-core/v2/styles.css";
   `"assistant"`, `"reasoning"`, or `"activity"` render.
 </PropertyReference>
 
+<PropertyReference name="queuedMessages" type="UserMessage[]" default="[]">
+  User messages accepted but not yet sent to the agent, because the current
+  run (for example one waiting on a confirmation card) has to finish first.
+  They render after everything else, in order, so the user can see their
+  message was kept. They are not part of `messages` and take no part in turns,
+  grouping or virtualization. `CopilotChat` fills this in for you.
+</PropertyReference>
+
 <PropertyReference name="transformMessages" type="(messages: Message[]) => Message[]">
   Reshapes the list before it renders: drop, replace or reorder messages with
   the whole list in view. Receives the messages after duplicate ids are merged
@@ -103,8 +111,8 @@ nothing. To restyle or replace the group itself, use the `group` slot of
 See [Grouping tool calls](/generative-ui/tool-rendering#grouping-tool-calls).
 </PropertyReference>
 
-<PropertyReference name="children" type="(props: { isRunning: boolean; messages: Message[]; messageElements: React.ReactElement[]; interruptElement: React.ReactElement | null }) => React.ReactElement">
-Optional render-prop function that receives the resolved state and pre-built message elements. When provided, the component calls this function instead of rendering the default message list layout. The callback receives `isRunning` (current running state), `messages` (the raw message array), `messageElements` (an array of React elements built from the `assistantMessage` and `userMessage` slots), and `interruptElement` (the interrupt UI from `useInterrupt`, or `null`). The default layout renders `interruptElement` after the messages, so place it in your layout too. Providing `children` turns virtualization off, so every message is mounted; for list-level changes, prefer `transformMessages`.
+<PropertyReference name="children" type="(props: { isRunning: boolean; messages: Message[]; messageElements: React.ReactElement[]; interruptElement: React.ReactElement | null; queuedMessageElements: React.ReactElement[] }) => React.ReactElement">
+Optional render-prop function that receives the resolved state and pre-built message elements. When provided, the component calls this function instead of rendering the default message list layout. The callback receives `isRunning` (current running state), `messages` (the raw message array), `messageElements` (an array of React elements built from the `assistantMessage` and `userMessage` slots), `interruptElement` (the interrupt UI from `useInterrupt`, or `null`), and `queuedMessageElements` (the `queuedMessages`, built from the `userMessage` slot). The default layout renders `interruptElement` after the messages and places `queuedMessageElements` after `interruptElement` and the cursor, so place both in your layout too. Providing `children` turns virtualization off, so every message is mounted; for list-level changes, prefer `transformMessages`.
 </PropertyReference>
 
 ## Slots
