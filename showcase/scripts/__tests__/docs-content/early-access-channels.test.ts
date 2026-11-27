@@ -26,6 +26,11 @@ vi.mock(
   "@/lib/base-path",
   () => import("../../../shell-docs/src/lib/base-path"),
 );
+vi.mock(
+  "@/lib/live-scope",
+  () => import("../../../shell-docs/src/lib/live-scope"),
+);
+vi.mock("@/proto/data", () => import("../../../shell-docs/src/proto/data"));
 
 import {
   EARLY_ACCESS_CHANNEL_IDS as REDIRECTED_CHANNEL_IDS,
@@ -181,6 +186,18 @@ describe("the channel pages' words", () => {
     // The channels with no adapter yet don't link one.
     for (const id of ["imessage", "sms", "rcs"] as const) {
       expect(channelPageMarkdown(id)).not.toContain("direct-adapters");
+    }
+  });
+
+  test("each page names the agent frameworks once each, with their docs", () => {
+    for (const id of EARLY_ACCESS_CHANNEL_IDS) {
+      const markdown = channelPageMarkdown(id);
+      expect(markdown).toContain("## Backed by any agent");
+      // A framework in several languages shows once, under its family's name.
+      expect(markdown.split("[LangGraph](").length - 1).toBe(1);
+      expect(markdown).toContain("[Mastra](/mastra)");
+      // CopilotKit's own built-in agent isn't one a reader brings.
+      expect(markdown).not.toContain("(/built-in-agent)");
     }
   });
 

@@ -1,4 +1,5 @@
 import { withBasePath } from "@/lib/base-path";
+import { AGENT_FRAMEWORKS } from "@/proto/data";
 import {
   EARLY_ACCESS_CHANNELS,
   earlyAccessChannel,
@@ -63,6 +64,18 @@ export function channelPageMarkdown(id: EarlyAccessChannelId): string {
     `## ${fill(shared.featuresTitle, name)}`,
     "",
     ...copy.features.map((f) => `- **${f.title}.** ${f.body}`),
+    "",
+    `## ${shared.agents.title}`,
+    "",
+    shared.agents.lede,
+    "",
+    AGENT_FRAMEWORKS.map(
+      (f) => `[${f.name}](${withBasePath(`/${f.id}`)})`,
+    ).join(", "),
+    "",
+    shared.agents.extrasLede,
+    "",
+    ...shared.agents.extras.map((e) => `- **${e.title}.** ${e.body}`),
     "",
     `## ${fill(shared.howItWorks.title, name)}`,
     "",

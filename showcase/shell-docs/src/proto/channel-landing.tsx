@@ -7,12 +7,14 @@ import { EarlyAccessBadge } from "@/components/early-access/badge";
 import { BookCta } from "@/components/early-access/book-cta";
 import { ChannelDemoBooker } from "@/components/early-access/booker";
 import { ConversationPreview } from "@/components/early-access/conversation";
+import { FrameworkLogo } from "@/components/icons/framework-icons";
 import { FrontendLogo, frontendGlyph } from "@/components/icons/frontend-logo";
 import {
   AgentGlyph,
   ChannelsSdkGlyph,
   IntelligenceGlyph,
 } from "@/components/icons/glyphs";
+import { useIntegrationClickTracking } from "@/components/telemetry/homepage";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
 import { frontendHref } from "@/lib/live-scope";
@@ -24,9 +26,10 @@ import {
 } from "@/lib/early-access/copy";
 import type { TextLink } from "@/lib/early-access/copy";
 import { ChannelSwitcher } from "./channel-switcher";
-import { FRONTENDS } from "./data";
+import { AGENT_FRAMEWORKS, FRONTENDS } from "./data";
 import { DFooter } from "./home-d";
 import { LinkCard, Tray } from "./link-card";
+import { useStackHref } from "./stack-href";
 
 /** How Channels works today: the Slack guide, and the Channels overview. */
 const CHANNELS_OVERVIEW = "/slack";
@@ -66,6 +69,8 @@ export function ChannelLanding({ id }: { id: EarlyAccessChannelId }) {
   const copy = EARLY_ACCESS_CHANNEL_COPY[id];
   const shared = SHARED_EARLY_ACCESS_COPY;
   const name = copy.name;
+  const stackHref = useStackHref();
+  const trackAgentClick = useIntegrationClickTracking();
   // A frontend with no brand mark (SMS) takes the accent, as a card glyph does.
   const glyph = frontendGlyph(id);
   const stepGlyphs: ReactNode[] = [
@@ -152,6 +157,52 @@ export function ChannelLanding({ id }: { id: EarlyAccessChannelId }) {
           </ul>
         </section>
       </div>
+
+      <section aria-labelledby="channel-agents" className="flex flex-col gap-8">
+        <div className="flex max-w-[44rem] flex-col gap-3">
+          <h2 id="channel-agents" className={sectionTitle}>
+            {shared.agents.title}
+          </h2>
+          <p className="leading-relaxed text-muted-foreground">
+            {shared.agents.lede}
+          </p>
+        </div>
+        {/* Every agent framework's mark, small, each opening its docs on the
+            reader's frontend. A click reports as the home's Integrations do. */}
+        <ul className="flex flex-wrap gap-2.5" onClick={trackAgentClick}>
+          {AGENT_FRAMEWORKS.map((f) => (
+            <li key={f.id}>
+              <Link
+                href={stackHref("", { framework: f.id })}
+                className="inline-flex min-h-9 items-center gap-2 rounded-full border bg-card px-3.5 text-sm font-medium shadow-card transition-colors outline-none hover:border-edge-action hover:text-primary focus-visible:ring-3 focus-visible:ring-ring/50 motion-reduce:transition-none pointer-coarse:min-h-11 dark:bg-[#13131b]"
+              >
+                <FrameworkLogo slug={f.id} size={18} />
+                {f.name}
+              </Link>
+            </li>
+          ))}
+        </ul>
+        <div className="flex flex-col gap-5">
+          <p className="leading-relaxed text-muted-foreground">
+            {shared.agents.extrasLede}
+          </p>
+          <ul className="grid gap-x-8 gap-y-6 sm:grid-cols-2 lg:grid-cols-4">
+            {shared.agents.extras.map((extra) => (
+              <li
+                key={extra.title}
+                className="flex flex-col gap-1.5 border-t pt-4"
+              >
+                <h3 className="text-sm leading-6 font-semibold">
+                  {extra.title}
+                </h3>
+                <p className="text-sm leading-relaxed text-muted-foreground">
+                  {extra.body}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
 
       <section aria-labelledby="channel-how" className="flex flex-col gap-8">
         <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between md:gap-10">

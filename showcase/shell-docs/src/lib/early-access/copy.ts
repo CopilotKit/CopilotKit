@@ -408,11 +408,17 @@ export const SHARED_EARLY_ACCESS_COPY: {
   conversationTitle: string; // section heading over the phone preview
   conversationLede: string; // one line under it
   featuresTitle: string;
+  agents: {
+    title: string; // "Backed by any agent", over the frameworks' marks
+    lede: string;
+    extrasLede: string; // one line over the small items
+    extras: { title: string; body: string }[]; // 4 small items: what else comes with CopilotKit
+  };
   howItWorks: {
     title: string;
     lede: string;
     steps: { title: string; body: string }[];
-  }; // 4 steps: person in {channel} -> CopilotKit Intelligence -> the Channels SDK -> your AG-UI agent
+  }; // 4 steps: person in {channel} -> CopilotKit Intelligence -> the Channels SDK -> your agent
   specificsTitle: string; // e.g. "Why {channel}"
   otherChannelsTitle: string;
 } = {
@@ -424,6 +430,29 @@ export const SHARED_EARLY_ACCESS_COPY: {
   conversationTitle: "Meet your users where they are",
   conversationLede: "With a unified interface for your agent.",
   featuresTitle: "What CopilotKit brings to {channel}",
+  agents: {
+    title: "Backed by any agent",
+    lede: "Keep the agent you already built. CopilotKit connects to it over AG-UI, on any of these frameworks or your own.",
+    extrasLede: "The rest of CopilotKit comes with it.",
+    extras: [
+      {
+        title: "Generative UI",
+        body: "Your agent replies with real UI, not just text.",
+      },
+      {
+        title: "Observability",
+        body: "See how people use your agent, how reliable it is, and what it costs.",
+      },
+      {
+        title: "Evals",
+        body: "Evaluate your agent on real tasks.",
+      },
+      {
+        title: "Automatic learning",
+        body: "Your agent learns from real workflows and gets better over time.",
+      },
+    ],
+  },
   howItWorks: {
     title: "How it works",
     lede: "The Channels SDK brings your agent to messaging apps, for one experience across web, mobile, Slack, Teams, iMessage, WhatsApp, and more. Your agent, its tools, and your data stay in your infrastructure.",
@@ -441,8 +470,8 @@ export const SHARED_EARLY_ACCESS_COPY: {
         body: "Runs in your process. It runs your agent, calls your tools, and sends the reply back.",
       },
       {
-        title: "Your AG-UI agent",
-        body: "Build it with LangGraph, Mastra, CrewAI, Google ADK, Pydantic AI, or another supported framework. Its tools and business logic stay with you.",
+        title: "Your agent",
+        body: "On any framework, or your own code. Its tools and business logic stay with you.",
       },
     ],
   },

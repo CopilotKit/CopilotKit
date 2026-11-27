@@ -3,7 +3,7 @@
 // languages, demo counts (the `features` list length) and capabilities come
 // from showcase/integrations/*/manifest.yaml. Page content is illustrative.
 
-import { liveFramework } from "@/lib/live-scope";
+import { ROOT_FRAMEWORK, liveFramework } from "@/lib/live-scope";
 // The frontends live in their own small module, which the URL helpers read
 // too; they are re-exported here for the prototypes.
 export { FRONTENDS, frontendById } from "@/lib/frontends";
@@ -360,6 +360,23 @@ export const FRAMEWORK_FAMILIES: {
     ],
   },
 ];
+
+/**
+ * The agent frameworks a reader can bring, one entry each: a framework in
+ * several languages shows once, under its family's name, and CopilotKit's
+ * own built-in agent is left out.
+ */
+export const AGENT_FRAMEWORKS: { id: string; name: string }[] =
+  FRAMEWORKS.flatMap((f) => {
+    if (f.id === ROOT_FRAMEWORK) return [];
+    const family = FRAMEWORK_FAMILIES.find((fam) =>
+      fam.variants.some((v) => v.id === f.id),
+    );
+    if (!family) return [{ id: f.id, name: f.short }];
+    return family.variants[0].id === f.id
+      ? [{ id: f.id, name: family.name }]
+      : [];
+  });
 
 export function frameworkById(id: string): Framework | undefined {
   return FRAMEWORKS.find((f) => f.id === id);
