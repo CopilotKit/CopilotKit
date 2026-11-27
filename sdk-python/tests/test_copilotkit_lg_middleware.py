@@ -48,7 +48,8 @@ from langchain_core.messages import (
 from langchain_core.outputs import ChatGeneration, ChatResult
 from langgraph.constants import END, START
 from langgraph.checkpoint.memory import MemorySaver
-from langchain.agents.middleware import ModelRequest
+from langchain.agents.middleware import AgentMiddleware, ModelRequest
+from langchain_core.tools import tool
 from langgraph.graph import StateGraph
 
 from copilotkit.copilotkit_lg_middleware import (
@@ -2413,3 +2414,130 @@ def test_everything_else_goes_to_the_handler(request_kwargs, flag):
     fake_interrupt.assert_not_called()
     handler.assert_called_once()
     assert result == "handler-result"
+
+
+# ---------------------------------------------------------------------------
+# Interception keeps the rest of ``state["copilotkit"]``
+# ---------------------------------------------------------------------------
+
+_FE_ACTION = {
+    "name": "navigate",
+    "description": "Navigate the app",
+    "parameters": {"type": "object", "properties": {"path": {"type": "string"}}},
+}
+_CONTEXT = [{"description": "screen", "value": "checkout"}]
+
+
+def test_after_model_keeps_context_and_actions_next_to_the_bookkeeping():
+    """The update replaces the whole key, so it has to carry what was there."""
+    middleware = CopilotKitMiddleware()
+    state = {
+        "messages": [
+            HumanMessage("hi"),
+            AIMessage(
+                content="",
+                tool_calls=[{"id": "1", "name": "navigate", "args": {}}],
+                id="ai-1",
+            ),
+        ],
+        "copilotkit": {"actions": [_FE_ACTION], "context": _CONTEXT},
+    }
+
+    result = middleware.after_model(state, MagicMock(name="runtime"))
+
+    assert result is not None
+    assert result["copilotkit"]["actions"] == [_FE_ACTION]
+    assert result["copilotkit"]["context"] == _CONTEXT
+    assert result["copilotkit"]["original_ai_message_id"] == "ai-1"
+
+
+def test_after_agent_keeps_context_and_actions_when_it_clears_the_bookkeeping():
+    middleware = CopilotKitMiddleware()
+    call = {"id": "1", "name": "navigate", "args": {}}
+    state = {
+        "messages": [
+            HumanMessage("hi"),
+            AIMessage(content="", tool_calls=[], id="ai-1"),
+        ],
+        "copilotkit": {
+            "actions": [_FE_ACTION],
+            "context": _CONTEXT,
+            "intercepted_tool_calls": [call],
+            "original_ai_message_id": "ai-1",
+            "original_tool_calls": [call],
+        },
+    }
+
+    result = middleware.after_agent(state, MagicMock(name="runtime"))
+
+    assert result is not None
+    assert result["copilotkit"]["actions"] == [_FE_ACTION]
+    assert result["copilotkit"]["context"] == _CONTEXT
+    assert result["copilotkit"]["intercepted_tool_calls"] is None
+
+
+@tool
+def backend_lookup() -> str:
+    """Runs on the backend."""
+    return "found"
+
+
+class _ScriptedChatModel(BaseChatModel):
+    """Plays back a fixed list of replies, one per model call."""
+
+    replies: list[Any] = Field(default_factory=list)
+    calls: int = 0
+
+    @property
+    def _llm_type(self) -> str:
+        return "scripted-chat-model"
+
+    def bind_tools(self, tools, *, tool_choice=None, **kwargs):
+        return self
+
+    def _generate(self, messages, stop=None, run_manager=None, **kwargs) -> ChatResult:
+        reply = self.replies[min(self.calls, len(self.replies) - 1)]
+        self.calls += 1
+        return ChatResult(generations=[ChatGeneration(message=reply)])
+
+
+class _StateProbe(AgentMiddleware):
+    """Records ``state["copilotkit"]`` as each model call is about to start."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.seen: list[dict[str, Any]] = []
+
+    def before_model(self, state, runtime):
+        self.seen.append(dict(state.get("copilotkit") or {}))
+        return None
+
+
+def test_context_and_actions_survive_a_step_with_a_frontend_tool_call():
+    """A real graph replaces ``state["copilotkit"]`` with whatever the update returns, so a
+    model call after a frontend tool call used to see neither the context nor the actions."""
+    mixed = AIMessage(
+        content="",
+        tool_calls=[
+            {"id": "fe-1", "name": "navigate", "args": {"path": "/x"}},
+            {"id": "be-1", "name": "backend_lookup", "args": {}},
+        ],
+    )
+    probe = _StateProbe()
+    agent = create_agent(
+        _ScriptedChatModel(replies=[mixed, AIMessage(content="done")]),
+        tools=[backend_lookup],
+        middleware=[CopilotKitMiddleware(), probe],
+    )
+
+    agent.invoke(
+        {
+            "messages": [HumanMessage("go")],
+            "copilotkit": {"actions": [_FE_ACTION], "context": _CONTEXT},
+        }
+    )
+
+    assert len(probe.seen) == 2
+    for seen in probe.seen:
+        assert seen["actions"] == [_FE_ACTION]
+        assert seen["context"] == _CONTEXT
