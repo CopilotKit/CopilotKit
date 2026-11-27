@@ -19,7 +19,7 @@ This quickstart serves an agent built with the Cloudflare Agents SDK over AG-UI 
 
 Before you begin, you'll need the following:
 
-- Node.js 20+
+- Node.js 22.12 or later (wrangler refuses to run on older versions)
 - An OpenAI API key, as `OPENAI_API_KEY`
 
 Running the Worker locally needs no Cloudflare account: `wrangler dev` runs it on workerd with a local Durable Object store.
@@ -129,11 +129,13 @@ Running the Worker locally needs no Cloudflare account: `wrangler dev` runs it o
 
     The agent's `state` is the thread's shared state, kept in its Durable Object; `initialState` is where it starts. `routeAgentRequest` serves the `Assistant` binding at `/agents/assistant/<thread id>`, one Durable Object per thread. Copilot Runtime posts every run to one URL, `/agents/assistant`, so `toThreadRequest` first moves the run's thread id from the request body into the path.
 
-    Start the Worker and send it a run:
+    Start the Worker:
 
     ```bash
     npx wrangler dev --port 8000
     ```
+
+    Leave it running, and send it a run from a second terminal:
 
     ```bash
     curl -N http://localhost:8000/agents/assistant \
@@ -148,7 +150,7 @@ Running the Worker locally needs no Cloudflare account: `wrangler dev` runs it o
   <Step>
     ### Create your frontend
 
-    CopilotKit works with any React app. This example uses Next.js App Router:
+    CopilotKit works with any React app. This example uses Next.js App Router. In the second terminal, go to the folder that contains `agent`, so the app sits next to the Worker rather than inside it:
 
     ```bash
     npx create-next-app@latest frontend
@@ -246,7 +248,7 @@ Running the Worker locally needs no Cloudflare account: `wrangler dev` runs it o
   <Step>
     ### Start the UI
 
-    Keep `wrangler dev` running, then start the frontend in a second terminal:
+    Keep `wrangler dev` running, then start the frontend from the `frontend` folder:
 
     ```bash
     npm run dev
