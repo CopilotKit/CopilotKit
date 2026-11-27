@@ -4,6 +4,7 @@
   { "slug": "built-in-agent", "name": "Built-in Agent (TanStack AI)" },
   { "slug": "claude-sdk-python", "name": "Claude SDK Python" },
   { "slug": "claude-sdk-typescript", "name": "Claude SDK TypeScript" },
+  { "slug": "cloudflare-agents", "name": "Cloudflare Agents" },
   { "slug": "crewai-crews", "name": "CrewAI Flows" },
   {
     "slug": "crewai-conversational-flows",
