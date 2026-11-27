@@ -373,9 +373,10 @@ export const AGENT_FRAMEWORKS: { id: string; name: string }[] =
       fam.variants.some((v) => v.id === f.id),
     );
     if (!family) return [{ id: f.id, name: f.short }];
-    return family.variants[0].id === f.id
-      ? [{ id: f.id, name: family.name }]
-      : [];
+    // The family's first variant that has docs stands for it, so a family
+    // whose default variant is hidden still shows.
+    const shown = family.variants.find((v) => liveFramework(v.id));
+    return shown?.id === f.id ? [{ id: f.id, name: family.name }] : [];
   });
 
 export function frameworkById(id: string): Framework | undefined {
