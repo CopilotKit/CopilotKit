@@ -10,7 +10,7 @@ const env = {
 test("agent configuration fails clearly without requiring a network request", async () => {
   const { createAgents } = await import("../src/lib/agents");
   assert.throws(
-    () => createAgents({}),
+    () => createAgents({}, "visitor"),
     /OMNARA_API_KEY.*OMNARA_ORG_ID.*OMNARA_PROJECT_ID/,
   );
 });
@@ -18,8 +18,8 @@ test("agent configuration fails clearly without requiring a network request", as
 test("each request gets real adapter instances for the demo agent IDs", async () => {
   const { createAgents } = await import("../src/lib/agents");
   const { OmnaraAgent } = await import("@ag-ui/omnara");
-  const first = createAgents(env);
-  const second = createAgents(env);
+  const first = createAgents(env, "visitor-one");
+  const second = createAgents(env, "visitor-two");
   assert.deepEqual(Object.keys(first).sort(), [
     "agentic_chat",
     "frontend_tools",

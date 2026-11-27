@@ -83,6 +83,20 @@ export interface ActionDispatchScope {
   platform: string;
 }
 
+/** The resume gate one bind's actions share, as resolved for that bind. */
+type ResumeGate = Required<
+  Pick<ActionContinuationContext, "resumeGateId" | "resumeGateDeadline">
+>;
+
+/**
+ * Per-bind state: the resume gate the bind's first action resolved. Every
+ * later action of the same bind (siblings, descendants, and further event
+ * props) reuses it, so one bind never spans two gates.
+ */
+interface BindState {
+  gate?: Promise<ResumeGate>;
+}
+
 /**
  * Where an action or reaction handler was bound. `platform` is absent from
  * snapshots written before actions were scoped by platform; such a snapshot
@@ -92,6 +106,19 @@ interface ActionBinding {
   conversationKey: string;
   platform?: string;
 }
+
+/**
+ * The one-shot gate shared by the controls of one `awaitChoice` picker (see
+ * {@link ActionRegistry.openChoiceGate}).
+ */
+export interface ChoiceGate {
+  id: string;
+  /** Epoch ms after which no control of the picker runs. */
+  deadline: number;
+}
+
+/** Waits between attempts to take a retired picker's gate. */
+const CHOICE_GATE_RETRY_DELAYS_MS = [50, 200, 800] as const;
 
 const EVENT_PROPS = ["onClick", "onSelect", "onSubmit"] as const;
 
@@ -150,6 +177,7 @@ export class ActionRegistry {
       conversationKey: string;
       platform: string;
       continuation?: true;
+      choiceGate?: ChoiceGate;
     }
   >;
   // Same-process fast path for `<Message onReaction>` handlers, keyed by the
@@ -165,11 +193,15 @@ export class ActionRegistry {
   // cannot write the action back (see `rescopeActions`).
   private retired: BoundedCache<string, true>;
 
+  // The action whose click took each picker gate in this process, so that a
+  // resume from that click's own handler still finds its continuation.
+  private choiceGateHolders: BoundedCache<string, string>;
+
   // Each in-process continuation's gate: when it was opened, and the write
   // every bind of that leg waits on, so binds running together share one gate.
   private resumeGates = new WeakMap<
     ActionContinuationContext,
-    { openedAt: number; opened: Promise<void> }
+    { openedAt: number; opened: Promise<ResumeGate> }
   >();
 
   /** TTL of every stored snapshot and of every in-process cache entry. */
@@ -195,6 +227,7 @@ export class ActionRegistry {
     this.hot = new BoundedCache(limits);
     this.messageReactions = new BoundedCache(limits);
     this.retired = new BoundedCache(limits);
+    this.choiceGateHolders = new BoundedCache(limits);
   }
 
   /** Cache a `<Message onReaction>` handler for the posted message (same-process). */
@@ -348,6 +381,7 @@ export class ActionRegistry {
       registered?.requireKeys ?? false,
       renderContext.platform,
       interactiveKeys,
+      {},
     );
     return root;
   }
@@ -445,6 +479,7 @@ export class ActionRegistry {
         false,
         renderContext.platform,
         new Set(),
+        {},
       );
     }
     const onReaction = takeMessageReaction(root);
@@ -468,6 +503,7 @@ export class ActionRegistry {
     requireKeys: boolean,
     platform: string,
     interactiveKeys: Set<string | number>,
+    bind: BindState,
     exactPath?: (string | number)[],
   ): Promise<void> {
     for (let i = 0; i < nodes.length; i++) {
@@ -500,7 +536,11 @@ export class ActionRegistry {
             requireKeys && node.key !== undefined
               ? { key: node.key, eventProp: ep }
               : undefined;
-          if (continuation) await this.ensureResumeGate(continuation);
+          // Resolve the gate once per bind: a later action asking again could
+          // roll a stale bind over to a fresh, unclaimed gate.
+          const gate = continuation
+            ? await (bind.gate ??= this.ensureResumeGate(continuation))
+            : undefined;
           // Every id is random and bound to its conversation: a content-derived
           // id would collide across conversations rendering the same card.
           // Continuation ids use the same format; the snapshot's
@@ -525,7 +565,7 @@ export class ActionRegistry {
               conversationKey: conv,
               boundArgs: isBound(handler) ? getBoundArgs(handler) : undefined,
               ...(continuation
-                ? { continuation: { ...continuation, actionId: id } }
+                ? { continuation: { ...continuation, ...gate, actionId: id } }
                 : {}),
             },
             this.retentionMs,
@@ -545,6 +585,7 @@ export class ActionRegistry {
           requireKeys,
           platform,
           interactiveKeys,
+          bind,
         );
       }
     }
@@ -561,6 +602,7 @@ export class ActionRegistry {
     requireKeys: boolean,
     platform: string,
     interactiveKeys: Set<string | number>,
+    bind: BindState,
   ): Promise<void> {
     if (isChannelNode(value)) {
       await this.walkNode(
@@ -573,6 +615,7 @@ export class ActionRegistry {
         requireKeys,
         platform,
         interactiveKeys,
+        bind,
       );
       return;
     }
@@ -588,6 +631,7 @@ export class ActionRegistry {
         requireKeys,
         platform,
         interactiveKeys,
+        bind,
       );
     }
   }
@@ -603,6 +647,7 @@ export class ActionRegistry {
     requireKeys: boolean,
     platform: string,
     interactiveKeys: Set<string | number>,
+    bind: BindState,
   ): Promise<void> {
     await this.walk(
       [node],
@@ -614,6 +659,7 @@ export class ActionRegistry {
       requireKeys,
       platform,
       interactiveKeys,
+      bind,
       path,
     );
   }
@@ -642,6 +688,7 @@ export class ActionRegistry {
     assertDispatchScope(scope);
     let handler: ClickHandler | undefined;
     let value: unknown;
+    let gate: ChoiceGate | undefined;
     const hot = this.hot.get(id);
     if (hot) {
       assertActionScope(hot, scope);
@@ -651,6 +698,7 @@ export class ActionRegistry {
       }
       handler = hot.handler;
       value = hot.value;
+      gate = hot.choiceGate;
     } else {
       const snap = await this.store.get(id);
       if (!snap) throw await this.goneError(id, scope);
@@ -682,10 +730,17 @@ export class ActionRegistry {
         : pluck(tree, snap.path);
       value = snap.locator ? snap.actionValue : pluckValue(tree, snap.path);
       if (!handler) throw new ActionExpiredError(id);
+      gate = choiceGateOf(snap);
     }
     // Revoked while it was being resolved (its snapshot may outlive a failed
     // or still-pending delete): it never runs.
     if (this.retired.get(id)) throw new ActionExpiredError(id);
+    // A picker control runs only for the click that takes its picker's gate,
+    // in whichever process that click lands. The handler has not run yet. A
+    // click refused here spends nothing and the picker stays pending. A store
+    // error on the take is different: it propagates like a handler failure,
+    // and the caller settles the picker with that error.
+    if (gate) await this.takeChoiceGate(gate, id);
     const actionValue = value === undefined ? ctx.action.value : value;
     await handler({
       ...ctx,
@@ -737,7 +792,10 @@ export class ActionRegistry {
         this.renewalTtl(snap),
       );
       // The read and the write above are not atomic: an action revoked or
-      // claimed in between must not come back.
+      // claimed in this process must not come back. A picker control stays:
+      // once its picker settles its taken gate refuses every later click,
+      // and the click that took the gate may still need the snapshot to
+      // resume.
       if (this.retired.get(id)) {
         this.hot.delete(id);
         await this.store.delete(id);
@@ -746,19 +804,90 @@ export class ActionRegistry {
   }
 
   /**
-   * @internal Persist the provider account a picker's controls are limited to.
-   * Runs before the controls are published, so no click can race the write.
-   * Ids without a snapshot (controls with no handler) are ignored.
+   * @internal Open the one-shot gate a picker's controls share, and record
+   * it (and the provider account the controls are limited to, if any) in
+   * each control's snapshot. Runs before the controls are published, so no
+   * click can race the writes; when one fails this rejects and the picker
+   * must not be posted. Ids without a snapshot (controls with no handler)
+   * get no record; the gate still covers them through the pending choice.
+   *
+   * The gate lives `lifetimeMs` (the retention window when that is not
+   * finite) and the picker's controls never run past that deadline, so a
+   * picker stays retired everywhere even when taking its gate on retirement
+   * fails.
    */
-  async setActionOwner(ids: Iterable<string>, actorId: string): Promise<void> {
+  async openChoiceGate(
+    ids: Iterable<string>,
+    opts: { lifetimeMs: number; ownerActorId?: string },
+  ): Promise<ChoiceGate> {
+    // No limit lasts the retention window; a zero TTL would mean no expiry.
+    const lifetimeMs = Number.isFinite(opts.lifetimeMs)
+      ? Math.max(1, opts.lifetimeMs)
+      : this.retentionMs;
+    const gate: ChoiceGate = {
+      id: mintActionId(),
+      deadline: Date.now() + lifetimeMs,
+    };
+    await this.store.put(
+      choiceGateKey(gate.id),
+      { path: [], conversationKey: "" },
+      lifetimeMs,
+    );
     for (const id of ids) {
+      const hot = this.hot.get(id);
+      if (hot) this.hot.set(id, { ...hot, choiceGate: gate });
       const snap = await this.store.get(id);
-      if (snap) {
-        await this.store.put(
-          id,
-          { ...snap, ownerActorId: actorId },
-          this.renewalTtl(snap),
-        );
+      if (!snap) continue;
+      const gated: ActionSnapshot = {
+        ...snap,
+        ...(opts.ownerActorId !== undefined
+          ? { ownerActorId: opts.ownerActorId }
+          : {}),
+        choiceGateId: gate.id,
+        choiceGateDeadline: gate.deadline,
+      };
+      await this.store.put(id, gated, this.renewalTtl(gated));
+    }
+    return gate;
+  }
+
+  /**
+   * @internal Take a picker's gate for the click about to answer it. Throws
+   * {@link ActionExpiredError} past the gate's deadline and
+   * {@link ActionAlreadyClaimedError} when the picker was already answered
+   * or retired in any process; a store failure propagates, so the click
+   * fails rather than run unchecked.
+   */
+  async takeChoiceGate(gate: ChoiceGate, actionId: string): Promise<void> {
+    if (Date.now() > gate.deadline) throw new ActionExpiredError(actionId);
+    const taken = await this.store.consume(choiceGateKey(gate.id));
+    if (!taken) throw new ActionAlreadyClaimedError();
+    this.choiceGateHolders.set(gate.id, actionId);
+  }
+
+  /** Whether a picker's gate is still open: not past its deadline, not taken. */
+  private async isChoiceGateOpen(gate: ChoiceGate): Promise<boolean> {
+    if (Date.now() > gate.deadline) return false;
+    return (await this.store.get(choiceGateKey(gate.id))) !== undefined;
+  }
+
+  /**
+   * @internal Take a retired picker's gate so no process runs its controls
+   * again, retrying with backoff. Resolves once no control of the picker can
+   * run in any process: the gate is taken (by this call or by the click that
+   * answered the picker) or past its deadline. If every attempt fails, the
+   * last error is rethrown and only the deadline ends the picker elsewhere.
+   */
+  async retireChoiceGate(gate: ChoiceGate): Promise<void> {
+    for (let attempt = 0; ; attempt++) {
+      if (Date.now() > gate.deadline) return;
+      try {
+        await this.store.consume(choiceGateKey(gate.id));
+        return;
+      } catch (err) {
+        const delay = CHOICE_GATE_RETRY_DELAYS_MS[attempt];
+        if (delay === undefined) throw err;
+        await new Promise((r) => setTimeout(r, delay));
       }
     }
   }
@@ -772,7 +901,8 @@ export class ActionRegistry {
    * store is doing. Each stored snapshot is then deleted; one delete failing
    * does not stop the others, and the promise rejects once they have all
    * settled if any failed. A retired id stays refused here even while its
-   * snapshot survives a failed delete.
+   * snapshot survives a failed delete. A picker's controls are refused in
+   * every other process by taking its gate (see {@link retireChoiceGate}).
    */
   async revokeActions(ids: Iterable<string>): Promise<void> {
     const revoked = [...ids];
@@ -807,6 +937,18 @@ export class ActionRegistry {
     if (resumeGateId && !(await this.store.get(resumeGateKey(resumeGateId)))) {
       throw new ActionAlreadyClaimedError();
     }
+    // A control of a settled picker resumes nothing, except from the click
+    // that answered the picker, which holds its gate.
+    const gate = choiceGateOf(available);
+    if (
+      gate &&
+      this.choiceGateHolders.get(gate.id) !== id &&
+      !(await this.isChoiceGateOpen(gate))
+    ) {
+      throw Date.now() > gate.deadline
+        ? new ActionExpiredError(id)
+        : new ActionAlreadyClaimedError();
+    }
     return available.continuation;
   }
 
@@ -819,18 +961,19 @@ export class ActionRegistry {
    * finds it. A leg rendering past `retentionMs` gets a new gate rather than a
    * renewed one: a `put` could bring back a consumed gate. A failed write
    * leaves the continuation untouched: the bind rejects, so nothing is
-   * published, and the next bind opens the gate again.
+   * published, and the next bind opens the gate again. Resolves to the gate
+   * joined. A bind resolves it once and stamps it on every action it binds.
    */
   private ensureResumeGate(
     continuation: ActionContinuationContext,
-  ): Promise<void> {
+  ): Promise<ResumeGate> {
     const current = this.resumeGates.get(continuation);
     if (current && Date.now() - current.openedAt < this.retentionMs) {
       return current.opened;
     }
     const openedAt = Date.now();
     const id = mintActionId();
-    const opened: Promise<void> = this.store
+    const opened: Promise<ResumeGate> = this.store
       .put(
         resumeGateKey(id),
         { path: [], conversationKey: "" },
@@ -844,8 +987,12 @@ export class ActionRegistry {
           if (!latest) throw new ActionExpiredError(id);
           return latest.opened;
         }
-        continuation.resumeGateId = id;
-        continuation.resumeGateDeadline = openedAt + this.retentionMs * 2;
+        const resolved: ResumeGate = {
+          resumeGateId: id,
+          resumeGateDeadline: openedAt + this.retentionMs * 2,
+        };
+        Object.assign(continuation, resolved);
+        return resolved;
       });
     const gate = { openedAt, opened };
     this.resumeGates.set(continuation, gate);
@@ -864,10 +1011,16 @@ export class ActionRegistry {
 
   /** The window for renewing `snap`: never past its gate's deadline. */
   private renewalTtl(snap: ActionSnapshot): number {
-    const deadline = snap.continuation?.resumeGateDeadline;
-    if (deadline === undefined) return this.retentionMs;
+    const deadlines = [
+      snap.continuation?.resumeGateDeadline,
+      snap.choiceGateDeadline,
+    ].filter((d): d is number => d !== undefined);
+    if (deadlines.length === 0) return this.retentionMs;
     // A zero TTL would mean no expiry at all.
-    return Math.max(1, Math.min(this.retentionMs, deadline - Date.now()));
+    return Math.max(
+      1,
+      Math.min(this.retentionMs, ...deadlines.map((d) => d - Date.now())),
+    );
   }
 
   /** Why an id with no snapshot is gone: spent by a resume, or expired. */
@@ -1091,6 +1244,20 @@ function boundActionIds(root: readonly ChannelNode[]): string[] {
 /** Store key for an interrupt's one-shot resume gate. */
 function resumeGateKey(id: string): string {
   return `resume:${id}`;
+}
+
+/** Store key for an awaitChoice picker's one-shot gate. */
+function choiceGateKey(id: string): string {
+  return `choice:${id}`;
+}
+
+/** The picker gate a stored snapshot records, if any. */
+function choiceGateOf(snap: ActionSnapshot): ChoiceGate | undefined {
+  if (typeof snap.choiceGateId !== "string") return undefined;
+  // A gate id without a usable deadline is already past it.
+  const deadline =
+    typeof snap.choiceGateDeadline === "number" ? snap.choiceGateDeadline : 0;
+  return { id: snap.choiceGateId, deadline };
 }
 
 /** Store key recording that a resume spent action `id`. */

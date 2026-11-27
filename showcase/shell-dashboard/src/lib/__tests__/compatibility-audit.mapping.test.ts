@@ -26,7 +26,7 @@ describe("Showcase compatibility mapping", () => {
     expect(() =>
       assertMappingCoverage(COMPATIBILITY_MAPPING, manifestSlugs),
     ).not.toThrow();
-    expect(COMPATIBILITY_MAPPING).toHaveLength(24);
+    expect(COMPATIBILITY_MAPPING).toHaveLength(25);
 
     const expected = COMPATIBILITY_SNAPSHOT.rows
       .filter((row) => !row.slug.endsWith("-dotnet"))
@@ -39,11 +39,12 @@ describe("Showcase compatibility mapping", () => {
     const mapped = COMPATIBILITY_MAPPING.flatMap((variant) =>
       variant.libraries.map((pkg) => `${variant.slug}/${pkg.name}`),
     );
-    expect(mapped).toHaveLength(36);
+    expect(mapped).toHaveLength(37);
     expect(mapped.sort()).toEqual(
       [
         ...expected,
         "google-antigravity/google-antigravity",
+        "cloudflare-agents/agents",
         "ms-agent-dotnet/Microsoft.Agents.AI",
         "ms-agent-harness-dotnet/Microsoft.Agents.AI",
         "ms-agent-harness-dotnet/Microsoft.Agents.AI.Harness",

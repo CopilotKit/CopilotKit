@@ -1,0 +1,18 @@
+{
+  "_meta": {
+    "description": "D4 chat fixtures for cloudflare-agents",
+    "created": "2026-11-24"
+  },
+  "fixtures": [
+    {
+      "_comment": "d4-chat-roundtrip L3 sends 'Hello, please respond with a brief greeting.' on /demos/agentic-chat with X-AIMock-Strict, so it needs a fixture scoped to this slug. The L4 weather prompt is covered by d6/cloudflare-agents/tool-rendering.json.",
+      "match": {
+        "userMessage": "Hello",
+        "context": "cloudflare-agents"
+      },
+      "response": {
+        "content": "Hello! How can I assist you today?"
+      }
+    }
+  ]
+}

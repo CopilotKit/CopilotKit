@@ -49,8 +49,10 @@ import { AdaptiveThemeSwitch } from "@/components/layout/theme-toggle";
 import { FRAMEWORKS, FRAMEWORK_FAMILIES } from "./data";
 import { FamilyMenuCard, IntegrationCardBody } from "./link-card";
 import { rememberFramework, useLastFramework } from "./last-framework";
+import { rememberFrontend } from "./frontend";
+import { useStackHref } from "./stack-href";
 import { useMenuSwitchClick } from "./use-menu-switch-click";
-import { frameworkHref, locationFromPathname } from "./routes";
+import { locationFromPathname } from "./routes";
 import type { VariantId } from "./routes";
 import { SidebarTop, buildTree, layoutTabs } from "./variants";
 import { liveTree } from "./live-tree";
@@ -58,12 +60,8 @@ import { LivePagesProvider } from "./live-pages-context";
 import { trackEvent } from "@/lib/telemetry/analytics";
 import { cn } from "@/lib/cn";
 import type { LiveNav } from "@/lib/live-nav";
-import {
-  ROOT_FRAMEWORK,
-  frontendHref,
-  liveFrontend,
-  scopeFromPath,
-} from "@/lib/live-scope";
+import { whereIs } from "@/lib/live-pages";
+import { ROOT_FRAMEWORK, liveFrontend, scopeFromPath } from "@/lib/live-scope";
 import { variantMeta } from "./meta";
 
 const GITHUB = "https://github.com/CopilotKit/CopilotKit";
@@ -86,40 +84,44 @@ const X: LinkItemType = {
   external: true,
 };
 
+/**
+ * The Intelligence menu. Its pages are per stack like every docs page, so
+ * each opens on the reader's frontend and framework (`useStackHref`).
+ */
 const INTELLIGENCE_MENU = [
   {
     text: "Overview",
-    url: "/intelligence/overview",
+    slug: "intelligence/overview",
     icon: <IntelligenceGlyph />,
     description: "What Intelligence adds to an agent app in production.",
   },
   {
     text: "Quickstart",
-    url: "/intelligence/quickstart",
+    slug: "intelligence/quickstart",
     icon: <QuickstartGlyph />,
     description: "Turn on Intelligence in your runtime.",
   },
   {
     text: "AG-UI Streams",
-    url: "/AG-UI-Streams",
+    slug: "AG-UI-Streams",
     icon: <ThreadsGlyph />,
     description: "Threads that persist with their generative UI.",
   },
   {
     text: "Automatic learning",
-    url: "/learning",
+    slug: "learning",
     icon: <LearningGlyph />,
     description: "Agents that learn from real use.",
   },
   {
     text: "User memories",
-    url: "/intelligence/memories",
+    slug: "intelligence/memories",
     icon: <MemoryGlyph />,
     description: "Remember each user across conversations.",
   },
   {
     text: "Self-hosted",
-    url: "/intelligence/self-hosting",
+    slug: "intelligence/self-hosting",
     icon: <BackendGlyph />,
     description: "Run Intelligence in your own infrastructure.",
   },
@@ -132,21 +134,25 @@ const INTELLIGENCE_MENU = [
  * chat button in the page's corner opens it. Cookbook and Reference
  * are one click from any page and Docs one click back, without taking a row
  * of the sidebar. Cookbook and Reference own their URL prefix; Docs is every
- * other docs page, and opens your framework's quickstart on your frontend
- * (`/vue/mastra` on a Vue page).
+ * other docs page, and opens your stack's quickstart.
  */
 function SectionActions({ className, ...props }: ComponentProps<"div">) {
   const path = usePathname().split("/").filter(Boolean);
-  const [lastFramework] = useLastFramework();
-  const framework = scopeFromPath(path).framework ?? lastFramework;
-  const frontend = liveFrontend(path[0]);
+  const stackHref = useStackHref();
+  const inDocs = path[0] !== "cookbook" && path[0] !== "reference";
+  // On a docs page, the quickstart of the stack being read (a URL with no
+  // framework is the built-in agent's); elsewhere, the reader's stack.
+  const scope = scopeFromPath(path);
   const sections = [
     {
       title: "Docs",
-      url: frontend
-        ? frontendHref(path, frontend, "")
-        : frameworkHref("d", framework, "quickstart"),
-      active: path[0] !== "cookbook" && path[0] !== "reference",
+      url: inDocs
+        ? stackHref("quickstart", {
+            frontend: scope.frontend,
+            framework: scope.framework ?? ROOT_FRAMEWORK,
+          })
+        : stackHref("quickstart"),
+      active: inDocs,
     },
     { title: "Cookbook", url: "/cookbook", active: path[0] === "cookbook" },
     { title: "Reference", url: "/reference", active: path[0] === "reference" },
@@ -305,43 +311,47 @@ const TILE_CARD = `${HOVER} gap-3 p-3`;
 /**
  * The Integrations menu: one card per framework, a family (LangGraph,
  * Strands, ...) as one card whose languages open in a popover, as on the home.
+ * Each opens the framework's quickstart on the reader's frontend.
  */
 type MenuItem = Extract<LinkItemType, { type: "menu" }>["items"][number];
 
-const INTEGRATIONS_MENU: MenuItem[] = FRAMEWORKS.flatMap((f): MenuItem[] => {
-  const family = FRAMEWORK_FAMILIES.find((fam) =>
-    fam.variants.some((v) => v.id === f.id),
-  );
-  if (!family) {
+const integrationsMenu = (
+  quickstart: (framework: string) => string,
+): MenuItem[] =>
+  FRAMEWORKS.flatMap((f): MenuItem[] => {
+    const family = FRAMEWORK_FAMILIES.find((fam) =>
+      fam.variants.some((v) => v.id === f.id),
+    );
+    if (!family) {
+      return [
+        {
+          text: f.name,
+          url: quickstart(f.id),
+          menu: {
+            className: TILE_CARD,
+            children: <IntegrationCardBody slug={f.id} name={f.name} />,
+          },
+        },
+      ];
+    }
+    if (family.variants[0].id !== f.id) return [];
     return [
       {
-        text: f.name,
-        url: frameworkHref("d", f.id, "quickstart"),
-        menu: {
-          className: TILE_CARD,
-          children: <IntegrationCardBody slug={f.id} name={f.name} />,
-        },
+        type: "custom",
+        children: (
+          <FamilyMenuCard
+            key={family.name}
+            name={family.name}
+            className={TILE_CARD}
+            variants={family.variants.map((v) => ({
+              ...v,
+              href: quickstart(v.id),
+            }))}
+          />
+        ),
       },
     ];
-  }
-  if (family.variants[0].id !== f.id) return [];
-  return [
-    {
-      type: "custom",
-      children: (
-        <FamilyMenuCard
-          key={family.name}
-          name={family.name}
-          className={TILE_CARD}
-          variants={family.variants.map((v) => ({
-            ...v,
-            href: frameworkHref("d", v.id, "quickstart"),
-          }))}
-        />
-      ),
-    },
-  ];
-});
+  });
 
 /**
  * The Examples menu: a two-row "all demos" tile, then seven demos worth
@@ -568,7 +578,7 @@ function DHomeLayout({
   examples: readonly string[];
   children: ReactNode;
 }) {
-  const [framework] = useLastFramework();
+  const stackHref = useStackHref();
   useMenuSwitchClick();
   const links: LinkItemType[] = [
     {
@@ -578,7 +588,7 @@ function DHomeLayout({
         {
           text: "Quickstart",
           description: "Add a chat to your app and connect it to your agent.",
-          url: frameworkHref("d", framework, "quickstart"),
+          url: stackHref("quickstart"),
           menu: card(<QuickstartGlyph />),
         },
         {
@@ -607,7 +617,10 @@ function DHomeLayout({
     {
       type: "menu",
       text: "Integrations",
-      items: [...INTEGRATIONS_MENU, TILES_TRAY],
+      items: [
+        ...integrationsMenu((id) => stackHref("quickstart", { framework: id })),
+        TILES_TRAY,
+      ],
     },
     {
       type: "menu",
@@ -642,7 +655,7 @@ function DHomeLayout({
         ...INTELLIGENCE_MENU.map((i) => ({
           text: i.text,
           description: i.description,
-          url: i.url,
+          url: stackHref(i.slug),
           menu: card(i.icon),
         })),
         MENU_TRAY,
@@ -696,12 +709,33 @@ export function ProtoLayout({
     liveNav ? pathname : null,
   );
   const meta = variantMeta(variant);
-  const framework = loc?.kind === "framework" ? loc.framework : undefined;
+  const urlFrontend = scopeFromPath(
+    pathname.split("/").filter(Boolean),
+  ).frontend;
+  // A URL no page answers (a 404) isn't a stack the reader chose.
+  const exists =
+    loc?.kind !== "framework" ||
+    !liveNav ||
+    !loc.slug ||
+    !!whereIs(
+      liveNav.index,
+      urlFrontend,
+      loc.framework === ROOT_FRAMEWORK ? null : loc.framework,
+      loc.slug,
+    );
+  const framework =
+    loc?.kind === "framework" && exists ? loc.framework : undefined;
+  // The URL's frontend, on a docs page (`/vue/...`; React when it names none).
+  const frontend = framework && liveNav ? urlFrontend : undefined;
 
-  // Prototype D remembers the last framework so its home points at your docs.
+  // Prototype D remembers the stack being read so the home, the reference,
+  // and the cookbook point at your docs.
   useEffect(() => {
     if (variant === "d" && framework) rememberFramework(framework);
   }, [variant, framework]);
+  useEffect(() => {
+    if (variant === "d" && frontend) rememberFrontend(frontend);
+  }, [variant, frontend]);
 
   // The home, the playground, and the full-page Ask CopilotKit take the
   // navbar-only Home Layout.
@@ -711,7 +745,12 @@ export function ProtoLayout({
       loc?.kind === "examples" ||
       pathname === "/ask")
   ) {
-    return <DHomeLayout examples={examples}>{children}</DHomeLayout>;
+    // The page index lets its menus check a page exists on your stack.
+    return (
+      <LivePagesProvider index={liveNav?.index ?? null}>
+        <DHomeLayout examples={examples}>{children}</DHomeLayout>
+      </LivePagesProvider>
+    );
   }
 
   const tree =
@@ -776,7 +815,12 @@ function liveLocation(
   loc: ReturnType<typeof locationFromPathname>["location"],
   pathname: string | null,
 ): ReturnType<typeof locationFromPathname>["location"] {
-  if (loc || !pathname) return loc;
+  if (!pathname) return loc;
+  // The prototypes' framework-less Intelligence section: the live
+  // `/intelligence/*` pages are per stack, the built-in agent's when the URL
+  // names no framework, like any other unscoped page.
+  if (loc?.kind === "intelligence") loc = null;
+  if (loc) return loc;
   const path = pathname.split("/").filter(Boolean);
   if (liveFrontend(path[0])) {
     const page = `/${path.slice(1).join("/")}`;

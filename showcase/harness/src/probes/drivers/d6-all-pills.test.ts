@@ -10,6 +10,7 @@ import {
   openGuardedContext,
   parseFailureClassifier,
   resolveAimockStrictHeaders,
+  resolveTranscriptionReplay,
   Semaphore,
 } from "./d6-all-pills.js";
 import { CVDIAG_FAILURE_CLASSIFIERS } from "../../cvdiag/index.js";
@@ -25,7 +26,7 @@ import {
   __clearD5RegistryForTesting,
   registerD5Script,
 } from "../helpers/d5-registry.js";
-import type { D5Script } from "../helpers/d5-registry.js";
+import type { D5BuildContext, D5Script } from "../helpers/d5-registry.js";
 import { logger } from "../../logger.js";
 import type { Browser } from "playwright";
 import type { BrowserPool } from "../helpers/browser-pool.js";
@@ -64,6 +65,29 @@ describe("resolveAimockStrictHeaders", () => {
     expect(resolveAimockStrictHeaders({ SHOWCASE_AIMOCK_STRICT: "0" })).toEqual(
       {},
     );
+  });
+});
+
+describe("resolveTranscriptionReplay", () => {
+  it("replays no integration's transcription by default", () => {
+    expect(resolveTranscriptionReplay("cloudflare-agents", {})).toBe(false);
+  });
+
+  it("opts in only the integrations the environment lists", () => {
+    const env = {
+      SHOWCASE_VOICE_TRANSCRIPTION_REPLAY: " cloudflare-agents , strands ",
+    };
+    expect(resolveTranscriptionReplay("cloudflare-agents", env)).toBe(true);
+    expect(resolveTranscriptionReplay("strands", env)).toBe(true);
+    expect(resolveTranscriptionReplay("strands-typescript", env)).toBe(false);
+  });
+
+  it("treats an empty list as no opt-in", () => {
+    expect(
+      resolveTranscriptionReplay("cloudflare-agents", {
+        SHOWCASE_VOICE_TRANSCRIPTION_REPLAY: "",
+      }),
+    ).toBe(false);
   });
 });
 
@@ -405,6 +429,44 @@ describe("e2e-full driver", () => {
       expect(sideRow).toBeDefined();
       expect(sideRow!.state).toBe("green");
     });
+
+    it.each([
+      ["test-slug", true],
+      ["another-slug", false],
+    ])(
+      "hands the environment's transcription replay opt-in to the script (%s listed: %s)",
+      async (listed, expected) => {
+        vi.stubEnv("SHOWCASE_VOICE_TRANSCRIPTION_REPLAY", listed);
+        const seen: D5BuildContext[] = [];
+        registerD5Script({
+          ...makeScript(["voice"]),
+          buildTurns: (ctx) => {
+            seen.push(ctx);
+            return [{ input: "hello" }];
+          },
+        });
+        const driver = createE2eFullDriver({
+          launcher: async () => makeBrowser(),
+          scriptLoader: noopScriptLoader(),
+        });
+        try {
+          await driver.run(makeCtx(), {
+            key: "e2e_d6:showcase-test-slug",
+            backendUrl: "https://test.example.com",
+            features: ["voice"],
+          });
+        } finally {
+          vi.unstubAllEnvs();
+        }
+
+        expect(seen).toHaveLength(1);
+        expect(seen[0]).toMatchObject({
+          integrationSlug: "test-slug",
+          featureType: "voice",
+          transcriptionReplay: expected,
+        });
+      },
+    );
   });
 
   // The deployed aimock enforces inbound auth on the /__aimock control API.

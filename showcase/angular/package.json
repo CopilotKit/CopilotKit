@@ -3,6 +3,17 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "nx": {
+    "targets": {
+      "build": {
+        "inputs": [
+          "production",
+          "{projectRoot}/.env*",
+          "{workspaceRoot}/showcase/integrations/_shared/ts/a2ui/sales-context.ts"
+        ]
+      }
+    }
+  },
   "scripts": {
     "generate": "pnpm --dir ../scripts generate-registry && node scripts/stage-demo-assets.mjs",
     "build:dependencies": "pnpm --filter @copilotkit/shared --filter @copilotkit/core --filter @copilotkit/web-components --filter @copilotkit/angular --workspace-concurrency=1 run build",

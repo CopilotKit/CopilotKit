@@ -1,6 +1,6 @@
 import type { PlatformAdapter, ReplyTarget } from "./platform-adapter.js";
 import { ActionInitiatorMismatchError } from "./action-registry.js";
-import type { ActionRegistry } from "./action-registry.js";
+import type { ActionRegistry, ChoiceGate } from "./action-registry.js";
 import type {
   ActionContinuationContext,
   ActionContinuationSnapshot,
@@ -143,20 +143,26 @@ export interface ThreadDeps {
   context: ContextEntry[];
   /**
    * Register a pending choice under `conversationKey`. Returns a function that
-   * retires it (unregisters it and revokes its controls) if it is still the
-   * pending choice there.
+   * retires it (unregisters it and revokes its controls) and then rejects it
+   * with `reason`, once no process can run its controls any more.
    */
-  registerWaiter: (conversationKey: string, waiter: ChoiceWaiter) => () => void;
+  registerWaiter: (
+    conversationKey: string,
+    waiter: ChoiceWaiter,
+  ) => (reason: unknown) => void | Promise<void>;
   /**
    * Claim a picker's controls for `actorId` (`undefined`: anyone) before the
    * picker is posted: until {@link registerWaiter} opens its choice, no click
    * runs them. Returns a function that abandons the claim (and revokes the
-   * controls) if the picker never became a pending choice.
+   * controls, and takes `choiceGate`) if the picker never became a pending
+   * choice; its promise settles once no process can run them, and rejects
+   * when that cannot be confirmed.
    */
   reserveChoiceControls: (
     controlIds: Iterable<string>,
     actorId: string | undefined,
-  ) => () => void;
+    choiceGate?: ChoiceGate,
+  ) => () => void | Promise<void>;
   interruptHandlers: Map<
     string,
     (args: {
@@ -881,18 +887,50 @@ export class Thread implements ThreadInterface {
       const ir = await this.prepareNative(bound.root);
       const controls = collectChoiceControls(ir, unboundActionIds);
       // The controls' ids can reach the platform as soon as the post starts:
-      // claim them for this choice first, and revoke them if the post fails.
-      if (actorId !== undefined) {
-        await this.deps.registry.setActionOwner(controls.keys(), actorId);
-      }
-      const abandon = this.deps.reserveChoiceControls(controls.keys(), actorId);
+      // open the picker's shared gate and claim the controls for this choice
+      // first (a failed write means nothing is posted), and revoke them if
+      // the post fails.
+      const choiceGate = await this.deps.registry.openChoiceGate(
+        controls.keys(),
+        {
+          lifetimeMs: timeoutMs,
+          ...(actorId !== undefined ? { ownerActorId: actorId } : {}),
+        },
+      );
+      const abandon = this.deps.reserveChoiceControls(
+        controls.keys(),
+        actorId,
+        choiceGate,
+      );
       let ref: MessageRef;
       try {
         ref = await this.deps.adapter.post(this.deps.replyTarget, ir);
         await this.bindPosted(ref, bound);
       } catch (err) {
-        abandon();
+        // The controls may have been published: report the failure only once
+        // no process can run them, or with the store error as well when that
+        // cannot be confirmed.
+        try {
+          await abandon();
+        } catch (retirementError) {
+          throw new AggregateError(
+            [retirementError, err],
+            "the picker could not be retired in the shared store; its controls may still run in other processes until their deadline",
+            { cause: retirementError },
+          );
+        }
         throw err;
+      }
+      // The timeout counts from the moment the gate opened, so the choice
+      // and its controls end together. A post that used it all up leaves a
+      // picker nobody can answer: settle as timed out without waiting.
+      const remainingMs = Number.isFinite(timeoutMs)
+        ? choiceGate.deadline - Date.now()
+        : Infinity;
+      if (remainingMs <= 0) {
+        // Past its gate's deadline the picker is retired everywhere anyway.
+        await Promise.resolve(abandon()).catch(() => {});
+        throw new ChannelChoiceTimeoutError(timeoutMs);
       }
       // Registered only once the picker is posted (a failed post leaves no
       // waiter behind), under the key a click on the posted picker carries.
@@ -918,19 +956,20 @@ export class Thread implements ThreadInterface {
             platform: this.platform,
             controls,
             actorId,
+            choiceGate,
           },
         );
         // Give up on the choice: retire the picker so it answers nothing more,
-        // then settle with `reason`.
+        // here at once and in every process before the choice settles (with
+        // `reason`, or with the store error if that cannot be confirmed).
         const giveUp = (reason: Error) => {
           cleanup();
-          retire();
-          reject(reason);
+          void Promise.resolve(retire(reason)).finally(() => reject(reason));
         };
-        if (Number.isFinite(timeoutMs)) {
+        if (Number.isFinite(remainingMs)) {
           timer = setTimeout(
             () => giveUp(new ChannelChoiceTimeoutError(timeoutMs)),
-            timeoutMs,
+            remainingMs,
           );
           // A pending choice must not keep the process alive on its own.
           if (typeof timer === "object" && "unref" in timer) timer.unref();
@@ -1454,6 +1493,11 @@ export interface ChoiceWaiter {
    * or `undefined` when anyone in the conversation may (`"conversation"`).
    */
   actorId?: string;
+  /**
+   * The picker's one-shot gate: the click that answers it takes the gate,
+   * and retiring the picker takes it too, in the store every process shares.
+   */
+  choiceGate?: ChoiceGate;
 }
 
 /**
