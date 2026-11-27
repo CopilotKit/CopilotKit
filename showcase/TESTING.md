@@ -78,9 +78,9 @@ holds a slot and burns offset ports until the host fills up.
    `bin/showcase down` does NOT tear down an isolated stack — it only stops the
    default (non-isolated) `showcase-*` project. Use the explicit
    `docker compose -p <name> down …` from the notice (run-dir and slot-dir are
-   the real paths it prints). Bare `--isolate` (no `--keep`) auto-cleans on exit
-   and frees its slot — prefer it for one-off tests that don't need to persist
-   across the session.
+   the real paths it prints). For a one-off test, use `--isolate` without
+   `--keep`. On exit, the CLI removes the isolated project's containers across
+   all Compose profiles, removes its network and volumes, and frees its slot.
 
 The teardown mechanics, the RUNNING-only slot protection, and the scratch/slot
 paths are documented once in [`DEBUGGING.md` → Cleanup](./DEBUGGING.md#cleanup);
