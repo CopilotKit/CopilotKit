@@ -20,12 +20,16 @@ const base = process.env.BASE_URL;
 
 const pages = [];
 const metas = [];
+// The inventory stores POSIX paths, and `inSidebar` (`/\/index$/`, the
+// `frontends\/...` match) and `urlOf` assume them, so normalize the
+// backslashes Windows' path helpers produce.
+const posix = (p) => p.replaceAll("\\", "/");
 (function walk(dir) {
   for (const e of readdirSync(dir, { withFileTypes: true })) {
     const p = join(dir, e.name);
     if (e.isDirectory()) walk(p);
-    else if (e.name.endsWith(".mdx")) pages.push(relative(docs, p));
-    else if (e.name === "meta.json") metas.push(relative(docs, p));
+    else if (e.name.endsWith(".mdx")) pages.push(posix(relative(docs, p)));
+    else if (e.name === "meta.json") metas.push(posix(relative(docs, p)));
   }
 })(docs);
 pages.sort();
@@ -51,7 +55,10 @@ for (const meta of metas) {
       else {
         const link = item.match(/^\[.*\]\((\/[^)]*)\)$/);
         if (link) listed.add(`url:${link[1]}`);
-        else listed.add(normalize(join(dir, item.replace(/^\.\.\./, ""))));
+        else
+          listed.add(
+            posix(normalize(join(dir, item.replace(/^\.\.\./, "")))),
+          );
       }
     }
   })(rows);
@@ -67,7 +74,7 @@ function inSidebar(page) {
   return Boolean(
     fe &&
     (listed.has(fe[1]) ||
-      listed.has(join("(shared)", fe[1])) ||
+      listed.has(`(shared)/${fe[1]}`) ||
       listed.has(`url:/${fe[1]}`)),
   );
 }
