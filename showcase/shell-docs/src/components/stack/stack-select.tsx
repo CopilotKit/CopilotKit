@@ -13,7 +13,6 @@ import { cn } from "@/lib/cn";
 import {
   BACKENDS,
   COVERAGE_LABEL,
-  FRONTENDS,
   FRONTEND_GROUPS,
   LANGUAGES,
   backendById,
@@ -21,6 +20,7 @@ import {
   frontendById,
 } from "@/lib/stack";
 import type { FrontendId } from "@/lib/stack";
+import { DOCS_FRONTENDS } from "@/lib/frontends";
 import { FrameworkLogo } from "@/components/icons/framework-icons";
 import { FrontendLogo } from "@/components/icons/frontend-logo";
 import { useStack } from "./stack-provider";
@@ -87,6 +87,7 @@ function GroupLabel({ children }: { children: ReactNode }) {
   );
 }
 
+/** The frontends with docs: a pick only sets the docs stack. */
 function FrontendMenu({
   current,
   onPick,
@@ -97,7 +98,7 @@ function FrontendMenu({
   return FRONTEND_GROUPS.map((group) => (
     <div key={group} role="group" aria-label={group}>
       <GroupLabel>{group}</GroupLabel>
-      {FRONTENDS.filter((f) => f.group === group).map((f) => (
+      {DOCS_FRONTENDS.filter((f) => f.group === group).map((f) => (
         <button
           key={f.id}
           type="button"
