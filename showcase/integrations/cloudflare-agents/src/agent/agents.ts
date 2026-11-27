@@ -10,7 +10,7 @@
  * own prompt, tools or model API.
  */
 import { Agent } from "agents";
-import { isAGUIRequest, withAGUI } from "@ag-ui/cloudflare-agents";
+import { withAGUI } from "@ag-ui/cloudflare-agents";
 import type { AGUIRun } from "@ag-ui/cloudflare-agents";
 import { stepCountIs, streamText } from "ai";
 import type { LanguageModel, ToolSet } from "ai";
@@ -41,8 +41,7 @@ import {
   VOICE_SYSTEM_PROMPT,
 } from "./prompts";
 import { reasoningChainTools } from "./reasoning";
-import { scheduleMeetingTool, translateSchedulingResume } from "./scheduling";
-import type { MeetingChoice } from "./scheduling";
+import { scheduleMeetingTool } from "./scheduling";
 import { showcaseTools } from "./tools";
 import type { ShowcaseState } from "./tools";
 
@@ -221,33 +220,15 @@ export class A2uiRecovery extends DeclarativeGenUi {}
 /**
  * gen-ui-interrupt and interrupt-headless: `schedule_meeting` pauses for the
  * user's pick (AI SDK `toolApproval`, an AG-UI interrupt). The pages resume
- * with the picked slot rather than `{ approved }`; `translateSchedulingResume`
- * rewrites the resume before the adapter reads it (see ./scheduling.ts).
+ * with the picked slot, which approves the call, and the tool reads it from
+ * the run (see ./scheduling.ts).
  */
 export class Interrupt extends ShowcaseAgentBase {
   protected readonly prompt = INTERRUPT_SYSTEM_PROMPT;
   protected readonly approvalRequired = ["schedule_meeting"];
-  private readonly choices = new Map<string, MeetingChoice>();
 
-  protected tools(): ToolSet {
-    return { schedule_meeting: scheduleMeetingTool(this.choices) };
-  }
-
-  async onRequest(request: Request): Promise<Response> {
-    if (!isAGUIRequest(request)) return super.onRequest(request);
-    const body = await request.text();
-    // The same request (method, headers, signal) with the given body.
-    const withBody = (text: string) =>
-      new Request(request, { method: request.method, body: text });
-    let input: unknown;
-    try {
-      input = JSON.parse(body);
-    } catch {
-      // Not JSON: the adapter answers it with a 400.
-      return super.onRequest(withBody(body));
-    }
-    const translated = translateSchedulingResume(input, this.choices);
-    return super.onRequest(withBody(JSON.stringify(translated)));
+  protected tools(run: Run): ToolSet {
+    return { schedule_meeting: scheduleMeetingTool(run) };
   }
 }
 // @endregion[backend-interrupt-tool]

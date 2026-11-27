@@ -80,8 +80,8 @@ function InterruptChat({
 
   // Native interrupt path. The run finishes with `outcome.type ===
   // "interrupt"` before `schedule_meeting` runs. `resolve(...)` sends the
-  // picked slot as the resume payload; the Worker turns it into the approval
-  // and hands the slot to the tool (src/agent/scheduling.ts).
+  // picked slot as the resume payload, which approves the call; the tool
+  // reads the slot from the run (src/agent/scheduling.ts).
   useInterrupt({
     agentId: "gen-ui-interrupt",
     renderInChat: true,
