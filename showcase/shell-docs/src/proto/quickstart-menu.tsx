@@ -20,10 +20,16 @@ import {
 } from "@/components/ui/combobox";
 import { InputGroupAddon } from "@/components/ui/input-group";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { EarlyAccessBadge } from "@/components/early-access/badge";
 import { FrameworkLogo } from "@/components/icons/framework-icons";
 import { FrontendLogo } from "@/components/icons/frontend-logo";
+import {
+  FRONTENDS,
+  FRONTEND_GROUPS,
+  frontendById,
+  frontendEventProperties,
+} from "@/lib/frontends";
 import { isChannel } from "@/lib/live-scope";
-import { FRONTENDS, FRONTEND_GROUPS, frontendById } from "@/lib/stack";
 import { useHomepageTelemetry } from "@/lib/telemetry/use-homepage-telemetry";
 import { FRAMEWORKS, LANGUAGES, frameworkById } from "./data";
 import { useFrontend } from "./frontend";
@@ -49,7 +55,8 @@ const FRAMEWORK_GROUPS: MenuGroup[] = LANGUAGES.map((lang) => ({
   items: FRAMEWORKS.filter((f) => f.language === lang).map((f) => f.id),
 })).filter((group) => group.items.length > 0);
 
-// Grouped as the sidebar's Frontend picker groups them.
+// By platform, each in the frontend list's order (the early-access channels
+// follow Slack and Teams).
 const FRONTEND_ITEM_GROUPS: MenuGroup[] = FRONTEND_GROUPS.map((group) => ({
   value: group,
   kind: "frontend" as const,
@@ -91,22 +98,23 @@ const SECTION: Record<Side, string> = {
   frontend: "Frontends",
 };
 
-// Frontend and framework ids never collide, so one lookup names both halves.
+// Frontend and framework ids never collide, so one lookup names every row.
 const nameOf = (id: string) =>
   frontendById(id)?.name ?? frameworkById(id)?.name ?? id;
 
 function Row({ id }: { id: string }) {
-  const fe = frontendById(id);
+  const frontend = frontendById(id);
+  const mark = frontend?.id;
   return (
     <ComboboxItem
       value={id}
       className="min-h-9 gap-2.5 rounded-lg px-2 pointer-coarse:min-h-11"
     >
-      {fe ? (
+      {mark ? (
         // At its full 18px (rows shrink a bare svg to 16), in its own colors
         // when highlighted too.
         <FrontendLogo
-          icon={fe.id}
+          icon={mark}
           size={18}
           className="size-4.5 **:text-inherit!"
         />
@@ -114,6 +122,11 @@ function Row({ id }: { id: string }) {
         <FrameworkLogo slug={id} size={18} />
       )}
       <span className="min-w-0 flex-1 truncate">{nameOf(id)}</span>
+      {/* After the name, which truncates first, and lilac when highlighted
+          too, since the highlight recolors all the row's text. */}
+      {frontend?.earlyAccess ? (
+        <EarlyAccessBadge className="text-primary!" />
+      ) : null}
     </ComboboxItem>
   );
 }
@@ -184,9 +197,10 @@ function highlightAfterSwitch(list: HTMLElement | null, query: string) {
 /**
  * The home's primary action: start from your agent framework or your
  * frontend, and land on its quickstart on your stack, a framework on your
- * frontend and a frontend with your framework (`useStackHref`). One list
- * holds both halves, each under its heading and by its groups; the switch at
- * its top picks which half comes first, and the search always spans both.
+ * frontend and a frontend with your framework (`useStackHref`; an
+ * early-access frontend's is its landing page). One list holds both
+ * halves, each under its heading and by its groups; the switch at its top
+ * picks which half comes first, and the search always spans both.
  * Opens at the top of the first half, where your last framework, or your
  * frontend, is checked, with the search focused (a tap opens it with the
  * popup focused, so no keyboard rises).
@@ -223,12 +237,16 @@ export function QuickstartMenu() {
         const picked = frontendById(id);
         if (picked) {
           // With the reader's framework. A channel's quickstart is its
-          // "Connect and run your agent" guide.
+          // "Connect and run your agent" guide, and an early-access
+          // frontend's is its landing page, its only page.
           const destination = stackHref(
             isChannel(picked.id) ? "connect" : "quickstart",
             { frontend: picked.id },
           );
-          track("quickstart_selected", { frontend: picked.id, destination });
+          track("quickstart_selected", {
+            ...frontendEventProperties(picked.id),
+            destination,
+          });
           setFrontend(picked.id);
           router.push(destination);
           return;
