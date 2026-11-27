@@ -1,4 +1,5 @@
-import type { FrontendId } from "@/proto/data";
+import { landingPage } from "@/lib/frontends";
+import type { FrontendId } from "@/lib/frontends";
 import {
   FRONTEND_FOLDERS,
   LIVE_FRAMEWORKS,
@@ -20,7 +21,8 @@ import {
  *
  * A page that documents a showcase feature (`snippet_cell` frontmatter)
  * doesn't exist for a framework whose showcase manifest lists that feature
- * in `not_supported_features`. That's the only filter.
+ * in `not_supported_features`. That's the only filter, besides the
+ * frontends in early access, which have no pages here at all.
  */
 export interface PageIndex {
   /** Slugs (`""` is a folder's index) per folder: frontend folders and `integrations/<folder>`. */
@@ -60,13 +62,16 @@ export function whereIs(
   slug: string,
 ): PageLocation | null {
   if (RESERVED.has(slug.split("/")[0])) return null;
+  // A frontend in early access has no docs pages: its only page is its
+  // landing page (`/whatsapp`), which isn't one of these.
+  if (landingPage(frontend)) return null;
   const has = (folder: string, s: string) =>
     index.folders[folder]?.includes(s) ?? false;
   const fw = framework ?? ROOT_FRAMEWORK;
   // A frontend's own version of a feature page (`/vue/shared-state/streaming`)
   // documents the same showcase feature, so the framework decides it too.
   const unsupported = index.unsupported[fw]?.includes(slug) ?? false;
-  for (const folder of FRONTEND_FOLDERS[frontend]) {
+  for (const folder of FRONTEND_FOLDERS[frontend] ?? []) {
     const own = slug === "quickstart" && !has(folder, slug) ? "" : slug;
     if (!unsupported && has(folder, own)) {
       return { kind: "frontend", folder, slug: own };
