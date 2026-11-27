@@ -29,7 +29,6 @@ import { DFooter } from "./home-d";
 import { LinkCard, Tray } from "./link-card";
 
 /** How Channels works today: the Slack guide, and the Channels overview. */
-const SLACK_GUIDE = "/slack/connect";
 const CHANNELS_OVERVIEW = "/slack";
 
 const sectionTitle = "text-2xl leading-tight font-medium tracking-[-0.03em]";
@@ -80,7 +79,11 @@ export function ChannelLanding({ id }: { id: EarlyAccessChannelId }) {
     <div className="mx-auto flex w-full max-w-[72rem] flex-col gap-20 px-5 pt-8 pb-24 md:gap-24 md:px-8 md:pt-12">
       <section className="grid items-start gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,30rem)] lg:gap-14">
         <div className="flex flex-col items-start gap-7 lg:pt-2">
-          <ChannelSwitcher channel={id} />
+          {/* The page's one "Early access" mark, beside the picker. */}
+          <div className="flex flex-wrap items-center gap-3">
+            <ChannelSwitcher channel={id} />
+            <EarlyAccessBadge />
+          </div>
           <div className="flex flex-col gap-5">
             <h1 className="text-[2.5rem] leading-[1.04] font-normal tracking-[-0.03em] text-balance md:text-[3.5rem]">
               {copy.hero.title}
@@ -89,26 +92,12 @@ export function ChannelLanding({ id }: { id: EarlyAccessChannelId }) {
               {copy.hero.lede}
             </p>
           </div>
-          {/* Where the channel stands today, after its early-access badge,
-              and a link to what ships now (WhatsApp's adapter). */}
-          <p className="max-w-[36rem] text-sm leading-relaxed text-muted-foreground">
-            <EarlyAccessBadge className="me-2" />
-            {copy.status}
-            {copy.statusLink ? (
-              <>
-                {" "}
-                <Link href={copy.statusLink.href} className={inlineLink}>
-                  {copy.statusLink.label}
-                </Link>
-              </>
-            ) : null}
-          </p>
           <div className="flex flex-wrap items-center gap-3">
             <BookCta>{shared.primaryCta}</BookCta>
             <Button
               variant="outline"
               nativeButton={false}
-              render={<Link href={SLACK_GUIDE} />}
+              render={<Link href={CHANNELS_OVERVIEW} />}
               className="h-11 gap-2 rounded-full bg-card px-5 text-base shadow-lift dark:bg-[#1e1e2a]"
             >
               {shared.secondaryCta}
@@ -124,9 +113,17 @@ export function ChannelLanding({ id }: { id: EarlyAccessChannelId }) {
           aria-labelledby="channel-conversation"
           className="flex flex-col gap-6"
         >
-          <h2 id="channel-conversation" className={sectionTitle}>
-            {fill(shared.conversationTitle, name)}
-          </h2>
+          <div className="flex flex-col gap-2">
+            <h2
+              id="channel-conversation"
+              className={cn(sectionTitle, "text-balance")}
+            >
+              {fill(shared.conversationTitle, name)}
+            </h2>
+            <p className="leading-relaxed text-muted-foreground">
+              {shared.conversationLede}
+            </p>
+          </div>
           <ConversationPreview
             channel={id}
             name={name}
@@ -166,14 +163,19 @@ export function ChannelLanding({ id }: { id: EarlyAccessChannelId }) {
               {fill(shared.howItWorks.lede, name)}
             </p>
             {/* Where the channel also runs another way today (WhatsApp's
-                direct adapter): a quiet aside, as a docs callout. */}
+                adapter): a quiet aside, as a docs callout. */}
             {copy.howItWorksNote ? (
               <p className="flex gap-2.5 text-sm leading-relaxed text-muted-foreground">
                 <Info
                   aria-hidden="true"
                   className="mt-0.5 size-4 shrink-0 text-primary"
                 />
-                {copy.howItWorksNote}
+                <span>
+                  <Linked
+                    text={copy.howItWorksNote.text}
+                    links={copy.howItWorksNote.links}
+                  />
+                </span>
               </p>
             ) : null}
           </div>
@@ -265,12 +267,9 @@ export function ChannelLanding({ id }: { id: EarlyAccessChannelId }) {
       </section>
 
       <section aria-labelledby="channel-others" className="flex flex-col gap-5">
-        <div className="flex flex-col gap-2">
-          <h2 id="channel-others" className={sectionTitle}>
-            {shared.otherChannelsTitle}
-          </h2>
-          <p className="text-muted-foreground">{shared.gaChannelsNote}</p>
-        </div>
+        <h2 id="channel-others" className={sectionTitle}>
+          {shared.otherChannelsTitle}
+        </h2>
         <Tray variant="bare">
           {/* The other channels, those in early access first. */}
           {FRONTENDS.filter((f) => f.kind === "channel" && f.id !== id)

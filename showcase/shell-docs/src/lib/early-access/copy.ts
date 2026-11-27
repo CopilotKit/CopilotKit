@@ -3,12 +3,14 @@
   in reading order. Each channel's name, its card line, and the "Early access" label live in ./channels, which every
   docs page loads; the rest is here, and only the landing page, its Markdown, its metadata, and its social card load it.
 
+  - Write for the reader, a developer with an agent: what they get, in their words. Leave out how we got here
+    (what a channel "builds on", which channels shipped first) and don't repeat that a page is in early access:
+    the picker's badge and the "Get early access" button already say it.
   - The example conversations are illustrative, not customer data.
-  - iMessage, SMS, and RCS have not shipped. Their copy states the intent and what the Channels SDK already does, and
-    never promises channel-specific features, dates, prices, carriers, or coverage.
-  - WhatsApp has a direct adapter today (@copilotkit/channels/whatsapp); managed WhatsApp on CopilotKit Intelligence is
-    in early access. Its feature copy describes only what the direct adapter does now.
-  - Every factual claim and its source file is listed in copy.md, under "Claims check".
+  - iMessage, SMS, and RCS have not shipped. Each hero names the channel features early access is built to
+    support (set by the docs owner, November 27 2026); the copy never promises dates, prices, carriers, or coverage.
+  - WhatsApp has an adapter today (@copilotkit/channels/whatsapp); managed WhatsApp on CopilotKit Intelligence is
+    in early access. Its feature copy describes what the adapter does now.
 */
 
 import { EARLY_ACCESS_CHANNEL_NAMES, EARLY_ACCESS_LABEL } from "./channels";
@@ -61,19 +63,16 @@ export interface EarlyAccessChannelCopy {
   id: EarlyAccessChannelId;
   name: string; // "iMessage", "WhatsApp", "SMS", "RCS": from ./channels
   meta: { title: string; description: string }; // title <= 60 chars, description <= 132 chars (the social card cuts it there)
-  hero: { title: string; lede: string }; // H1 <= 8 words; lede 1-2 sentences
+  hero: { title: string; lede: string }; // H1 <= 8 words; lede 1-2 sentences: connect any agent, then what the channel supports
   booking: {
     heading: string; // "Book a 25-minute iMessage demo"
-    note: string; // one line under it: what the call covers
     buildingLabel: string; // the optional question, e.g. "What should your agent do in iMessage?"
     buildingPlaceholder: string;
   };
   conversation: { contact: string; messages: ConversationMessage[] }; // 4-6 messages, a realistic use case, channel-appropriate kinds only (SMS and iMessage: text only; WhatsApp: text + choices; RCS: text + card + choices)
   features: { title: string; body: string }[]; // exactly 3: what you get with CopilotKit in this channel
   specifics: { title: string; body: string; links?: TextLink[] }[]; // exactly 3: facts unique to this channel
-  status: string; // one sentence on availability today
-  statusLink?: { label: string; href: string }; // a link after the status line, to what ships today
-  howItWorksNote?: string; // one line under "How it works", where the channel also works another way today
+  howItWorksNote?: { text: string; links?: TextLink[] }; // one line under "How it works", where the channel also works another way today
   closing: { title: string; body: string };
 }
 
@@ -88,15 +87,14 @@ export const EARLY_ACCESS_CHANNEL_COPY: Record<
     meta: {
       title: "Bring your AI agent to iMessage (early access) | CopilotKit",
       description:
-        "Answer customers in iMessage with your AI agent. Get early access to CopilotKit Channels for iMessage and book a demo.",
+        "Connect any agent to iMessage with AG-UI: typing indicators, reactions, polls, images, and generative UI. Book a demo.",
     },
     hero: {
       title: "Bring your agent to iMessage",
-      lede: "Answer customers in the Messages app with the AG-UI agent you already run. Early access builds on the Channels SDK behind Slack and Microsoft Teams, so your tools and business logic stay in your infrastructure.",
+      lede: "Connect any agent to iMessage with AG-UI. It supports typing indicators, emoji reactions, polls, images, generative UI, and more.",
     },
     booking: {
       heading: "Book a 25-minute iMessage demo",
-      note: "A CopilotKit engineer walks through Channels and how your agent could answer in iMessage.",
       buildingLabel: "What should your agent do in iMessage?",
       buildingPlaceholder:
         "For example, let customers reschedule appointments and check on a booking",
@@ -125,15 +123,15 @@ export const EARLY_ACCESS_CHANNEL_COPY: Record<
     features: [
       {
         title: "Actions in your systems",
-        body: "Channel tools let your agent call your own code with typed inputs. It can look up a booking, check open times, and move an appointment.",
+        body: "Your agent calls your own code. It can look up a booking, check open times, and move an appointment.",
       },
       {
         title: "Knows who is asking",
-        body: "Map each sender to a user in your application, then grant user or project Memory for each run.",
+        body: "Map each sender to a user in your app, so your agent knows whose appointment it is.",
       },
       {
-        title: "The same Channels SDK",
-        body: "Slack and Microsoft Teams already run on one Channels SDK API: createChannel, onMessage, and thread.runAgent(). iMessage early access starts from the same API.",
+        title: "One agent, every channel",
+        body: "The agent that answers in iMessage is the one in your web app, your mobile app, Slack, and Teams. You build it once.",
       },
     ],
     specifics: [
@@ -147,17 +145,16 @@ export const EARLY_ACCESS_CHANNEL_COPY: Record<
       },
       {
         title: "For people on Apple devices",
-        body: "iMessage runs between Apple devices. For Android phones, see SMS and RCS, which are in early access too.",
+        body: "iMessage runs between Apple devices. For Android phones, see SMS and RCS.",
         links: [
           { text: "SMS", href: "/sms" },
           { text: "RCS", href: "/rcs" },
         ],
       },
     ],
-    status: "iMessage support is in early access and not released yet.",
     closing: {
       title: "Messages is already on every iPhone, iPad, and Mac",
-      body: "Book a demo to see Channels running today and talk through what your agent should do in iMessage.",
+      body: "Book a demo and talk through what your agent should do in iMessage.",
     },
   },
 
@@ -169,15 +166,14 @@ export const EARLY_ACCESS_CHANNEL_COPY: Record<
     meta: {
       title: "Bring your AI agent to WhatsApp | CopilotKit",
       description:
-        "Answer customers on WhatsApp with your AI agent. The CopilotKit adapter ships today, and managed WhatsApp is in early access.",
+        "Connect any agent to WhatsApp with AG-UI: reply buttons, lists, approvals, photos, and voice messages. Book a demo.",
     },
     hero: {
       title: "Bring your agent to WhatsApp",
-      lede: "Answer customers on WhatsApp with the AG-UI agent you already run, with reply buttons, lists, and approvals in the chat.",
+      lede: "Connect any agent to WhatsApp with AG-UI. It supports reply buttons, lists, approvals, photos, voice messages, generative UI, and more.",
     },
     booking: {
       heading: "Book a 25-minute WhatsApp demo",
-      note: "A CopilotKit engineer walks through the WhatsApp adapter, managed early access, and your use case.",
       buildingLabel: "What should your agent do on WhatsApp?",
       buildingPlaceholder:
         "For example, answer order questions and let customers change a delivery",
@@ -210,42 +206,43 @@ export const EARLY_ACCESS_CHANNEL_COPY: Record<
     features: [
       {
         title: "Reply buttons and lists",
-        body: "Write a message once in Channels JSX. The adapter sends up to three actions as reply buttons, and up to 10 as a list.",
+        body: "Your agent's choices appear as reply buttons, or as a list when there are more than three.",
       },
       {
         title: "Approvals in the chat",
-        body: "When your agent needs a yes before it acts, it posts the choice as buttons and resumes the run with the customer's answer.",
+        body: "When your agent needs a yes before it acts, it posts the choice as buttons and carries on with the customer's answer.",
       },
       {
         title: "Photos, voice, and files",
-        body: "Photos, voice messages, and documents reach your agent as AG-UI content parts that a multimodal model can read.",
+        body: "Customers can send photos, voice messages, and documents, and your agent can read them.",
       },
     ],
     specifics: [
       {
         title: "The 24-hour window",
-        body: "On the WhatsApp Business Platform, a customer's message opens a 24-hour customer service window, and the adapter replies inside it. Business-initiated messages outside the window need approved templates.",
+        body: "A customer's message opens a 24-hour window for replies. Messages you start outside it need approved templates.",
       },
       {
         title: "A business phone number",
-        body: "Customers write to your business phone number on WhatsApp. The adapter connects to that number through the WhatsApp Cloud API.",
+        body: "Customers write to your business phone number on WhatsApp, like any other contact.",
       },
       {
         title: "Replies arrive whole",
-        body: "The WhatsApp Cloud API cannot edit a sent message, so the adapter sends your agent's reply once it is complete.",
+        body: "WhatsApp can't edit a sent message, so your agent's reply arrives complete, not word by word.",
       },
     ],
-    status:
-      "The direct adapter in @copilotkit/channels/whatsapp is available today, and managed WhatsApp on CopilotKit Intelligence is in early access.",
-    statusLink: {
-      label: "Read the WhatsApp adapter docs",
-      href: "/reference/channels/sdk/direct-adapters#whatsapp",
+    howItWorksNote: {
+      text: "Prefer to hold the WhatsApp credentials yourself? The WhatsApp adapter is available today.",
+      links: [
+        {
+          text: "WhatsApp adapter",
+          href: "/reference/channels/sdk/direct-adapters#whatsapp",
+        },
+      ],
     },
-    howItWorksNote:
-      "This is how managed WhatsApp works in early access. With the direct adapter you can use today, your process holds the WhatsApp credentials and receives the webhook itself.",
     closing: {
       title: "Your agent can answer on WhatsApp today",
-      body: "Book a demo to talk through the direct adapter, managed early access, and what your agent should do on WhatsApp.",
+      body: "Book a demo and talk through what your agent should do on WhatsApp.",
     },
   },
 
@@ -256,15 +253,14 @@ export const EARLY_ACCESS_CHANNEL_COPY: Record<
     meta: {
       title: "Bring your AI agent to SMS (early access) | CopilotKit",
       description:
-        "Answer customers and field crews by text with your AI agent. Get early access to CopilotKit Channels for SMS and book a demo.",
+        "Connect any agent to SMS with AG-UI and reach any mobile phone, with no app to install. Book a demo.",
     },
     hero: {
       title: "Bring your agent to SMS",
-      lede: "Answer customers and field crews by text with the AG-UI agent you already run. SMS reaches any mobile phone, with no app to install and no account to create.",
+      lede: "Connect any agent to SMS with AG-UI. It reaches any mobile phone, with no app to install and no account to create.",
     },
     booking: {
       heading: "Book a 25-minute SMS demo",
-      note: "A CopilotKit engineer walks through Channels and how your agent could answer over SMS.",
       buildingLabel: "What should your agent do over SMS?",
       buildingPlaceholder:
         "For example, keep field technicians on schedule and log finished jobs",
@@ -293,11 +289,11 @@ export const EARLY_ACCESS_CHANNEL_COPY: Record<
     features: [
       {
         title: "Real work, by text",
-        body: "Channel tools give your agent typed calls into your own code. It can log a finished job, read the schedule, and move the next arrival.",
+        body: "Your agent calls your own code. It can log a finished job, read the schedule, and move the next arrival.",
       },
       {
         title: "Context in every reply",
-        body: "Each conversation is a Channels thread with its own history and workflow state, so a two-word reply still lands in context.",
+        body: "Each conversation keeps its history, so a two-word reply still lands in context.",
       },
       {
         title: "Knows who is texting",
@@ -318,10 +314,9 @@ export const EARLY_ACCESS_CHANNEL_COPY: Record<
         body: "SMS has no buttons or cards. The agent asks and confirms in words, so short, clear replies matter.",
       },
     ],
-    status: "SMS support is in early access and not released yet.",
     closing: {
       title: "Every mobile phone can already text",
-      body: "Book a demo to see Channels running today and talk through what your agent should do over SMS.",
+      body: "Book a demo and talk through what your agent should do over SMS.",
     },
   },
 
@@ -333,15 +328,14 @@ export const EARLY_ACCESS_CHANNEL_COPY: Record<
     meta: {
       title: "Bring your AI agent to RCS (early access) | CopilotKit",
       description:
-        "Answer customers in RCS business messages with your AI agent. Get early access to CopilotKit Channels for RCS and book a demo.",
+        "Connect any agent to RCS with AG-UI: rich cards, carousels, suggested replies, and generative UI. Book a demo.",
     },
     hero: {
       title: "Bring your agent to RCS",
-      lede: "Answer customers in RCS with the AG-UI agent you already run. RCS (Rich Communication Services) business messages on Android can come from a verified sender and carry rich cards, carousels, and suggested replies.",
+      lede: "Connect any agent to RCS with AG-UI. It supports rich cards, carousels, suggested replies, typing indicators, images, generative UI, and more.",
     },
     booking: {
       heading: "Book a 25-minute RCS demo",
-      note: "A CopilotKit engineer walks through Channels and how your agent could answer in RCS.",
       buildingLabel: "What should your agent do in RCS?",
       buildingPlaceholder:
         "For example, help travelers change flights and find their boarding pass",
@@ -373,15 +367,15 @@ export const EARLY_ACCESS_CHANNEL_COPY: Record<
     features: [
       {
         title: "Answers from your systems",
-        body: "Channel tools connect your agent to your own code. It can search flights, hold a seat, and change a booking.",
+        body: "Your agent calls your own code. It can search flights, hold a seat, and change a booking.",
       },
       {
         title: "A yes before it acts",
-        body: "Interactive approvals pause a run until a person answers, then resume your agent with their choice. Channels supports them in Slack, Microsoft Teams, and WhatsApp today.",
+        body: "Your agent can pause for an approval, then carry on with the person's answer.",
       },
       {
-        title: "Messages written once",
-        body: "Channels JSX describes a message once, and each channel's renderer turns it into native UI. Today that includes Slack Block Kit, Microsoft Teams Adaptive Cards, and WhatsApp reply buttons.",
+        title: "Generative UI, natively",
+        body: "Describe a message once. It appears as a rich card or suggested replies in RCS, and as native UI in every other channel.",
       },
     ],
     specifics: [
@@ -398,10 +392,9 @@ export const EARLY_ACCESS_CHANNEL_COPY: Record<
         body: "On Android, business messages come from a verified sender that shows the brand's name and logo.",
       },
     ],
-    status: "RCS support is in early access and not released yet.",
     closing: {
       title: "RCS was built for more than plain text",
-      body: "Book a demo to see Channels running today and talk through what your agent should do in RCS.",
+      body: "Book a demo and talk through what your agent should do in RCS.",
     },
   },
 };
@@ -410,39 +403,42 @@ export const EARLY_ACCESS_CHANNEL_COPY: Record<
 export const SHARED_EARLY_ACCESS_COPY: {
   eyebrow: string; // "Early access"
   primaryCta: string; // "Get early access"
-  secondaryCta: string; // link to how Channels work today (the Slack guide)
+  secondaryCta: string; // link to the Channels overview
+  bookingNote: string; // one line under the booker's heading: who the call is with
   conversationTitle: string; // section heading over the phone preview
+  conversationLede: string; // one line under it
   featuresTitle: string;
   howItWorks: {
     title: string;
     lede: string;
     steps: { title: string; body: string }[];
-  }; // 4 steps: person in {channel} -> CopilotKit Intelligence -> Channels SDK in your process -> your AG-UI agent
+  }; // 4 steps: person in {channel} -> CopilotKit Intelligence -> the Channels SDK -> your AG-UI agent
   specificsTitle: string; // e.g. "Why {channel}"
   otherChannelsTitle: string;
-  gaChannelsNote: string; // one line: Slack and Microsoft Teams are generally available today
 } = {
   eyebrow: EARLY_ACCESS_LABEL,
   primaryCta: "Get early access",
-  secondaryCta: "See how Channels works in Slack",
+  secondaryCta: "Explore the Channels SDK",
+  bookingNote: "Talk through your use case with a CopilotKit engineer.",
   /* `{channel}` never follows "a" or "an": "an SMS" and "a WhatsApp" need different articles. */
-  conversationTitle: "An example {channel} conversation",
+  conversationTitle: "Meet your users where they are",
+  conversationLede: "With a unified interface for your agent.",
   featuresTitle: "What CopilotKit brings to {channel}",
   howItWorks: {
-    title: "Your agent stays in your infrastructure",
-    lede: "{channel} early access follows the model Slack and Microsoft Teams run on today. CopilotKit Intelligence holds the channel connection, and your process runs the agent.",
+    title: "How it works",
+    lede: "The Channels SDK brings your agent to messaging apps, for one experience across web, mobile, Slack, Teams, iMessage, WhatsApp, and more. Your agent, its tools, and your data stay in your infrastructure.",
     steps: [
       {
         title: "The {channel} conversation",
-        body: "A person messages your agent from an app they already use, the way they message anyone else.",
+        body: "A person messages your agent the way they message anyone else.",
       },
       {
         title: "CopilotKit Intelligence",
-        body: "Intelligence holds the channel connection and its credentials, then delivers each turn to your process.",
+        body: "Holds the {channel} connection and its credentials, and delivers each message to your process.",
       },
       {
-        title: "The Channels SDK in your process",
-        body: "A long-running listener you deploy runs your agent over AG-UI, executes channel tools, and sends the reply back to the conversation.",
+        title: "The Channels SDK",
+        body: "Runs in your process. It runs your agent, calls your tools, and sends the reply back.",
       },
       {
         title: "Your AG-UI agent",
@@ -452,6 +448,4 @@ export const SHARED_EARLY_ACCESS_COPY: {
   },
   specificsTitle: "What makes {channel} different",
   otherChannelsTitle: "Other channels",
-  gaChannelsNote:
-    "Slack and Microsoft Teams are generally available today on cloud-hosted CopilotKit Intelligence.",
 };

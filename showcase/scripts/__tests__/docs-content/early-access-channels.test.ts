@@ -174,24 +174,19 @@ describe("the channel pages' words", () => {
     }
   });
 
-  test("WhatsApp's Markdown links the adapter that ships today and says how it differs", () => {
-    const link =
-      "[Read the WhatsApp adapter docs](/reference/channels/sdk/direct-adapters#whatsapp)";
+  test("WhatsApp's Markdown links the adapter that ships today", () => {
     const note =
-      "This is how managed WhatsApp works in early access. With the direct adapter you can use today, your process holds the WhatsApp credentials and receives the webhook itself.";
-    const markdown = channelPageMarkdown("whatsapp");
-    expect(markdown).toContain(link);
-    expect(markdown).toContain(note);
-    // The channels with no adapter yet have neither.
+      "Prefer to hold the WhatsApp credentials yourself? The [WhatsApp adapter](/reference/channels/sdk/direct-adapters#whatsapp) is available today.";
+    expect(channelPageMarkdown("whatsapp")).toContain(note);
+    // The channels with no adapter yet don't link one.
     for (const id of ["imessage", "sms", "rcs"] as const) {
-      expect(channelPageMarkdown(id)).not.toContain(link);
-      expect(channelPageMarkdown(id)).not.toContain(note);
+      expect(channelPageMarkdown(id)).not.toContain("direct-adapters");
     }
   });
 
   test("iMessage's Markdown links the Android channels", () => {
     expect(channelPageMarkdown("imessage")).toContain(
-      "For Android phones, see [SMS](/sms) and [RCS](/rcs), which are in early access too.",
+      "For Android phones, see [SMS](/sms) and [RCS](/rcs).",
     );
   });
 });
