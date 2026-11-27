@@ -31,7 +31,7 @@
     AI SDK v6. The AI SDK stops before the tool runs, and the adapter ends the
     AG-UI run with an interrupt for that call, which `useInterrupt` renders.
     The interrupt's `reason` is `"tool_approval"`, its `metadata` carries
-    `tool_name` and the parsed `tool_input`, and it asks for
+    `tool_name` and the parsed `tool_input`, and its `responseSchema` asks for
     `{ "approved": boolean }`.
 
     The showcase's agents list the tools that need approval in
@@ -40,20 +40,23 @@
 
     <DemoCode file="src/agent/agents.ts" region="agent-run" />
 
-    The next request resumes the interrupt. `{ "approved": true }` runs the
-    tool before the model is called again. A rejection or a cancel tells the
-    model the tool did not run, and a `reason` in the payload becomes the
-    reason the model reads.
+    The next request resumes the interrupt. Only a no denies the call: a
+    resume entry with `status: "cancelled"`, a payload of `false`, or
+    `{ "approved": false }` tells the model the tool did not run, and a
+    `reason` in the payload becomes the reason the model reads. Any other
+    answer, `{ "approved": true }` among them, runs the tool before the model
+    is called again.
 
   </Step>
   <Step>
     ### Hand the tool more than a yes or no
 
-    An approval is only a yes or a no, so an approved tool runs with its own
-    arguments and nothing else. The showcase's time picker resumes with the
-    chosen slot instead. Its `Interrupt` agent rewrites the resume before the
-    adapter reads the request: a picked slot becomes `{ approved: true }` and is
-    kept by tool call id, where `schedule_meeting` reads it once it runs:
+    Since any answer but a no approves the call, the page can resume with what
+    the user chose. The showcase's time picker resumes with the chosen slot,
+    or with `{ cancelled: true }` from its Cancel button. Neither is a no, so
+    `schedule_meeting` runs either way and reads the answer with
+    `run.resumePayload(toolCallId)` (`execute` gets the `toolCallId` as its
+    second argument). An `approved` that is not a boolean is refused.
 
     <DemoCode file="src/agent/scheduling.ts" region="interrupt-resume-payload" />
 
