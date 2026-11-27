@@ -88,8 +88,10 @@ type HitlRendererArgs =
       description: string;
       args: Record<string, unknown>;
       status: ToolCallStatus.Complete;
-      result: string;
+      result: string | undefined;
       respond: undefined;
+      aborted?: boolean;
+      error?: string;
     };
 type HitlRenderer = FunctionComponent<HitlRendererArgs>;
 
@@ -166,6 +168,8 @@ export function useHumanInTheLoop<const T extends Parameter[] | [] = []>(
               result: args.result
                 ? parseJson(args.result, args.result)
                 : args.result,
+              aborted: args.aborted,
+              error: args.error,
               handler: undefined,
             };
           default:
