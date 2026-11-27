@@ -256,12 +256,9 @@ export function frontendHref(
 ) {
   const scope = scopeFromPath(path);
   const asked = slug ?? scope.slug;
-  // A Vue, Angular, or React Native quickstart is the frontend's root page:
-  // `/mastra/quickstart` on Vue is `/vue/mastra`.
-  const page =
-    asked === "quickstart" && frontend !== "react" && !isChannel(frontend)
-      ? ""
-      : asked;
+  // Off React, the quickstart is the frontend's root page: `/mastra/quickstart`
+  // on Vue is `/vue/mastra`, and on Slack the channel overview, `/slack/mastra`.
+  const page = asked === "quickstart" && frontend !== "react" ? "" : asked;
   const fe = frontend !== "react" ? `/${frontendSegment(frontend)}` : "";
   const fw = scope.framework ? `/${scope.framework}` : "";
   const tail = page || (frontend === "react" ? "quickstart" : "");
