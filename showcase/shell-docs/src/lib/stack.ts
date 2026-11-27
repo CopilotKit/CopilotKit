@@ -7,66 +7,11 @@
 // showcase integration ships a React app with e2e coverage; the other states
 // are illustrative until this reads the real registry.
 
-export type FrontendId =
-  | "react"
-  | "vue"
-  | "react-native"
-  | "angular"
-  | "slack"
-  | "teams";
-
-export interface Frontend {
-  id: FrontendId;
-  name: string;
-  group: "Web" | "Mobile" | "Channels";
-  /** From frontend-registry.json. */
-  summary: string;
-}
-
-export const FRONTENDS: readonly Frontend[] = [
-  {
-    id: "react",
-    name: "React",
-    group: "Web",
-    summary: "The complete CopilotKit docs experience.",
-  },
-  {
-    id: "vue",
-    name: "Vue",
-    group: "Web",
-    summary: "Vue 3 provider, composables, and chat primitives.",
-  },
-  {
-    id: "angular",
-    name: "Angular",
-    group: "Web",
-    summary: "Angular components, directives, and services.",
-  },
-  {
-    id: "react-native",
-    name: "React Native",
-    group: "Mobile",
-    summary: "Mobile bindings for React Native and Expo apps.",
-  },
-  {
-    id: "slack",
-    name: "Slack",
-    group: "Channels",
-    summary: "Managed Slack channel through CopilotKit Intelligence.",
-  },
-  {
-    id: "teams",
-    name: "Teams",
-    group: "Channels",
-    summary: "Managed Teams channel through CopilotKit Intelligence.",
-  },
-];
-
-export const FRONTEND_GROUPS: readonly Frontend["group"][] = [
-  "Web",
-  "Mobile",
-  "Channels",
-];
+// The frontends are the one frontend list every picker reads.
+export { FRONTENDS, FRONTEND_GROUPS, frontendById } from "@/lib/frontends";
+export type { Frontend, FrontendId } from "@/lib/frontends";
+import { frontendById } from "@/lib/frontends";
+import type { FrontendId } from "@/lib/frontends";
 
 export type Language = "TypeScript" | "Python" | ".NET" | "Java";
 
@@ -182,10 +127,6 @@ export function coverageFor(frontend: FrontendId, backend: Backend): Coverage {
 export interface Stack {
   frontend: FrontendId;
   backend: string;
-}
-
-export function frontendById(id: string): Frontend | undefined {
-  return FRONTENDS.find((f) => f.id === id);
 }
 
 export function backendById(id: string): Backend | undefined {

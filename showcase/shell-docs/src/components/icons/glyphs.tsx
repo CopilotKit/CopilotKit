@@ -8,13 +8,16 @@ import {
   PiBrainFill,
   PiBriefcaseFill,
   PiChatCircleDotsFill,
+  PiChatTextFill,
   PiChatsCircleFill,
+  PiCodeFill,
   PiCookingPotFill,
   PiCursorClickFill,
   PiDatabaseFill,
   PiFileTextFill,
   PiGraduationCapFill,
   PiHandPalmFill,
+  PiHeadCircuitFill,
   PiLayoutFill,
   PiListChecksFill,
   PiMicrophoneFill,
@@ -74,6 +77,12 @@ export {
   // OpenBot, built with CopilotKit: the product, for business, for builders.
   PiRobotFill as OpenBotGlyph,
   PiBriefcaseFill as BusinessGlyph,
+  // The early-access channel pages' "how it works": the Channels SDK in your
+  // process, and your agent (not OpenBot's robot).
+  PiCodeFill as ChannelsSdkGlyph,
+  PiHeadCircuitFill as AgentGlyph,
+  // SMS, which has no brand mark, in the frontend picker and on its cards.
+  PiChatTextFill as SmsGlyph,
 };
 
 /** Intelligence is marked with the kite outline the live docs use. */

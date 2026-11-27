@@ -20,7 +20,10 @@ import {
 } from "@/lib/live-source";
 import { getIntegration, ROOT_FRAMEWORK } from "@/components/docs-mdx/data";
 import type { StructuredData } from "fumadocs-core/mdx-plugins";
+import { EARLY_ACCESS_LABEL } from "@/lib/early-access/channels";
+import { channelPageSearchText } from "@/lib/early-access/markdown";
 import {
+  earlyAccessEntries,
   entryTitle,
   frameworkSetupEntries,
   searchEntries,
@@ -30,8 +33,9 @@ import type { FrameworkOverviewData } from "@/data/frameworks";
 import { mapLimit } from "./map-limit";
 
 // Orama search over the live docs (each page once, at an unscoped live URL;
-// see `searchEntries()`) and the API reference. Serves the sidebar's search
-// dialog (`/api/search`), Ask AI, and the MCP `search` tool.
+// see `searchEntries()`), the API reference, and the early-access channels'
+// landing pages (`/whatsapp`). Serves the sidebar's search dialog
+// (`/api/search`), Ask AI, and the MCP `search` tool.
 //
 // The index is built on the first query (not at import, which `next build`
 // does while collecting routes): each page's structured data comes from its
@@ -90,7 +94,26 @@ async function buildIndexes(): Promise<AdvancedIndex[]> {
       }) satisfies AdvancedIndex,
   );
 
-  return [...live.filter((index) => index !== null), ...setup];
+  // The early-access channels' landing pages, for every reader: one page
+  // each, never scoped (`UNSCOPED_SEGMENTS`), so "iMessage" or "RCS" finds
+  // its page from any docs page.
+  const channels = earlyAccessEntries().map(({ url, id, frontends }) => {
+    const { title, description, contents } = channelPageSearchText(id);
+    return {
+      id: url,
+      url,
+      tag: [...frontends, ...ALL_FRAMEWORK_TAGS],
+      title,
+      description,
+      breadcrumbs: [EARLY_ACCESS_LABEL],
+      structuredData: {
+        headings: [],
+        contents: contents.map((content) => ({ heading: undefined, content })),
+      },
+    } satisfies AdvancedIndex;
+  });
+
+  return [...live.filter((index) => index !== null), ...setup, ...channels];
 }
 
 /**

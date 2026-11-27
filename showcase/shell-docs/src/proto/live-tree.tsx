@@ -178,8 +178,8 @@ function isTopRow(sidebar: NavNode[], i: number) {
   return !sidebar.slice(0, i + 1).some((n) => n.type === "section");
 }
 
-/** Each frontend's own reference, from the outline's Reference row. */
-const REFERENCE_FOR: Record<FrontendId, string> = {
+/** Each docs frontend's own reference, from the outline's Reference row. */
+const REFERENCE_FOR: Partial<Record<FrontendId, string>> = {
   react: `/reference/${REFERENCE_ROOT_VERSION}`,
   vue: "/reference/vue",
   angular: "/reference/angular",
@@ -210,7 +210,9 @@ function drawer(nav: LiveNav, scope: ReturnType<typeof scopeFromPath>) {
       ) : undefined;
     if (p.href) {
       const url =
-        p.href === "/reference" ? REFERENCE_FOR[scope.frontend] : p.href;
+        p.href === "/reference"
+          ? (REFERENCE_FOR[scope.frontend] ?? p.href)
+          : p.href;
       return {
         type: "page",
         name: p.title,
