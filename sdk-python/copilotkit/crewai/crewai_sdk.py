@@ -628,11 +628,25 @@ def crewai_flow_messages_to_copilotkit(messages: List[Dict]) -> List[Message]:  
                 if tc_id is None:
                     continue
                 if tool_call.get("function"):
+                    raw_arguments = tool_call["function"].get("arguments")
+                    if isinstance(raw_arguments, dict):
+                        arguments = raw_arguments
+                    elif raw_arguments:
+                        try:
+                            arguments = json.loads(raw_arguments)
+                        except (json.JSONDecodeError, TypeError):
+                            # Providers can persist an empty or truncated
+                            # arguments string (e.g. a response cut off at
+                            # max_tokens); treat it like an empty call instead
+                            # of failing the whole conversion.
+                            arguments = {}
+                    else:
+                        arguments = {}
                     result.append(
                         {
                             "id": tc_id,
                             "name": tool_call["function"].get("name", ""),
-                            "arguments": json.loads(tool_call["function"]["arguments"]),
+                            "arguments": arguments,
                             "parentMessageId": message_id,
                         }
                     )
