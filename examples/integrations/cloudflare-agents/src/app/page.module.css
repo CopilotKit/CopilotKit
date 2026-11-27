@@ -1,0 +1,67 @@
+.layout {
+  display: grid;
+  /*
+    Reserve the desktop drawer's width (its default `--cpk-drawer-width`, 320px)
+    as a fixed first column so the layout does NOT shift when the client-only
+    drawer mounts after hydration. Without this the column is `auto` → 0px until
+    the drawer boots, so the chat starts full-width and then "slides over" when
+    the drawer appears. On mobile the drawer is an off-canvas overlay (out of
+    flow), so the column collapses to `auto` (≈0) and the chat fills the width.
+  */
+  grid-template-columns: var(--cpk-drawer-reserved-width, 320px) minmax(0, 1fr);
+  /* Bound the row so the drawer's thread list scrolls internally (pinned
+     header) instead of the panel growing to content height. */
+  grid-template-rows: minmax(0, 1fr);
+  /* The drawer sets --cpk-drawer-reserved-width to 0 when collapsed on desktop,
+     so the reserved column collapses and the chat reclaims the space. */
+  transition: grid-template-columns 0.2s ease;
+  min-height: 100vh;
+  min-height: 100svh;
+  height: 100dvh;
+  width: 100%;
+  overflow: hidden;
+
+  /*
+    Uniform 16px gutter for the collapsed cluster — top AND left — matching the
+    right-side controls' (toggle + inspector) 16px inset. Same on both
+    breakpoints. These inherit into <copilotkit-threads-drawer> and pierce its
+    shadow root.
+  */
+  --cpk-drawer-launcher-top: 16px;
+  --cpk-drawer-launcher-left: 16px;
+}
+
+.mainPanel {
+  /*
+    Pin the chat to the SECOND grid track explicitly. The client-only
+    <CopilotThreadsDrawer> renders NOTHING during SSR/prerender (it is mounted-gated),
+    so at first paint the grid has a single child — this panel. Without an
+    explicit placement it would flow into the FIRST (reserved 320px) track,
+    cramming the chat at x:0, then jump to the second track once the drawer
+    mounts as the first child — the "starts left, then slides over" shift.
+    Forcing column 2 keeps the chat in its final position from first paint; the
+    drawer fills the reserved first track when it mounts.
+  */
+  grid-column: 2;
+  min-width: 0;
+  min-height: 100vh;
+  min-height: 100svh;
+  height: 100dvh;
+  overflow: auto;
+}
+
+/*
+  Mobile (≤768px): the drawer is an off-canvas overlay, so don't reserve a
+  column for it — collapse to a single track and let the chat fill the full
+  width. This block MUST come after the base rules above: media queries do not
+  add specificity, so a same-specificity base rule placed later would otherwise
+  win and leak the desktop two-column layout onto mobile.
+*/
+@media (max-width: 768px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .mainPanel {
+    grid-column: auto;
+  }
+}

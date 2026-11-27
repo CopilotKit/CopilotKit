@@ -906,6 +906,11 @@ export const STARTER_COLUMNS: ReadonlySet<string> = new Set([
  * is in the CI smoke matrix, but no Railway starter service exists, so
  * `build-starters` publishes no `starter-openai-agents-python` image to probe.
  *
+ * `cloudflare-agents` joined on 2026-11-26, the same way: its starter is
+ * `examples/integrations/cloudflare-agents` (same name as the column) and is in
+ * the CI smoke matrix, but no Railway starter service exists, so
+ * `build-starters` publishes no `starter-cloudflare-agents` image to probe.
+ *
  * Membership is guarded against the filesystem by
  * `starter-mapping-drift.test.ts`: a column may only sit here if an
  * identically-named directory exists under `examples/integrations/`, and no
@@ -926,6 +931,7 @@ export const STARTER_COLUMNS_UNPROBED: ReadonlySet<string> = new Set([
   "google-antigravity",
   "omnara",
   "openai-agents-python",
+  "cloudflare-agents",
 ]);
 
 /**

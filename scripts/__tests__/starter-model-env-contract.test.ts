@@ -33,6 +33,7 @@ const CLI_STARTERS = [
   "ms-agent-framework-python",
   "mcp-apps",
   "openai-agents-python",
+  "cloudflare-agents",
 ] as const;
 
 const DOC_NAMES = new Set(["README.md", "CLAUDE.md", "AGENTS.md"]);

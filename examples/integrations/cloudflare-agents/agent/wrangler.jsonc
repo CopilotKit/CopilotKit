@@ -1,0 +1,25 @@
+{
+  // The starter's agent: a Cloudflare Worker. `npm run dev` (in the starter
+  // root) runs it locally with `wrangler dev` on :8000; `npx wrangler deploy`
+  // (in this folder) puts it on Cloudflare.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "copilotkit-cloudflare-agents-starter",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-01",
+  // The Agents SDK needs the Node.js compatibility layer.
+  "compatibility_flags": ["nodejs_compat"],
+  // One Durable Object class per agent. routeAgentRequest serves the binding
+  // `Assistant` at /agents/assistant/<thread id> (the class name, kebab-cased),
+  // and every AG-UI thread is one instance of it, holding that thread's state.
+  "durable_objects": {
+    "bindings": [{ "name": "Assistant", "class_name": "Assistant" }],
+  },
+  // Durable Object classes are created by migrations. Add a new tag when you
+  // add, rename or delete a class.
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Assistant"] }],
+  // Secrets (OPENAI_API_KEY) and the model settings (COPILOTKIT_AGENT_MODEL,
+  // OPENAI_BASE_URL) are not set here. Locally they come from the starter's
+  // root .env; on Cloudflare, set them with `npx wrangler secret put <NAME>`.
+  "dev": { "port": 8000 },
+  "observability": { "enabled": true },
+}

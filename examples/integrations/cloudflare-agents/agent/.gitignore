@@ -1,0 +1,6 @@
+node_modules/
+# wrangler dev's local state (Durable Object storage) and build output
+.wrangler/
+# local secrets
+.dev.vars*
+.env*

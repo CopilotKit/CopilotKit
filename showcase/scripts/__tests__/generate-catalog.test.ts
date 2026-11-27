@@ -235,7 +235,7 @@ describe("Catalog Generator", () => {
   //
   // MUTATION THAT REDS THIS CASE: drop `c.manifestation !== "starter"` from
   // `countableCells` in `catalog-flatten.ts` Step 6 — `total_cells` becomes
-  // 1250 and `wired` moves by the 19 non-`supported:false` columns.
+  // 1250 and `wired` moves by the 20 non-`supported:false` columns.
   it("with SHOWCASE_STARTER_CELLS=1: 25 starter cells appear and the rollups do NOT move", () => {
     runGenerator();
     const flagOff = readCatalog();
@@ -246,16 +246,16 @@ describe("Catalog Generator", () => {
     const starters = flagOn.cells.filter(
       (c: any) => c.manifestation === "starter",
     );
-    // One cell per column, all 25 — including the 6 `supported: false` ones,
+    // One cell per column, all 25 — including the 5 `supported: false` ones,
     // each of which mints exactly one "not supported" cell rather than nothing.
     expect(starters.length).toBe(25);
     expect(flagOn.cells.length).toBe(1275);
 
     // Status is DERIVED from the block, not hardcoded "wired".
     expect(starters.filter((c: any) => c.status === "unsupported").length).toBe(
-      6,
+      5,
     );
-    expect(starters.filter((c: any) => c.status === "wired").length).toBe(19);
+    expect(starters.filter((c: any) => c.status === "wired").length).toBe(20);
     // The axis's uniform ceiling, on every starter cell.
     expect(new Set(starters.map((c: any) => c.max_depth))).toEqual(
       new Set([3]),
