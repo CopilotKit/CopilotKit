@@ -163,6 +163,55 @@ watch(
   { immediate: true },
 );
 
+/**
+ * Collapse repeated ids within one occurrence's tool calls, keeping the copy
+ * that carries arguments: a start event can add a second, blank copy of a
+ * call whose arguments arrive later on the first copy.
+ */
+function dedupeToolCalls(
+  toolCalls: NonNullable<AssistantMessage["toolCalls"]>,
+): NonNullable<AssistantMessage["toolCalls"]> {
+  const byId = new Map<string, (typeof toolCalls)[number]>();
+  for (const toolCall of toolCalls) {
+    const existing = byId.get(toolCall.id);
+    if (!existing) {
+      byId.set(toolCall.id, toolCall);
+      continue;
+    }
+    if (!existing.function?.arguments && toolCall.function?.arguments) {
+      byId.set(toolCall.id, toolCall);
+    }
+  }
+  return byId.size === toolCalls.length ? toolCalls : [...byId.values()];
+}
+
+/**
+ * Unite the tool calls of two occurrences of the same assistant message,
+ * keeping first-seen order. Each occurrence can hold only some of the calls,
+ * so neither list may replace the other.
+ *
+ * For an id present in both, the later occurrence wins when it carries
+ * arguments: it is the newer streaming update. A blank later copy never
+ * replaces a populated one.
+ */
+function mergeToolCalls(
+  earlier: NonNullable<AssistantMessage["toolCalls"]>,
+  later: NonNullable<AssistantMessage["toolCalls"]>,
+): NonNullable<AssistantMessage["toolCalls"]> {
+  const byId = new Map(earlier.map((toolCall) => [toolCall.id, toolCall]));
+  for (const toolCall of later) {
+    const existing = byId.get(toolCall.id);
+    if (
+      !existing ||
+      toolCall.function?.arguments ||
+      !existing.function?.arguments
+    ) {
+      byId.set(toolCall.id, toolCall);
+    }
+  }
+  return [...byId.values()];
+}
+
 function deduplicateMessages(messages: Message[]): Message[] {
   const byId = new Map<string, Message>();
   for (const message of messages) {
@@ -173,7 +222,13 @@ function deduplicateMessages(messages: Message[]): Message[] {
       existing.role === "assistant"
     ) {
       const content = message.content || existing.content;
-      const toolCalls = message.toolCalls ?? existing.toolCalls;
+      const toolCalls =
+        message.toolCalls?.length && existing.toolCalls?.length
+          ? mergeToolCalls(
+              dedupeToolCalls(existing.toolCalls),
+              dedupeToolCalls(message.toolCalls),
+            )
+          : (message.toolCalls ?? existing.toolCalls);
       byId.set(message.id, {
         ...existing,
         ...message,
