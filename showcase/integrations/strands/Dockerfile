@@ -11,6 +11,7 @@ COPY next.config.ts tsconfig.json postcss.config.mjs manifest.yaml ./
 # The root layout inlines the shared theme bootstrap (_shared -> ../_shared,
 # dereferenced into the build context by stage_shared / showcase_build).
 COPY _shared/ts/theme.ts ./_shared/ts/theme.ts
+COPY _shared/ts/a2ui/sales-context.ts ./_shared/ts/a2ui/sales-context.ts
 RUN npm run build
 
 # Stage 2: Build Python venv with agent deps

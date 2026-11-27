@@ -1,0 +1,5 @@
+node_modules/
+dist/
+*.log
+# wrangler dev state and build output
+.wrangler/

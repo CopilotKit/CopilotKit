@@ -35,6 +35,7 @@ import os
 import _shared.cvdiag_bootstrap  # noqa: F401,E402  (first non-stdlib import — bootstrap side effects)
 
 import uvicorn
+from pydantic import ValidationError
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.applications import Starlette
@@ -71,6 +72,7 @@ from agents.agent import SalesTodosState, StateDeps, agent
 from agents.open_gen_ui_agent import agent as open_gen_ui_agent
 from agents.open_gen_ui_advanced_agent import agent as open_gen_ui_advanced_agent
 from agents.a2ui_dynamic import EmptyState as A2UIDynamicState
+from agents.a2ui_dynamic import SalesAnalystDeps
 from agents.a2ui_dynamic import agent as a2ui_dynamic_agent
 from agents.a2ui_fixed import EmptyState as A2UIFixedState
 from agents.a2ui_fixed import agent as a2ui_fixed_agent
@@ -173,12 +175,24 @@ def mount_agent(path, agent_obj, state_type=None):
     app.mount(path, sub)
 
 
+async def run_a2ui_dynamic(request: Request) -> Response:
+    try:
+        adapter = await AGUIAdapter.from_request(request, agent=a2ui_dynamic_agent)
+    except ValidationError as exc:
+        return Response(exc.json(), status_code=422, media_type="application/json")
+
+    deps = SalesAnalystDeps(A2UIDynamicState(), tuple(adapter.run_input.context))
+    return adapter.streaming_response(adapter.run_stream(deps=deps))
+
+
 # ── Sub-path agents — mounted BEFORE the root catch-all ──────────────
 # Each demo-specific agent lives at its own sub-path. The matching
 # HttpAgent URL in the corresponding TS route points to that sub-path.
 mount_agent("/open_gen_ui", open_gen_ui_agent)
 mount_agent("/open_gen_ui_advanced", open_gen_ui_advanced_agent)
-mount_agent("/a2ui_dynamic", a2ui_dynamic_agent, A2UIDynamicState)
+a2ui_app = Starlette()
+a2ui_app.router.add_route("/", run_a2ui_dynamic, methods=["POST"], name="run_agent")
+app.mount("/a2ui_dynamic", a2ui_app)
 mount_agent("/a2ui_fixed", a2ui_fixed_agent, A2UIFixedState)
 mount_agent("/headless_complete", headless_complete_agent, HeadlessCompleteState)
 mount_agent("/beautiful_chat", beautiful_chat_agent, BeautifulChatState)
