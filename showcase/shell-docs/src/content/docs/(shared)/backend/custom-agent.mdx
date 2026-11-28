@@ -179,7 +179,7 @@ Factory mode accepts a config with two fields:
 - **`type`:** which backend you're using: `"aisdk"`, `"tanstack"`, or `"custom"`
 - **`factory`:** a function that receives the raw request and returns a backend-native stream
 
-The factory receives an `BuiltInAgentFactoryContext` (from `@copilotkit/runtime/v2`):
+The factory receives a `BuiltInAgentFactoryContext` (from `@copilotkit/runtime/v2`):
 
 ```typescript
 interface BuiltInAgentFactoryContext {

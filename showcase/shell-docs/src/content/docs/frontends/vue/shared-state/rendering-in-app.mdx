@@ -91,7 +91,7 @@ import Canvas from "./components/Canvas.vue";
 ```
 
 <Callout type="info">
-  `<Canvas>` and `<CopilotChat>` resolve the same default agent, so they share one agent instance and one state object. There is nothing chat-specific about reading `agent.state`; the chat is just another consumer.
+  `<Canvas>` and `<CopilotChat>` resolve the same default agent, so they share one agent instance and one state object. There is nothing chat-specific about reading `agent.state`. The chat is one more consumer.
 </Callout>
 
 ## Writing back from the main view

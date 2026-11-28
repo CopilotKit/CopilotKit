@@ -25,8 +25,8 @@ Key benefits:
 ## Minimal setup
 
 Turning on Open Generative UI takes one flag in the runtime plus a plain
-`<CopilotChat />` on the frontend; the built-in activity renderer is
-auto-registered by `CopilotKit`, so no extra frontend wiring is needed. Your
+`<CopilotChat />` on the frontend. `CopilotKit` registers the built-in
+activity renderer for you, so no extra frontend wiring is needed. Your
 agent must still give the run's frontend tools to its model (see the warning
 below).
 
@@ -48,7 +48,7 @@ sandboxed iframe.
   If it binds only its own tools, the model never sees `generateSandboxedUi`,
   so nothing renders and no error appears.
 
-  - The built-in agent passes frontend tools already.
+  - The Built-in Agent passes frontend tools already.
   - A LangGraph agent built with `create_agent` (Python) or `createAgent`
     (TypeScript) adds `CopilotKitMiddleware()` (Python, from `copilotkit`) or
     `copilotkitMiddleware` (TypeScript, from `@copilotkit/sdk-js/langgraph`)
@@ -150,7 +150,7 @@ progressively.
 
 ## Using CDN libraries
 
-The sandboxed iframe can load external libraries from CDNs; just include
+The sandboxed iframe can load external libraries from CDNs. Include
 `<script>` or `<link>` tags in the generated HTML `<head>`. Chart.js, D3,
 Three.js, and any other CDN-hosted library work with no extra setup.
 

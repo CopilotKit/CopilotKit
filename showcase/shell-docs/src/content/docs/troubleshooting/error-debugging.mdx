@@ -30,7 +30,7 @@ export default function App() {
 To check the setup, stop your runtime and reload the page. An error banner appears. Click **Show Details** to see the code `runtime_info_fetch_failed`.
 
 <Callout type="warn">
-Avoid showing the dev console in production. It exposes internal error details to end users.
+Do not show the dev console in production. It exposes internal error details to end users.
 </Callout>
 
 ## When to use development debugging
@@ -114,7 +114,7 @@ import {
 |------|-------------|
 | `runtime_info_fetch_failed` | Could not reach the runtime's `/info` endpoint |
 | `agent_connect_failed` | Agent connection (thread setup) failed |
-| `agent_run_failed` | Agent run rejected (e.g. network error) |
+| `agent_run_failed` | Agent run rejected (for example, a network error) |
 | `agent_run_failed_event` | The agent's `onRunFailed` subscriber fired |
 | `agent_run_error_event` | Agent emitted a `RUN_ERROR` event |
 | `tool_argument_parse_failed` | Tool call arguments were not valid JSON |
@@ -137,4 +137,4 @@ To see every event your agent emits and where events drop, open the [Inspector](
 - Provider-level `onError` is wired and forwards to your error tracker
 - `showDevConsole` is **false** in production builds
 - Agent IDs in errors match the agents registered on your runtime
-- Critical error codes (`agent_run_failed`, `tool_handler_failed`) are alerted on, not just logged
+- Critical error codes (`agent_run_failed`, `tool_handler_failed`) are alerted on, not only logged

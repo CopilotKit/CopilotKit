@@ -34,14 +34,14 @@ Use frontend tools when your agent needs to:
 
 Register a frontend tool with `useFrontendTool`. Give it a name, a Zod schema for parameters, and a handler. The agent can then call it like any other tool and your frontend runs it in the browser.
 
-<Snippet region="frontend-tool-registration" title="frontend/src/app/page.tsx — useFrontendTool" />
+<Snippet region="frontend-tool-registration" title="frontend/src/app/page.tsx: useFrontendTool" />
 
 The handler receives the parsed, type-safe parameters and can do anything
 the browser can: update state, call an API, touch the DOM. Its return value
 is sent back to the agent as the tool result so the model can reason about
 what happened.
 
-<Snippet region="frontend-tool-handler" title="frontend/src/app/page.tsx — handler body" />
+<Snippet region="frontend-tool-handler" title="frontend/src/app/page.tsx: handler body" />
 
 Ask the agent to change the background to a blue gradient. The page background changes, and the agent gets `{ status: "success" }` as the tool result.
 

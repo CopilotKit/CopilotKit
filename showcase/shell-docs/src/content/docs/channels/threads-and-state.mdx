@@ -12,8 +12,11 @@ conversation. The SDK passes the `Thread` to `onMessage`, tools, interactions,
 and interrupt callbacks.
 
 <Callout type="info" title="A Channels thread is not an Intelligence thread">
-  A Channels `Thread` is one conversation inside the SDK. [Threads Drawer](/prebuilt-components/copilot-threads-drawer) provides the application UI for browsing and restoring agent conversations; use [`useThreads`](/reference/hooks/useThreads) to build a custom UI. They share
-  a stable thread id. They are different APIs.
+  A Channels `Thread` is one conversation inside the SDK.
+  [Threads Drawer](/prebuilt-components/copilot-threads-drawer) provides the
+  application UI for browsing and restoring agent conversations. To build a
+  custom UI, use [`useThreads`](/reference/hooks/useThreads). They share a
+  stable thread id. They are different APIs.
 </Callout>
 
 ## Conversation identity
@@ -171,7 +174,7 @@ channel.onMessage(async ({ thread }) => {
 
 </FrontendOnly>
 
-`setState` replaces the stored value; it does not merge a partial patch.
+`setState` replaces the stored value. It does not merge a partial patch.
 
 Without `store.adapter`, a managed Channel keeps `thread.state()` in
 Intelligence, so it survives a process restart. To decide where the rest of the

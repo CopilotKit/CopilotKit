@@ -9,7 +9,7 @@ snippet_cell: headless-complete
 
 ## What is this?
 
-A headless UI gives you **full control** over the chat experience. You bring your own components, layout, and styling while CopilotKit handles agent communication, message management, tool-call rendering, and streaming. No `<CopilotChat>`, no slot overrides, just your components composed on top of the low-level hooks.
+A headless UI gives you **full control** over the chat experience. You bring your own components, layout, and styling while CopilotKit handles agent communication, message management, tool-call rendering, and streaming. No `<CopilotChat>` and no slot overrides: only your components, composed on top of the low-level hooks.
 
 ## When should I use this?
 
@@ -32,11 +32,11 @@ Three hooks power it, and they're the same ones `<CopilotChat>` uses internally.
 
 Start with a hand-rolled message list and composer built from `useAgent` + `useCopilotKit`:
 
-<Snippet cell="headless-simple" region="use-agent-simple" title="frontend/src/app/page.tsx — useAgent + useCopilotKit" />
+<Snippet cell="headless-simple" region="use-agent-simple" title="frontend/src/app/page.tsx: useAgent + useCopilotKit" />
 
 The message list is a plain `.map()` over the user and assistant text in `agent.messages`:
 
-<Snippet cell="headless-simple" region="message-list-simple" title="frontend/src/app/page.tsx — message list" />
+<Snippet cell="headless-simple" region="message-list-simple" title="frontend/src/app/page.tsx: message list" />
 
 This example does not use `<CopilotChat />` or slots. The trade-off: you only get text. Tool calls, activity messages, reasoning messages, and custom before/after slots do not show up unless you wire them in yourself. The complete example wires in tool calls and activity messages.
 
@@ -65,7 +65,7 @@ The role-switch mirrors `CopilotChatMessageView`'s `renderMessageBlock`: assista
 
 ### Tool-call composition
 
-For each `toolCall` on an assistant message, we look up the sibling `tool`-role message (keyed by `toolCallId`) and hand both to `renderToolCall`:
+For each `toolCall` on an assistant message, the example looks up the sibling `tool`-role message (keyed by `toolCallId`) and hands both to `renderToolCall`:
 
 <Snippet region="manual-tool-call-rendering" title="chat/message-list.tsx: assistant + tool calls" />
 
@@ -73,7 +73,7 @@ For each `toolCall` on an assistant message, we look up the sibling `tool`-role 
 
 The `UserBubble` and `AssistantBubble` components are **pure chrome**: they receive content from `MessageList` and drop it into a styled container. No chat primitives are imported here:
 
-<Snippet region="custom-bubbles" title="frontend/src/app/{user,assistant}-bubble.tsx — pure chrome" />
+<Snippet region="custom-bubbles" title="frontend/src/app/{user,assistant}-bubble.tsx: pure chrome" />
 
 To check it, ask the agent for the weather in Tokyo, so that it calls a tool. Your own bubble shows the reply, and the tool card renders inside it.
 

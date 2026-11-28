@@ -83,7 +83,7 @@ That call sends your registered frontend tools and agent context with the run.
 
 - Use shared state for data that the agent may change.
 - Use context for application-owned facts.
-- Keep durable user preferences in your own data store; publish only the part
+- Keep durable user preferences in your own data store. Publish only the part
   the current agent needs.
 - Scope `injectAgentStore` to the same agent id as the chat or workflow that
   reads the state.

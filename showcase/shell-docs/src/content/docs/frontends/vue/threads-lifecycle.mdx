@@ -63,7 +63,9 @@ For a fresh non-explicit thread, such as one created by `startNewThread()`, ther
 
 Read the current conversation from `agent.value.messages`; replace or append with `setMessages(...)` and `addMessage(...)`.
 
-## Scope Rich Threads to the signed-in user
+<span id="scope-rich-threads-to-the-signed-in-user" />
+
+## Scope threads to the signed-in user
 
 Your application owns end-user authentication. For an Intelligence-enabled runtime, implement `identifyUser(request)` with the server-verified session or token and return a stable user id and name:
 

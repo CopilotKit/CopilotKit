@@ -24,6 +24,8 @@ In this example, the `send_email` method adds an assistant message, then exits:
         <Tabs groupId="language_crewai-flows_agent" items={['Python']} default="Python" persist>
             <Tab value="Python">
                 ```python
+                import uuid
+
                 from litellm import completion
                 from crewai.flow.flow import start
                 from ag_ui_crewai import copilotkit_exit

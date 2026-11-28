@@ -330,7 +330,7 @@ Pick your coding tool, then follow its steps:
     <Tabs groupId="cline-setup" items={['Remote Server Setup', 'Configuration File Setup']} default="Remote Server Setup">
       <Tab value="Remote Server Setup">
         1. Click on the "Remote Servers" tab
-        2. Enter a Server Name (e.g., "CopilotKit MCP")
+        2. Enter a Server Name (for example, "CopilotKit MCP")
         3. Enter the Server URL:
         ```
         https://mcp.copilotkit.ai/sse
@@ -461,7 +461,7 @@ Pick your coding tool, then follow its steps:
     url = "https://mcp.copilotkit.ai/mcp"
     ```
 
-    If you used the previous `mcp-remote` configuration, replace its `command` and `args` entries with `url`.
+    If your `[mcp_servers.copilotkit]` table runs `mcp-remote` through `command` and `args`, replace those two keys with `url`.
     Use `/mcp` for Streamable HTTP. The root URL (`https://mcp.copilotkit.ai`) returns 404.
   </Step>
   <Step>
@@ -511,9 +511,9 @@ Most MCP-compatible applications support one or both of these connection methods
 
 #### Integration Steps
 
-1. **Find MCP Settings** - Look for "MCP," "Model Context Protocol," or "Tools" in your application settings
-2. **Add Server** - Use the SSE URL: `https://mcp.copilotkit.ai/sse`
-3. **Test Connection** - Restart your application and verify the server appears in available tools
+1. **Find MCP Settings**: Look for "MCP," "Model Context Protocol," or "Tools" in your application settings.
+2. **Add Server**: Use the SSE URL `https://mcp.copilotkit.ai/sse`.
+3. **Test Connection**: Restart your application and make sure that the server appears in the available tools.
 
 #### Common Configuration Patterns
 

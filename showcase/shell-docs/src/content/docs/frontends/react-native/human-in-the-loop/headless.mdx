@@ -40,7 +40,7 @@ Promise-based integrations have no native interrupt. Build the same experience w
 - **Testing**: a fixed button grid is easier to drive from Detox or Maestro than a picker that appears after a model call.
 - **Custom flow control**: you need to know exactly when the interrupt arrived (for example, to disable other controls) and when it was answered.
 
-If you just want a picker in the rendered chat, use [`useInterrupt`](/human-in-the-loop/useInterrupt) with the default `renderInChat: true`. For pauses that the model decides on, use [`useHumanInTheLoop`](/human-in-the-loop).
+If you want a picker in the rendered chat, use [`useInterrupt`](/human-in-the-loop/useInterrupt) with the default `renderInChat: true`. For pauses that the model decides on, use [`useHumanInTheLoop`](/human-in-the-loop).
 
 <WhenFrameworkHas flag="interrupt_pattern" equals="native">
 

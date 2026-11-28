@@ -22,7 +22,7 @@ If you only need file uploads (audio, images, video, documents), use [Multimodal
 
 Render `<CopilotChat />` from `@copilotkit/react-core/v2`. It shows the mic button when the runtime advertises `audioFileTranscriptionEnabled: true` on its `/info` endpoint. You turn that on in the [Backend](#backend) section.
 
-<Snippet region="voice-page" title="frontend/src/app/page.tsx — chat surface" />
+<Snippet region="voice-page" title="frontend/src/app/page.tsx: chat surface" />
 
 If the snippet renders `<VoiceChat />`, that is a demo wrapper around `<CopilotChat />` and a sample-audio button. In your app, render `<CopilotChat />` in its place.
 
@@ -85,7 +85,7 @@ it with your own wording bypasses that and everything lands as a generic provide
 
 Create the service only when its API key is set. If the key is missing, omit `transcriptionService`. The runtime then reports the capability as disabled and hides the mic. A direct call to `/transcribe` returns the 503 described above:
 
-<Snippet region="transcription-service-guard" title="backend — guarded transcription service" />
+<Snippet region="transcription-service-guard" title="backend: guarded transcription service" />
 
 Open the chat. Click the mic, say "What is the weather in Tokyo?", and click the mic again. The text appears in the composer, ready to send.
 
@@ -100,7 +100,7 @@ For Playwright runs, screenshots, or any flow where prompting for mic permission
 The parent chat component can then drop that text into the composer's textarea (matched via `data-testid="copilot-chat-textarea"`) using the native value setter and a synthetic `input` event so React's managed state updates correctly.
 
 <Callout type="warn" title="Calling `/transcribe` yourself">
-The chat handles this for you; these are the rules if you post to the route directly. As
+The chat handles this for you. These are the rules if you post to the route directly. As
 multipart, the audio field must be named `audio`. Any other name reads as absent and the
 route answers `invalid_request`. As JSON, `mimeType` is required alongside the base64
 `audio`, and a payload without it is rejected the same way.

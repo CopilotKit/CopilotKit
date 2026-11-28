@@ -16,7 +16,7 @@ import AgentContextJsonString from "@/snippets/shared/basics/agent-context-json-
 
 ## What is this?
 
-Sometimes you want the agent to *know* something about the current UI, like the logged-in user, the current page, or a recent activity log, but you don't want the agent to be able to modify it. That's what
+Sometimes you want the agent to *know* something about the current UI, like the logged-in user, the current page, or a recent activity log, but not change it. That's what
 `useAgentContext` is for: a one-way **UI → agent** channel for
 read-only context.
 
@@ -33,7 +33,7 @@ Reach for `useAgentContext` instead of full shared state when:
   "what the user is looking at right now".
 - The agent should read but never write (user identity, feature flags,
   selected record, scroll position).
-- You want the value to automatically unregister on unmount (e.g. the
+- You want the value to automatically unregister on unmount (for example, the
   "current record" context disappears when you leave the page).
 
 Think of it as "props for the agent".
@@ -57,7 +57,7 @@ runtime that is:
   entries silently unless you wire them. The setup above shows the code
   for your framework.
 
-<Snippet region="use-agent-context-call" title="frontend/src/app/page.tsx — useAgentContext" />
+<Snippet region="use-agent-context-call" title="frontend/src/app/page.tsx: useAgentContext" />
 
 The `description` is important: it's a short human-readable label the
 agent sees alongside the value, so it knows what to do with it. Treat
@@ -73,11 +73,11 @@ receives every registered entry.
 `useAgentContext` doesn't care where the value comes from: local
 state, a React Context, Redux, a query cache, anything. The only
 requirement is that the identity of the value is stable enough for
-React to avoid a render loop. In the demo we use a handful of
-`useState` hooks; in a real app these would likely come from an auth
-provider, a router hook, and your domain state stores.
+React to avoid a render loop. The demo uses a few `useState` hooks.
+In a real app, these values usually come from an auth provider, a router
+hook, and your domain state stores.
 
-<Snippet region="context-provider-sketch" title="frontend/src/app/page.tsx — sourcing context values" />
+<Snippet region="context-provider-sketch" title="frontend/src/app/page.tsx: sourcing context values" />
 
 ## Treat entries as untrusted input
 

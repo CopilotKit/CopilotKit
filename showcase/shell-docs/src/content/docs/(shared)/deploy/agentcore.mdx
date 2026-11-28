@@ -10,7 +10,7 @@ isolation, and infrastructure. CopilotKit gives those agents a chat UI, shared s
 
 ## How it works
 
-The two connect through **CopilotKit Runtime**, a lightweight server-side layer that sits between
+The two connect through **Copilot Runtime**, a lightweight server-side layer that sits between
 your browser and AgentCore. This is the same runtime that every CopilotKit agent uses. For
 AgentCore, it must run on the server. Browsers cannot sign AgentCore requests with SigV4 or OAuth2.
 
@@ -57,7 +57,7 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
         Use the generated project for its AgentCore agent, runtime, Cognito, and
         deployment infrastructure. The sample browser application is
         hook-based; connect your Angular application to the generated
-        CopilotKit Runtime URL using the Angular steps in the existing-agent path
+        Copilot Runtime URL using the Angular steps in the existing-agent path
         below.
       </Callout>
       </FrontendOnly>
@@ -113,7 +113,7 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
       <Step>
         ### Run locally
 
-        After you deploy, you can run the agent, the CopilotKit runtime, and the frontend locally.
+        After you deploy, you can run the agent, Copilot Runtime, and the frontend locally.
         The local stack still uses the Cognito user pool and the AgentCore memory of the deployed stack:
 
         ```bash
@@ -126,7 +126,7 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
         | Service | Port | Description |
         |---|---|---|
         | `agent` | 8080 | Your agent, hot-reloads on `.py` changes |
-        | `runtime` | 3001 | CopilotKit Runtime |
+        | `runtime` | 3001 | Copilot Runtime |
         | `frontend` | 3000 | Vite dev server |
       </Step>
 
@@ -169,9 +169,9 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
       </Step>
 
       <Step>
-        ### Set up CopilotKit Runtime
+        ### Set up Copilot Runtime
 
-        CopilotKit Runtime is the server-side layer that connects your frontend to AgentCore. It handles
+        Copilot Runtime is the server-side layer that connects your frontend to AgentCore. It handles
         the communication protocol, middleware, and (with AgentCore specifically) the server-side
         authentication that browsers can't perform directly.
 
@@ -213,7 +213,7 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
         </Callout>
 
         <Callout type="info" title="Auth in production">
-          The example above uses a static token for simplicity. In production you'll want to pass the
+          The example above uses a static token for simplicity. In production, pass the
           user's Cognito JWT from the frontend through to AgentCore. See the
           [AgentCore template](https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/agentcore) for a complete Cognito OIDC implementation.
           To validate the frontend session at the runtime before you forward identity to AgentCore, see
@@ -228,7 +228,7 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
         to an existing thread (for example, on page refresh), the default runner has two problems:
 
         1. **Unknown threads**: CopilotKit may call `connect()` before any `run()` has happened.
-           Without handling this, you'll get an error on first load.
+           If the runner does not handle this, the first page load fails with an error.
         2. **Missing tool-call results**: AgentCore's replayed history includes assistant messages
            with tool calls, but omits the corresponding results. CopilotKit needs those to reconcile
            its message state.
@@ -351,7 +351,7 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
       <Step>
         ### 🎉 Run it
 
-        Point the CopilotKit Runtime server at the AgentCore runtime you deployed via AWS's
+        Point the Copilot Runtime server at the AgentCore runtime you deployed via AWS's
         [Deploy an AG-UI agent to AgentCore Runtime](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/runtime-agui.html)
         guide. Configure its environment:
 
@@ -361,7 +361,7 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
         ```
 
         Start the runtime and your frontend application using their normal
-        development commands. The frontend calls CopilotKit Runtime; the runtime
+        development commands. The frontend calls Copilot Runtime. The runtime
         forwards each request to the AgentCore invocation URL using the
         server-held token.
 
@@ -402,7 +402,7 @@ when a request reaches an AgentCore or API Gateway endpoint with no credentials,
 path matches no deployed route. Check the following, in order:
 
 - **The runtime is actually sending a token.** Set `AGENTCORE_ACCESS_TOKEN` in the environment of the
-  CopilotKit Runtime **server**, not the frontend. If the variable is unset, the `Authorization` header
+  Copilot Runtime **server**, not the frontend. If the variable is unset, the `Authorization` header
   interpolates to `Bearer undefined`, which AWS rejects exactly like a missing header.
 - **The token has not expired.** Cognito access tokens are short-lived. Mint a fresh one and retry
   before you debug anything else.
@@ -412,7 +412,7 @@ path matches no deployed route. Check the following, in order:
   stops short of `/invocations` matches no route, and AWS reports that as
   `Missing Authentication Token` rather than as a 404.
 - **The browser is not calling AgentCore directly.** AgentCore requires SigV4 or OAuth2 signing,
-  which a browser cannot perform. Point the frontend at your CopilotKit Runtime endpoint and let the
+  which a browser cannot perform. Point the frontend at your Copilot Runtime endpoint and let the
   runtime make the AgentCore call server-side.
 
 <Callout type="warn" title="This error does not apply to the local quickstart">

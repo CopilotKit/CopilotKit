@@ -100,7 +100,7 @@ useRenderToolCall({
 });
 ```
 
-The migration is straightforward - just change the hook name. The render props remain the same.
+To migrate, change the hook name. The render props stay the same.
 
 ## Parameters
 
@@ -115,7 +115,7 @@ The migration is straightforward - just change the hook name. The render props r
 <PropertyReference name="parameters" type="T"  >
 Optional array of parameter definitions. If provided, adds type safety to the args in the render function. Each parameter object should have:
 - `name` (string): The parameter name
-- `type` (string): The parameter type (e.g., "string", "number", "boolean", "string[]", "object")
+- `type` (string): The parameter type (for example, "string", "number", "boolean", "string[]", "object")
 - `description` (string): A description of what the parameter is for
 - `required` (boolean): Whether the parameter is required
 - `attributes` (array, optional): For object types, define nested properties using the same schema

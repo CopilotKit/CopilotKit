@@ -272,7 +272,7 @@ request with "method not found".
 
 <Callout type="warn" title="Only for MCP servers you trust">
   With `modelContext`, the widget of any MCP server your agent uses can write
-  into the system prompt of the built-in agent, as soon as it loads and
+  into the system prompt of the Built-in Agent, as soon as it loads and
   without any action from the user, who does not see what it wrote. Don't
   enable it if you connect third-party MCP servers.
 </Callout>
@@ -291,7 +291,7 @@ Once it is on:
   sent to another one. It stays in memory while the page is open, survives
   the widget leaving the screen, and is removed when the conversation is
   deleted. It is not restored after a page reload.
-- The state is sent to the agent in the run's `context`. The built-in agent
+- The state is sent to the agent in the run's `context`. The Built-in Agent
   adds it to its prompt; another agent has to read `RunAgentInput.context` to
   use it.
 

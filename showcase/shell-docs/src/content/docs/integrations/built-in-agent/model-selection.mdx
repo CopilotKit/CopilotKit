@@ -266,7 +266,7 @@ The Built-in Agent resolves model strings to AI SDK provider instances:
 
 | Model string                    | AI SDK provider     | Resolved call                    |
 | ------------------------------- | ------------------- | -------------------------------- |
-| GPT-6 Luna | `openai:gpt-6-luna` |
+| `"openai:gpt-6-luna"`           | `@ai-sdk/openai`    | `openai("gpt-6-luna")`           |
 | `"anthropic:claude-sonnet-4-6"` | `@ai-sdk/anthropic` | `anthropic("claude-sonnet-4-6")` |
 | `"google:gemini-3.8-flash"`     | `@ai-sdk/google`    | `google("gemini-3.8-flash")`     |
 

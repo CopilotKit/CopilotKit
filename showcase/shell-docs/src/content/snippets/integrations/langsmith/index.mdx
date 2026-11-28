@@ -5,9 +5,9 @@ the LangGraph Server API. CopilotKit gives those agents a production-ready front
 
 ## How it works
 
-The two connect through **CopilotKit Runtime**, a lightweight server-side layer that sits between
+The two connect through **Copilot Runtime**, a lightweight server-side layer that sits between
 your browser and your LangSmith deployment. It's the same runtime you'd use with any
-CopilotKit-powered agent. It just needs to run server-side so your `LANGSMITH_API_KEY` never
+CopilotKit-powered agent. It must run server-side so your `LANGSMITH_API_KEY` never
 reaches the browser.
 
 ```
@@ -15,7 +15,7 @@ Browser → CopilotKit Runtime → LangSmith deployment → your agent
 ```
 
 LangSmith hosts the agent only; there's no frontend-hosting offering. You host the CopilotKit
-frontend and runtime wherever you already deploy your app (Vercel, your own Node server, etc.) and
+frontend and runtime wherever you already deploy your app (such as Vercel or your own Node server) and
 point the runtime at the LangSmith deployment URL.
 
 ## What you get
@@ -165,7 +165,7 @@ point the runtime at the LangSmith deployment URL.
 
               - **No multimodal input**: only `messages[-1].content` is forwarded as a single text
                 part; inbound images, files, or audio are dropped.
-              - **Last message only**: just the final item in `messages` is sent to the ADK agent
+              - **Last message only**: only the final item in `messages` is sent to the ADK agent
                 each turn.
               - **No live / audio / voice**: ADK's `run_live()` bidirectional streaming isn't used.
               - **Text output only**: non-text output parts (images, audio, files) aren't surfaced.
@@ -237,9 +237,9 @@ point the runtime at the LangSmith deployment URL.
       </Step>
 
       <Step>
-        ### Set up CopilotKit Runtime
+        ### Set up Copilot Runtime
 
-        CopilotKit Runtime is the server-side layer that connects your frontend to the LangSmith
+        Copilot Runtime is the server-side layer that connects your frontend to the LangSmith
         deployment. Create an API route:
 
         ```typescript title="app/api/copilotkit/[[...slug]]/route.ts" doctest="component"
@@ -272,7 +272,7 @@ point the runtime at the LangSmith deployment URL.
 
         <Callout type="info" title="graphId must match langgraph.json">
           `graphId` is the key from the `graphs` object in your `langgraph.json`: `agent` for the
-          LangGraph template, or whatever you named the ADK graph (e.g. `my_agent`). If it doesn't
+          LangGraph template, or whatever you named the ADK graph (for example, `my_agent`). If it doesn't
           match, the runtime can't find your graph.
         </Callout>
       </Step>
@@ -360,7 +360,7 @@ point the runtime at the LangSmith deployment URL.
       </Step>
 
       <Step>
-        ### Set up CopilotKit Runtime
+        ### Set up Copilot Runtime
 
         Create an API route that points at your LangSmith deployment:
 
@@ -470,11 +470,11 @@ point the runtime at the LangSmith deployment URL.
 <Accordions>
   <Accordion title="The runtime can't find my graph / 404 on invoke">
     Your `graphId` must exactly match a key in the `graphs` object of your deployment's
-    `langgraph.json`. The LangGraph template names it `agent`; an ADK app uses whatever key you set
-    (e.g. `my_agent`). Check the deployment's config in the LangSmith UI if unsure.
+    `langgraph.json`. The LangGraph template names it `agent`. An ADK app uses whatever key you set
+    (for example, `my_agent`). Check the deployment's config in the LangSmith UI if unsure.
   </Accordion>
   <Accordion title="401 / authentication errors from the deployment">
-    - Set `LANGSMITH_API_KEY` on the **server** where CopilotKit Runtime runs, not in the browser.
+    - Set `LANGSMITH_API_KEY` on the **server** where Copilot Runtime runs, not in the browser.
     - Use a key from the same LangSmith workspace as the deployment. The key must start with
       `lsv2_`.
   </Accordion>
@@ -487,7 +487,7 @@ point the runtime at the LangSmith deployment URL.
   <Accordion title="My ADK agent won't deploy">
     ADK agents must be wrapped with `wrap()` from `saf_sdk.adk` and use a `LangsmithSessionService`.
     The wrapped object has to be exported as a module-level variable that `langgraph.json` points at
-    (e.g. `./agent.py:agent`). See the
+    (for example, `./agent.py:agent`). See the
     [Deploy Google ADK agents](https://docs.langchain.com/langsmith/deploy-google-adk) guide.
   </Accordion>
 </Accordions>

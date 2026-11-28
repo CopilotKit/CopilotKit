@@ -5,7 +5,7 @@ description: "Connect AG-UI agents that you host and secure yourself."
 ---
 
 If you host and secure your own AG-UI agent, the frontend can call it directly,
-without the CopilotKit [runtime](/backend/copilot-runtime). Use
+without [Copilot Runtime](/backend/copilot-runtime). Use
 `selfManagedAgents` in production. For local development, use
 `agents__unsafe_dev_only` in React or `agents` in Angular.
 
@@ -54,7 +54,7 @@ export const appConfig: ApplicationConfig = {
 
 Each key is the `agentId` that chat components and frontend agent APIs use to
 address that agent. Self-managed agents use your transport and your security
-model. Because the requests don't pass through the CopilotKit runtime, the
+model. Because the requests don't pass through Copilot Runtime, the
 runtime's server-side auth, middleware, and routing do not apply. Your agent
 endpoint must [authenticate and authorize every request](/auth).
 

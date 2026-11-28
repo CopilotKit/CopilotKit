@@ -220,8 +220,9 @@ the task manager, including `background-task-completed`, into the same stream. T
 change to "Completed" in the same turn. That only works when a **background worker actually executes the dispatched
 task before the idle window closes**. In a single-process app with no such worker the task is never
 executed within the run, so no completion chunk is produced and `untilIdle` only holds the stream
-open with no benefit. When you run a deployment with a real background worker, enable `untilIdle`
-and the adapter's lifecycle mapping (`running` → `completed`/`failed`/`cancelled`) flips the card
+open with no benefit.
+
+When you run a deployment with a real background worker, enable `untilIdle`. Then the adapter's lifecycle mapping (`running` → `completed`/`failed`/`cancelled`) flips the card
 automatically. Otherwise, retrieve results out of band via the task manager
 (`backgroundTaskManager.stream()` / `getTask(taskId)`).
 

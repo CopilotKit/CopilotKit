@@ -82,7 +82,7 @@ your canvas updates the same way.
 ## Put it anywhere in your layout
 
 The agent lives on the `<CopilotKit>` provider, so the chat surface and your
-main-view components are just two consumers of the same agent. A typical layout
+main-view components are two consumers of the same agent. A typical layout
 renders the canvas as the main view and the chat as a docked sidebar:
 
 ```tsx title="app/page.tsx"
@@ -111,7 +111,7 @@ about reading `agent.state`. The sidebar is not special.
 
 ## Writing back from the main view
 
-The same `agent` exposes `setState`, so your canvas can be interactive, not just a
+The same `agent` exposes `setState`, so your canvas can be interactive, not only a
 read-only mirror. A click handler in the main view can push a new value that the
 agent reads on its next turn:
 

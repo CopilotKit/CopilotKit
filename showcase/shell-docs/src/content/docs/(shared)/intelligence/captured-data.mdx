@@ -9,9 +9,9 @@ search: false
 
 ## Overview
 
-This page describes what Trajectories capture sends to CopilotKit Intelligence in early access. To turn capture on, see [Capture interactions](/intelligence/capture-interactions).
+You want to turn on Trajectories capture and need to know what leaves the browser first. By default, capture records browser-visible data and sends it to CopilotKit Intelligence. These sections list what capture records, what redaction misses, and how your app can exclude or change events before delivery.
 
-Capture records browser-visible data by default. Your app can exclude or change events before delivery.
+Trajectories are in early access. To turn capture on, see [Capture interactions](/intelligence/capture-interactions).
 
 ## Captured by default
 
@@ -174,7 +174,7 @@ Capture cleans field labels with the same steps as click labels, and reads the l
 
 ## Page errors
 
-Many apps have no logging that Learning can read. Page errors show Learning where the app failed for the user. Each `page.error` event has a `kind`:
+Many apps have no logging that Automatic Learning can read. Page errors show Automatic Learning where the app failed for the user. Each `page.error` event has a `kind`:
 
 | `kind` | Recorded when | Fields |
 | --- | --- | --- |
