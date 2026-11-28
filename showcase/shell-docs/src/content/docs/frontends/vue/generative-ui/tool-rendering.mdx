@@ -3,6 +3,7 @@ title: Tool Call Rendering
 icon: "lucide/Server"
 description: Render your agent's tool calls with custom UI components.
 snippet_cell: tool-rendering
+snippet_framework: built-in-agent
 ---
 
 ## What is this?
@@ -115,7 +116,11 @@ useRenderTool({ name: "get_weather", parameters, render: WeatherToolCard }, [loc
 
 ## The backend tool definition
 
-The frontend renderer only sees what the agent sends down. The matching backend must expose a tool named `get_weather`, return structured data, and let the frontend renderer with the same name paint the card. The Vue renderer does not create or execute that backend tool.
+The frontend renderer only sees what the agent sends down. The backend tool's name and input schema must match the renderer's registration. The Vue renderer does not create or execute that backend tool.
+
+The Built-in Agent example below defines `weather` with a `city` input. To use it with the card above, change the renderer registration to `name: "weather"` and keep the `city` schema. Alternatively, name your backend tool `get_weather` to keep the frontend example unchanged. When selecting another backend, match its tool name and input fields in both `useRenderTool` and `WeatherToolCard`.
+
+For the Built-in Agent, register the tool with your server-side agent as described in [Server Tools](/server-tools). Defining a renderer in Vue alone does not register a server tool.
 
 <FrameworkSetup concept="tool-rendering-setup" />
 
