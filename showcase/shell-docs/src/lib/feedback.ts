@@ -17,11 +17,14 @@ export async function sendPageFeedback(
   input: PageFeedback,
 ): Promise<ActionResponse> {
   const feedback = pageFeedback.parse(input);
+  // As JSON, so a newline in the input can't forge a log line.
   console.info(
     "[docs feedback]",
-    feedback.opinion,
-    feedback.url,
-    feedback.message.slice(0, 1000),
+    JSON.stringify({
+      opinion: feedback.opinion,
+      url: feedback.url,
+      message: feedback.message.slice(0, 1000),
+    }),
   );
   return {};
 }
@@ -44,9 +47,9 @@ export async function sendAnswerFeedback(
   const feedback = answerFeedback.parse(input);
   console.info(
     "[ask copilotkit feedback]",
-    feedback.rating,
-    feedback.url,
     JSON.stringify({
+      rating: feedback.rating,
+      url: feedback.url,
       messageId: feedback.messageId,
       question: feedback.question.slice(0, 500),
       answer: feedback.answer.slice(0, 1000),

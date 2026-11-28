@@ -16,13 +16,12 @@ appears as soon as the tool returns.
 How the schema is *delivered* to the runtime is the only thing that
 varies between integrations:
 
-- **Schema-loading** (including Strands TypeScript), the schema is saved
+- **Schema-loading** (including Strands TypeScript): the schema is saved
   as a `.json` file next to the agent and loaded once at startup.
-- **Schema-inline** (spring-ai, ms-agent-dotnet), the schema is
-  declared inline as a typed literal in source. The host language
-  doesn't ship a `load_schema` JSON loader, so the structure is
-  compiled in directly.
-- **LLM-driven** (Mastra and Strands Python), the agent runs a secondary
+- **Schema-inline** (Built-in Agent, Spring AI, and .NET): the schema is
+  declared inline as a typed literal in source. These agents do not load
+  a JSON file, so the structure is compiled in directly.
+- **LLM-driven** (Mastra and Strands Python): the agent runs a secondary
   LLM call to produce the operations container per-request. The catalog
   is still fixed; the schema is generated on demand.
 
@@ -67,7 +66,7 @@ component definitions](#declare-the-component-definitions).
 
 ## The 5-component custom catalog
 
-The frontend catalog declares just the domain-specific primitives
+The frontend catalog declares only the domain-specific primitives
 (Title, Airport, Arrow, AirlineBadge, PriceTag) and merges in
 CopilotKit's basic catalog (Card, Column, Row, Text, Button, …) via
 `includeBasicCatalog: true`.
@@ -78,11 +77,15 @@ CopilotKit's basic catalog (Card, Column, Row, Text, Button, …) via
 
 The catalog, definitions and renderers below all import from
 `@copilotkit/a2ui-renderer`. It ships separately from
-`@copilotkit/react-core`, and the definitions use `zod` for prop schemas:
+`@copilotkit/react-core`, and the definitions use `zod` 3 for prop schemas:
 
 ```npm
-npm install @copilotkit/a2ui-renderer zod
+npm install @copilotkit/a2ui-renderer "zod@^3.25"
 ```
+
+The snippets below come from the demo app. Put `definitions.ts`,
+`renderers.tsx`, and `catalog.ts` in one folder, for example
+`app/flight/a2ui/`.
 </Step>
 
 <Step>
@@ -115,6 +118,12 @@ import { DynamicStringSchema } from "@copilotkit/a2ui-renderer";
 ```
 
 <Snippet region="definitions-types" />
+
+At the end of `definitions.ts`, export the type that the renderers use:
+
+```ts
+export type Definitions = typeof definitions;
+```
 </Step>
 
 <Step>
@@ -123,11 +132,44 @@ import { DynamicStringSchema } from "@copilotkit/a2ui-renderer";
 TypeScript enforces that the renderer map's keys and prop shapes
 match the definitions exactly, so refactors stay safe. The demo
 renderers use the demo's own `Card`, `Badge`, `Button`, and `Separator`
-components. They also call an `s()` helper,
-`(v) => (typeof v === "string" ? v : "")`, that narrows a value to a
-string. Use your own components in their place:
+components, and an `s()` helper that narrows a value to a string.
+
+Start `renderers.tsx` with the imports and the helper. Import your own UI
+components, or use these plain stand-ins:
+
+```tsx title="app/flight/a2ui/renderers.tsx (top of file)"
+"use client";
+
+import type { ComponentProps } from "react";
+import type { CatalogRenderers } from "@copilotkit/a2ui-renderer";
+import type { Definitions } from "./definitions";
+
+const s = (v: unknown): string => (typeof v === "string" ? v : "");
+
+const Card = (p: ComponentProps<"div">) => (
+  <div {...p} style={{ border: "1px solid #ddd", borderRadius: 12 }} />
+);
+const Badge = ({ variant, ...p }: ComponentProps<"span"> & { variant?: string }) => (
+  <span {...p} />
+);
+const Separator = (p: ComponentProps<"hr">) => <hr {...p} />;
+const UIButton = (p: ComponentProps<"button">) => <button type="button" {...p} />;
+```
+
+Then add the renderer map:
 
 <Snippet region="renderers-tsx" />
+
+The demo's `Button` renderer ignores `props.action`, so a click does
+nothing. To send the button's action to the agent, call it on click:
+
+```tsx
+Button: ({ props, children }) => (
+  <UIButton className="w-full" onClick={() => props.action?.()}>
+    {props.child ? children(props.child) : null}
+  </UIButton>
+),
+```
 </Step>
 
 <Step>
@@ -213,7 +255,7 @@ The LLM only supplies the four data fields (`origin`, `destination`,
 <Snippet region="backend-render-operations" />
 
 Nothing about A2UI depends on how the agent itself is built. The operations
-container is just the tool's return value, so the tool drops into whatever agent
+container is the tool's return value, so the tool drops into whatever agent
 you already have.
 </Step>
 </WhenFrameworkHas>
@@ -272,26 +314,63 @@ does (frontend-tool injection and exposing agent state to the model), so keep
 
 <WhenFrameworkHas flag="a2ui_pattern" equals="schema-inline">
 <Step>
-### Define the schema inline
+### Define the schema inline and return render operations
 
 The Built-in Agent, Spring AI, and .NET declare the component tree
-inline as a typed literal in source. This is equivalent to a parsed
-`flight_schema.json`, compiled into the agent code. The structure is identical to the JSON form; only
-the surface syntax changes:
+(`FLIGHT_SCHEMA` below) inline as a typed literal in source. It has the
+same structure as a parsed `flight_schema.json`.
 
-<Snippet region="backend-schema-json-load" />
-</Step>
-
-<Step>
-### Return render operations from the tool
-
-The agent tool builds the same `createSurface` + `updateComponents` +
+The agent tool builds a `createSurface` + `updateComponents` +
 `updateDataModel` operations container and returns it. The A2UI
 middleware detects the operations in the tool result and forwards
-them to the frontend renderer; the LLM only supplies the four data
+them to the frontend renderer. The LLM only supplies the four data
 fields:
 
 <Snippet region="backend-render-operations" />
+</Step>
+
+<Step>
+### Build the agent (Built-in Agent)
+
+The snippet above stops at the tool. For the Built-in Agent, put it in
+`lib/a2ui-fixed-schema-agent.ts` and make three changes:
+
+1. Install the TanStack AI packages and Zod 4.2 or later under the
+   alias `zod4`. TanStack AI tools need Zod 4.2+, and the A2UI
+   definitions stay on Zod 3:
+
+   ```npm
+   npm install @tanstack/ai @tanstack/ai-openai zod4@npm:zod@^4.2
+   ```
+
+2. Change two imports:
+
+   ```ts
+   import { openaiText } from "@tanstack/ai-openai";
+   import { z } from "zod4";
+   ```
+
+3. Build and export the agent at the end of the file:
+
+   ```ts
+   export const agent = new BuiltInAgent({
+     type: "tanstack",
+     factory: ({ input, abortController }) => {
+       const { messages, systemPrompts } = convertInputToTanStackAI(input);
+       return chat({
+         adapter: openaiText("gpt-6-luna"),
+         messages,
+         systemPrompts: [
+           "When asked about a flight, call display_flight.",
+           ...systemPrompts,
+         ],
+         tools: [displayFlightTool],
+         threadId: input.threadId,
+         abortController,
+       });
+     },
+   });
+   ```
 </Step>
 </WhenFrameworkHas>
 
@@ -324,14 +403,28 @@ surface never paints.
 <Step>
 ### Pass the catalog to the provider
 
-Passing a catalog on the provider is enough to enable A2UI:
+Passing a catalog on the provider is enough to enable A2UI. Select the
+agent by the id you register in the next step:
 
-```tsx title="app/page.tsx"
+```tsx title="app/flight/page.tsx"
+"use client";
+
+import { CopilotChat, CopilotKit } from "@copilotkit/react-core/v2";
 import { catalog } from "./a2ui/catalog";
 
-<CopilotKit runtimeUrl="/api/copilotkit" a2ui={{ catalog }}>
-  {children}
-</CopilotKit>
+export default function FlightPage() {
+  return (
+    <CopilotKit
+      runtimeUrl="/api/copilotkit"
+      agent="a2ui-fixed-schema"
+      a2ui={{ catalog }}
+    >
+      <div style={{ height: "100vh" }}>
+        <CopilotChat />
+      </div>
+    </CopilotKit>
+  );
+}
 ```
 </Step>
 
@@ -342,7 +435,11 @@ Your agent owns the tool in the fixed-schema approach. A catalog
 auto-injects the A2UI tool by default, so set `injectA2UITool: false`
 on the runtime. Then your agent's own tool is the only one in play. The
 middleware still finds the operations that the tool returns and renders
-the surface, with no subagent involved:
+the surface, with no subagent involved.
+
+Register your agent as `a2ui-fixed-schema` in the file where you create
+your `CopilotRuntime`. For the Built-in Agent, import it with
+`import { agent } from "@/lib/a2ui-fixed-schema-agent";`.
 
 ```typescript title="app/api/copilotkit/route.ts"
 const runtime = new CopilotRuntime({
@@ -357,9 +454,9 @@ const runtime = new CopilotRuntime({
 <Step>
 ### Ask about a flight
 
-Send `Find me a flight from SFO to JFK on United for $289` in the chat.
-The flight card renders in the chat with the two airports, the airline,
-and the price.
+Open `/flight` and send `Find me a flight from SFO to JFK on United for $289`
+in the chat. The flight card renders in the chat with the two airports,
+the airline, and the price.
 </Step>
 </Steps>
 
@@ -369,11 +466,11 @@ A single big `FlightCard` component would be faster to write but would
 lock the design in place. Assembling the card from Card / Column /
 Row / Title / Airport / Arrow / AirlineBadge / PriceTag gives you:
 
-- **Reusable primitives** the same `Airport` renderer works in
+- **Reusable primitives**: the same `Airport` renderer works in
   search results, booking confirmations, and future seat maps.
-- **Schema-level design iteration** re-arranging rows or swapping a
-  badge requires only a JSON edit; the renderer code is untouched.
-- **A2UI Composer compatibility** hand-written and Composer-built
+- **Schema-level design iteration**: re-arranging rows or swapping a
+  badge requires only a JSON edit. The renderer code is untouched.
+- **A2UI Composer compatibility**: hand-written and Composer-built
   schemas share the same primitive vocabulary.
 
 ## Action handlers (reference)
@@ -401,7 +498,8 @@ The flight card's **Book flight** button declares its action in the schema:
 ```
 
 When the user clicks the button, CopilotKit sends the action to the agent
-in a new run. To handle the click in the browser instead, pass `onAction`
+in a new run. The button's renderer must call `props.action()` on click,
+as shown in [Implement the React renderers](#implement-the-react-renderers). To handle the click in the browser instead, pass `onAction`
 to `createA2UIMessageRenderer`. See
 [Action Handlers](/generative-ui/a2ui/advanced#action-handlers).
 

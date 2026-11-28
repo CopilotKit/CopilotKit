@@ -1,5 +1,5 @@
 ---
-title: HITL Overview
+title: Human-in-the-Loop
 icon: "lucide/User"
 description: Allow your agent and users to collaborate on complex tasks.
 snippet_cell: hitl-in-chat
@@ -57,8 +57,8 @@ inlined into the normal tool-call flow.
 
 **Pick `useInterrupt`** when the pause is a checkpoint in your agent code:
 the code path always requires a human answer, and the server-side contract is
-an interrupt. On the Built-in Agent, interrupts are temporarily unavailable, so
-use `useHumanInTheLoop` there.
+an interrupt. On the Built-in Agent, mark a server tool with `interrupt: true`
+in `defineTool` to pause the run for `useInterrupt`.
 
 <FrameworkSetup concept="human-in-the-loop-setup" />
 
@@ -70,22 +70,38 @@ When the LLM calls that tool, CopilotKit routes the call through your
 with the user's answer. The agent sees the answer as the tool result and
 continues from there.
 
-<Snippet region="hitl-hook" title="frontend/src/app/page.tsx — useHumanInTheLoop" />
+Install Zod for the tool's parameter schema:
+
+```bash
+npm install zod
+```
+
+Then add the hook to your page:
+
+<Snippet region="hitl-hook" title="frontend/src/app/page.tsx: useHumanInTheLoop" />
+
+Three changes make this excerpt a complete page in your app:
+
+- Add `"use client";` as the first line of the file. The hooks run in the
+  browser, and the excerpt starts below that line.
+- The demo registers its agent as `hitl-in-chat`. Remove the `agent` prop and
+  the `agentId` option to use your `default` agent, or set both to the name
+  you registered on Copilot Runtime.
+- The excerpt stops after `useHumanInTheLoop`. End the `Chat` component with
+  `return <CopilotChat className="h-full" />;` and a closing `}`.
 
 The sample imports `TimePickerCard` from its own file. The card renders the
-slots and calls `onSubmit` with the user's choice. These are its props:
+slots. Each slot button calls `onSubmit({ chosen_time: s.iso, chosen_label: s.label })`,
+and the "None of these work" button calls `onSubmit({ cancelled: true })`.
+Save it next to your page:
 
-<Snippet file="src/app/demos/hitl-in-chat/time-picker-card.tsx" lines="12-20" title="frontend/src/app/time-picker-card.tsx" />
+<Snippet file="src/app/demos/hitl-in-chat/time-picker-card.tsx" title="frontend/src/app/time-picker-card.tsx" />
 
-Each slot button calls `onSubmit({ chosen_time: s.iso, chosen_label: s.label })`.
-The "None of these work" button calls `onSubmit({ cancelled: true })`. The full
-file is in the Code view of the demo at the top of this page.
+The picker shows a static list of slots that the page defines. Swap in real
+availability, a calendar API, or anything else.
 
-The picker UI is fed a static list of candidate slots. This is just
-data the demo page owns, so you can swap in real availability, a
-calendar API, or anything else:
-
-<Snippet region="time-slots" title="frontend/src/app/page.tsx — candidate slots" />
+To check it, click the **Book a call with sales** suggestion. The time picker
+appears in the chat. Pick a slot, and the agent continues with your choice.
 
 ## Pattern 2: `useInterrupt` (agent-paused)
 

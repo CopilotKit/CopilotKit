@@ -13,12 +13,22 @@ description: Drop-in React Native chat surfaces, from a full-screen chat to a bo
 
 | Component | Import | What it draws | Native peers |
 | --- | --- | --- | --- |
-| `CopilotChat` | `/components` | A full-screen chat | `@gorhom/bottom-sheet`, `react-native-gesture-handler`, `react-native-reanimated`, `react-native-streamdown` |
+| `CopilotChat` | `/components` | A full-screen chat | `@gorhom/bottom-sheet`, `react-native-gesture-handler`, `react-native-reanimated`, `react-native-worklets`, `react-native-streamdown` |
 | `CopilotModal` | `/components` | The same chat in a bottom sheet | Same as above |
 | `CopilotPopup` | root | A floating button and a modal card around your chat UI | `expo-document-picker`, `expo-file-system` |
 | `CopilotSidebar` | root | A right-side drawer around your chat UI | `expo-document-picker`, `expo-file-system` |
 
-Metro resolves every peer of a surface when you import from it, even peers of components you don't use. See [Import surfaces](/quickstart#import-surfaces). Follow each library's own setup guide. For example, `react-native-streamdown` has peers of its own and a required `react-native-worklets` setup, described in its [installation guide](https://github.com/software-mansion-labs/react-native-streamdown#installation).
+Metro resolves every peer of a surface when you import from it, even peers of components you don't use. See [Import surfaces](/quickstart#import-surfaces). Install the peers for the surfaces you use. In an Expo app:
+
+```bash
+# For /components (CopilotChat, CopilotModal)
+npx expo install @gorhom/bottom-sheet react-native-gesture-handler react-native-reanimated react-native-worklets react-native-streamdown
+
+# For the root (CopilotPopup, CopilotSidebar)
+npx expo install expo-document-picker expo-file-system
+```
+
+In a bare React Native CLI app, see [Native peers for the rendered chat](/quickstart#native-peers-for-the-rendered-chat).
 
 <Callout type="warn" title="Two components named CopilotChat">
   The root `CopilotChat` and `CopilotModal` draw nothing. They give an agent to their children through `useCopilotChatContext`. The ones that draw a chat come from `@copilotkit/react-native/components`. If you get a blank screen, check the import path.
@@ -65,7 +75,7 @@ What the rendered chat does:
 - It shows `initialMessages` as tappable prompts while the conversation is empty. A tap sends that text.
 - It draws each tool call with the renderer that `useFrontendTool`, `useRenderTool`, `useComponent`, or `useHumanInTheLoop` registered. A call with no renderer shows as a short "Called: tool_name" line.
 - It draws the element from [`useInterrupt`](/human-in-the-loop/useInterrupt) after the last message.
-- It shows an error line above the composer when a run fails.
+- It does not show run errors. To show them, pass `onError` to `CopilotKitProvider` and render your own message.
 
 It does not show attachments, and it does not read `useConfigureSuggestions`. For those, build your own chat. See [Multimodal Attachments](/multimodal-attachments) and [Headless UI](/custom-look-and-feel/headless-ui).
 
@@ -172,11 +182,31 @@ export function AssistantPopup() {
 }
 ```
 
-Render `AssistantPopup` as the last child of a screen's root view that has `flex: 1`. The button floats in the bottom-right corner.
+Render `AssistantPopup` as the last child of a screen's root view that has `flex: 1`. The button floats in the bottom-right corner:
 
-`CopilotSidebar` works the same way. It takes `width` (a number, or a percentage such as `"85%"`) in place of `height`. It draws the drawer above the screen with absolute positioning, so render it as the last child of the screen's root view too.
+```tsx
+<CopilotKitProvider runtimeUrl={runtimeUrl}>
+  <View style={{ flex: 1 }}>
+    <MyScreen />
+    <AssistantPopup />
+  </View>
+</CopilotKitProvider>
+```
 
-Both components take a `ref` with `open()`, `close()`, and `toggle()`, for your own button. Set `showToggleButton={false}` to hide the floating button. Pass `attachments` to turn on file picking for the inner chat. See [Multimodal Attachments](/multimodal-attachments).
+`CopilotSidebar` works the same way. It takes `width` (a number, or a percentage such as `"85%"`) in place of `height`. It draws the drawer above the screen with absolute positioning, so render it as the last child of the screen's root view too. This drawer opens from your own button:
+
+```tsx
+const drawerRef = useRef<CopilotSidebarHandle>(null);
+
+<>
+  <Button title="Assistant" onPress={() => drawerRef.current?.open()} />
+  <CopilotSidebar ref={drawerRef} agentId="default" width="85%" showToggleButton={false}>
+    <PopupChat />
+  </CopilotSidebar>
+</>
+```
+
+Both components take a `ref` with `open()`, `close()`, and `toggle()`, for your own button. The ref types are `CopilotPopupHandle` and `CopilotSidebarHandle`, exported from `@copilotkit/react-native`. Set `showToggleButton={false}` to hide the floating button. Pass `attachments` to turn on file picking for the inner chat. See [Multimodal Attachments](/multimodal-attachments).
 
 <Callout type="info" title="Tool calls and interrupts in your own chat UI">
   The root `CopilotChat` inside the popup and the drawer does not draw tool calls or interrupts. Render them in your list with `useRenderToolCall`, and place the `useInterrupt` element yourself with `renderInChat: false`. See [Headless UI](/custom-look-and-feel/headless-ui).

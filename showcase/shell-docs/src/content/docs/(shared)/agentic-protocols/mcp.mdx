@@ -40,13 +40,13 @@ For the protocol itself, see the [Model Context Protocol](https://modelcontextpr
 <Steps>
   <Step>
     ### Get an MCP Server
-    First, we need to make sure we have an MCP server to connect to. You can use any MCP SSE endpoint you have configured.
+    You need an MCP server to connect to. Any MCP SSE endpoint that you have configured works.
 
     <Accordions>
       <Accordion title="Get an MCP Server from Composio">
         Composio provides a registry of ready-to-use MCP servers with simple authentication and setup.
 
-        To get started, go to [Composio](https://mcp.composio.dev/), find a server that suits your needs and copy the SSE URL before continuing here.
+        Go to [Composio](https://mcp.composio.dev/), find a server for your use case, and copy its SSE URL.
       </Accordion>
     </Accordions>
 
@@ -67,6 +67,7 @@ For the protocol itself, see the [Model Context Protocol](https://modelcontextpr
       agents: {
         default: new BuiltInAgent({
           model: "openai/gpt-6-luna",
+          maxSteps: 5, // lets the agent answer after an MCP tool call
           mcpServers: [
             {
               type: "sse",
@@ -87,67 +88,29 @@ For the protocol itself, see the [Model Context Protocol](https://modelcontextpr
 
     export const GET = handler;
     export const POST = handler;
+    export const PATCH = handler;
+    export const DELETE = handler;
     ```
+
+    `maxSteps` sets how many model calls one run can make. Without it, the run stops after the tool call and the chat shows no answer.
 
     The agent opens a client for each server at the start of a run and closes it when the run ends.
-    For the HTTP transport, multiple servers, and `mcpClients`, see [MCP servers](/built-in-agent/mcp-servers).
+    For the HTTP transport, multiple servers, and `mcpClients`, see [MCP servers](/mcp-servers).
   </Step>
   <Step>
-    ### Set up the CopilotKit Provider
+    ### Show MCP tool calls (optional)
 
-    Wrap your application with the `CopilotKit` provider. Set `runtimeUrl` to the route above:
+    To show a card for each MCP tool call, add two files next to your page.
 
-    ```tsx
-    "use client";
+    `ToolRenderer` registers a renderer for every tool call that has no renderer of its own:
 
-    import { CopilotKit } from "@copilotkit/react-core/v2";
-
-    export default function App() {
-      return (
-        <CopilotKit runtimeUrl="/api/copilotkit">
-          {/* Your app content */}
-        </CopilotKit>
-      );
-    }
-    ```
-  </Step>
-  <Step>
-    ### Add the Chat Interface
-
-    Add the `CopilotChat` component to your page:
-
-    ```tsx
-    "use client";
-
-    import { CopilotChat } from "@copilotkit/react-core/v2";
-
-    export default function ChatInterface() {
-      return (
-        <div className="flex h-screen p-4">
-          <CopilotChat
-            className="flex-grow rounded-lg w-full"
-          />
-        </div>
-      );
-    }
-    ```
-  </Step>
-  <Step>
-    ### Visualize MCP Tool Calls (Optional)
-
-    Create a component to display MCP tool calls in your UI. The `McpToolCall` component is in [Advanced Usage](#implementing-the-mcptoolcall-component):
-
-    ```tsx title="ToolRenderer.tsx"
+    ```tsx title="app/ToolRenderer.tsx"
     "use client";
 
     import { useDefaultRenderTool } from "@copilotkit/react-core/v2";
     import { McpToolCall } from "./McpToolCall";
 
     export function ToolRenderer() {
-      /**
-       * useDefaultRenderTool registers the wildcard ("*") renderer,
-       * so it paints every tool call that has no renderer of its own.
-       */
       useDefaultRenderTool({
         render: ({ name, status, parameters, result }) => (
           <McpToolCall status={status} name={name} args={parameters} result={result} />
@@ -156,13 +119,102 @@ For the protocol itself, see the [Model Context Protocol](https://modelcontextpr
       return null;
     }
     ```
+
+    `McpToolCall` draws the card. Click it to see the parameters and the result:
+
+    <details>
+    <summary>McpToolCall.tsx</summary>
+
+    ```tsx title="app/McpToolCall.tsx"
+    "use client";
+
+    import { useState } from "react";
+
+    interface ToolCallProps {
+      status: "complete" | "inProgress" | "executing";
+      name?: string;
+      args?: any;
+      result?: any;
+    }
+
+    export function McpToolCall({
+      status,
+      name = "",
+      args,
+      result,
+    }: ToolCallProps) {
+      const [isOpen, setIsOpen] = useState(false);
+
+      // Format content for display
+      const format = (content: any): string => {
+        if (!content) return "";
+        const text =
+          typeof content === "object"
+            ? JSON.stringify(content, null, 2)
+            : String(content);
+        return text
+          .replace(/\\n/g, "\n")
+          .replace(/\\t/g, "\t")
+          .replace(/\\"/g, '"')
+          .replace(/\\\\/g, "\\");
+      };
+
+      return (
+        <div className="bg-[#1e2738] rounded-lg overflow-hidden w-full">
+          <div
+            className="p-3 flex items-center cursor-pointer"
+            onClick={() => setIsOpen(!isOpen)}
+          >
+            <span className="text-white text-sm overflow-hidden text-ellipsis">
+              {name || "MCP Tool Call"}
+            </span>
+            <div className="ml-auto">
+              <div
+                className={`w-2 h-2 rounded-full ${
+                  status === "complete"
+                    ? "bg-gray-300"
+                    : status === "inProgress" || status === "executing"
+                      ? "bg-gray-500 animate-pulse"
+                      : "bg-gray-700"
+                }`}
+              />
+            </div>
+          </div>
+
+          {isOpen && (
+            <div className="px-4 pb-4 text-gray-300 font-mono text-xs">
+              {args && (
+                <div className="mb-4">
+                  <div className="text-gray-400 mb-2">Parameters:</div>
+                  <pre className="whitespace-pre-wrap max-h-[200px] overflow-auto">
+                    {format(args)}
+                  </pre>
+                </div>
+              )}
+
+              {status === "complete" && result && (
+                <div>
+                  <div className="text-gray-400 mb-2">Result:</div>
+                  <pre className="whitespace-pre-wrap max-h-[200px] overflow-auto">
+                    {format(result)}
+                  </pre>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      );
+    }
+    ```
+
+    </details>
   </Step>
   <Step>
-    ### Complete Implementation
+    ### Add the chat page
 
-    Combine all components together:
+    Wrap the chat in the `CopilotKit` provider and set `runtimeUrl` to the route above. If you skipped the previous step, leave out `<ToolRenderer />` and its import:
 
-    ```tsx
+    ```tsx title="app/page.tsx"
     "use client";
 
     import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
@@ -238,96 +290,5 @@ See [MCP Apps](/generative-ui/mcp-apps) for setup.
 
 <Callout type="info">
   These aren't exclusive. One server can expose plain tools and App-backed tools side by
-  side; CopilotKit renders each call according to whether it carries a UI resource.
+  side. CopilotKit renders each call according to whether it carries a UI resource.
 </Callout>
-
-## Advanced Usage
-
-### Implementing the McpToolCall Component
-
-<details>
-<summary>Click to see the McpToolCall component implementation</summary>
-
-```tsx title="McpToolCall.tsx"
-"use client";
-
-import { useState } from "react";
-
-interface ToolCallProps {
-  status: "complete" | "inProgress" | "executing";
-  name?: string;
-  args?: any;
-  result?: any;
-}
-
-export function McpToolCall({
-  status,
-  name = "",
-  args,
-  result,
-}: ToolCallProps) {
-  const [isOpen, setIsOpen] = useState(false);
-
-  // Format content for display
-  const format = (content: any): string => {
-    if (!content) return "";
-    const text =
-      typeof content === "object"
-        ? JSON.stringify(content, null, 2)
-        : String(content);
-    return text
-      .replace(/\\n/g, "\n")
-      .replace(/\\t/g, "\t")
-      .replace(/\\"/g, '"')
-      .replace(/\\\\/g, "\\");
-  };
-
-  return (
-    <div className="bg-[#1e2738] rounded-lg overflow-hidden w-full">
-      <div
-        className="p-3 flex items-center cursor-pointer"
-        onClick={() => setIsOpen(!isOpen)}
-      >
-        <span className="text-white text-sm overflow-hidden text-ellipsis">
-          {name || "MCP Tool Call"}
-        </span>
-        <div className="ml-auto">
-          <div
-            className={`w-2 h-2 rounded-full ${
-              status === "complete"
-                ? "bg-gray-300"
-                : status === "inProgress" || status === "executing"
-                  ? "bg-gray-500 animate-pulse"
-                  : "bg-gray-700"
-            }`}
-          />
-        </div>
-      </div>
-
-      {isOpen && (
-        <div className="px-4 pb-4 text-gray-300 font-mono text-xs">
-          {args && (
-            <div className="mb-4">
-              <div className="text-gray-400 mb-2">Parameters:</div>
-              <pre className="whitespace-pre-wrap max-h-[200px] overflow-auto">
-                {format(args)}
-              </pre>
-            </div>
-          )}
-
-          {status === "complete" && result && (
-            <div>
-              <div className="text-gray-400 mb-2">Result:</div>
-              <pre className="whitespace-pre-wrap max-h-[200px] overflow-auto">
-                {format(result)}
-              </pre>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-```
-
-</details>

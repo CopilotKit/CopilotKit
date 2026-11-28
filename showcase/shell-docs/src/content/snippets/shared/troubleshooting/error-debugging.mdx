@@ -22,7 +22,7 @@ export default function App() {
 `showDevConsole` shows error banners and toasts only. To inspect AG-UI events, use the Inspector, which `enableInspector` controls.
 
 <Callout type="warning">
-  Avoid showing the dev console in production as it exposes internal error details to end users.
+  Do not show the dev console in production. It exposes internal error details to end users.
 </Callout>
 
 ## Programmatic Error Handling (v2)
@@ -100,7 +100,7 @@ import {
 |------|-------------|
 | `runtime_info_fetch_failed` | Could not reach the runtime `/info` endpoint |
 | `agent_connect_failed` | Agent connection (thread setup) failed |
-| `agent_run_failed` | Agent run rejected (e.g. network error) |
+| `agent_run_failed` | Agent run rejected (for example, a network error) |
 | `agent_run_failed_event` | Agent's `onRunFailed` subscriber fired |
 | `agent_run_error_event` | Agent sent a `RUN_ERROR` event |
 | `tool_argument_parse_failed` | Tool call arguments were not valid JSON |

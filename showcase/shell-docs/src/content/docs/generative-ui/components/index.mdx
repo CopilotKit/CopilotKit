@@ -1,5 +1,6 @@
 ---
-title: "Components and surfaces"
+title: "Generative UI Components and Surfaces"
+nav_title: "Components and surfaces"
 icon: "lucide/LayoutTemplate"
 description: "Let your agent render your own components, in the chat and in areas of your page."
 ---
@@ -26,7 +27,7 @@ You decide what the agent can render. The agent decides what to show and fills i
 
 These steps add generative UI to a Next.js, Angular, React Native or Vue app, with an OpenAI model through TanStack AI.
 
-Already have CopilotKit running? Do step 3 only. Your runtime needs no change: when the provider sends a catalog with at least one component, the runtime gives that run a `render_ui` tool and a short guide. Your agent must pass the run's tools and context to its model, as in step 2. For a LangGraph Python agent, add `CopilotKitMiddleware`.
+Already have CopilotKit running with the Built-in Agent from the [quickstart](/quickstart)? Install `maplibre-gl` (React only, see step 1), then do step 3. Your runtime needs no change: when the provider sends a catalog with at least one component, the runtime gives that run a `render_ui` tool and a short guide. If your agent is a factory or another framework, it must also pass the run's tools and context to its model, as in step 2. For a LangGraph Python agent, add `CopilotKitMiddleware`.
 
 <Steps>
   <Step>
@@ -35,8 +36,10 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
   <Tabs groupId="frontend_framework" items={["React", "Angular", "React Native", "Vue"]} persist>
     <Tab value="React">
     ```bash
-    npm install @copilotkit/react-core @copilotkit/runtime @tanstack/ai @tanstack/ai-openai
+    npm install @copilotkit/react-core @copilotkit/runtime @tanstack/ai @tanstack/ai-openai maplibre-gl
     ```
+
+    Install `maplibre-gl` even if your agent never draws a map. Next.js and other bundlers fail to compile `standardUI` without it (`Module not found: Can't resolve 'maplibre-gl'`).
 
     Put your OpenAI key in `.env.local`:
 
@@ -89,7 +92,7 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
   <Step>
   ### Add the runtime and an agent
 
-  The agent is a built-in agent in factory mode: you call the model yourself with [TanStack AI](https://tanstack.com/ai).
+  The agent is a Built-in Agent in factory mode: you call the model yourself with [TanStack AI](https://tanstack.com/ai).
 
   <Tabs groupId="frontend_framework" items={["React", "Angular", "React Native", "Vue"]} persist>
     <Tab value="React">
@@ -116,6 +119,7 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
             ...systemPrompts,
           ],
           tools,
+          threadId: input.threadId,
           abortController,
         });
       },
@@ -159,6 +163,7 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
             ...systemPrompts,
           ],
           tools,
+          threadId: input.threadId,
           abortController,
         });
       },
@@ -203,6 +208,7 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
             ...systemPrompts,
           ],
           tools,
+          threadId: input.threadId,
           abortController,
         });
       },
@@ -247,6 +253,7 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
             ...systemPrompts,
           ],
           tools,
+          threadId: input.threadId,
           abortController,
         });
       },
@@ -295,7 +302,7 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
     }
     ```
 
-    The catalog holds React components, so the provider must be created in a client component. Wrap your layout in it, so every page shares one provider. Then put a chat on a page:
+    The catalog holds React components, so the provider must be created in a client component. Wrap your layout in it, so every page shares one provider. If you already have a layout, keep its imports (such as `./globals.css` and your fonts) and only wrap `{children}` in `<Providers>`. Then put a chat on a page:
 
     ```tsx title="app/layout.tsx"
     import { Providers } from "./providers";
@@ -448,7 +455,11 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
 
     The prebuilt React Native `CopilotChat` does not draw surfaces yet, so the chat is your own list. Each surface arrives as an activity message in `agent.messages`; `GenerativeUIActivity` draws it.
 
-    A failed run does not reject: `copilotkit.runAgent` resolves, and the error goes to the `onError` subscribers of the core. This helper listens, while the run lasts, for an error of its agent that ends the run; a failed tool call does not end it, so the helper ignores those. On failure it takes back the messages that the turn added, such as the user message and any partial reply. It keeps the surfaces of the run, in the chat and in a [named area](/generative-ui/components/surfaces) alike: the provider never forgets a surface, the model still sees it on its next run, and the runtime rejects a new `createSurface` with its id, so removing its activity message would only hide it. The take-back is local: a runtime that stores the thread may still have the user message, and connecting to that thread again brings it back. The helper counts every run failure of its agent while it waits, so start one run of an agent at a time.
+    A failed run does not reject: `copilotkit.runAgent` resolves, and the error goes to the `onError` subscribers of the core. This helper listens, while the run lasts, for an error of its agent that ends the run. A failed tool call does not end it, so the helper ignores those.
+
+    On failure it takes back the messages that the turn added, such as the user message and any partial reply. It keeps the surfaces of the run, in the chat and in a [named area](/generative-ui/components/surfaces) alike: the provider never forgets a surface, the model still sees it on its next run, and the runtime rejects a new `createSurface` with its id, so removing its activity message would only hide it.
+
+    The take-back is local: a runtime that stores the thread may still have the user message, and connecting to that thread again brings it back. The helper counts every run failure of its agent while it waits, so start one run of an agent at a time.
 
     ```tsx title="src/agentTurns.ts"
     import {
@@ -677,7 +688,9 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
     }
     ```
 
-    The error line shows the error of a run that `send` started. The same error reaches the `onError` of `CopilotKitProvider`; without that prop it is only logged with `console.error`, which nobody sees in a release build, so pass `onError` and send it to your crash reporter. A run that a click on a surface starts ([Send a click to the agent](/generative-ui/components/state-and-actions#send-a-click-to-the-agent)) does not go through `runTurn`: its user message stays when it fails, and its error reaches only that `onError`. While a run of this agent is going, one that `send` started or one that a click on a surface started, Send is disabled; a run of another agent does not disable it. A ref, set at once, keeps a second tap that lands before the next render from sending twice.
+    The error line shows the error of a run that `send` started. The same error reaches the `onError` of `CopilotKitProvider`. Without that prop it is only logged with `console.error`, which nobody sees in a release build, so pass `onError` and send it to your crash reporter.
+
+    A run that a click on a surface starts ([Send a click to the agent](/generative-ui/components/state-and-actions#send-a-click-to-the-agent)) does not go through `runTurn`: its user message stays when it fails, and its error reaches only that `onError`. While a run of this agent is going, one that `send` started or one that a click on a surface started, Send is disabled. A run of another agent does not disable it. A ref, set at once, keeps a second tap that lands before the next render from sending twice.
 
     Like the web chat, `GenerativeUIActivity` shows only surfaces aimed at the chat, so a surface that the agent aims at a [named area](/generative-ui/components/surfaces) renders there and not in the list. The chat target is always offered to the agent, so an app that shows surfaces only through `GenerativeUISurface`, or only in the prebuilt `CopilotChat`, never shows a surface aimed at the chat. `GenerativeUIActivity` renders nothing without a `GenerativeUIProvider` above it, or under a provider without `ui`, and warns in development, once for each distinct cause; it also renders nothing for a deleted surface, which `isChatSurface` leaves out of the list.
 
@@ -767,7 +780,11 @@ The agent answered, but the UI did not show, or it shows the wrong thing. Open I
 | The agent never uses a component or a function | **Catalog** | Search for its name. A component that is not in the list is not sent to the model. A function with no mounted handler gets a warning. |
 | You want to see what the model got | **Prompt** | The envelope and the `render_ui` guide of the last run, and of the next run. |
 
-Inspector runs in the browser, so it has no React Native version. On React Native, pass `errorBoundary={{ onError }}` to `GenerativeUIProvider`: it reports render failures, invalid props, failed events, failed functions that a component called and operations that the app rejected, with the surface. Operations that the runtime rejected never reach `onError`. They reach the `rejected` and `error` props of the `Wrapper` (with the ones that the app rejected): the `Wrapper` of `GenerativeUIActivity` for a chat surface, and the `Wrapper` of `GenerativeUISurface` for a surface in a named area. Both default wrappers show a short error line. The exception is a rejected `createSurface`. A named area then keeps its fallback and renders no `Wrapper`; when the app rejected it, `onError` gets it and `<GenerativeUIActivity target="<id>">` shows it. When the runtime rejected it, no activity message is sent for it, so only the model learns of it, in the result of its `render_ui` call, and nothing on the device shows it. The one exception is a `createSurface` with the id of a live surface: the runtime adds that rejection to the live surface, whose `Wrapper` shows it. See [Errors on the device](/react-native#errors-on-the-device).
+Inspector runs in the browser, so it has no React Native version. On React Native, pass `errorBoundary={{ onError }}` to `GenerativeUIProvider`: it reports render failures, invalid props, failed events, failed functions that a component called and operations that the app rejected, with the surface.
+
+Operations that the runtime rejected never reach `onError`. They reach the `rejected` and `error` props of the `Wrapper` (with the ones that the app rejected): the `Wrapper` of `GenerativeUIActivity` for a chat surface, and the `Wrapper` of `GenerativeUISurface` for a surface in a named area. Both default wrappers show a short error line.
+
+The exception is a rejected `createSurface`. A named area then keeps its fallback and renders no `Wrapper`. When the app rejected it, `onError` gets it and `<GenerativeUIActivity target="<id>">` shows it. When the runtime rejected it, no activity message is sent for it, so only the model learns of it, in the result of its `render_ui` call, and nothing on the device shows it. The one exception is a `createSurface` with the id of a live surface: the runtime adds that rejection to the live surface, whose `Wrapper` shows it. See [Errors on the device](/react-native#errors-on-the-device).
 
 ## Learn the ideas
 

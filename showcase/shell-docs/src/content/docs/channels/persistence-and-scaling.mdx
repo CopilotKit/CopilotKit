@@ -37,7 +37,7 @@ provider turns even when the SDK store is in memory.
 Use a Standard Schema to type reads and validate complete replacement values:
 
 ```bash title="Terminal"
-npm install zod
+npm install "zod@^3.25"
 ```
 
 <FrontendOnly frontend="slack">
@@ -46,7 +46,12 @@ npm install zod
 import { createChannel } from "@copilotkit/channels";
 import { z } from "zod";
 import { makeAgent } from "./agent.js";
-import { durableStateStore } from "./state-store.js";
+
+function required(name: string): string {
+  const value = process.env[name];
+  if (!value) throw new Error(`Missing ${name}`);
+  return value;
+}
 
 const workflowState = z.object({
   incidentId: z.string(),
@@ -54,11 +59,10 @@ const workflowState = z.object({
 });
 
 const channel = createChannel({
-  name: process.env.CHANNEL_CODE,
+  name: required("CHANNEL_CODE"),
   identifyUser: "platform",
   agent: makeAgent,
   store: {
-    adapter: durableStateStore,
     state: workflowState,
   },
 });
@@ -83,7 +87,12 @@ channel.onMessage(async ({ thread, message }) => {
 import { createChannel } from "@copilotkit/channels";
 import { z } from "zod";
 import { makeAgent } from "./agent.js";
-import { durableStateStore } from "./state-store.js";
+
+function required(name: string): string {
+  const value = process.env[name];
+  if (!value) throw new Error(`Missing ${name}`);
+  return value;
+}
 
 const workflowState = z.object({
   incidentId: z.string(),
@@ -91,11 +100,10 @@ const workflowState = z.object({
 });
 
 const channel = createChannel({
-  name: process.env.CHANNEL_CODE,
+  name: required("CHANNEL_CODE"),
   identifyUser: "platform",
   agent: makeAgent,
   store: {
-    adapter: durableStateStore,
     state: workflowState,
   },
 });
@@ -114,8 +122,11 @@ channel.onMessage(async ({ thread, message }) => {
 
 </FrontendOnly>
 
+On a managed Channel, this state is durable with no extra setup. Add
+`adapter` to `store` only when you bring your own `StateStore` (see below).
+
 `setState(value)` replaces the whole value. It does not merge a partial patch.
-Store JSON-serializable values; remote backends do not preserve `Date`, `Map`,
+Store JSON-serializable values. Remote backends do not preserve `Date`, `Map`,
 class instances, or functions.
 
 ## Implement every StateStore facet
@@ -152,14 +163,18 @@ runStateStoreConformance(
 );
 ```
 
+Replace `./redis-store.js` with the module that creates and closes your
+adapter. To try the suite first, pass `() => new MemoryStore()` with
+`MemoryStore` from `@copilotkit/channels`.
+
 Run it against the real backend:
 
 ```bash title="Terminal"
 npx vitest run state-store.test.ts
 ```
 
-The SDK ships `MemoryStore` and the conformance suite; it does not ship a fully
-durable Redis or Postgres implementation in the umbrella package.
+The SDK ships `MemoryStore` and the conformance suite. The umbrella package
+does not ship a fully durable Redis or Postgres implementation.
 
 ## Preserve interactive callbacks across restarts
 
@@ -206,10 +221,11 @@ old card.
 
 ### Delivery claims (multi-replica)
 
-Each prepared delivery has one claim winner. Every connected runtime process
+Intelligence sends each incoming event to your runtime as a delivery. Only one
+runtime process claims and runs each delivery. Every connected runtime process
 that declares the matching Channel can receive the invitation, check local
 capacity, and attempt the claim. Different runtime processes can serve
-different conversations at the same time; there is no Channel-wide leader.
+different conversations at the same time. There is no Channel-wide leader.
 
 With direct adapters, a pending `awaitChoice` lives in the process that
 posted it. If a click reaches another runtime process, the owner's click runs
@@ -220,14 +236,14 @@ runtime processes.
 Keep the Channel declarations and agent code aligned across runtime processes.
 Each runtime process bounds its active and pending delivery work internally. A
 runtime process that has reached its internal capacity declines new invitations
-before claiming them; that capacity is not currently a public Channel
-configuration option.
+before claiming them. That capacity is not a public Channel configuration
+option.
 
 Provider effects use one ordered packet at a time. The SDK retries that exact
-packet after a known retry wait or reconnect. If a provider call becomes
-uncertain, Gateway records an uncertain terminal result instead of sending it
-again. Application tools still need their own idempotency keys when the
-application may call them more than once; use `message.eventId`,
+packet after a known retry wait or reconnect. If the result of a provider call
+is unknown (for example, the connection dropped mid-call), Intelligence marks
+that delivery as uncertain and does not send the packet again. Application tools still need their own idempotency keys when the
+application may call them more than once. Use `message.eventId`,
 `message.turnId`, or a durable operation ID.
 
 ### Turn concurrency (same conversation)
@@ -238,8 +254,8 @@ active. Unrelated Threads continue in parallel within the bounded capacity of
 each runtime process.
 
 This delivery guard is separate from the SDK `store.concurrency` setting used
-by other adapter paths. Choose that setting for your application-state rules;
-do not use it to raise the managed same-Thread delivery limit. See
+by other adapter paths. Choose that setting for your application-state rules.
+It does not raise the managed same-Thread delivery limit. See
 [`StoreConfig`](/reference/channels/types/StoreConfig).
 
 ## Production checklist

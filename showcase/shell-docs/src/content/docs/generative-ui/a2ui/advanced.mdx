@@ -1,18 +1,19 @@
 ---
-title: "Advanced"
+title: "Advanced A2UI"
+nav_title: "Advanced"
 icon: "lucide/SlidersHorizontal"
 description: "Custom progress rendering, frontend action handlers, and advanced A2UI configuration."
 ---
-This page covers two A2UI tasks:
+You render A2UI surfaces and want more control than the defaults give you. By default, a surface shows a built-in progress indicator while it builds, and each button click starts a new run of the agent. You can change either one:
 
 - [Show your own loading state](#custom-a2ui-progress-renderer) while a surface builds.
 - [Handle button clicks in the browser](#action-handlers) without a new run of the agent.
 
 ## Custom A2UI Progress Renderer
 
-When using [Dynamic Schema A2UI](/generative-ui/a2ui/dynamic-schema), a secondary LLM generates the UI schema and data. This takes a few seconds. During that time, CopilotKit shows a built-in progress indicator.
+When using [Dynamic Schema A2UI](/generative-ui/a2ui/dynamic-schema), the agent generates the UI schema and data. This takes a few seconds. During that time, CopilotKit shows a built-in progress indicator.
 
-To replace the built-in indicator with your own component, pass it as `loadingComponent` in the provider's `a2ui` prop.
+To replace the built-in indicator with your own component, pass it as `loadingComponent` in the provider's `a2ui` prop. A2UI must be on: pass a catalog on the provider, or set `a2ui` on the runtime.
 
 ### How it works
 
@@ -24,7 +25,7 @@ The built-in indicator is part of the A2UI surface. It shows while the surface b
 <Step>
 ### Create a progress component
 
-```tsx title="src/components/a2ui-progress.tsx"
+```tsx title="components/a2ui-progress.tsx"
 "use client";
 
 export function A2UIProgress() {
@@ -43,25 +44,28 @@ export function A2UIProgress() {
 <Step>
 ### Pass it to the provider
 
-```tsx title="src/app/page.tsx"
+Add `loadingComponent` next to the catalog from [Dynamic Schema A2UI](/generative-ui/a2ui/dynamic-schema#pass-the-catalog-to-the-provider):
+
+```tsx title="app/providers.tsx"
 "use client";
 
-import { CopilotChat, CopilotKit } from "@copilotkit/react-core/v2";
-import { A2UIProgress } from "@/components/a2ui-progress";
+import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+import { A2UIProgress } from "@/components/a2ui-progress"; // [!code highlight]
+import { myCatalog } from "./a2ui/catalog";
 
-export default function Page() {
+export function Providers({ children }: { children: React.ReactNode }) {
   return (
-    <CopilotKit
+    <CopilotKitProvider
       runtimeUrl="/api/copilotkit"
-      a2ui={{ loadingComponent: A2UIProgress }}
+      a2ui={{ catalog: myCatalog, loadingComponent: A2UIProgress }} // [!code highlight]
     >
-      <CopilotChat className="flex-1" />
-    </CopilotKit>
+      {children}
+    </CopilotKitProvider>
   );
 }
 ```
 
-If you also pass a catalog, put both in the same object: `a2ui={{ catalog: myCatalog, loadingComponent: A2UIProgress }}`.
+If your app keeps its code in `src/`, put the files under `src/` instead.
 </Step>
 </Steps>
 
@@ -107,7 +111,7 @@ The resulting `A2UIUserAction` will include the resolved context:
 
 ### `onAction` interceptor
 
-Pass `onAction` to the exported renderer factory to handle an action in the browser. Return `null` after handling the action locally; return `undefined` to forward it unchanged to the agent:
+Pass `onAction` to the exported renderer factory to handle an action in the browser. Return `null` after handling the action locally; return `undefined` to forward it unchanged to the agent. Put this in `app/providers.tsx`, above the `Providers` component:
 
 ```tsx
 import {
@@ -132,16 +136,23 @@ const A2UIMessageRenderer = createA2UIMessageRenderer({
 const activityRenderers = [A2UIMessageRenderer];
 ```
 
-If you need this custom `onAction` behavior, pass the returned renderer in the provider's `renderActivityMessages` prop. User-provided renderers take precedence over the provider's built-in A2UI renderer. Your renderer replaces the built-in one, so give it the same catalog as the provider. Without `catalog`, it uses the basic catalog and your custom components do not render.
+If you need this custom `onAction` behavior, pass the returned renderer in the provider's `renderActivityMessages` prop. User-provided renderers take precedence over the provider's built-in A2UI renderer.
+
+Your renderer replaces the built-in one, so give it the same options you give the provider's `a2ui` prop:
+
+- `catalog`: without it, the renderer uses the basic catalog and your custom components do not render.
+- `loadingComponent` and `recovery`, if you use them: without `loadingComponent`, the built-in progress indicator shows in place of yours.
+
+For example: `createA2UIMessageRenderer({ theme: a2uiDefaultTheme, catalog: myCatalog, loadingComponent: A2UIProgress, onAction })`.
 
 ```tsx
-<CopilotKit
+<CopilotKitProvider
   runtimeUrl="/api/copilotkit"
   a2ui={{ catalog: myCatalog }}
   renderActivityMessages={activityRenderers}
 >
-  {/* ... */}
-</CopilotKit>
+  {children}
+</CopilotKitProvider>
 ```
 
 ### Forward a modified action
@@ -149,6 +160,12 @@ If you need this custom `onAction` behavior, pass the returned renderer in the p
 An interceptor can return a modified exported `A2UIUserAction`; the renderer forwards that action to the agent:
 
 ```tsx
+import {
+  a2uiDefaultTheme,
+  createA2UIMessageRenderer,
+} from "@copilotkit/react-core/v2";
+import { myCatalog } from "./a2ui/catalog";
+
 const A2UIMessageRenderer = createA2UIMessageRenderer({
   theme: a2uiDefaultTheme,
   catalog: myCatalog,
@@ -173,6 +190,7 @@ The renderer runs `onAction` before it forwards an action:
 1. Returning `null` handles the action in the browser and skips the agent.
 2. Returning an `A2UIUserAction` forwards that modified action.
 3. Returning `undefined` forwards the original action.
+4. To forward after async work, call the second argument yourself, `await forward(action)`, and then return `null` so the agent does not run twice.
 
 The action passed to `onAction` does not include `dataContextPath`. Put the values that the callback needs in `context`.
 

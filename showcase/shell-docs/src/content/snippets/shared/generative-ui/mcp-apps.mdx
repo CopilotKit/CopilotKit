@@ -1,7 +1,7 @@
 
 ## What are MCP Apps?
 
-MCP Apps are MCP servers that expose tools with associated UI resources. When the agent calls one of these tools, CopilotKit automatically fetches and renders the UI component in the chat - no additional frontend code required. Each MCP App runs in a sandboxed iframe.
+MCP Apps are MCP servers that expose tools with associated UI resources. When the agent calls one of these tools, CopilotKit automatically fetches and renders the UI component in the chat. You write no frontend code for it. Each MCP App runs in a sandboxed iframe.
 
 ## Prerequisites
 
@@ -26,7 +26,7 @@ npx copilotkit create -f mcp-apps
   <Step>
     ### (Optional) Create a new application
 
-    We'll be starting from scratch for this example, but feel free to skip this step if you already have an application.
+    This step creates a new application. If you already have one, skip this step.
 
     This example uses Next.js. The same steps work in any React framework.
 
@@ -105,7 +105,7 @@ npx copilotkit create -f mcp-apps
     ```
 
     <Callout type="info" title="Server ID">
-      Always provide a `serverId` for production deployments. Without it, CopilotKit generates a hash from the server URL. If your URL changes (e.g., different environments), previously stored MCP Apps in conversation history won't load correctly.
+      Always provide a `serverId` for production deployments. Without it, CopilotKit generates a hash from the server URL. If your URL changes (for example, between environments), MCP Apps already saved in conversation history do not load correctly.
     </Callout>
 
     Alternatively, if you want to scope MCP Apps to specific agents, you can use `MCPAppsMiddleware` directly on the agent via `.use()`:
@@ -146,7 +146,7 @@ npx copilotkit create -f mcp-apps
     ```
 
     <Callout type="info" title="What about other models?">
-    The example uses OpenAI GPT-6 Luna (`model: "openai/gpt-6-luna"`). To use another model, change `model` in the BuiltInAgent.
+    The example uses OpenAI GPT-6 Luna (`model: "openai/gpt-6-luna"`). To use another model, change `model` in the `BuiltInAgent`.
     </Callout>
 
   </Step>
@@ -284,9 +284,9 @@ For MCP servers using Server-Sent Events:
 
 MCP Apps integrate fully with CopilotKit's threading system:
 
-- **Persistence** - When you save a thread, MCP Apps are stored as part of the conversation history
-- **Restoration** - Loading a thread restores all MCP Apps with their original state
-- **Server ID stability** - With consistent `serverId` values, MCP Apps load correctly across sessions
+- **Persistence**: When you save a thread, MCP Apps are stored as part of the conversation history.
+- **Restoration**: Loading a thread restores all MCP Apps with their original state.
+- **Server ID stability**: With consistent `serverId` values, MCP Apps load correctly across sessions.
 
 ## Example MCP Servers
 

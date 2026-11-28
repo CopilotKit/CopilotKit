@@ -28,7 +28,7 @@ const data: FrameworkOverviewData = {
       iconKey: "paintbrush",
       description:
         "Your agent calls tools and reports progress as it works. CopilotKit streams that to the browser and renders each step as a React component, instead of leaving the user with a spinner.",
-      documentationLink: "/aws-strands/generative-ui",
+      documentationLink: "/aws-strands/generative-ui/tool-rendering",
     },
     {
       title: "Human-in-the-loop",
@@ -53,8 +53,8 @@ const data: FrameworkOverviewData = {
 
   connect: {
     intro:
-      "Your agent keeps running as its own Python service, with the AG-UI bridge from ag_ui_strands in front of it. CopilotKit reaches that service over HTTP, so nothing inside the agent changes.",
-    filename: "app/api/copilotkit/route.ts",
+      "Your agent keeps running as its own service, with the Strands AG-UI bridge in front of it (ag_ui_strands in Python, @ag-ui/aws-strands in TypeScript). CopilotKit reaches that service over HTTP, so nothing inside the agent changes.",
+    filename: "app/api/copilotkit/[[...slug]]/route.ts",
     language: "ts",
     code: `import {
   CopilotRuntime,
@@ -64,7 +64,9 @@ import { HttpAgent } from "@ag-ui/client";
 
 const runtime = new CopilotRuntime({
   agents: {
-    my_agent: new HttpAgent({ url: process.env.AGENT_URL! }),
+    strands_agent: new HttpAgent({
+      url: process.env.AGENT_URL ?? "http://localhost:8000",
+    }),
   },
 });
 
@@ -74,7 +76,9 @@ const handler = createCopilotRuntimeHandler({
 });
 
 export const GET = handler;
-export const POST = handler;`,
+export const POST = handler;
+export const PATCH = handler;
+export const DELETE = handler;`,
     guideLink: "/aws-strands/quickstart",
   },
 

@@ -3,6 +3,18 @@ title: "CopilotKit"
 description: "The CopilotKit provider component, wrapping your application."
 ---
 
+`<CopilotKit>` wraps your whole app, or the part of it that uses a copilot. It gives the copilot context to all CopilotKit components and hooks inside it.
+
+## Example
+
+```tsx
+import { CopilotKit } from "@copilotkit/react-core/v2";
+
+<CopilotKit runtimeUrl="<your-runtime-url>">{/* ... your app ... */}</CopilotKit>;
+```
+
+To host the runtime yourself, see [Copilot Runtime](/backend/copilot-runtime).
+
 <Callout type="info" title="This is the v1 provider, re-exported for back-compat">
   `<CopilotKit>` is the v1 provider. It is re-exported from
   `@copilotkit/react-core/v2` so that a v1 application keeps working after the
@@ -20,22 +32,6 @@ You can also name the agent per chat with `<CopilotChat agentId="my_agent">`, or
 for a subtree with `<CopilotChatConfigurationProvider agentId="my_agent">`. Both
 of those override the provider-level default. See [Provider and handler
 pairs](/backend/runtime-endpoints#provider-and-handler-pairs).
-
-Both providers treat an omitted `useSingleEndpoint` the same way: the transport
-is negotiated from the Runtime info response. Versions before 1.69.0 pinned
-`<CopilotKit>` to the single-route transport.
-
-This component will typically wrap your entire application (or a sub-tree of your application where you want to have a copilot). It provides the copilot context to all other components and hooks.
-
-## Example
-
-To host the runtime yourself, see [Copilot Runtime](/backend/copilot-runtime).
-
-```tsx
-import { CopilotKit } from "@copilotkit/react-core/v2";
-
-<CopilotKit runtimeUrl="<your-runtime-url>">// ... your app ...</CopilotKit>;
-```
 
 ## Properties
 
@@ -55,11 +51,6 @@ Don't have it yet? Go to https://dashboard.operations.copilotkit.ai and get one 
 
 <PropertyReference name="licenseToken" type="string">
   Signed license token for offline verification of CopilotKit Intelligence features.
-</PropertyReference>
-
-<PropertyReference name="guardrails_c" type="{ validTopics?: string[]; invalidTopics?: string[]; }"  >
-This prop has no effect. It stays in the type only so that old code still compiles.
-
 </PropertyReference>
 
 <PropertyReference name="runtimeUrl" type="string">
@@ -180,7 +171,7 @@ status UI. Defaults to `true`.
 
 <PropertyReference name="selfManagedAgents" type="Record<string, AbstractAgent>">
   AG-UI agents managed by your app and registered directly with CopilotKit.
-  Use this when you connect to agents without routing through a Copilot Runtime.
+  Use this when you connect to agents without routing through Copilot Runtime.
 </PropertyReference>
 
 <PropertyReference name="agents__unsafe_dev_only" type="Record<string, AbstractAgent>">
@@ -219,7 +210,7 @@ detail, pass a composition guide through the middleware's A2UI guidelines:
 
 </PropertyReference>
 
-<PropertyReference name="mcpApps" type="{ allowSameOriginFallback?: boolean }">
+<PropertyReference name="mcpApps" type="{ allowSameOriginFallback?: boolean; modelContext?: boolean }">
 Configuration for the built-in MCP Apps renderer.
 
 `allowSameOriginFallback` restores `allow-same-origin` on the MCP App sandbox.
@@ -227,6 +218,10 @@ By default widgets get an opaque origin. **Unsafe:** with it set, a widget runs
 with your page's origin and can read your cookies, storage and DOM. Only use it
 for widgets you trust that need `localStorage`, `IndexedDB` or cookies. See
 [Sandbox and widget storage](/generative-ui/mcp-apps#sandbox-and-widget-storage).
+
+`modelContext` (default `false`) lets MCP Apps report their state to the model
+through `ui/update-model-context`. That state goes with every later run, and
+the user does not see it. Turn it on only for MCP servers you trust.
 
 </PropertyReference>
 
@@ -254,13 +249,6 @@ for widgets you trust that need `localStorage`, `IndexedDB` or cookies. See
 >
   Model parameters (only `temperature`) that the provider puts in the
   CopilotKit context. The built-in hooks do not read this value.
-</PropertyReference>
-
-<PropertyReference name="authConfig_c" type="{ SignInComponent: React.ComponentType<{ onSignInComplete: (authState: AuthState) => void; }>; }"  >
-The auth config to use for the CopilotKit.
-
-This feature is only available when using CopilotKit's cloud-hosted service. To use this feature, sign up at https://dashboard.operations.copilotkit.ai to get your publicApiKey. `SignInComponent` is the sign-in component that `useCopilotAuthenticatedAction_c` renders before it runs an action that needs the user to sign in.
-
 </PropertyReference>
 
 <PropertyReference name="threadId" type="string">
@@ -300,4 +288,69 @@ error event with debugging context.
   Enable client-side debug logging for the AG-UI transport and event pipeline.
   Pass `true` for event and lifecycle summaries, or a config object with
   `verbose: true` to include full event payloads.
+</PropertyReference>
+
+## Inherited from CopilotKitProvider
+
+`<CopilotKit>` passes these props on to `<CopilotKitProvider>`.
+
+<PropertyReference name="useSingleEndpoint" type="boolean">
+  How the client talks to Copilot Runtime. Omit it to negotiate the transport
+  from the Runtime's `/info` response. `true` forces the single-route
+  transport. `false` forces the multi-route REST transport.
+</PropertyReference>
+
+<PropertyReference name="messageFilter" type="CopilotKitMessageFilter">
+  Rewrites the message list sent to the agent on each run, for example
+  `(messages) => messages.slice(-1)` when your agent stores the conversation
+  itself. The transcript the UI shows does not change. Agents passed in
+  directly, Intelligence runs and suggestion runs are not filtered.
+</PropertyReference>
+
+<PropertyReference name="renderToolCalls" type="ReactToolCallRenderer<any>[]">
+  Renderers for tool calls, registered for the whole app.
+</PropertyReference>
+
+<PropertyReference name="renderActivityMessages" type="ReactActivityMessageRenderer<any>[]">
+  Renderers for activity messages, registered for the whole app.
+</PropertyReference>
+
+<PropertyReference name="frontendTools" type="ReactFrontendTool[]">
+  Frontend tools registered for the whole app.
+</PropertyReference>
+
+<PropertyReference name="humanInTheLoop" type="ReactHumanInTheLoop[]">
+  Human-in-the-loop tools registered for the whole app.
+</PropertyReference>
+
+<PropertyReference name="generativeUI" type="GenerativeUIConfig">
+  Experimental. Native generative UI config, `generativeUI={{ ui }}`, where
+  `ui` comes from `createGenerativeUI`.
+</PropertyReference>
+
+<PropertyReference name="learning" type="boolean | (LearningConfig & { autoStart?: boolean; trajectoryId?: string })">
+  Turns on interaction capture (`@copilotkit/learning`). `true` uses the default
+  options. Pass an object for options. Set `autoStart: false` to start capture
+  yourself with `startTrajectory()`.
+</PropertyReference>
+
+On `<CopilotKit>`, two inherited props have no effect:
+
+- `agentId`: `<CopilotKit>` sets the chat agent from `agent` (default `"default"`). Use `agent`.
+- `renderCustomMessages`: `<CopilotKit>` sets its own custom message renderer. Use `<CopilotKitProvider>` if you need this prop.
+
+## Legacy props
+
+These props exist for v1 code.
+
+<PropertyReference name="guardrails_c" type="{ validTopics?: string[]; invalidTopics?: string[]; }">
+  This prop has no effect. It stays in the type only so that old code still
+  compiles.
+</PropertyReference>
+
+<PropertyReference name="authConfig_c" type="{ SignInComponent: React.ComponentType<{ onSignInComplete: (authState: AuthState) => void; }>; }"  >
+The auth config to use for the CopilotKit.
+
+This feature is only available when using CopilotKit's cloud-hosted service. To use this feature, sign up at https://dashboard.operations.copilotkit.ai to get your publicApiKey. `SignInComponent` is the sign-in component that `useCopilotAuthenticatedAction_c` renders before it runs an action that needs the user to sign in.
+
 </PropertyReference>

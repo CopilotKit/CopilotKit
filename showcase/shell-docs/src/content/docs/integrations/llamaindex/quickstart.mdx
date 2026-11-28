@@ -27,9 +27,9 @@ Before you begin, you'll need the following:
 
 <Steps>
     <Step>
-        ### Set up CopilotKit Intelligence
+        ### Optional: set up CopilotKit Intelligence
 
-        <SignupLink surface="docs_llamaindex_quickstart_step1">Sign in to cloud-hosted Intelligence</SignupLink>. You will connect the app after you create it below.
+        Intelligence keeps your threads in the cloud. Skip this step to run with an in-memory runner. To use it, <SignupLink surface="docs_llamaindex_quickstart_step1">sign in to cloud-hosted Intelligence</SignupLink>. You will connect the app after you create it below.
     </Step>
 
     <Step>
@@ -56,7 +56,7 @@ Before you begin, you'll need the following:
                 The CLI walks you through:
 
                 - **Project name**
-                - **CopilotKit Intelligence**: persistent threads and the Inspector. Choose **Yes** for a project that is wired to Intelligence. Choose **No** for a standard LlamaIndex setup. If you choose **Yes**, the CLI walks you through sign-up.
+                - **CopilotKit Intelligence**: every starter ships with it. The CLI walks you through sign-in and project selection. `--project <ref>` or `--create <name>` skip the picker.
                 - **Framework**: pick **LlamaIndex** when prompted.
             </Step>
             <Step>
@@ -106,7 +106,7 @@ Before you begin, you'll need the following:
                     </Tab>
                 </Tabs>
 
-                This will start both the UI and agent servers concurrently.
+                This starts the UI and the agent server together.
             </Step>
             <Step>
                 ### Start chatting
@@ -127,7 +127,7 @@ Before you begin, you'll need the following:
 
                 <Accordions className="mb-4">
                     <Accordion title="Troubleshooting">
-                        - If the chat cannot connect to the agent, use `0.0.0.0` or `127.0.0.1` instead of `localhost`.
+                        - If the chat cannot connect to the agent, use `127.0.0.1` instead of `localhost` in the agent URL.
                         - If the chat shows a connection error, make sure that the `agent` lines in the `npm run dev` output show `Uvicorn running on http://127.0.0.1:9000`.
                         - If the `agent` lines show an OpenAI `AuthenticationError`, make sure that `OPENAI_API_KEY` in `agent/.env` holds a valid key.
                     </Accordion>
@@ -229,10 +229,13 @@ Before you begin, you'll need the following:
             <Step>
                 ### Create your frontend
 
-                CopilotKit works with any React-based frontend. We'll use Next.js for this example.
+                CopilotKit works with any React-based frontend. This example uses Next.js.
+
+                Run this next to your agent folder, not inside it. `--yes` accepts the recommended defaults (TypeScript, Tailwind, App Router):
 
                 ```bash
-                npx create-next-app@latest my-copilot-app
+                cd ..
+                npx create-next-app@latest my-copilot-app --yes
                 cd my-copilot-app
                 ```
             </Step>
@@ -240,7 +243,7 @@ Before you begin, you'll need the following:
                 ### Install CopilotKit packages
 
                 ```npm
-                npm install @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime @ag-ui/llamaindex
+                npm install @copilotkit/react-core @copilotkit/runtime @ag-ui/llamaindex
                 ```
             </Step>
             <Step>
@@ -250,7 +253,6 @@ Before you begin, you'll need the following:
 
                 ```tsx title="app/api/copilotkit/[[...slug]]/route.ts" doctest="component"
                 import {
-                  CopilotKitIntelligence,
                   CopilotRuntime,
                   createCopilotRuntimeHandler,
                 } from "@copilotkit/runtime/v2";
@@ -260,16 +262,6 @@ Before you begin, you'll need the following:
                   agents: {
                     my_agent: new LlamaIndexAgent({ url: "http://localhost:8000/run" }),
                   },
-                  // [!code highlight:9]
-                  intelligence: new CopilotKitIntelligence({
-                    apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
-                  }),
-                  // Demo only: the browser sends no x-user-id header, so all visitors share
-                  // one "anonymous" history. Before you deploy, return the verified session user.
-                  identifyUser: (request) => ({
-                    id: request.headers.get("x-user-id") ?? "anonymous",
-                    name: request.headers.get("x-user-name") ?? "Anonymous",
-                  }),
                 });
 
                 const handler = createCopilotRuntimeHandler({
@@ -283,25 +275,40 @@ Before you begin, you'll need the following:
                 export const DELETE = handler;
                ```
 
-                From this frontend app directory, connect the runtime to an Intelligence project:
+                This route runs with an in-memory runner. Chat and the Inspector work without any key.
 
-                ```bash title="Terminal"
-                npx copilotkit@latest project select
-                ```
+                <Accordions className="mb-4">
+                    <Accordion title="Optional: connect CopilotKit Intelligence">
+                        From this frontend app directory, sign in and select an Intelligence project:
 
-                The command writes the server-side project API key to `.env`. The runtime reads it here:
+                        ```bash title="Terminal"
+                        npx copilotkit@latest login
+                        npx copilotkit@latest project select
+                        ```
 
-                ```plaintext title=".env"
-                CPK_INTELLIGENCE_API_KEY=cpk-...
-                ```
+                        `login` opens a browser sign-in. `project select` writes the server-side project API key to `.env`:
 
-                <Callout type="info" title="Running without the Intelligence Platform?">
-                  Drop the `intelligence` and `identifyUser` options and the runtime falls back
-                  to SSE mode with an in-memory runner. Chat still works, but Threads and the
-                  Inspector stay locked and the key is never read. See
-                  [Connect your runtime to Intelligence](/intelligence/quickstart) for the
-                  full constructor and how to confirm the key is in use.
-                </Callout>
+                        ```plaintext title=".env"
+                        CPK_INTELLIGENCE_API_KEY=cpk-...
+                        ```
+
+                        Then add `CopilotKitIntelligence` to the imports and these two options to `new CopilotRuntime({ ... })`:
+
+                        ```ts
+                        intelligence: new CopilotKitIntelligence({
+                          apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
+                        }),
+                        // Demo only: the browser sends no x-user-id header, so all visitors share
+                        // one "anonymous" history. Before you deploy, return the verified session user.
+                        identifyUser: (request) => ({
+                          id: request.headers.get("x-user-id") ?? "anonymous",
+                          name: request.headers.get("x-user-name") ?? "Anonymous",
+                        }),
+                        ```
+
+                        Without the key, the route fails when it loads, with an error that the `CopilotKitIntelligence` `apiKey` is required. See [Connect your runtime to Intelligence](/intelligence/quickstart) to confirm the key is in use.
+                    </Accordion>
+                </Accordions>
             </Step>
             <Step>
                 ### Configure CopilotKit Provider
@@ -322,11 +329,12 @@ Before you begin, you'll need the following:
                 }
                 ```
 
-                Render `Providers` around your app in `app/layout.tsx`:
+                Render `Providers` around your app in `app/layout.tsx`. Keep the generated file. Add the highlighted imports and wrap `{children}` in `<Providers>`:
 
                 ```tsx title="app/layout.tsx"
+                import { Suspense } from "react"; // [!code highlight]
                 import { Providers } from "./providers"; // [!code highlight]
-                import "@copilotkit/react-core/v2/styles.css";
+                import "@copilotkit/react-core/v2/styles.css"; // [!code highlight]
                 import './globals.css';
 
                 // ...
@@ -335,15 +343,19 @@ Before you begin, you'll need the following:
                   return (
                     <html lang="en">
                       <body>
-                        {/* [!code highlight:3] */}
-                        <Providers>
-                          {children}
-                        </Providers>
+                        {/* [!code highlight:5] */}
+                        <Suspense>
+                          <Providers>
+                            {children}
+                          </Providers>
+                        </Suspense>
                       </body>
                     </html>
                   );
                 }
                 ```
+
+                `<Suspense>` keeps `npm run build` working when `next.config.ts` sets `cacheComponents: true`, the `create-next-app` default in Next.js 16. Without it, the build fails with `encountered the unstable value require('node:crypto').randomUUID()`.
 
                 <Callout type="info" title="This relative runtimeUrl assumes Next.js serves the runtime">
                   `/api/copilotkit` resolves only because Next.js serves your app and the runtime from the
@@ -377,9 +389,10 @@ Before you begin, you'll need the following:
             <Step>
                 ### Start your agent
 
-                From your agent directory, start the agent server:
+                From `my-copilot-app`, go to your agent directory and start the agent server:
 
                 ```bash
+                cd ../my-agent
                 uv run main.py
                 ```
 
@@ -388,7 +401,7 @@ Before you begin, you'll need the following:
             <Step>
                 ### Start your UI
 
-                In a separate terminal, navigate to your frontend directory and start the development server:
+                In a separate terminal, go to the folder that holds `my-agent` and `my-copilot-app`, then start the development server:
 
                 <Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn', 'bun']}>
                     <Tab value="npm">
@@ -436,7 +449,7 @@ Before you begin, you'll need the following:
 
                 <Accordions className="mb-4">
                     <Accordion title="Troubleshooting">
-                        - If the chat cannot connect to the agent, use `0.0.0.0` or `127.0.0.1` instead of `localhost`.
+                        - If the chat cannot connect to the agent, use `127.0.0.1` instead of `localhost` in the agent URL.
                         - If the chat shows a connection error, make sure that the agent terminal prints `Uvicorn running on http://localhost:8000`.
                         - If the agent terminal shows an OpenAI `AuthenticationError`, make sure that you exported `OPENAI_API_KEY` in the terminal that runs the agent.
                         - If the build fails with `Module not found: Can't resolve '@ag-ui/llamaindex'`, install `@ag-ui/llamaindex` in your frontend.
@@ -466,7 +479,7 @@ Now that you have your basic agent setup, explore these advanced features:
     icon={<UserIcon />}
   />
   <Card
-    title="Utilize the Shared State"
+    title="Use the Shared State"
     description="Learn how to synchronize your agent's state with your UI's state, and vice versa."
     href="/llamaindex/shared-state"
     icon={<RepeatIcon />}

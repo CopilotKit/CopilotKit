@@ -6,7 +6,7 @@ doc_type: explanation
 
 Keep your existing thread system when you connect CopilotKit Intelligence. You do not need to replace your thread storage or move your agent state.
 
-Your framework continues managing the original conversation and agent state. Intelligence automatically records its own copy of the supported AG-UI interaction history that passes through your connected CopilotKit runtime.
+Your framework continues managing the original conversation and agent state. Intelligence automatically records its own copy of the supported AG-UI interaction history that passes through your connected Copilot Runtime.
 
 ## How recording works
 
@@ -27,7 +27,7 @@ The copy contains what the integration sends through AG-UI. It is not a copy of 
 
 ## Older history and lifecycle actions
 
-To include older history, use the optional [supported import flow](/threads-import) for LangGraph, ADK, or Mastra. Import copies the supported content that the source still exposes. Future runs record automatically without an import. Import does not keep the two databases in sync.
+To include older history, use the optional [import flow](/intelligence/overview#already-have-agent-conversations) for LangGraph, Google ADK, AWS Strands, or Mastra. Import copies the supported content that the source still exposes. Future runs record automatically without an import. Import does not keep the two databases in sync.
 
 Intelligence rename, archive, and delete actions affect only Intelligence records. They do not rename, archive, or delete the original conversation in your native framework store. Neither automatic recording nor historical import keeps the two databases in sync.
 
@@ -35,7 +35,7 @@ Intelligence rename, archive, and delete actions affect only Intelligence record
 
 ## Example: keep an existing LangGraph conversation
 
-This example uses a React app with a LangGraph agent registered as `support` in the CopilotKit runtime. Its durable checkpointer or LangGraph deployment already stores a conversation. [Connect the runtime to Intelligence](/intelligence/quickstart), then continue that conversation.
+This example uses a React app with a LangGraph agent registered as `support` in Copilot Runtime. Its durable checkpointer or LangGraph deployment already stores a conversation. [Connect the runtime to Intelligence](/intelligence/quickstart), then continue that conversation.
 
 If you want to copy its earlier history, [import it first](/langgraph-python/threads-import). Import cannot merge that history into a record already created by live recording. Otherwise, continue without importing:
 
@@ -66,7 +66,7 @@ If you want to copy its earlier history, [import it first](/langgraph-python/thr
    - Do not generate a new ID or mapping when you reopen the conversation.
 
 3. Send a message through your app to run the agent. That run creates the Intelligence record if needed and records the supported interaction data. Opening the chat alone does not create the record or import old history.
-4. Open your runtime's project in [CopilotKit Intelligence](https://dashboard.operations.copilotkit.ai/) and find the thread by its ID. Make sure that it contains your new message and the agent's reply. On localhost, you can also find it in Inspector's Rich Threads pane.
+4. Open your runtime's project in [cloud-hosted Intelligence](/intelligence/managed-intelligence-platform#get-started) and find the thread by its ID. Make sure that it contains your new message and the agent's reply. On localhost, you can also find it in Inspector's Rich Threads pane.
 5. Reopen the chat with the same thread ID and send another message as the same application user. Make sure that Intelligence adds it to the same thread and LangGraph updates the same native conversation.
 
 </FrontendOnly>

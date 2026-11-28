@@ -6,12 +6,13 @@ hideTOC: true
 ---
 
 {/* This file exists so the sidebar's "Quickstart" entry has a backing
-   page (buildNavTree skips entries without one). The real per-framework
-   quickstart guides live at /<framework>/quickstart. SidebarLink
-   prepends the user's stored framework when present, so clicks from
-   anywhere in the docs land on the right framework's guide. The few
-   visitors who do hit /quickstart directly are 308-redirected to / by
-   next.config.ts, where the merged docs landing handles the picker
-   experience. */}
+   page (buildNavTree skips entries without one). No URL renders it:
+   every framework has its own guide at
+   docs/integrations/<folder>/quickstart.mdx, and whereIs()
+   (src/lib/live-pages.ts) picks that one first. /quickstart itself
+   serves the built-in agent's guide
+   (docs/integrations/built-in-agent/quickstart.mdx), and
+   /<framework>/quickstart serves that framework's guide. Edit those
+   files, not this one. */}
 
-Pick your framework from the sidebar selector or [the docs landing](/) to see the full quickstart for your stack.
+Pick your agent framework in the sidebar to see its quickstart. Each framework has its own guide at `/<framework>/quickstart`, for example [LangGraph (Python)](/langgraph-python/quickstart) or [Mastra](/mastra/quickstart).

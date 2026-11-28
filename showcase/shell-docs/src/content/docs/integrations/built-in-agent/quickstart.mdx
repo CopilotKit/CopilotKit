@@ -10,9 +10,18 @@ import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.m
 
 ## Start with your coding agent
 
-Use this prompt to build a working chat with CopilotKit's built-in agent. Your coding agent will follow this guide in your project, or you can work through the manual steps below.
+Use this prompt to build a working chat with the Built-in Agent. Your coding agent will follow this guide in your project, or you can work through the manual steps below.
 
 <PageAgentPrompt />
+
+## When to use the Built-in Agent
+
+The Built-in Agent is the agent that comes with CopilotKit. It calls the model directly, so you have no agent framework to set up or deploy. Use it when:
+
+- Your app is mainly chat with frontend and server tools.
+- You want to call OpenAI, Anthropic, Google, or AI SDK models directly.
+
+Already have an agent, for example in LangGraph or Mastra? Do not use `BuiltInAgent`: it replaces your agent instead of connecting to it. Follow your framework's quickstart, for example [LangGraph (Python)](/langgraph-python/quickstart), or pick yours from [the docs home](/).
 
 ## Prerequisites
 
@@ -31,9 +40,11 @@ Before you begin, you'll need the following:
         CopilotKit's React components work with Next.js, React Router, Remix, TanStack Start, Vite, and other React apps. This walkthrough uses Next.js because it can host the frontend and runtime in one project.
 
         ```bash
-        npx create-next-app@latest my-copilot-app
+        npx create-next-app@latest my-copilot-app --yes
         cd my-copilot-app
         ```
+
+        `--yes` accepts the recommended defaults (TypeScript, Tailwind, App Router) without prompts.
 
         <Callout type="info" title="Already have an app?">
           Keep your current setup and install CopilotKit there. The CopilotKit CLI (`npx copilotkit@latest create`, aliased as `init`) creates a separate project; it does not modify an existing app.
@@ -78,18 +89,6 @@ Before you begin, you'll need the following:
         ### Add the Copilot Runtime route
 
         Create an API route with the `BuiltInAgent` and `CopilotRuntime`:
-
-        <Callout type="warn" title="Already have an agent? Do not use BuiltInAgent">
-          `BuiltInAgent` is CopilotKit's *own* agent. It calls the model
-          directly. Registering it as `default` means chat talks to it, not to
-          any agent you already wrote. It replaces your agent rather than
-          connecting to it.
-
-          If you already have an agent, keep the frontend steps from this page.
-          Take the runtime step from **your framework's** quickstart, for example
-          [LangGraph (Python)](/langgraph-python/quickstart). Pick yours from
-          [the docs landing](/).
-        </Callout>
 
         ```ts title="app/api/copilotkit/[[...slug]]/route.ts" doctest="component"
         import {
@@ -136,9 +135,10 @@ Before you begin, you'll need the following:
         }
         ```
 
-        Render `Providers` around your app in `app/layout.tsx`:
+        Render `Providers` around your app in `app/layout.tsx`. Keep the generated file. Add the highlighted imports and wrap `{children}` in `<Providers>`:
 
         ```tsx title="app/layout.tsx"
+        import { Suspense } from "react"; // [!code highlight]
         import { Providers } from "./providers"; // [!code highlight]
         import "@copilotkit/react-core/v2/styles.css"; // [!code highlight]
         import './globals.css';
@@ -149,15 +149,19 @@ Before you begin, you'll need the following:
           return (
             <html lang="en">
               <body>
-                {/* [!code highlight:3] */}
-                <Providers>
-                  {children}
-                </Providers>
+                {/* [!code highlight:5] */}
+                <Suspense>
+                  <Providers>
+                    {children}
+                  </Providers>
+                </Suspense>
               </body>
             </html>
           );
         }
         ```
+
+        `<Suspense>` keeps `npm run build` working when `next.config.ts` sets `cacheComponents: true`, the `create-next-app` default in Next.js 16. Without it, the build fails with `encountered the unstable value Date.now()`.
 
         <Callout type="info" title="This relative runtimeUrl assumes Next.js serves the runtime">
           `/api/copilotkit` resolves only because Next.js serves your app and the runtime from the

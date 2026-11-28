@@ -32,9 +32,9 @@ Copy this prompt into your coding agent to inspect your existing app and configu
 
 ## How Automatic Learning works
 
-Learning starts with a Learning Space, which groups [Threads](/intelligence/threads-explained) from the same kind of work. The API and CLI call a Learning Space a container. [Intelligence](/intelligence/overview) analyzes completed runs in that Space and summarizes recurring patterns as Insights.
+Automatic Learning starts with a Learning Space, which groups [Threads](/intelligence/threads-explained) from the same kind of work. The API and CLI call a Learning Space a container. [Intelligence](/intelligence/overview) analyzes completed runs in that Space and summarizes recurring patterns as Insights.
 
-When a pattern can be reused, Learning proposes a Skill. You review the supporting Threads and decide whether to publish it. A published Skill is a versioned set of instructions that you load into your agent; Learning does not change the model itself.
+When a pattern can be reused, Automatic Learning proposes a Skill. You review the supporting Threads and decide whether to publish it. A published Skill is a versioned set of instructions that you load into your agent. Automatic Learning does not change the model itself.
 
 Automatic Learning checks eligible Learning Spaces on a daily schedule. After you approve a skill, [skill delivery](/intelligence/learned-skills) makes it available to connected agents. A scheduled run does not approve skills. Turning on delivery does not connect your agent for you.
 
@@ -48,11 +48,11 @@ The learning loop has two connections. Run ingestion collects evidence in a Lear
 | --- | --- | --- |
 | Runtime to Automatic Learning | `CopilotKitIntelligence.getLearningContainerId` | Assigns selected Threads to a container for analysis. |
 | Browser activity to Automatic Learning | `CopilotKitIntelligence.getTrajectoryLearningContainerIds` | Assigns captured Trajectories to existing Learning Spaces. |
-| Learning to agent | An Intelligence SDK adapter for your framework | Makes published Skills available during agent invocations. |
+| Automatic Learning to agent | An Intelligence SDK adapter for your framework | Makes published Skills available during agent invocations. |
 
 When an agent must learn from its own workflow, use the same project and Learning Space for both connections. The SDK adapters also work with native agents outside a CopilotKit frontend, but they do not collect those agents' runs automatically.
 
-For agent setup, use the [Mastra](/intelligence/learned-skills#mastra), [LangGraph TypeScript](/intelligence/learned-skills#langgraph-typescript), or [LangGraph Python](/intelligence/learned-skills#langgraph-python) example. The delivery guide also covers [Google ADK](/intelligence/learned-skills#google-adk), [BuiltInAgent](/intelligence/learned-skills#builtinagent), and [Microsoft Agent Framework](/intelligence/learned-skills#microsoft-agent-framework).
+For agent setup, use the [Mastra](/intelligence/learned-skills#mastra), [LangGraph TypeScript](/intelligence/learned-skills#langgraph-typescript), or [LangGraph Python](/intelligence/learned-skills#langgraph-python) example. The delivery guide also covers [Google ADK](/intelligence/learned-skills#google-adk), [Built-in Agent](/intelligence/learned-skills#builtinagent), and [Microsoft Agent Framework](/intelligence/learned-skills#microsoft-agent-framework).
 
 ## Assign browser activity to a Learning Space
 
@@ -91,7 +91,7 @@ When you are done, your Runtime will send selected Threads to a Learning Space, 
 
     1. Complete the [Intelligence quickstart](/intelligence/quickstart). That page signs you in with the CLI and selects the project.
     2. Send a message and make sure that it appears in [AG-UI Streams](/AG-UI-Streams).
-    3. Open your project in [CopilotKit Intelligence](https://dashboard.operations.copilotkit.ai/) and make sure that Learning is available.
+    3. Open your project in [cloud-hosted Intelligence](/intelligence/managed-intelligence-platform#get-started) and make sure that **Automatic Learning** appears in the project navigation.
 
   </Step>
 
@@ -129,9 +129,9 @@ When you are done, your Runtime will send selected Threads to a Learning Space, 
   <Step>
     ### Assign Threads from your Runtime
 
-    Return the Space ID from `getLearningContainerId` on the CopilotKit runtime you already run. Keep your agents as they are. The callback is the same for every agent framework.
+    Return the Space ID from `getLearningContainerId` on Copilot Runtime, which you already run. Keep your agents as they are. The callback is the same for every agent framework.
 
-    ```ts title="Your CopilotKit runtime"
+    ```ts title="Your Copilot Runtime"
     import {
       CopilotKitIntelligence,
       CopilotRuntime,
@@ -163,7 +163,7 @@ When you are done, your Runtime will send selected Threads to a Learning Space, 
   <Step>
     ### Collect examples
 
-    Use the application normally and complete several related workflows. Corrections, tool calls, and application interactions all help Learning understand what a good result looks like.
+    Use the application normally and complete several related workflows. Corrections, tool calls, and application interactions all help Automatic Learning understand what a good result looks like.
 
     The Learning Space shows how many eligible Threads are ready and how many more are needed. By default, Automatic Learning requires **15 eligible Threads** for both the first run and each run after a success. Use the count shown in your Space if your deployment has a different threshold.
 
@@ -181,13 +181,13 @@ When you are done, your Runtime will send selected Threads to a Learning Space, 
   </Step>
 
   <Step>
-    ### Run Learning and review
+    ### Run Automatic Learning and review
 
     Wait for the scheduled run, or select **Start manual run now** to analyze available evidence without waiting for the daily schedule or automatic Thread threshold. Follow its progress under **Analysis results**.
 
     Review the resulting Insights and their source Threads, then approve or reject each proposed Skill. Approved revisions appear under **Skills**. Automatic runs use the same review process; only published Skills are available for delivery.
 
-    To review Skills inside your own app, see [Manage Learning from your server](#manage-learning-from-your-server).
+    To review Skills inside your own app, see [Manage Automatic Learning from your server](#manage-automatic-learning-from-your-server).
 
   </Step>
 </Steps>
@@ -198,12 +198,12 @@ When you are done, your Runtime will send selected Threads to a Learning Space, 
 
 <InspectorPaneLearning />
 
-## Manage Learning from your server
+## Manage Automatic Learning from your server
 
 Read this section if you want reviewers to start runs and approve Skills inside your own app. If you review in the Intelligence dashboard, go to [Use published Skills](#use-published-skills).
 
 `CopilotKitIntelligence` can list containers, start manual runs, and review proposed Skills from your application server.
-The experimental Learning management methods require an Intelligence deployment with the runtime Learning management API. Their SDK contracts can change before release.
+The experimental Automatic Learning management methods require an Intelligence deployment with the runtime Automatic Learning management API. Their SDK contracts can change before release.
 They use the project API key from the existing client configuration.
 
 Keep the key on your server. Authorize each application user before you call these methods.
@@ -333,8 +333,8 @@ Once you have published a Skill, connect the agent that should use it:
   </Step>
 </Steps>
 
-<Callout type="info" title="Pausing delivery is separate from Learning">
-  Turning off **Skill delivery** does not stop Learning runs or revoke published revisions. Once an adapter checks delivery and receives the denial, it blocks new invocations; invocations already in progress keep their captured Skills. Pausing Learning runs likewise does not stop delivery of published Skills.
+<Callout type="info" title="Pausing delivery is separate from Automatic Learning">
+  Turning off **Skill delivery** does not stop Automatic Learning runs or revoke published revisions. Once an adapter checks delivery and receives the denial, it blocks new invocations. Invocations already in progress keep their captured Skills. Pausing Automatic Learning runs likewise does not stop delivery of published Skills.
 </Callout>
 
 ### Download Skills manually
@@ -357,9 +357,9 @@ The output contains a directory and `SKILL.md` for each published Skill. Configu
 | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
 | A Thread never appears in the Space         | Confirm the callback returned an existing stable ID before the Thread's first run and that the run reached a terminal state. |
 | The Runtime reports a container conflict    | The selector returned a different ID for an already-bound Thread. Restore the original mapping or start a new Thread.        |
-| A run has no new evidence                   | Runs created before assignment, still in progress, or already included in an earlier Learning run are not new input.         |
+| A run has no new evidence                   | Runs created before assignment, still in progress, or already included in an earlier Automatic Learning run are not new input.         |
 | An automatic run has not started            | Check the Space's readiness count, daily schedule, and active or failed analysis. If it shows **Automatic learning is off**, scheduling is off for the deployment, and editing the time does not turn it on. Ask the administrator of your Intelligence deployment to turn on Automatic Learning. Until then, use **Start manual run now**. |
-| Learning is waiting after a failed run      | Inspect the failure under **Analysis results**. Automatic Learning waits for additional eligible Threads before retrying that evidence; you can also start a manual run. |
+| Automatic Learning is waiting after a failed run | Inspect the failure under **Analysis results**. Automatic Learning waits for additional eligible Threads before retrying that evidence. You can also start a manual run. |
 | A run succeeds without a Skill candidate    | Inspect the Insights. The evidence may be useful without supporting a reusable procedural Skill.                             |
 | An approved Skill does not affect the agent | Confirm delivery is enabled, the adapter uses the correct project and Space ID, and a new invocation can load the Skill. Check for an exact revision pin. For manual loading, download the latest bundle and confirm your agent loads its directory. |
 | Delivery status is unavailable              | Select **Retry delivery status**. For self-hosted deployments, verify the delivery endpoint and migration are installed before relying on an adapter. See [deployment requirements](/intelligence/learned-skills#deployment-requirements). |

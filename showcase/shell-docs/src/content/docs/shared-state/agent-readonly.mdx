@@ -16,7 +16,7 @@ import AgentContextJsonString from "@/snippets/shared/basics/agent-context-json-
 
 ## What is this?
 
-Sometimes you want the agent to *know* something about the current UI, like the logged-in user, the current page, or a recent activity log, but you don't want the agent to be able to modify it. That's what
+Sometimes you want the agent to *know* something about the current UI, like the logged-in user, the current page, or a recent activity log, but not change it. That's what
 `useAgentContext` is for: a one-way **UI → agent** channel for
 read-only context.
 
@@ -33,12 +33,12 @@ Reach for `useAgentContext` instead of full shared state when:
   "what the user is looking at right now".
 - The agent should read but never write (user identity, feature flags,
   selected record, scroll position).
-- You want the value to automatically unregister on unmount (e.g. the
+- You want the value to automatically unregister on unmount (for example, the
   "current record" context disappears when you leave the page).
 
 Think of it as "props for the agent".
 
-If the agent must also write the value, use **[shared state](/shared-state)**. To stream agent-written state to the UI during a run, see [State streaming](/shared-state/streaming).
+If the agent must also write the value, use **[shared state](/shared-state)**.<WhenFrameworkSupports feature="shared-state-streaming"> To stream agent-written state to the UI during a run, see [State streaming](/shared-state/streaming).</WhenFrameworkSupports>
 
 ## How it works in code
 
@@ -54,10 +54,10 @@ runtime that is:
   the system prompt. Python LangGraph agents need `CopilotKitMiddleware`
   to add the entries, and ADK agents need an instruction provider.
   Microsoft Agent Framework, CrewAI Flows and Pydantic AI agents drop the
-  entries silently unless you wire them. The setup above shows the code
-  for your framework.
+  entries silently unless you wire them. When your framework needs this
+  setup, its code appears at the top of this section.
 
-<Snippet region="use-agent-context-call" title="frontend/src/app/page.tsx — useAgentContext" />
+<Snippet region="use-agent-context-call" title="frontend/src/app/page.tsx: useAgentContext" />
 
 The `description` is important: it's a short human-readable label the
 agent sees alongside the value, so it knows what to do with it. Treat
@@ -73,11 +73,42 @@ receives every registered entry.
 `useAgentContext` doesn't care where the value comes from: local
 state, a React Context, Redux, a query cache, anything. The only
 requirement is that the identity of the value is stable enough for
-React to avoid a render loop. In the demo we use a handful of
-`useState` hooks; in a real app these would likely come from an auth
-provider, a router hook, and your domain state stores.
+React to avoid a render loop. The demo uses a few `useState` hooks.
+In a real app, these values usually come from an auth provider, a router
+hook, and your domain state stores.
 
-<Snippet region="context-provider-sketch" title="frontend/src/app/page.tsx — sourcing context values" />
+<Snippet region="context-provider-sketch" title="frontend/src/app/page.tsx: sourcing context values" />
+
+The excerpt is the demo page. `readonly-state-agent-context` is the demo's
+agent name, and `./demo-layout` and `./suggestions` are demo files. To try the
+pattern in your own app, use a page like this one. It runs under the provider
+from the [quickstart](/quickstart) and uses the agent that the provider selects:
+
+```tsx title="app/page.tsx"
+"use client";
+
+import { useState } from "react";
+import { CopilotPopup, useAgentContext } from "@copilotkit/react-core/v2";
+
+export default function Page() {
+  const [userName, setUserName] = useState("Atai");
+
+  useAgentContext({
+    description: "The currently logged-in user's display name",
+    value: userName,
+  });
+
+  return (
+    <main>
+      <label>
+        Your name{" "}
+        <input value={userName} onChange={(e) => setUserName(e.target.value)} />
+      </label>
+      <CopilotPopup defaultOpen={true} />
+    </main>
+  );
+}
+```
 
 ## Treat entries as untrusted input
 

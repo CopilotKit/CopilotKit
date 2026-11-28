@@ -17,7 +17,7 @@ description: "API reference for @copilotkit/angular: the CopilotKit providers, p
 npm install @copilotkit/angular @angular/cdk
 ```
 
-`@angular/cdk` and `rxjs` are peer dependencies. If your agent connects directly over AG-UI, also install `@ag-ui/client`.
+Peer dependencies: `@angular/core`, `@angular/common`, `@angular/cdk`, and `rxjs`. If your agent connects directly over AG-UI, also install `@ag-ui/client`. In the release after 0.6.0, Generative UI charts, maps, and icons also need the optional peers `chart.js`, `maplibre-gl`, and `lucide`.
 
 ## Styling
 
@@ -144,7 +144,7 @@ for the full setup, cleanup, error, SSR, hydration, and zoneless contract.
   />
   <Card
     title="Public API Inventory"
-    description="The complete root and MCP Apps export contract, including the explicitly internal extension token."
+    description="The complete root, A2UI, and MCP Apps export contract, including the internal exports."
     href="/reference/angular/public-api"
   />
 </Cards>

@@ -24,8 +24,9 @@ All four are standalone Angular components.
 
 ## Add an inline chat
 
-Import `CopilotChat`, give its host a real height, and point it at an agent when
-you do not want the default agent.
+Import `CopilotChat` and give its host a real height. The chat uses the
+`default` agent. Set `agentId` only when your runtime registers another agent
+you want to use.
 
 ```ts title="src/app/support-chat.component.ts"
 import { ChangeDetectionStrategy, Component } from "@angular/core";
@@ -37,7 +38,7 @@ import { CopilotChat } from "@copilotkit/angular";
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="chat-shell" aria-label="Support assistant">
-      <copilot-chat agentId="support" />
+      <copilot-chat />
     </section>
   `,
   styles: `
@@ -52,6 +53,9 @@ import { CopilotChat } from "@copilotkit/angular";
 export class SupportChatComponent {}
 ```
 
+Add `SupportChatComponent` to the `imports` of your root component
+(`src/app/app.ts`) and render `<app-support-chat />` in its template.
+
 Import the package stylesheet once in the application's global stylesheet:
 
 ```css title="src/styles.css"
@@ -60,10 +64,14 @@ Import the package stylesheet once in the application's global stylesheet:
 
 ## Use a popup or sidebar
 
-Both modal surfaces manage focus, Escape closing, and launcher-focus restore.
-Their `open` model supports two-way binding.
+The popup and an overlay sidebar trap focus, close on Escape, and return focus
+to the launcher. A docked sidebar is not modal, so close it with its close
+button. The `open` model of both supports two-way binding.
 
-```ts title="src/app/app.component.ts"
+Replace the contents of `src/app/app.ts` with this component. Keep the class
+name `App`, because `src/main.ts` bootstraps it.
+
+```ts title="src/app/app.ts"
 import { Component, signal } from "@angular/core";
 import { CopilotPopup, CopilotSidebar } from "@copilotkit/angular";
 
@@ -80,23 +88,28 @@ import { CopilotPopup, CopilotSidebar } from "@copilotkit/angular";
     <copilot-sidebar
       [(open)]="sidebarOpen"
       mode="docked"
-      position="right"
+      position="left"
       title="Workspace assistant"
       [width]="480"
     />
   `,
 })
-export class AppComponent {
+export class App {
   readonly popupOpen = signal(false);
   readonly sidebarOpen = signal(false);
 }
 ```
 
+The popup launcher sits in the bottom-right corner. The sidebar launcher sits
+in the bottom corner on the side of its `position`. The sidebar uses
+`position="left"` here so that its launcher does not cover the popup launcher.
+
 Compact viewports render the sidebar as a modal even when `mode` is `"docked"`.
 Only one open docked sidebar can own the page margin at a time.
 
-Run `npm start` and open the app. Click the popup launcher button. The popup
-opens, and a message you send gets its reply in the popup.
+Run `npm start` and open the app. Click the launcher in the bottom-right corner
+(**Open Copilot chat**). The popup opens, and a message you send gets its reply
+in the popup.
 
 ## Next steps
 

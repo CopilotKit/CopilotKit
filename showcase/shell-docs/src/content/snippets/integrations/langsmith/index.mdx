@@ -5,17 +5,17 @@ the LangGraph Server API. CopilotKit gives those agents a production-ready front
 
 ## How it works
 
-The two connect through **CopilotKit Runtime**, a lightweight server-side layer that sits between
+The two connect through **Copilot Runtime**, a lightweight server-side layer that sits between
 your browser and your LangSmith deployment. It's the same runtime you'd use with any
-CopilotKit-powered agent. It just needs to run server-side so your `LANGSMITH_API_KEY` never
+CopilotKit-powered agent. It must run server-side so your `LANGSMITH_API_KEY` never
 reaches the browser.
 
 ```
-Browser → CopilotKit Runtime → LangSmith deployment → your agent
+Browser → Copilot Runtime → LangSmith deployment → your agent
 ```
 
 LangSmith hosts the agent only; there's no frontend-hosting offering. You host the CopilotKit
-frontend and runtime wherever you already deploy your app (Vercel, your own Node server, etc.) and
+frontend and runtime wherever you already deploy your app (such as Vercel or your own Node server) and
 point the runtime at the LangSmith deployment URL.
 
 ## What you get
@@ -25,6 +25,9 @@ point the runtime at the LangSmith deployment URL.
 - **Generative UI**: render custom components from tool calls in real time
 - **Human-in-the-loop**: let users review, approve, or redirect agent actions
 - **Managed persistence**: thread history and checkpoints live in the LangSmith deployment
+
+A wrapped Google ADK agent gets the chat UI and managed persistence only. Tool-call rendering,
+interrupts, and multimodal input do not carry over (see the ADK wrapper limitations below).
 
 ## Quickstart
 
@@ -38,7 +41,7 @@ point the runtime at the LangSmith deployment URL.
 </Callout>
 
 <Callout type="info" title="Deployment models">
-  This guide uses **LangSmith Cloud** via the CLI: serverless by default, or `--deployment-type
+  This guide uses **LangSmith Cloud** via the CLI: serverless by default, or `--agent-server-type
   dedicated` for a dedicated deployment. LangSmith also supports self-hosted control plane, hybrid,
   and standalone-server models; see the
   [deployment overview](https://docs.langchain.com/langsmith/deployment) to pick one. The CopilotKit
@@ -101,6 +104,30 @@ point the runtime at the LangSmith deployment URL.
             ```
 
             The `graphs` key (`agent` here) is the **graph ID** you'll point CopilotKit at later.
+
+            The template graph does not chat: it returns a fixed `changeme` value and no messages.
+            Replace `src/agent/graph.py` with a graph that answers messages:
+
+            ```python title="src/agent/graph.py"
+            from langchain_openai import ChatOpenAI
+            from langgraph.graph import START, MessagesState, StateGraph
+
+            llm = ChatOpenAI(model="gpt-6-luna")
+
+
+            async def chat(state: MessagesState):
+                return {"messages": [await llm.ainvoke(state["messages"])]}
+
+
+            graph = StateGraph(MessagesState).add_node(chat).add_edge(START, "chat").compile()
+            ```
+
+            Add the OpenAI package to the project:
+
+            ```bash
+            cd my-agent
+            uv add langchain-openai
+            ```
           </Tab>
 
           <Tab value="Google ADK">
@@ -112,6 +139,8 @@ point the runtime at the LangSmith deployment URL.
             ```bash
             pip install "deployments-wrap-sdk[google-adk]"
             ```
+
+            In a uv project, run `uv add "deployments-wrap-sdk[google-adk]"` instead.
 
             Wrap your ADK `Runner` with `wrap()` and a `LangsmithSessionService`, then export the
             result as a module-level `agent`:
@@ -148,13 +177,13 @@ point the runtime at the LangSmith deployment URL.
               "$schema": "https://langgra.ph/schema.json",
               "dependencies": ["."],
               "graphs": {
-                "my_agent": "./agent.py:agent"
+                "agent": "./agent.py:agent"
               },
               "env": ".env"
             }
             ```
 
-            The `graphs` key (`my_agent` here) is the **graph ID** you'll point CopilotKit at later.
+            The `graphs` key (`agent` here) is the **graph ID** you'll point CopilotKit at later.
             See the [Deploy Google ADK agents](https://docs.langchain.com/langsmith/deploy-google-adk)
             guide for the full walkthrough.
 
@@ -165,7 +194,7 @@ point the runtime at the LangSmith deployment URL.
 
               - **No multimodal input**: only `messages[-1].content` is forwarded as a single text
                 part; inbound images, files, or audio are dropped.
-              - **Last message only**: just the final item in `messages` is sent to the ADK agent
+              - **Last message only**: only the final item in `messages` is sent to the ADK agent
                 each turn.
               - **No live / audio / voice**: ADK's `run_live()` bidirectional streaming isn't used.
               - **Text output only**: non-text output parts (images, audio, files) aren't surfaced.
@@ -184,19 +213,29 @@ point the runtime at the LangSmith deployment URL.
         ### Add your API key
 
         Add your LangSmith API key to the project's `.env`. The deploy command reads it
-        automatically:
+        automatically. The agent reads your model key from the same file:
 
         ```plaintext title=".env"
         LANGSMITH_API_KEY=lsv2_...
+        OPENAI_API_KEY=sk-...
         ```
+
+        For Google ADK with Gemini, set `GOOGLE_API_KEY` instead of `OPENAI_API_KEY`.
       </Step>
 
       <Step>
         ### Deploy
 
         <Callout type="info" title="Verify locally first">
-          Before deploying, run `langgraph dev` from the project root to serve the graph locally and
-          confirm it starts. This catches import errors, a bad graph export, or (for ADK) a missing
+          Before deploying, serve the graph locally and confirm it starts. Run the local server in the
+          project's own environment, so it can import the graph's dependencies:
+
+          - LangGraph template: run `uv run langgraph dev` from the project root. The template lists
+            `langgraph-cli[inmem]` as a dev dependency.
+          - Other projects: run `pip install "langgraph-cli[inmem]"` in the agent's environment, then
+            `langgraph dev`.
+
+          This catches import errors, a bad graph export, or (for ADK) a missing
           `LangsmithSessionService` or model credentials with clearer feedback than a remote build.
         </Callout>
 
@@ -208,7 +247,7 @@ point the runtime at the LangSmith deployment URL.
 
         This creates a **serverless** deployment by default. Useful flags:
 
-        - `--deployment-type dedicated`: provision a dedicated (non-serverless) deployment
+        - `--agent-server-type dedicated`: provision a dedicated (non-serverless) deployment
         - `--name <name>`: set the deployment name (re-running `langgraph deploy` with the same
           name **updates the existing deployment in place**)
 
@@ -237,9 +276,9 @@ point the runtime at the LangSmith deployment URL.
       </Step>
 
       <Step>
-        ### Set up CopilotKit Runtime
+        ### Set up Copilot Runtime
 
-        CopilotKit Runtime is the server-side layer that connects your frontend to the LangSmith
+        Copilot Runtime is the server-side layer that connects your frontend to the LangSmith
         deployment. Create an API route:
 
         ```typescript title="app/api/copilotkit/[[...slug]]/route.ts" doctest="component"
@@ -268,12 +307,14 @@ point the runtime at the LangSmith deployment URL.
 
         export const GET = handler;
         export const POST = handler;
+        export const PATCH = handler;
+        export const DELETE = handler;
         ```
 
         <Callout type="info" title="graphId must match langgraph.json">
-          `graphId` is the key from the `graphs` object in your `langgraph.json`: `agent` for the
-          LangGraph template, or whatever you named the ADK graph (e.g. `my_agent`). If it doesn't
-          match, the runtime can't find your graph.
+          `graphId` is the key from the `graphs` object in your `langgraph.json`. Both tabs above
+          name it `agent`. If you chose another key, use that key here. If it doesn't match, the
+          runtime can't find your graph.
         </Callout>
       </Step>
 
@@ -283,13 +324,13 @@ point the runtime at the LangSmith deployment URL.
         ```tsx title="app/providers.tsx"
         "use client";
 
-        import { CopilotKit } from "@copilotkit/react-core/v2";
+        import { CopilotKitProvider } from "@copilotkit/react-core/v2";
 
         export function Providers({ children }: { children: React.ReactNode }) {
           return (
-            <CopilotKit runtimeUrl="/api/copilotkit" agent="my_agent" useSingleEndpoint={false}>
+            <CopilotKitProvider runtimeUrl="/api/copilotkit" agentId="my_agent" useSingleEndpoint={false}>
               {children}
-            </CopilotKit>
+            </CopilotKitProvider>
           );
         }
         ```
@@ -312,6 +353,13 @@ point the runtime at the LangSmith deployment URL.
           );
         }
         ```
+
+        <Callout type="warn" title="Next.js 16 with Cache Components">
+          If `next.config.ts` sets `cacheComponents: true` (the `create-next-app` default in Next.js 16),
+          `npm run build` fails with `encountered the unstable value require('node:crypto').randomUUID()`.
+          Wrap `<Providers>` in `<Suspense>` from `react` in `app/layout.tsx`:
+          `<Suspense><Providers>{children}</Providers></Suspense>`.
+        </Callout>
       </Step>
 
       <Step>
@@ -324,15 +372,31 @@ point the runtime at the LangSmith deployment URL.
         LANGSMITH_API_KEY=lsv2_...
         ```
 
+        Add a chat interface to a page:
+
+        ```tsx title="app/page.tsx"
+        "use client";
+
+        import { CopilotSidebar } from "@copilotkit/react-core/v2";
+
+        export default function Page() {
+          return (
+            <main>
+              <h1>My App</h1>
+              <CopilotSidebar />
+            </main>
+          );
+        }
+        ```
+
         Then:
 
         ```bash
         npm run dev
         ```
 
-        Add a `<CopilotSidebar />` to any page and open `localhost:3000`. The frontend runs
-        wherever you host it while the agent stays on LangSmith. The `/api/copilotkit` route
-        forwards each call to your deployment using your API key.
+        Open `localhost:3000`. The frontend runs wherever you host it while the agent stays on
+        LangSmith. The `/api/copilotkit` route forwards each call to your deployment using your API key.
 
         Send a message in the sidebar. The agent on LangSmith replies in the chat.
       </Step>
@@ -360,7 +424,7 @@ point the runtime at the LangSmith deployment URL.
       </Step>
 
       <Step>
-        ### Set up CopilotKit Runtime
+        ### Set up Copilot Runtime
 
         Create an API route that points at your LangSmith deployment:
 
@@ -390,6 +454,8 @@ point the runtime at the LangSmith deployment URL.
 
         export const GET = handler;
         export const POST = handler;
+        export const PATCH = handler;
+        export const DELETE = handler;
         ```
 
         <Callout type="info" title="graphId must match langgraph.json">
@@ -405,13 +471,13 @@ point the runtime at the LangSmith deployment URL.
         ```tsx title="app/providers.tsx"
         "use client";
 
-        import { CopilotKit } from "@copilotkit/react-core/v2";
+        import { CopilotKitProvider } from "@copilotkit/react-core/v2";
 
         export function Providers({ children }: { children: React.ReactNode }) {
           return (
-            <CopilotKit runtimeUrl="/api/copilotkit" agent="my_agent" useSingleEndpoint={false}>
+            <CopilotKitProvider runtimeUrl="/api/copilotkit" agentId="my_agent" useSingleEndpoint={false}>
               {children}
-            </CopilotKit>
+            </CopilotKitProvider>
           );
         }
         ```
@@ -434,6 +500,13 @@ point the runtime at the LangSmith deployment URL.
           );
         }
         ```
+
+        <Callout type="warn" title="Next.js 16 with Cache Components">
+          If `next.config.ts` sets `cacheComponents: true` (the `create-next-app` default in Next.js 16),
+          `npm run build` fails with `encountered the unstable value require('node:crypto').randomUUID()`.
+          Wrap `<Providers>` in `<Suspense>` from `react` in `app/layout.tsx`:
+          `<Suspense><Providers>{children}</Providers></Suspense>`.
+        </Callout>
       </Step>
 
       <Step>
@@ -470,11 +543,11 @@ point the runtime at the LangSmith deployment URL.
 <Accordions>
   <Accordion title="The runtime can't find my graph / 404 on invoke">
     Your `graphId` must exactly match a key in the `graphs` object of your deployment's
-    `langgraph.json`. The LangGraph template names it `agent`; an ADK app uses whatever key you set
-    (e.g. `my_agent`). Check the deployment's config in the LangSmith UI if unsure.
+    `langgraph.json`. The LangGraph template names it `agent`. An ADK app uses whatever key you set
+    in its `langgraph.json`. Check the deployment's config in the LangSmith UI if unsure.
   </Accordion>
   <Accordion title="401 / authentication errors from the deployment">
-    - Set `LANGSMITH_API_KEY` on the **server** where CopilotKit Runtime runs, not in the browser.
+    - Set `LANGSMITH_API_KEY` on the **server** where Copilot Runtime runs, not in the browser.
     - Use a key from the same LangSmith workspace as the deployment. The key must start with
       `lsv2_`.
   </Accordion>
@@ -487,7 +560,7 @@ point the runtime at the LangSmith deployment URL.
   <Accordion title="My ADK agent won't deploy">
     ADK agents must be wrapped with `wrap()` from `saf_sdk.adk` and use a `LangsmithSessionService`.
     The wrapped object has to be exported as a module-level variable that `langgraph.json` points at
-    (e.g. `./agent.py:agent`). See the
+    (for example, `./agent.py:agent`). See the
     [Deploy Google ADK agents](https://docs.langchain.com/langsmith/deploy-google-adk) guide.
   </Accordion>
 </Accordions>

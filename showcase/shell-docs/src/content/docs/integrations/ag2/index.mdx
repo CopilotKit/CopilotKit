@@ -15,7 +15,7 @@ hidePageActions: true
   header="Bring your AG2 agents to your users"
   subheader="AG2 runs your agents. CopilotKit gives them a surface your users can see, interrupt and steer."
   guideLink="/ag2/quickstart"
-  initCommand="npx copilotkit@latest init"
+  initCommand="npx copilotkit@latest init -f ag2"
   lede="AG2 gives you the conversation between your agents: roles, turns and the tools they call. What it does not give you is the surface a person joins it through. Each capability below builds on something your agents already do."
   supportedFeatures={[
     {
@@ -23,7 +23,7 @@ hidePageActions: true
       iconKey: "paintbrush",
       description:
         "Your agents call tools as the conversation runs. CopilotKit streams those calls to the browser and renders each one as a React component, instead of leaving the user with a spinner.",
-      documentationLink: "/ag2/generative-ui"
+      documentationLink: "/ag2/generative-ui/tool-rendering"
     },
     {
       title: "Human-in-the-loop",
@@ -42,8 +42,8 @@ hidePageActions: true
   ]}
   capabilitiesFootnote={{
     text: "Chat surfaces, headless UI, frontend tools and multi-agent flows work with AG2 too.",
-    linkLabel: "And more",
-    href: "/ag2/build-with-agents"
+    linkLabel: "Start with frontend tools",
+    href: "/ag2/frontend-tools"
   }}
   connect={{
     intro:
@@ -72,8 +72,10 @@ import {
 } from "@copilotkit/runtime/v2";
 import { HttpAgent } from "@ag-ui/client";
 
+// AGENT_URL is your AGUIStream endpoint, for example http://localhost:8000/chat
 const runtime = new CopilotRuntime({
   agents: {
+    // Select this agent in the frontend: <CopilotKit runtimeUrl="/api/copilotkit" agent="my_agent">
     my_agent: new HttpAgent({ url: process.env.AGENT_URL! }),
   },
 });

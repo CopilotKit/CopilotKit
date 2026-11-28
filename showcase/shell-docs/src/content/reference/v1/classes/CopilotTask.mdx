@@ -14,7 +14,7 @@ description: "CopilotTask is used to execute one-off tasks, for example on butto
   `CopilotTask` has no direct v2 replacement. See the [v1 to v2 export map](/reference/v1/export-map).
 </Callout>
 
-This class is used to execute one-off tasks, for example on button press. It can use the context available via [useCopilotReadable](/reference/v1/hooks/useCopilotReadable) and the actions provided by [useCopilotAction](/reference/v1/hooks/useCopilotAction), or you can provide your own context and actions.
+This class is used to execute one-off tasks, for example on button press. It can use the context available via [useCopilotReadable](/reference/v1/hooks/useCopilotReadable). Actions registered with [useCopilotAction](/reference/v1/hooks/useCopilotAction) are not available to a task. Pass the actions it needs in `actions`.
 
 ## Example
 In the simplest case, use CopilotTask in the context of your app by giving it instructions on what to do.
@@ -71,19 +71,21 @@ The instructions to be given to the assistant.
 An array of action definitions that can be called.
 </PropertyReference>
 
-<PropertyReference name="includeCopilotReadable" type="boolean"  > 
+<PropertyReference name="includeCopilotReadable" type="boolean" default="true"> 
 Whether to include the copilot readable context in the task.
 </PropertyReference>
 
-<PropertyReference name="includeCopilotActions" type="boolean"  > 
-Whether to include actions defined via useCopilotAction in the task.
+<PropertyReference name="includeCopilotActions" type="boolean" default="true"> 
+Has no effect. `useCopilotAction` does not register actions on the v1 context, so there are no app actions to include. Pass the actions the task needs in `actions`.
 </PropertyReference>
 
 <PropertyReference name="forwardedParameters" type="ForwardedParametersInput"  > 
 The forwarded parameters to use for the task.
 </PropertyReference>
 
-<PropertyReference name="run" type="context: CopilotContextParams, data?: T">
+## Methods
+
+<PropertyReference name="run" type="(context: CopilotContextParams, data?: T) => Promise<void>">
 Run the task.
 
   <PropertyReference name="context" type="CopilotContextParams" required>

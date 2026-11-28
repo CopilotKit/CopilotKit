@@ -22,7 +22,7 @@ To choose between the prebuilt Drawer and a custom headless UI, start with the
 
 Framework threads manage an agent’s conversation and model context. Intelligence’s **AG-UI streams** record and deliver the interaction to your users.
 
-A CopilotKit `threadId` identifies the conversation whose AG-UI events Intelligence stores and replays. Use [`useThreads`](/reference/hooks/useThreads) or `CopilotThreadsDrawer` to list and select conversations, then pass the selected `threadId` to your chat.
+A CopilotKit `threadId` identifies the conversation whose AG-UI events Intelligence stores and replays. Use [`useThreads`](/reference/v2/hooks/useThreads) or `CopilotThreadsDrawer` to list and select conversations, then pass the selected `threadId` to your chat.
 
 <FrontendOnly frontend="angular">
 In Angular, use [`injectThreads`](/reference/angular/functions/injectThreads). The <a href="/angular/headless-threads">Angular Headless Threads page</a> shows a full example.
@@ -40,7 +40,7 @@ Model-context compaction and user-visible history serve different purposes. Inte
 
 Starting fresh? CopilotKit Intelligence provides conversation persistence: it stores interaction events so users can reopen rich conversations across sessions and devices, reconnect to active runs, and manage their threads.
 
-Keep your existing thread system when you connect Intelligence. As conversations run through your connected CopilotKit runtime, Intelligence automatically records its own copy of the supported AG-UI interaction history. Your framework continues managing the original conversation and agent state. Keep your [durable LangGraph checkpointer or deployment](https://docs.langchain.com/oss/python/langgraph/persistence) configured. For ADK, keep your [durable session service](https://google.github.io/adk-docs/sessions/session/) configured. Replaying recorded AG-UI history does not resume framework execution from a checkpoint. Your framework still handles that recovery.
+Keep your existing thread system when you connect Intelligence. As conversations run through your connected Copilot Runtime, Intelligence automatically records its own copy of the supported AG-UI interaction history. Your framework continues managing the original conversation and agent state. Keep your [durable LangGraph checkpointer or deployment](https://docs.langchain.com/oss/python/langgraph/persistence) configured. For ADK, keep your [durable session service](https://google.github.io/adk-docs/sessions/session/) configured. Replaying recorded AG-UI history does not resume framework execution from a checkpoint. Your framework still handles that recovery.
 
 Keep the same thread ID, or a stable mapping to the native thread or session ID, when you continue a conversation. [Bring your own thread system](/intelligence/bring-your-own-thread-system) explains what Intelligence records and shows an existing LangGraph app example.
 
@@ -94,7 +94,7 @@ Threads support two removal operations with different semantics:
 - **Archive** is a soft delete. The thread remains stored but disappears from the default list. Show archived threads by setting `includeArchived: true` in the frontend thread API. Threads can also be unarchived, which restores them to the active list.
 - **Delete** is permanent and irreversible. The thread and its history are removed entirely.
 
-Neither operation has a built-in confirmation dialog, so your application should implement its own if needed.
+Neither operation has a built-in confirmation dialog. If your app needs one, add your own.
 
 ## How it works
 
@@ -170,5 +170,5 @@ The trade-off is that replay is more complex than loading a message array.
 
 ### When threads are the wrong tool
 
-- **Ephemeral interactions.** If your users don't need conversation history (e.g., a one-shot Q&A widget), threads add unnecessary complexity. Use `CopilotChat` without a `threadId`.
+- **Ephemeral interactions.** If your users don't need conversation history (for example, a one-shot Q&A widget), threads add unnecessary complexity. Use `CopilotChat` without a `threadId`.
 - **Client-only state.** If you need local-only chat history without server persistence, manage messages in frontend state or localStorage instead.

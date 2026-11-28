@@ -10,7 +10,10 @@ const data: FrameworkOverviewData = {
   subheader:
     "Antigravity runs your agent in its own harness. CopilotKit gives it a surface your users can see, interrupt and steer.",
   guideLink: "/google-antigravity/quickstart",
-  initCommand: "npx copilotkit@latest init --framework antigravity",
+  // The CLI has no Antigravity template (`--framework antigravity` is
+  // rejected), so the landing points at the monorepo starter instead.
+  initCommand:
+    "git clone --depth 1 https://github.com/CopilotKit/CopilotKit.git && cd CopilotKit/examples/integrations/antigravity",
   // Link to the integration source for its supported features.
   featuresLink:
     "https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/google-antigravity",
@@ -22,13 +25,13 @@ const data: FrameworkOverviewData = {
       iconKey: "paintbrush",
       description:
         "Your Python tools run inside the adapter, and their calls and results stream to the browser as they happen. CopilotKit renders each one as a React component instead of leaving the user with a spinner.",
-      documentationLink: "/google-antigravity/generative-ui",
+      documentationLink: "/google-antigravity/generative-ui/tool-rendering",
     },
     {
       title: "Human-in-the-loop",
       iconKey: "user",
       description:
-        "Antigravity awaits a tool with no timeout, so a frontend tool that asks the user just parks the run. CopilotKit resolves it from the browser once the user decides, and the same turn continues with the answer.",
+        "Antigravity awaits a tool with no timeout, so a frontend tool that asks the user parks the run. CopilotKit resolves it from the browser once the user decides, and the same turn continues with the answer.",
       documentationLink: "/google-antigravity/human-in-the-loop",
     },
     {
@@ -73,7 +76,6 @@ const handler = createCopilotRuntimeHandler({
 
 export const POST = (req: NextRequest) => handler(req);`,
     guideLink: "/google-antigravity/quickstart",
-    initCommand: "npx copilotkit@latest init --framework antigravity",
   },
 
   liveDemos: [],

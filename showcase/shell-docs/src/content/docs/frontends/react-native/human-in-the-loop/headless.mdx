@@ -28,10 +28,18 @@ Promise-based integrations have no native interrupt. Build the same experience w
 </WhenFrameworkHas>
 
 <WhenFrameworkHas flag="interrupt_pattern" absent>
+<WhenAngularBackend selected>
 
-> **Use `useHumanInTheLoop` on this framework.** Headless interrupts need an agent that emits an AG-UI interrupt (`RUN_FINISHED` with `outcome.type === "interrupt"`) or an `on_interrupt` custom event, and a working resume path. On the Built-in Agent, interrupts are temporarily unavailable. [`useHumanInTheLoop`](/human-in-the-loop) pauses on a tool call instead. It works on every framework that supports tool calls.
+> **Use `useHumanInTheLoop` on this framework.** Headless interrupts need an agent that emits an AG-UI interrupt (`RUN_FINISHED` with `outcome.type === "interrupt"`) or an `on_interrupt` custom event, and a working resume path. [`useHumanInTheLoop`](/human-in-the-loop) pauses on a tool call instead. It works on every framework that supports tool calls.
 
+</WhenAngularBackend>
 </WhenFrameworkHas>
+
+<WhenAngularBackend selected={false}>
+
+Set `renderInChat: false` on `useInterrupt`, and the hook returns the interrupt element instead of handing it to the chat. Render that element wherever you like. `resolve(...)` starts the run again with the user's answer.
+
+</WhenAngularBackend>
 
 ## When should I use this?
 
@@ -40,7 +48,55 @@ Promise-based integrations have no native interrupt. Build the same experience w
 - **Testing**: a fixed button grid is easier to drive from Detox or Maestro than a picker that appears after a model call.
 - **Custom flow control**: you need to know exactly when the interrupt arrived (for example, to disable other controls) and when it was answered.
 
-If you just want a picker in the rendered chat, use [`useInterrupt`](/human-in-the-loop/useInterrupt) with the default `renderInChat: true`. For pauses that the model decides on, use [`useHumanInTheLoop`](/human-in-the-loop).
+If you want a picker in the rendered chat, use [`useInterrupt`](/human-in-the-loop/useInterrupt) with the default `renderInChat: true`. For pauses that the model decides on, use [`useHumanInTheLoop`](/human-in-the-loop).
+
+<WhenAngularBackend selected={false}>
+
+## Use `useInterrupt` without the chat
+
+First add the `approve_payment` interrupt tool to your `server.ts`, as in [The backend: an interrupt tool](/human-in-the-loop/useInterrupt#the-backend-an-interrupt-tool).
+
+This panel starts the run itself, then shows **Approve** and **Reject** while the agent waits:
+
+```tsx title="src/PaymentPanel.tsx"
+import { Button, Text, View } from "react-native";
+import { useAgent, useCopilotKit, useInterrupt } from "@copilotkit/react-native/headless";
+
+export function PaymentPanel() {
+  const { copilotkit } = useCopilotKit();
+  const { agent } = useAgent();
+
+  const pay = () => {
+    agent.addMessage({ id: `user-${Date.now()}`, role: "user", content: "Pay ACME $120." });
+    void copilotkit.runAgent({ agent });
+  };
+
+  const interruptElement = useInterrupt({ // [!code highlight:10]
+    renderInChat: false,
+    render: ({ interrupt, resolve }) => (
+      <View style={{ gap: 8 }}>
+        <Text>{interrupt?.message ?? "Approve this payment?"}</Text>
+        <Button title="Approve" onPress={() => resolve({ approved: true })} />
+        <Button title="Reject" onPress={() => resolve({ approved: false })} />
+      </View>
+    ),
+  });
+
+  if (interruptElement) {
+    return interruptElement;
+  }
+
+  return <Button title="Pay ACME" onPress={pay} />;
+}
+```
+
+Render `<PaymentPanel />` under `CopilotKitProvider`. No chat is needed.
+
+Tap **Pay ACME**. When the agent pauses, **Approve** and **Reject** replace the button. Tap **Approve**. The run starts again with `{ approved: true }` as the tool result, and **Pay ACME** comes back.
+
+In your own chat, render the element as the `ListFooterComponent` of your message list. That's where the rendered chat from `/components` puts it.
+
+</WhenAngularBackend>
 
 <WhenFrameworkHas flag="interrupt_pattern" equals="native">
 

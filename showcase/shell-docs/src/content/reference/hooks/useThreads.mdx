@@ -48,6 +48,10 @@ function useThreads(input: UseThreadsInput): UseThreadsResult
   <PropertyReference name="limit" type="number" default="undefined">
     Maximum number of threads to fetch per page. When set, enables cursor-based pagination via `fetchMoreThreads()` and `hasMoreThreads`.
   </PropertyReference>
+
+  <PropertyReference name="enabled" type="boolean" default="true">
+    Set to `false` to keep the hook idle: it sends no thread-list request, opens no realtime subscription, and skips mutations. Set it back to `true` to start fetching.
+  </PropertyReference>
 </PropertyReference>
 
 ## Return Value
@@ -72,7 +76,19 @@ function useThreads(input: UseThreadsInput): UseThreadsResult
   </PropertyReference>
 
   <PropertyReference name="error" type="Error | null">
-    The most recent error from fetching or mutating threads, or `null` if no error has occurred.
+    The most recent error from fetching or mutating threads, or `null` if no error has occurred. This includes setup errors, such as a runtime without thread endpoints.
+  </PropertyReference>
+
+  <PropertyReference name="listError" type="Error | null">
+    Like `error`, but without the setup errors. Show this one to end users.
+  </PropertyReference>
+
+  <PropertyReference name="fetchMoreError" type="Error | null">
+    The error from the last failed `fetchMoreThreads()` call, or `null`. The threads already loaded stay in `threads`.
+  </PropertyReference>
+
+  <PropertyReference name="isMutating" type="boolean">
+    `true` while a rename, archive, unarchive, or delete waits for the server.
   </PropertyReference>
 
   <PropertyReference name="hasMoreThreads" type="boolean">
@@ -87,6 +103,14 @@ function useThreads(input: UseThreadsInput): UseThreadsResult
 
   <PropertyReference name="fetchMoreThreads" type="() => void">
     Fetch the next page of threads. No-op if `hasMoreThreads` is `false` or a fetch is already in progress.
+  </PropertyReference>
+
+  <PropertyReference name="refetchThreads" type="() => void">
+    Fetch the thread list again without clearing the current list. No-op until the runtime is connected.
+  </PropertyReference>
+
+  <PropertyReference name="startNewThread" type="() => void">
+    Switch the chat to a new, empty thread so the welcome screen shows. The thread appears in `threads` only after its first run.
   </PropertyReference>
 
   <PropertyReference name="renameThread" type="(threadId: string, name: string) => Promise<void>">

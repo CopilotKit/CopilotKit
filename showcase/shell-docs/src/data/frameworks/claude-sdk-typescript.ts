@@ -23,7 +23,7 @@ const data: FrameworkOverviewData = {
       iconKey: "paintbrush",
       description:
         "Your agent calls tools and reports progress as it works. CopilotKit streams those calls to the browser and renders each one as a React component, instead of leaving the user with a spinner.",
-      documentationLink: "/claude-sdk-typescript/generative-ui",
+      documentationLink: "/claude-sdk-typescript/generative-ui/tool-rendering",
     },
     {
       title: "Human-in-the-loop",
@@ -49,7 +49,7 @@ const data: FrameworkOverviewData = {
   connect: {
     intro:
       "Your agent keeps running as its own service, with the AG-UI adapter from @ag-ui/claude-agent-sdk in front of it. CopilotKit reaches that service over HTTP, so nothing inside the agent changes.",
-    filename: "app/api/copilotkit/route.ts",
+    filename: "app/api/copilotkit/[[...slug]]/route.ts",
     language: "ts",
     code: `import {
   CopilotRuntime,

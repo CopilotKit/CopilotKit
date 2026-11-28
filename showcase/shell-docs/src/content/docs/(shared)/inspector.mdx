@@ -11,7 +11,7 @@ application UI through the AG-UI event stream, tools, state, and saved Threads.
 
 Reach for Inspector after a [quickstart](/quickstart) to verify that the pieces
 are connected, while adding tools or shared state, or when you need to reproduce
-an issue from a real conversation. Inspector shows what the browser received;
+an issue from a real conversation. Inspector shows what the browser received.
 [Runtime Debug Mode](/troubleshooting/debug-mode) adds the server-side view, and
 [Error Debugging & Observability](/troubleshooting/error-debugging) covers
 production error reporting.
@@ -32,25 +32,30 @@ production error reporting.
 | ---------------------------------------------- | --------------------------------------- |
 | Confirm that CopilotKit is connected           | **Home**, then **Agent**                |
 | Find out why a run or tool failed              | The red launcher or error pill          |
-| Inspect one `CopilotChat` response             | **View in Inspector** on the message    |
+| Inspect one `CopilotChat` response (Intelligence) | **View in Inspector** on the message |
 | Follow messages, events, tools, state, context | **Agent** and the **Inspect** panes     |
 | Reproduce a saved conversation safely          | **Rich Threads** → **Try from here**    |
 | Continue a saved Thread in your application    | **Rich Threads** → **View in your app** |
 | Enable or repair Intelligence                  | **Home** or a locked **Rich Threads**   |
-| Review what Learning found                     | **Automatic Learning**                  |
+| Review what Automatic Learning found           | **Automatic Learning**                  |
 | Move or hide the overlay                       | The Inspector header and settings       |
 
 ## Show Inspector and confirm your setup
 
 Inspector appears by default in development builds of React, Vue, and Angular
 browser applications. In React, Inspector appears only when the page host is
-`localhost`, `127.0.0.1`, or `[::1]`. Open your application and click the Inspector button in
-the corner. The first open lands on **Home**; later opens return to the last
+`localhost`, `127.0.0.1`, or `[::1]`. In Next.js 16 dev, open the app on `localhost`. To use
+`127.0.0.1`, add `allowedDevOrigins: ["127.0.0.1"]` to `next.config.ts` and restart `next dev`.
+Next.js blocks dev resources for other hosts, so Inspector does not load and shows no error.
+
+Open your application and click the Inspector button in
+the corner. The first open lands on **Home**. Later opens return to the last
 pane you used.
 
 Confirm the connection before debugging anything else:
 
-1. Open **Agent**. Your connected agent should be listed.
+1. Open **Agent**. It starts with "No agent selected". Pick your agent (for example `default`)
+   from the agent dropdown at the top of the sidebar. Its status, messages, and tools appear.
 2. Send a message in your application, then open **AG-UI Events**. You should
    see events arrive while the run is active.
 3. Open **Rich Threads**. A connected Intelligence setup shows your saved Threads.
@@ -58,8 +63,8 @@ Confirm the connection before debugging anything else:
 
 Home summarizes project, Runtime, and service status. When Intelligence is
 connected, it shows an **Intelligence connected** chip. Otherwise, choose
-**Copy setup prompt** to give the setup task to your coding agent. If the
-Runtime supplies a trusted setup URL, you can also choose **Set it up yourself**.
+**Copy setup prompt** to give the setup task to your coding agent, or
+**Set it up yourself** to open the CopilotKit Intelligence signup page in a new tab.
 
 If the agent is missing or no events arrive, first confirm the
 [Copilot Runtime](/backend/copilot-runtime) connection. If Threads is the only
@@ -78,13 +83,13 @@ pane with the most useful evidence:
 | Loading the Thread list      | **Rich Threads**          | The list error and Intelligence state        |
 | Agent run or `RUN_ERROR`     | **AG-UI Events**          | The highlighted event, agent name, and error |
 | Tool handler or missing tool | **Agent**                 | The agent, tool, call, and error             |
-| Loading Learning data        | **Automatic Learning**    | The pane error and setup state               |
+| Loading Automatic Learning data | **Automatic Learning** | The pane error and setup state               |
 
 A `RUN_ERROR` is highlighted and expanded while it remains in the event
-buffer. A tool call is highlighted when the error includes its call id; a
+buffer. A tool call is highlighted when the error includes its call id. A
 missing tool has no call to highlight.
 
-Learning data is fetched the first time you open **Automatic Learning**, so a Learning
+Automatic Learning data is fetched the first time you open **Automatic Learning**, so a
 load error can only be routed there after that first visit.
 
 Inspector is best for locating the failing layer during development. If the
@@ -125,10 +130,11 @@ debugging question:
 | Which components can the agent render, and what did it see? | **Generative UI**                                                   | [Components and surfaces](/generative-ui/components)        |
 | What did a saved conversation contain?                      | **Rich Threads** → **Conversation**, **AG-UI Events**, or **State** | [AG-UI Streams](/AG-UI-Streams) and [Shared State](/shared-state) |
 
-In an official React `CopilotChat`, open an assistant message's toolbar and
-choose **View in Inspector** to jump directly to that message in its Thread.
-This local development shortcut is useful when you already know which response
-you need to explain. See the [`CopilotChat` reference](/reference/components/CopilotChat)
+In an official React `CopilotChat`, click the Inspector icon in an assistant
+message's toolbar to jump directly to that message in its Thread. Hover the icon
+to see the menu with **View in Inspector** and **Hide this icon**. This local
+development shortcut needs Intelligence Threads. Without Intelligence, it opens
+the locked **Rich Threads** view. Use **AG-UI Events** instead. See the [`CopilotChat` reference](/reference/components/CopilotChat)
 for its configuration.
 
 In **Rich Threads**, a saved Thread has these controls:
@@ -139,7 +145,7 @@ In **Rich Threads**, a saved Thread has these controls:
 - **Hide thread list**: more room for the conversation. The title and conversation actions stay visible while scrolling.
 
 **Frontend Tools** appears only after your application registers a frontend
-tool. **Capabilities** appears only when an A2UI catalog is present; use it to
+tool. **Capabilities** appears only when an A2UI catalog is present. Use it to
 toggle tools and catalog components while experimenting.
 
 **Generative UI** appears only when the provider has a `generativeUI` config.
@@ -164,6 +170,8 @@ icons. **Talk to an Engineer** remains in the sidebar footer.
 
 ## Reproduce an issue without changing the saved Thread
 
+This section needs CopilotKit Intelligence for saved Threads.
+
 Use **Playground** when you have already observed a problem and want to vary the
 prompt, state, or next message without touching the original saved Thread. Its
 messages and state stay separate from your application chat and stored Threads,
@@ -186,6 +194,8 @@ examples do not send real Thread requests. With reduced motion enabled, the
 video starts paused. If the video fails, the examples and tour still work.
 
 ## Continue a saved Thread in your application
+
+This section needs CopilotKit Intelligence for saved Threads.
 
 Selecting a Thread in Inspector does not change the live chat. To continue the
 conversation in an official `CopilotChat`, sidebar, or popup:
@@ -216,7 +226,7 @@ If you are building the Thread picker and conversation surface yourself, see
 
 ## Enable or repair Intelligence
 
-Intelligence provides real Threads and Learning. When it is not connected, open
+Intelligence provides real Threads and Automatic Learning. When it is not connected, open
 **Home** and choose **Copy setup prompt**. Give that prompt to your coding agent,
 then return to Inspector to follow setup through the first eligible Thread. The
 [Intelligence quickstart](/intelligence/quickstart) explains the project,
@@ -234,7 +244,7 @@ routes, use the Runtime route guide.
 explains how to configure application-user identity, mount every required HTTP
 method, and verify the capability response.
 
-## Review what Learning found
+## Review what Automatic Learning found
 
 Open **Automatic Learning** to trace completed Threads into evidence-backed Insights and
 reviewed Skills. A configured pane shows:
@@ -249,7 +259,7 @@ in the results header to open the Intelligence app in a new tab. The analysis
 and Skill-review links open the selected Learning Space in Intelligence.
 Inspector lets you inspect the evidence, but does not approve or publish a candidate.
 
-If Learning is not configured, choose **Copy setup prompt**. If the Runtime
+If Automatic Learning is not configured, choose **Copy setup prompt**. If the Runtime
 cannot select one Learning Space for the active agent, Inspector sends you
 to the web app to choose it. See [Automatic Learning](/learning) for the complete workflow.
 
@@ -269,8 +279,8 @@ Use the option that matches what you are trying to do:
 Pop-out opens the same live Inspector session in a separate browser window and
 hides the overlay and floating button on the application page. Close the extra
 window to return Inspector to its previous floating or docked position. If no
-window opens, allow popups and try again. Refreshing closes the extra window;
-Inspector does not restore pop-out mode after a refresh.
+window opens, allow popups and try again. Refreshing closes the extra window,
+and Inspector does not restore pop-out mode after a refresh.
 
 A temporary hide removes the overlay and launcher only on the current domain.
 They return automatically after the selected period.
@@ -308,9 +318,11 @@ server-side rendering.
 
 ## Understand project and usage information
 
+This section applies only to an Intelligence-backed Runtime.
+
 An Intelligence-backed Runtime can send trusted organization, project, plan,
-Thread usage, retention, and action metadata. Home shows valid project context;
-the Threads footer shows valid usage and relevant actions. Missing identity data
+Thread usage, retention, and action metadata. Home shows valid project context.
+The Threads footer shows valid usage and relevant actions. Missing identity data
 does not hide valid usage, and missing usage does not hide a valid action.
 
 Inspector opens only action URLs supplied by the Runtime. It never constructs a
@@ -331,8 +343,8 @@ action.
 hours. It does not mean Inspector locked or deleted that Thread.
 
 Older Runtime, Core, and Inspector versions remain compatible without a
-synchronized deployment. Newer components feature-detect optional metadata;
-older components ignore fields they do not understand. Explicit
+synchronized deployment. Newer components feature-detect optional metadata.
+Older components ignore fields they do not understand. Explicit
 `threadEndpoints` remain authoritative, and metadata never enables Thread work.
 
 ## Where Inspector runs

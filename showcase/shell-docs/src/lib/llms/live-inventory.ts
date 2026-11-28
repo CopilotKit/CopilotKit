@@ -1,6 +1,7 @@
-import { statSync } from "node:fs";
 import {
+  ROOT_FRAMEWORK,
   getFrameworkVariants,
+  getIntegration,
   getSetupContent,
 } from "@/components/docs-mdx/data";
 import { getPageIndex, livePages } from "@/lib/live-docs";
@@ -32,6 +33,32 @@ export interface LiveEntry {
   live: ResolvedLivePage;
 }
 
+/**
+ * A page's title where it's listed out of context (search results, the MCP
+ * page list, and the page's `<title>`): a framework's own pages, and its
+ * own version of a shared page (`/mastra/shared-state`), name the framework,
+ * since every framework has a "Quickstart" and a "Shared State". A
+ * framework's landing is the framework's name; its other pages read
+ * `Mastra: Quickstart`.
+ */
+export function entryTitle(live: ResolvedLivePage): string {
+  if (live.overview) return live.overview.frameworkName;
+  const { title } = live.page.data;
+  const framework = live.variant ?? live.scope.framework;
+  if (
+    !framework ||
+    framework === ROOT_FRAMEWORK ||
+    !(live.variant || live.contentPath.startsWith("docs/integrations/"))
+  ) {
+    return title;
+  }
+  const name = getIntegration(framework)?.name;
+  if (!name) return title;
+  if (live.canonical === `/${framework}`) return name;
+  const brand = name.split(/[\s(]/)[0].toLowerCase();
+  return title.toLowerCase().includes(brand) ? title : `${name}: ${title}`;
+}
+
 /** Pages behind an early-access gate stay out of the aggregates. */
 const EARLY_ACCESS_GATES = new Set(["trajectories"]);
 
@@ -60,24 +87,26 @@ export function llmsFullEntries(): LiveEntry[] {
 
 export interface SitemapEntry {
   url: string;
-  lastModified: Date;
+  /** Only when the page says so (frontmatter `lastmod`). */
+  lastModified?: Date;
 }
 
 /**
  * The home page, the early-access channels' landing pages (`/whatsapp`), and
- * every page at its canonical URL.
+ * every page at its canonical URL. A page's date is its frontmatter `lastmod`
+ * or nothing: file times in a checkout or an image are when the files were
+ * copied, not when the page changed, and a sitemap that marks every page as
+ * changed on every deploy teaches crawlers to ignore it.
  */
 export function sitemapEntries(): SitemapEntry[] {
-  const now = new Date();
   return [
-    { url: "/", lastModified: now },
+    { url: "/" },
     ...EARLY_ACCESS_CHANNELS.map((channel) => ({
       url: earlyAccessHref(channel.id),
-      lastModified: now,
     })),
     ...entries().map(({ url, live }) => ({
       url,
-      lastModified: lastModified(live.page) ?? now,
+      lastModified: lastModified(live.page),
     })),
   ];
 }
@@ -97,6 +126,9 @@ const REFERENCE_FRONTENDS: Record<string, FrontendId[]> = {
 
 /** The frontends whose readers have a page: its search tags. */
 function frontendsOf({ live, url }: LiveEntry): FrontendId[] {
+  // A generated framework landing (`/google-adk`) is about the agent, which
+  // every frontend connects to.
+  if (live.overview) return ALL_FRONTENDS;
   const path = live.contentPath;
   if (path.startsWith("reference/")) {
     return REFERENCE_FRONTENDS[url.split("/")[2]] ?? ALL_FRONTENDS;
@@ -128,10 +160,7 @@ function frontendsOf({ live, url }: LiveEntry): FrontendId[] {
  */
 export function searchEntries(): (LiveEntry & { frontends: FrontendId[] })[] {
   return entries()
-    .filter(
-      ({ live }) =>
-        !live.overview && !live.variant && !isEarlyAccess(live.page),
-    )
+    .filter(({ live }) => !live.variant && !isEarlyAccess(live.page))
     .map((entry) => ({ ...entry, frontends: frontendsOf(entry) }));
 }
 
@@ -200,20 +229,12 @@ export function frameworkSetupEntries(): FrameworkSetupEntry[] {
   });
 }
 
-/** Frontmatter `lastmod`, else the file's mtime. */
-function lastModified(page: {
-  data: object;
-  absolutePath?: string;
-}): Date | undefined {
+/** Frontmatter `lastmod`, if the page has one. */
+function lastModified(page: { data: object }): Date | undefined {
   const lastmod = (page.data as { lastmod?: unknown }).lastmod;
   if (lastmod instanceof Date || typeof lastmod === "string") {
     const date = new Date(lastmod);
     if (!Number.isNaN(date.getTime())) return date;
   }
-  if (!page.absolutePath) return undefined;
-  try {
-    return statSync(page.absolutePath).mtime;
-  } catch {
-    return undefined;
-  }
+  return undefined;
 }

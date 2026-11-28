@@ -25,7 +25,7 @@ Import the component class and use its `copilot-chat-message-view` selector in y
 ```ts title="src/app/messages.component.ts"
 import { Component, signal } from "@angular/core";
 import { CopilotChatMessageView } from "@copilotkit/angular";
-import type { Message } from "@ag-ui/core";
+import type { Message } from "@ag-ui/client";
 
 @Component({
   selector: "app-messages",
@@ -82,7 +82,7 @@ export class MessagesComponent {
 </PropertyReference>
 
 <PropertyReference name="assistantMessageClass" type="string">
-  CSS classes for each assistant message. The default `CopilotChatAssistantMessage` adds them to its container. A custom assistant-message component or template receives them as `inputClass`.
+  CSS classes for each assistant message. A custom assistant-message component or template receives them as `inputClass`. The default `CopilotChatAssistantMessage` adds them to its container in releases after 0.6.0. In 0.6.0 they have no effect on the default component.
 </PropertyReference>
 
 ### User message slot inputs
@@ -192,7 +192,7 @@ To swap out how a whole role is rendered without rebuilding the layout, pass a s
 import { Component, signal } from "@angular/core";
 import { CopilotChatMessageView } from "@copilotkit/angular";
 import { MyAssistantMessage } from "./my-assistant-message.component";
-import type { Message } from "@ag-ui/core";
+import type { Message } from "@ag-ui/client";
 
 @Component({
   selector: "app-messages",

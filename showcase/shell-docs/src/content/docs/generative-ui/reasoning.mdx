@@ -1,5 +1,6 @@
 ---
-title: Reasoning
+title: Show Agent Reasoning
+nav_title: Reasoning
 icon: "lucide/Brain"
 description: Surface the agent's thinking chain in the chat, with the default card or a fully custom one.
 hideTOC: true
@@ -40,13 +41,41 @@ By default, reasoning events render inside CopilotKit's built-in
   chevron to re-expand.
 - Reasoning text rendered as Markdown.
 
-No configuration is needed; if your model emits reasoning tokens, the card
-appears automatically:
+The chat needs no configuration. When your agent streams reasoning events,
+the card appears:
 
 <Snippet
   cell="reasoning-default"
   region="default-reasoning-zero-config"
 />
+
+The excerpt starts after the demo's imports. To use it in your app:
+
+- Start the file with `"use client";` and
+  `import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";`.
+- Delete the `use...Suggestions()` call. It adds the demo's suggestion pills.
+- Set `AGENT_ID` to the agent name you registered on the Copilot Runtime,
+  `default` in the [quickstart](/quickstart).
+
+<WhenFrameworkHas flag="agent_config_pattern" equals="runtime-properties">
+
+The Built-in Agent streams reasoning only when the model returns it. Ask
+OpenAI for a reasoning summary in your route:
+
+```ts title="app/api/copilotkit/[[...slug]]/route.ts"
+const builtInAgent = new BuiltInAgent({
+  model: "openai:gpt-6-luna",
+  providerOptions: {
+    openai: { reasoningEffort: "high", reasoningSummary: "auto" },
+  },
+});
+```
+
+The reasoning summary comes only through the OpenAI Responses API. With an
+`OPENAI_BASE_URL` that is not an OpenAI or Azure host, the agent uses Chat
+Completions, so also set `COPILOTKIT_OPENAI_API=responses`.
+
+</WhenFrameworkHas>
 
 Here's what the built-in card looks like while the model thinks through a multi-step problem:
 
@@ -62,9 +91,12 @@ For full control over the reasoning card, pass a component to the
 - `isRunning`: `true` while the agent runs.
 - `isLatest`: `true` for the last rendered message in the list.
 
-Import the slot type and your component in `page.tsx`:
+Import the slot type and your component in `page.tsx`. As in the default
+example, start the file with `"use client";`, delete the `use...Suggestions()`
+call, and set `AGENT_ID` to your agent name:
 
 ```tsx
+"use client";
 import type { CopilotChatReasoningMessage } from "@copilotkit/react-core/v2";
 import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
 import { ReasoningBlock } from "./reasoning-block";
@@ -79,7 +111,9 @@ import { ReasoningBlock } from "./reasoning-block";
   </Tab>
 </Tabs>
 
-Replace `ReasoningBlock` with your own component.
+Replace `ReasoningBlock` with your own component. The demo works out
+`isLatest` from `messages`. In your component, read the `isLatest` prop:
+`const isStreaming = !!(isRunning && isLatest);`.
 
 <Callout type="info">
   The `messageView.reasoningMessage` slot also accepts a sub-slot object,

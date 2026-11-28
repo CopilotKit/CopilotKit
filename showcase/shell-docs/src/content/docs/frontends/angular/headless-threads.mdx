@@ -9,59 +9,86 @@ Reopen a saved conversation, or build your own thread list with Angular
 signals. For a ready-made list, use the
 [Threads Drawer](/angular/prebuilt-components/copilot-threads-drawer).
 
-## Resume a specific thread
+<Callout type="info" title="Before you start: the runtime must list threads">
+  The thread list needs a runtime that can list threads. Use
+  [CopilotKit Intelligence](/intelligence/overview), or pass
+  `identifyUser: (request) => ({ id, name })` to `CopilotRuntime`. For local
+  testing only, `threads: { access: "open" }` lists every thread. Without one of
+  these, `threads()` stays empty and shows no error. Rename, archive, and
+  delete need Intelligence.
+</Callout>
 
-Pass `threadId` to connect the chat to an existing conversation:
+## Build a thread list next to the chat
 
-```html
-<copilot-chat agentId="support" [threadId]="selectedThreadId()" />
-```
+Use `injectThreads` for the list. Its inputs accept plain values or signals.
+Bind the selected id to `CopilotChat`'s `threadId` input to connect the chat to
+that conversation:
 
-For a custom thread list, use `injectThreads`. Its inputs accept plain values
-or signals.
-
-```ts title="src/app/thread-list.component.ts"
-import { Component } from "@angular/core";
-import { injectThreads } from "@copilotkit/angular";
+```ts title="src/app/conversations.component.ts"
+import { Component, signal } from "@angular/core";
+import { CopilotChat, injectThreads } from "@copilotkit/angular";
 
 @Component({
-  selector: "app-thread-list",
+  selector: "app-conversations",
+  imports: [CopilotChat],
   template: `
-    <button type="button" (click)="threads.startNewThread()">
-      New conversation
-    </button>
+    <nav>
+      <button type="button" (click)="newConversation()">
+        New conversation
+      </button>
 
-    @if (threads.isLoading()) {
-      <p>Loading conversations…</p>
-    } @else {
-      @for (thread of threads.threads(); track thread.id) {
-        <button type="button" (click)="select(thread.id)">
-          {{ thread.name ?? "Untitled conversation" }}
-        </button>
+      @if (threads.isLoading()) {
+        <p>Loading conversations…</p>
+      } @else {
+        @for (thread of threads.threads(); track thread.id) {
+          <button type="button" (click)="select(thread.id)">
+            {{ thread.name ?? "Untitled conversation" }}
+          </button>
+        }
       }
-    }
 
-    @if (threads.listError()) {
-      <button type="button" (click)="threads.refetchThreads()">Retry</button>
-    }
+      @if (threads.listError()) {
+        <button type="button" (click)="threads.refetchThreads()">Retry</button>
+      }
+    </nav>
+
+    <div style="height: 80vh">
+      <copilot-chat [threadId]="selectedThreadId()" />
+    </div>
   `,
 })
-export class ThreadListComponent {
+export class ConversationsComponent {
+  protected readonly selectedThreadId = signal<string | undefined>(undefined);
   readonly threads = injectThreads({
-    agentId: "support",
+    agentId: "default",
     limit: 20,
   });
 
   protected select(threadId: string): void {
-    // Store this id and bind it to CopilotChat's threadId input.
-    console.log(threadId);
+    this.selectedThreadId.set(threadId);
+  }
+
+  protected newConversation(): void {
+    this.threads.startNewThread();
+    this.selectedThreadId.set(crypto.randomUUID()); // [!code highlight]
   }
 }
 ```
 
+`"default"` is the agent id from the Angular quickstart. Use the id your
+runtime registers, and pass the same id to `<copilot-chat agentId="...">` when
+it is not `default`.
+
+`startNewThread()` resets only the thread list's selection. Setting a fresh
+`threadId` is what starts a new conversation in the chat.
+
+Render `<app-conversations />` from `src/app/app.ts`. Send a message, then
+reload the page. The conversation shows in the list as "Untitled conversation".
+Click it, and the chat shows its messages again.
+
 The list is server-authoritative and uses realtime updates when the platform
 supplies a WebSocket URL. Rename, archive, unarchive, and delete return
-promises. Deletion is permanent; ask the user before calling `deleteThread`.
+promises. Deletion is permanent, so ask the user before calling `deleteThread`.
 
 ## Next steps
 

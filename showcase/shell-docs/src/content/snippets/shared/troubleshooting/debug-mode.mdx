@@ -62,7 +62,7 @@ Pass `debug={true}` to the `<CopilotKit>` provider:
 </CopilotKit>
 ```
 
-This forwards the debug configuration to the AG-UI client transport layer (`transformChunks`), which may produce transport-level debug output depending on the AG-UI library version. Note that the richest debug logging comes from the **server-side** `CopilotRuntime`. Enable `debug: true` there for full structured Pino logs of every AG-UI event.
+This forwards the debug configuration to the AG-UI client transport layer (`transformChunks`), which can produce transport-level debug output, depending on the AG-UI library version. The richest debug logging comes from the **server-side** `CopilotRuntime`. Enable `debug: true` there for full structured Pino logs of every AG-UI event.
 
 <Callout type="info">
   The server and client debug toggles are independent. Enabling debug on the client does not affect the server, and vice versa.
