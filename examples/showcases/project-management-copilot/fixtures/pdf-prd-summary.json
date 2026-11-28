@@ -1,0 +1,24 @@
+{
+  "name": "pdf-prd-summary",
+  "description": "User attaches a PRD PDF. Agent extracts findings and creates 3 issues via manage_issues.",
+  "fixtures": [
+    {
+      "match": { "userMessage": "Read this PRD" },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "manage_issues",
+            "arguments": "{\"issues\":[{\"id\":\"ISS-201\",\"title\":\"PRD: Add SAML SSO for enterprise customers\",\"description\":\"Required by 3 enterprise prospects. Coordinate with infra on IdP plumbing.\",\"status\":\"Backlog\",\"priority\":\"High\",\"assignee\":\"Jordan\",\"labels\":[\"prd\",\"enterprise\",\"auth\"]},{\"id\":\"ISS-202\",\"title\":\"PRD: Org-level usage dashboard\",\"description\":\"Admins want a single view of usage by user and team.\",\"status\":\"Backlog\",\"priority\":\"Med\",\"assignee\":\"Sarah\",\"labels\":[\"prd\",\"dashboard\"]},{\"id\":\"ISS-203\",\"title\":\"PRD: SCIM provisioning\",\"description\":\"Follow-on after SAML. Lower urgency.\",\"status\":\"Backlog\",\"priority\":\"Low\",\"assignee\":\"Alex\",\"labels\":[\"prd\",\"enterprise\"]}]}",
+            "id": "call_prd_extract"
+          }
+        ]
+      }
+    },
+    {
+      "match": { "toolCallId": "call_prd_extract" },
+      "response": {
+        "content": "I read the PRD and created 3 new issues in the Backlog: SAML SSO (high priority), an org-level usage dashboard (medium), and SCIM provisioning (low). I assigned them based on previous ownership patterns. Want me to estimate scope on any of them?"
+      }
+    }
+  ]
+}

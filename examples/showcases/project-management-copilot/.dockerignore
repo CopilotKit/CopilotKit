@@ -1,0 +1,16 @@
+node_modules
+.next
+.turbo
+.git
+.gitignore
+.env*
+!.env.example
+.DS_Store
+*.pem
+.claude
+.worktrees
+.langgraph_api
+apps/agent/.venv
+apps/agent/__pycache__
+apps/mcp
+coverage
