@@ -15,6 +15,13 @@ function deferred() {
   return { promise, resolve, reject };
 }
 
+/** An upload that resolves to an inline data source, for tests that only care about the drop. */
+const inlineUpload = async (file: File) => ({
+  type: "data" as const,
+  value: "dGVzdA==",
+  mimeType: file.type,
+});
+
 describe("useAttachments", () => {
   // -----------------------------------------------------------------------
   // Referential stability — callbacks must not change between renders
@@ -428,6 +435,106 @@ describe("useAttachments", () => {
 
       // Should still be empty, no crash
       expect(result.current.attachments).toEqual([]);
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // Drag and drop takes files, not a text selection
+  // -----------------------------------------------------------------------
+
+  describe("drag and drop", () => {
+    /** The part of a React drag event the handlers read. */
+    function dragEvent(types: string[], files: File[] = []) {
+      return {
+        dataTransfer: { types, files },
+        preventDefault: vi.fn(),
+        stopPropagation: vi.fn(),
+      } as unknown as React.DragEvent;
+    }
+
+    it("opens the drop zone for a drag that carries files", () => {
+      const { result } = renderHook(() =>
+        useAttachments({ config: { enabled: true, onUpload: inlineUpload } }),
+      );
+      const over = dragEvent(["Files"]);
+
+      act(() => {
+        result.current.handleDragOver(over);
+      });
+
+      expect(result.current.dragOver).toBe(true);
+      expect(over.preventDefault).toHaveBeenCalled();
+    });
+
+    it("leaves a text drag to the browser", () => {
+      const { result } = renderHook(() =>
+        useAttachments({ config: { enabled: true, onUpload: inlineUpload } }),
+      );
+      const over = dragEvent(["text/plain"]);
+
+      act(() => {
+        result.current.handleDragOver(over);
+      });
+
+      expect(result.current.dragOver).toBe(false);
+      expect(over.preventDefault).not.toHaveBeenCalled();
+      expect(over.stopPropagation).not.toHaveBeenCalled();
+    });
+
+    it("does not take a text drop", async () => {
+      const { result } = renderHook(() =>
+        useAttachments({ config: { enabled: true, onUpload: inlineUpload } }),
+      );
+      const drop = dragEvent(["text/plain"]);
+
+      await act(async () => {
+        await result.current.handleDrop(drop);
+      });
+
+      expect(drop.preventDefault).not.toHaveBeenCalled();
+      expect(result.current.attachments).toEqual([]);
+    });
+
+    it("closes the drop zone when that drag leaves", () => {
+      const { result } = renderHook(() =>
+        useAttachments({ config: { enabled: true, onUpload: inlineUpload } }),
+      );
+
+      act(() => {
+        result.current.handleDragOver(dragEvent(["Files"]));
+      });
+      expect(result.current.dragOver).toBe(true);
+
+      act(() => {
+        result.current.handleDragLeave(dragEvent(["Files"]));
+      });
+
+      expect(result.current.dragOver).toBe(false);
+    });
+
+    it("takes a file drop and closes the drop zone", async () => {
+      const { result } = renderHook(() =>
+        useAttachments({ config: { enabled: true, onUpload: inlineUpload } }),
+      );
+
+      act(() => {
+        result.current.handleDragOver(dragEvent(["Files"]));
+      });
+      expect(result.current.dragOver).toBe(true);
+
+      const drop = dragEvent(
+        ["Files"],
+        [new File(["x"], "file.png", { type: "image/png" })],
+      );
+      await act(async () => {
+        await result.current.handleDrop(drop);
+      });
+
+      expect(drop.preventDefault).toHaveBeenCalled();
+      expect(result.current.dragOver).toBe(false);
+      expect(result.current.attachments.map((a) => a.filename)).toEqual([
+        "file.png",
+      ]);
     });
   });
 });

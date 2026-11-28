@@ -20,6 +20,13 @@ function createFile(name: string, size: number, type: string): File {
   return new File([content], name, { type });
 }
 
+/** An upload that resolves to an inline data source, for tests that only care about the drop. */
+const inlineUpload = async (file: File) => ({
+  type: "data" as const,
+  value: "dGVzdA==",
+  mimeType: file.type,
+});
+
 function mountHook(initialConfig: AttachmentsConfig | undefined) {
   const config = ref<AttachmentsConfig | undefined>(initialConfig);
   const trigger = ref(0);
@@ -184,6 +191,78 @@ describe("useAttachments", () => {
       expect(onUploadFailed).toHaveBeenCalledTimes(1);
       expect(onUploadFailed.mock.calls[0][0].reason).toBe("invalid-type");
       expect(onUploadFailed.mock.calls[0][0].message).toContain("audio/*");
+    });
+  });
+
+  describe("drag and drop", () => {
+    /** The part of a drag event the handlers read. */
+    function dragEvent(types: string[], files: File[] = []) {
+      return {
+        dataTransfer: { types, files },
+        preventDefault: vi.fn(),
+        stopPropagation: vi.fn(),
+      } as unknown as DragEvent;
+    }
+
+    it("opens the drop zone for a drag that carries files", () => {
+      const harness = mountHook({ enabled: true, onUpload: inlineUpload });
+      const over = dragEvent(["Files"]);
+
+      harness.api.handleDragOver(over);
+
+      expect(harness.api.dragOver.value).toBe(true);
+      expect(over.preventDefault).toHaveBeenCalled();
+    });
+
+    it("leaves a text drag to the browser", () => {
+      const harness = mountHook({ enabled: true, onUpload: inlineUpload });
+      const over = dragEvent(["text/plain"]);
+
+      harness.api.handleDragOver(over);
+
+      expect(harness.api.dragOver.value).toBe(false);
+      expect(over.preventDefault).not.toHaveBeenCalled();
+      expect(over.stopPropagation).not.toHaveBeenCalled();
+    });
+
+    it("does not take a text drop", async () => {
+      const harness = mountHook({ enabled: true, onUpload: inlineUpload });
+      const drop = dragEvent(["text/plain"]);
+
+      await harness.api.handleDrop(drop);
+
+      expect(drop.preventDefault).not.toHaveBeenCalled();
+      expect(harness.api.attachments.value).toEqual([]);
+    });
+
+    it("closes the drop zone when that drag leaves", () => {
+      const harness = mountHook({ enabled: true, onUpload: inlineUpload });
+
+      harness.api.handleDragOver(dragEvent(["Files"]));
+      expect(harness.api.dragOver.value).toBe(true);
+
+      harness.api.handleDragLeave(dragEvent(["Files"]));
+
+      expect(harness.api.dragOver.value).toBe(false);
+    });
+
+    it("takes a file drop and closes the drop zone", async () => {
+      const harness = mountHook({ enabled: true, onUpload: inlineUpload });
+
+      harness.api.handleDragOver(dragEvent(["Files"]));
+      expect(harness.api.dragOver.value).toBe(true);
+
+      const drop = dragEvent(
+        ["Files"],
+        [createFile("report.pdf", 128, "application/pdf")],
+      );
+      await harness.api.handleDrop(drop);
+
+      expect(drop.preventDefault).toHaveBeenCalled();
+      expect(harness.api.dragOver.value).toBe(false);
+      expect(harness.api.attachments.value.map((a) => a.filename)).toEqual([
+        "report.pdf",
+      ]);
     });
   });
 

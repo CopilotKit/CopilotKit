@@ -42,6 +42,15 @@ export interface UseAttachmentsReturn {
   consumeAttachments: () => Attachment[];
 }
 
+/**
+ * Whether a drag carries files. A drag that carries only text or a link belongs to the
+ * browser: claiming it would blur the chat and swallow a selection the user meant to drop
+ * into the input.
+ */
+function carriesFiles(dataTransfer: DataTransfer | null): boolean {
+  return Array.from(dataTransfer?.types ?? []).includes("Files");
+}
+
 export function useAttachments(
   props: UseAttachmentsProps,
 ): UseAttachmentsReturn {
@@ -173,18 +182,21 @@ export function useAttachments(
 
   function handleDragOver(event: DragEvent) {
     if (!enabled.value) return;
+    if (!carriesFiles(event.dataTransfer)) return;
     event.preventDefault();
     event.stopPropagation();
     dragOver.value = true;
   }
 
   function handleDragLeave(event: DragEvent) {
+    if (!carriesFiles(event.dataTransfer)) return;
     event.preventDefault();
     event.stopPropagation();
     dragOver.value = false;
   }
 
   async function handleDrop(event: DragEvent) {
+    if (!carriesFiles(event.dataTransfer)) return;
     event.preventDefault();
     event.stopPropagation();
     dragOver.value = false;
