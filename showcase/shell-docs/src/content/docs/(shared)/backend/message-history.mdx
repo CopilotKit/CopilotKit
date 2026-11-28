@@ -146,13 +146,13 @@ Use this instead when you trim inside the runtime, or on an agent you construct
 yourself. There is no repair pass on those paths, so the filter has to keep the
 pairs valid on its own. It needs two pieces: a filter that chooses the messages,
 and an [AG-UI middleware](/agentic-protocols/ag-ui-middleware) that applies it.
-Put both in one module.
+Put both in one module, `lib/trim-history.ts`.
 
 The filter keeps the last user message and everything after it. If a kept tool
 result answers a call from an earlier turn, the filter puts only that call back,
 directly in front of the result.
 
-```ts title="trim-history.ts" doctest="component"
+```ts title="lib/trim-history.ts" doctest="component"
 import {
   Middleware,
   type AbstractAgent,
@@ -242,9 +242,10 @@ turns, forward the same window.
 One assistant message can hold several tool calls, and the kept turn can carry
 the result for only one of them. The rescue pass must forward that one call and
 drop the other, because a forwarded call whose result you dropped is the broken
-pair this page is about. Run this against your own filter:
+pair this page is about. Save this check next to your filter and run it with
+`npx tsx lib/check-trim-history.ts`:
 
-```ts title="check-trim-history.ts" doctest="script"
+```ts title="lib/check-trim-history.ts" doctest="script"
 import { strict as assert } from "node:assert";
 import type { Message } from "@ag-ui/client";
 import { lastTurnOnly } from "./trim-history";
@@ -304,8 +305,10 @@ const trimmedParallel = lastTurnOnly(parallel);
 trimmedParallel.forEach((message, index) => {
   for (const toolCall of message.role === "assistant" ? (message.toolCalls ?? []) : []) {
     const answers = new Set<string>();
-    for (let i = index + 1; trimmedParallel[i]?.role === "tool"; i++) {
-      answers.add(trimmedParallel[i].toolCallId);
+    for (let i = index + 1; ; i++) {
+      const next = trimmedParallel[i];
+      if (next?.role !== "tool") break;
+      answers.add(next.toolCallId);
     }
     assert.ok(
       answers.has(toolCall.id),
@@ -321,12 +324,14 @@ console.log("trim-history: forwarded only the answered call, next to its result"
 
 The middleware rewrites `input.messages` before the run reaches your agent. It
 runs server-side, inside the runtime, so the browser cannot change it. Attach it
-to the agent before you register the agent with the runtime:
+to the agent before you register the agent with the runtime. Set `AGENT_URL`
+in `.env` to your agent's AG-UI endpoint, for example
+`AGENT_URL=http://localhost:8000`:
 
 ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
 import { HttpAgent } from "@ag-ui/client";
 import { CopilotRuntime } from "@copilotkit/runtime/v2";
-import { lastTurnOnly, TrimHistoryMiddleware } from "./trim-history";
+import { lastTurnOnly, TrimHistoryMiddleware } from "@/lib/trim-history";
 
 const agent = new HttpAgent({ url: process.env.AGENT_URL! });
 agent.use(new TrimHistoryMiddleware(lastTurnOnly));
@@ -334,6 +339,8 @@ agent.use(new TrimHistoryMiddleware(lastTurnOnly));
 const runtime = new CopilotRuntime({
   agents: { default: agent },
 });
+
+// ...keep your createCopilotRuntimeHandler and GET/POST/PATCH/DELETE exports
 ```
 
 `.use()` is on `AbstractAgent`, so this works for any agent the runtime
@@ -360,7 +367,7 @@ production use needs a `publicLicenseKey`.
 ```tsx title="app/page.tsx"
 import { HttpAgent } from "@ag-ui/client";
 import { CopilotKit } from "@copilotkit/react-core/v2";
-import { lastTurnOnly, TrimHistoryMiddleware } from "./trim-history";
+import { lastTurnOnly, TrimHistoryMiddleware } from "@/lib/trim-history";
 
 const supportAgent = new HttpAgent({ url: "https://agents.example.com/support" });
 supportAgent.use(new TrimHistoryMiddleware(lastTurnOnly));

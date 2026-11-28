@@ -55,7 +55,7 @@ const data: FrameworkOverviewData = {
   connect: {
     intro:
       "Your agent keeps running where it runs today, behind an AG-UI endpoint. CopilotKit reaches it over HTTP, so nothing inside the agent changes.",
-    filename: "app/api/copilotkit/route.ts",
+    filename: "app/api/copilotkit/[[...slug]]/route.ts",
     language: "ts",
     code: `import {
   CopilotRuntime,

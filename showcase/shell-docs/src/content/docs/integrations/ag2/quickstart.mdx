@@ -36,7 +36,7 @@ If you prefer a generated starter instead of cloning the repo, use the CopilotKi
 npx copilotkit@latest init
 ```
 
-Follow the prompts to pick AG2 and the features you want, then run the install/start commands it prints.
+The CLI asks you to sign in to CopilotKit in your browser. Follow the prompts to pick AG2 and the features you want, then run the install/start commands it prints.
 
 ## Prerequisites
 
@@ -47,6 +47,7 @@ Before you begin, you'll need the following:
 - <a href="https://nodejs.org/en/download" target="_blank">Node.js</a> 20.9 or newer
 - <a href="https://pnpm.io/installation" target="_blank">pnpm</a> (for frontend package management)
 - <a href="https://platform.openai.com/api-keys" target="_blank">OpenAI API key</a>
+- Outbound internet access to `api.open-meteo.com` for the sample's weather data (no API key needed)
 
 ## Getting started
 
@@ -130,6 +131,8 @@ Before you begin, you'll need the following:
 
     <Step>
         <OpenInspectorStep components={props.components} />
+
+        The sample pins CopilotKit 1.76.0. With that version and Intelligence off, **Rich Threads** lists this session's threads with a **Make them permanent** banner instead of a locked view.
     </Step>
 
 
@@ -142,7 +145,7 @@ Before you begin, you'll need the following:
 The samples repository is a ready-made example. To expose any AG2 agent over AG-UI, install AG2 (1.1.2+) with the AG-UI and OpenAI extras and wrap the agent in `AGUIStream`:
 
 ```bash
-pip install "ag2[ag-ui,openai]>=1.1.2"
+pip install "ag2[ag-ui,openai]>=1.1.2" fastapi uvicorn
 ```
 
 ```python title="run_ag_ui.py"
@@ -193,7 +196,26 @@ app = FastAPI()
 app.mount("/chat", stream.build_asgi())
 ```
 
-Register the agent in your [Copilot Runtime](/ag2/backend/copilot-runtime) with `new HttpAgent({ url: "http://localhost:8000/chat" })`. Then the agent answers in the CopilotKit UI. See the <a href="https://docs.ag2.ai/docs/user-guide/ag-ui/" target="_blank">AG2 AG-UI integration docs</a> for supported protocol events, interrupts, capabilities, and shared-state details.
+Start the server:
+
+```bash
+export OPENAI_API_KEY=your_openai_api_key
+uvicorn run_ag_ui:app --port 8000
+```
+
+The agent is now served at `http://localhost:8000/chat`. Register it in your [Copilot Runtime](/ag2/backend/copilot-runtime) under a name, and select that name in the frontend:
+
+```ts title="app/api/copilotkit/[[...slug]]/route.ts"
+agents: {
+  support_bot: new HttpAgent({ url: "http://localhost:8000/chat" }),
+},
+```
+
+```tsx
+<CopilotKit runtimeUrl="/api/copilotkit" agent="support_bot">
+```
+
+With the `build_asgi()` version, use `http://localhost:8000/chat/` (with the trailing slash). Without it, the server answers each run with a redirect first. Then the agent answers in the CopilotKit UI. See the <a href="https://docs.ag2.ai/docs/user-guide/ag-ui/" target="_blank">AG2 AG-UI integration docs</a> for supported protocol events, interrupts, capabilities, and shared-state details.
 
 ## What's next?
 

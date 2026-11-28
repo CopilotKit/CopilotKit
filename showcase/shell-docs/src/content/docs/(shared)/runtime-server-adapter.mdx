@@ -19,6 +19,26 @@ This guide covers the TypeScript runtime, which works with or without Intelligen
 | **Express** | `@copilotkit/runtime/v2/express` | `createCopilotExpressHandler` |
 | **Hono** | `@copilotkit/runtime/v2/hono` | `createCopilotHonoHandler` |
 
+## Install and run
+
+Install the runtime in your server project:
+
+```bash
+npm install @copilotkit/runtime        # Node.js, Express, Hono, Workers, Next.js, React Router, TanStack Start
+bun add @copilotkit/runtime            # Bun, Elysia
+deno add npm:@copilotkit/runtime       # Deno
+```
+
+Express and Hono also need their own package (see their sections). Start each server with its usual command:
+
+| Platform | Run |
+| --- | --- |
+| Node.js HTTP, Express, Hono | `npx tsx server.ts` |
+| Bun, Elysia | `bun server.ts` |
+| Deno | `deno run --allow-net --allow-env --allow-read server.ts` |
+| Cloudflare Workers | `npx wrangler dev` |
+| Next.js, React Router, TanStack Start | `npm run dev` |
+
 ## Multi-Route vs Single-Route
 
 The runtime supports two endpoint modes:
@@ -258,6 +278,8 @@ Deno.serve({ port: 4000 }, (request) => {
   ```
 </Callout>
 
+Set the key with `npx wrangler secret put OPENAI_API_KEY`. For local `wrangler dev`, put it in `.dev.vars`. The examples pass `env.OPENAI_API_KEY` to the agent.
+
 <Tabs groupId="runtime-mode" items={["Multi-route", "Single-route", "Existing worker"]}>
 <Tab value="Multi-route">
 ```ts title="src/index.ts"
@@ -271,7 +293,7 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const runtime = new CopilotRuntime({
       agents: {
-        default: new BuiltInAgent({ model: "openai/gpt-6-luna" }),
+        default: new BuiltInAgent({ model: "openai/gpt-6-luna", apiKey: env.OPENAI_API_KEY }),
       },
     });
 
@@ -299,7 +321,7 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const runtime = new CopilotRuntime({
       agents: {
-        default: new BuiltInAgent({ model: "openai/gpt-6-luna" }),
+        default: new BuiltInAgent({ model: "openai/gpt-6-luna", apiKey: env.OPENAI_API_KEY }),
       },
     });
 
@@ -332,7 +354,7 @@ export default {
     if (url.pathname.startsWith("/api/copilotkit")) {
       const runtime = new CopilotRuntime({
         agents: {
-          default: new BuiltInAgent({ model: "openai/gpt-6-luna" }),
+          default: new BuiltInAgent({ model: "openai/gpt-6-luna", apiKey: env.OPENAI_API_KEY }),
         },
       });
 
@@ -389,7 +411,7 @@ const runtime = new CopilotRuntime({
   },
 });
 
-// Single-route: only POST needed, no catch-all [...path] required
+// Single-route: only POST needed
 const handler = createCopilotRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
@@ -400,7 +422,7 @@ export { handler as POST };
 ```
 
 <Callout type="info">
-In single-route mode, no `[...path]` catch-all is needed. Everything goes through a single `POST /api/copilotkit`.
+In single-route mode, everything goes through a single `POST /api/copilotkit`. The optional catch-all `[[...slug]]` also matches that bare path, so `app/api/copilotkit/route.ts` works too.
 </Callout>
 </Tab>
 </Tabs>
@@ -411,7 +433,23 @@ No `cors: true` needed for Next.js. Same-origin requests don't require CORS head
 
 ## React Router (Framework Mode)
 
-React Router v7 in framework mode uses file-based routing with Fetch API handlers. The CopilotKit handler works directly as a resource route.
+React Router v7 in framework mode uses Fetch API handlers. The CopilotKit handler works directly as a resource route.
+
+The default `npx create-react-router@latest` app lists its routes in `app/routes.ts`, so a new route file does nothing until you register it there:
+
+```ts title="app/routes.ts"
+import { type RouteConfig, index, route } from "@react-router/dev/routes";
+
+export default [
+  index("routes/home.tsx"),
+  // Multi-route:
+  route("api/copilotkit/*", "routes/api.copilotkit.$.ts"),
+  // Single-route (use this line instead):
+  // route("api/copilotkit", "routes/api.copilotkit.ts"),
+] satisfies RouteConfig;
+```
+
+If your app uses `flatRoutes()` from `@react-router/fs-routes`, the file name alone registers the route. The `./+types/...` import in each file resolves after the route is registered.
 
 <Tabs groupId="runtime-mode" items={["Multi-route", "Single-route"]}>
 <Tab value="Multi-route">
@@ -896,7 +934,7 @@ const runtime = new CopilotRuntime({
   },
 });
 
-// Single-route: one POST endpoint, no wildcard needed
+// Single-route: one endpoint, no wildcard needed
 const handler = createCopilotRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
@@ -905,7 +943,8 @@ const handler = createCopilotRuntimeHandler({
 });
 
 new Elysia()
-  .post("/api/copilotkit", ({ request }) => handler(request))
+  // .all() so the CORS preflight (OPTIONS) reaches the handler
+  .all("/api/copilotkit", ({ request }) => handler(request))
   .listen(4000);
 ```
 </Tab>
@@ -1039,6 +1078,8 @@ Once your runtime is running, point your frontend at it:
 
 <FrontendOnly frontend="react">
 ```tsx
+import { CopilotKit } from "@copilotkit/react-core/v2";
+
 <CopilotKit runtimeUrl="http://localhost:4000/api/copilotkit">
   <YourApp />
 </CopilotKit>
@@ -1048,7 +1089,7 @@ Once your runtime is running, point your frontend at it:
   Both `<CopilotKit>` and `<CopilotKitProvider>` detect the mode. Set
   `useSingleEndpoint` only to pin it, and then match your handler: `true` for
   single-route, `false` for multi-route. If the two do not match, the startup
-  `/info` request returns a `404`.
+  `/info` request fails with a `404` or `405`.
 </Callout>
 </FrontendOnly>
 

@@ -75,10 +75,15 @@ Use this prompt to connect your agent to Microsoft Teams, start the runner, and 
   <Step>
     ### Connect your agent backend
 
-    The selector's **Agent backend** controls the setup below. It must export a
-    fresh `makeAgent(threadId)` result for each Teams conversation.
+    Create `agent.ts`. It must export a `makeAgent(threadId)` function that
+    returns a new agent for each Teams conversation. Do not share one stateful
+    agent instance across threads.
 
-    <FrameworkSetup concept="channels-agent-setup" />
+    The setup below is for the backend chosen in the **Agent framework**
+    selector at the top of the sidebar. The default is the Built-in Agent. To
+    use another backend, change the selector first.
+
+    <FrameworkSetup concept="channels-agent-setup" currentFramework="built-in-agent" />
 
   </Step>
 
@@ -189,7 +194,9 @@ Use this prompt to connect your agent to Microsoft Teams, start the runner, and 
     ```dotenv title=".env"
     CPK_INTELLIGENCE_API_KEY=<project-api-key>
     CHANNEL_CODE=support-teams
-    # Add the agent variables shown for your selected backend.
+    # Built-in Agent: your model provider key.
+    # Another backend: use the variables from step 2 instead.
+    OPENAI_API_KEY=<your-openai-key>
     PORT=3001
 
     # Optional paired overrides for self-hosted or non-production Intelligence:
@@ -222,13 +229,15 @@ Use this prompt to connect your agent to Microsoft Teams, start the runner, and 
     `/runner`, or `/client`. Create the project-scoped runtime key from **API
     Keys** in the Intelligence project sidebar.
 
-    Start the selected agent backend, then run:
+    1. Add `.env` to `.gitignore`.
+    2. Start the selected agent backend.
+    3. Start the runner:
 
-    ```bash title="Terminal"
-    node --env-file=.env --import tsx channel.ts
-    ```
+       ```bash title="Terminal"
+       node --env-file=.env --import tsx channel.ts
+       ```
 
-    Intelligence should report **Online**.
+    Intelligence should change from **Waiting for runtime** to **Online**.
 
     #### Know the healthy state
 

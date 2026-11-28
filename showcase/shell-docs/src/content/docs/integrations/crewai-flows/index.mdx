@@ -74,7 +74,9 @@ import { HttpAgent } from "@ag-ui/client";
 
 const runtime = new CopilotRuntime({
   agents: {
-    my_agent: new HttpAgent({ url: process.env.AGENT_URL! }),
+    // The URL of your ag_ui_crewai server: the path you passed to
+    // add_crewai_flow_fastapi_endpoint, for example http://127.0.0.1:8000/
+    my_flow: new HttpAgent({ url: process.env.AGENT_URL ?? "http://127.0.0.1:8000/" }),
   },
 });
 

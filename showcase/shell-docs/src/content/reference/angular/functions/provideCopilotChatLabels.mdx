@@ -11,6 +11,8 @@ Add it to an application or component `providers` array. Components read the mer
 
 The full set of defaults lives in `COPILOT_CHAT_DEFAULT_LABELS`. Any field you omit falls back to its default value.
 
+Six labels below are marked "Added in the release after 0.6.0". On `@copilotkit/angular` 0.6.0, passing them is a TypeScript error and has no effect.
+
 ## Signature
 
 ```ts
@@ -47,7 +49,7 @@ function provideCopilotChatLabels(
     Label for the tools button.
   </PropertyReference>
   <PropertyReference name="chatInputToolbarSendButtonLabel" type="string" default="Send message">
-    Accessible name of the send button.
+    Accessible name of the send button. Added in the release after 0.6.0.
   </PropertyReference>
   <PropertyReference name="assistantMessageToolbarCopyCodeLabel" type="string" default="Copy">
     Label for the copy-code action on an assistant message.
@@ -77,25 +79,25 @@ function provideCopilotChatLabels(
     Label for the edit-message action on a user message.
   </PropertyReference>
   <PropertyReference name="userMessageToolbarPreviousBranchLabel" type="string" default="Previous message branch">
-    Accessible name of the button that shows the previous branch of a user message.
+    Accessible name of the button that shows the previous branch of a user message. Added in the release after 0.6.0.
   </PropertyReference>
   <PropertyReference name="userMessageToolbarNextBranchLabel" type="string" default="Next message branch">
-    Accessible name of the button that shows the next branch of a user message.
+    Accessible name of the button that shows the next branch of a user message. Added in the release after 0.6.0.
   </PropertyReference>
   <PropertyReference name="chatDisclaimerText" type="string" default="AI can make mistakes. Please verify important information.">
     Disclaimer text shown beneath the chat.
   </PropertyReference>
   <PropertyReference name="chatScrollToBottomLabel" type="string" default="Scroll to bottom">
-    Accessible name of the scroll-to-bottom button.
+    Accessible name of the scroll-to-bottom button. Added in the release after 0.6.0.
   </PropertyReference>
   <PropertyReference name="welcomeMessageText" type="string" default="How can I help you today?">
     The welcome message shown before the conversation starts.
   </PropertyReference>
   <PropertyReference name="reasoningMessageThinkingLabel" type="string" default="Thinking…">
-    Reasoning header text while the model is reasoning.
+    Reasoning header text while the model is reasoning. Added in the release after 0.6.0.
   </PropertyReference>
   <PropertyReference name="attachmentRemoveButtonLabel" type="string" default="Remove attachment">
-    Accessible name of the button that removes a queued attachment.
+    Accessible name of the button that removes a queued attachment. Added in the release after 0.6.0.
   </PropertyReference>
 </PropertyReference>
 

@@ -102,6 +102,16 @@ The first `pnpm dev` creates `.env`, installs the Python agent with uv and stops
 it and run `pnpm dev` again. Open [http://localhost:3000](http://localhost:3000), type your name in the navbar, and
 click the **google-gemini/genai-processors** card.
 
+To try the UI without a Gemini key, run the example's scripted model. It replays the agent's decisions for the
+**google-gemini/genai-processors** card:
+
+```bash
+pnpm mock-model                                                            # terminal 1, serves on :4010
+GOOGLE_GEMINI_BASE_URL=http://127.0.0.1:4010 GEMINI_API_KEY=mock pnpm dev   # terminal 2
+```
+
+The app uses ports 3000 (web) and 8000 (agent). Free them before you start.
+
 The steps below build the same app one piece at a time. Every snippet comes from the example, and each title is the
 file it lives in, so you can open the full file next to the page. A `# ...` or `// ...` line marks code left out.
 
@@ -116,13 +126,20 @@ Repo Doctor is two processes: a Next.js app with the chat and Copilot Runtime, a
 in `agent/`. Start with the Next.js app and the CopilotKit packages, at the versions the example uses:
 
 ```bash
-pnpm create next-app@16.4.1 repo-doctor --yes
+pnpm create next-app@16.4.1 repo-doctor --yes --src-dir
 cd repo-doctor
-pnpm add @copilotkit/react-core@1.79.0 @copilotkit/runtime@1.79.0 @copilotkit/a2ui-renderer@1.79.0 @ag-ui/client@1.0.2 zod@3.25.76
+pnpm add @copilotkit/react-core@1.79.0 @copilotkit/runtime@1.79.0 @copilotkit/a2ui-renderer@1.79.0 @ag-ui/client@1.0.2 zod@3.25.76 clsx@2.1.1 lucide-react@1.57.0 shiki@4.5.0 strip-ansi@7.2.0 tailwind-merge@3.7.0
 ```
 
+`--src-dir` puts the app in `src/` and points the `@/*` alias at `./src/*`, so the file paths below match.
 `@copilotkit/a2ui-renderer` draws the test results card, and `@ag-ui/client` connects the runtime to the Python agent.
-The A2UI catalog needs zod 3, so `zod` stays on 3.25.76.
+The A2UI catalog needs zod 3, so `zod` stays on 3.25.76. The last five packages are used by the UI components.
+
+In the generated `next.config.ts`, delete the lines `cacheComponents: true,` and `partialPrefetching: true,`, and add
+`serverExternalPackages: ["@copilotkit/runtime"],`. This turns off Cache Components and keeps the runtime out of the
+bundle, as the example's
+[next.config.ts](https://github.com/CopilotKit/CopilotKit/tree/main/examples/showcases/antigravity-repo-doctor/next.config.ts)
+does.
 
 The provider wraps the app. It points at the runtime route, registers the A2UI catalog for the test results card
 (you'll build it in a later step), and turns on the CopilotKit Inspector in development:

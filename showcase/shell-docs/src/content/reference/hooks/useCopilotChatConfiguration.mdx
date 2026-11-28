@@ -51,6 +51,13 @@ import { CopilotChatConfigurationProvider } from "@copilotkit/react-core/v2";
   parent provider's `threadId`, or a new random UUID is generated.
 </PropertyReference>
 
+<PropertyReference name="hasExplicitThreadId" type="boolean">
+  Whether `threadId` is a caller choice. When omitted, it is `true` if you pass
+  `threadId`. A caller-chosen thread makes the chat connect to it and hide the
+  welcome screen, and it blocks `setActiveThreadId` and `startNewThread`. Pass
+  `false` to seed a thread ID that those functions can still replace.
+</PropertyReference>
+
 <PropertyReference name="isModalDefaultOpen" type="boolean" default="true">
   The initial open state of the modal. When you set it, this provider owns its
   modal state. If omitted, the provider uses the parent provider state, or
@@ -112,6 +119,23 @@ Returns `null` if used outside of a `CopilotChatConfigurationProvider`. Otherwis
   <PropertyReference name="drawerRegistered" type="boolean">
     `true` once a `CopilotThreadsDrawer` is mounted under this configuration.
     The chat header shows its threads button only while this is `true`.
+  </PropertyReference>
+
+  <PropertyReference name="hasExplicitThreadId" type="boolean">
+    `true` when the caller picked the current thread, `false` when the provider
+    created it.
+  </PropertyReference>
+
+  <PropertyReference name="setActiveThreadId" type="(threadId: string, options?: { explicit?: boolean }) => void">
+    Makes a thread active. `explicit` defaults to `true` (a picked thread). Use
+    it to build your own thread switcher. When the provider's `threadId` prop
+    is a caller choice, this does nothing and logs a warning.
+  </PropertyReference>
+
+  <PropertyReference name="startNewThread" type="() => void">
+    Switches to a fresh, non-explicit thread, so the welcome screen shows. When the
+    provider's `threadId` prop is a caller choice, this does nothing and logs a
+    warning.
   </PropertyReference>
 </PropertyReference>
 

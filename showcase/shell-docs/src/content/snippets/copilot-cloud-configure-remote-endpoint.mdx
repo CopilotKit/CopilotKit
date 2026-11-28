@@ -2,19 +2,16 @@
 To connect a FastAPI server to Copilot Cloud, you use a concept called "Remote Endpoints"
 which allow CopilotKit runtime to connect to various backends.
 
-1. Open a tunnel to your FastAPI server:
+1. Give Copilot Cloud a public URL for your FastAPI server. If the server is hosted, use its address.
+   If it runs locally, expose its port with a tunnel tool such as [ngrok](https://ngrok.com/docs/getting-started/):
 
    ```sh
-   npx copilotkit@latest dev --port <port_number>
+   ngrok http <port_number>
    ```
-
-   <Callout title="No tunnel?">
-     If your FastAPI server is hosted, skip this step. In step 4, use the address of your hosted server.
-   </Callout>
 
 2. <LinkToCopilotCloud asButton={false}>Navigate to Copilot Cloud</LinkToCopilotCloud>. Under **Remote Endpoints**, click **+ Add New**.
 3. Select **CopilotKit Remote Endpoint**.
-4. In **Remote Endpoint Base URL**, enter the tunnel URL plus the path of your CopilotKit endpoint, for example `https://<tunnel-url>/copilotkit`.
+4. In **Remote Endpoint Base URL**, enter the public URL plus the path of your CopilotKit endpoint, for example `https://<public-url>/copilotkit`.
 5. Click **Test Endpoint**. When the test passes, click **Save Remote Endpoint**.
 
 <Frame className="mt-4">

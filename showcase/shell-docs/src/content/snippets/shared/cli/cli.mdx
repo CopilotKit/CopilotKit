@@ -142,7 +142,11 @@ The CLI checks Docker, gets an evaluation license for your organization, install
 
 ## Import and synchronize historical conversations
 
-To import ADK or LangGraph history into your project, run a dry run first:
+To import ADK or LangGraph history into your project, run a dry run first.
+Set the source's variables before you run it:
+
+- LangGraph: `LANGGRAPH_API_URL` (your LangGraph Server or LangSmith deployment URL) and `LANGSMITH_API_KEY` or `LANGGRAPH_API_KEY`.
+- ADK: `ADK_SOURCE_BACKEND` (`database` or `vertex`), `ADK_IMPORT_SCOPES` (`app:user` selectors), and `ADK_DATABASE_CONNECTION_STRING` for a database or the `ADK_VERTEX_*` variables for Vertex.
 
 <Tabs groupId="cli-import-source" items={["ADK", "LangGraph"]}>
   <Tab value="ADK">
@@ -161,6 +165,11 @@ To import ADK or LangGraph history into your project, run a dry run first:
   </Tab>
 </Tabs>
 
+`--source` also accepts `mastra`, `strands-typescript`, `strands-python`,
+`claude-agent-sdk-python`, `claude-agent-sdk-typescript`, and
+`claude-managed-agents`. Run `npx copilotkit@latest import --help` for each
+source's settings.
+
 The dry run shows the source agent keys, conversation counts, skips, and the estimated upload size. It does not open an import batch. For the full import flow, see [Add AG-UI Streams to Existing Threads](/threads-import). Source-specific setup lives in [Add AG-UI streams to ADK sessions](/google-adk/threads-import) and [Add AG-UI streams to LangGraph threads](/langgraph-python/threads-import).
 
 ## Verify your setup
@@ -173,12 +182,16 @@ runtime on a remote host.
 npx copilotkit@latest verify
 ```
 
-It checks that:
+For a hosted (Intelligence) app, it checks that:
 
 - A cloud-hosted project is selected.
 - A project API key authenticates.
 - The runtime responds.
 - The runtime declares at least one agent.
+
+For an open-source app, it checks that the runtime responds and declares an
+agent, that the installed packages match the runtime, and that the agent
+answers a real request.
 
 It reports the runtime version, the agent framework, the gateway wiring, and
 the license state.
@@ -207,15 +220,16 @@ npx copilotkit@latest verify --round-trip
   identically.
 
   Because it runs the agent, it costs a model call and records a thread. That is
-  why it is opt-in rather than the default.
+  why it is opt-in for a hosted app. For an open-source runtime (no Intelligence
+  project), `verify` always runs the round trip, so it makes one model call.
 </Callout>
 
 | Option | What it does |
 |---|---|
-| `--runtime-url <url>` | The runtime endpoint to probe. Default `http://localhost:3000/api/copilotkit`. Pass this whenever your runtime is elsewhere. |
+| `--runtime-url <url>` | The runtime endpoint to probe. Without it, `verify` reads `runtimeUrl` from `.copilotkit/project.json`, then `COPILOTKIT_RUNTIME_URL`, then your dev server port, and falls back to `http://localhost:3000/api/copilotkit`. |
 | `--round-trip` | Also run the agent and read its answer back. |
 | `--agent <id>` | Which declared agent to run, when the runtime declares several. |
-| `--expect-runtime <mode>` | `intelligence` or `oss`. Without it, an app with no project, no Intelligence key, and no Intelligence client is checked as `oss`. With `oss`, cloud-hosted project and credential checks do not apply, and the command passes only with `--round-trip --agent <id>`. |
+| `--expect-runtime <mode>` | `intelligence` or `oss`. Without it, an app with no project, no Intelligence key, and no Intelligence client is checked as `oss`. With `oss`, cloud-hosted project and credential checks do not apply, and the command passes only when the round trip passes. Add `--agent <id>` when the runtime declares more than one agent. |
 | `--timeout <seconds>` | How long to wait for the answer. Default `90`. |
 | `--header "<name>: <value>"` | Extra request header, repeatable. Use it when your `identifyUser` reads a session the CLI does not carry. |
 | `--json` | Emit a machine-readable payload alone on stdout. |

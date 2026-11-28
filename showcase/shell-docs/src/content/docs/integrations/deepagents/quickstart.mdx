@@ -29,6 +29,8 @@ Before you begin, you'll need the following:
         ### Set up CopilotKit Intelligence
 
         <SignupLink surface="docs_deepagents_quickstart_step1">Sign in to cloud-hosted Intelligence</SignupLink>. Cloud-hosted setup uses a server-side project API key and does not issue `COPILOTKIT_LICENSE_TOKEN`. You will connect the app after you create it below.
+
+        Intelligence adds persistent threads and unlocks the Inspector. Chat works without it: skip this step and follow **Running without CopilotKit Intelligence?** in the **Setup Copilot Runtime** step.
     </Step>
 
     <Step>
@@ -165,15 +167,18 @@ Before you begin, you'll need the following:
                 </Callout>
             </Tab>
             <Tab value="FastAPI">
-                Add the `ag-ui-langgraph`, `fastapi`, and `uvicorn` packages:
+                Add the `ag-ui-langgraph`, `fastapi`, `uvicorn`, and `python-dotenv` packages:
 
                 ```bash
-                uv add ag-ui-langgraph fastapi uvicorn
+                uv add ag-ui-langgraph fastapi uvicorn python-dotenv
                 ```
 
-                Create a Deep Agent and expose it as an AG-UI endpoint:
+                Create a Deep Agent and expose it as an AG-UI endpoint. `load_dotenv()` reads `OPENAI_API_KEY` from the `.env` file that you create in the next step:
 
                 ```python title="main.py"
+                from dotenv import load_dotenv
+                load_dotenv()
+
                 from ag_ui_langgraph import add_langgraph_fastapi_endpoint
                 from copilotkit import CopilotKitMiddleware, LangGraphAGUIAgent
                 from deepagents import create_deep_agent
@@ -240,22 +245,25 @@ Before you begin, you'll need the following:
     <Step>
         ### Create your frontend
 
-        CopilotKit works with any React-based frontend. This example uses Next.js.
+        CopilotKit works with any React-based frontend. This example uses Next.js. Create the app next to `my-agent`, not inside it, so the agent's file watcher does not watch the frontend:
 
         ```bash
-        npx create-next-app@latest frontend
+        cd ..
+        npx create-next-app@latest frontend --yes
         cd frontend
         ```
+
+        `--yes` uses the recommended defaults (TypeScript, Tailwind, App Router) and skips the prompts.
     </Step>
     <Step>
         ### Install CopilotKit packages
 
         ```npm
-        npm install @copilotkit/react-core @copilotkit/runtime @ag-ui/client@1.0.2
+        npm install @copilotkit/react-core @copilotkit/runtime @ag-ui/client
         ```
 
         The **FastAPI** route below imports `HttpAgent` from `@ag-ui/client`.
-        Version `1.0.2` matches the one `@copilotkit/runtime` uses.
+        It must be the same version that `@copilotkit/runtime` uses. Two versions make TypeScript report that `HttpAgent` is not assignable to `AbstractAgent`. Run `npm ls @ag-ui/client`: the top-level copy must be the version that `@copilotkit/runtime` lists as `deduped`.
     </Step>
     <Step>
         ### Setup Copilot Runtime
@@ -270,6 +278,16 @@ Before you begin, you'll need the following:
             If you'd rather skip the Next.js API proxy, see LangChain's
             [CopilotKit integration guide](https://docs.langchain.com/oss/python/langchain/frontend/integrations/copilotkit)
             for how to add a custom CopilotKit route directly to your LangGraph deployment.
+        </Callout>
+
+        <Callout type="info" title="Running without CopilotKit Intelligence?">
+          Drop the `intelligence` and `identifyUser` options from the route below and skip
+          `npx copilotkit@latest project select`. The runtime falls back to SSE mode with an
+          in-memory runner. Chat still works, but Threads and the Inspector stay locked. If you
+          keep `intelligence` without a key, the runtime throws
+          ``CopilotKitIntelligence `apiKey` is required`` when it loads, and the chat shows nothing.
+          See [Connect your runtime to Intelligence](/intelligence/quickstart) for the full
+          constructor and how to confirm the key is in use.
         </Callout>
 
         <Tabs groupId="deployment_method" items={['Deep Agent', 'FastAPI']}>
@@ -362,14 +380,6 @@ Before you begin, you'll need the following:
         ```plaintext title=".env"
         CPK_INTELLIGENCE_API_KEY=cpk-...
         ```
-
-        <Callout type="info" title="Running without CopilotKit Intelligence?">
-          Drop the `intelligence` and `identifyUser` options and the runtime falls back
-          to SSE mode with an in-memory runner. Chat still works, but Threads and the
-          Inspector stay locked and the key is never read. See
-          [Connect your runtime to Intelligence](/intelligence/quickstart) for the
-          full constructor and how to confirm the key is in use.
-        </Callout>
     </Step>
     <Step>
         ### Configure CopilotKit Provider
@@ -393,6 +403,7 @@ Before you begin, you'll need the following:
         Render the provider from `app/layout.tsx`:
 
         ```tsx title="app/layout.tsx"
+        import { Suspense } from "react";
         import { Providers } from "./providers";
         import "@copilotkit/react-core/v2/styles.css";
 
@@ -402,14 +413,18 @@ Before you begin, you'll need the following:
             return (
                 <html lang="en">
                     <body>
-                        <Providers>
-                            {children}
-                        </Providers>
+                        <Suspense>
+                            <Providers>
+                                {children}
+                            </Providers>
+                        </Suspense>
                     </body>
                 </html>
             );
         }
         ```
+
+        `<Suspense>` keeps `npm run build` working when `next.config.ts` sets `cacheComponents: true`, the `create-next-app` default in Next.js 16. Without it, the build fails with `encountered the unstable value Date.now()`.
 
         <Callout type="info" title="This relative runtimeUrl assumes Next.js serves the runtime">
           `/api/copilotkit` resolves only because Next.js serves your app and the runtime from the
@@ -459,13 +474,13 @@ Before you begin, you'll need the following:
         <Tabs groupId="deployment_method" items={['Deep Agent', 'FastAPI']}>
             <Tab value="Deep Agent">
                 ```bash
-                cd ..
+                cd ../my-agent
                 npx @langchain/langgraph-cli dev --port 8123 --no-browser
                 ```
             </Tab>
             <Tab value="FastAPI">
                 ```bash
-                cd ..
+                cd ../my-agent
                 uv run main.py
                 ```
             </Tab>
@@ -481,7 +496,7 @@ Before you begin, you'll need the following:
     <Step>
         ### Start your UI
 
-        In a separate terminal, navigate to your frontend directory and start the development server:
+        In a separate terminal, go to the folder that holds `my-agent` and `frontend`, then start the development server:
 
         <Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn', 'bun']}>
             <Tab value="npm">

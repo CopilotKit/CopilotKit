@@ -56,7 +56,7 @@ history:
 
 To keep history, pick the runner for your deployment:
 
-- One instance that must keep history across restarts: `SqliteAgentRunner` from `@copilotkit/sqlite-runner`.
+- One instance that must keep history across restarts: `SqliteAgentRunner` from `@copilotkit/sqlite-runner`. See [Keep history across restarts](#keep-history-across-restarts).
 - Several instances: CopilotKit Intelligence's `IntelligenceAgentRunner`, or your own runner backed by a shared datastore.
 
 <Callout type="warn" title="Thread routes are scoped to a user only with `identifyUser`">
@@ -77,9 +77,10 @@ the `/v2` runtime. See [Thread authorization](/auth#thread-authorization).
 A runner serves the thread routes from its local store only when it opts in.
 `InMemoryAgentRunner` does, along with anything extending it such as
 `AgentCoreRunner`. `SqliteAgentRunner` enforces the same owners for runs but
-opts out of local read routes, so those return `422`.
-`IntelligenceAgentRunner` scopes every thread route and the stop route to the
-user that `identifyUser` returns.
+opts out of local read routes, so those return `422`. The `422` error body
+mentions Intelligence. That is expected: you do not need Intelligence to run
+`SqliteAgentRunner`. `IntelligenceAgentRunner` scopes every thread route and the
+stop route to the user that `identifyUser` returns.
 </Callout>
 
 ### Stored message history
@@ -108,6 +109,8 @@ const runtime = new CopilotRuntime({
   // Explicit, but this is also the default if omitted:
   runner: new InMemoryAgentRunner(),
 });
+
+// ...keep your createCopilotRuntimeHandler and GET/POST/PATCH/DELETE exports
 ```
 
 <Callout type="info">
@@ -152,6 +155,8 @@ const runtime = new CopilotRuntime({
     maxBytes: 128 * 1024 ** 2, // 128 MiB
   }),
 });
+
+// ...keep your createCopilotRuntimeHandler and GET/POST/PATCH/DELETE exports
 ```
 
 | Option | Default | What it bounds |
@@ -210,19 +215,24 @@ re-sets and runners that pass only `onConcurrentRun`. Configure one consistent
 set of limits per process.
 </Callout>
 
+## Keep history across restarts
+
 Bounding prevents the crash. It does not make the runner durable. If losing
 history is unacceptable, move to a durable backend. On a single instance, use
 the first-party `SqliteAgentRunner`. It persists thread runs to a SQLite file,
 so history survives restarts:
 
-1. Install the runner and its `better-sqlite3` peer dependency:
+1. Install the runner and its `better-sqlite3` peer dependency, and create the
+   folder for the database file:
 
    ```bash
    npm install @copilotkit/sqlite-runner better-sqlite3
+   mkdir -p data
    ```
 
 2. Pass a `SqliteAgentRunner` as `runner`, with a file path as `dbPath`. The
-   default `dbPath` is `:memory:`, which keeps nothing after a restart.
+   default `dbPath` is `:memory:`, which keeps nothing after a restart. The
+   folder in `dbPath` must exist. `SqliteAgentRunner` does not create it.
 
    ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
    import { CopilotRuntime, BuiltInAgent } from "@copilotkit/runtime/v2";
@@ -232,6 +242,8 @@ so history survives restarts:
      agents: { default: new BuiltInAgent({ model: "openai/gpt-6-luna" }) },
      runner: new SqliteAgentRunner({ dbPath: "./data/threads.db" }),
    });
+
+   // ...keep your createCopilotRuntimeHandler and GET/POST/PATCH/DELETE exports
    ```
 
 For durability across horizontally scaled instances, move to CopilotKit

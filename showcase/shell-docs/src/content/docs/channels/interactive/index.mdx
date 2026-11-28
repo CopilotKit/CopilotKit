@@ -41,7 +41,8 @@ message ref; in that case, `message.ref.id` is empty.
 
 ## Enable Channels JSX
 
-The package is ESM-only. Keep `"type": "module"` in `package.json` and add:
+The package is ESM-only. Keep `"type": "module"` in `package.json`. Add the
+`jsx` and `jsxImportSource` lines to the `tsconfig.json` from Connect:
 
 ```json title="tsconfig.json"
 {
@@ -52,7 +53,9 @@ The package is ESM-only. Keep `"type": "module"` in `package.json` and add:
     "jsx": "react-jsx",
     "jsxImportSource": "@copilotkit/channels",
     "strict": true,
-    "noEmit": true
+    "skipLibCheck": true,
+    "noEmit": true,
+    "types": ["node"]
   },
   "include": ["*.ts", "*.tsx"]
 }
@@ -149,6 +152,15 @@ export function ApprovalCard({ summary }: { summary: string }) {
 }
 ```
 
+Then update the Channel from Connect:
+
+1. Rename `channel.ts` to `channel.tsx`, so the file can hold JSX.
+2. Keep the runtime, `createCopilotNodeListener`, and shutdown code from Connect.
+3. Replace the Channel declaration and its handlers with the code below. The
+   `onMessage` handler is required: the Channel does not start without
+   `onMessage` or `onMention`.
+4. Start the runner with `node --env-file=.env --import tsx channel.tsx`.
+
 <FrontendOnly frontend="slack">
 
 ```tsx title="channel.tsx"
@@ -167,6 +179,10 @@ const channel = createChannel({
   identifyUser: "platform",
   agent: makeAgent,
   components: [ApprovalCard],
+});
+
+channel.onMessage(async ({ thread }) => {
+  await thread.runAgent();
 });
 
 channel.onInterrupt<{ summary: string }>(
@@ -197,6 +213,10 @@ const channel = createChannel({
   identifyUser: "platform",
   agent: makeAgent,
   components: [ApprovalCard],
+});
+
+channel.onMessage(async ({ thread }) => {
+  await thread.runAgent();
 });
 
 channel.onInterrupt<{ summary: string }>(

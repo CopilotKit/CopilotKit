@@ -5,13 +5,19 @@ icon: "lucide/Component"
 snippet_cell: declarative-json-render
 ---
 
+You have a chat surface and you want the agent to draw a dashboard from a typed JSON spec. By the end of this guide, the agent will emit a `{ root, elements }` object, and [`@json-render/react`](https://www.npmjs.com/package/@json-render/react) will render it through your React component registry:
+
+- The **catalog** (`catalog.ts`) names the components the agent may use, with a Zod schema for the props of each.
+- The **registry** (`registry.tsx`) maps each catalog name to a React component.
+- The **spec** is the `{ root, elements }` object that the agent sends.
+
+The demo below has all the frontend files. Copy them into `app/demos/declarative-json-render/`, then add the runtime from [Backend](#backend).
+
 <InlineDemo
   demo="declarative-json-render"
   showAllFiles
-  llmFiles="src/app/demos/declarative-json-render/chat.tsx,src/app/demos/declarative-json-render/json-render-renderer.tsx,src/app/demos/declarative-json-render/catalog.ts,src/app/demos/declarative-json-render/registry.tsx"
+  llmFiles="src/app/demos/declarative-json-render/page.tsx,src/app/demos/declarative-json-render/chat.tsx,src/app/demos/declarative-json-render/json-render-renderer.tsx,src/app/demos/declarative-json-render/catalog.ts,src/app/demos/declarative-json-render/registry.tsx,src/app/demos/declarative-json-render/metric-card.tsx,src/app/demos/declarative-json-render/types.ts,src/app/demos/declarative-json-render/suggestions.ts,src/app/demos/declarative-json-render/charts/bar-chart.tsx,src/app/demos/declarative-json-render/charts/pie-chart.tsx,src/app/demos/declarative-json-render/charts/chart-config.ts"
 />
-
-You have a chat surface and you want the agent to draw a dashboard from a typed JSON spec. By the end of this guide, the agent will emit a `{ root, elements }` object, and [`@json-render/react`](https://www.npmjs.com/package/@json-render/react) will render it through your React component registry.
 
 ## When to use this
 
@@ -23,13 +29,13 @@ If you'd rather have a streaming progressive render than a one-shot JSON render,
 
 ## Frontend
 
-The demos use `@json-render/react` and `@json-render/core` 0.18.0, with Zod 4 for the catalog. Demos that also use Zod 3 import Zod 4 through the `zod4` package alias. To install that setup:
+The demos use `@json-render/react` and `@json-render/core` 0.18.0, with Zod 4 for the catalog. `catalog.ts` imports Zod 4 from `"zod"`:
 
 ```bash
-npm install @json-render/core@0.18.0 @json-render/react@0.18.0 zod4@npm:zod@^4.3.6
+npm install @json-render/core@0.18.0 @json-render/react@0.18.0 zod@^4.3.6
 ```
 
-If the `catalog.ts` that you copy imports Zod 4 under a different name, such as `zod-v4` or `zod`, install it under that name: `zod-v4@npm:zod@^4.3.6` or `zod@^4.3.6`. Use the latest Zod 4. If your Zod 4 is older than the one json-render installs, the catalog does not type-check.
+If your app must keep Zod 3 as `zod`, install Zod 4 under an alias, `zod4@npm:zod@^4.3.6`, and change the import in `catalog.ts` to `from "zod4"`. Use the latest Zod 4. If your Zod 4 is older than the one json-render installs, the catalog does not type-check.
 
 1. Copy `catalog.ts` and `registry.tsx`. `catalog.ts` defines component names and Zod prop schemas with `defineCatalog`. `registry.tsx` uses `defineRegistry(catalog, ...)` to bind those names to React components.
 2. Copy `json-render-renderer.tsx`. It parses the assistant content and falls back to the normal assistant message until it can parse a spec:
@@ -99,6 +105,46 @@ The agent emits a `{ root, elements }` JSON object as the assistant message cont
 ```
 
 The example uses a `MetricCard` root and its registered `BarChart` child. The renderer tolerates a prose preamble or code fence around the JSON, but the agent prompts ask for plain JSON.
+
+`page.tsx` connects to `/api/copilotkit-declarative-json-render`, and `chat.tsx` to the agent `byoc_json_render`. Add that runtime, with a Built-in Agent whose prompt asks for the spec:
+
+```ts title="app/api/copilotkit-declarative-json-render/[[...slug]]/route.ts"
+import {
+  BuiltInAgent,
+  CopilotRuntime,
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
+
+const JSON_RENDER_PROMPT = `You are a sales dashboard UI generator.
+Reply with ONE JSON object and nothing else: no code fence, no text before or after it.
+The object is { "root": "<id>", "elements": { "<id>": { "type", "props", "children" } } }.
+Every id in root or in a children array must be a key of elements.
+Components (use the name as "type"):
+- MetricCard: { "label": string, "value": string, "trend": string | null }
+- BarChart: { "title": string, "description": string | null, "data": [{ "label": string, "value": number }] }
+- PieChart: { "title": string, "description": string | null, "data": [{ "label": string, "value": number }] }
+For a dashboard, use a MetricCard as root and list the charts in its children.
+Use plausible sample data when the user gives none.`;
+
+const runtime = new CopilotRuntime({
+  agents: {
+    byoc_json_render: new BuiltInAgent({
+      model: "openai:gpt-6-luna",
+      prompt: JSON_RENDER_PROMPT,
+    }),
+  },
+});
+
+const handler = createCopilotRuntimeHandler({
+  runtime,
+  basePath: "/api/copilotkit-declarative-json-render",
+});
+
+export const GET = handler;
+export const POST = handler;
+```
+
+Open `/demos/declarative-json-render` and ask for a dashboard, for example `Show me a revenue dashboard`. The metric card and its charts render in the chat.
 
 ## Comparing the two patterns
 

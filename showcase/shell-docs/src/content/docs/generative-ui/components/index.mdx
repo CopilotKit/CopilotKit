@@ -27,7 +27,7 @@ You decide what the agent can render. The agent decides what to show and fills i
 
 These steps add generative UI to a Next.js, Angular, React Native or Vue app, with an OpenAI model through TanStack AI.
 
-Already have CopilotKit running? Do step 3 only. Your runtime needs no change: when the provider sends a catalog with at least one component, the runtime gives that run a `render_ui` tool and a short guide. Your agent must pass the run's tools and context to its model, as in step 2. For a LangGraph Python agent, add `CopilotKitMiddleware`.
+Already have CopilotKit running with the Built-in Agent from the [quickstart](/quickstart)? Install `maplibre-gl` (React only, see step 1), then do step 3. Your runtime needs no change: when the provider sends a catalog with at least one component, the runtime gives that run a `render_ui` tool and a short guide. If your agent is a factory or another framework, it must also pass the run's tools and context to its model, as in step 2. For a LangGraph Python agent, add `CopilotKitMiddleware`.
 
 <Steps>
   <Step>
@@ -36,8 +36,10 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
   <Tabs groupId="frontend_framework" items={["React", "Angular", "React Native", "Vue"]} persist>
     <Tab value="React">
     ```bash
-    npm install @copilotkit/react-core @copilotkit/runtime @tanstack/ai @tanstack/ai-openai
+    npm install @copilotkit/react-core @copilotkit/runtime @tanstack/ai @tanstack/ai-openai maplibre-gl
     ```
+
+    Install `maplibre-gl` even if your agent never draws a map. Next.js and other bundlers fail to compile `standardUI` without it (`Module not found: Can't resolve 'maplibre-gl'`).
 
     Put your OpenAI key in `.env.local`:
 
@@ -300,7 +302,7 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
     }
     ```
 
-    The catalog holds React components, so the provider must be created in a client component. Wrap your layout in it, so every page shares one provider. Then put a chat on a page:
+    The catalog holds React components, so the provider must be created in a client component. Wrap your layout in it, so every page shares one provider. If you already have a layout, keep its imports (such as `./globals.css` and your fonts) and only wrap `{children}` in `<Providers>`. Then put a chat on a page:
 
     ```tsx title="app/layout.tsx"
     import { Providers } from "./providers";

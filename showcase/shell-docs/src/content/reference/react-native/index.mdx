@@ -68,20 +68,20 @@ export default function App() {
 }
 ```
 
-## Two ways to build the chat UI
+## Three ways to build the chat UI
 
-The package is organized into two tiers, so you can pick how much UI you write yourself:
+The package has three entries, so you can pick how much UI you write yourself:
 
-| Tier | Import | What you get |
+| Entry | Import | What you get |
 |------|--------|--------------|
-| **Provider and hooks only** | `@copilotkit/react-native/headless` | [`CopilotKitProvider`](/reference/react-native/components/CopilotKitProvider) and the hooks, with no chat UI and no Expo or bottom-sheet dependencies. |
-| **Headless** | `@copilotkit/react-native` | Primitives that wire up an agent and expose its state. [`CopilotChat`](/reference/react-native/components/CopilotChat) and [`CopilotModal`](/reference/react-native/components/CopilotModal) render no UI; you build the interface from React Native views. |
-| **Prebuilt UI** | `@copilotkit/react-native/components` | Drop-in chat UI: a full-screen [`CopilotChat`](/reference/react-native/components/CopilotChat#prebuilt-ui), a bottom-sheet [`CopilotModal`](/reference/react-native/components/CopilotModal#prebuilt-ui), [`CopilotMarkdown`](/reference/react-native/components/CopilotMarkdown), and [message bubbles](/reference/react-native/components/AssistantMessage). |
+| **Provider and hooks** (`/headless` entry) | `@copilotkit/react-native/headless` | [`CopilotKitProvider`](/reference/react-native/components/CopilotKitProvider) and the hooks, with no chat UI and no Expo or bottom-sheet dependencies. |
+| **Headless chat primitives** (root) | `@copilotkit/react-native` | Primitives that wire up an agent and expose its state. [`CopilotChat`](/reference/react-native/components/CopilotChat) and [`CopilotModal`](/reference/react-native/components/CopilotModal) render no UI; you build the interface from React Native views. |
+| **Prebuilt UI** (`/components` entry) | `@copilotkit/react-native/components` | Drop-in chat UI: a full-screen [`CopilotChat`](/reference/react-native/components/CopilotChat#prebuilt-ui), a bottom-sheet [`CopilotModal`](/reference/react-native/components/CopilotModal#prebuilt-ui), [`CopilotMarkdown`](/reference/react-native/components/CopilotMarkdown), and [message bubbles](/reference/react-native/components/AssistantMessage). |
 
 The root also exports two prebuilt chrome components: [`CopilotSidebar`](/reference/react-native/components/CopilotSidebar) (a slide-in drawer) and [`CopilotPopup`](/reference/react-native/components/CopilotPopup) (a floating action button + overlay).
 
 <Callout type="info">
-  `CopilotChat` and `CopilotModal` exist in **both** tiers with different
+  `CopilotChat` and `CopilotModal` exist in **both** entries with different
   props. The root exports are headless; the `/components` exports are prebuilt
   UI. Each component page documents both, disambiguated by import path.
 </Callout>

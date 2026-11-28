@@ -55,6 +55,8 @@ Your agent can answer only about data it can see. The signed-in user and the row
                   );
                 }
                 ```
+
+                Render `<YourComponent />` anywhere inside your CopilotKit provider (`<CopilotKitProvider>` in the quickstart), for example in `app/page.tsx` next to `<CopilotSidebar />`. The context is sent only while the component is mounted.
             </Step>
 
             <Step>
@@ -149,8 +151,11 @@ Your agent can answer only about data it can see. The signed-in user and the row
                     </Tab>
                     <Tab value="TypeScript">
                         ```typescript title="agent-js/src/agent.ts"
+                        import type { RunnableConfig } from "@langchain/core/runnables";
                         import { SystemMessage } from "@langchain/core/messages";
+                        import { StateSchema } from "@langchain/langgraph";
                         import { ChatOpenAI } from "@langchain/openai";
+                        import { CopilotKitStateSchema } from "@copilotkit/sdk-js/langgraph";
 
                         // add the agent state definition from the previous step
                         export const AgentStateSchema = new StateSchema({
@@ -164,9 +169,11 @@ Your agent can answer only about data it can see. The signed-in user and the row
                           const copilotKitContext = state.copilotkit.context
                           const colleaguesContextItem = copilotKitContext.find(contextItem => contextItem.description === "The current user's colleagues")
 
-                          // [!code highlight:5]
+                          // [!code highlight:7]
                           // The value is a JSON string, so parse it to read the fields
-                          const colleagues = colleaguesContextItem ? JSON.parse(colleaguesContextItem.value) : [];
+                          const colleagues: { name: string; role: string }[] = colleaguesContextItem
+                            ? JSON.parse(colleaguesContextItem.value)
+                            : [];
 
                           // Now each entry is an object, so colleague.name works
                           const colleagueList = colleagues.map((c) => `${c.name} (${c.role})`).join(", ");
@@ -189,6 +196,34 @@ Your agent can answer only about data it can see. The signed-in user and the row
                             messages: response,
                           };
                         }
+                        ```
+                    </Tab>
+                </Tabs>
+
+                Build the graph on `AgentState`. If you start from the quickstart, this replaces its `MessagesState` graph. Keep the rest of the file (the FastAPI endpoint or `langgraph.json`) as it is:
+
+                <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
+                    <Tab value="Python">
+                        ```python title="agent.py"
+                        from langgraph.graph import END, START, StateGraph
+
+                        graph = StateGraph(AgentState)
+                        graph.add_node(chat_node)
+                        graph.add_edge(START, "chat_node")
+                        graph.add_edge("chat_node", END)
+                        # On the FastAPI path, compile with a checkpointer: graph.compile(checkpointer=MemorySaver())
+                        graph = graph.compile()
+                        ```
+                    </Tab>
+                    <Tab value="TypeScript">
+                        ```typescript title="agent-js/src/agent.ts"
+                        import { END, START, StateGraph } from "@langchain/langgraph";
+
+                        export const graph = new StateGraph(AgentStateSchema)
+                          .addNode("chat_node", chat_node)
+                          .addEdge(START, "chat_node")
+                          .addEdge("chat_node", END)
+                          .compile();
                         ```
                     </Tab>
                 </Tabs>
@@ -236,6 +271,8 @@ Your agent can answer only about data it can see. The signed-in user and the row
                   );
                 }
                 ```
+
+                Render `<YourComponent />` anywhere inside your CopilotKit provider (`<CopilotKitProvider>` in the quickstart), for example in `app/page.tsx` next to `<CopilotSidebar />`. The context is sent only while the component is mounted.
             </Step>
 
             <Step>

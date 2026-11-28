@@ -47,10 +47,11 @@ Start with the verb.
 
 ### Tool vs. renderer
 
-Two hooks in this set *register a tool* the agent can call:
+Three hooks in this set *register a tool* the agent can call:
 
 - `useFrontendTool`: you give the schema and the handler.
 - `useComponent`: a tool that renders your component. It wraps `useFrontendTool`.
+- `useHumanInTheLoop`: a tool that waits for the user's answer. It also wraps `useFrontendTool`, so you do not define the tool anywhere else.
 
 The render-only hooks do not define a tool. They only *render* tool calls:
 

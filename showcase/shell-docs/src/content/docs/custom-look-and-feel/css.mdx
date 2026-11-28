@@ -44,6 +44,9 @@ on the `[data-copilotkit]` element inside its scope wrapper:
 
 <Snippet region="v2-token-overrides" title="frontend/src/app/theme.css: v2 token overrides" />
 
+The `--halcyon-*` values are the demo's own palette, defined at the top of its
+`theme.css`. Replace them with your own colors, for example `--primary: #c2410c;`.
+
 The v1 components (`@copilotkit/react-ui`) read the `--copilot-kit-*` variables
 below instead. For v1 only, you can also apply the overrides inline via the
 `CopilotKitCSSProperties` helper:
@@ -164,10 +167,17 @@ can target specific pieces of the UI from your own stylesheet:
   padding: 2rem;
 }
 
-.copilotKitUserMessage {
+.copilotKitUserMessage > [class*="bg-muted"] {
   background: #007AFF;
+  color: white;
 }
 ```
+
+In v2, `.copilotKitUserMessage` is the full-width row that right-aligns a user
+message. The visible bubble is its child with the `bg-muted` class, so the
+example targets that child. A background on `.copilotKitUserMessage` itself
+paints the whole row. With the v1 components (`@copilotkit/react-ui`),
+`.copilotKitUserMessage` is the bubble itself, so target it directly.
 
 The demo's `theme.css` wraps every selector under `.chat-css-demo-scope` so
 the overrides don't leak out. Here's the user message bubble block from
@@ -185,7 +195,7 @@ that file:
 | `.copilotKitMessages` | Main container for all chat messages |
 | `.copilotKitMessage` | Base class applied to every message bubble (user and assistant) |
 | `.copilotKitInput` | Text input container with typing area and send button |
-| `.copilotKitUserMessage` | Styling for user messages |
+| `.copilotKitUserMessage` | The row that holds a user message. In v2 the bubble is its child with the `bg-muted` class. |
 | `.copilotKitAssistantMessage` | Styling for AI responses |
 | `.copilotKitHeader` | Top bar of chat window containing title and controls |
 | `.copilotKitButton` | Primary chat toggle button |
@@ -218,6 +228,8 @@ In the v1 components (`@copilotkit/react-ui`), pass the `icons` prop to
 [slots](/custom-look-and-feel/slots).
 
 ```tsx
+import { CopilotChat } from "@copilotkit/react-ui"; // v1 only
+
 <CopilotChat
   icons={{
     openIcon: <YourOpenIconComponent />,

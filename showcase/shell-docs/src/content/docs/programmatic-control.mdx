@@ -76,7 +76,32 @@ export function AgentTrigger({ agentId }: { agentId: string }) {
 }
 ```
 
+Render the component anywhere under your CopilotKit provider. Pass the name of an agent that your runtime registers. The Built-in Agent [quickstart](/quickstart) registers `default`. Other quickstarts set the name on the provider, for example `sample_agent` for LangGraph:
+
+```tsx title="frontend/src/app/page.tsx"
+"use client";
+
+import { AgentTrigger } from "./agent-trigger";
+
+export default function Page() {
+  return <AgentTrigger agentId="default" />;
+}
+```
+
 Click **Run agent**. The agent's reply arrives in `agent.messages`. To see it, render the last message, for example `agent.messages.at(-1)?.content`.
+
+### Run a frontend tool with no model call
+
+`copilotkit.runTool` runs the handler of a registered frontend tool directly. No LLM turn happens. The tool call and its result are added to `agent.messages`:
+
+```tsx
+await copilotkit.runTool({
+  name: "change_background",
+  parameters: { background: "blue" },
+});
+```
+
+The tool must already be registered, for example with [`useFrontendTool`](/frontend-tools). Without `agentId`, `runTool` adds the messages to the agent named `default`. Pass `agentId` when your runtime registers a different name.
 
 ### `copilotkit.runAgent()` vs `agent.runAgent()`
 
@@ -93,6 +118,22 @@ object accepts every AG-UI lifecycle callback: `onCustomEvent`,
 deltas. Use it to drive custom progress UI, forward events to
 analytics, or catch framework pause/resume events and resolve them with
 a payload (the pattern below).
+
+Subscribe in an effect and return `unsubscribe` as its cleanup:
+
+```tsx
+const { agent } = useAgent(); // the agent your provider selects
+const [status, setStatus] = useState("idle");
+
+useEffect(() => {
+  const { unsubscribe } = agent.subscribe({
+    onRunStartedEvent: () => setStatus("running"),
+    onRunFinalized: () => setStatus("done"),
+    onRunFailed: () => setStatus("failed"),
+  });
+  return unsubscribe;
+}, [agent]);
+```
 
 <WhenFrameworkHas flag="interrupt_pattern" equals="native">
 
@@ -147,6 +188,18 @@ UI. To pause inside the chat instead, see [Human-in-the-Loop](/human-in-the-loop
 </WhenFrameworkHas>
 
 <WhenFrameworkHas flag="interrupt_pattern" absent>
+<WhenFrameworkHas flag="agent_config_pattern" equals="runtime-properties">
+
+## Resolving an interrupt from a button
+
+The Built-in Agent pauses on a tool that you declare with `interrupt: true`.
+The run ends with a standard AG-UI interrupt. Call `useInterrupt` with
+`renderInChat: false`, place the element it returns anywhere in your tree, and
+call `resolve(...)` from your button to resume the run. See
+[Headless Interrupts](/human-in-the-loop/headless) for the full example.
+
+</WhenFrameworkHas>
+<WhenFrameworkHas flag="agent_config_pattern" equals="shared-state">
 
 ## Resolving a pause from a button
 
@@ -161,6 +214,7 @@ UI. To pause inside the chat instead, see [Human-in-the-Loop](/human-in-the-loop
 > `copilotkit.runAgent`, and `agent.subscribe` primitives above still
 > apply. Only the interrupt-resolution path is framework-specific.
 
+</WhenFrameworkHas>
 </WhenFrameworkHas>
 
 <IntegrationGrid path="programmatic-control" />

@@ -6,18 +6,28 @@ Link your local CopilotKit packages into your own project. Then `pnpm run dev` i
 
 ## Global Package Linking With `pnpm`
 
-Use pnpm's [global linking feature](https://pnpm.io/cli/link#pnpm-link---global) to link the CopilotKit packages to your own project.
+Use pnpm's [link command](https://pnpm.io/cli/link) to link the CopilotKit packages to your own project. The commands below are for pnpm 10.
 
 <Steps>
   <Step>
   ### In The CopilotKit Monorepo
-  First, set up the monorepo with the [code contribution guide](/contributing/code-contributions).
+  First, set up and build the monorepo with the [code contribution guide](/contributing/code-contributions).
 
-Navigate to the CopilotKit monorepo and run the following command to link the packages globally:
+Global linking needs pnpm's global bin directory. Create it once, then open a new terminal:
 
 ```bash
-pnpm exec nx run-many -t link:global
+pnpm setup
 ```
+
+In the CopilotKit monorepo, register the packages globally. Run the tasks one at a time (`--parallel=1`), because parallel runs overwrite each other's global links:
+
+```bash
+pnpm exec nx run-many -t link:global --parallel=1
+```
+
+These packages can be linked this way: `react-core`, `react-ui`, `react-textarea`, `runtime`, `runtime-client-gql`, `shared`, `sdk-js`, `react-native`, and `angular`.
+
+Keep `pnpm run dev` running in the monorepo. It rebuilds the packages when you edit them, and your project picks up the new build.
 
   </Step>
   <Step>
@@ -34,33 +44,40 @@ Next, link the desired package in your project:
 <FrontendOnly frontend="react">
 ```bash
 # For example, to link the @copilotkit/react-core package:
-pnpm link --global @copilotkit/react-core
+pnpm link @copilotkit/react-core
 ```
 </FrontendOnly>
 
 <FrontendOnly frontend="angular">
 ```bash
 # Link the Angular package:
-pnpm link --global @copilotkit/angular
+pnpm link @copilotkit/angular
 ```
 </FrontendOnly>
 
-Run this for all packages, or only the ones you need. Your changes now sync to your project.
+Run this for each package you want to test. To check the link, resolve the package folder. It prints a path inside your CopilotKit monorepo, such as `.../CopilotKit/packages/react-core`:
+
+```bash
+readlink -f node_modules/@copilotkit/react-core
+```
 
   </Step>
   <Step>
   ### Unlinking
-  When you are done, undo the global linking. Run this command in the CopilotKit monorepo:
+  When you link a package, pnpm adds a line such as `'@copilotkit/react-core': link:...` under `overrides` in your project's `pnpm-workspace.yaml`. To undo the link:
 
-```bash
-pnpm exec nx run-many -t unlink:global
-```
+1. In your project, delete those `@copilotkit/...` lines under `overrides` in `pnpm-workspace.yaml`.
+2. Reinstall in your project:
 
-And then in your project:
+   ```bash
+   pnpm install --no-frozen-lockfile
+   ```
 
-```bash
-pnpm install
-```
+3. Remove the global links. Run this for each package you linked:
+
+   ```bash
+   pnpm remove --global @copilotkit/react-core
+   ```
 
 Your project now uses its installed packages again.
 

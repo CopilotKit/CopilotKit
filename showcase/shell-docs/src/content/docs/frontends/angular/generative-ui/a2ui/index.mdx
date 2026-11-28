@@ -9,61 +9,130 @@ When your agent builds UI on the fly, you want it to use only components you
 approve. A2UI renders the agent's UI in Angular chat from a catalog that you
 define. The renderer creates only components that the catalog defines.
 
-## Choose a schema strategy
+## Install zod 3
 
-Catalog component definitions use Zod schemas for their props. A broad catalog
-lets the agent compose several application primitives. A fixed catalog narrows
-the generated interface to a specific domain and set of shapes.
+A2UI catalogs use zod 3 schemas. A new Angular 22 app resolves `zod` to
+version 4, so install version 3 explicitly:
 
-The flight example keeps its component vocabulary deliberately small:
+```bash
+npm install zod@^3.25.75
+```
 
-<AngularSnippet region="a2ui-fixed-schema" />
+## Define a catalog
 
-Give each catalog a stable `catalogId`. In an application config, pass the
-chosen catalog and lifecycle policy through the `a2ui` option of
-`provideCopilotKit`:
+A catalog lists the components the agent may use. Each entry has a zod schema
+for its props and an implementation. The implementation is an Angular
+component, or a Custom Element such as a component from an existing design
+system.
+
+Create `src/app/a2ui-catalog.ts`:
+
+```ts title="src/app/a2ui-catalog.ts"
+import { Component, input } from "@angular/core";
+import {
+  ChildListSchema,
+  CopilotA2UIChild,
+  createAngularCatalog,
+  type A2UICatalogDefinitions,
+  type A2UIProps,
+} from "@copilotkit/angular/a2ui";
+import { z } from "zod";
+
+const definitions = {
+  Badge: { props: z.object({ label: z.string() }) },
+  Panel: { props: z.object({ children: ChildListSchema }) },
+} satisfies A2UICatalogDefinitions;
+
+// An Angular component gets its props through a required `props` input.
+@Component({
+  selector: "app-panel",
+  imports: [CopilotA2UIChild],
+  template: `
+    <section class="a2ui-column">
+      @for (child of props().children; track $index) {
+        <copilot-a2ui-child [child]="child" />
+      }
+    </section>
+  `,
+})
+export class PanelComponent {
+  readonly props = input.required<A2UIProps<typeof definitions, "Panel">>();
+}
+
+// A Custom Element gets the node's context on every update.
+export class AcmeBadge extends HTMLElement {
+  set context(
+    ctx: { componentModel: { properties: Record<string, unknown> } } | undefined,
+  ) {
+    this.textContent = String(ctx?.componentModel.properties["label"] ?? "");
+  }
+}
+
+export const productCatalog = createAngularCatalog(
+  definitions,
+  {
+    Badge: { tagName: "acme-badge", element: AcmeBadge },
+    Panel: PanelComponent,
+  },
+  { catalogId: "product-catalog", includeBasicCatalog: true },
+);
+```
+
+How the two kinds of entry work:
+
+- **Angular component**: reads its typed props from the `props` input.
+  `<copilot-a2ui-child>` renders each child node from the catalog.
+- **Custom Element**: pass `{ tagName, element }`. CopilotKit registers the
+  element, renders it in place of the node, and assigns the node's A2UI
+  `ComponentContext` to its `context` property on every update. The example
+  reads static props. To resolve data bindings and write to the data model,
+  use web_core's `GenericBinder`. Elements render in the browser only, not
+  during server rendering.
+
+`includeBasicCatalog: true` adds the basic components (`Text`, `Row`,
+`Column`, `Button`, and others). Give each catalog a stable `catalogId`.
+
+## Turn on A2UI in the app
+
+Pass the catalog through the `a2ui` option of `provideCopilotKit`. Keep the
+`runtimeUrl` from the [Angular quickstart](/angular):
 
 ```ts title="src/app/app.config.ts"
-provideCopilotKit({
-  runtimeUrl: "/api/copilotkit",
-  a2ui: {
-    catalog: productCatalog,
-    recovery: { showAfterMs: 2_000, showAfterAttempts: 2 },
-  },
-});
+import { ApplicationConfig } from "@angular/core";
+import { provideCopilotKit } from "@copilotkit/angular";
+import { productCatalog } from "./a2ui-catalog"; // [!code highlight]
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideCopilotKit({
+      runtimeUrl: "http://localhost:8200/api/copilotkit",
+      // [!code highlight:4]
+      a2ui: {
+        catalog: productCatalog,
+        recovery: { showAfterMs: 2_000, showAfterAttempts: 2 },
+      },
+    }),
+  ],
+};
 ```
 
 A catalog is required: without one, A2UI stays off even when the runtime
 enables it, and CopilotKit logs a warning.
 
-### Use existing web components
+## Check the result
 
-A catalog entry can also be a Custom Element, such as a component from an
-existing design system. Pass `{ tagName, element }` instead of an Angular
-component, and mix both kinds freely:
+Ask the agent: "Show my order status in a panel with a badge." The chat renders
+a `Panel` from your catalog, with the agent's text and a `Badge` inside it.
 
-```ts title="src/app/a2ui-catalog.ts"
-import { ChildListSchema, createAngularCatalog } from "@copilotkit/angular/a2ui";
-import { z } from "zod";
+## Choose a schema strategy
 
-const catalog = createAngularCatalog(
-  {
-    Badge: { props: z.object({ label: z.string() }) },
-    Panel: { props: z.object({ children: ChildListSchema }) },
-  },
-  {
-    Badge: { tagName: "acme-badge", element: AcmeBadge },
-    Panel: PanelComponent,
-  },
-  { includeBasicCatalog: true },
-);
-```
+A broad catalog lets the agent compose several application primitives. A fixed
+catalog narrows the generated interface to a specific domain and set of
+shapes. The flight example keeps its component vocabulary deliberately small.
+Its `dynamicString` helper accepts a literal or a data-model path:
+`z.union([z.string(), z.object({ path: z.string() })])`.
 
-CopilotKit registers the element, renders it in place of the node, and assigns
-the node's A2UI `ComponentContext` to its `context` property on every update.
-The element reads its props and writes to the data model through that context,
-for example with web_core's `GenericBinder`. Elements render in the browser
-only, not during server rendering.
+<AngularSnippet region="a2ui-fixed-schema" />
 
 By default, CopilotKit includes the catalog schema in agent context. Set
 `includeSchema: false` only when the server already supplies equivalent schema
@@ -80,6 +149,16 @@ names. Style those classes in the global stylesheet so generated surfaces and
 their nested elements receive the same rules:
 
 <AngularSnippet region="a2ui-styling" />
+
+These rules come from the Showcase. They use two color variables. Define them,
+or replace them with your own colors:
+
+```css title="src/styles.css"
+:root {
+  --line: #e2e8f0;
+  --muted: #64748b;
+}
+```
 
 Keep semantic state in explicit classes such as `a2ui-status-success` rather
 than asking the model to invent colors. You can also pass an A2UI `theme`
@@ -103,11 +182,6 @@ still owns activity lifecycle status and retry behavior.
 - **Hashbrown is unsupported.** The stable Hashbrown Angular package does not support the Angular 22 policy.
   Use A2UI with a typed catalog instead.
 - **JSON Renderer is not applicable.** JSON Renderer does not provide an Angular renderer. Use A2UI for declarative Angular interfaces.
-
-## Check the result
-
-Ask the agent to show your data with one of your catalog components. The chat
-renders that component from your catalog.
 
 ## Next steps
 

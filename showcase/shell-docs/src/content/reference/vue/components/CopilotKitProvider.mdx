@@ -52,33 +52,33 @@ You must provide at least one of `runtimeUrl`, `publicApiKey`, or `publicLicense
   static headers, or a function (sync or async) that returns them. A builder
   runs when each request is sent, so a refreshed token is always used.
 
-Cache inside the builder. Clerk's and Auth0's `getToken()` already cache. A
-builder that calls the network every time adds one call per request.
+  Cache inside the builder. Clerk's and Auth0's `getToken()` already cache. A
+  builder that calls the network every time adds one call per request.
 
-If the builder throws or rejects, that request is not sent and `onError`
-gets `header_resolution_failed`.
+  If the builder throws or rejects, that request is not sent and `onError`
+  gets `header_resolution_failed`.
 
-Passing the same builder again does nothing. Passing a new builder function
-through the `headers` prop also does nothing, because the provider keeps one
-stable wrapper for any builder. When the user changes, do one of these:
+  Passing the same builder again does nothing. Passing a new builder function
+  through the `headers` prop also does nothing, because the provider keeps one
+  stable wrapper for any builder. When the user changes, do one of these:
 
-- Remount the provider, for example with a `key`.
-- Call `copilotkit.value.setHeaders(...)` with a new function or a record. The
-  Inspector metadata and thread lists reload for the new user. The runtime's
-  `/info` is not fetched again.
+  - Remount the provider, for example with a `key`.
+  - Call `copilotkit.value.setHeaders(...)` with a new function or a record. The
+    Inspector metadata and thread lists reload for the new user. The runtime's
+    `/info` is not fetched again.
 
-`copilotkit.value.headers` is the last resolved value. Use
-`await copilotkit.value.resolveHeaders()` for your own requests.
+  `copilotkit.value.headers` is the last resolved value. Use
+  `await copilotkit.value.resolveHeaders()` for your own requests.
 
-Core headers are also sent to any `selfManagedAgents` /
-`agents__unsafe_dev_only` agent, including ones on other origins. Don't put a
-bearer token in core headers if those agents point at a third party.
+  Core headers are also sent to any `selfManagedAgents` /
+  `agents__unsafe_dev_only` agent, including ones on other origins. Don't put a
+  bearer token in core headers if those agents point at a third party.
 
-```json
-{
-  "Authorization": "Bearer X"
-}
-```
+  ```json
+  {
+    "Authorization": "Bearer X"
+  }
+  ```
 
 </PropertyReference>
 
@@ -89,30 +89,30 @@ bearer token in core headers if those agents point at a third party.
 <PropertyReference name="messageFilter" type="(messages: Message[], context: { agentId: string }) => Message[]">
   Rewrites the message list sent to the agent on every run.
 
-CopilotKit sends the whole thread with each request. When your agent already
-stores the conversation (a LangGraph checkpointer, a Mastra memory store, a
-Strands `SessionManager`), most of that payload is waste, and an agent that
-merges the inbound list with its own store can show the model every turn twice.
+  CopilotKit sends the whole thread with each request. When your agent already
+  stores the conversation (a LangGraph checkpointer, a Mastra memory store, a
+  Strands `SessionManager`), most of that payload is waste, and an agent that
+  merges the inbound list with its own store can show the model every turn twice.
 
-Return the messages to send:
+  Return the messages to send:
 
-```vue
-<CopilotKitProvider
-  runtime-url="/api/copilotkit"
-  :message-filter="(messages) => messages.slice(-1)"
->
-  <YourApp />
-</CopilotKitProvider>
-```
+  ```vue
+  <CopilotKitProvider
+    runtime-url="/api/copilotkit"
+    :message-filter="(messages) => messages.slice(-1)"
+  >
+    <YourApp />
+  </CopilotKitProvider>
+  ```
 
-The filter changes the request body only. The transcript the UI renders is
-untouched, so the chat still shows the full conversation. Broken tool-call pairs
-are repaired before the request goes out, so a filter this blunt cannot strand a
-tool result mid-approval.
+  The filter changes the request body only. The transcript the UI renders is
+  untouched, so the chat still shows the full conversation. Broken tool-call pairs
+  are repaired before the request goes out, so a filter this blunt cannot strand a
+  tool result mid-approval.
 
-Agents reached through your CopilotRuntime honor this. An agent your app
-constructs itself and passes in directly does not. CopilotKit Intelligence runs
-and suggestion runs are never filtered.
+  Agents reached through your Copilot Runtime honor this. An agent your app
+  constructs itself and passes in directly does not. CopilotKit Intelligence runs
+  and suggestion runs are never filtered.
 
 </PropertyReference>
 
@@ -300,8 +300,12 @@ For a full walkthrough, see [Surfaces](/generative-ui/components/surfaces) and [
 
 </PropertyReference>
 
-<PropertyReference name="mcpApps" type="{ allowSameOriginFallback?: boolean }">
-  Configuration for the built-in MCP Apps renderer. `allowSameOriginFallback` restores `allow-same-origin` on the MCP App sandbox; by default widgets get an opaque origin. **Unsafe:** with it set, a widget runs with your page's origin and can read your cookies, storage and DOM. Only use it for widgets you trust that need `localStorage`, `IndexedDB` or cookies. See [Sandbox and widget storage](/vue/generative-ui/mcp-apps#sandbox-and-widget-storage).
+<PropertyReference name="mcpApps" type="{ allowSameOriginFallback?: boolean; modelContext?: boolean }">
+  Configuration for the built-in MCP Apps renderer.
+
+  `allowSameOriginFallback` restores `allow-same-origin` on the MCP App sandbox; by default widgets get an opaque origin. **Unsafe:** with it set, a widget runs with your page's origin and can read your cookies, storage and DOM. Only use it for widgets you trust that need `localStorage`, `IndexedDB` or cookies. See [Sandbox and widget storage](/vue/generative-ui/mcp-apps#sandbox-and-widget-storage).
+
+  `modelContext` (default `false`) lets MCP Apps send their state to the model through `ui/update-model-context`. The state goes with every later run, and the user does not see it. Only enable it for MCP servers you trust. See [Let a widget tell the model what the user is looking at](/generative-ui/mcp-apps#let-a-widget-tell-the-model-what-the-user-is-looking-at).
 </PropertyReference>
 
 <PropertyReference name="debug" type="DebugConfig">

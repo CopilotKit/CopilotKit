@@ -46,7 +46,12 @@ npm install "zod@^3.25"
 import { createChannel } from "@copilotkit/channels";
 import { z } from "zod";
 import { makeAgent } from "./agent.js";
-import { durableStateStore } from "./state-store.js";
+
+function required(name: string): string {
+  const value = process.env[name];
+  if (!value) throw new Error(`Missing ${name}`);
+  return value;
+}
 
 const workflowState = z.object({
   incidentId: z.string(),
@@ -54,11 +59,10 @@ const workflowState = z.object({
 });
 
 const channel = createChannel({
-  name: process.env.CHANNEL_CODE,
+  name: required("CHANNEL_CODE"),
   identifyUser: "platform",
   agent: makeAgent,
   store: {
-    adapter: durableStateStore,
     state: workflowState,
   },
 });
@@ -83,7 +87,12 @@ channel.onMessage(async ({ thread, message }) => {
 import { createChannel } from "@copilotkit/channels";
 import { z } from "zod";
 import { makeAgent } from "./agent.js";
-import { durableStateStore } from "./state-store.js";
+
+function required(name: string): string {
+  const value = process.env[name];
+  if (!value) throw new Error(`Missing ${name}`);
+  return value;
+}
 
 const workflowState = z.object({
   incidentId: z.string(),
@@ -91,11 +100,10 @@ const workflowState = z.object({
 });
 
 const channel = createChannel({
-  name: process.env.CHANNEL_CODE,
+  name: required("CHANNEL_CODE"),
   identifyUser: "platform",
   agent: makeAgent,
   store: {
-    adapter: durableStateStore,
     state: workflowState,
   },
 });
@@ -113,6 +121,9 @@ channel.onMessage(async ({ thread, message }) => {
 ```
 
 </FrontendOnly>
+
+On a managed Channel, this state is durable with no extra setup. Add
+`adapter` to `store` only when you bring your own `StateStore` (see below).
 
 `setState(value)` replaces the whole value. It does not merge a partial patch.
 Store JSON-serializable values. Remote backends do not preserve `Date`, `Map`,
@@ -151,6 +162,10 @@ runStateStoreConformance(
   (store) => closeRedisStateStore(store),
 );
 ```
+
+Replace `./redis-store.js` with the module that creates and closes your
+adapter. To try the suite first, pass `() => new MemoryStore()` with
+`MemoryStore` from `@copilotkit/channels`.
 
 Run it against the real backend:
 
@@ -206,7 +221,8 @@ old card.
 
 ### Delivery claims (multi-replica)
 
-Each prepared delivery has one claim winner. Every connected runtime process
+Intelligence sends each incoming event to your runtime as a delivery. Only one
+runtime process claims and runs each delivery. Every connected runtime process
 that declares the matching Channel can receive the invitation, check local
 capacity, and attempt the claim. Different runtime processes can serve
 different conversations at the same time. There is no Channel-wide leader.
@@ -224,9 +240,9 @@ before claiming them. That capacity is not a public Channel configuration
 option.
 
 Provider effects use one ordered packet at a time. The SDK retries that exact
-packet after a known retry wait or reconnect. If a provider call becomes
-uncertain, Gateway records an uncertain terminal result instead of sending it
-again. Application tools still need their own idempotency keys when the
+packet after a known retry wait or reconnect. If the result of a provider call
+is unknown (for example, the connection dropped mid-call), Intelligence marks
+that delivery as uncertain and does not send the packet again. Application tools still need their own idempotency keys when the
 application may call them more than once. Use `message.eventId`,
 `message.turnId`, or a durable operation ID.
 

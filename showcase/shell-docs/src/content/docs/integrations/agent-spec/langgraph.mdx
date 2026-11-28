@@ -6,7 +6,7 @@ icon: "lucide/Workflow"
 
 ## What is this?
 
-Wire an Agent Spec agent backed by LangGraph to CopilotKit’s UI via the AG-UI event protocol. You’ll run a FastAPI endpoint that emits AG-UI events and point your Next.js app at it.
+Wire an Agent Spec agent backed by LangGraph to CopilotKit's UI via the AG-UI event protocol. You'll run a FastAPI endpoint that emits AG-UI events and point your Next.js app at it.
 
 Key pieces:
 
@@ -22,7 +22,8 @@ Use this integration when you already have a LangGraph-based agent described by 
 
 - Python 3.10 to 3.13
 - Node.js 20+
-- An Agent Spec config JSON/YAML file (or Python code via `pyagentspec`)
+- [uv](https://docs.astral.sh/uv/) (the starter UI's `npm install` runs `uv sync`)
+- An OpenAI API key, or a key for another OpenAI-compatible endpoint
 
 ## Install the Agent Spec AG-UI integration
 
@@ -45,7 +46,41 @@ uv pip install -e .[langgraph]
 <Steps>
 
 <Step>
-### 1. Start a FastAPI endpoint (minimal example)
+### 1. Write your Agent Spec
+
+Skip this step if you already have an Agent Spec file. Otherwise, create a minimal one with `pyagentspec`, which the package above installs:
+
+```python title="make_agent.py"
+import os
+
+from pyagentspec.agent import Agent
+from pyagentspec.llms import OpenAiCompatibleConfig
+from pyagentspec.serialization import AgentSpecSerializer
+
+agent = Agent(
+    name="assistant",
+    system_prompt="You are a helpful assistant.",
+    llm_config=OpenAiCompatibleConfig(
+        name="openai",
+        model_id="gpt-6-luna",
+        url=os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1"),
+    ),
+)
+
+with open("agent.json", "w") as f:
+    f.write(AgentSpecSerializer().to_json(agent))
+```
+
+```bash
+python make_agent.py
+```
+
+This writes `agent.json` to the current folder. The agent reads your key from `OPENAI_API_KEY` when it runs.
+
+</Step>
+
+<Step>
+### 2. Start a FastAPI endpoint
 
 Use the LangGraph runtime to execute your Agent Spec and stream AG-UI events. For runtime options, see the [Agent Spec LangGraph adapter docs](https://oracle.github.io/agent-spec/26.1.0/adapters/langgraph/index.html).
 
@@ -64,26 +99,37 @@ agent = AgentSpecAgent(agentspec_json, runtime="langgraph")
 add_agentspec_fastapi_endpoint(app, agentspec_agent=agent, path="/")
 ```
 
-Run locally:
+Run the server from the folder that holds `agent.json` and `backend/`. `Path("agent.json")` is relative to that folder.
 
 ```bash
+export OPENAI_API_KEY=sk-...
 uvicorn backend.app:app --reload --port 8000
 ```
 
 </Step>
 
 <Step>
-### 2. Scaffold and connect the UI
+### 3. Run the starter UI
 
-Copy the [Agent Spec starter](https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/agent-spec) for the UI. The CopilotKit CLI has no Agent Spec template.
+Copy the [Agent Spec starter](https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/agent-spec) for the UI. The CopilotKit CLI has no Agent Spec template. In a second terminal:
 
-<RunAndConnect />
+```bash
+git clone --depth 1 --filter=blob:none --sparse https://github.com/CopilotKit/CopilotKit.git
+cd CopilotKit
+git sparse-checkout set examples/integrations/agent-spec
+cp -r examples/integrations/agent-spec ../agent-spec-ui
+cd ../agent-spec-ui
+npm install
+npm run dev:ui
+```
 
-If you already have the starter, make sure your agent runs on port 8000.
+<Callout type="warn">
+Run `npm run dev:ui`, not `npm run dev`. `npm run dev` also starts the starter's own agent on port 8000. That agent collides with your server from step 2, and the UI stops.
+</Callout>
 
-Then run the app (for example with `pnpm dev`) and open `http://localhost:3000`.
+The starter's Copilot Runtime sends chat requests to `AGENT_URL`, which defaults to `http://localhost:8000/`. Set `AGENT_URL` in `.env` only if your agent runs somewhere else.
 
-Send a message in the chat. The reply of the agent streams into the chat.
+Open `http://localhost:3000` and type a message in the chat. The agent's reply streams into the chat. The starter's suggestion chips (calendar, inbox) call tools that only the starter's own agent has, so type your own message.
 
 </Step>
 
@@ -122,14 +168,14 @@ Frontend tools (Agent Spec `ClientTool`) run in the browser, so they do not go i
 - `AgentSpecAgent(runtime="langgraph")` executes your Agent Spec agent with the LangGraph framework.
 - In the `AgentSpecAgent` wrapper, `AgUiSpanProcessor` maps Agent Spec tracing spans to AG-UI events on a per-request queue (`EVENT_QUEUE`).
 - The FastAPI endpoint streams those events as SSE for CopilotKit to render. The event types come from the [AG-UI protocol](https://docs.ag-ui.com/introduction):
-  - assistant text: `TEXT_MESSAGE_START/CONTENT/END`
-  - tool calls: `TOOL_CALL_START/ARGS/END` and `TOOL_CALL_RESULT`
-  - lifecycle: `RUN_STARTED/RUN_FINISHED`
+  - assistant text: `TEXT_MESSAGE_CHUNK`
+  - tool calls: `TOOL_CALL_CHUNK` and `TOOL_CALL_RESULT`
+  - lifecycle: `RUN_STARTED` and `RUN_FINISHED`
 
 ## Troubleshooting
 
 - If the chat gets no reply, make sure that the runtime can reach the agent. In the starter, set `AGENT_URL` to the agent URL. The default is `http://localhost:8000/`.
-- The endpoint asserts a queue is bound. If you get queue errors, check that requests go through the provided FastAPI route.
+- If you see `RuntimeError: AG-UI event queue is not set`, send requests through the route that `add_agentspec_fastapi_endpoint` registers. That route sets up the event queue for each request.
 - If you are not receiving any events, make sure the agent is running and did not crash.
 
 ## Next steps

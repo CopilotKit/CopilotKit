@@ -5,13 +5,26 @@ icon: "lucide/PanelLeft"
 doc_type: how-to
 ---
 
-`CopilotThreadsDrawer` supplies a ready-made list, selection, filtering,
-pagination, and mutation controls. Put the drawer and chat under the same
-`provideCopilotChatConfiguration` provider so selection and new-thread actions
-update the chat. The drawer reads the platform's `threads` license feature and
-shows its locked state when that feature is unavailable.
+Put a ready-made conversation list next to your chat. `CopilotThreadsDrawer`
+lists threads, switches between them, filters, loads more, and archives or
+deletes them.
 
-```ts
+<Callout type="info" title="Before you start: the drawer needs CopilotKit Intelligence">
+  The drawer needs a Copilot Runtime connected to
+  [CopilotKit Intelligence](/intelligence/overview) with the `threads` feature
+  in your license. On a self-hosted runtime without Intelligence, the drawer
+  stays on "Loading threads…". Use [Headless Threads](/angular/headless-threads)
+  with `injectThreads` there instead.
+</Callout>
+
+## Add the drawer next to the chat
+
+Create the component. Put the drawer and the chat under the same
+`provideCopilotChatConfiguration` provider, so that selecting a thread or
+starting a new one updates the chat. Use the agent id your runtime registers
+(`default` in the [Angular quickstart](/angular)).
+
+```ts title="src/app/conversations.component.ts"
 import { Component } from "@angular/core";
 import {
   CopilotChat,
@@ -22,14 +35,35 @@ import {
 @Component({
   selector: "app-conversations",
   imports: [CopilotChat, CopilotThreadsDrawer],
-  providers: [provideCopilotChatConfiguration({ agentId: "support" })],
+  providers: [provideCopilotChatConfiguration({ agentId: "default" })],
   template: `
-    <copilot-threads-drawer agentId="support" [limit]="20" />
+    <copilot-threads-drawer agentId="default" [limit]="20" />
     <copilot-chat />
+  `,
+  styles: `
+    :host {
+      display: flex;
+      height: 100vh;
+    }
+    copilot-chat {
+      flex: 1;
+      min-width: 0;
+    }
   `,
 })
 export class ConversationsComponent {}
 ```
+
+Add `ConversationsComponent` to the `imports` of your root component
+(`src/app/app.ts`) and render `<app-conversations />` in place of
+`<copilot-chat />`.
+
+Run `npm start` and send a message. The drawer lists the new thread. Click
+**New Conversation** to start another thread, then click the first thread to
+switch the chat back to it.
+
+If the license does not include the `threads` feature, the drawer shows a
+locked view instead of the list.
 
 ## Next steps
 

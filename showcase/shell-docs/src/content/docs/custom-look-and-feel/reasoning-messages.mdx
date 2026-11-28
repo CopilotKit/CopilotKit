@@ -21,22 +21,44 @@ built-in card that:
   reasoning.
 - Expands automatically so you can follow the model's thought process in
   real-time.
-- Collapses and switches to **"Thought for X seconds"** once reasoning finishes.
+- Collapses and switches to **"Thought for N seconds"** once reasoning
+  finishes ("Thought for a few seconds" when it took less than one second).
 - Renders the reasoning content as **Markdown**.
 - Includes a chevron toggle so users can re-expand and review the reasoning
   at any time.
 
-Connect your agent to CopilotKit. You do not need extra props or configuration:
+Connect your agent to CopilotKit. You do not need extra props or configuration.
+A plain chat inside the `CopilotKitProvider` from the [quickstart](/quickstart)
+shows the card:
 
-<Snippet
-  cell="reasoning-default"
-  region="default-reasoning-zero-config"
-  title="frontend/src/app/page.tsx: default reasoning"
-/>
+```tsx title="app/page.tsx"
+"use client";
 
-If no card appears, your agent does not stream reasoning. For OpenAI models,
-ask for a reasoning summary in the model options, for example
-`reasoning: { effort: "high", summary: "auto" }`.
+import { CopilotChat } from "@copilotkit/react-core/v2";
+
+export default function Page() {
+  return <CopilotChat />;
+}
+```
+
+If no card appears, your agent's model does not stream reasoning. Turn on
+reasoning output in the model settings. With the Built-in Agent and an OpenAI
+model, pass `providerOptions`:
+
+```ts title="app/api/copilotkit/[[...slug]]/route.ts"
+const builtInAgent = new BuiltInAgent({
+  model: "openai:gpt-6-luna",
+  providerOptions: {
+    openai: { reasoningEffort: "high", reasoningSummary: "auto" },
+  },
+});
+```
+
+<Callout type="warn" title="OPENAI_BASE_URL set to a proxy">
+  When `OPENAI_BASE_URL` points at a host other than OpenAI or Azure, the
+  Built-in Agent uses the Chat Completions API, which drops reasoning
+  summaries. Set `COPILOTKIT_OPENAI_API=responses` to keep the Responses API.
+</Callout>
 
 ## Customizing the Reasoning Message
 
@@ -71,13 +93,15 @@ receives these props:
 | Prop | Type | Description |
 | --- | --- | --- |
 | `isOpen` | `boolean` | Whether the content panel is currently expanded |
-| `label` | `string` | `labels.reasoningMessageThinkingLabel` (`"Thinking…"`) while streaming, `"Thought for X seconds"` after |
+| `label` | `string` | `labels.reasoningMessageThinkingLabel` (`"Thinking…"`) while streaming, `"Thought for N seconds"` after |
 | `hasContent` | `boolean` | Whether any reasoning text has been received |
 | `isStreaming` | `boolean` | Whether reasoning is actively streaming |
 | `elapsedSeconds` | `number` | Seconds spent reasoning, for building a localized label |
 | `onClick` | `() => void` | Toggle handler (only present when `hasContent` is `true`) |
 
-```tsx
+```tsx title="app/page.tsx"
+"use client";
+
 import { CopilotChat } from "@copilotkit/react-core/v2";
 import "@copilotkit/react-core/v2/styles.css";
 
@@ -86,12 +110,14 @@ function CustomHeader({
   label,
   hasContent,
   isStreaming,
+  elapsedSeconds, // take it out of props so it does not reach <button>
   ...props
 }: React.ButtonHTMLAttributes<HTMLButtonElement> & {
   isOpen?: boolean;
   label?: string;
   hasContent?: boolean;
   isStreaming?: boolean;
+  elapsedSeconds?: number;
 }) {
   return (
     <button
@@ -107,11 +133,15 @@ function CustomHeader({
   );
 }
 
-<CopilotChat
-  messageView={{
-    reasoningMessage: { header: CustomHeader },
-  }}
-/>
+export default function Page() {
+  return (
+    <CopilotChat
+      messageView={{
+        reasoningMessage: { header: CustomHeader },
+      }}
+    />
+  );
+}
 ```
 
 To check it, ask the agent a question that needs reasoning. While the model
@@ -168,14 +198,40 @@ slot props. Your component receives the same top-level props as the built-in one
 
 <InlineDemo demo="reasoning-custom" />
 
-`ReasoningBlock` shows the reasoning text in a tagged banner. Replace it with
-your own component:
+`ReasoningBlock` shows the reasoning text in a tagged banner. Pass it as
+`reasoningMessage`. The slot is typed as the built-in component, so cast yours
+to that type:
 
-<Snippet region="reasoning-block-render" title="frontend/src/app/page.tsx: custom reasoning slot" />
+```tsx title="app/page.tsx"
+"use client";
 
-`ReasoningBlock` reads the `message`, `messages`, and `isRunning` props:
+import {
+  CopilotChat,
+  CopilotChatReasoningMessage,
+} from "@copilotkit/react-core/v2";
+import { ReasoningBlock } from "./reasoning-block";
+
+export default function Page() {
+  return (
+    <CopilotChat
+      messageView={{
+        reasoningMessage:
+          ReasoningBlock as unknown as typeof CopilotChatReasoningMessage,
+      }}
+    />
+  );
+}
+```
+
+`ReasoningBlock` reads the `message`, `messages`, and `isRunning` props. Save it
+as `app/reasoning-block.tsx`:
 
 <Snippet file="src/app/demos/reasoning-custom/reasoning-block.tsx" />
+
+The file imports its types from `@ag-ui/core`. `@copilotkit/react-core/v2`
+exports the same types, so with pnpm (which does not hoist `@ag-ui/core`) change
+that line to
+`import type { ReasoningMessage, Message } from "@copilotkit/react-core/v2";`.
 
 ## Render-Prop Children
 

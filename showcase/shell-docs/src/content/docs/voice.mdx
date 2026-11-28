@@ -18,13 +18,27 @@ You have a working chat surface and you want users to be able to speak instead o
 
 If you only need file uploads (audio, images, video, documents), use [Multimodal Attachments](/multimodal-attachments) instead. Voice is specifically about live transcription of recorded speech into chat input.
 
+## Install
+
+Install the voice package and the `openai` major version it uses:
+
+```bash
+npm install @copilotkit/voice openai@5
+```
+
 ## Frontend
 
 Render `<CopilotChat />` from `@copilotkit/react-core/v2`. It shows the mic button when the runtime advertises `audioFileTranscriptionEnabled: true` on its `/info` endpoint. You turn that on in the [Backend](#backend) section.
 
-<Snippet region="voice-page" title="frontend/src/app/page.tsx: chat surface" />
+Create the page, for example `app/voice/page.tsx`. The code below is the showcase page. Make these changes in your app:
 
-If the snippet renders `<VoiceChat />`, that is a demo wrapper around `<CopilotChat />` and a sample-audio button. In your app, render `<CopilotChat />` in its place.
+1. Add `"use client";` as the first line.
+2. If the code renders `<VoiceChat />`, import `CopilotChat` from `@copilotkit/react-core/v2` and render `<CopilotChat />` in its place. `VoiceChat` is a demo wrapper around `<CopilotChat />` and a sample-audio button.
+3. `voice-demo` is the showcase's agent id. To use your own id, change it here and in the [route](#nextjs-api-route) below.
+
+<Snippet region="voice-page" title="app/voice/page.tsx" />
+
+`enableInspector={false}` hides the dev Inspector button, which can cover the mic button. If your layout already wraps the app in a CopilotKit provider (as the quickstart does), set `enableInspector={false}` there too.
 
 The `runtimeUrl="/api/copilotkit-voice"` points the browser to your Next.js API route. When the user clicks the mic, the chat captures audio, POSTs it to that runtime route's `/transcribe` endpoint, and puts the resulting transcript into the composer. The user reviews the text and sends it.
 
@@ -38,7 +52,20 @@ The `runtimeUrl="/api/copilotkit-voice"` points the browser to your Next.js API 
 
 <Snippet region="voice-runtime" title="app/api/copilotkit-voice/[[...slug]]/route.ts" />
 
-Imports from local paths that start with `@/` are demo helpers. In your app, replace them with your own agent and transcription service. The guarded service in [Custom transcription backends](#custom-transcription-backends) is one example.
+The code above is the showcase route. Imports from `@/lib/...` and `@/app/api/_shared/...` are demo helpers. Make these changes in your app:
+
+1. Register the agent from your main `/api/copilotkit` route in place of the demo agent. For the Built-in Agent from the quickstart, replace `createBuiltInAgent()` with `new BuiltInAgent({ model: "openai:gpt-6-luna" })`, and import `BuiltInAgent` from `@copilotkit/runtime/v2`.
+2. If the exports are wrapped in `withForwardedHeaders`, remove that import and export the handler directly:
+
+   ```ts
+   export const GET = (req: NextRequest) => getHandler()(req);
+   export const POST = (req: NextRequest) => getHandler()(req);
+   export const PUT = (req: NextRequest) => getHandler()(req);
+   export const DELETE = (req: NextRequest) => getHandler()(req);
+   ```
+
+3. If the route imports `createTranscriptionService` from `@/lib/transcription-service`, create that file from the [guarded service](#custom-transcription-backends) below. Put it in `lib/` at the project root (next to `app/`), so the `@/` alias resolves.
+4. Set the API key that the transcription service reads (`OPENAI_TRANSCRIPTION_API_KEY` or `OPENAI_API_KEY`, as named in the code) in `.env.local`, then restart the dev server.
 
 With `transcriptionService` set, the runtime advertises `audioFileTranscriptionEnabled: true` on `/info` (which is what tells the chat to render the mic button) and routes `POST /transcribe` to the service.
 
@@ -85,7 +112,7 @@ it with your own wording bypasses that and everything lands as a generic provide
 
 Create the service only when its API key is set. If the key is missing, omit `transcriptionService`. The runtime then reports the capability as disabled and hides the mic. A direct call to `/transcribe` returns the 503 described above:
 
-<Snippet region="transcription-service-guard" title="backend: guarded transcription service" />
+<Snippet region="transcription-service-guard" title="lib/transcription-service.ts" />
 
 Open the chat. Click the mic, say "What is the weather in Tokyo?", and click the mic again. The text appears in the composer, ready to send.
 
@@ -93,11 +120,33 @@ Open the chat. Click the mic, say "What is the weather in Tokyo?", and click the
 
 ### Driving the demo without a mic
 
-For Playwright runs, screenshots, or any flow where prompting for mic permissions is awkward, ship a button that emits a canned sample phrase through an `onTranscribed` callback, bypassing the transcription endpoint entirely:
+For Playwright runs, screenshots, or any flow where prompting for mic permissions is awkward, ship a button that emits a canned sample phrase through an `onTranscribed` callback, bypassing the transcription endpoint entirely. Its props:
 
-<Snippet region="sample-audio-button" title="frontend/src/app/sample-audio-button.tsx" />
+```ts
+type SampleAudioButtonProps = {
+  onTranscribed: (text: string) => void;
+  sampleText: string;
+};
+```
 
-The parent chat component can then drop that text into the composer's textarea (matched via `data-testid="copilot-chat-textarea"`) using the native value setter and a synthetic `input` event so React's managed state updates correctly.
+<Snippet region="sample-audio-button" title="app/voice/sample-audio-button.tsx" />
+
+The parent component puts that text into the composer's textarea (`data-testid="copilot-chat-textarea"`). It calls the native value setter and sends an `input` event, so React's managed state updates:
+
+```ts
+function insertIntoComposer(text: string) {
+  const textarea = document.querySelector<HTMLTextAreaElement>(
+    '[data-testid="copilot-chat-textarea"]',
+  );
+  if (!textarea) return;
+  const setValue = Object.getOwnPropertyDescriptor(
+    HTMLTextAreaElement.prototype,
+    "value",
+  )?.set;
+  setValue?.call(textarea, text);
+  textarea.dispatchEvent(new Event("input", { bubbles: true }));
+}
+```
 
 <Callout type="warn" title="Calling `/transcribe` yourself">
 The chat handles this for you. These are the rules if you post to the route directly. As

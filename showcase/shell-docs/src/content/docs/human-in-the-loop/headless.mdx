@@ -48,7 +48,17 @@ mechanism.
 
 </WhenFrameworkHas>
 
+<WhenFrameworkHas flag="agent_config_pattern" equals="runtime-properties">
+
+The Built-in Agent pauses on a tool that you mark with `interrupt: true`, and
+finishes the run with a standard AG-UI interrupt. Call `useInterrupt` with
+`renderInChat: false` and place the element it returns wherever you like.
+`resolve(...)` resumes the run.
+
+</WhenFrameworkHas>
+
 <WhenFrameworkHas flag="interrupt_pattern" absent>
+<WhenFrameworkHas flag="agent_config_pattern" equals="shared-state">
 
 <Callout type="warn" title="Use useHumanInTheLoop on this framework">
   Headless interrupts need an agent that emits an AG-UI interrupt (`RUN_FINISHED` with
@@ -58,6 +68,7 @@ mechanism.
   call instead. It works on every framework that supports tool calls.
 </Callout>
 
+</WhenFrameworkHas>
 </WhenFrameworkHas>
 
 ## When should I use this?
@@ -71,11 +82,94 @@ mechanism.
 - **Custom flow control**: when you need to know exactly when the
   interrupt arrived (for example, to gate other UI) and when it was resolved.
 - **Research / debugging**: when you want to observe the raw AG-UI
-  custom events without the abstraction layer.
+  events without the abstraction layer.
 
 If you want "a picker in chat", use
 [`useInterrupt`](./useInterrupt). For pauses that the model decides on, use
 [`useHumanInTheLoop`](../human-in-the-loop).
+
+<WhenFrameworkHas flag="agent_config_pattern" equals="runtime-properties">
+
+## Use `useInterrupt` without the chat
+
+First give the agent a tool that pauses the run. An interrupt tool has no
+`execute`. The user's answer becomes its result:
+
+```ts title="app/api/copilotkit/[[...slug]]/route.ts"
+import { BuiltInAgent, defineTool } from "@copilotkit/runtime/v2";
+import { z } from "zod";
+
+const scheduleCall = defineTool({
+  name: "schedule_call",
+  description: "Ask the user to pick a time before you book a call",
+  parameters: z.object({ topic: z.string() }),
+  interrupt: true,
+  interruptMessage: "a call with sales",
+});
+
+const builtInAgent = new BuiltInAgent({
+  model: "openai:gpt-6-luna",
+  tools: [scheduleCall],
+});
+```
+
+Keep the rest of your route as it is.
+
+On the frontend, call `useInterrupt` with `renderInChat: false`. Instead of
+publishing the element into `<CopilotChat>`, the hook returns the interrupt
+element, so you can place it anywhere in your tree. This panel starts the run
+itself and shows the slot buttons while the agent waits. No chat is mounted:
+
+```tsx title="app/page.tsx"
+"use client";
+
+import { useAgent, useCopilotKit, useInterrupt } from "@copilotkit/react-core/v2";
+
+const SLOTS = [
+  { iso: "2026-11-03T15:00:00Z", label: "Tue 3 PM" },
+  { iso: "2026-11-04T10:00:00Z", label: "Wed 10 AM" },
+];
+
+export default function HeadlessInterruptPanel() {
+  const { copilotkit } = useCopilotKit();
+  const { agent } = useAgent();
+
+  const kickOff = (prompt: string) => {
+    agent.addMessage({ id: crypto.randomUUID(), role: "user", content: prompt });
+    void copilotkit.runAgent({ agent });
+  };
+
+  const interruptElement = useInterrupt({
+    renderInChat: false,
+    render: ({ interrupt, resolve, cancel }) => (
+      <div>
+        <p>Pick a slot for {interrupt?.message ?? "a call"}:</p>
+        {SLOTS.map((s) => (
+          <button key={s.iso} onClick={() => resolve({ chosen_time: s.iso, chosen_label: s.label })}>
+            {s.label}
+          </button>
+        ))}
+        <button onClick={() => cancel()}>Cancel</button>
+      </div>
+    ),
+  });
+
+  if (interruptElement) {
+    return interruptElement;
+  }
+
+  return <button onClick={() => kickOff("Book a call with sales.")}>Book call</button>;
+}
+```
+
+`useAgent()` with no `agentId` uses the `default` agent. The page must render
+inside your `CopilotKit` provider.
+
+Click **Book call**. When the agent pauses, the slot buttons replace the
+button. Pick a slot. The run resumes with your choice as the tool result, and
+the **Book call** button comes back.
+
+</WhenFrameworkHas>
 
 <WhenFrameworkHas flag="interrupt_pattern" equals="promise-based">
 

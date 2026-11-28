@@ -63,6 +63,8 @@ thing from scratch, one piece at a time.
 
 ## Build it step by step
 
+You need Node.js 22.22.2 or newer and an OpenAI API key. The MCP App template requires that Node.js version.
+
 <Steps>
 <Step>
 
@@ -76,20 +78,23 @@ cd web
 npm install @copilotkit/react-core @copilotkit/runtime
 ```
 
-CopilotKit's provider is a client component, so give it its own file:
+CopilotKit's provider is a client component, so give it its own file. The `Suspense` wrapper lets `npm run build` prerender your pages:
 
 ```tsx title="app/providers.tsx"
 "use client";
 
+import { Suspense } from "react";
 import { CopilotKitProvider } from "@copilotkit/react-core/v2";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   // Points the chat at the runtime route you'll add in a later step.
   return (
-    // [!code highlight:3]
-    <CopilotKitProvider runtimeUrl="/api/copilotkit">
-      {children}
-    </CopilotKitProvider>
+    // [!code highlight:5]
+    <Suspense>
+      <CopilotKitProvider runtimeUrl="/api/copilotkit">
+        {children}
+      </CopilotKitProvider>
+    </Suspense>
   );
 }
 ```
@@ -354,16 +359,18 @@ Start the MCP App. Your web app will use port 3000, so put this one on 3001:
 npm run dev -- --port 3001
 ```
 
+Leave this terminal running for the rest of the recipe. The web app calls the MCP App on this port.
+
 This also opens the **mcp-use Inspector** at
 [http://localhost:3001/mcp/inspector](http://localhost:3001/mcp/inspector). It's Manufact's tool for trying an MCP
 server by hand, with no agent involved.
 
 1. Go to **Tools**.
 2. Pick `show-map`.
-3. Fill in its fields with the values below. The Inspector gives each key its own field.
+3. Type `Test map` in **title** and `12` in **zoom**. Paste `{ "lat": 37.777, "lng": -122.42 }` into **center**, and paste the `markers` array below into **markers**.
 4. Click **Execute**.
 
-The values:
+The full input, for reference:
 
 ```json
 {
@@ -547,6 +554,8 @@ export default function Page() {
 ```
 
 Notice what's missing: there's no map code here and no custom renderer. CopilotKit draws MCP Apps on its own.
+
+In development, the browser console may warn that no renderer is registered for `show-map`. You can ignore it: CopilotKit draws the MCP App from the activity message, not from a tool renderer.
 
 </Step>
 <Step>

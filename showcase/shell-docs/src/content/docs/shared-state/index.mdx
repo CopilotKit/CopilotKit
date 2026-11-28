@@ -43,11 +43,71 @@ the user changes in the UI.
 
 <FrameworkSetup concept="shared-state-setup" />
 
+<WhenFrameworkHas flag="agent_config_pattern" equals="runtime-properties">
+
+In the route above, `SYSTEM_PROMPT` stands for your own instructions. Define it
+above the agent, for example
+`const SYSTEM_PROMPT = "You help the user manage their todo list.";`, or leave
+out the `prompt` line.
+
+To finish the `TodoApp` from the steps, render the todos and mount it next to
+the chat. This complete page runs under the provider from the
+[quickstart](/quickstart):
+
+```tsx title="app/page.tsx"
+"use client";
+
+import { useEffect } from "react";
+import { CopilotSidebar, useAgent } from "@copilotkit/react-core/v2";
+
+type Todo = { text: string; done: boolean };
+
+function TodoApp() {
+  const { agent } = useAgent();
+  const todos = (agent.state?.todos ?? []) as Todo[];
+
+  // Seed the state, so the agent sees the shape of a todo in its prompt
+  useEffect(() => {
+    if (!agent.state?.todos) {
+      agent.setState({ todos: [{ text: "Try the agent", done: false }] });
+    }
+  }, [agent]);
+
+  return (
+    <ul>
+      {todos.map((todo, i) => (
+        <li key={i}>
+          {todo.done ? "[x]" : "[ ]"} {todo.text}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+export default function Page() {
+  return (
+    <>
+      <TodoApp />
+      <CopilotSidebar />
+    </>
+  );
+}
+```
+
+Ask the agent to "add a todo to buy milk". The new todo appears in the list.
+
+</WhenFrameworkHas>
+
 Subscribe a component to the agent's state with `useAgent`. Any time the agent
 mutates its state, for example via a tool call, the hook fires and your UI
 re-renders with the new values.
 
 <Snippet region="use-agent-read" cell="shared-state-read-write" title="frontend/src/app/page.tsx: useAgent subscription" />
+
+The excerpts on this page come from the demo. `shared-state-read-write` is the
+demo's agent name: use the name your runtime registers, or leave out `agentId`
+to use the agent your provider selects. Import `UseAgentUpdate` from `@copilotkit/react-core/v2`. Types
+such as `RWAgentState` and `Preferences` describe the demo's own state.
 
 The returned `agent.state` is a plain object. Read it like any other
 piece of React state and render the parts you care about: agent-written
@@ -69,12 +129,15 @@ through the chat.
 The agent reads the new state on its next run. To run it right away, call
 `copilotkit.runAgent({ agent })` (from `useCopilotKit`) after `setState`.
 Running through `copilotkit` also sends your frontend tools and context with
-the run. To tell the model what changed, add a hint message first:
+the run. To tell the model what changed, add a hint message first.
+
+`setState` replaces the whole state object, so spread the current state to keep
+the other keys:
 
 ```tsx
 const { copilotkit } = useCopilotKit();
 
-agent.setState({ language: newLanguage });
+agent.setState({ ...agent.state, language: newLanguage });
 agent.addMessage({
   id: crypto.randomUUID(),
   role: "user",

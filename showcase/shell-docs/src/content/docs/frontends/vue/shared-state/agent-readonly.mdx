@@ -53,6 +53,8 @@ The `description` is important: it is the human-readable label the agent sees al
 
 `useAgentContext` does not care where the value comes from: a local ref, a computed value, a router getter, Pinia, or another domain store. Pass a ref or getter and Vue re-registers the serialized context when the value changes.
 
+Use the same `runtime-url` as in the [quickstart](/vue):
+
 ```vue title="src/App.vue"
 <script setup lang="ts">
 import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue/v2";
@@ -60,14 +62,18 @@ import WorkspaceContext from "./components/WorkspaceContext.vue";
 </script>
 
 <template>
-  <CopilotKitProvider runtime-url="/api/copilotkit">
+  <CopilotKitProvider runtime-url="http://localhost:8200/api/copilotkit">
     <WorkspaceContext />
-    <CopilotChat />
+    <div style="height: 90vh">
+      <CopilotChat />
+    </div>
   </CopilotKitProvider>
 </template>
 ```
 
 Ask the agent which workspace is active. It answers `northstar`.
+
+To check that the context arrived, open your browser's network tab and select the run request. Its `context` array has an entry with the description `Active workspace` and the value `"northstar"`.
 
 ## Read-only, by design
 

@@ -9,23 +9,26 @@ description: "Give the standard components your colors and fonts, and turn on da
 
 The standard components look neutral by default. You want them to use your accent color, your font, and your dark mode.
 
-Every color, radius, shadow, and font of the standard components is a CSS variable. Set the variables with the `theme` option:
+Every color, radius, and shadow of the standard components is a CSS variable. Set the variables with the `theme` option:
 
 <Tabs groupId="frontend_framework" items={["React", "Angular", "Vue"]} persist>
   <Tab value="React">
     ```tsx
+    import { standardUI } from "@copilotkit/react-core/v2/generative-ui";
+
     <CopilotKitProvider
       runtimeUrl="/api/copilotkit"
       generativeUI={{
         ui: standardUI,
         theme: {
           "--a2ui-color-accent": "#d97706",
-          "--a2ui-font-family": "Inter, sans-serif",
           "--a2ui-radius-md": "10px",
         },
       }}
     >
     ```
+
+    `standardUI` needs `maplibre-gl` installed. See [Try it](/generative-ui/components#try-it).
   </Tab>
   <Tab value="Angular">
     ```ts title="src/app/app.config.ts"
@@ -33,7 +36,6 @@ Every color, radius, shadow, and font of the standard components is a CSS variab
       ui: standardUI,
       theme: {
         "--a2ui-color-accent": "#d97706",
-        "--a2ui-font-family": "Inter, sans-serif",
         "--a2ui-radius-md": "10px",
       },
     }),
@@ -49,7 +51,6 @@ Every color, radius, shadow, and font of the standard components is a CSS variab
 
     const theme: GenerativeUITheme = {
       "--a2ui-color-accent": "#d97706",
-      "--a2ui-font-family": "Inter, sans-serif",
       "--a2ui-radius-md": "10px",
     };
     </script>
@@ -79,7 +80,7 @@ The keys are typed. A name that the components do not read, such as `"--a2ui-col
 | Surfaces | `--a2ui-color-surface`, `--a2ui-color-surface-secondary`, `--a2ui-color-surface-elevated`, `--a2ui-color-panel`, and more `--a2ui-color-surface-*` |
 | Text | `--a2ui-color-text-default`, `--a2ui-color-text-secondary`, `--a2ui-color-text-tertiary`, and the `--a2ui-color-text-*` status colors |
 | Borders | `--a2ui-color-border-default`, `--a2ui-color-border-subtle`, `--a2ui-color-border-strong`, `--a2ui-color-border-control` |
-| Shape and type | `--a2ui-radius-*`, `--a2ui-shadow-xs` to `--a2ui-shadow-md`, `--a2ui-font-family` |
+| Shape | `--a2ui-radius-*`, `--a2ui-shadow-xs` to `--a2ui-shadow-md` |
 | Charts | `--a2ui-chart-1` to `--a2ui-chart-6` |
 
 Your editor lists all of them when you type a key in `theme`. To type a theme in its own file, use `GenerativeUITheme`:
@@ -202,4 +203,14 @@ You can also set the variables in your stylesheet, on the `.a2ui-surface` elemen
 
 A value in `theme` wins over the same variable in your CSS.
 
-Your accent, font, and dark colors now apply to every standard component, in the chat and on the page.
+## Fonts
+
+Surfaces inherit the font of the element around them. To give them another font, set `font-family` on `.a2ui-surface` in your CSS. Start the selector with `:root`: the surface's own `font: inherit` rule wins over a plain `.a2ui-surface`.
+
+```css
+:root .a2ui-surface {
+  font-family: Inter, sans-serif;
+}
+```
+
+Your accent, radius, and dark colors now apply to every standard component, in the chat and on the page, in your font.
