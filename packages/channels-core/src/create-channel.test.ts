@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { z } from "zod";
-import { createChannel } from "./create-channel.js";
+import { createChannel, isolateAgentInstance } from "./create-channel.js";
 import { defineChannelCommand } from "./commands.js";
 import { FakeAdapter } from "./testing/fake-adapter.js";
 import { FakeAgent } from "./testing/fake-agent.js";
@@ -9,6 +9,7 @@ import { Section, Actions, Button } from "@copilotkit/channels-ui";
 import type { ChannelNode } from "@copilotkit/channels-ui";
 import type { PlatformAdapter } from "./platform-adapter.js";
 import type { AgentSubscriber } from "@ag-ui/client";
+import { HttpAgent } from "@ag-ui/client";
 
 const tick = () => new Promise((r) => setTimeout(r, 0));
 
@@ -1278,6 +1279,48 @@ describe("createChannel", () => {
     expect(warn).toHaveBeenCalledTimes(1);
     expect(warn).toHaveBeenCalledWith(
       expect.stringContaining("authClient, cache"),
+    );
+
+    warn.mockRestore();
+  });
+
+  it("stays quiet for a real HttpAgent and still reports its subclass state", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    // `AbstractAgent.prototype.clone()` builds the clone with `Object.create()`
+    // and then assigns a fixed field list, so a field @ag-ui/client adds without
+    // updating that list is missing from every clone — `resolvingPeerCeiling`
+    // in 1.0.x. `HttpAgent.clone()` calls `super.clone()`, so the agent Channels
+    // ships inherits the loss on every turn, and its author cannot fix it by
+    // overriding clone(). Assert the shape first: if ag-ui starts carrying the
+    // field this test stops proving anything, rather than passing vacuously.
+    const http = new HttpAgent({
+      url: "http://127.0.0.1:9/agent",
+      threadId: "t1",
+    });
+    expect(
+      Object.keys(http).filter(
+        (key) => !Object.prototype.hasOwnProperty.call(http.clone(), key),
+      ),
+    ).toContain("resolvingPeerCeiling");
+
+    expect(isolateAgentInstance(http, "t2").threadId).toBe("t2");
+    expect(warn).not.toHaveBeenCalled();
+
+    // Same clone path, with one field that really is the agent's own. That one
+    // must still be reported — and only that one, not the base class's guard.
+    class AuthedHttpAgent extends HttpAgent {
+      authClient = { token: "secret" };
+    }
+    isolateAgentInstance(
+      new AuthedHttpAgent({ url: "http://127.0.0.1:9/agent" }),
+      "t3",
+    );
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringMatching(
+        /^createChannel: AuthedHttpAgent\.clone\(\) dropped authClient\./,
+      ),
     );
 
     warn.mockRestore();
