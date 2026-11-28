@@ -31,6 +31,7 @@ declare global {
  */
 const SSR_PLACEHOLDER: Readonly<RuntimeConfig> = Object.freeze({
   backendHostPattern: "showcase-{slug}.ssr-placeholder.invalid",
+  previewIntegrationSlugs: [],
 });
 
 /**

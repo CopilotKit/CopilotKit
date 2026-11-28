@@ -31,6 +31,8 @@ export interface RuntimeConfig {
    * the consumer (see lib/backend-url.ts).
    */
   backendHostPattern: string;
+  /** Additional picker entries enabled on the staging Dojo. */
+  previewIntegrationSlugs: readonly string[];
 }
 
 /**
@@ -58,8 +60,16 @@ export function getRuntimeConfig(
     readEnvPair("SHOWCASE_BACKEND_HOST_PATTERN") ??
       DEFAULT_BACKEND_HOST_PATTERN,
   );
+  const previewIntegrationSlugs =
+    process.env.RAILWAY_ENVIRONMENT_NAME === "staging" &&
+    backendHostPattern !== DEFAULT_BACKEND_HOST_PATTERN
+      ? (process.env.SHOWCASE_DOJO_PREVIEW_INTEGRATIONS ?? "")
+          .split(",")
+          .map((slug) => slug.trim())
+          .filter(Boolean)
+      : [];
 
-  return { backendHostPattern };
+  return { backendHostPattern, previewIntegrationSlugs };
 }
 
 // Env-name tolerance: deploy configs in the wild use either the bare

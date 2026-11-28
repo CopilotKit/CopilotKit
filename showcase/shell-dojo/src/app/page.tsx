@@ -147,10 +147,20 @@ function prettifyTag(tag: string): string {
 }
 
 export default function DojoPage() {
-  const integrations = useMemo(
-    () => getIntegrations().filter((i) => i.deployed),
-    [],
-  );
+  // Wait for the runtime config before showing staging previews or deriving
+  // iframe URLs. SSR and the initial hydration render use the public catalog.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  const integrations = useMemo(() => {
+    const previewSlugs = mounted
+      ? getRuntimeConfig().previewIntegrationSlugs
+      : [];
+    return getIntegrations().filter(
+      (integration) =>
+        integration.deployed || previewSlugs.includes(integration.slug),
+    );
+  }, [mounted]);
   const categories = useMemo(() => getFeatureCategories(), []);
 
   const [selectedSlug, setSelectedSlug] = useState(integrations[0]?.slug || "");
@@ -161,18 +171,6 @@ export default function DojoPage() {
   const [selectedFilename, setSelectedFilename] = useState<string | null>(null);
   const [codeViewMode, setCodeViewMode] = useState<"core" | "all">("core");
   const [dropdownOpen, setDropdownOpen] = useState(false);
-
-  // Client-readiness gate for the preview iframe. The registry loads
-  // synchronously (getIntegrations() above), so `integration` is
-  // populated on the very first render — including SSR and the
-  // hydration render. The runtime backend host pattern, however, only
-  // exists post-hydration (the client reader returns an
-  // `.ssr-placeholder.invalid` sentinel until window.__SHOWCASE_CONFIG__
-  // is readable). Gating previewUrl on `mounted` ensures we never render
-  // the iframe with the sentinel host — which would fire a real request
-  // at a `.invalid` domain and flash before the real URL swaps in.
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
 
   const integration = useMemo(
     () => integrations.find((i) => i.slug === selectedSlug),
