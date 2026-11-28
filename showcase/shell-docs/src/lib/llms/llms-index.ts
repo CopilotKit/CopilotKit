@@ -348,7 +348,7 @@ export function renderLlmsIndex(baseUrl: string): string {
     "",
     "## Early access channels",
     "",
-    `iMessage, SMS, and RCS are in early access, and so is managed WhatsApp on CopilotKit Intelligence. WhatsApp's direct adapter (\`@copilotkit/channels/whatsapp\`) ships today: to build with it now, read [Direct provider adapters](${baseUrl}/reference/channels/sdk/direct-adapters#whatsapp). Each page below says where its channel stands and books a demo with the team; Slack and Microsoft Teams (above) are generally available.`,
+    `iMessage, SMS, and RCS are in early access, and so is managed WhatsApp on CopilotKit Intelligence. WhatsApp's direct adapter (\`@copilotkit/channels/whatsapp\`) ships today: to build with it now, read [Direct provider adapters](${baseUrl}/reference/channels/sdk/direct-adapters#whatsapp). Each page below books a demo with the team; Slack and Microsoft Teams (above) are generally available.`,
     "",
   );
   for (const channel of EARLY_ACCESS_CHANNELS) {

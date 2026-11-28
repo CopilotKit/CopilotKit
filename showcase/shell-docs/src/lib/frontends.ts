@@ -67,7 +67,7 @@ const ENTRIES = [
   {
     id: "whatsapp",
     name: "WhatsApp",
-    summary: "Run your agent on WhatsApp. The direct adapter ships today.",
+    summary: "Run your agent on WhatsApp.",
     kind: "channel",
     group: "Channels",
     earlyAccess: true,

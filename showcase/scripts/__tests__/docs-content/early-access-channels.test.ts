@@ -26,6 +26,11 @@ vi.mock(
   "@/lib/base-path",
   () => import("../../../shell-docs/src/lib/base-path"),
 );
+vi.mock(
+  "@/lib/live-scope",
+  () => import("../../../shell-docs/src/lib/live-scope"),
+);
+vi.mock("@/proto/data", () => import("../../../shell-docs/src/proto/data"));
 
 import {
   EARLY_ACCESS_CHANNEL_IDS as REDIRECTED_CHANNEL_IDS,
@@ -174,24 +179,31 @@ describe("the channel pages' words", () => {
     }
   });
 
-  test("WhatsApp's Markdown links the adapter that ships today and says how it differs", () => {
-    const link =
-      "[Read the WhatsApp adapter docs](/reference/channels/sdk/direct-adapters#whatsapp)";
+  test("WhatsApp's Markdown links the adapter that ships today", () => {
     const note =
-      "This is how managed WhatsApp works in early access. With the direct adapter you can use today, your process holds the WhatsApp credentials and receives the webhook itself.";
-    const markdown = channelPageMarkdown("whatsapp");
-    expect(markdown).toContain(link);
-    expect(markdown).toContain(note);
-    // The channels with no adapter yet have neither.
+      "Prefer to hold the WhatsApp credentials yourself? The [WhatsApp adapter](/reference/channels/sdk/direct-adapters#whatsapp) is available today.";
+    expect(channelPageMarkdown("whatsapp")).toContain(note);
+    // The channels with no adapter yet don't link one.
     for (const id of ["imessage", "sms", "rcs"] as const) {
-      expect(channelPageMarkdown(id)).not.toContain(link);
-      expect(channelPageMarkdown(id)).not.toContain(note);
+      expect(channelPageMarkdown(id)).not.toContain("direct-adapters");
+    }
+  });
+
+  test("each page names the agent frameworks once each, with their docs", () => {
+    for (const id of EARLY_ACCESS_CHANNEL_IDS) {
+      const markdown = channelPageMarkdown(id);
+      expect(markdown).toContain("## Backed by any agent");
+      // A framework in several languages shows once, under its family's name.
+      expect(markdown.split("[LangGraph](").length - 1).toBe(1);
+      expect(markdown).toContain("[Mastra](/mastra)");
+      // CopilotKit's own built-in agent isn't one a reader brings.
+      expect(markdown).not.toContain("(/built-in-agent)");
     }
   });
 
   test("iMessage's Markdown links the Android channels", () => {
     expect(channelPageMarkdown("imessage")).toContain(
-      "For Android phones, see [SMS](/sms) and [RCS](/rcs), which are in early access too.",
+      "For Android phones, see [SMS](/sms) and [RCS](/rcs).",
     );
   });
 });

@@ -19,7 +19,10 @@ import { trackEvent } from "@/lib/telemetry/analytics";
 import type { ChannelDemoTimes } from "@/lib/early-access/booking";
 import { earlyAccessChannel } from "@/lib/early-access/channels";
 import type { EarlyAccessChannelId } from "@/lib/early-access/channels";
-import { EARLY_ACCESS_CHANNEL_COPY } from "@/lib/early-access/copy";
+import {
+  EARLY_ACCESS_CHANNEL_COPY,
+  SHARED_EARLY_ACCESS_COPY,
+} from "@/lib/early-access/copy";
 import {
   groupSlotDays,
   holdEnds,
@@ -501,7 +504,7 @@ export function ChannelDemoBooker({
           {copy.booking.heading}
         </h2>
         <p className="text-sm leading-normal text-muted-foreground">
-          {copy.booking.note}
+          {SHARED_EARLY_ACCESS_COPY.bookingNote}
         </p>
         {/* Holds its place while the times load; with none, it says nothing. */}
         <div className={cn("min-h-11", !showsZone && "hidden")}>

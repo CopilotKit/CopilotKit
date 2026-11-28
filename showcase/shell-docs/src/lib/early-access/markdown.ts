@@ -1,4 +1,5 @@
 import { withBasePath } from "@/lib/base-path";
+import { AGENT_FRAMEWORKS } from "@/proto/data";
 import {
   EARLY_ACCESS_CHANNELS,
   earlyAccessChannel,
@@ -41,9 +42,6 @@ export function channelPageMarkdown(id: EarlyAccessChannelId): string {
   const shared = SHARED_EARLY_ACCESS_COPY;
   const name = copy.name;
   const channel = earlyAccessChannel(id);
-  const statusLink = copy.statusLink
-    ? ` [${copy.statusLink.label}](${withBasePath(copy.statusLink.href)}).`
-    : "";
   const lines = [
     `# ${copy.hero.title}`,
     "",
@@ -51,13 +49,13 @@ export function channelPageMarkdown(id: EarlyAccessChannelId): string {
     "",
     copy.hero.lede,
     "",
-    `**${shared.eyebrow}:** ${copy.status}${statusLink}`,
-    "",
     `## ${copy.booking.heading}`,
     "",
-    `${copy.booking.note} Pick a time on [this page](${withBasePath(earlyAccessHref(id))}), or book with the team on [copilotkit.ai](${channel?.fallbackUrl}).`,
+    `${shared.bookingNote} Pick a time on [this page](${withBasePath(earlyAccessHref(id))}), or book with the team on [copilotkit.ai](${channel?.fallbackUrl}).`,
     "",
     `## ${fill(shared.conversationTitle, name)}`,
+    "",
+    shared.conversationLede,
     "",
     copy.conversation.messages
       .map((message) => transcriptLine(message, copy.conversation.contact))
@@ -67,11 +65,25 @@ export function channelPageMarkdown(id: EarlyAccessChannelId): string {
     "",
     ...copy.features.map((f) => `- **${f.title}.** ${f.body}`),
     "",
+    `## ${shared.agents.title}`,
+    "",
+    shared.agents.lede,
+    "",
+    AGENT_FRAMEWORKS.map(
+      (f) => `[${f.name}](${withBasePath(`/${f.id}`)})`,
+    ).join(", "),
+    "",
+    shared.agents.extrasLede,
+    "",
+    ...shared.agents.extras.map((e) => `- **${e.title}.** ${e.body}`),
+    "",
     `## ${fill(shared.howItWorks.title, name)}`,
     "",
     fill(shared.howItWorks.lede, name),
     "",
-    ...(copy.howItWorksNote ? [copy.howItWorksNote, ""] : []),
+    ...(copy.howItWorksNote
+      ? [linked(copy.howItWorksNote.text, copy.howItWorksNote.links), ""]
+      : []),
     ...shared.howItWorks.steps.map(
       (step, index) =>
         `${index + 1}. **${fill(step.title, name)}.** ${fill(step.body, name)}`,
@@ -90,8 +102,6 @@ export function channelPageMarkdown(id: EarlyAccessChannelId): string {
     copy.closing.body,
     "",
     `## ${shared.otherChannelsTitle}`,
-    "",
-    shared.gaChannelsNote,
     "",
     ...EARLY_ACCESS_CHANNELS.filter((c) => c.id !== id).map(
       (c) =>
@@ -148,11 +158,9 @@ export function channelPageSearchText(id: EarlyAccessChannelId): {
     description: copy.meta.description,
     contents: [
       copy.hero.lede,
-      copy.status,
       copy.booking.heading,
-      copy.booking.note,
       ...copy.features.map((f) => `${f.title}. ${f.body}`),
-      ...(copy.howItWorksNote ? [copy.howItWorksNote] : []),
+      ...(copy.howItWorksNote ? [copy.howItWorksNote.text] : []),
       ...copy.specifics.map((f) => `${f.title}. ${f.body}`),
       copy.closing.title,
       copy.closing.body,
