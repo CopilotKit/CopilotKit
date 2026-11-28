@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Telemetry } from "@/components/telemetry";
 import { DemoThemeBridge } from "@/components/demo-theme-bridge";
 import { DocsSearchDialog } from "@/components/search";
+import { NavigationProgress } from "@/components/navigation-progress";
 
 // Brand type system: Plus Jakarta Sans for reading and UI, Spline Sans Mono
 // for code and technical labels. Consumed by --font-sans / --font-mono in
@@ -33,6 +34,7 @@ export default function Layout({ children }: LayoutProps<"/">) {
         <RootProvider search={{ SearchDialog: DocsSearchDialog }}>
           <TooltipProvider>{children}</TooltipProvider>
         </RootProvider>
+        <NavigationProgress />
         <Telemetry />
         <DemoThemeBridge />
       </body>
