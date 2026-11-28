@@ -96,6 +96,15 @@ export const routes: Routes = [
       ),
   },
   {
+    // Fixed UI states for the visual regression tests in e2e/visual.
+    path: "visual/tool-calls",
+    title: "Visual: Tool Calls",
+    loadComponent: () =>
+      import("./routes/visual/tool-calls-visual.component").then(
+        (m) => m.ToolCallsVisualComponent,
+      ),
+  },
+  {
     // Unknown paths fall back to the default landing (A2UI demo).
     path: "**",
     redirectTo: "a2ui-demo",
