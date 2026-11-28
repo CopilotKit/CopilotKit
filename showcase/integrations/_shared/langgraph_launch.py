@@ -6,15 +6,15 @@ import sys
 import tempfile
 from importlib.metadata import version
 
-from langgraph_api.cli import run_server
 from langgraph_cli.config import validate_config_file
+from langgraph_api.cli import run_server
 
 
 def main() -> None:
-    # The CLI drops disable_persistence during validation, then passes False
-    # to run_server and overrides the exported environment flag.
+    # langgraph-cli 0.4.34 drops disable_persistence during validation, then
+    # passes False to run_server and overrides the exported environment flag.
     # Keep this forwarding in step with the pinned CLI if either API changes.
-    expected = {"langgraph-cli": "0.4.44", "langgraph-api": "0.19.1"}
+    expected = {"langgraph-cli": "0.4.34", "langgraph-api": "0.16.0"}
     for package, pinned in expected.items():
         installed = version(package)
         if installed != pinned:
@@ -31,9 +31,10 @@ def main() -> None:
         if dep_path.is_dir():
             sys.path.append(str(dep_path))
 
-    # The legacy in-memory runtime can still read and write ops files with
-    # periodic persistence disabled. Run from a temporary directory to isolate
-    # those relative paths and keep graph paths absolute.
+    # The pinned runtime still loads old ops files and writes them at shutdown
+    # with periodic persistence disabled. Its paths are relative to cwd, so run
+    # from a temporary directory while keeping graph paths absolute. Existing
+    # .langgraph_api files in the image remain untouched.
     graphs = {}
     for name, spec in config.get("graphs", {}).items():
         filename, symbol = spec.rsplit(":", 1)
@@ -60,8 +61,10 @@ def main() -> None:
                 webhooks=config.get("webhooks"),
                 checkpointer=config.get("checkpointer"),
                 disable_persistence=True,
-                # Keep concurrent Showcase probes from queuing behind the
-                # default limit of one run per worker.
+                # run_server defaults to one background worker. langgraph-api
+                # 0.7.101 loaded its config before applying that and so ran
+                # the config default of 10; 0.16 applies it, serializing every
+                # run until probes time out. Keep the concurrency explicit.
                 n_jobs_per_worker=10,
             )
         finally:
