@@ -385,26 +385,35 @@ export class IntelligenceAgentRunner extends AgentRunner {
       let consecutiveSocketErrors = 0;
       let plannedRestart = false;
 
-      socket.onClose((event) => {
-        if (!this.isCurrentThreadState(threadId, state)) {
+      // Phoenix reconnects only from the transport's close event, and it does
+      // not retry a normal (1000) close. Node 22's built-in WebSocket raises
+      // only an error, with no close, when the opening handshake is refused or
+      // fails. A live run still needs its transport in both cases; removeThread
+      // marks intentional cleanup inactive.
+      const armSocketReconnectWatchdog = () => {
+        if (state.socketReconnectWatchdog !== null) {
           return;
         }
-        plannedRestart = plannedRestart || event?.code === 1012;
-        // Phoenix does not retry a normal (1000) close. A live run still
-        // needs its transport; removeThread marks intentional cleanup inactive.
-        if (state.socketReconnectWatchdog === null) {
-          state.socketReconnectWatchdog = setTimeout(() => {
-            state.socketReconnectWatchdog = null;
-            if (!state.isRunning || socket.isConnected()) {
-              return;
-            }
+        state.socketReconnectWatchdog = setTimeout(() => {
+          if (state.isRunning && !socket.isConnected()) {
             socket.disconnect(() => {
               if (state.isRunning && !socket.isConnected()) {
                 socket.connect();
               }
             });
-          }, 1_000);
+          }
+          // Cleared last: closing a socket whose handshake failed raises one
+          // more error on Node 22, which must not arm a second watchdog.
+          state.socketReconnectWatchdog = null;
+        }, 1_000);
+      };
+
+      socket.onClose((event) => {
+        if (!this.isCurrentThreadState(threadId, state)) {
+          return;
         }
+        plannedRestart = plannedRestart || event?.code === 1012;
+        armSocketReconnectWatchdog();
       });
       socket.onOpen(() => {
         if (!this.isCurrentThreadState(threadId, state)) {
@@ -421,6 +430,7 @@ export class IntelligenceAgentRunner extends AgentRunner {
         if (!this.isCurrentThreadState(threadId, state)) {
           return;
         }
+        armSocketReconnectWatchdog();
         // Once the gateway has accepted the run, transport recovery is not a
         // terminal condition. The agent may still be producing the
         // authoritative answer while Phoenix reconnects and replays durable
