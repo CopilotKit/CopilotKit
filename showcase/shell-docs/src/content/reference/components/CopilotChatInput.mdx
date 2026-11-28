@@ -82,6 +82,16 @@ import "@copilotkit/react-core/v2/styles.css";
   send the raw audio for server-side speech-to-text processing.
 </PropertyReference>
 
+<PropertyReference name="showDisclaimer" type="boolean">
+  Whether to show the disclaimer slot. Defaults to `true` when
+  `positioning` is `"absolute"`, and `false` when it is `"static"`.
+</PropertyReference>
+
+<PropertyReference name="positioning" type='"static" | "absolute"' default='"static"'>
+  How the input container is positioned. `"absolute"` pins the input to the
+  bottom of its container.
+</PropertyReference>
+
 <PropertyReference name="onAddFile" type="() => void">
   Callback invoked when the user picks the attach item in the add-menu (+)
   button. The menu lists this item only when `onAddFile` is set.
@@ -164,6 +174,12 @@ All slot props follow the CopilotKit slot system: each accepts a replacement Rea
 <PropertyReference name="audioRecorder" type="SlotValue<typeof CopilotChatAudioRecorder>">
   Slot for the audio recorder component displayed during `"transcribe"` mode.
   Defaults to [`CopilotChatAudioRecorder`](#copilotchataudiorecorder).
+</PropertyReference>
+
+<PropertyReference name="disclaimer" type="SlotValue<typeof CopilotChatInput.Disclaimer>">
+  Slot for the disclaimer line under the input. The default text comes from
+  `CopilotChatLabels.chatDisclaimerText`. From `CopilotChat`, replace it with
+  `input={{ disclaimer: MyDisclaimer }}`.
 </PropertyReference>
 
 ## ToolsMenuItem

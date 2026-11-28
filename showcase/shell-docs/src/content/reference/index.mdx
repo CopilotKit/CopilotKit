@@ -108,7 +108,8 @@ The [`<CopilotKit>`](/reference/components/CopilotKit) export is the v1 compatib
 </PropertyReference>
 
 <PropertyReference name="publicLicenseKey" type="string">
-  Alias for `publicApiKey`.
+  Public license key for CopilotKit Intelligence features. Used when
+  `publicApiKey` is not set.
 </PropertyReference>
 
 <PropertyReference
@@ -184,11 +185,15 @@ The [`<CopilotKit>`](/reference/components/CopilotKit) export is the v1 compatib
   into `<GenerativeUISurface id>` mounts.
 </PropertyReference>
 
-<PropertyReference name="mcpApps" type="{ allowSameOriginFallback?: boolean }">
-  Options for the built-in MCP Apps renderer. `allowSameOriginFallback`
-  (default `false`) restores `allow-same-origin` on the MCP App sandbox. The
-  widget then runs with the origin of your page, so set it only for widgets
-  that you wrote and trust.
+<PropertyReference name="mcpApps" type="{ allowSameOriginFallback?: boolean; modelContext?: boolean }">
+  Options for the built-in MCP Apps renderer.
+
+  - `allowSameOriginFallback` (default `false`): restores `allow-same-origin`
+    on the MCP App sandbox. The widget then runs with the origin of your page,
+    so set it only for widgets that you wrote and trust.
+  - `modelContext` (default `false`): lets MCP Apps report their state to the
+    model through `ui/update-model-context`. That state goes with every later
+    run, and the user does not see it. Turn it on only for MCP servers you trust.
 </PropertyReference>
 
 <PropertyReference name="learning" type="boolean | LearningProp">

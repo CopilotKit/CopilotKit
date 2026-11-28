@@ -83,6 +83,15 @@ function useFrontendTool<T extends Record<string, unknown>>(
   To render backend tool calls, use [`useRenderTool`](/reference/hooks/useRenderTool). To show a component from the tool arguments, use [`useComponent`](/reference/hooks/useComponent).
 </PropertyReference>
 
+  <PropertyReference name="followUp" type="boolean" default="true">
+    Whether the agent runs again after the handler returns, so it can respond
+    to the result. Set to `false` to end the turn after the tool runs.
+  </PropertyReference>
+
+  <PropertyReference name="agentId" type="string">
+    Limits the tool to one agent. When unset, every agent can call the tool.
+  </PropertyReference>
+
   <PropertyReference name="available" type="boolean" default="true">
     Set to `false` to hide the tool from the agent without unregistering it.
   </PropertyReference>

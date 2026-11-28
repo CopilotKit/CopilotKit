@@ -161,6 +161,32 @@ The welcome screen component receives `input` and `suggestionView` as React elem
 
 </PropertyReference>
 
+<PropertyReference name="isConnecting" type="boolean">
+  `true` while a thread's history is being restored. Hides the welcome screen
+  and shows `connectingIndicator` until messages arrive.
+</PropertyReference>
+
+<PropertyReference name="intelligenceIndicator" type="SlotValue<typeof IntelligenceIndicatorView>">
+  Slot for the "Using CopilotKit Intelligence" indicator. Passed through to
+  the `intelligenceIndicator` slot of `CopilotChatMessageView`.
+</PropertyReference>
+
+### Input Props
+
+`CopilotChatView` passes these props to its `input` slot. `CopilotChat` sets
+them for you; pass them yourself only when you render `CopilotChatView`
+directly.
+
+- `onSubmitMessage?: (value: string) => void`: called when the user sends a message.
+- `onStop?: () => void`: called when the user clicks stop during a run.
+- `inputValue?: string` and `onInputChange?: (value: string) => void`: control the input text.
+- `inputMode?: "input" | "transcribe" | "processing"`: the input mode. See [`CopilotChatInput`](/reference/components/CopilotChatInput).
+- `onStartTranscribe`, `onCancelTranscribe`, `onFinishTranscribe`, and `onFinishTranscribeWithAudio`: voice input callbacks, as on `CopilotChatInput`.
+
+For attachments, the view also takes `attachments` (`Attachment[]`),
+`onRemoveAttachment`, `onAddFile`, `dragOver`, `onDragOver`, `onDragLeave`,
+and `onDrop`.
+
 ## Static Sub-Components
 
 `CopilotChatView` exposes its default slot implementations as static properties for use in custom compositions:
