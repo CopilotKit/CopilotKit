@@ -10,7 +10,7 @@ import type {
   ToolCallResultEvent,
   ToolMessage,
 } from "@ag-ui/client";
-import { randomUUID, structuredClone_ } from "@ag-ui/client";
+import { mergeMetadata, randomUUID, structuredClone_ } from "@ag-ui/client";
 import type { CopilotKitCore } from "./core";
 import { isForwardedToClientPlaceholder } from "./tool-result-content";
 
@@ -237,10 +237,15 @@ export class StateManager {
             }
             continue;
           }
+          const metadata = mergeMetadata(
+            messages[placeholderIndex]?.metadata,
+            event.metadata,
+          );
           messages[placeholderIndex] = {
             ...messages[placeholderIndex],
             id: event.messageId,
             content: event.content,
+            ...(metadata ? { metadata } : {}),
           } as ToolMessage;
           changed = true;
           for (const duplicateIndex of matchingIndexes
@@ -262,6 +267,7 @@ export class StateManager {
           role: "tool",
           toolCallId: event.toolCallId,
           content: event.content,
+          ...(event.metadata ? { metadata: { ...event.metadata } } : {}),
         };
         let insertIndex = ownerIndex + 1;
         while (messages[insertIndex]?.role === "tool") insertIndex++;
