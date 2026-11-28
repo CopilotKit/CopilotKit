@@ -18,7 +18,7 @@ const data: FrameworkOverviewData = {
   // Was "/adk/quickstart/adk", which the link rewriter turns into
   // /google-adk/quickstart/adk — a 404. The quickstart lives one level up.
   guideLink: "/adk/quickstart",
-  initCommand: "npx copilotkit@latest init",
+  initCommand: "npx copilotkit@latest init -f adk",
   featuresLink: "https://feature-viewer.copilotkit.ai/adk/feature/agentic_chat",
 
   lede: "ADK gives you the agent: tools, sessions and a runner that serves them. What it does not give you is the surface. Somewhere for the conversation to happen, a way to show the run while it is running, and a moment for a person to step in. Each capability below builds on something your agent already does.",
@@ -28,7 +28,7 @@ const data: FrameworkOverviewData = {
       iconKey: "paintbrush",
       description:
         "Your agent calls tools and updates session state as it runs. CopilotKit streams both to the browser and renders them as React components your users watch update while the agent works.",
-      documentationLink: "/adk/generative-ui",
+      documentationLink: "/adk/generative-ui/tool-rendering",
     },
     {
       title: "Human-in-the-loop",

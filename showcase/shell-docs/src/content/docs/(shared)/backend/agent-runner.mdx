@@ -283,7 +283,7 @@ export class MyRunner extends InMemoryAgentRunner {
 
 For a complete production example, see the
 [AWS AgentCore integration](/deploy/agentcore). It extends
-`InMemoryAgentRunner` into an `AgentCoreRunner`, handles a `connect()` that
+`InMemoryAgentRunner` into the `AgentCoreRunner` that `@copilotkit/agentcore-runner` ships. It handles a `connect()` that
 arrives **before** any `run()` for a thread, and synthesizes missing tool-call
 results from a replayed history.
 

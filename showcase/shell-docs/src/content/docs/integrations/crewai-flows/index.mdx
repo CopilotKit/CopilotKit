@@ -15,7 +15,7 @@ hidePageActions: true
   header="Bring your CrewAI Flow-based agents to your users"
   subheader="CrewAI runs your flows. CopilotKit gives them a surface your users can see, interrupt and steer."
   guideLink="/crewai-flows/quickstart"
-  initCommand="npx copilotkit@latest init"
+  initCommand="npx copilotkit@latest init -f flows"
   lede="CrewAI gives you the flow: steps, state and the crew that works through them. What it does not give you is the surface. Your users need a place to talk to the flow, a view of each step while it runs, and a way to step in. Each capability below builds on something your flow already does."
   supportedFeatures={[
     {
@@ -23,7 +23,7 @@ hidePageActions: true
       iconKey: "paintbrush",
       description:
         "Your flow emits state and tool calls as each step completes. CopilotKit streams those to the browser and renders them as React components your users watch update while the flow runs.",
-      documentationLink: "/crewai-flows/generative-ui"
+      documentationLink: "/crewai-flows/generative-ui/tool-rendering"
     },
     {
       title: "Human-in-the-loop",

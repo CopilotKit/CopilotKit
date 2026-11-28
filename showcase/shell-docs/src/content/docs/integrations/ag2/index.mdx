@@ -15,7 +15,7 @@ hidePageActions: true
   header="Bring your AG2 agents to your users"
   subheader="AG2 runs your agents. CopilotKit gives them a surface your users can see, interrupt and steer."
   guideLink="/ag2/quickstart"
-  initCommand="npx copilotkit@latest init"
+  initCommand="npx copilotkit@latest init -f ag2"
   lede="AG2 gives you the conversation between your agents: roles, turns and the tools they call. What it does not give you is the surface a person joins it through. Each capability below builds on something your agents already do."
   supportedFeatures={[
     {
@@ -23,7 +23,7 @@ hidePageActions: true
       iconKey: "paintbrush",
       description:
         "Your agents call tools as the conversation runs. CopilotKit streams those calls to the browser and renders each one as a React component, instead of leaving the user with a spinner.",
-      documentationLink: "/ag2/generative-ui"
+      documentationLink: "/ag2/generative-ui/tool-rendering"
     },
     {
       title: "Human-in-the-loop",

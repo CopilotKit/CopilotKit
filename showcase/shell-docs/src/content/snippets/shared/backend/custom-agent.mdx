@@ -324,7 +324,7 @@ Reasoning events (`REASONING_START`, `REASONING_MESSAGE_CONTENT`, `REASONING_END
 Pick the model with reasoning **visibility** in mind. From Claude Opus 4.7 onward (including Sonnet 5 and Opus 5), the thinking `display` default is `"omitted"`. The model still reasons, but no reasoning text comes back. Then the reasoning events above arrive empty. `@ai-sdk/anthropic` does not expose `display`. To show the reasoning, use a model that returns summarized thinking by default, such as `claude-sonnet-4-6`.
 </Callout>
 
-Using `BuiltInAgent` without a custom factory? The same options go through its `providerOptions`. See [Advanced Configuration](/advanced-configuration#provider-specific-options).
+Using `BuiltInAgent` without a custom factory? The same options go through its `providerOptions`. See [Advanced Configuration](/built-in-agent/advanced-configuration#provider-specific-options).
 </Tab>
 <Tab value="TanStack AI">
 ```typescript title="src/copilotkit.ts"
