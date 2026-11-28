@@ -73,6 +73,7 @@ export async function handleConnectAgent({
       request,
       agentId,
       threadId: connectRequest.input.threadId,
+      lastSeenEventId: connectRequest.lastSeenEventId,
       ownerId,
       // Pass the per-request clone so its server-configured `agent.headers` are
       // folded into the merged header set threaded into `runner.connect`. That

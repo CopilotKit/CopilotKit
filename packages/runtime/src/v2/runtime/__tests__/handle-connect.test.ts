@@ -188,6 +188,108 @@ describe("handleConnectAgent", () => {
     expect(recordedRequests[0].headers).toEqual({});
   });
 
+  it("forwards lastSeenEventId from the connect request body to runner.connect()", async () => {
+    const recordedRequests: AgentRunnerConnectRequest[] = [];
+    let resolveConnect: (() => void) | undefined;
+    const connectInvoked = new Promise<void>((resolve) => {
+      resolveConnect = resolve;
+    });
+
+    const runtime = createMockRuntime(
+      { "test-agent": { clone: () => ({}) } },
+      (request: AgentRunnerConnectRequest) =>
+        new Observable<BaseEvent>((subscriber) => {
+          recordedRequests.push(request);
+          resolveConnect?.();
+          subscriber.complete();
+        }),
+    );
+
+    const request = new Request(
+      "https://example.com/agent/test-agent/connect",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          threadId: "thread-1",
+          runId: "run-1",
+          state: {},
+          messages: [],
+          tools: [],
+          context: [],
+          forwardedProps: {},
+          lastSeenEventId: "event-42",
+        }),
+      },
+    );
+
+    const response = await handleConnectAgent({
+      runtime,
+      request,
+      agentId: "test-agent",
+    });
+
+    expect(response.status).toBe(200);
+    await connectInvoked;
+
+    expect(recordedRequests).toHaveLength(1);
+    expect(recordedRequests[0].lastSeenEventId).toBe("event-42");
+  });
+
+  it.each([
+    ["explicit null", { lastSeenEventId: null }],
+    ["omitted field", {}],
+  ])(
+    "forwards lastSeenEventId as null when connect request has %s",
+    async (_label, extraBody) => {
+      const recordedRequests: AgentRunnerConnectRequest[] = [];
+      let resolveConnect: (() => void) | undefined;
+      const connectInvoked = new Promise<void>((resolve) => {
+        resolveConnect = resolve;
+      });
+
+      const runtime = createMockRuntime(
+        { "test-agent": { clone: () => ({}) } },
+        (request: AgentRunnerConnectRequest) =>
+          new Observable<BaseEvent>((subscriber) => {
+            recordedRequests.push(request);
+            resolveConnect?.();
+            subscriber.complete();
+          }),
+      );
+
+      const request = new Request(
+        "https://example.com/agent/test-agent/connect",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            threadId: "thread-1",
+            runId: "run-1",
+            state: {},
+            messages: [],
+            tools: [],
+            context: [],
+            forwardedProps: {},
+            ...extraBody,
+          }),
+        },
+      );
+
+      const response = await handleConnectAgent({
+        runtime,
+        request,
+        agentId: "test-agent",
+      });
+
+      expect(response.status).toBe(200);
+      await connectInvoked;
+
+      expect(recordedRequests).toHaveLength(1);
+      expect(recordedRequests[0].lastSeenEventId).toBeNull();
+    },
+  );
+
   describe("IntelligenceAgentRunner connect planning path", () => {
     const createConnectRequest = (
       headers?: Record<string, string>,
