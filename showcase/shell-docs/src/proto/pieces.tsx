@@ -756,13 +756,18 @@ export function usePickFrontend() {
 }
 
 /**
- * The picker's cue, an overlay on the card: its edge turns lilac and eases
- * back to the card's hairline over 2.5s while a thin ring pings out from it
- * twice, from 300ms in (`stack-edge` and `stack-ping` in theme.css). For
- * reduced motion, the edge alone, which only changes color.
+ * The picker's cue, an overlay on the card: one quick fade to lilac and back.
+ * The overlay is the card's look at the peak, its edge deepened to lilac-mid
+ * (2px with the ring around it) and its white washed lilac, and only its
+ * opacity animates: in over 0.45s, then straight back out over 1.35s with no
+ * hold (`stack-tint` in theme.css, which sets the easing, 1.8s in all). The
+ * card isolates and the overlay sits behind the rows (`-z-10`), so it tints
+ * the card's own white and edge but never the rows' text and icons, and their
+ * hover, open, and focus states draw on top. Only colors change, nothing
+ * moves, so it plays the same for reduced motion.
  */
 const CUE =
-  "pointer-events-none absolute -inset-px rounded-[24px] border border-transparent motion-safe:animate-[stack-edge_2.5s_ease-in,stack-ping_1.1s_cubic-bezier(0.16,1,0.3,1)_300ms_2] motion-reduce:animate-[stack-edge_2.5s_ease-in]";
+  "pointer-events-none absolute -inset-px -z-10 rounded-[24px] border border-ring bg-ring/16 opacity-0 ring-1 ring-ring animate-[stack-tint_1.8s]";
 
 /**
  * Frontend and agent framework as two rows, like the current docs sidebar.
@@ -826,7 +831,7 @@ export function StackRows({
     // sidebar's grey ground; at night a raised ink, since
     // the card color is darker than the frame. It takes the page panel's 24px
     // corners, and starts level with it (theme.css sizes the logo row).
-    <div className="relative flex flex-col rounded-[24px] border bg-card p-1 text-sm shadow-lift dark:bg-[#1e1e2a]">
+    <div className="relative isolate flex flex-col rounded-[24px] border bg-card p-1 text-sm shadow-lift dark:bg-[#1e1e2a]">
       {cue.run > 0 ? (
         <span key={cue.run} aria-hidden="true" className={CUE} />
       ) : null}
