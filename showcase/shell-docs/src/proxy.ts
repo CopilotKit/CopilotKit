@@ -5,6 +5,7 @@ import { legacyRedirect } from "@/lib/redirects/legacy-redirect";
 import { trackRequest } from "@/lib/telemetry/proxy";
 import { basePath, withBasePath } from "@/lib/base-path";
 import { DOCS_VERSIONS } from "@/lib/docs-versions.mjs";
+import { isIndexable } from "@/lib/seo/indexing";
 
 /** Where a live page's Markdown is served (`src/app/llms.mdx/live`). */
 const LIVE_MARKDOWN_ROUTE = "/llms.mdx/live";
@@ -75,6 +76,14 @@ function withoutCloudflareHeaders(request: NextRequest): NextResponse {
 }
 
 export default function proxy(request: NextRequest, event: NextFetchEvent) {
+  const response = route(request, event);
+  // A deployment crawlers should skip (staging) says so on every response,
+  // which also covers pages a crawler finds through a link, not robots.txt.
+  if (!isIndexable()) response.headers.set("X-Robots-Tag", "noindex");
+  return response;
+}
+
+function route(request: NextRequest, event: NextFetchEvent): NextResponse {
   const { pathname } = request.nextUrl;
 
   if (POSTHOG_PROXY.test(pathname)) return withoutCloudflareHeaders(request);
