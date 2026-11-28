@@ -24,9 +24,12 @@ import { EARLY_ACCESS_LABEL } from "@/lib/early-access/channels";
 import { channelPageSearchText } from "@/lib/early-access/markdown";
 import {
   earlyAccessEntries,
+  entryTitle,
   frameworkSetupEntries,
   searchEntries,
 } from "./live-inventory";
+import { queryTerms, rankResults } from "./search-rank";
+import type { FrameworkOverviewData } from "@/data/frameworks";
 import { mapLimit } from "./map-limit";
 
 // Orama search over the live docs (each page once, at an unscoped live URL;
@@ -50,15 +53,19 @@ async function buildIndexes(): Promise<AdvancedIndex[]> {
     8,
     async ({ url, live, frontends }) => {
       try {
-        const { structuredData } = await live.page.data.load();
+        // A generated framework landing (`/google-adk`) is its record, not
+        // the quickstart page behind it, which is indexed on its own.
+        const structuredData = live.overview
+          ? overviewText(live.overview)
+          : (await live.page.data.load()).structuredData;
         return {
           id: url,
           url,
           // The route asks for the reader's frontend and framework
           // (`/api/search`); a page is there for every framework.
           tag: [...frontends, ...ALL_FRAMEWORK_TAGS],
-          title: live.page.data.title,
-          description: live.page.data.description,
+          title: entryTitle(live),
+          description: live.overview?.subheader ?? live.page.data.description,
           breadcrumbs:
             frameworkCrumb(live.scope.framework) ?? crumbs.get(live.page.url),
           structuredData,
@@ -126,6 +133,23 @@ const ALL_FRAMEWORK_TAGS = [
     ...Object.keys(LIVE_FRAMEWORKS).map(frameworkTag),
   ]),
 ];
+
+/** A framework landing's record as search text: its tagline and what it supports. */
+function overviewText(overview: FrameworkOverviewData): StructuredData {
+  const lines = [
+    overview.subheader,
+    ...(overview.supportedFeatures ?? []).flatMap((f) => [
+      f.title,
+      f.description,
+    ]),
+  ];
+  return {
+    headings: [],
+    contents: lines
+      .filter((line): line is string => Boolean(line))
+      .map((content) => ({ heading: undefined, content })),
+  };
+}
 
 /**
  * Setup MDX as search text: its headings and prose, one entry per line,
@@ -210,10 +234,44 @@ async function current<T>(use: (api: SearchAPI) => Promise<T>): Promise<T> {
   }
 }
 
+/**
+ * How many of Orama's results `rankResults` re-ranks: enough that the page a
+ * reader means is in the pool when a common word floods the matches.
+ */
+const CANDIDATES = 400;
+const DEFAULT_LIMIT = 60;
+
+async function rankedSearch(
+  query: string,
+  options?: Parameters<SearchAPI["search"]>[1],
+) {
+  const limit = options?.limit ?? DEFAULT_LIMIT;
+  // Orama matches any word of the query, so "in" and "the" would match
+  // nearly every paragraph and crowd out the page meant.
+  const terms = queryTerms(query).join(" ") || query;
+  const results = await current((s) =>
+    s.search(terms, { ...options, limit: Math.max(limit, CANDIDATES) }),
+  );
+  return rankResults(results, query, limit);
+}
+
 export const liveSearch: SearchAPI = {
-  search: (query, options) => current((s) => s.search(query, options)),
+  search: rankedSearch,
   export: () => current((s) => s.export()),
-  GET: (request) => current((s) => s.GET(request)),
+  // Fumadocs' endpoint reads `query`, `tag`, and `limit` the same way.
+  async GET(request) {
+    const params = new URL(request.url).searchParams;
+    const query = params.get("query");
+    if (!query) return Response.json([]);
+    const tag = params.get("tag")?.split(",").filter(Boolean);
+    const limit = Number(params.get("limit"));
+    return Response.json(
+      await rankedSearch(query, {
+        tag,
+        limit: Number.isInteger(limit) && limit > 0 ? limit : undefined,
+      }),
+    );
+  },
   staticGET: () => current((s) => s.staticGET()),
 };
 

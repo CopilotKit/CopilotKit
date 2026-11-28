@@ -4,7 +4,11 @@ import {
   channelPageMarkdown,
   channelPageSearchText,
 } from "@/lib/early-access/markdown";
-import { earlyAccessEntries, searchEntries } from "./live-inventory";
+import {
+  earlyAccessEntries,
+  entryTitle,
+  searchEntries,
+} from "./live-inventory";
 import { renderLivePageMarkdown } from "./page-markdown";
 
 // Page lookups for agents reading the site through tools (`/api/mcp`): every
@@ -14,7 +18,8 @@ import { renderLivePageMarkdown } from "./page-markdown";
 /** Every page, one per line: `- [Title](/url): description`. */
 export async function listPages(): Promise<string> {
   const live = searchEntries().map(({ url, live }) => {
-    const { title, description } = live.page.data;
+    const title = entryTitle(live);
+    const description = live.overview?.subheader ?? live.page.data.description;
     return `- [${title}](${url})${description ? `: ${description}` : ""}`;
   });
   const channels = earlyAccessEntries().map(({ url, id }) => {

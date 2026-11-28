@@ -1,6 +1,8 @@
 import { statSync } from "node:fs";
 import {
+  ROOT_FRAMEWORK,
   getFrameworkVariants,
+  getIntegration,
   getSetupContent,
 } from "@/components/docs-mdx/data";
 import { getPageIndex, livePages } from "@/lib/live-docs";
@@ -30,6 +32,30 @@ export interface LiveEntry {
   /** Public path, `/mastra/background-tasks`. */
   url: string;
   live: ResolvedLivePage;
+}
+
+/**
+ * A page's title where it's listed out of context (search results, the MCP
+ * page list): a framework's own pages name the framework, since every
+ * framework has a "Quickstart" and an "Introduction". A framework's landing
+ * is the framework's name; its other pages read `Mastra: Quickstart`.
+ */
+export function entryTitle(live: ResolvedLivePage): string {
+  if (live.overview) return live.overview.frameworkName;
+  const { title } = live.page.data;
+  const framework = live.scope.framework;
+  if (
+    !framework ||
+    framework === ROOT_FRAMEWORK ||
+    !live.contentPath.startsWith("docs/integrations/")
+  ) {
+    return title;
+  }
+  const name = getIntegration(framework)?.name;
+  if (!name) return title;
+  if (live.canonical === `/${framework}`) return name;
+  const brand = name.split(/[\s(]/)[0].toLowerCase();
+  return title.toLowerCase().includes(brand) ? title : `${name}: ${title}`;
 }
 
 /** Pages behind an early-access gate stay out of the aggregates. */
@@ -97,6 +123,9 @@ const REFERENCE_FRONTENDS: Record<string, FrontendId[]> = {
 
 /** The frontends whose readers have a page: its search tags. */
 function frontendsOf({ live, url }: LiveEntry): FrontendId[] {
+  // A generated framework landing (`/google-adk`) is about the agent, which
+  // every frontend connects to.
+  if (live.overview) return ALL_FRONTENDS;
   const path = live.contentPath;
   if (path.startsWith("reference/")) {
     return REFERENCE_FRONTENDS[url.split("/")[2]] ?? ALL_FRONTENDS;
@@ -128,10 +157,7 @@ function frontendsOf({ live, url }: LiveEntry): FrontendId[] {
  */
 export function searchEntries(): (LiveEntry & { frontends: FrontendId[] })[] {
   return entries()
-    .filter(
-      ({ live }) =>
-        !live.overview && !live.variant && !isEarlyAccess(live.page),
-    )
+    .filter(({ live }) => !live.variant && !isEarlyAccess(live.page))
     .map((entry) => ({ ...entry, frontends: frontendsOf(entry) }));
 }
 
