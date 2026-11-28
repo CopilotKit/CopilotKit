@@ -10,6 +10,8 @@ import type { Interrupt, Message } from "@ag-ui/client";
 import {
   ɵInterruptState,
   ɵgetAgentInterruptState,
+  ɵgetAgentLegacyInterrupt,
+  ɵsetAgentLegacyInterrupt,
   ɵclearAgentInterruptState,
 } from "@copilotkit/core";
 import type { ɵPendingInterrupt } from "@copilotkit/core";
@@ -225,8 +227,11 @@ export function useInterrupt<
           );
           setPending(interruptStateRef.current.pending);
         } else if (localLegacy) {
-          interruptStateRef.current = new ɵInterruptState();
-          interruptStateRef.current.setLegacy(localLegacy);
+          // Saved on the agent, so a hook mounted later recovers it.
+          interruptStateRef.current = ɵsetAgentLegacyInterrupt(
+            agent,
+            localLegacy,
+          );
           setPending(interruptStateRef.current.pending);
         }
         localLegacy = null;
@@ -244,7 +249,7 @@ export function useInterrupt<
     // included. The shared state retains decisions made by another adapter.
     interruptStateRef.current = agent.pendingInterrupts?.length
       ? ɵgetAgentInterruptState(agent)
-      : new ɵInterruptState();
+      : (ɵgetAgentLegacyInterrupt(agent) ?? new ɵInterruptState());
     setPending(interruptStateRef.current.pending);
 
     return () => {
@@ -285,6 +290,7 @@ export function useInterrupt<
         agent.messages,
       );
       if (decision.kind === "legacy-resume") {
+        const resumed = interruptStateRef.current;
         try {
           return await copilotkit.runAgent({
             agent,
@@ -300,6 +306,10 @@ export function useInterrupt<
             "[CopilotKit] useInterrupt resolve: runAgent rejected; clearing pending + rethrowing",
             err,
           );
+          // The sealed record could never be answered again; do not recover it.
+          if (ɵgetAgentLegacyInterrupt(agent) === resumed) {
+            ɵclearAgentInterruptState(agent);
+          }
           setPending(null);
           throw err;
         }
@@ -374,6 +384,7 @@ export function useInterrupt<
         console.warn(
           "[CopilotKit] useInterrupt: cancel() is not supported for legacy on_interrupt interrupts; dismissing.",
         );
+        ɵclearAgentInterruptState(agent);
         interruptStateRef.current = new ɵInterruptState();
         setPending(null);
         return;

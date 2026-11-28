@@ -429,6 +429,111 @@ describe("useInterrupt", () => {
     expect(agent.inputs[1]!.resume).toBeUndefined();
   });
 
+  describe("legacy interrupt recovery", () => {
+    it("shows a legacy interrupt again after the hook remounts, and resumes it once", async () => {
+      const first = render(<Harness renderInChat={false} />);
+      emitInterrupt("pending");
+      first.unmount();
+
+      render(<Harness renderInChat={false} />);
+      const button = screen.getByTestId("interrupt");
+      expect(button.textContent).toContain("pending");
+      await act(async () => {
+        button.click();
+        button.click();
+      });
+      expect(runAgentMock).toHaveBeenCalledExactlyOnceWith({
+        agent: mockAgent,
+        forwardedProps: {
+          command: {
+            resume: { approved: true, value: "pending" },
+            interruptEvent: "pending",
+          },
+        },
+      });
+    });
+
+    it("hides another thread's legacy interrupt and recovers it when that thread returns", () => {
+      mockAgent.threadId = "thread-a";
+      const first = render(<Harness renderInChat={false} />);
+      emitInterrupt("from-a");
+      first.unmount();
+
+      mockAgent.threadId = "thread-b";
+      const second = render(<Harness renderInChat={false} />);
+      expect(screen.queryByTestId("interrupt")).toBeNull();
+      second.unmount();
+
+      mockAgent.threadId = "thread-a";
+      render(<Harness renderInChat={false} />);
+      expect(screen.getByTestId("interrupt").textContent).toContain("from-a");
+    });
+
+    it("does not bring back a legacy interrupt that the user dismissed", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      let cancel: (() => Promise<void>) | undefined;
+      function CancelHarness() {
+        const element = useInterrupt({
+          renderInChat: false,
+          render: (props) => {
+            cancel = props.cancel as () => Promise<void>;
+            return <div data-testid="interrupt" />;
+          },
+        });
+        return <>{element}</>;
+      }
+      const first = render(<CancelHarness />);
+      emitInterrupt("dismiss-me");
+      expect(screen.getByTestId("interrupt")).toBeTruthy();
+      await act(async () => {
+        await cancel!();
+      });
+      first.unmount();
+
+      render(<CancelHarness />);
+      expect(screen.queryByTestId("interrupt")).toBeNull();
+      warn.mockRestore();
+    });
+
+    it("does not bring back a legacy interrupt whose resume failed", async () => {
+      const error = vi.spyOn(console, "error").mockImplementation(() => {});
+      runAgentMock.mockRejectedValue(new Error("resume failed"));
+      let resolve: ((payload: unknown) => Promise<unknown>) | undefined;
+      function ResolveHarness() {
+        const element = useInterrupt({
+          renderInChat: false,
+          render: (props) => {
+            resolve = props.resolve as (payload: unknown) => Promise<unknown>;
+            return <div data-testid="interrupt" />;
+          },
+        });
+        return <>{element}</>;
+      }
+      const first = render(<ResolveHarness />);
+      emitInterrupt("lost");
+      await act(async () => {
+        await expect(resolve!("yes")).rejects.toThrow("resume failed");
+      });
+      first.unmount();
+
+      render(<ResolveHarness />);
+      expect(screen.queryByTestId("interrupt")).toBeNull();
+      error.mockRestore();
+    });
+
+    it("forgets a legacy interrupt once a new run starts", () => {
+      const first = render(<Harness renderInChat={false} />);
+      emitInterrupt("answered-elsewhere");
+      act(() => {
+        handlers.onRunStartedEvent?.();
+      });
+      first.unmount();
+
+      render(<Harness renderInChat={false} />);
+      expect(screen.queryByTestId("interrupt")).toBeNull();
+    });
+  });
+
   it("subscribes on mount and unsubscribes on unmount", () => {
     const { unmount } = render(<Harness renderInChat={false} />);
 

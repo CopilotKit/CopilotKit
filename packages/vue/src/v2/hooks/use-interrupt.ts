@@ -2,6 +2,11 @@ import { computed, onScopeDispose, shallowRef, watch } from "vue";
 import type { ComputedRef, Ref } from "vue";
 import { buildResumeArray, isInterruptExpired } from "@ag-ui/client";
 import type { Interrupt, RunAgentResult } from "@ag-ui/client";
+import {
+  ɵclearAgentInterruptState,
+  ɵgetAgentLegacyInterrupt,
+  ɵsetAgentLegacyInterrupt,
+} from "@copilotkit/core";
 import { useCopilotKit } from "../providers/useCopilotKit";
 import { useAgent } from "./use-agent";
 import type {
@@ -163,7 +168,14 @@ export function useInterrupt<TValue = unknown, TResult = never>(
             localStandard = params.interrupts;
           }
         },
-        onRunStartedEvent: () => {
+        onRunStartedEvent: (params) => {
+          // A reconnect replays RUN_STARTED without answering pending interrupts.
+          if (
+            !resolvedAgent.pendingInterrupts?.length ||
+            params?.input?.resume !== undefined
+          ) {
+            ɵclearAgentInterruptState(resolvedAgent);
+          }
           localLegacy = null;
           localStandard = null;
           // Reset accumulated responses for the new run.
@@ -177,6 +189,8 @@ export function useInterrupt<TValue = unknown, TResult = never>(
           if (localStandard && localStandard.length > 0) {
             pending.value = { kind: "standard", interrupts: localStandard };
           } else if (localLegacy) {
+            // Saved on the agent, so a hook mounted later recovers it.
+            ɵsetAgentLegacyInterrupt(resolvedAgent, localLegacy);
             pending.value = { kind: "legacy", event: localLegacy };
           }
           localLegacy = null;
@@ -191,6 +205,15 @@ export function useInterrupt<TValue = unknown, TResult = never>(
           pending.value = null;
         },
       });
+
+      // Subscribe before reading, so an interrupt finalized meanwhile is seen.
+      // A hook mounted after the interrupt recovers it from the agent.
+      const legacy = ɵgetAgentLegacyInterrupt(resolvedAgent)?.pending;
+      pending.value = resolvedAgent.pendingInterrupts?.length
+        ? { kind: "standard", interrupts: [...resolvedAgent.pendingInterrupts] }
+        : legacy?.kind === "legacy"
+          ? { kind: "legacy", event: legacy.event as InterruptEvent<TValue> }
+          : null;
 
       onCleanup(() => subscription.unsubscribe());
     },
@@ -258,6 +281,7 @@ export function useInterrupt<TValue = unknown, TResult = never>(
           "[CopilotKit] useInterrupt resolve: runAgent rejected; clearing pending + rethrowing",
           err,
         );
+        ɵclearAgentInterruptState(resolvedAgent);
         pending.value = null;
         throw err;
       }
@@ -283,6 +307,7 @@ export function useInterrupt<TValue = unknown, TResult = never>(
       console.warn(
         "[CopilotKit] useInterrupt: cancel() is not supported for legacy on_interrupt interrupts; dismissing.",
       );
+      if (agent.value) ɵclearAgentInterruptState(agent.value);
       pending.value = null;
       return;
     }
