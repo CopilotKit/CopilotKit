@@ -39,3 +39,23 @@ export function createRateLimit({
     return { ok: true };
   };
 }
+
+/**
+ * A reader's rate-limit key: the IP from the X-Real-IP header Railway's edge
+ * sets. X-Forwarded-For is whatever the client sent, so it isn't read. An
+ * IPv6 address counts by its /64, the block one connection usually holds, so
+ * rotating addresses inside it doesn't reset a limit.
+ */
+export function clientKey(request: Request): string {
+  const ip = request.headers.get("x-real-ip")?.trim() || "unknown";
+  if (!ip.includes(":")) return ip;
+  const [address] = ip.split("%");
+  const [head, tail] = address.split("::");
+  const left = head ? head.split(":") : [];
+  const right = tail ? tail.split(":") : [];
+  const groups =
+    tail === undefined
+      ? left
+      : [...left, ...Array(8 - left.length - right.length).fill("0"), ...right];
+  return `${groups.slice(0, 4).join(":")}::/64`;
+}
