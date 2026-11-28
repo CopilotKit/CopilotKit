@@ -95,7 +95,11 @@ Classic mode adds the catalog and both executable skill tools before the model c
 
 #### Factory mode
 
-BuiltInAgent fetches the snapshot before it calls your factory. Connect the catalog and tools to your model call:
+BuiltInAgent fetches the snapshot before it calls your factory. Connect the catalog and tools to your model call. `@copilotkit/runtime` runs on AI SDK 6, so install `ai` and the provider from the `ai-v6` release line:
+
+```bash title="Terminal"
+npm install @copilotkit/runtime ai@ai-v6 @ai-sdk/openai@ai-v6
+```
 
 ```typescript
 import {
@@ -179,7 +183,7 @@ Use `ainvoke` or `astream`; synchronous execution is unsupported. The adapter su
 Use Node.js 20.19 or later with native LangChain agents.
 
 ```bash title="Terminal"
-npm install @copilotkit/intelligence-langgraph langchain @langchain/core @langchain/langgraph zod
+npm install @copilotkit/intelligence-langgraph langchain @langchain/core @langchain/langgraph "zod@^3.25"
 npm install --save-dev tsx
 ```
 
@@ -222,7 +226,7 @@ The supported dependency ranges are LangChain `>=1.5.11,<2`, LangGraph `>=1.4.14
 Use Node.js 22.13 or later with `@mastra/core>=1.0.0,<2`.
 
 ```bash title="Terminal"
-npm install @copilotkit/intelligence-mastra @mastra/core zod
+npm install @copilotkit/intelligence-mastra @mastra/core "zod@^3.25"
 npm install --save-dev tsx
 ```
 

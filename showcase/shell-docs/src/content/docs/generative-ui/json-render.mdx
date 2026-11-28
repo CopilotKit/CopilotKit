@@ -23,7 +23,13 @@ If you'd rather have a streaming progressive render than a one-shot JSON render,
 
 ## Frontend
 
-The demos use `@json-render/react` and `@json-render/core` 0.18.0, with Zod 4 for the catalog. Demos that also use Zod 3 import Zod 4 through the `zod4` package alias.
+The demos use `@json-render/react` and `@json-render/core` 0.18.0, with Zod 4 for the catalog. Demos that also use Zod 3 import Zod 4 through the `zod4` package alias. To install that setup:
+
+```bash
+npm install @json-render/core@0.18.0 @json-render/react@0.18.0 zod4@npm:zod@^4.3.6
+```
+
+If the `catalog.ts` that you copy imports Zod 4 under a different name, such as `zod-v4` or `zod`, install it under that name: `zod-v4@npm:zod@^4.3.6` or `zod@^4.3.6`. Use the latest Zod 4. If your Zod 4 is older than the one json-render installs, the catalog does not type-check.
 
 1. Copy `catalog.ts` and `registry.tsx`. `catalog.ts` defines component names and Zod prop schemas with `defineCatalog`. `registry.tsx` uses `defineRegistry(catalog, ...)` to bind those names to React components.
 2. Copy `json-render-renderer.tsx`. It parses the assistant content and falls back to the normal assistant message until it can parse a spec:
