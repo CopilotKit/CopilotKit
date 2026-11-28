@@ -102,9 +102,17 @@ export async function cleanupProbeThreads(
 ): Promise<void> {
   if (threadIds.size === 0) return;
   try {
+    const headers: Record<string, string> = {
+      "content-type": "application/json",
+    };
+    // Mirror of the deployment-side SHOWCASE_PROBE_TOKEN gate on
+    // /api/probe-threads: present the shared token when the harness
+    // environment provides one, keep the request unchanged otherwise.
+    const probeToken = process.env.SHOWCASE_PROBE_TOKEN;
+    if (probeToken) headers["x-probe-token"] = probeToken;
     const response = await fetch(`${backendUrl}/api/probe-threads`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers,
       body: JSON.stringify({ testId, threadIds: [...threadIds] }),
       signal: AbortSignal.timeout(5_000),
     });

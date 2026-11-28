@@ -5,6 +5,7 @@ const UUID =
 const PROBE_ID = /^d[456]-[a-z0-9-]+$/i;
 const EXPIRY_MS = 24 * 60 * 60 * 1000;
 const SWEEP_INTERVAL_MS = 15 * 60 * 1000;
+const PROBE_TOKEN_HEADER = "x-probe-token";
 let lastSweepAt = 0;
 
 type Thread = {
@@ -95,10 +96,24 @@ async function sweepExpired(now: number): Promise<number> {
   return deleted;
 }
 
+/**
+ * Reject callers that cannot present the fleet's probe cleanup token.
+ * Follows the `SHOWCASE_DEBUG_TOKEN` gate used by every integration's
+ * /api/debug route: fail closed when the environment has no token.
+ */
+function isAuthorized(request: Request): boolean {
+  const expectedToken = process.env.SHOWCASE_PROBE_TOKEN;
+  const token = request.headers.get(PROBE_TOKEN_HEADER);
+  return Boolean(expectedToken && token && token === expectedToken);
+}
+
 /** Delete exact probe-owned threads and expire abandoned idle/error threads. */
 export async function cleanupProbeThreadRequest(
   request: Request,
 ): Promise<Response> {
+  if (!isAuthorized(request)) {
+    return Response.json({ error: "unauthorized" }, { status: 403 });
+  }
   let payload: { testId?: unknown; threadIds?: unknown } | null;
   try {
     payload = (await request.json()) as typeof payload;

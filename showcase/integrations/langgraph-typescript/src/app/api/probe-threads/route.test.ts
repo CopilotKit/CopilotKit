@@ -1,6 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanupProbeThreadRequest } from "../../../../_shared/ts/langgraph-probe-retention";
 import { POST } from "./route";
+
+const probeToken = "probe-token";
+
+beforeEach(() => vi.stubEnv("SHOWCASE_PROBE_TOKEN", probeToken));
+afterEach(() => vi.unstubAllEnvs());
 
 // The harness releases each probe's LangGraph threads through this route after
 // the full D4/D6 conversation. The TypeScript integration went without it for a
@@ -16,9 +21,20 @@ describe("probe-threads route", () => {
     const response = await POST(
       new Request("http://localhost/api/probe-threads", {
         method: "POST",
+        headers: { "x-probe-token": probeToken },
         body: "null",
       }),
     );
     expect(response.status).toBe(400);
+  });
+
+  it("rejects a cleanup request without the probe token", async () => {
+    const response = await POST(
+      new Request("http://localhost/api/probe-threads", {
+        method: "POST",
+        body: "null",
+      }),
+    );
+    expect(response.status).toBe(403);
   });
 });

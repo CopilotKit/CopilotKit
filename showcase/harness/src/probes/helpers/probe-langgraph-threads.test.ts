@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import { captureProbeThreads } from "./probe-langgraph-threads.js";
+import {
+  captureProbeThreads,
+  cleanupProbeThreads,
+} from "./probe-langgraph-threads.js";
 
 describe("captureProbeThreads", () => {
   it("marks and records only thread IDs from CopilotKit run requests", async () => {
@@ -165,5 +168,75 @@ describe("captureProbeThreads", () => {
       JSON.parse(continueRequest.mock.calls[0]![0]!.postData!).body
         .forwardedProps.threadMetadata.showcase_probe_id,
     ).toBe("d6-python-run-1");
+  });
+});
+
+describe("cleanupProbeThreads", () => {
+  const threadId = "a4b18d3d-766f-4bb2-8cce-f9085232fc37";
+
+  it("presents the probe cleanup token when the harness has one", async () => {
+    vi.stubEnv("SHOWCASE_PROBE_TOKEN", "probe-token");
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(Response.json({ deleted: 1, expired: 0 }));
+    const warn = vi.fn();
+
+    await cleanupProbeThreads(
+      "https://showcase.example",
+      "d6-python-run-1",
+      new Set([threadId]),
+      { warn },
+    );
+
+    const [url, options] = fetchMock.mock.calls[0]!;
+    expect(String(url)).toBe("https://showcase.example/api/probe-threads");
+    expect((options as RequestInit).headers).toEqual({
+      "content-type": "application/json",
+      "x-probe-token": "probe-token",
+    });
+    expect(warn).not.toHaveBeenCalled();
+    vi.unstubAllEnvs();
+  });
+
+  it("sends no token header when the harness has none configured", async () => {
+    vi.stubEnv("SHOWCASE_PROBE_TOKEN", "");
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(Response.json({ deleted: 1, expired: 0 }));
+    const warn = vi.fn();
+
+    await cleanupProbeThreads(
+      "https://showcase.example",
+      "d6-python-run-1",
+      new Set([threadId]),
+      { warn },
+    );
+
+    const [url, options] = fetchMock.mock.calls[0]!;
+    expect(String(url)).toBe("https://showcase.example/api/probe-threads");
+    expect((options as RequestInit).headers).toEqual({
+      "content-type": "application/json",
+    });
+    vi.unstubAllEnvs();
+  });
+
+  it("warns once when the deployment rejects the cleanup", async () => {
+    vi.stubEnv("SHOWCASE_PROBE_TOKEN", "probe-token");
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response(null, { status: 403 }));
+    const warn = vi.fn();
+
+    await cleanupProbeThreads(
+      "https://showcase.example",
+      "d6-python-run-1",
+      new Set([threadId]),
+      { warn },
+    );
+
+    expect(warn).toHaveBeenCalledWith("probe.e2e.langgraph-cleanup-failed", {
+      status: 403,
+    });
+    vi.unstubAllEnvs();
   });
 });
