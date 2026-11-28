@@ -102,6 +102,24 @@ export interface CopilotKitConfig {
   suggestionsConfig?: SuggestionsConfig[];
   frontendTools?: FrontendToolConfig[];
   humanInTheLoop?: HumanInTheLoopConfig[];
+  /**
+   * Expose your frontend tools to browser agents through WebMCP
+   * (`document.modelContext`), not only to your own agent. Defaults to `true`.
+   *
+   * When `true`, every frontend tool that has a `handler` and a `description`
+   * is registered with WebMCP, unless the tool sets `webmcp: false`.
+   * Human-in-the-loop tools and render-only tools are not registered by
+   * default. When `false`, only tools that set `webmcp` themselves are
+   * registered. Does nothing in browsers without WebMCP support.
+   *
+   * ```ts
+   * provideCopilotKit({
+   *   runtimeUrl: "/api/copilotkit",
+   *   defaultWebMCPTools: false,
+   * });
+   * ```
+   */
+  defaultWebMCPTools?: boolean;
   /** Opt in to a text-only renderer for otherwise unknown tool calls. */
   defaultToolRendering?: boolean;
   a2ui?: A2UIConfig;

@@ -108,6 +108,21 @@ export interface CopilotKitProviderProps {
   renderCustomMessages?: VueCustomMessageRenderer[];
   frontendTools?: VueFrontendTool[];
   humanInTheLoop?: VueHumanInTheLoop[];
+  /**
+   * Expose your frontend tools to browser agents through WebMCP
+   * (`document.modelContext`), not only to your own agent. Defaults to `true`.
+   *
+   * When `true`, every frontend tool that has a `handler` and a `description`
+   * is registered with WebMCP, unless the tool sets `webmcp: false`.
+   * Human-in-the-loop tools and render-only tools are not registered by
+   * default. When `false`, only tools that set `webmcp` themselves are
+   * registered. Does nothing in browsers without WebMCP support.
+   *
+   * ```vue
+   * <CopilotKitProvider runtime-url="/api/copilotkit" :defaultWebMCPTools="false" />
+   * ```
+   */
+  defaultWebMCPTools?: boolean;
   openGenerativeUI?: {
     sandboxFunctions?: SandboxFunction[];
     designSkill?: string;

@@ -3,7 +3,7 @@ import { z } from "zod";
 import { logger } from "@copilotkit/shared";
 import type { FrontendToolHandlerContext } from "../../types";
 import { RunHandler } from "../run-handler";
-import type { CopilotKitCore } from "../core";
+import { CopilotKitCore } from "../core";
 
 /**
  * Minimal WebMCP `document.modelContext` double. Mirrors the spec's
@@ -66,11 +66,11 @@ describe("RunHandler WebMCP registration", () => {
     });
   });
 
-  it("does not register tools without webmcp set", () => {
+  it("does not register display-only tools or tools with webmcp: false", () => {
     const modelContext = stubWebMCP();
     const runHandler = createRunHandler();
 
-    runHandler.addTool({ name: "plainTool", description: "No webmcp" });
+    runHandler.addTool({ name: "plainTool", description: "No handler" });
     runHandler.addTool({
       name: "optOutTool",
       description: "webmcp false",
@@ -407,5 +407,226 @@ describe("RunHandler WebMCP registration", () => {
     expect(modelContext.registered.get("providerTool")!.tool.description).toBe(
       "from props, updated",
     );
+  });
+});
+
+const handler = async () => "ok";
+
+describe("RunHandler WebMCP default (defaultWebMCPTools)", () => {
+  it("registers a tool with a handler and description when webmcp is unset", () => {
+    const modelContext = stubWebMCP();
+    const runHandler = createRunHandler();
+
+    runHandler.addTool({
+      name: "searchOrders",
+      description: "Search",
+      handler,
+    });
+
+    expect(modelContext.registered.has("searchOrders")).toBe(true);
+  });
+
+  it("registers provider tools passed to initialize", () => {
+    const modelContext = stubWebMCP();
+    const runHandler = createRunHandler();
+
+    runHandler.initialize([
+      { name: "providerTool", description: "from props", handler },
+    ]);
+
+    expect(modelContext.registered.has("providerTool")).toBe(true);
+  });
+
+  it("leaves out tools a browser agent cannot call on its own", () => {
+    const modelContext = stubWebMCP();
+    const warnSpy = vi.spyOn(logger, "warn").mockImplementation(() => {});
+    const runHandler = createRunHandler();
+
+    runHandler.addTool({ name: "displayOnly", description: "No handler" });
+    runHandler.addTool({ name: "noDescription", handler });
+    runHandler.addTool({
+      name: "approval",
+      description: "Ask the user",
+      type: "human-in-the-loop",
+      handler,
+    });
+    runHandler.addTool({
+      name: "optedOut",
+      description: "Opted out",
+      handler,
+      webmcp: false,
+    });
+
+    expect(modelContext.registerTool).not.toHaveBeenCalled();
+    // Tools that never asked for WebMCP are skipped silently.
+    expect(warnSpy).not.toHaveBeenCalledWith(expect.stringContaining("WebMCP"));
+  });
+
+  it("registers nothing by default when defaultWebMCPTools is false", () => {
+    const modelContext = stubWebMCP();
+    const runHandler = createRunHandler();
+    runHandler.initialize(
+      [{ name: "providerTool", description: "from props", handler }],
+      { defaultWebMCPTools: false },
+    );
+
+    runHandler.addTool({ name: "hookTool", description: "Hook", handler });
+    runHandler.addTool({
+      name: "explicitTool",
+      description: "Opted in",
+      handler,
+      webmcp: true,
+    });
+
+    expect([...modelContext.registered.keys()]).toEqual(["explicitTool"]);
+  });
+
+  it("adds and removes default registrations when the setting changes", () => {
+    const modelContext = stubWebMCP();
+    const runHandler = createRunHandler();
+
+    runHandler.addTool({
+      name: "defaultTool",
+      description: "Default",
+      handler,
+    });
+    runHandler.addTool({
+      name: "explicitTool",
+      description: "Opted in",
+      handler,
+      webmcp: true,
+    });
+    expect(modelContext.registered.size).toBe(2);
+
+    runHandler.setDefaultWebMCPTools(false);
+    expect([...modelContext.registered.keys()]).toEqual(["explicitTool"]);
+
+    runHandler.setDefaultWebMCPTools(true);
+    expect(modelContext.registered.has("defaultTool")).toBe(true);
+    expect(modelContext.registered.size).toBe(2);
+    // The explicit tool stayed registered through both changes.
+    const explicitCalls = modelContext.registerTool.mock.calls.filter(
+      ([tool]) => tool.name === "explicitTool",
+    );
+    expect(explicitCalls).toHaveLength(1);
+  });
+
+  it("prefers a tool that set webmcp itself over a default-only tool with the same name", () => {
+    const modelContext = stubWebMCP();
+    const warnSpy = vi.spyOn(logger, "warn").mockImplementation(() => {});
+    const runHandler = createRunHandler();
+
+    runHandler.addTool({
+      name: "search",
+      description: "a",
+      agentId: "a",
+      handler,
+    });
+    runHandler.addTool({
+      name: "search",
+      description: "b",
+      agentId: "b",
+      handler,
+      webmcp: { annotations: { readOnlyHint: true } },
+    });
+
+    expect(modelContext.registered.get("search")?.tool.description).toBe("b");
+    expect(
+      modelContext.registered.get("search")?.tool.annotations,
+    ).toMatchObject({ readOnlyHint: true });
+    expect(warnSpy).not.toHaveBeenCalledWith(
+      expect.stringContaining("share the name"),
+    );
+  });
+
+  it("does not warn when same-named agent-scoped tools only use the default", () => {
+    const modelContext = stubWebMCP();
+    const warnSpy = vi.spyOn(logger, "warn").mockImplementation(() => {});
+    const runHandler = createRunHandler();
+
+    runHandler.addTool({
+      name: "dup",
+      description: "a",
+      agentId: "a",
+      handler,
+    });
+    runHandler.addTool({
+      name: "dup",
+      description: "b",
+      agentId: "b",
+      handler,
+    });
+
+    expect(modelContext.registered.size).toBe(1);
+    expect(warnSpy).not.toHaveBeenCalledWith(
+      expect.stringContaining("share the name"),
+    );
+  });
+});
+
+describe("CopilotKitCore startWebMCP / stopWebMCP", () => {
+  it("registers nothing until startWebMCP when deferWebMCP is set", () => {
+    const modelContext = stubWebMCP();
+    const core = new CopilotKitCore({
+      tools: [{ name: "providerTool", description: "from config", handler }],
+      deferWebMCP: true,
+    });
+    core.addTool({ name: "hookTool", description: "Hook", handler });
+    expect(modelContext.registerTool).not.toHaveBeenCalled();
+
+    core.startWebMCP();
+    core.startWebMCP();
+
+    expect([...modelContext.registered.keys()].sort()).toEqual([
+      "hookTool",
+      "providerTool",
+    ]);
+    expect(modelContext.registerTool).toHaveBeenCalledTimes(2);
+  });
+
+  it("releases every registration on stopWebMCP and restores them on startWebMCP", () => {
+    const modelContext = stubWebMCP();
+    const core = new CopilotKitCore({
+      tools: [{ name: "providerTool", description: "from config", handler }],
+    });
+    expect(modelContext.registered.has("providerTool")).toBe(true);
+
+    core.stopWebMCP();
+    core.addTool({ name: "hookTool", description: "Hook", handler });
+    core.setDefaultWebMCPTools(false);
+    core.setDefaultWebMCPTools(true);
+    expect(modelContext.registered.size).toBe(0);
+
+    core.startWebMCP();
+    expect([...modelContext.registered.keys()].sort()).toEqual([
+      "hookTool",
+      "providerTool",
+    ]);
+  });
+});
+
+describe("CopilotKitCore defaultWebMCPTools", () => {
+  const tool = { name: "searchOrders", description: "Search", handler };
+
+  it("is on by default", () => {
+    const modelContext = stubWebMCP();
+    const core = new CopilotKitCore({ tools: [tool] });
+
+    expect(core.defaultWebMCPTools).toBe(true);
+    expect(modelContext.registered.has("searchOrders")).toBe(true);
+  });
+
+  it("follows the config and the setter", () => {
+    const modelContext = stubWebMCP();
+    const core = new CopilotKitCore({
+      tools: [tool],
+      defaultWebMCPTools: false,
+    });
+
+    expect(core.defaultWebMCPTools).toBe(false);
+    expect(modelContext.registered.size).toBe(0);
+
+    core.setDefaultWebMCPTools(true);
+    expect(modelContext.registered.has("searchOrders")).toBe(true);
   });
 });

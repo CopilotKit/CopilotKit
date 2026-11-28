@@ -56,6 +56,9 @@ vi.mock("../../lib/react-core", () => {
     setCredentials() {}
     setProperties() {}
     setMessageFilter() {}
+    setDefaultWebMCPTools() {}
+    startWebMCP() {}
+    stopWebMCP() {}
     setTools() {}
     setRenderToolCalls() {}
     setRenderActivityMessages() {}

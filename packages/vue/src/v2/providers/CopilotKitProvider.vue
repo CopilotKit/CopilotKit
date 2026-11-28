@@ -3,6 +3,7 @@ import { GENERATE_SANDBOXED_UI_DESCRIPTION } from "@copilotkit/shared";
 import {
   computed,
   h,
+  onBeforeUnmount,
   onMounted,
   provide,
   ref,
@@ -105,6 +106,8 @@ const props = withDefaults(defineProps<CopilotKitProviderProps>(), {
   selfManagedAgents: () => ({}),
   frontendTools: () => [],
   humanInTheLoop: () => [],
+  // Vue casts an absent boolean prop to `false`; the WebMCP default is on.
+  defaultWebMCPTools: true,
   renderCustomMessages: () => [],
   renderActivityMessages: () => [],
   openGenerativeUI: undefined,
@@ -436,6 +439,8 @@ const builtInFrontendTools = computed<VueFrontendTool[]>(() => {
       handler: async () => "UI generated",
       // This acknowledgement has no side effects and is safe to reconstruct.
       reconnectBehavior: "resume-pending",
+      // Renders in the chat only, so it is never offered to browser agents.
+      webmcp: false,
       followUp: true,
       render:
         OpenGenerativeUIToolRenderer as unknown as VueFrontendTool["render"],
@@ -516,6 +521,7 @@ const createCopilotKit = () => {
     properties: resolvedProperties.value,
     agents__unsafe_dev_only: mergedAgents.value,
     tools: allTools.value,
+    defaultWebMCPTools: props.defaultWebMCPTools,
     renderToolCalls: allRenderToolCalls.value,
     renderActivityMessages: allRenderActivityMessages.value,
     renderCustomMessages: allRenderCustomMessages.value,
@@ -682,6 +688,21 @@ watch(
     syncRuntimeConfig();
   },
 );
+
+watch(
+  () => props.defaultWebMCPTools,
+  (enabled) => {
+    copilotkit.value.setDefaultWebMCPTools(enabled);
+  },
+);
+
+// Remove the WebMCP registrations when the provider unmounts, so a browser
+// agent cannot call a handler after its provider is gone. `onBeforeUnmount`,
+// not `onUnmounted`: Vue runs unmounted hooks after a replacement provider's
+// setup, which would make the replacement's same-named tools collide.
+onBeforeUnmount(() => {
+  copilotkit.value.stopWebMCP();
+});
 
 watch(
   () => props.defaultThrottleMs,

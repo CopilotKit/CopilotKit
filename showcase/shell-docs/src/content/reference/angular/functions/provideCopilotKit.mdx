@@ -171,6 +171,15 @@ passing the key explicitly as `undefined`.
   for tools scoped to a component.
 </PropertyReference>
 
+<PropertyReference name="defaultWebMCPTools" type="boolean" default="true">
+  Exposes your frontend tools to browser agents through
+  [WebMCP](/webmcp) (`document.modelContext`), not only to your own agent.
+  When `true`, every tool that has a `handler` and a `description` is
+  exposed, except human-in-the-loop tools and tools that set `webmcp: false`.
+  When `false`, only tools that set `webmcp` themselves are exposed. A tool's
+  own `webmcp` value always wins.
+</PropertyReference>
+
 <PropertyReference name="defaultToolRendering" type="boolean" default="false">
   Opts into the text-only fallback renderer for otherwise unknown tool calls.
   Unknown tools are hidden when this is omitted or `false`.

@@ -299,6 +299,18 @@ export class RunHandler {
   private _webmcpRegistry = new WebMCPRegistry();
 
   /**
+   * Whether this core keeps its tools registered with WebMCP. While stopped,
+   * every registration is released and registry changes register nothing.
+   */
+  private _webmcpStarted = true;
+
+  /**
+   * Whether tools that do not set `webmcp` themselves are registered with
+   * WebMCP. See `CopilotKitCoreConfig.defaultWebMCPTools`.
+   */
+  private _defaultWebMCPTools = true;
+
+  /**
    * Tracks the threadId of the most recent `connectAgent` call so we
    * can distinguish a fresh thread restore (different threadId than
    * last time — chat is rebuilding state from scratch, must clear
@@ -425,7 +437,12 @@ export class RunHandler {
   /**
    * Initialize with tools
    */
-  initialize(tools: FrontendTool<any>[]): void {
+  initialize(
+    tools: FrontendTool<any>[],
+    options: { defaultWebMCPTools?: boolean; deferWebMCP?: boolean } = {},
+  ): void {
+    this._defaultWebMCPTools = options.defaultWebMCPTools ?? true;
+    this._webmcpStarted = !options.deferWebMCP;
     // Copied, like `setTools` does: the merged view is memoized, so holding the
     // caller's array would let an in-place mutation of it go unnoticed. (It
     // also used to be mutated from this side — `addTool` pushed straight onto
@@ -2069,18 +2086,69 @@ export class RunHandler {
       }));
   }
 
+  get defaultWebMCPTools(): boolean {
+    return this._defaultWebMCPTools;
+  }
+
+  setDefaultWebMCPTools(enabled: boolean): void {
+    if (this._defaultWebMCPTools === enabled) {
+      return;
+    }
+    this._defaultWebMCPTools = enabled;
+    this.syncWebMCP();
+  }
+
+  startWebMCP(): void {
+    if (this._webmcpStarted) {
+      return;
+    }
+    this._webmcpStarted = true;
+    this.syncWebMCP();
+  }
+
+  stopWebMCP(): void {
+    this._webmcpStarted = false;
+    this._webmcpRegistry.sync(new Map());
+  }
+
+  /**
+   * Whether a tool is exposed through WebMCP. A tool's own `webmcp` value
+   * wins. Without one, the tool follows `defaultWebMCPTools`, which covers
+   * only tools a browser agent can call on its own: a tool with a handler (a
+   * display-only tool would do nothing) and a description (WebMCP requires
+   * one), and not a human-in-the-loop tool (its handler waits for a response
+   * from UI that only the chat renders).
+   */
+  private isWebMCPTool(tool: FrontendTool<any>): boolean {
+    if (tool.webmcp !== undefined) {
+      return !!tool.webmcp;
+    }
+    return (
+      this._defaultWebMCPTools &&
+      !!tool.handler &&
+      !!tool.description &&
+      tool.type !== "human-in-the-loop"
+    );
+  }
+
   /**
    * Reconcile the WebMCP registrations with the current tool registry. Tools
-   * opt in via `webmcp: true` or `webmcp: { annotations }`; the same
-   * availability rules as `buildFrontendTools` apply. WebMCP tools are
-   * page-level, so unlike the agent tool list they are not filtered by
-   * agentId — a name collision across agentIds keeps the first registration.
+   * opt in via `webmcp: true` or `webmcp: { annotations }`, or through
+   * `defaultWebMCPTools` (see `isWebMCPTool`); the same availability rules as
+   * `buildFrontendTools` apply. WebMCP tools are page-level, so unlike the
+   * agent tool list they are not filtered by agentId. On a name collision
+   * across agentIds, the first tool that set `webmcp` itself wins; without
+   * one, the first registration wins.
    */
   private syncWebMCP(): void {
     const desired = new Map<string, FrontendTool<any>>();
+    if (!this._webmcpStarted) {
+      this._webmcpRegistry.sync(desired);
+      return;
+    }
     const warnedCollisions = new Set<string>();
     for (const tool of this.tools) {
-      if (!tool.webmcp) {
+      if (!this.isWebMCPTool(tool)) {
         continue;
       }
       if (tool.name === WILDCARD_TOOL_NAME) {
@@ -2095,8 +2163,17 @@ export class RunHandler {
       if (!this.isToolEnabled(tool.name, tool.agentId)) {
         continue;
       }
-      if (desired.has(tool.name)) {
-        if (!warnedCollisions.has(tool.name)) {
+      const existing = desired.get(tool.name);
+      if (existing) {
+        // A tool that opted in itself wins over one that only follows
+        // defaultWebMCPTools, so explicit annotations are never dropped.
+        if (tool.webmcp && existing.webmcp === undefined) {
+          desired.set(tool.name, tool);
+          continue;
+        }
+        // Same-named tools scoped to different agents are normal; warn only
+        // when the tool left out asked for WebMCP itself.
+        if (tool.webmcp && !warnedCollisions.has(tool.name)) {
           warnedCollisions.add(tool.name);
           logger.warn(
             `[CopilotKit] Multiple WebMCP tools share the name '${tool.name}'. ` +

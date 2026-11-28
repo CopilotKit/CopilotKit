@@ -94,7 +94,7 @@ function useFrontendTool<T extends Record<string, unknown>>(
 
   <PropertyReference name="agentId" type="string">
     Optional agent scope. When set, the tool is only available to the agent with
-    this id. Duplicate-name detection is scoped per `agentId`.
+    this id. Duplicate-name detection is scoped per `agentId`. It does not limit [WebMCP](/webmcp): browser agents can still call the tool. Set `webmcp: false` to keep it private.
   </PropertyReference>
 
   <PropertyReference name="followUp" type="boolean">
@@ -107,12 +107,15 @@ function useFrontendTool<T extends Record<string, unknown>>(
   </PropertyReference>
 
   <PropertyReference name="webmcp" type="boolean | { annotations?: { readOnlyHint?: boolean; untrustedContentHint?: boolean } }">
-    Also expose the tool to browser agents through the WebMCP API
-    (`document.modelContext`). Pass `true` to register with default
-    annotations, or an object to register with WebMCP annotations. The same
-    `handler` runs when a browser agent calls the tool; the context then has
-    no `agent`. This is a no-op where WebMCP is not available (SSR, or
-    browsers without the API enabled).
+Controls whether browser agents can call this tool through the WebMCP API
+    (`document.modelContext`). `true` exposes the tool. An object exposes it
+    with WebMCP annotations. Both need a `description`: without one, the tool
+    is skipped and a warning is logged. `false` keeps it private. When you leave it out,
+    the tool follows the provider's `defaultWebMCPTools` setting, which is on by
+    default and exposes tools that have a `handler` and a `description`. The
+    same `handler` runs when a browser agent calls the tool, and the context
+    then has no `agent`. This does nothing where WebMCP is not available
+    (SSR, or browsers without the API enabled).
   </PropertyReference>
 </PropertyReference>
 
@@ -130,7 +133,7 @@ function useFrontendTool<T extends Record<string, unknown>>(
 - **Duplicate handling.** If a tool with the same `name` already exists for the same `agentId`, the previous registration is removed, the new one is added, and an override warning is logged. Only one tool per name (per agent) is active at a time.
 - **Renderer registration.** When `render` is provided, it is registered as a tool call renderer. The renderer is registered even when `parameters` is omitted, so parameter-free tools (for example confirm dialogs) can still render UI in the chat.
 - **Reactivity.** The registration re-runs when `tool.name`, `tool.available`, or any `deps` watch source changes. Pass changing reactive values through `deps`.
-- **WebMCP registration.** With `webmcp` set, the tool is also registered on `document.modelContext` and removed with the tool. The tool needs a `description` for this (WebMCP rejects tools without one).
+- **WebMCP registration.** By default, a tool with a `handler` and a `description` is also registered on `document.modelContext`, and removed with the tool. Set `webmcp: false` to keep the tool private. See [WebMCP](/webmcp).
 - **Automatic cleanup.** The tool is removed when the watch cleans up, including when the owning component scope is disposed. A `render` registered alongside the tool is intentionally left in place so earlier chat history can still render it.
 - **Calls after cleanup.** If the agent calls the tool after it was removed (for example, the owning scope was disposed while the run was in flight), CopilotKit answers the call with a `Tool not found` error result and reports a `TOOL_NOT_FOUND` error, so the conversation can continue. This applies only to tools that were sent to the agent for that run, and only when the run finishes normally; an interrupted, stopped or failed run leaves the call open. A call to a name that was not sent to the agent for that run stays unanswered; register a wildcard tool (`name: "*"`) to handle those.
 - **No return value.** The composable returns `void`.
