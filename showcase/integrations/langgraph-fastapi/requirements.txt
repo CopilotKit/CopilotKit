@@ -2,9 +2,9 @@ copilotkit==0.1.94
 langchain==1.4.5
 langchain-openai==1.1.9
 langchain-anthropic==1.4.1
-langgraph==1.2.15
-langgraph-cli[inmem]==0.4.34
-langgraph-api==0.16.0
+langgraph==1.2.24
+langgraph-cli[inmem]==0.4.44
+langgraph-api==0.19.1
 langsmith==0.7.33
 openai==1.109.1
 ag-ui-langgraph[fastapi]==0.0.41
