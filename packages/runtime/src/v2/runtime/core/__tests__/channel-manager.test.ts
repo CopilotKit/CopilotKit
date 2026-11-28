@@ -1109,6 +1109,17 @@ describe("isModuleNotFound", () => {
     expect(isModuleNotFound({ code: "MODULE_NOT_FOUND" })).toBe(true);
   });
 
+  it("recognizes Cloudflare Workers 'No such module' error (no code property)", () => {
+    // workerd throws a plain Error without a code; the message starts with
+    // "No such module" followed by the specifier in quotes (#8539).
+    expect(
+      isModuleNotFound(
+        new Error('No such module "@copilotkit/channels-intelligence"'),
+      ),
+    ).toBe(true);
+    expect(isModuleNotFound({ message: "No such module foo" })).toBe(true);
+  });
+
   it("returns false for unrelated errors and non-error values", () => {
     expect(isModuleNotFound(new Error("boom"))).toBe(false);
     expect(isModuleNotFound({ code: "SETUP_REQUIRED" })).toBe(false);
