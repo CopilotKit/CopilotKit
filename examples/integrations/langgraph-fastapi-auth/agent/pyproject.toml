@@ -1,0 +1,23 @@
+[project]
+name = "agent"
+version = "0.1.0"
+description = "LangGraph agent with user authentication and file upload, served over AG-UI by FastAPI"
+requires-python = ">=3.12"
+dependencies = [
+  "copilotkit==0.1.96",
+  "ag-ui-langgraph[fastapi]==0.0.47",
+  "ag-ui-protocol==1.0.0",
+  "langchain==1.4.6",
+  "langchain-core==1.6.12",
+  "langchain-openai==1.7.2",
+  "langgraph==1.2.16",
+  "openai==3.35.1",
+  "fastapi>=0.115.5,<1.0.0",
+  "uvicorn>=0.29.0,<1.0.0",
+  "python-dotenv>=1.0.0,<2.0.0",
+  "pydantic>=2.0.0,<3.0.0",
+  "pypdf==6.21.1",
+  "pandas==3.0.6",
+  "openpyxl==3.1.5",
+  "requests>=2.31.0,<3.0.0",
+]
