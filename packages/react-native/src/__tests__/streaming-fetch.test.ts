@@ -562,6 +562,52 @@ describe("installStreamingFetch", () => {
       await rejection;
     });
 
+    it("resolves a 200 response when Android only reports readyState 4", async () => {
+      const { fetchPromise, xhr } = await fetchAndCapture();
+      xhr.readyState = 4;
+      xhr.status = 200;
+      xhr.statusText = "OK";
+      xhr.responseText = '{"ok":true}';
+      xhr.getAllResponseHeaders.mockReturnValue(
+        "content-type: application/json\r\n",
+      );
+      xhr.onreadystatechange?.();
+      await flushTimers();
+
+      const response = await fetchPromise;
+      expect(response.status).toBe(200);
+
+      xhr.onload?.();
+      await flushTimers();
+      await expect(response.json()).resolves.toEqual({ ok: true });
+    });
+
+    it("rejects instead of hanging when response headers are invalid", async () => {
+      const NativeHeaders = globalThis.Headers;
+      (globalThis as any).Headers = class {
+        constructor() {
+          throw new TypeError("invalid header");
+        }
+      };
+      try {
+        const { fetchPromise, xhr } = await fetchAndCapture();
+        const rejection = expect(fetchPromise).rejects.toThrow(
+          "invalid header",
+        );
+        xhr.readyState = 2;
+        xhr.status = 200;
+        xhr.statusText = "OK";
+        xhr.getAllResponseHeaders.mockReturnValue(
+          "content-type: text/plain\r\n",
+        );
+        xhr.onreadystatechange?.();
+        await flushTimers();
+        await rejection;
+      } finally {
+        (globalThis as any).Headers = NativeHeaders;
+      }
+    });
+
     it("errors stream and rejects text() when onerror fires after headers", async () => {
       const { fetchPromise, xhr } = await fetchAndCapture();
       await simulateHeaders(xhr, 200);
